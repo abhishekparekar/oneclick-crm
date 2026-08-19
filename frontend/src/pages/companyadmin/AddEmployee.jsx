@@ -637,19 +637,19 @@ export default function AddEmployee() {
                 <Input
                   label="First Name"
                   required
-                  placeholder="e.g. Rahul"
+                  placeholder="Enter first name"
                   value={formData.firstName}
                   onChange={(v) => setFormData((p) => ({ ...p, firstName: v }))}
                 />
                 <Input
                   label="Middle Name"
-                  placeholder="e.g. Kumar"
+                  placeholder="Enter middle name"
                   value={formData.middleName}
                   onChange={(v) => setFormData((p) => ({ ...p, middleName: v }))}
                 />
                 <Input
                   label="Last Name"
-                  placeholder="e.g. Sharma"
+                  placeholder="Enter last name"
                   value={formData.lastName}
                   onChange={(v) => setFormData((p) => ({ ...p, lastName: v }))}
                 />
@@ -660,7 +660,7 @@ export default function AddEmployee() {
                   label="Email Address (Login ID)"
                   required
                   type="email"
-                  placeholder="rahul.sharma@company.com"
+                  placeholder="Enter employee email address"
                   value={formData.email}
                   onChange={(v) => setFormData((p) => ({ ...p, email: v }))}
                 />
@@ -668,7 +668,7 @@ export default function AddEmployee() {
                   label="Mobile / WhatsApp Phone"
                   required
                   type="tel"
-                  placeholder="9876543210"
+                  placeholder="Enter 10-digit mobile number"
                   value={formData.phone}
                   onChange={(v) => setFormData((p) => ({ ...p, phone: v }))}
                 />
@@ -706,7 +706,7 @@ export default function AddEmployee() {
               <Input
                 label="Custom Initial Password"
                 type="text"
-                placeholder="Leave blank to auto-generate from phone (Phone#123)"
+                placeholder="Enter initial password (optional)"
                 value={formData.password}
                 onChange={(v) => setFormData((p) => ({ ...p, password: v }))}
                 hint="Default is employee's phone number or secure random string"
@@ -849,26 +849,26 @@ export default function AddEmployee() {
               <div className="space-y-3">
                 <Input
                   label="Current Residential Street"
-                  placeholder="Flat No, Building, Street Address"
+                  placeholder="Enter full street address"
                   value={formData.address?.street}
                   onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, street: v } }))}
                 />
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input
                     label="City"
-                    placeholder="e.g. Pune"
+                    placeholder="Enter city name"
                     value={formData.address?.city}
                     onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, city: v } }))}
                   />
                   <Input
                     label="State"
-                    placeholder="e.g. Maharashtra"
+                    placeholder="Enter state name"
                     value={formData.address?.state}
                     onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, state: v } }))}
                   />
                   <Input
                     label="Pincode"
-                    placeholder="e.g. 411001"
+                    placeholder="Enter 6-digit pincode"
                     value={formData.address?.pincode}
                     onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, pincode: v } }))}
                   />
@@ -880,7 +880,7 @@ export default function AddEmployee() {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input
                     label="Contact Person Name"
-                    placeholder="e.g. Ramesh Sharma"
+                    placeholder="Enter emergency contact person name"
                     value={formData.emergencyContact?.name}
                     onChange={(v) => setFormData((p) => ({ ...p, emergencyContact: { ...p.emergencyContact, name: v } }))}
                   />
@@ -898,7 +898,7 @@ export default function AddEmployee() {
                   <Input
                     label="Emergency Phone"
                     type="tel"
-                    placeholder="9876543210"
+                    placeholder="Enter emergency contact phone number"
                     value={formData.emergencyContact?.phone}
                     onChange={(v) => setFormData((p) => ({ ...p, emergencyContact: { ...p.emergencyContact, phone: v } }))}
                   />
@@ -943,18 +943,21 @@ export default function AddEmployee() {
                 <Input
                   label="Basic Salary (Annual)"
                   type="number"
+                  placeholder="Enter basic salary"
                   value={formData.salaryDetails?.basicSalary}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, basicSalary: Number(v) } }))}
                 />
                 <Input
                   label="House Rent Allowance (HRA)"
                   type="number"
+                  placeholder="Enter house rent allowance"
                   value={formData.salaryDetails?.hra}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, hra: Number(v) } }))}
                 />
                 <Input
                   label="Special Allowance"
                   type="number"
+                  placeholder="Enter special allowance"
                   value={formData.salaryDetails?.specialAllowance}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, specialAllowance: Number(v) } }))}
                 />
@@ -964,18 +967,21 @@ export default function AddEmployee() {
                 <Input
                   label="Provident Fund (Employee)"
                   type="number"
+                  placeholder="Enter provident fund deduction"
                   value={formData.salaryDetails?.pfEmployee}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, pfEmployee: Number(v) } }))}
                 />
                 <Input
                   label="Professional Tax (PT)"
                   type="number"
+                  placeholder="Enter professional tax"
                   value={formData.salaryDetails?.professionalTax}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, professionalTax: Number(v) } }))}
                 />
                 <Input
                   label="TDS / Tax Withholding"
                   type="number"
+                  placeholder="Enter TDS deduction"
                   value={formData.salaryDetails?.tds}
                   onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, tds: Number(v) } }))}
                 />
@@ -996,13 +1002,13 @@ export default function AddEmployee() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <Input
                   label="Aadhaar Card Number"
-                  placeholder="12-digit Aadhaar Number"
+                  placeholder="Enter 12-digit Aadhaar number"
                   value={formData.aadhaarNumber}
                   onChange={(v) => setFormData((p) => ({ ...p, aadhaarNumber: v }))}
                 />
                 <Input
                   label="Income Tax PAN Number"
-                  placeholder="e.g. ABCDE1234F"
+                  placeholder="Enter 10-character PAN number"
                   value={formData.panNumber}
                   onChange={(v) => setFormData((p) => ({ ...p, panNumber: v.toUpperCase() }))}
                 />
@@ -1013,13 +1019,13 @@ export default function AddEmployee() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Bank Name"
-                    placeholder="e.g. HDFC Bank, SBI, ICICI"
+                    placeholder="Enter bank name"
                     value={formData.bankDetails?.bankName}
                     onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, bankName: v } }))}
                   />
                   <Input
                     label="Bank Account Number"
-                    placeholder="Account Number"
+                    placeholder="Enter bank account number"
                     value={formData.bankDetails?.accountNumber}
                     onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, accountNumber: v } }))}
                   />
@@ -1027,7 +1033,7 @@ export default function AddEmployee() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="IFSC Code"
-                    placeholder="e.g. HDFC0001234"
+                    placeholder="Enter 11-character IFSC code"
                     value={formData.bankDetails?.ifscCode}
                     onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, ifscCode: v.toUpperCase() } }))}
                   />
@@ -1213,7 +1219,7 @@ export default function AddEmployee() {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Engineering, Sales"
+                  placeholder="Enter department or designation name"
                   value={quickForm.name}
                   onChange={(e) => setQuickForm({ ...quickForm, name: e.target.value })}
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
@@ -1225,7 +1231,7 @@ export default function AddEmployee() {
                   <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">City</label>
                   <input
                     type="text"
-                    placeholder="e.g. Pune, Mumbai"
+                    placeholder="Enter branch city name"
                     value={quickForm.city}
                     onChange={(e) => setQuickForm({ ...quickForm, city: e.target.value })}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"

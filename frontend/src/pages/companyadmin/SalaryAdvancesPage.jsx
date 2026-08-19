@@ -521,7 +521,7 @@ const SalaryAdvancesPage = () => {
                     <input
                       type="number"
                       min="1"
-                      placeholder="e.g. 15000"
+                      placeholder="Enter advance amount"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       required
@@ -656,13 +656,13 @@ const SalaryAdvancesPage = () => {
 
               {repaymentType === "fixed_monthly_amount" && (
                 <div className="p-3 bg-purple-50/50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/50 rounded-2xl space-y-2">
-                  <label className="text-xs font-bold text-purple-900 dark:text-purple-200 block">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">
                     Fixed EMI Deduction per Month (₹)
                   </label>
                   <input
                     type="number"
                     min="100"
-                    placeholder="e.g. 5000"
+                    placeholder="Enter fixed monthly deduction amount"
                     value={monthlyDeductionAmount}
                     onChange={(e) => setMonthlyDeductionAmount(e.target.value)}
                     required
@@ -682,7 +682,7 @@ const SalaryAdvancesPage = () => {
                     type="text"
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
-                    placeholder="e.g. Medical, Emergency, Advance"
+                    placeholder="Enter reason or category"
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
                   />
                 </div>
@@ -758,6 +758,7 @@ const SalaryAdvancesPage = () => {
                   value={repayAmount}
                   onChange={(e) => setRepayAmount(e.target.value)}
                   required
+                  placeholder="Enter repayment amount"
                   className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
                 />
               </div>
@@ -776,13 +777,13 @@ const SalaryAdvancesPage = () => {
 
               <div>
                 <label className="text-xs font-bold text-slate-700 dark:text-slate-300 block mb-1">Notes / Receipt Ref</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Cash handed over to HR"
-                  value={repayNotes}
-                  onChange={(e) => setRepayNotes(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
-                />
+                  <input
+                    type="text"
+                    placeholder="Enter repayment reference / receipt notes"
+                    value={repayNotes}
+                    onChange={(e) => setRepayNotes(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+                  />
               </div>
 
               <div className="flex items-center gap-2 pt-2">

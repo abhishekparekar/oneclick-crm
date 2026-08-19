@@ -895,15 +895,15 @@ export default function EditEmployee() {
 
             {/* Current Address */}
             <div className="space-y-4">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Current Residence Address</h4>
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Current Residential Address</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Address Line 1" value={formData.currentAddress?.addressLine1} onChange={(v) => handleNestedChange("currentAddress", "addressLine1", v)} placeholder="Flat, building, street" />
-                <Input label="Address Line 2" value={formData.currentAddress?.addressLine2} onChange={(v) => handleNestedChange("currentAddress", "addressLine2", v)} placeholder="Area, landmark" />
+                <Input label="Address Line 1" value={formData.currentAddress?.addressLine1} onChange={(v) => handleNestedChange("currentAddress", "addressLine1", v)} placeholder="Enter full street address" />
+                <Input label="Address Line 2" value={formData.currentAddress?.addressLine2} onChange={(v) => handleNestedChange("currentAddress", "addressLine2", v)} placeholder="Enter area, landmark (optional)" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="City" value={formData.currentAddress?.city} onChange={(v) => handleNestedChange("currentAddress", "city", v)} placeholder="e.g. Pune" />
-                <Input label="State" value={formData.currentAddress?.state} onChange={(v) => handleNestedChange("currentAddress", "state", v)} placeholder="e.g. Maharashtra" />
-                <Input label="Pincode / ZIP" value={formData.currentAddress?.pincode} onChange={(v) => handleNestedChange("currentAddress", "pincode", v)} placeholder="e.g. 411001" />
+                <Input label="City" value={formData.currentAddress?.city} onChange={(v) => handleNestedChange("currentAddress", "city", v)} placeholder="Enter city name" />
+                <Input label="State" value={formData.currentAddress?.state} onChange={(v) => handleNestedChange("currentAddress", "state", v)} placeholder="Enter state name" />
+                <Input label="Pincode / ZIP" value={formData.currentAddress?.pincode} onChange={(v) => handleNestedChange("currentAddress", "pincode", v)} placeholder="Enter 6-digit pincode" />
               </div>
             </div>
 
@@ -920,13 +920,13 @@ export default function EditEmployee() {
                 </button>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Address Line 1" value={formData.permanentAddress?.addressLine1} onChange={(v) => handleNestedChange("permanentAddress", "addressLine1", v)} placeholder="Flat, building, street" />
-                <Input label="Address Line 2" value={formData.permanentAddress?.addressLine2} onChange={(v) => handleNestedChange("permanentAddress", "addressLine2", v)} placeholder="Area, landmark" />
+                <Input label="Address Line 1" value={formData.permanentAddress?.addressLine1} onChange={(v) => handleNestedChange("permanentAddress", "addressLine1", v)} placeholder="Enter full street address" />
+                <Input label="Address Line 2" value={formData.permanentAddress?.addressLine2} onChange={(v) => handleNestedChange("permanentAddress", "addressLine2", v)} placeholder="Enter area, landmark (optional)" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="City" value={formData.permanentAddress?.city} onChange={(v) => handleNestedChange("permanentAddress", "city", v)} placeholder="e.g. Pune" />
-                <Input label="State" value={formData.permanentAddress?.state} onChange={(v) => handleNestedChange("permanentAddress", "state", v)} placeholder="e.g. Maharashtra" />
-                <Input label="Pincode / ZIP" value={formData.permanentAddress?.pincode} onChange={(v) => handleNestedChange("permanentAddress", "pincode", v)} placeholder="e.g. 411001" />
+                <Input label="City" value={formData.permanentAddress?.city} onChange={(v) => handleNestedChange("permanentAddress", "city", v)} placeholder="Enter city name" />
+                <Input label="State" value={formData.permanentAddress?.state} onChange={(v) => handleNestedChange("permanentAddress", "state", v)} placeholder="Enter state name" />
+                <Input label="Pincode / ZIP" value={formData.permanentAddress?.pincode} onChange={(v) => handleNestedChange("permanentAddress", "pincode", v)} placeholder="Enter 6-digit pincode" />
               </div>
             </div>
 
@@ -934,9 +934,9 @@ export default function EditEmployee() {
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Emergency Contact Person</h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="Contact Person Name" value={formData.emergencyContact?.name} onChange={(v) => handleNestedChange("emergencyContact", "name", v)} placeholder="e.g. Sunita Patil" />
-                <Input label="Relationship" value={formData.emergencyContact?.relation} onChange={(v) => handleNestedChange("emergencyContact", "relation", v)} placeholder="e.g. Spouse / Parent" />
-                <Input label="Emergency Phone" type="tel" value={formData.emergencyContact?.phone} onChange={(v) => handleNestedChange("emergencyContact", "phone", v)} placeholder="e.g. 9876543210" />
+                <Input label="Contact Person Name" value={formData.emergencyContact?.name} onChange={(v) => handleNestedChange("emergencyContact", "name", v)} placeholder="Enter emergency contact person name" />
+                <Input label="Relationship" value={formData.emergencyContact?.relation} onChange={(v) => handleNestedChange("emergencyContact", "relation", v)} placeholder="Enter relationship (e.g. Spouse, Parent)" />
+                <Input label="Emergency Phone" type="tel" value={formData.emergencyContact?.phone} onChange={(v) => handleNestedChange("emergencyContact", "phone", v)} placeholder="Enter emergency contact phone number" />
               </div>
             </div>
           </div>
@@ -1094,13 +1094,13 @@ export default function EditEmployee() {
             <div className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Bank Account for Payroll</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Bank Name" value={formData.bankDetails?.bankName} onChange={(v) => handleNestedChange("bankDetails", "bankName", v)} placeholder="e.g. HDFC Bank, SBI" />
-                <Input label="Account Holder Name" value={formData.bankDetails?.accountHolderName} onChange={(v) => handleNestedChange("bankDetails", "accountHolderName", v)} placeholder="As in passbook" />
+                <Input label="Bank Name" value={formData.bankDetails?.bankName} onChange={(v) => handleNestedChange("bankDetails", "bankName", v)} placeholder="Enter bank name" />
+                <Input label="Account Holder Name" value={formData.bankDetails?.accountHolderName} onChange={(v) => handleNestedChange("bankDetails", "accountHolderName", v)} placeholder="Enter account holder name" />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <Input label="Account Number" value={formData.bankDetails?.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} placeholder="Account Number" />
-                <Input label="IFSC Code" value={formData.bankDetails?.ifscCode} onChange={(v) => handleNestedChange("bankDetails", "ifscCode", v)} placeholder="e.g. HDFC0001234" />
-                <Input label="UPI ID (Optional)" value={formData.bankDetails?.upiId} onChange={(v) => handleNestedChange("bankDetails", "upiId", v)} placeholder="e.g. rahul@okhdfcbank" />
+                <Input label="Account Number" value={formData.bankDetails?.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} placeholder="Enter bank account number" />
+                <Input label="IFSC Code" value={formData.bankDetails?.ifscCode} onChange={(v) => handleNestedChange("bankDetails", "ifscCode", v)} placeholder="Enter 11-character IFSC code" />
+                <Input label="UPI ID (Optional)" value={formData.bankDetails?.upiId} onChange={(v) => handleNestedChange("bankDetails", "upiId", v)} placeholder="Enter UPI ID (optional)" />
               </div>
             </div>
 
@@ -1108,8 +1108,8 @@ export default function EditEmployee() {
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Government Identity Numbers</h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Input label="Aadhaar Card Number" value={formData.aadhaarNumber} onChange={(v) => handleChange("aadhaarNumber", v)} placeholder="12-digit UID" />
-                <Input label="PAN Card Number" value={formData.panNumber} onChange={(v) => handleChange("panNumber", v)} placeholder="10-digit alphanumeric PAN" />
+                <Input label="Aadhaar Card Number" value={formData.aadhaarNumber} onChange={(v) => handleChange("aadhaarNumber", v)} placeholder="Enter 12-digit Aadhaar number" />
+                <Input label="PAN Card Number" value={formData.panNumber} onChange={(v) => handleChange("panNumber", v)} placeholder="Enter 10-character PAN number" />
               </div>
             </div>
           </div>

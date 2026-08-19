@@ -528,7 +528,7 @@ export default function HRLeads() {
                     <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="e.g. Rahul Sharma"
+                      placeholder="Enter candidate full name"
                       required
                       value={form.name}
                       onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
@@ -545,7 +545,7 @@ export default function HRLeads() {
                     <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="tel"
-                      placeholder="e.g. 9876543210"
+                      placeholder="Enter mobile / WhatsApp phone number"
                       required
                       value={form.phone}
                       onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
@@ -565,7 +565,7 @@ export default function HRLeads() {
                     <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="email"
-                      placeholder="rahul@example.com"
+                      placeholder="Enter email address (optional)"
                       value={form.email}
                       onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
                       className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -581,7 +581,7 @@ export default function HRLeads() {
                     <Building2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="e.g. ABC Tech / Pune University"
+                      placeholder="Enter company, institute or college name"
                       value={form.company}
                       onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
                       className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
@@ -600,7 +600,7 @@ export default function HRLeads() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₹</span>
                     <input
                       type="number"
-                      placeholder="e.g. 500000"
+                      placeholder="Enter deal value or expected CTC"
                       value={form.estimatedValue}
                       onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
                       className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
@@ -663,7 +663,7 @@ export default function HRLeads() {
                   <FileText size={13} className="absolute left-3 top-3 text-slate-400" />
                   <textarea
                     rows={2}
-                    placeholder="e.g. Applied for Senior Frontend Engineer, 4 years experience in React..."
+                    placeholder="Enter candidate profile summary, skills, or key requirements..."
                     value={form.notes}
                     onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
                     className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
