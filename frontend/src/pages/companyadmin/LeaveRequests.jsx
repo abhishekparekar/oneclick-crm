@@ -60,6 +60,17 @@ import {
 } from "recharts";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+const getPhotoUrl = (rawPhoto) => {
+  if (!rawPhoto || typeof rawPhoto !== "string") return null;
+  const trimmed = rawPhoto.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
+  return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
+
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }) => {
   const sparkData = useMemo(() => [
     { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
@@ -810,15 +821,25 @@ const LeaveRequests = () => {
                             />
                           </td>
                           <td className="px-4 py-3.5">
-                            <div className="flex items-center space-x-2">
-                              <div className={`w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center flex-shrink-0 ${avatarClass(empName)}`}>
-                                {empName.charAt(0)}
-                              </div>
-                              <div>
-                                <p className="font-bold text-slate-800 leading-tight">{empName}</p>
-                                <p className="text-[11px] text-slate-400 font-bold mt-0.5">{empCode}</p>
-                              </div>
-                            </div>
+                            {(() => {
+                              const rawPhoto = l.employeeId?.photo || l.employeeId?.documents?.photo || l.employeeId?.userId?.profileImage || l.user?.profileImage;
+                              const photoUrl = getPhotoUrl(rawPhoto);
+                              return (
+                                <div className="flex items-center space-x-2.5">
+                                  {photoUrl ? (
+                                    <img src={photoUrl} alt={empName} className="w-9 h-9 rounded-full object-cover border border-slate-200 shadow-2xs flex-shrink-0" />
+                                  ) : (
+                                    <div className={`w-9 h-9 rounded-full font-bold text-xs flex items-center justify-center flex-shrink-0 ${avatarClass(empName)}`}>
+                                      {empName.charAt(0)}
+                                    </div>
+                                  )}
+                                  <div>
+                                    <p className="font-bold text-slate-800 leading-tight">{empName}</p>
+                                    <p className="text-[11px] text-slate-400 font-bold mt-0.5">{empCode}</p>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
                           <td className="px-4 py-3.5">
                             <p className="font-bold text-slate-700 leading-tight text-[13px]">{deptName}</p>
@@ -914,11 +935,17 @@ const LeaveRequests = () => {
                 const name = `${selectedLeave.employeeId?.firstName || ""} ${selectedLeave.employeeId?.lastName || ""}`;
                 const desg = selectedLeave.employeeId?.designationId?.name || "Team Member";
                 const dept = selectedLeave.employeeId?.departmentId?.name || "Department";
+                const rawPhoto = selectedLeave.employeeId?.photo || selectedLeave.employeeId?.documents?.photo || selectedLeave.employeeId?.userId?.profileImage;
+                const photoUrl = getPhotoUrl(rawPhoto);
                 return (
                   <div className="flex items-center space-x-3 bg-ca-bg/50 p-3 rounded-xl border border-ca-border">
-                    <div className={`w-12 h-12 rounded-xl font-black text-base flex items-center justify-center border border-white shadow-sm ${avatarClass(name)}`}>
-                      {name.charAt(0)}
-                    </div>
+                    {photoUrl ? (
+                      <img src={photoUrl} alt={name} className="w-12 h-12 rounded-xl object-cover border border-white shadow-sm flex-shrink-0" />
+                    ) : (
+                      <div className={`w-12 h-12 rounded-xl font-black text-base flex items-center justify-center border border-white shadow-sm ${avatarClass(name)}`}>
+                        {name.charAt(0)}
+                      </div>
+                    )}
                     <div>
                       <h4 className="font-extrabold text-ca-text leading-tight">{name}</h4>
                       <p className="text-sm text-ca-text-secondary font-semibold mt-0.5">{desg} · {dept}</p>

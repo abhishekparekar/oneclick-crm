@@ -165,10 +165,34 @@ const getCompanyPayrolls = async (req, res, next) => {
     if (status) query.status = status;
 
     const payrolls = await Payroll.find(query)
-      .populate("employeeId", "firstName lastName employeeCode departmentId branchId")
+      .populate({
+        path: "employeeId",
+        select: "firstName lastName employeeCode photo documents departmentId branchId userId",
+        populate: [
+          { path: "departmentId", select: "name" },
+          { path: "branchId", select: "branchName" },
+          { path: "userId", select: "role profileImage" }
+        ]
+      })
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, data: payrolls });
+    const normalizedPayrolls = payrolls.map((p) => {
+      const doc = p.toObject ? p.toObject() : { ...p };
+      const resolvedPhoto =
+        doc.employeeSnapshot?.photo ||
+        doc.employeeId?.photo ||
+        doc.employeeId?.documents?.photo ||
+        doc.employeeId?.userId?.profileImage ||
+        "";
+      if (!doc.employeeSnapshot) doc.employeeSnapshot = {};
+      doc.employeeSnapshot.photo = resolvedPhoto;
+      if (doc.employeeId) {
+        doc.employeeId.photo = resolvedPhoto;
+      }
+      return doc;
+    });
+
+    res.json({ success: true, data: normalizedPayrolls });
   } catch (err) {
     next(err);
   }
@@ -185,8 +209,34 @@ const getEmployeePayrolls = async (req, res, next) => {
     if (month) query.month = String(month);
     if (year) query.year = Number(year);
 
-    const payrolls = await Payroll.find(query).sort({ year: -1, month: -1 });
-    res.json({ success: true, data: payrolls });
+    const payrolls = await Payroll.find(query)
+      .populate({
+        path: "employeeId",
+        select: "firstName lastName employeeCode photo documents departmentId branchId userId",
+        populate: [
+          { path: "departmentId", select: "name" },
+          { path: "userId", select: "role profileImage" }
+        ]
+      })
+      .sort({ year: -1, month: -1 });
+
+    const normalizedPayrolls = payrolls.map((p) => {
+      const doc = p.toObject ? p.toObject() : { ...p };
+      const resolvedPhoto =
+        doc.employeeSnapshot?.photo ||
+        doc.employeeId?.photo ||
+        doc.employeeId?.documents?.photo ||
+        doc.employeeId?.userId?.profileImage ||
+        "";
+      if (!doc.employeeSnapshot) doc.employeeSnapshot = {};
+      doc.employeeSnapshot.photo = resolvedPhoto;
+      if (doc.employeeId) {
+        doc.employeeId.photo = resolvedPhoto;
+      }
+      return doc;
+    });
+
+    res.json({ success: true, data: normalizedPayrolls });
   } catch (err) {
     next(err);
   }

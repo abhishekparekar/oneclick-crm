@@ -69,6 +69,16 @@ const AttChip = ({ icon: Icon, value, color, title }) => (
   </span>
 );
 
+const AVATAR_BG = [
+  "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
+];
+const getAvatarClass = (name) => AVATAR_BG[(name?.charCodeAt(0) || 0) % AVATAR_BG.length];
+
 const ConfirmSendDialog = ({ employee, onConfirm, onCancel, isPending }) => (
   <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm">
     <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-sm w-full p-5 space-y-4">
@@ -292,119 +302,14 @@ const PayrollHistory = () => {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        {/* ── Table & Cards Container ── */}
+        <div>
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-2">
               <div className="w-8 h-8 border-[3px] border-amber-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-xs font-bold">Loading payroll disbursals...</p>
             </div>
-          ) : (
-            <table className="w-full text-left border-collapse text-xs">
-              <thead className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
-                <tr>
-                  <th className="px-4 py-3">Team Member</th>
-                  <th className="px-3 py-3 text-center">Attendance</th>
-                  <th className="px-3 py-3 text-right">Gross</th>
-                  <th className="px-3 py-3 text-right">Deductions</th>
-                  <th className="px-3 py-3 text-right">Net Take-Home</th>
-                  <th className="px-3 py-3 text-center">Pay Status</th>
-                  <th className="px-3 py-3 text-center">Delivery</th>
-                  <th className="px-4 py-3 text-center">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
-                {filteredPayrolls.map((p, idx) => {
-                  const empName = p.employeeSnapshot?.employeeName || (p.employeeId?.firstName ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "Employee");
-                  const empCode = p.employeeSnapshot?.employeeCode || p.employeeId?.employeeCode || "-";
-                  const dept = p.employeeSnapshot?.department || p.employeeId?.departmentId?.name || "General";
-                  const rawPhoto = p.employeeSnapshot?.photo || p.employeeId?.photo || p.employeeId?.userId?.profileImage || null;
-                  const photoUrl = getPhotoUrl(rawPhoto);
-                  const isPaid = p.status === "paid";
-                  const isSent = p.sentToEmployee;
-                  const att = p.attendanceSummary || {};
-
-                  return (
-                    <tr key={`${p._id || "pay"}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2.5">
-                          {photoUrl ? (
-                            <img src={photoUrl} alt={empName} className="w-8 h-8 rounded-full object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0" onError={(e) => { e.target.onerror = null; e.target.style.display = "none"; }} />
-                          ) : (
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-amber-500 to-orange-600 text-white font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-2xs">
-                              {empName.charAt(0).toUpperCase()}
-                            </div>
-                          )}
-                          <div>
-                            <p className="font-bold text-slate-900 dark:text-white leading-tight">{empName}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{empCode} &middot; {dept}</p>
-                          </div>
-                        </div>
-                      </td>
-
-                      <td className="px-3 py-2.5 text-center">
-                        <div className="flex flex-wrap items-center justify-center gap-0.5">
-                          <AttChip icon={UserCheck} value={att.presentDays || 0} color="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400" title={`Present: ${att.presentDays || 0} days`} />
-                          <AttChip icon={UserX} value={att.absentDays || 0} color="bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" title={`Absent: ${att.absentDays || 0} days`} />
-                          <AttChip icon={Clock} value={att.halfDays || 0} color="bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400" title={`Half Days: ${att.halfDays || 0}`} />
-                          <AttChip icon={Umbrella} value={att.paidLeaveDays || 0} color="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400" title={`Paid Leaves: ${att.paidLeaveDays || 0}`} />
-                          <AttChip icon={CalendarCheck} value={att.payableDays || 0} color="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400" title={`Payable Days: ${att.payableDays || 0}`} />
-                        </div>
-                        {(att.lossOfPayDays || 0) > 0 && (
-                          <div className="text-[9px] text-rose-500 font-bold mt-0.5">LOP: {fmtDay(att.lossOfPayDays)}d</div>
-                        )}
-                      </td>
-
-                      <td className="px-3 py-2.5 text-right font-bold text-slate-700 dark:text-slate-300 font-mono">{fmt(getDisplayGross(p))}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-rose-600 dark:text-rose-400 font-mono">{fmt(p.deductions?.totalDeductions || 0)}</td>
-                      <td className="px-3 py-2.5 text-right font-black text-amber-600 dark:text-amber-400 font-mono text-sm">{fmt(p.netSalary || 0)}</td>
-
-                      <td className="px-3 py-2.5 text-center">
-                        <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border capitalize ${isPaid ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" : p.status === "cancelled" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isPaid ? "bg-emerald-500" : p.status === "cancelled" ? "bg-rose-500" : "bg-amber-500"}`} />
-                          {p.status || "Generated"}
-                        </span>
-                      </td>
-
-                      <td className="px-3 py-2.5 text-center">
-                        {isSent ? (
-                          <div className="space-y-0.5">
-                            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-md">
-                              <MailCheck size={10} />Sent &#10003;
-                            </span>
-                            {p.sentAt && <p className="text-[9px] text-slate-400">{new Date(p.sentAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</p>}
-                          </div>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md">
-                            <Clock size={9} />Pending
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-2.5 text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {!isPaid && (
-                            <button onClick={() => markPaidMutation.mutate(p._id)} disabled={markPaidMutation.isPending} title="Mark as Paid" className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-[10.5px] font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1">
-                              <Check size={10} strokeWidth={2.5} />Pay
-                            </button>
-                          )}
-                          <button onClick={() => setConfirmSend({ id: p._id, name: empName })} title={isSent ? "Resend Payslip" : "Send Payslip to Employee"} className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isSent ? "text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"}`}>
-                            <Send size={13} />
-                          </button>
-                          <button onClick={() => previewPayslip(p._id)} title="Preview Payslip" className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
-                            <Eye size={14} />
-                          </button>
-                          <button onClick={() => downloadPDF(p._id, empCode, p.month)} title="Download PDF" className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
-                            <Download size={14} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-          {filteredPayrolls.length === 0 && !isLoading && (
+          ) : filteredPayrolls.length === 0 ? (
             <div className="py-16 text-center space-y-2">
               <Receipt size={36} className="mx-auto text-slate-300 dark:text-slate-600" />
               <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No payroll entries for {monthLabel} {y}</p>
@@ -415,6 +320,260 @@ const PayrollHistory = () => {
                 </Link>
               </div>
             </div>
+          ) : (
+            <>
+              {/* ── Mobile Cards Layout (<md Screens) ──────────────────────── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 md:hidden">
+                {filteredPayrolls.map((p, idx) => {
+                  const empName = p.employeeSnapshot?.employeeName || (p.employeeId?.firstName ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "Employee");
+                  const empCode = p.employeeSnapshot?.employeeCode || p.employeeId?.employeeCode || "-";
+                  const dept = p.employeeSnapshot?.department || p.employeeId?.departmentId?.name || "General";
+                  const rawPhoto = p.employeeSnapshot?.photo || p.employeeId?.photo || p.employeeId?.documents?.photo || p.employeeId?.userId?.profileImage || null;
+                  const photoUrl = getPhotoUrl(rawPhoto);
+                  const isPaid = p.status === "paid";
+                  const isSent = p.sentToEmployee;
+                  const att = p.attendanceSummary || {};
+                  const payable = att.payableDays || 0;
+                  const calDays = att.totalCalendarDays || 30;
+                  const lop = att.lossOfPayDays || 0;
+
+                  return (
+                    <div
+                      key={`mob-${p._id || "pay"}-${idx}`}
+                      className="p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 bg-white dark:bg-[#111C24] shadow-2xs space-y-3"
+                    >
+                      {/* Top Employee & Status Row */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          {photoUrl ? (
+                            <img
+                              src={photoUrl}
+                              alt={empName}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+                              onError={(e) => { e.target.onerror = null; e.target.style.display = "none"; }}
+                            />
+                          ) : (
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-extrabold text-xs shrink-0 shadow-2xs ${getAvatarClass(empName)}`}>
+                              {empName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="min-w-0">
+                            <p className="font-extrabold text-slate-900 dark:text-white text-xs truncate leading-tight">{empName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold truncate mt-0.5">{empCode} • {dept}</p>
+                          </div>
+                        </div>
+
+                        <span className={`inline-flex items-center px-2 py-0.5 text-[9.5px] font-extrabold rounded-full border capitalize shrink-0 ${isPaid ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" : p.status === "cancelled" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isPaid ? "bg-emerald-500" : p.status === "cancelled" ? "bg-rose-500" : "bg-amber-500"}`} />
+                          {p.status || "Generated"}
+                        </span>
+                      </div>
+
+                      {/* Net Salary Hero Pill */}
+                      <div className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
+                        <div>
+                          <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Net Take-Home</span>
+                          <span className="text-base font-black text-amber-600 dark:text-amber-400 font-mono">{fmt(p.netSalary || 0)}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[9.5px] font-bold text-slate-400 block">Gross / Deductions</span>
+                          <span className="text-xs font-bold text-slate-700 dark:text-slate-300 font-mono">{fmt(getDisplayGross(p))} / <span className="text-rose-500">{fmt(p.deductions?.totalDeductions || 0)}</span></span>
+                        </div>
+                      </div>
+
+                      {/* Clean Attendance Summary Badge */}
+                      <div className="flex items-center justify-between text-xs px-2.5 py-1.5 rounded-xl bg-slate-100/60 dark:bg-slate-800/40">
+                        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Attendance:</span>
+                        <div className="flex items-center gap-1.5 text-[10.5px]">
+                          <span className="font-extrabold text-slate-800 dark:text-slate-200">{fmtDay(payable)} / {calDays}d</span>
+                          <span className="text-slate-400">•</span>
+                          <span className="text-emerald-600 dark:text-emerald-400 font-bold">{fmtDay(att.presentDays || 0)}P</span>
+                          {lop > 0 && (
+                            <span className="text-[9.5px] font-extrabold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 px-1 rounded">-{fmtDay(lop)} LOP</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800">
+                        <div>
+                          {isSent ? (
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-md">
+                              <MailCheck size={10} />Sent
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[9.5px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md">
+                              <Clock size={9} />Unsent
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {!isPaid && (
+                            <button
+                              onClick={() => markPaidMutation.mutate(p._id)}
+                              disabled={markPaidMutation.isPending}
+                              className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                            >
+                              <Check size={11} strokeWidth={2.5} />Pay
+                            </button>
+                          )}
+                          <button
+                            onClick={() => setConfirmSend({ id: p._id, name: empName })}
+                            className={`p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer ${isSent ? "text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/40" : "text-slate-500 hover:text-blue-600 hover:bg-blue-50"}`}
+                            title="Send Payslip"
+                          >
+                            <Send size={13} />
+                          </button>
+                          <button
+                            onClick={() => previewPayslip(p._id)}
+                            className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                            title="Preview Payslip"
+                          >
+                            <Eye size={13} />
+                          </button>
+                          <button
+                            onClick={() => downloadPDF(p._id, empCode, p.month)}
+                            className="p-1.5 text-slate-500 hover:text-amber-600 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                            title="Download PDF"
+                          >
+                            <Download size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* ── Desktop Table (>=md Screens) ───────────────────────────── */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-50/80 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                    <tr>
+                      <th className="px-4 py-3">Team Member</th>
+                      <th className="px-3 py-3 text-center">Attendance Summary</th>
+                      <th className="px-3 py-3 text-right">Gross</th>
+                      <th className="px-3 py-3 text-right">Deductions</th>
+                      <th className="px-3 py-3 text-right">Net Take-Home</th>
+                      <th className="px-3 py-3 text-center">Pay Status</th>
+                      <th className="px-3 py-3 text-center">Delivery</th>
+                      <th className="px-4 py-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {filteredPayrolls.map((p, idx) => {
+                      const empName = p.employeeSnapshot?.employeeName || (p.employeeId?.firstName ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "Employee");
+                      const empCode = p.employeeSnapshot?.employeeCode || p.employeeId?.employeeCode || "-";
+                      const dept = p.employeeSnapshot?.department || p.employeeId?.departmentId?.name || "General";
+                      const rawPhoto = p.employeeSnapshot?.photo || p.employeeId?.photo || p.employeeId?.documents?.photo || p.employeeId?.userId?.profileImage || null;
+                      const photoUrl = getPhotoUrl(rawPhoto);
+                      const isPaid = p.status === "paid";
+                      const isSent = p.sentToEmployee;
+                      const att = p.attendanceSummary || {};
+                      const payable = att.payableDays || 0;
+                      const calDays = att.totalCalendarDays || 30;
+                      const lop = att.lossOfPayDays || 0;
+
+                      return (
+                        <tr key={`${p._id || "pay"}-${idx}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors group">
+                          <td className="px-4 py-2.5">
+                            <div className="flex items-center gap-2.5">
+                              {photoUrl ? (
+                                <img
+                                  src={photoUrl}
+                                  alt={empName}
+                                  className="w-8 h-8 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+                                  onError={(e) => { e.target.onerror = null; e.target.style.display = "none"; }}
+                                />
+                              ) : (
+                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs flex-shrink-0 shadow-2xs ${getAvatarClass(empName)}`}>
+                                  {empName.charAt(0).toUpperCase()}
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-bold text-slate-900 dark:text-white leading-tight">{empName}</p>
+                                <p className="text-[10px] text-slate-400 font-medium">{empCode} · {dept}</p>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Redesigned Clean Executive Attendance Column */}
+                          <td className="px-3 py-2.5 text-center">
+                            <div className="inline-flex flex-col items-center justify-center">
+                              <div className="flex items-center gap-1">
+                                <span className="font-extrabold text-xs text-slate-800 dark:text-slate-200">
+                                  {fmtDay(payable)}
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  / {calDays}d
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-1 text-[9.5px] font-semibold text-slate-400 mt-0.5">
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">{fmtDay(att.presentDays || 0)}P</span>
+                                <span>•</span>
+                                <span>{fmtDay((att.paidLeaveDays || 0) + (att.weeklyOffDays || 0) + (att.holidayDays || 0))}Off</span>
+                                {lop > 0 && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-rose-600 dark:text-rose-400 font-extrabold">-{fmtDay(lop)} LOP</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+
+                          <td className="px-3 py-2.5 text-right font-bold text-slate-700 dark:text-slate-300 font-mono">{fmt(getDisplayGross(p))}</td>
+                          <td className="px-3 py-2.5 text-right font-bold text-rose-600 dark:text-rose-400 font-mono">{fmt(p.deductions?.totalDeductions || 0)}</td>
+                          <td className="px-3 py-2.5 text-right font-black text-amber-600 dark:text-amber-400 font-mono text-sm">{fmt(p.netSalary || 0)}</td>
+
+                          <td className="px-3 py-2.5 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold rounded-full border capitalize ${isPaid ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800" : p.status === "cancelled" ? "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border-rose-200 dark:border-rose-800" : "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border-amber-200 dark:border-amber-800"}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isPaid ? "bg-emerald-500" : p.status === "cancelled" ? "bg-rose-500" : "bg-amber-500"}`} />
+                              {p.status || "Generated"}
+                            </span>
+                          </td>
+
+                          <td className="px-3 py-2.5 text-center">
+                            {isSent ? (
+                              <div className="space-y-0.5">
+                                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 px-2 py-0.5 rounded-md">
+                                  <MailCheck size={10} />Sent &#10003;
+                                </span>
+                                {p.sentAt && <p className="text-[9px] text-slate-400">{new Date(p.sentAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</p>}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-2 py-0.5 rounded-md">
+                                <Clock size={9} />Pending
+                              </span>
+                            )}
+                          </td>
+
+                          <td className="px-4 py-2.5 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              {!isPaid && (
+                                <button onClick={() => markPaidMutation.mutate(p._id)} disabled={markPaidMutation.isPending} title="Mark as Paid" className="px-2 py-1 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50 rounded-lg text-[10.5px] font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1">
+                                  <Check size={10} strokeWidth={2.5} />Pay
+                                </button>
+                              )}
+                              <button onClick={() => setConfirmSend({ id: p._id, name: empName })} title={isSent ? "Resend Payslip" : "Send Payslip to Employee"} className={`p-1.5 rounded-lg transition-colors cursor-pointer ${isSent ? "text-blue-500 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40" : "text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30"}`}>
+                                <Send size={13} />
+                              </button>
+                              <button onClick={() => previewPayslip(p._id)} title="Preview Payslip" className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
+                                <Eye size={14} />
+                              </button>
+                              <button onClick={() => downloadPDF(p._id, empCode, p.month)} title="Download PDF" className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer">
+                                <Download size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
         <div className="flex justify-between items-center text-xs text-slate-400 font-medium px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30">

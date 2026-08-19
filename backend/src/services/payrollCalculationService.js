@@ -26,7 +26,8 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
 
   // 1. Employee
   const emp = await Employee.findOne({ _id: employeeId, companyId })
-    .populate("departmentId designationId branchId");
+    .populate("departmentId designationId branchId")
+    .populate("userId", "role profileImage");
   if (!emp) throw new Error("Employee not found");
 
   // 2. Salary Structure — fallback to legacy salaryDetails
@@ -140,6 +141,7 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
   const snapshot = {
     employeeCode: emp.employeeCode,
     employeeName: `${emp.firstName} ${emp.lastName}`,
+    photo: emp.photo || emp.documents?.photo || emp.userId?.profileImage || "",
     department: emp.departmentId?.name || "N/A",
     designation: emp.designationId?.name || "N/A",
     branch: emp.branchId?.branchName || "N/A",

@@ -956,11 +956,26 @@ const getCompanyLeaves = async (req, res, next) => {
         if (leaveType) filter.leaveType = leaveType;
 
         const leaves = await Leave.find(filter)
-            .populate("employeeId", "firstName lastName employeeCode departmentId designationId")
+            .populate({
+                path: "employeeId",
+                select: "firstName lastName employeeCode photo documents departmentId designationId userId",
+                populate: [
+                    { path: "departmentId", select: "name" },
+                    { path: "designationId", select: "name" },
+                    { path: "userId", select: "role profileImage" }
+                ]
+            })
             .sort({ createdAt: -1 })
             .lean();
 
-        res.json({ success: true, leaves, count: leaves.length });
+        const normalizedLeaves = leaves.map(l => {
+            if (l.employeeId) {
+                l.employeeId.photo = l.employeeId.photo || l.employeeId.documents?.photo || l.employeeId.userId?.profileImage || "";
+            }
+            return l;
+        });
+
+        res.json({ success: true, leaves: normalizedLeaves, count: normalizedLeaves.length });
     } catch (error) {
         next(error);
     }
