@@ -932,13 +932,6 @@ export default function Leads() {
 
         <div className="flex flex-wrap items-center gap-2 relative z-30">
           <button 
-            onClick={fetchPublicToken} 
-            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
-          >
-            <Share2 size={13} className="text-amber-500" /> Public Form Link
-          </button>
-          
-          <button 
             onClick={() => { setImportStep(1); setShowImportModal(true); }} 
             className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
@@ -1136,35 +1129,13 @@ export default function Leads() {
             />
           </div>
 
-          <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full xl:w-auto">
-            <CustomSelect
-              value={selectedOptIn}
-              onChange={setSelectedOptIn}
-              options={[{ value: 'true', label: 'Opted In' }, { value: 'false', label: 'Opted Out' }]}
-              defaultLabel="WhatsApp: All"
-            />
-
+          <div className="flex items-center gap-2 w-full xl:w-auto">
             <CustomSelect
               value={selectedSource}
               onChange={setSelectedSource}
               options={(Array.isArray(sources) ? sources : []).map(s => ({ value: s.name, label: s.name }))}
               defaultLabel="All Sources"
             />
-
-            <CustomSelect
-              value={selectedTagId}
-              onChange={setSelectedTagId}
-              options={(Array.isArray(tags) ? tags : []).map(t => ({ value: t.id, label: t.name }))}
-              defaultLabel="All Tags"
-            />
-
-            <button
-              onClick={() => setShowManageTagsModal(true)}
-              className="col-span-2 sm:col-span-1 flex items-center justify-center gap-1 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
-            >
-              <Tag size={13} className="text-amber-500" />
-              <span>Manage Tags</span>
-            </button>
           </div>
         </div>
 
