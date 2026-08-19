@@ -15,7 +15,8 @@ import {
   ChevronUp, CheckCircle2, History, X, Lock, PowerOff, Download,
   AlertTriangle, RefreshCw, Plus, Loader2, Building2, CalendarDays,
   Upload, Eye, ChevronRight, ChevronLeft, CheckCheck, Trash2,
-  ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck
+  ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck,
+  Calendar
 } from "lucide-react";
 
 const getPhotoUrl = (rawPhoto) => {

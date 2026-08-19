@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
 import html2canvas from "html2canvas-pro";
@@ -56,6 +56,7 @@ import {
   Award,
   Activity,
   ChevronRight,
+  ChevronLeft,
   BarChart2,
   UserCheck,
   UserX,
@@ -2042,6 +2043,14 @@ const Reports = () => {
   const [showCharts, setShowCharts] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
+  const tabsScrollRef = useRef(null);
+
+  const scrollTabs = (direction) => {
+    if (tabsScrollRef.current) {
+      const scrollAmount = direction === "left" ? -260 : 260;
+      tabsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
+    }
+  };
 
   // ── Data Fetching ──
   const { data: attSummary, refetch: refetchAtt } = useQuery({ queryKey: ["reportAttendance"], queryFn: getReportsAttendanceSummaryApi });
@@ -2351,26 +2360,53 @@ const Reports = () => {
         </div>
       </div>
 
-      {/* ── Tab Bar (Responsive Wrap — All buttons visible without cut-off) ── */}
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 py-1">
-        {TABS.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.key;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs cursor-pointer whitespace-nowrap transition-all ${
-                active
-                  ? "bg-amber-500 text-slate-950 font-bold shadow-2xs"
-                  : "bg-white dark:bg-[#111C24] text-slate-600 dark:text-slate-400 font-semibold border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80"
-              }`}
-            >
-              <Icon size={14} strokeWidth={active ? 2.4 : 2} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
+      {/* ── Executive Horizontal Scrollable Report Filter Tab Bar ── */}
+      <div className="relative bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 shadow-2xs flex items-center gap-1.5">
+        {/* Left scroll arrow button */}
+        <button
+          type="button"
+          onClick={() => scrollTabs("left")}
+          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer hidden sm:flex items-center justify-center shadow-2xs"
+          title="Scroll left"
+        >
+          <ChevronLeft size={14} />
+        </button>
+
+        {/* Scrollable tab pill container */}
+        <div
+          ref={tabsScrollRef}
+          className="flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 px-1 custom-scrollbar w-full"
+          style={{ scrollbarWidth: "thin" }}
+        >
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeTab === tab.key;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs cursor-pointer whitespace-nowrap transition-all shrink-0 ${
+                  active
+                    ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm shadow-amber-500/20 ring-1 ring-amber-500/50"
+                    : "bg-slate-50/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 font-bold border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <Icon size={14} strokeWidth={active ? 2.5 : 2} />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Right scroll arrow button */}
+        <button
+          type="button"
+          onClick={() => scrollTabs("right")}
+          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer hidden sm:flex items-center justify-center shadow-2xs"
+          title="Scroll right"
+        >
+          <ChevronRight size={14} />
+        </button>
       </div>
 
       {/* ── Tab Content ── */}

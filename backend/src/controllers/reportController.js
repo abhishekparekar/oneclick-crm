@@ -12,13 +12,10 @@ const Department = require("../models/Department");
 const Designation = require("../models/Designation");
 
 const allowCompanyScope = (req) => {
-  if (req.user.role === "SuperAdmin") {
-    return req.query.companyId || null;
+  if (req.user && req.user.role === "SuperAdmin") {
+    return req.query.companyId || req.companyId || null;
   }
-  if (!req.user.companyId) {
-    return null;
-  }
-  return req.user.companyId;
+  return req.companyId || (req.user && req.user.companyId) || null;
 };
 
 const buildDateFilter = (req, dateField = "createdAt") => {
@@ -516,7 +513,7 @@ const getEmployeeDetailedAnalytics = async (req, res, next) => {
 
     const [employees, tasks, leaves, departments] = await Promise.all([
       Employee.find(filter).populate("designationId departmentId").sort({ createdAt: -1 }),
-      Task.find({ status: { $ne: "cancelled" }, ...(queryCompanyId ? { companyId: queryCompanyId } : {}) }).populate("assignedTo assignees", "firstName lastName fullName email userId"),
+      Task.find({ status: { $ne: "cancelled" }, ...(queryCompanyId ? { companyId: queryCompanyId } : {}) }).populate("assignedTo", "firstName lastName fullName email userId"),
       Leave.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) }).populate("employeeId", "firstName lastName fullName email userId"),
       Department.find({ ...(queryCompanyId ? { companyId: queryCompanyId } : {}) })
     ]);
