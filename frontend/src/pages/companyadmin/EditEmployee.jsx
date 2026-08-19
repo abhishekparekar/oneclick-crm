@@ -18,6 +18,17 @@ import {
   ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck
 } from "lucide-react";
 
+const getPhotoUrl = (rawPhoto) => {
+  if (!rawPhoto || typeof rawPhoto !== "string") return null;
+  const trimmed = rawPhoto.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
+  return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
+
 // ── Step Definitions ────────────────────────────────────────────────────────
 const STEPS = [
   { id: 1, label: "Basic Info", icon: User, desc: "Personal info & avatar" },
@@ -170,7 +181,7 @@ const DocumentUploader = ({ title, docKey, currentUrl, employeeId, onUploaded })
     }
   };
 
-  const cleanUrl = currentUrl ? (currentUrl.startsWith("http") ? currentUrl : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${currentUrl.startsWith("/") ? "" : "/"}${currentUrl}`) : null;
+  const cleanUrl = getPhotoUrl(currentUrl);
 
   return (
     <div className="bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 transition-all hover:border-amber-500/30">
@@ -536,7 +547,7 @@ export default function EditEmployee() {
 
   const name = `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Employee";
   const initials = name.slice(0, 2).toUpperCase();
-  const photoUrl = formData.photo ? (formData.photo.startsWith("http") ? formData.photo : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${formData.photo.startsWith("/") ? "" : "/"}${formData.photo}`) : null;
+  const photoUrl = getPhotoUrl(formData.photo);
 
   return (
     <div className="min-h-screen pb-24 space-y-6">

@@ -13,7 +13,7 @@ import {
   MoreHorizontal, Eye, EyeOff, Edit2, PowerOff, Power, Trash2,
   KeyRound, ChevronDown, X, ChevronRight, ChevronLeft,
   CheckCircle2, ClipboardList, FolderOpen, AlignJustify, LayoutGrid,
-  Shield, Award, User, Hexagon,
+  Shield, Award, User, Hexagon, DollarSign, FileText,
 } from "lucide-react";
 
 // ── Avatar helper ─────────────────────────────────────────────────────────────
@@ -28,6 +28,17 @@ const AVATAR_BG = [
   "bg-indigo-100 text-indigo-700",
 ];
 const avatarClass = (name) => AVATAR_BG[(name?.charCodeAt(0) || 0) % AVATAR_BG.length];
+
+const getPhotoUrl = (rawPhoto) => {
+  if (!rawPhoto || typeof rawPhoto !== "string") return null;
+  const trimmed = rawPhoto.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
+  return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 const EmpStatusBadge = ({ status }) => {
@@ -308,7 +319,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
   const initials = name.slice(0, 2).toUpperCase();
   const ac = avatarClass(name);
   const rawPhoto = empData.photo || empData.user?.profileImage;
-  const photoUrl = rawPhoto ? (rawPhoto.startsWith("http") || rawPhoto.startsWith("data:") ? rawPhoto : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawPhoto.startsWith("/") ? "" : "/"}${rawPhoto}`) : null;
+  const photoUrl = getPhotoUrl(rawPhoto);
 
   const displayRole = empData.role || empData.userId?.role || empData.user?.role || "Employee";
   const formattedRole = displayRole === "CompanyAdmin" ? "Company Admin" : displayRole;
@@ -964,7 +975,7 @@ const Employees = () => {
                     const ac = avatarClass(name);
                     const isSelected = selectedEmployee?._id === emp._id;
                     const rawPhoto = emp.photo || emp.user?.profileImage;
-                    const photoUrl = rawPhoto ? (rawPhoto.startsWith("http") || rawPhoto.startsWith("data:") ? rawPhoto : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawPhoto.startsWith("/") ? "" : "/"}${rawPhoto}`) : null;
+                    const photoUrl = getPhotoUrl(rawPhoto);
 
                     return (
                       <tr
