@@ -238,7 +238,7 @@ export default function PublicLeadForm() {
                   type="tel"
                   name="whatsappPhone"
                   required
-                  placeholder="91XXXXXXXXXX"
+                  placeholder="Enter WhatsApp Number"
                   value={formData.whatsappPhone}
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-base sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#0E6B50] focus:ring-2 focus:ring-[#0E6B50]/15 transition-all min-h-[44px]"

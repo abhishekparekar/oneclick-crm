@@ -1587,11 +1587,11 @@ export default function Leads() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Full Name *</label>
-                  <input type="text" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Rahul Patil" value={newLead.name} onChange={e => setNewLead({ ...newLead, name: e.target.value })} />
+                  <input type="text" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Enter Your Name" value={newLead.name} onChange={e => setNewLead({ ...newLead, name: e.target.value })} />
                 </div>
                 <div>
                   <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">WhatsApp Number *</label>
-                  <input type="tel" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="91XXXXXXXXXX" value={newLead.whatsappPhone} onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })} />
+                  <input type="tel" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Enter Your WhatsApp Number" value={newLead.whatsappPhone} onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })} />
                 </div>
               </div>
 

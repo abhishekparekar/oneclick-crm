@@ -512,7 +512,7 @@ export default function HRLeadsScreen({ navigation, route }) {
               <Text style={styles.fieldLabel}>Contact Name *</Text>
               <TextInput
                 style={styles.fieldInput}
-                placeholder="e.g. Rahul Patil"
+                placeholder="Enter Your Name"
                 placeholderTextColor="#94A3B8"
                 value={form.name}
                 onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
@@ -521,7 +521,7 @@ export default function HRLeadsScreen({ navigation, route }) {
               <Text style={styles.fieldLabel}>WhatsApp / Mobile Phone *</Text>
               <TextInput
                 style={styles.fieldInput}
-                placeholder="e.g. 9876543210"
+                placeholder="Enter Your WhatsApp Number"
                 placeholderTextColor="#94A3B8"
                 keyboardType="phone-pad"
                 value={form.whatsappPhone}
