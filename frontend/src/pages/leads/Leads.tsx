@@ -513,6 +513,38 @@ export default function Leads() {
   const [duplicateBehavior, setDuplicateBehavior] = useState<'skip' | 'update'>('skip');
   const [importing, setImporting] = useState(false);
 
+  const [leadStats, setLeadStats] = useState<{
+    totalContacts: number;
+    optedInCount: number;
+    newLeadsCount: number;
+    pipelineStagesCount: number;
+    activeTagsCount: number;
+    statusCounts: Record<string, number>;
+  }>({
+    totalContacts: 0,
+    optedInCount: 0,
+    newLeadsCount: 0,
+    pipelineStagesCount: 0,
+    activeTagsCount: 0,
+    statusCounts: {},
+  });
+
+  const fetchStats = async () => {
+    try {
+      const res = await api.get('/api/leads/stats');
+      if (res?.success || res?.totalContacts !== undefined) {
+        setLeadStats({
+          totalContacts: res.totalContacts || 0,
+          optedInCount: res.optedInCount || 0,
+          newLeadsCount: res.newLeadsCount || 0,
+          pipelineStagesCount: res.pipelineStagesCount || 0,
+          activeTagsCount: res.activeTagsCount || 0,
+          statusCounts: res.statusCounts || {},
+        });
+      }
+    } catch (_) {}
+  };
+
   const fetchStatuses = async () => {
     try {
       const res = await api.get('/api/statuses');
@@ -669,11 +701,12 @@ export default function Leads() {
       setLeads(safeLeads);
       setPagination(res?.pagination || res?.data?.pagination || { page, limit: 20, total: safeLeads.length, totalPages: 1 });
       setCheckedIds(new Set());
+      fetchStats();
     } catch (_) { }
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchEmployees(); }, []);
+  useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchEmployees(); fetchStats(); }, []);
   useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, activeTab]);
 
   // Checkbox helpers
@@ -1013,13 +1046,13 @@ export default function Leads() {
         </div>
       </div>
 
-      {/* ── Top 5 KPI Stat Cards (Matching Task Board & Attendance Sparkline KPI Cards) ── */}
+      {/* ── Top 5 KPI Stat Cards (100% Real-Time Database Metrics) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 pt-1">
-        <KPICard label="Total Contacts" value={totalLeadsCount} trend="15.8%" isUp period="last month" strokeColor="#EAB308" Icon={Users} iconBg="bg-amber-500/10" iconColor="#D97706" />
-        <KPICard label="WhatsApp Leads" value={optedInCount} trend="9.2%" isUp period="last week" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
-        <KPICard label="New Leads" value={newLeadsCount} trend="4.1%" isUp period="yesterday" strokeColor="#06B6D4" Icon={UserPlus} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label="Pipeline Stages" value={Array.isArray(statuses) ? statuses.length : 5} trend="0.0%" isUp period="current" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
-        <KPICard label="Active Tags" value={Array.isArray(tags) ? tags.length : 0} trend="12.0%" isUp period="last month" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
+        <KPICard label="Total Contacts" value={leadStats.totalContacts || pagination.total || leads.length} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={Users} iconBg="bg-amber-500/10" iconColor="#D97706" />
+        <KPICard label="WhatsApp Leads" value={leadStats.optedInCount} trend="Verified" isUp period="database" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
+        <KPICard label="New Inquiries" value={leadStats.newLeadsCount} trend="Recent" isUp period="database" strokeColor="#06B6D4" Icon={UserPlus} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
+        <KPICard label="Pipeline Stages" value={leadStats.pipelineStagesCount || (Array.isArray(statuses) ? statuses.length : 5)} trend="Active" isUp period="configured" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
+        <KPICard label="Active Tags" value={leadStats.activeTagsCount || (Array.isArray(tags) ? tags.length : 0)} trend="Labels" isUp period="registry" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
       </div>
 
       {/* ── PERFECT SINGLE-LINE BASELINE ALIGNED TIMEFRAME TAB BAR + VIEW SWITCHER + STATUS FILTER ── */}
@@ -1151,7 +1184,9 @@ export default function Leads() {
             {/* Status Chips */}
             {statuses.map(st => {
               const isSelected = selectedStatusId === st.id;
-              const count = leads.filter(l => l.statusId === st.id || l.status?.id === st.id).length;
+              const count = leadStats.statusCounts?.[st.id] !== undefined
+                ? leadStats.statusCounts[st.id]
+                : leads.filter(l => l.statusId === st.id || l.status?.id === st.id).length;
               return (
                 <button
                   key={st.id}
@@ -1904,3 +1939,4 @@ export default function Leads() {
     </div>
   );
 }
+

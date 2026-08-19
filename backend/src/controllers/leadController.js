@@ -945,11 +945,68 @@ const deleteLeadDocument = async (req, res) => {
   }
 };
 
+const getLeadStats = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    await seedDefaultsForCompany(companyId);
+
+    const query = buildCompanyQuery(req, { deletedAt: null });
+    const isEmployee = req.user?.role?.toLowerCase() === "employee";
+    if (isEmployee && req.user?._id) {
+      const userIds = [req.user._id];
+      if (req.user.employeeId) userIds.push(req.user.employeeId);
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { createdBy: { $in: userIds } },
+          { assignedTo: { $in: userIds } },
+        ],
+      });
+    }
+
+    const [totalContacts, optedInCount, statuses, tags, recentLeads] = await Promise.all([
+      Lead.countDocuments(query),
+      Lead.countDocuments({ ...query, whatsappOptIn: true }),
+      LeadStatus.find(buildCompanyQuery(req, { isActive: true })).sort({ displayOrder: 1 }),
+      LeadTag.find(buildCompanyQuery(req)),
+      Lead.countDocuments({
+        ...query,
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+      }),
+    ]);
+
+    const statusCounts = await Lead.aggregate([
+      { $match: query },
+      { $group: { _id: "$statusId", count: { $sum: 1 } } },
+    ]);
+
+    const statusMap = {};
+    statusCounts.forEach((sc) => {
+      if (sc._id) statusMap[sc._id.toString()] = sc.count;
+    });
+
+    const newStatus = statuses.find((s) => s.name?.toLowerCase().includes("new") || s.isDefault);
+    const newLeadsCount = newStatus ? (statusMap[newStatus._id.toString()] || 0) : recentLeads;
+
+    return res.json({
+      success: true,
+      totalContacts,
+      optedInCount,
+      newLeadsCount,
+      pipelineStagesCount: statuses.length,
+      activeTagsCount: tags.length,
+      statusCounts: statusMap,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 module.exports = {
   getStatuses, createStatus, updateStatus, deleteStatus,
   getSources, createSource,
   getTags, createTag, deleteTag,
-  getLeads, createLead, getLeadById, updateLead, deleteLead,
+  getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
   getFlows, createFlow, toggleFlow,

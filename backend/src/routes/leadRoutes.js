@@ -6,7 +6,7 @@ const {
   getStatuses, createStatus, updateStatus, deleteStatus,
   getSources, createSource,
   getTags, createTag, deleteTag,
-  getLeads, createLead, getLeadById, updateLead, deleteLead,
+  getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
   getFlows, createFlow, toggleFlow,
@@ -84,6 +84,7 @@ router.get("/organization/public-token", getPublicToken);
 
 // Leads & Bulk Actions
 router.get("/assignable-users", getAssignableUsers);
+router.get("/leads/stats", getLeadStats);
 router.get("/leads/opt-in-counts", getOptInCounts);
 router.patch("/leads/bulk-status", bulkStatus);
 router.patch("/leads/bulk-tags", bulkTags);
