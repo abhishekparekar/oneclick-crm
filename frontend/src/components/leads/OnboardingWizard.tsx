@@ -90,7 +90,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
     try {
       await api.post('/api/whatsapp/connect', whatsapp);
       const testRes = await api.post('/api/whatsapp/test-connection');
-      if (testRes.status === 'CONNECTED') setWaStatus('connected');
+      if (testRes?.status === 'CONNECTED' || testRes?.status === 'OK' || testRes?.success) setWaStatus('connected');
       else { setWaStatus('failed'); setWaError('Connection rejected. Check credentials.'); }
     } catch (err: any) { setWaStatus('failed'); setWaError(err.message || 'Test failed.'); }
     finally { setWaTesting(false); }

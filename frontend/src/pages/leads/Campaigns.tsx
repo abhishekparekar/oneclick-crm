@@ -42,17 +42,15 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-camp-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-camp-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+        <AreaChart width={64} height={40} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-camp-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-camp-${label.replace(/\s+/g, '')})`}/>
+        </AreaChart>
       </div>
     </div>
   );
@@ -103,6 +101,15 @@ export default function Campaigns() {
   const [savingCampaign, setSavingCampaign] = useState(false);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showCreateTemplateModal, setShowCreateTemplateModal] = useState(false);
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [newTplName, setNewTplName] = useState('');
+  const [newTplCategory, setNewTplCategory] = useState<'MARKETING' | 'UTILITY'>('MARKETING');
+  const [newTplHeaderType, setNewTplHeaderType] = useState<'NONE' | 'TEXT' | 'IMAGE'>('NONE');
+  const [newTplHeaderContent, setNewTplHeaderContent] = useState('');
+  const [newTplBodyText, setNewTplBodyText] = useState('');
+  const [newTplFooterText, setNewTplFooterText] = useState('');
+
   const [campName, setCampName] = useState('');
   const [campDesc, setCampDesc] = useState('');
   const [selectedTemplateId, setSelectedTemplateId] = useState('');
@@ -149,13 +156,71 @@ export default function Campaigns() {
     setSyncingTemplates(true);
     try {
       const res = await api.post('/api/whatsapp/sync-templates');
-      success('Templates synchronized', res?.message || 'Templates synced successfully');
-      fetchData();
+      if (res?.success) {
+        success('Templates Synchronized', res?.message || 'Templates synced successfully');
+        if (Array.isArray(res?.templates) && res.templates.length > 0) {
+          setTemplates(res.templates);
+        }
+        await fetchData();
+      } else {
+        warning('Template Sync Notice', res?.message || 'Unable to sync templates at this time.');
+      }
     } catch (err: any) {
-      error('Sync failed', err.message);
+      warning('Template Sync Notice', err.message || 'Unable to sync templates at this time.');
     } finally {
       setSyncingTemplates(false);
     }
+  };
+
+  const handleCreateTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTplName.trim() || !newTplBodyText.trim()) {
+      error('Missing fields', 'Template name and body text are required');
+      return;
+    }
+    setCreatingTemplate(true);
+    try {
+      await api.post('/api/templates', {
+        name: newTplName.trim(),
+        category: newTplCategory,
+        headerType: newTplHeaderType,
+        headerContent: newTplHeaderType === 'TEXT' ? newTplHeaderContent : '',
+        bodyText: newTplBodyText,
+        footerText: newTplFooterText,
+      });
+      success('Template Created', `Template "${newTplName}" added to library`);
+      setShowCreateTemplateModal(false);
+      setNewTplName('');
+      setNewTplBodyText('');
+      setNewTplFooterText('');
+      setNewTplHeaderContent('');
+      await fetchData();
+    } catch (err: any) {
+      error('Creation failed', err.message || 'Could not create template');
+    } finally {
+      setCreatingTemplate(false);
+    }
+  };
+
+  const handleDeleteTemplate = async (id: string, name: string) => {
+    const ok = await confirm({
+      title: 'Delete Template',
+      message: `Are you sure you want to delete template "${name}"?`,
+      confirmLabel: 'Delete',
+      danger: true,
+    });
+    if (!ok) return;
+    await run(`del-tpl-${id}`, async () => {
+      try {
+        const targetId = id || name;
+        await api.delete(`/api/templates/${encodeURIComponent(targetId)}`);
+        setTemplates((prev) => prev.filter((t) => (t.id || t._id) !== id && t.name !== name));
+        success('Template Deleted', `Template "${name}" has been removed`);
+        await fetchData();
+      } catch (err: any) {
+        error('Failed to delete', err.message || 'Could not delete template');
+      }
+    });
   };
 
   const handleVariableChange = (varName: string, value: string) => {
@@ -265,14 +330,23 @@ export default function Campaigns() {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           {activeTab === 'templates' && (
-            <button
-              onClick={handleSyncTemplates}
-              disabled={syncingTemplates}
-              className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold rounded-xl text-xs shadow-2xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-            >
-              <RefreshCw size={14} className={syncingTemplates ? 'animate-spin text-amber-500' : ''} />
-              <span>{syncingTemplates ? 'Syncing...' : 'Sync Meta Templates'}</span>
-            </button>
+            <>
+              <button
+                onClick={handleSyncTemplates}
+                disabled={syncingTemplates}
+                className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold rounded-xl text-xs shadow-2xs hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+              >
+                <RefreshCw size={14} className={syncingTemplates ? 'animate-spin text-amber-500' : ''} />
+                <span>{syncingTemplates ? 'Syncing...' : 'Sync Meta Templates'}</span>
+              </button>
+              <button
+                onClick={() => setShowCreateTemplateModal(true)}
+                className="flex items-center space-x-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all"
+              >
+                <Plus size={15} strokeWidth={2.5} />
+                <span>New Template</span>
+              </button>
+            </>
           )}
           {activeTab === 'campaigns' && (
             <button
@@ -445,14 +519,23 @@ export default function Campaigns() {
                   <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-5">
                     Synchronize message templates approved by Meta to start sending broadcast messages.
                   </p>
-                  <button
-                    onClick={handleSyncTemplates}
-                    disabled={syncingTemplates}
-                    className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all inline-flex items-center space-x-2"
-                  >
-                    <RefreshCw size={14} className={syncingTemplates ? "animate-spin text-slate-950" : ""} />
-                    <span>Sync Meta Templates</span>
-                  </button>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      onClick={handleSyncTemplates}
+                      disabled={syncingTemplates}
+                      className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all inline-flex items-center space-x-2"
+                    >
+                      <RefreshCw size={14} className={syncingTemplates ? "animate-spin text-slate-950" : ""} />
+                      <span>Sync Meta Templates</span>
+                    </button>
+                    <button
+                      onClick={() => setShowCreateTemplateModal(true)}
+                      className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 font-extrabold rounded-xl text-xs transition-all inline-flex items-center space-x-2"
+                    >
+                      <Plus size={14} />
+                      <span>Create Custom Template</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 templates.map((tpl) => {
@@ -462,9 +545,19 @@ export default function Campaigns() {
                       <div>
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-100 truncate">{tpl.name}</h4>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isApproved ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"}`}>
-                            {isApproved ? 'Approved' : 'Rejected'}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isApproved ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"}`}>
+                              {isApproved ? 'Approved' : 'Rejected'}
+                            </span>
+                            <button
+                              onClick={() => handleDeleteTemplate(tpl.id || tpl._id || tpl.name, tpl.name)}
+                              disabled={isLoading(`del-tpl-${tpl.id || tpl._id || tpl.name}`)}
+                              className="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
+                              title="Delete template"
+                            >
+                              {isLoading(`del-tpl-${tpl.id}`) ? <Loader2 size={12} className="animate-spin text-rose-500" /> : <Trash2 size={12} />}
+                            </button>
+                          </div>
                         </div>
                         <div className="flex items-center gap-1.5 mb-2.5">
                           <span className="text-[9.5px] font-extrabold uppercase px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500">
@@ -628,6 +721,130 @@ export default function Campaigns() {
                       <span>⚡Run</span>
                     </>
                   )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── Create Custom Template Modal ── */}
+      {showCreateTemplateModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl max-w-xl w-full overflow-hidden animate-scaleIn">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-extrabold text-xs">
+                  <FileText size={16} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Create Custom WhatsApp Template</h3>
+                  <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Add a message template with variables like {'{{1}}'}, {'{{2}}'}</p>
+                </div>
+              </div>
+              <button onClick={() => setShowCreateTemplateModal(false)} className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white rounded-lg">
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateTemplate} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto custom-scrollbar">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                  Template Name <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. exclusive_festive_offer"
+                  value={newTplName}
+                  onChange={(e) => setNewTplName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Category</label>
+                  <select
+                    value={newTplCategory}
+                    onChange={(e: any) => setNewTplCategory(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                  >
+                    <option value="MARKETING">Marketing / Promotion</option>
+                    <option value="UTILITY">Utility / Follow-up / Reminder</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Header Type</label>
+                  <select
+                    value={newTplHeaderType}
+                    onChange={(e: any) => setNewTplHeaderType(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                  >
+                    <option value="NONE">None (Plain text only)</option>
+                    <option value="TEXT">Text Header</option>
+                    <option value="IMAGE">Image Header</option>
+                  </select>
+                </div>
+              </div>
+
+              {newTplHeaderType === 'TEXT' && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Header Text</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Special Announcement"
+                    value={newTplHeaderContent}
+                    onChange={(e) => setNewTplHeaderContent(e.target.value)}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                  />
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                    Message Body Text <span className="text-rose-500">*</span>
+                  </label>
+                  <span className="text-[10.5px] text-slate-400 font-semibold">Use {'{{1}}'}, {'{{2}}'} for placeholders</span>
+                </div>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Hello {{1}}, we are pleased to offer you {{2}} with exclusive discount. Reply YES to confirm."
+                  value={newTplBodyText}
+                  onChange={(e) => setNewTplBodyText(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold leading-relaxed"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Footer Text (Optional)</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Reply STOP to unsubscribe"
+                  value={newTplFooterText}
+                  onChange={(e) => setNewTplFooterText(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2.5 pt-3 border-t border-slate-200/80 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowCreateTemplateModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingTemplate}
+                  className="px-5 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all flex items-center space-x-1.5"
+                >
+                  {creatingTemplate ? <Loader2 size={14} className="animate-spin text-slate-950" /> : <Save size={14} />}
+                  <span>Save Template</span>
                 </button>
               </div>
             </form>

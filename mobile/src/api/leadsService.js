@@ -639,9 +639,6 @@ export const leadsService = {
       businessAccountId: "108923489234",
       phoneNumberId: "109823489234",
       accessToken: "••••••••••••••••••••",
-      thirdPartyEndpoint: "https://app.click2api.in",
-      thirdPartyInstanceId: "INST-90234",
-      thirdPartyToken: "••••••••••••",
     };
   },
 

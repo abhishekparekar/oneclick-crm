@@ -115,6 +115,35 @@ const leadSchema = new mongoose.Schema(
         },
       },
     ],
+    leadNotes: [
+      {
+        note: { type: String, required: true },
+        createdAt: { type: Date, default: Date.now },
+        createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+      },
+    ],
+    leadMessages: [
+      {
+        messageContent: { type: String, required: true },
+        templateName: { type: String, default: "" },
+        direction: { type: String, enum: ["INBOUND", "OUTBOUND"], default: "OUTBOUND" },
+        status: { type: String, default: "SENT" },
+        source: { type: String, default: "WHATSAPP" },
+        errorMessage: { type: String, default: "" },
+        errorCode: { type: String, default: "" },
+        metaMessageId: { type: String, default: "" },
+        scheduledAt: { type: Date, default: null },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
+    leadActivities: [
+      {
+        title: { type: String, required: true },
+        description: { type: String, default: "" },
+        type: { type: String, default: "MESSAGE" },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     deletedAt: {
       type: Date,
       default: null,

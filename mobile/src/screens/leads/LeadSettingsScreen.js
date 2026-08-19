@@ -59,16 +59,12 @@ export default function LeadSettingsScreen({ navigation }) {
   const [testingWa, setTestingWa] = useState(false);
 
   // WhatsApp State
-  const [apiProvider, setApiProvider] = useState("OFFICIAL_META");
   const [waStatus, setWaStatus] = useState("CONNECTED");
   const [whatsapp, setWhatsapp] = useState({
     displayPhoneNumber: "+91 98220 12345",
     phoneNumberId: "109823489234",
     businessAccountId: "108923489234",
     accessToken: "••••••••••••••••••••",
-    thirdPartyEndpoint: "https://app.click2api.in",
-    thirdPartyInstanceId: "INST-90234",
-    thirdPartyToken: "••••••••••••",
   });
 
   // Business Profile State
@@ -360,42 +356,6 @@ export default function LeadSettingsScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
 
-                {/* Compact Provider Switcher */}
-                <View style={styles.providerRow}>
-                  <TouchableOpacity
-                    style={[styles.providerTab, apiProvider === "OFFICIAL_META" && styles.providerTabActive]}
-                    onPress={() => setApiProvider("OFFICIAL_META")}
-                  >
-                    <Ionicons
-                      name="shield-checkmark"
-                      size={13}
-                      color={apiProvider === "OFFICIAL_META" ? C.primary : C.muted}
-                    />
-                    <Text style={[styles.providerTabText, apiProvider === "OFFICIAL_META" && styles.providerTabTextActive]}>
-                      Meta Cloud API
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.providerTab, apiProvider === "THIRD_PARTY_CLICK2API" && styles.providerTabActive]}
-                    onPress={() => setApiProvider("THIRD_PARTY_CLICK2API")}
-                  >
-                    <Ionicons
-                      name="server"
-                      size={13}
-                      color={apiProvider === "THIRD_PARTY_CLICK2API" ? C.primary : C.muted}
-                    />
-                    <Text
-                      style={[
-                        styles.providerTabText,
-                        apiProvider === "THIRD_PARTY_CLICK2API" && styles.providerTabTextActive,
-                      ]}
-                    >
-                      Click2API Instance
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-
                 {/* Inputs */}
                 <View style={styles.formGroup}>
                   <Text style={styles.fieldLabel}>Display Number</Text>
@@ -407,75 +367,37 @@ export default function LeadSettingsScreen({ navigation }) {
                   />
                 </View>
 
-                {apiProvider === "OFFICIAL_META" ? (
-                  <>
-                    <View style={styles.row2}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fieldLabel}>Phone Number ID</Text>
-                        <TextInput
-                          style={styles.inputMini}
-                          placeholder="Phone ID"
-                          value={whatsapp.phoneNumberId}
-                          onChangeText={(v) => setWhatsapp((p) => ({ ...p, phoneNumberId: v }))}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fieldLabel}>WABA ID</Text>
-                        <TextInput
-                          style={styles.inputMini}
-                          placeholder="WABA ID"
-                          value={whatsapp.businessAccountId}
-                          onChangeText={(v) => setWhatsapp((p) => ({ ...p, businessAccountId: v }))}
-                        />
-                      </View>
-                    </View>
+                <View style={styles.row2}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>Phone Number ID</Text>
+                    <TextInput
+                      style={styles.inputMini}
+                      placeholder="Phone ID"
+                      value={whatsapp.phoneNumberId}
+                      onChangeText={(v) => setWhatsapp((p) => ({ ...p, phoneNumberId: v }))}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.fieldLabel}>WABA ID</Text>
+                    <TextInput
+                      style={styles.inputMini}
+                      placeholder="WABA ID"
+                      value={whatsapp.businessAccountId}
+                      onChangeText={(v) => setWhatsapp((p) => ({ ...p, businessAccountId: v }))}
+                    />
+                  </View>
+                </View>
 
-                    <View style={styles.formGroup}>
-                      <Text style={styles.fieldLabel}>Permanent Access Token</Text>
-                      <TextInput
-                        style={styles.inputMini}
-                        placeholder="EAA..."
-                        secureTextEntry
-                        value={whatsapp.accessToken}
-                        onChangeText={(v) => setWhatsapp((p) => ({ ...p, accessToken: v }))}
-                      />
-                    </View>
-                  </>
-                ) : (
-                  <>
-                    <View style={styles.formGroup}>
-                      <Text style={styles.fieldLabel}>Instance Endpoint</Text>
-                      <TextInput
-                        style={styles.inputMini}
-                        placeholder="https://app.click2api.in"
-                        value={whatsapp.thirdPartyEndpoint}
-                        onChangeText={(v) => setWhatsapp((p) => ({ ...p, thirdPartyEndpoint: v }))}
-                      />
-                    </View>
-
-                    <View style={styles.row2}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fieldLabel}>Instance ID</Text>
-                        <TextInput
-                          style={styles.inputMini}
-                          placeholder="INST-12345"
-                          value={whatsapp.thirdPartyInstanceId}
-                          onChangeText={(v) => setWhatsapp((p) => ({ ...p, thirdPartyInstanceId: v }))}
-                        />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.fieldLabel}>Instance Secret</Text>
-                        <TextInput
-                          style={styles.inputMini}
-                          placeholder="Secret token"
-                          secureTextEntry
-                          value={whatsapp.thirdPartyToken}
-                          onChangeText={(v) => setWhatsapp((p) => ({ ...p, thirdPartyToken: v }))}
-                        />
-                      </View>
-                    </View>
-                  </>
-                )}
+                <View style={styles.formGroup}>
+                  <Text style={styles.fieldLabel}>Permanent Access Token</Text>
+                  <TextInput
+                    style={styles.inputMini}
+                    placeholder="EAA..."
+                    secureTextEntry
+                    value={whatsapp.accessToken}
+                    onChangeText={(v) => setWhatsapp((p) => ({ ...p, accessToken: v }))}
+                  />
+                </View>
 
                 <TouchableOpacity
                   style={styles.saveBtnCompact}

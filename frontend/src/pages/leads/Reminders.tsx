@@ -41,17 +41,15 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-rem-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-rem-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+        <AreaChart width={64} height={40} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-rem-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-rem-${label.replace(/\s+/g, '')})`}/>
+        </AreaChart>
       </div>
     </div>
   );

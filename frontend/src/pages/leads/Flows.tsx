@@ -33,24 +33,22 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         <h3 className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight leading-tight mb-1 truncate">{value}</h3>
         <div className="flex items-center gap-1 text-[11px]">
           <span className={`inline-flex items-center font-medium ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={10} strokeWidth={2.5} /> : <ArrowDown size={10} strokeWidth={2.5} />}
+            {isUp ? <ArrowUp size={10} strokeWidth={2.5}/> : <ArrowDown size={10} strokeWidth={2.5}/>}
             {trend}
           </span>
           <span className="text-slate-400 text-[9.5px] truncate">vs {period}</span>
         </div>
       </div>
       <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-flow-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35} />
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-flow-${label.replace(/\s+/g, '')})`} />
-          </AreaChart>
-        </ResponsiveContainer>
+        <AreaChart width={64} height={40} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={`sk-flow-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+              <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+            </linearGradient>
+          </defs>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-flow-${label.replace(/\s+/g, '')})`}/>
+        </AreaChart>
       </div>
     </div>
   );
@@ -263,7 +261,7 @@ export default function Flows() {
             className="flex items-center space-x-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all"
           >
             <Plus size={15} strokeWidth={2.5} />
-            <span>Create Automations</span>
+            <span>Create Drip Flow</span>
           </button>
           <button
             onClick={fetchData}
@@ -288,12 +286,13 @@ export default function Flows() {
         <div className="flex items-center space-x-1.5 overflow-x-auto custom-scrollbar py-0.5">
           <button
             onClick={() => setActiveFilter('ALL')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap ${activeFilter === 'ALL'
+            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all whitespace-nowrap ${
+              activeFilter === 'ALL'
                 ? "bg-amber-500 text-slate-950 shadow-xs"
                 : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
+            }`}
           >
-            All Automations ({safeFlows.length})
+            All Flows ({safeFlows.length})
           </button>
           {safeStatuses.map(st => {
             const count = safeFlows.filter(f => f.triggerStatusId === st.id).length;
@@ -302,10 +301,11 @@ export default function Flows() {
               <button
                 key={st.id}
                 onClick={() => setActiveFilter(st.id)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${activeFilter === st.id
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  activeFilter === st.id
                     ? "bg-amber-500 text-slate-950 shadow-xs font-extrabold"
                     : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                }`}
               >
                 {st.name} ({count})
               </button>
@@ -337,7 +337,7 @@ export default function Flows() {
             className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all inline-flex items-center space-x-2"
           >
             <Plus size={16} strokeWidth={2.5} />
-            <span>Build First Automations</span>
+            <span>Build First Drip Flow</span>
           </button>
         </div>
       ) : (
@@ -347,8 +347,9 @@ export default function Flows() {
             return (
               <div
                 key={flow.id}
-                className={`bg-white dark:bg-[#111C24] rounded-2xl border transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] flex flex-col justify-between overflow-hidden ${flow.isActive ? "border-slate-200/80 dark:border-slate-800" : "border-slate-200/50 dark:border-slate-800/60 opacity-80"
-                  }`}
+                className={`bg-white dark:bg-[#111C24] rounded-2xl border transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] flex flex-col justify-between overflow-hidden ${
+                  flow.isActive ? "border-slate-200/80 dark:border-slate-800" : "border-slate-200/50 dark:border-slate-800/60 opacity-80"
+                }`}
               >
                 {/* Flow Header */}
                 <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-start justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
@@ -375,12 +376,14 @@ export default function Flows() {
                   <button
                     onClick={() => handleToggleActive(flow.id, flow.isActive)}
                     disabled={isLoading(`toggle-${flow.id}`)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${flow.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
-                      }`}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      flow.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
+                    }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${flow.isActive ? 'translate-x-5' : 'translate-x-0'
-                        }`}
+                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        flow.isActive ? 'translate-x-5' : 'translate-x-0'
+                      }`}
                     />
                   </button>
                 </div>
@@ -481,7 +484,7 @@ export default function Flows() {
             <form onSubmit={handleCreateFlow} className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Automation Name</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Flow Name</label>
                   <input
                     type="text"
                     required
@@ -510,12 +513,24 @@ export default function Flows() {
                   <button
                     type="button"
                     onClick={() => setTriggerType('STATUS_CHANGE')}
-                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all border text-center ${triggerType === 'STATUS_CHANGE'
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all border text-center ${
+                      triggerType === 'STATUS_CHANGE'
                         ? 'bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-2xs'
                         : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
-                      }`}
+                    }`}
                   >
                     ⚡ Status Change
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setTriggerType('TAG_ADDED')}
+                    className={`py-2 px-3 rounded-lg text-xs font-bold transition-all border text-center ${
+                      triggerType === 'TAG_ADDED'
+                        ? 'bg-amber-500 text-slate-950 border-amber-500 font-extrabold shadow-2xs'
+                        : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                    }`}
+                  >
+                    🏷️ Tag Added
                   </button>
                 </div>
 
@@ -660,7 +675,7 @@ export default function Flows() {
                   ) : (
                     <>
                       <Check size={14} strokeWidth={2.5} />
-                      <span>{editingFlow ? 'Update Automations' : 'Save Automations'}</span>
+                      <span>{editingFlow ? 'Update Drip Flow' : 'Save Drip Flow'}</span>
                     </>
                   )}
                 </button>

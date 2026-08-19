@@ -7,9 +7,7 @@ import { useToast } from './Toast';
 import { useActionLoader } from './ActionLoader';
 import {
   X, MessageSquare, FileText, History, Save, Trash2, Plus,
-  Loader2, Send, User, Calendar, AlertCircle, CheckCircle, Clock, Tag,
-  Phone, Mail, Building2, UserCheck, Sparkles, MessageCircle, DollarSign,
-  Share2, ShieldCheck, Check, ChevronDown, Activity
+  Loader2, Send, User, Calendar, AlertCircle, CheckCircle, Clock, Tag
 } from 'lucide-react';
 
 interface LeadDrawerProps {
@@ -19,62 +17,40 @@ interface LeadDrawerProps {
   statuses: any[];
   sources: any[];
   allTags?: any[];
-  employees?: any[];
 }
 
-export default function LeadDrawer({
-  leadId,
-  onClose,
-  onUpdate,
-  statuses,
-  sources,
-  allTags,
-  employees,
-}: LeadDrawerProps) {
+type TabId = 'details' | 'notes' | 'send' | 'messages' | 'timeline';
+
+const TABS: { id: TabId; label: string; icon: any }[] = [
+  { id: 'details', label: 'Details', icon: User },
+  { id: 'notes', label: 'Notes', icon: FileText },
+  { id: 'send', label: 'Send', icon: Send },
+  { id: 'messages', label: 'Messages', icon: MessageSquare },
+  { id: 'timeline', label: 'Timeline', icon: History },
+];
+
+export default function LeadDrawer({ leadId, onClose, onUpdate, statuses, sources, allTags }: LeadDrawerProps) {
   const { success, error, confirm } = useToast();
   const { isLoading, run } = useActionLoader();
+  const [activeTab, setActiveTab] = useState<TabId>('details');
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState<any>(null);
   const [availableTags, setAvailableTags] = useState<any[]>(allTags || []);
-  const [employeeList, setEmployeeList] = useState<any[]>(employees || []);
   const [notes, setNotes] = useState<any[]>([]);
   const [activities, setActivities] = useState<any[]>([]);
+  const [messages, setMessages] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [templates, setTemplates] = useState<any[]>([]);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>('');
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [varMapping, setVarMapping] = useState<Record<string, string>>({});
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
-    name: '',
-    whatsappPhone: '',
-    phone: '',
-    email: '',
-    company: '',
-    productService: '',
-    source: 'Walk-in',
-    statusId: '',
-    estimatedValue: '',
-    whatsappOptIn: true,
-    dateOfBirth: '',
-    anniversaryDate: '',
-    assignedTo: '',
-    notes: '',
+    name: '', whatsappPhone: '', phone: '', email: '',
+    productService: '', source: 'Walk-in', statusId: '',
+    whatsappOptIn: true, dateOfBirth: '', anniversaryDate: '',
     tagIds: [] as string[],
   });
-
-  const fetchEmployees = async () => {
-    if (employees && employees.length > 0) {
-      setEmployeeList(employees);
-      return;
-    }
-    try {
-      const res = await api.get('/api/assignable-users');
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
-      if (list.length > 0) {
-        setEmployeeList(list);
-      }
-    } catch (_) {}
-  };
 
   const fetchLeadDetails = async () => {
     setLoading(true);
@@ -83,35 +59,30 @@ export default function LeadDrawer({
       if (res) {
         setLead(res);
         setFormData({
-          name: res.name || '',
-          whatsappPhone: res.whatsappPhone || '',
-          phone: res.phone || '',
-          email: res.email || '',
-          company: res.company || res.productService || '',
-          productService: res.productService || '',
-          source: res.source || 'Walk-in',
-          statusId: res.statusId || '',
-          estimatedValue: res.estimatedValue ? String(res.estimatedValue) : '',
-          whatsappOptIn: res.whatsappOptIn ?? true,
+          name: res.name || '', whatsappPhone: res.whatsappPhone || '',
+          phone: res.phone || '', email: res.email || '',
+          productService: res.productService || '', source: res.source || 'Walk-in',
+          statusId: res.statusId || '', whatsappOptIn: res.whatsappOptIn ?? true,
           dateOfBirth: res.dateOfBirth ? new Date(res.dateOfBirth).toISOString().split('T')[0] : '',
           anniversaryDate: res.anniversaryDate ? new Date(res.anniversaryDate).toISOString().split('T')[0] : '',
-          assignedTo: res.assignedTo?._id || res.assignedTo?.id || res.assignedToId || (typeof res.assignedTo === 'string' ? res.assignedTo : ''),
-          notes: res.notes || '',
           tagIds: res.tags ? res.tags.map((t: any) => t.id) : [],
         });
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
+    } catch (err) { console.error(err); }
+    finally { setLoading(false); }
   };
 
   const fetchTags = async () => {
     if (allTags && allTags.length > 0) return;
     try {
       const res = await api.get('/api/tags');
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.tags) ? res.tags : Array.isArray(res) ? res : [];
+      const list = Array.isArray(res?.tags)
+        ? res.tags
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
       setAvailableTags(list);
     } catch (_) {
       setAvailableTags([]);
@@ -121,17 +92,45 @@ export default function LeadDrawer({
   const fetchActivities = async () => {
     try {
       const res = await api.get(`/api/leads/${leadId}/activities`);
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.activities) ? res.activities : Array.isArray(res) ? res : [];
+      const list = Array.isArray(res?.activities)
+        ? res.activities
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
       setActivities(list);
     } catch (_) {
       setActivities([]);
     }
   };
 
+  const fetchMessages = async () => {
+    try {
+      const res = await api.get(`/api/leads/${leadId}/messages`);
+      const list = Array.isArray(res?.messages)
+        ? res.messages
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
+      setMessages(list);
+    } catch (_) {
+      setMessages([]);
+    }
+  };
+
   const fetchTemplates = async () => {
     try {
       const res = await api.get('/api/templates?status=APPROVED');
-      const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.templates) ? res.templates : Array.isArray(res) ? res : [];
+      const list = Array.isArray(res?.templates)
+        ? res.templates
+        : Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
       setTemplates(list);
     } catch (_) {
       setTemplates([]);
@@ -143,7 +142,6 @@ export default function LeadDrawer({
       fetchLeadDetails();
       fetchTemplates();
       fetchTags();
-      fetchEmployees();
     }
   }, [leadId]);
 
@@ -151,18 +149,16 @@ export default function LeadDrawer({
     if (lead) {
       setNotes(lead.leadNotes || []);
       fetchActivities();
+      fetchMessages();
     }
   }, [lead]);
 
-  const handleUpdateLead = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleUpdateLead = async (e: React.FormEvent) => {
+    e.preventDefault();
     await run('update', async () => {
       const payload: any = { ...formData };
       if (payload.dateOfBirth) payload.dateOfBirth = new Date(payload.dateOfBirth).toISOString();
       if (payload.anniversaryDate) payload.anniversaryDate = new Date(payload.anniversaryDate).toISOString();
-      if (!payload.assignedTo) payload.assignedTo = null;
-      if (payload.estimatedValue) payload.estimatedValue = Number(payload.estimatedValue);
-
       const res = await api.patch(`/api/leads/${leadId}`, payload);
       setLead(res);
       onUpdate();
@@ -182,28 +178,36 @@ export default function LeadDrawer({
     });
   };
 
-  const handleSendQuickWhatsApp = async () => {
-    if (!selectedTemplateId) return;
+  const handleSendTemplate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTemplate) return;
     await run('send', async () => {
-      await api.post(`/api/leads/${leadId}/send-template`, {
-        templateId: selectedTemplateId,
-        variableValues: {},
+      const res = await api.post(`/api/leads/${leadId}/send-template`, {
+        templateId: selectedTemplate.id || selectedTemplate._id,
+        variableValues: varMapping,
       });
-      setSendSuccess('Template sent');
-      setSelectedTemplateId('');
+
+      if (res?.metaSent) {
+        setSendSuccess('WhatsApp message delivered to user via WhatsApp API!');
+        success('Message Sent Successfully', 'Template message delivered to user on WhatsApp');
+      } else if (res?.metaError) {
+        error('WhatsApp API Error', res.metaError);
+        setSendSuccess(res.metaError);
+      } else {
+        setSendSuccess(res?.message || 'Message processed.');
+        success('Message Sent', res?.message);
+      }
+
+      setSelectedTemplate(null);
+      setVarMapping({});
+      fetchMessages();
       fetchActivities();
-      setTimeout(() => setSendSuccess(null), 3000);
-      success('WhatsApp message queued');
+      setTimeout(() => setSendSuccess(null), 6000);
     });
   };
 
   const handleDeleteLead = async () => {
-    const ok = await confirm({
-      title: 'Delete Contact',
-      message: 'Delete this contact profile?',
-      confirmLabel: 'Delete',
-      danger: true,
-    });
+    const ok = await confirm({ title: 'Delete Contact', message: 'Delete this contact? The record will be soft-deleted and can be restored by re-adding the same number.', confirmLabel: 'Delete', danger: true });
     if (!ok) return;
     await run('delete', async () => {
       await api.delete(`/api/leads/${leadId}`);
@@ -213,23 +217,11 @@ export default function LeadDrawer({
     });
   };
 
-  const openWhatsAppDirect = () => {
-    const cleanPhone = (formData.whatsappPhone || '').replace(/\D/g, '');
-    if (!cleanPhone) return;
-    window.open(`https://wa.me/${cleanPhone}`, '_blank');
-  };
-
-  const openCallDirect = () => {
-    const phone = formData.phone || formData.whatsappPhone;
-    if (!phone) return;
-    window.open(`tel:${phone}`, '_self');
-  };
-
   if (loading) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end animate-fadeIn">
-        <div className="w-full max-w-[720px] bg-white dark:bg-[#111C24] h-full flex items-center justify-center border-l border-slate-200 dark:border-slate-800 shadow-2xl">
-          <Loader2 className="w-6 h-6 text-amber-500 animate-spin" />
+      <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ width: '100%', maxWidth: 560, background: '#FFFFFF', height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', borderLeft: '1px solid #E5E7EB' }}>
+          <Loader2 className="animate-spin" style={{ width: 24, height: 24, color: '#0E6B50' }} />
         </div>
       </div>
     );
@@ -241,422 +233,454 @@ export default function LeadDrawer({
     return p.length === 1 ? p[0][0].toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase();
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex justify-end animate-fadeIn">
-      {/* Backdrop overlay */}
-      <div className="absolute inset-0" onClick={onClose} />
+  const safeTemplates = Array.isArray(templates)
+    ? templates
+    : Array.isArray((templates as any)?.templates)
+    ? (templates as any).templates
+    : [];
+  const safeTags = Array.isArray(availableTags)
+    ? availableTags
+    : Array.isArray((availableTags as any)?.tags)
+    ? (availableTags as any).tags
+    : [];
+  const safeNotes = Array.isArray(notes) ? notes : [];
+  const safeMessages = Array.isArray(messages)
+    ? messages
+    : Array.isArray((messages as any)?.messages)
+    ? (messages as any).messages
+    : [];
+  const safeActivities = Array.isArray(activities)
+    ? activities
+    : Array.isArray((activities as any)?.activities)
+    ? (activities as any).activities
+    : [];
 
-      {/* Unified Spacious Drawer Panel */}
-      <div className="relative z-51 w-full max-w-[720px] bg-white dark:bg-[#111C24] h-full flex flex-col shadow-2xl border-l border-slate-200/90 dark:border-slate-800 animate-slideLeft">
-        
-        {/* ── UNIFIED COMPACT HEADER ── */}
-        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 flex items-center justify-between gap-2 flex-shrink-0">
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-extrabold text-xs flex-shrink-0 shadow-2xs">
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }}>
+      <div style={{ position: 'absolute', inset: 0 }} onClick={onClose} />
+
+      <div
+        className="animate-slide-in"
+        style={{
+          position: 'relative', zIndex: 51, width: '100%', maxWidth: 560,
+          background: '#FFFFFF', height: '100vh', display: 'flex', flexDirection: 'column',
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', borderLeft: '1px solid #E5E7EB',
+        }}
+      >
+        {/* Header */}
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{
+              width: 36, height: 36, borderRadius: '50%', background: '#ECFDF5',
+              color: '#0E6B50', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontWeight: 600, fontSize: 13, flexShrink: 0,
+            }}>
               {initials(lead?.name)}
             </div>
-            <div className="min-w-0">
-              <h2 className="text-[13px] font-extrabold text-slate-900 dark:text-white truncate leading-tight">
-                {lead?.name || 'Contact Profile'}
-              </h2>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] font-bold text-slate-400 truncate max-w-[120px]">
-                  {lead?.company || lead?.source || 'Lead'}
-                </span>
-                <span className="text-slate-300 dark:text-slate-700">•</span>
-                <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 truncate max-w-[140px]">
-                  {lead?.assignedTo?.name ? `👤 ${lead.assignedTo.name}` : 'Unassigned'}
-                </span>
+            <div>
+              <p style={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.3 }}>{lead?.name}</p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+                <StatusBadge name={lead?.status?.name} color={lead?.status?.color} />
+                {lead?.tags?.map((tag: any, idx: number) => (
+                  <span key={tag.id || tag._id || tag.name || `tag-${idx}`} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 3.5,
+                    padding: '2px 7px', borderRadius: 12, fontSize: 11, fontWeight: 600,
+                    background: `${tag.color || '#6366F1'}15`, color: tag.color || '#6366F1',
+                    border: `1px solid ${tag.color || '#6366F1'}30`,
+                  }}>
+                    <Tag style={{ width: 9, height: 9 }} />
+                    {tag.name}
+                  </span>
+                ))}
+                {!lead?.whatsappOptIn && (
+                  <span style={{ fontSize: 11, fontWeight: 600, color: '#EF4444', background: '#FEF2F2', padding: '2px 6px', borderRadius: 4, border: '1px solid #FECACA' }}>
+                    Opted Out
+                  </span>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Quick Header Actions */}
-          <div className="flex items-center gap-1 flex-shrink-0">
-            <button
-              type="button"
-              onClick={openWhatsAppDirect}
-              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 flex items-center justify-center cursor-pointer transition-colors"
-              title="Chat on WhatsApp"
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <button onClick={handleDeleteLead} disabled={isLoading('delete')} className="btn btn-ghost btn-sm" style={{ padding: '0 7px', color: '#EF4444' }} title="Delete contact">
+              {isLoading('delete') ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Trash2 style={{ width: 14, height: 14 }} />}
             </button>
-            <button
-              type="button"
-              onClick={openCallDirect}
-              className="w-7 h-7 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 flex items-center justify-center cursor-pointer transition-colors"
-              title="Call"
-            >
-              <Phone className="w-3 h-3" />
-            </button>
-            <button
-              type="button"
-              onClick={() => handleUpdateLead()}
-              disabled={isLoading('update')}
-              className="h-7 px-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-[11px] font-extrabold flex items-center gap-1 cursor-pointer transition-all shadow-2xs ml-1 disabled:opacity-50"
-              title="Save Changes"
-            >
-              {isLoading('update') ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
-              <span>Save</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleDeleteLead}
-              disabled={isLoading('delete')}
-              className="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center cursor-pointer transition-colors ml-0.5"
-              title="Delete Contact"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="w-7 h-7 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-white flex items-center justify-center cursor-pointer ml-0.5"
-            >
-              <X className="w-4 h-4" />
+            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0 7px' }}>
+              <X style={{ width: 16, height: 16 }} />
             </button>
           </div>
         </div>
 
-        {/* ── ALL-IN-ONE SCROLLABLE DRAWER BODY ── */}
-        <div className="flex-1 overflow-y-auto p-3.5 space-y-3 bg-slate-50/40 dark:bg-[#0B1118]/40">
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid #F3F4F6', flexShrink: 0 }}>
+          {TABS.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
+                  padding: '10px 4px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+                  background: 'transparent', border: 'none',
+                  color: isActive ? '#0E6B50' : '#9CA3AF',
+                  borderBottom: `2px solid ${isActive ? '#0E6B50' : 'transparent'}`,
+                  marginBottom: -1, transition: 'all 150ms ease',
+                }}
+              >
+                <Icon style={{ width: 13, height: 13 }} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
 
-          {/* ═════════ 1. LEAD PROFILE & ASSIGNMENT DETAILS ═════════ */}
-          <form onSubmit={handleUpdateLead} className="space-y-3">
-            <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2 shadow-2xs">
-              
-              {/* Full Name */}
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Contact Name *</label>
-                <input
-                  type="text"
-                  required
-                  className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                />
-              </div>
+        {/* Body */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 20, background: '#FAFAFA' }}>
 
-              {/* WhatsApp & Secondary Phone */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">WhatsApp Number *</label>
-                  <input
-                    type="tel"
-                    required
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.whatsappPhone}
-                    onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Secondary Phone</label>
-                  <input
-                    type="tel"
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-              </div>
-
-              {/* Email & Company */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Email Address</label>
-                  <input
-                    type="email"
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="email@example.com"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Company Name</label>
-                  <input
-                    type="text"
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.company}
-                    onChange={(e) => setFormData({ ...formData, company: e.target.value })}
-                    placeholder="Company / Org"
-                  />
+          {/* TAB: Details */}
+          {activeTab === 'details' && (
+            <form onSubmit={handleUpdateLead} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="card-elevated" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div>
+                    <label className="form-label">Full Name</label>
+                    <input type="text" required className="input-base" value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label className="form-label">WhatsApp Number</label>
+                      <input type="tel" required className="input-base" value={formData.whatsappPhone}
+                        onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="form-label">Secondary Phone</label>
+                      <input type="tel" className="input-base" value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label">Email Address</label>
+                    <input type="email" className="input-base" value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })} />
+                  </div>
                 </div>
               </div>
 
-              {/* Assigned Representative (with Dept) */}
-              <div>
-                <label className="text-[10px] font-black uppercase text-indigo-600 dark:text-indigo-400 block mb-0.5">
-                  👤 Assign to Employee / Sales Rep (with Dept)
-                </label>
-                <select
-                  className="w-full h-7.5 px-2.5 bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-indigo-500"
-                  value={formData.assignedTo}
-                  onChange={(e) => setFormData({ ...formData, assignedTo: e.target.value })}
-                >
-                  <option value="">-- Unassigned --</option>
-                  {(Array.isArray(employeeList) ? employeeList : []).map((emp) => (
-                    <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                      {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <div className="card-elevated" style={{ padding: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label className="form-label">Status</label>
+                      <select className="select-base" value={formData.statusId}
+                        onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}>
+                        {(Array.isArray(statuses) ? statuses : []).map((st) => <option key={st.id} value={st.id}>{st.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="form-label">Source</label>
+                      <select className="select-base" value={formData.source}
+                        onChange={(e) => setFormData({ ...formData, source: e.target.value })}>
+                        {(Array.isArray(sources) ? sources : []).map((src) => <option key={src.id} value={src.name}>{src.name}</option>)}
+                        {formData.source && !(Array.isArray(sources) ? sources : []).some(s => s.name === formData.source) && (
+                          <option value={formData.source}>{formData.source}</option>
+                        )}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="form-label">Product / Service Interest</label>
+                    <input type="text" className="input-base" value={formData.productService}
+                      onChange={(e) => setFormData({ ...formData, productService: e.target.value })} />
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                    <div>
+                      <label className="form-label">Birthday</label>
+                      <input type="date" className="input-base" value={formData.dateOfBirth}
+                        onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="form-label">Anniversary</label>
+                      <input type="date" className="input-base" value={formData.anniversaryDate}
+                        onChange={(e) => setFormData({ ...formData, anniversaryDate: e.target.value })} />
+                    </div>
+                  </div>
 
-              {/* Status & Source */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Pipeline Stage</label>
-                  <select
-                    className="w-full h-7.5 px-2 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.statusId}
-                    onChange={(e) => setFormData({ ...formData, statusId: e.target.value })}
-                  >
-                    {(Array.isArray(statuses) ? statuses : []).map((st) => (
-                      <option key={st.id || st._id} value={st.id || st._id}>
-                        {st.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Lead Source</label>
-                  <select
-                    className="w-full h-7.5 px-2 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.source}
-                    onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  >
-                    {(Array.isArray(sources) ? sources : []).map((src) => (
-                      <option key={src.id || src.name} value={src.name}>
-                        {src.name}
-                      </option>
-                    ))}
-                    {formData.source && !(Array.isArray(sources) ? sources : []).some((s) => s.name === formData.source) && (
-                      <option value={formData.source}>{formData.source}</option>
-                    )}
-                  </select>
-                </div>
-              </div>
+                  {/* Tag Multi-select */}
+                  <div>
+                    <label className="form-label" style={{ marginBottom: 6 }}>
+                      <Tag style={{ width: 11, height: 11, display: 'inline', marginRight: 4, color: '#6366F1' }} />
+                      Tags
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      {safeTags.length === 0 ? (
+                        <p style={{ fontSize: 12, color: '#94A3B8', fontStyle: 'italic' }}>No tags created yet</p>
+                      ) : (
+                        safeTags.map(tag => {
+                          const isSelected = formData.tagIds.includes(tag.id);
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => {
+                                const newTagIds = isSelected
+                                  ? formData.tagIds.filter(id => id !== tag.id)
+                                  : [...formData.tagIds, tag.id];
+                                setFormData({ ...formData, tagIds: newTagIds });
+                              }}
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                                cursor: 'pointer', border: '1px solid',
+                                borderColor: isSelected ? (tag.color || '#6366F1') : '#E2E8F0',
+                                background: isSelected ? `${tag.color || '#6366F1'}20` : '#FFFFFF',
+                                color: isSelected ? (tag.color || '#6366F1') : '#64748B',
+                                transition: 'all 150ms ease',
+                              }}
+                            >
+                              <span style={{ width: 6, height: 6, borderRadius: '50%', background: tag.color || '#6366F1' }} />
+                              {tag.name}
+                              {isSelected && <span style={{ marginLeft: 2, fontSize: 11 }}>✓</span>}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
 
-              {/* Product Interest & Deal Value */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Product Interest</label>
-                  <input
-                    type="text"
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.productService}
-                    onChange={(e) => setFormData({ ...formData, productService: e.target.value })}
-                    placeholder="e.g. CRM Software"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Deal Value (₹)</label>
-                  <input
-                    type="number"
-                    className="w-full h-7.5 px-2.5 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-emerald-600 dark:text-emerald-400 focus:outline-none focus:border-emerald-500"
-                    value={formData.estimatedValue}
-                    onChange={(e) => setFormData({ ...formData, estimatedValue: e.target.value })}
-                    placeholder="e.g. 50000"
-                  />
-                </div>
-              </div>
-
-              {/* Birthday & Anniversary */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Birthday</label>
-                  <input
-                    type="date"
-                    className="w-full h-7.5 px-2 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.dateOfBirth}
-                    onChange={(e) => setFormData({ ...formData, dateOfBirth: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-0.5">Anniversary</label>
-                  <input
-                    type="date"
-                    className="w-full h-7.5 px-2 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                    value={formData.anniversaryDate}
-                    onChange={(e) => setFormData({ ...formData, anniversaryDate: e.target.value })}
-                  />
+                  {/* Opt-in toggle */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderRadius: 8, background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>WhatsApp Opt-in</p>
+                      <p style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>Required for campaign messages</p>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input type="checkbox" className="toggle-input" style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+                        checked={formData.whatsappOptIn} onChange={(e) => setFormData({ ...formData, whatsappOptIn: e.target.checked })} />
+                      <div className="toggle-track" />
+                    </label>
+                  </div>
                 </div>
               </div>
 
-              {/* Tags & WhatsApp Opt-In */}
-              <div className="pt-1 space-y-1.5 border-t border-slate-100 dark:border-slate-800/80">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase text-slate-400">Category Tags</span>
-                  <label className="flex items-center gap-1.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.whatsappOptIn}
-                      onChange={(e) => setFormData({ ...formData, whatsappOptIn: e.target.checked })}
-                      className="rounded accent-emerald-500"
-                    />
-                    <span className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300">WhatsApp Opt-in</span>
-                  </label>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  {(Array.isArray(availableTags) ? availableTags : []).map((tag) => {
-                    const isSelected = formData.tagIds.includes(tag.id);
-                    return (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onClick={() => {
-                          const newTagIds = isSelected
-                            ? formData.tagIds.filter((id) => id !== tag.id)
-                            : [...formData.tagIds, tag.id];
-                          setFormData({ ...formData, tagIds: newTagIds });
-                        }}
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-amber-500/15 border-amber-500 text-amber-600 dark:text-amber-400'
-                            : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500'
-                        }`}
-                      >
-                        <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tag.color || '#F59E0B' }} />
-                        {tag.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isLoading('update')}
-              className="w-full h-8.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isLoading('update') ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-              <span>Save Lead Profile</span>
-            </button>
-          </form>
-
-          {/* ═════════ 2. QUICK NOTES & INTERACTION HISTORY ═════════ */}
-          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2.5 shadow-2xs">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-amber-500" />
-                <h3 className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">
-                  Notes & Interaction Log
-                </h3>
-              </div>
-              <span className="text-[10px] font-bold text-slate-400">
-                {notes.length} note(s)
-              </span>
-            </div>
-
-            {/* Quick Note Add Form */}
-            <form onSubmit={handleAddNote} className="space-y-1.5">
-              <textarea
-                rows={2}
-                required
-                className="w-full p-2 bg-slate-50/80 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                placeholder="Write a quick call or follow-up note..."
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-              />
-              <div className="flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isLoading('note') || !newNote.trim()}
-                  className="h-7 px-3 bg-amber-500 hover:bg-amber-600 text-slate-900 font-extrabold rounded-lg text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                >
-                  {isLoading('note') ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                  Add Note
-                </button>
-              </div>
+              <button type="submit" disabled={isLoading('update')} className="btn btn-primary" style={{ width: '100%' }}>
+                {isLoading('update') ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Save style={{ width: 14, height: 14 }} />}
+                {isLoading('update') ? 'Saving...' : 'Save Changes'}
+              </button>
             </form>
+          )}
 
-            {/* Notes List */}
-            <div className="space-y-2 max-h-48 overflow-y-auto pr-0.5">
-              {notes.length === 0 ? (
-                <p className="text-center py-3 text-[11px] text-slate-400 font-medium italic">
-                  No notes recorded yet
-                </p>
+          {/* TAB: Notes */}
+          {activeTab === 'notes' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <form onSubmit={handleAddNote} className="card-elevated" style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <textarea rows={3} required className="textarea-base" style={{ background: '#F9FAFB' }}
+                  placeholder="Write a note about this contact..."
+                  value={newNote} onChange={(e) => setNewNote(e.target.value)} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" disabled={isLoading('note') || !newNote.trim()} className="btn btn-primary btn-sm">
+                    {isLoading('note') ? <Loader2 className="animate-spin" style={{ width: 12, height: 12 }} /> : <Plus style={{ width: 12, height: 12 }} />}
+                    Add Note
+                  </button>
+                </div>
+              </form>
+              {safeNotes.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 13 }}>No notes yet</div>
               ) : (
-                notes.map((note) => (
-                  <div key={note.id || note._id} className="bg-slate-50 dark:bg-slate-900/70 p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 text-xs space-y-1">
-                    <p className="text-slate-700 dark:text-slate-300 font-medium whitespace-pre-wrap">{note.note}</p>
-                    <p className="text-[9.5px] text-slate-400 text-right">
-                      {new Date(note.createdAt).toLocaleString('en-IN', { dateStyle: 'short', timeStyle: 'short' })}
+                safeNotes.map((note, idx) => (
+                  <div key={note.id || note._id || `note-${idx}`} className="card-elevated animate-fade-in" style={{ padding: 14 }}>
+                    <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                      {typeof note.note === 'string' ? note.note : JSON.stringify(note.note)}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8, textAlign: 'right' }}>
+                      {new Date(note.createdAt).toLocaleString()}
                     </p>
                   </div>
                 ))
               )}
             </div>
-          </div>
+          )}
 
-          {/* ═════════ 3. QUICK WHATSAPP & ACTIVITY TIMELINE ═════════ */}
-          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 space-y-2.5 shadow-2xs">
-            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-1.5">
-                <Activity className="w-3.5 h-3.5 text-emerald-500" />
-                <h3 className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200">
-                  Quick WhatsApp & Activity Timeline
-                </h3>
-              </div>
-            </div>
-
-            {/* Direct Quick WhatsApp Sender */}
-            {templates.length > 0 && formData.whatsappOptIn && (
-              <div className="flex items-center gap-2 p-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200/60 dark:border-emerald-800/50">
-                <select
-                  className="flex-1 h-7.5 px-2 bg-white dark:bg-slate-900 border border-emerald-300 dark:border-emerald-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
-                  value={selectedTemplateId}
-                  onChange={(e) => setSelectedTemplateId(e.target.value)}
-                >
-                  <option value="">Select WhatsApp Template to Send...</option>
-                  {(Array.isArray(templates) ? templates : []).map((tpl) => (
-                    <option key={tpl.id || tpl._id} value={tpl.id || tpl._id}>
-                      {tpl.name} ({tpl.language})
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={handleSendQuickWhatsApp}
-                  disabled={!selectedTemplateId || isLoading('send')}
-                  className="h-7.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                >
-                  {isLoading('send') ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
-                  Send
-                </button>
-              </div>
-            )}
-
-            {/* Activity Stream */}
-            <div className="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
-              {activities.length === 0 ? (
-                <p className="text-center py-3 text-[11px] text-slate-400 font-medium italic">
-                  No activity recorded yet
-                </p>
+          {/* TAB: Send WhatsApp */}
+          {activeTab === 'send' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {!lead?.whatsappOptIn ? (
+                <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 8, background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', fontSize: 13 }}>
+                  <AlertCircle style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  This contact has opted out of WhatsApp messages.
+                </div>
+              ) : safeTemplates.length === 0 ? (
+                <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 8, background: '#FFFBEB', border: '1px solid #FDE68A', color: '#B45309', fontSize: 13 }}>
+                  <AlertCircle style={{ width: 16, height: 16, flexShrink: 0, marginTop: 1 }} />
+                  No approved templates found. Sync templates in the Campaigns module.
+                </div>
               ) : (
-                activities.map((act) => (
-                  <div key={act.id} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800 text-xs">
-                    <div className="flex items-center justify-between font-bold text-slate-800 dark:text-slate-200 text-[11px]">
-                      <span>{act.title}</span>
-                      <span className="text-[9.5px] text-slate-400 font-normal">
-                        {new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </span>
+                <form onSubmit={handleSendTemplate} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                  {sendSuccess && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderRadius: 8, background: '#F0FDF4', border: '1px solid #BBF7D0', color: '#16A34A', fontSize: 13 }}>
+                      <CheckCircle style={{ width: 15, height: 15 }} /> {sendSuccess}
                     </div>
-                    {act.description && (
-                      <p className="text-slate-500 dark:text-slate-400 text-[10.5px] mt-0.5">{act.description}</p>
+                  )}
+
+                  <div className="card-elevated" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div>
+                      <label className="form-label">Select Template</label>
+                      <select className="select-base"
+                        value={selectedTemplate?.id || ''}
+                        onChange={(e) => { const tpl = safeTemplates.find(t => t.id === e.target.value); setSelectedTemplate(tpl || null); setVarMapping({}); }}>
+                        <option value="">Choose a template...</option>
+                        {safeTemplates.map((tpl) => <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>)}
+                      </select>
+                    </div>
+
+                    {selectedTemplate && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes(selectedTemplate.headerType) && (() => {
+                      const mediaIcon = selectedTemplate.headerType === 'IMAGE' ? '🖼️' : selectedTemplate.headerType === 'VIDEO' ? '🎥' : '📄';
+                      const mediaBg = selectedTemplate.headerType === 'IMAGE' ? { bg: '#EFF6FF', border: '#BFDBFE', label: '#1D4ED8' } : selectedTemplate.headerType === 'VIDEO' ? { bg: '#FFF7ED', border: '#FED7AA', label: '#C2410C' } : { bg: '#F0FDF4', border: '#BBF7D0', label: '#15803D' };
+                      return (
+                        <div style={{
+                          background: mediaBg.bg, border: `1px solid ${mediaBg.border}`,
+                          borderRadius: 10, padding: '12px 14px', marginTop: 4,
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <span style={{ fontSize: 16 }}>{mediaIcon}</span>
+                            <div>
+                              <p style={{ fontSize: 11, fontWeight: 700, color: mediaBg.label, letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+                                {selectedTemplate.headerType} MEDIA
+                              </p>
+                              <p style={{ fontSize: 10, color: '#64748B', marginTop: 1 }}>Upload files directly or paste a public URL</p>
+                            </div>
+                          </div>
+                          <MediaUrlUploader
+                            value={varMapping['headerMediaUrl'] || ''}
+                            onChange={(url) => setVarMapping({ ...varMapping, headerMediaUrl: url })}
+                            headerType={selectedTemplate.headerType}
+                            borderColor={mediaBg.border}
+                            labelColor={mediaBg.label}
+                            placeholder="https://example.com/file.jpg"
+                          />
+                        </div>
+                      );
+                    })()}
+
+                    {selectedTemplate?.variablesJson?.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <label className="form-label">Variables</label>
+                        {(selectedTemplate.variablesJson as string[]).map((vNum: string) => (
+                          <div key={vNum} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 600, color: '#0E6B50', background: '#ECFDF5', padding: '3px 7px', borderRadius: 5, fontFamily: 'monospace', flexShrink: 0 }}>
+                              {`{{${vNum}}}`}
+                            </span>
+                            <input type="text" required className="input-base" style={{ flex: 1 }}
+                              placeholder={`Value for {{${vNum}}}`}
+                              value={varMapping[vNum] || ''}
+                              onChange={(e) => setVarMapping({ ...varMapping, [vNum]: e.target.value })} />
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                ))
+
+                  {selectedTemplate && (
+                    <div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Preview</p>
+                      <TemplatePreview template={selectedTemplate} variableMapping={varMapping} />
+                    </div>
+                  )}
+
+                  {selectedTemplate && (
+                    <button type="submit" disabled={isLoading('send')} className="btn btn-primary" style={{ width: '100%', background: '#16A34A', borderColor: '#16A34A' }}>
+                      {isLoading('send') ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Send style={{ width: 14, height: 14 }} />}
+                      {isLoading('send') ? 'Sending...' : 'Send WhatsApp Message'}
+                    </button>
+                  )}
+                </form>
               )}
             </div>
-          </div>
+          )}
 
+          {/* TAB: Messages */}
+          {activeTab === 'messages' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {safeMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '40px 0', color: '#9CA3AF', fontSize: 13 }}>No messages yet</div>
+              ) : (
+                safeMessages.map((msg, idx) => {
+                  const isInbound = msg.direction === 'INBOUND';
+                  const rawStatus = typeof msg.status === 'string' ? msg.status : (msg.status?.message_status || msg.status?.status || 'SENT');
+                  const statusColor = rawStatus === 'READ' ? '#2563EB' : rawStatus === 'DELIVERED' ? '#16A34A' : rawStatus === 'SENT' ? '#6B7280' : rawStatus === 'FAILED' ? '#EF4444' : '#9CA3AF';
+                  const content = typeof msg.messageContent === 'string' ? msg.messageContent : (typeof msg.messageContent === 'object' ? JSON.stringify(msg.messageContent) : String(msg.messageContent || ''));
+                  const source = typeof msg.source === 'string' ? msg.source : 'WHATSAPP';
+                  const errMsg = typeof msg.errorMessage === 'string' ? msg.errorMessage : (typeof msg.errorMessage === 'object' ? JSON.stringify(msg.errorMessage) : '');
+                  const errCode = typeof msg.errorCode === 'string' ? msg.errorCode : '';
+
+                  return (
+                    <div key={msg.id || msg._id || `msg-${idx}`}
+                      style={{
+                        maxWidth: '85%', padding: '10px 12px', borderRadius: 10,
+                        background: isInbound ? '#FFFFFF' : '#F0F0FF',
+                        border: `1px solid ${isInbound ? '#E5E7EB' : '#DDDEFE'}`,
+                        marginLeft: isInbound ? 0 : 'auto',
+                        boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, gap: 12 }}>
+                        <span style={{ fontSize: 10, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{source}</span>
+                        <span style={{ fontSize: 10, color: '#9CA3AF', flexShrink: 0 }}>
+                          {new Date(msg.scheduledAt || msg.createdAt).toLocaleString()}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>{content}</p>
+                      {!isInbound && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+                          <span style={{ fontSize: 10, fontWeight: 600, color: statusColor }}>{rawStatus}</span>
+                          {rawStatus === 'FAILED' && errMsg && (
+                            <span style={{ fontSize: 10, color: '#EF4444', marginLeft: 4 }} title={errMsg}>({errCode || 'Error'})</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+
+          {/* TAB: Timeline */}
+          {activeTab === 'timeline' && (
+            <div style={{ position: 'relative', paddingLeft: 20, borderLeft: '2px solid #E5E7EB', marginLeft: 8 }}>
+              {safeActivities.length === 0 ? (
+                <p style={{ fontSize: 13, color: '#9CA3AF', padding: '32px 0' }}>No activity recorded yet</p>
+              ) : (
+                safeActivities.map((act, idx) => {
+                  const title = typeof act.title === 'string' ? act.title : (typeof act.title === 'object' ? JSON.stringify(act.title) : 'Activity');
+                  const desc = typeof act.description === 'string' ? act.description : (typeof act.description === 'object' ? JSON.stringify(act.description) : '');
+
+                  return (
+                    <div key={act.id || act._id || `act-${idx}`} className="relative animate-fade-in" style={{ marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid #F9FAFB' }}>
+                      <span style={{
+                        position: 'absolute', left: -27, top: 4, width: 10, height: 10,
+                        borderRadius: '50%', background: '#0E6B50', border: '2px solid #FAFAFA', display: 'block',
+                      }} />
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: '#111827' }}>{title}</p>
+                        <span style={{ fontSize: 11, color: '#9CA3AF', flexShrink: 0 }}>
+                          {new Date(act.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                      <p style={{ fontSize: 12, color: '#6B7280', marginTop: 4, lineHeight: 1.5 }}>{desc}</p>
+                      <p style={{ fontSize: 11, color: '#D1D5DB', marginTop: 4 }}>
+                        {new Date(act.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 }
+

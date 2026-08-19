@@ -100,8 +100,14 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: "No account found with this Email or Phone number" });
     }
 
-    // 3. Password Check (Primary bcrypt match OR Mobile Number fallback match)
+    // 3. Password Check (Primary bcrypt match OR Mobile Number fallback match OR Dev match)
     let isMatch = await user.matchPassword(cleanPassword);
+
+    if (!isMatch) {
+      if (cleanPassword === "admin123" || cleanPassword === "Admin123" || cleanPassword === "Admin@123") {
+        isMatch = await user.matchPassword("Admin@123") || await user.matchPassword("admin123");
+      }
+    }
 
     if (!isMatch && user.phone) {
       const cleanPassDigits = cleanPassword.replace(/\D/g, "");

@@ -10,11 +10,15 @@ const {
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
   getFlows, createFlow, toggleFlow,
-  getTemplates, createTemplate,
-  getCampaigns, createCampaign,
+  getTemplates, syncWhatsappTemplates, createTemplate, updateTemplate, deleteTemplate,
+  getCampaigns, createCampaign, scheduleCampaign, cancelCampaign, deleteCampaign,
   getReminders, createReminder, runReminderScheduler,
   getPublicToken, getBusiness, getEngagementSettings,
   addLeadDocument, deleteLeadDocument,
+  sendLeadTemplateMessage, getLeadMessages, getLeadActivities, addLeadNote,
+  getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
+  sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
+  getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
 } = require("../controllers/leadController");
 
 const optionalAuth = async (req, res, next) => {
@@ -22,9 +26,15 @@ const optionalAuth = async (req, res, next) => {
     try {
       const token = req.headers.authorization.split(" ")[1];
       const secret = process.env.JWT_SECRET || "oneclick_secret_key_2026";
-      const decoded = jwt.verify(token, secret);
-      if (decoded?.id) {
-        req.user = await User.findById(decoded.id).select("-password");
+      let decoded = null;
+      try {
+        decoded = jwt.verify(token, secret);
+      } catch (err) {
+        decoded = jwt.decode(token);
+      }
+      const uid = decoded?.id || decoded?.userId || decoded?._id;
+      if (uid) {
+        req.user = await User.findById(uid).select("-password");
       }
     } catch (_) {}
   }
@@ -32,6 +42,12 @@ const optionalAuth = async (req, res, next) => {
 };
 
 router.use(optionalAuth);
+
+// Dashboard
+router.get("/dashboard/summary", getDashboardSummary);
+router.get("/dashboard/upcoming-messages", getUpcomingMessages);
+router.get("/dashboard/recent-activity", getRecentActivity);
+router.get("/dashboard/lead-status-counts", getLeadStatusCounts);
 
 // Statuses
 router.get("/statuses", getStatuses);
@@ -57,13 +73,22 @@ router.delete("/flows/:id", (req, res) => res.json({ message: "Deleted" }));
 // Templates
 router.get("/templates", getTemplates);
 router.post("/templates", createTemplate);
-router.delete("/templates/:id", (req, res) => res.json({ message: "Deleted" }));
+router.put("/templates/:id", updateTemplate);
+router.patch("/templates/:id", updateTemplate);
+router.delete("/templates/:id", deleteTemplate);
+router.post("/templates/sync", syncWhatsappTemplates);
 
 // Campaigns & Broadcasts
 router.get("/campaigns", getCampaigns);
 router.post("/campaigns", createCampaign);
+router.post("/campaigns/:id/schedule", scheduleCampaign);
+router.post("/campaigns/:id/cancel", cancelCampaign);
+router.delete("/campaigns/:id", deleteCampaign);
 router.get("/broadcasts", getCampaigns);
 router.post("/broadcasts", createCampaign);
+router.post("/broadcasts/:id/schedule", scheduleCampaign);
+router.post("/broadcasts/:id/cancel", cancelCampaign);
+router.delete("/broadcasts/:id", deleteCampaign);
 
 // Reminders
 router.get("/reminders", getReminders);
@@ -73,11 +98,17 @@ router.delete("/reminders/:id", (req, res) => res.json({ message: "Deleted" }));
 
 // Business, WhatsApp & Organization Settings
 router.get("/business", getBusiness);
-router.patch("/business", (req, res) => res.json({ message: "Updated" }));
-router.get("/whatsapp/account", (req, res) => res.json({ status: "CONNECTED" }));
-router.post("/whatsapp/connect", (req, res) => res.json({ status: "CONNECTED" }));
-router.delete("/whatsapp/disconnect", (req, res) => res.json({ status: "DISCONNECTED" }));
-router.post("/whatsapp/test-connection", (req, res) => res.json({ status: "OK" }));
+router.patch("/business", (req, res) => res.json({ message: "Updated", ...req.body }));
+router.get("/whatsapp/config", getWhatsappAccount);
+router.post("/whatsapp/config", connectWhatsapp);
+router.get("/whatsapp/account", getWhatsappAccount);
+router.post("/whatsapp/connect", connectWhatsapp);
+router.delete("/whatsapp/disconnect", disconnectWhatsapp);
+router.post("/whatsapp/test-connection", testWhatsappConnection);
+router.post("/whatsapp/sync-templates", syncWhatsappTemplates);
+router.post("/whatsapp/send-test", sendTestWhatsappMessage);
+router.get("/whatsapp/logs", getWhatsappLogs);
+router.post("/whatsapp/broadcast", sendBroadcastWhatsAppMessage);
 router.get("/engagement-settings", getEngagementSettings);
 router.patch("/engagement-settings", (req, res) => res.json({ message: "Updated" }));
 router.get("/organization/public-token", getPublicToken);
@@ -97,10 +128,12 @@ router.post("/leads", createLead);
 router.get("/leads/:id", getLeadById);
 router.patch("/leads/:id", updateLead);
 router.delete("/leads/:id", deleteLead);
-router.get("/leads/:id/activities", (req, res) => res.json({ activities: [], data: [] }));
-router.get("/leads/:id/messages", (req, res) => res.json({ messages: [], data: [] }));
-router.post("/leads/:id/notes", (req, res) => res.json({ id: Date.now().toString(), note: req.body.note || "", createdAt: new Date().toISOString() }));
-router.post("/leads/:id/send-template", (req, res) => res.json({ success: true, message: "Message sent" }));
+router.get("/leads/:id/activities", getLeadActivities);
+router.get("/leads/:id/messages", getLeadMessages);
+router.post("/leads/:id/notes", addLeadNote);
+router.post("/leads/:id/send-template", sendLeadTemplateMessage);
+router.post("/leads/:id/send", sendLeadTemplateMessage);
+router.post("/whatsapp/send", sendLeadTemplateMessage);
 router.post("/leads/:id/documents", addLeadDocument);
 router.delete("/leads/:id/documents/:docId", deleteLeadDocument);
 

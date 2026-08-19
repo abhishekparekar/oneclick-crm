@@ -60,7 +60,6 @@ router.use("/tasks", protect, checkSubscription, taskRoutes);
 router.use("/internal-requests", protect, checkSubscription, internalRequestRoutes);
 router.use("/company-requests", protect, checkSubscription, internalRequestRoutes);
 router.use("/leads-engine", leadRoutes);
-router.use("/leads", leadRoutes);
-router.use("/statuses", leadRoutes);
+router.use(leadRoutes);
 
 module.exports = router;

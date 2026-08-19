@@ -1,6 +1,20 @@
 import { useAuthStore } from '../../store/authStore';
 
-const BASE_URL = (import.meta as any).env?.VITE_LEADS_API_URL || '';
+export const getLeadsBaseUrl = (): string => {
+  if ((import.meta as any).env?.VITE_LEADS_API_URL) {
+    return (import.meta as any).env.VITE_LEADS_API_URL;
+  }
+  if ((import.meta as any).env?.VITE_API_URL) {
+    return (import.meta as any).env.VITE_API_URL.replace(/\/api\/?$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) {
+      return `${window.location.protocol}//${host}:5000`;
+    }
+  }
+  return 'https://nextact-backend.vercel.app';
+};
 
 interface RequestOptions extends RequestInit {
   bodyData?: any;
@@ -34,34 +48,36 @@ export const api = {
     }
 
     const method = options.method || 'GET';
-    if (method === 'GET') {
-      const cacheKey = `${method}:${endpoint}`;
-      if (requestCache.has(cacheKey)) {
-        return requestCache.get(cacheKey);
-      }
-
-      const promise = this._makeRequest(endpoint, config, token, logout);
-      requestCache.set(cacheKey, promise);
-
-      setTimeout(() => requestCache.delete(cacheKey), CACHE_TTL);
-
-      return promise;
+    if (method !== 'GET') {
+      requestCache.clear();
+      return this._makeRequest(endpoint, config, token, logout);
     }
 
-    return this._makeRequest(endpoint, config, token, logout);
+    const cacheKey = `${method}:${endpoint}`;
+    if (requestCache.has(cacheKey)) {
+      return requestCache.get(cacheKey);
+    }
+
+    const promise = this._makeRequest(endpoint, config, token, logout);
+    requestCache.set(cacheKey, promise);
+
+    setTimeout(() => requestCache.delete(cacheKey), CACHE_TTL);
+
+    return promise;
   },
 
   async _makeRequest(endpoint: string, config: RequestInit, token: string | null, logout: () => void) {
     try {
+      const baseUrl = getLeadsBaseUrl();
       let targetUrl = endpoint;
-      if (endpoint.startsWith('/api/company/') || endpoint.startsWith('/api/employees') || endpoint.startsWith('/api/users')) {
-        targetUrl = `${BASE_URL}${endpoint}`;
+      if (endpoint.startsWith('http://') || endpoint.startsWith('https://')) {
+        targetUrl = endpoint;
       } else if (endpoint.startsWith('/api/leads-engine')) {
-        targetUrl = `${BASE_URL}${endpoint}`;
+        targetUrl = `${baseUrl}${endpoint}`;
       } else if (endpoint.startsWith('/api/')) {
-        targetUrl = `${BASE_URL}/api/leads-engine${endpoint.substring(4)}`;
+        targetUrl = `${baseUrl}/api/leads-engine${endpoint.substring(4)}`;
       } else {
-        targetUrl = `${BASE_URL}${endpoint}`;
+        targetUrl = `${baseUrl}${endpoint.startsWith('/') ? '' : '/'}${endpoint}`;
       }
 
       const response = await fetch(targetUrl, config);
