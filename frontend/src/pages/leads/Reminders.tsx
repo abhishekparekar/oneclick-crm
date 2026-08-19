@@ -279,7 +279,7 @@ export default function Reminders() {
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1 pb-1">
         <div>
           <h1 className="text-[22px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            Service Reminders <Bell size={20} className="text-amber-500" />
+            Reminders <Bell size={20} className="text-amber-500" />
           </h1>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
             Automated WhatsApp reminders triggered before or after service, warranty, or renewal dates.

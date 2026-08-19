@@ -4,8 +4,8 @@ import { api } from '../../utils/leads/api';
 import { useToast } from '../../components/leads/Toast';
 import { useActionLoader } from '../../components/leads/ActionLoader';
 import {
-  Building2, PhoneCall, Loader2, Save, RefreshCw, CheckCircle,
-  Clock, Gift, Shield, Zap, Plus, Trash2, Edit2, X, Check, Users, Sparkles
+  PhoneCall, Loader2, RefreshCw, CheckCircle,
+  Shield, Zap, Plus, Trash2, Edit2, X, Check, Users, Sparkles
 } from 'lucide-react';
 
 const STATUS_COLORS = [
@@ -35,13 +35,7 @@ export default function LeadSettings() {
   const { success, error, warning, confirm } = useToast();
   const { isLoading, run } = useActionLoader();
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null);
-
-  const [profile, setProfile] = useState({
-    name: '', ownerName: '', businessCategory: 'Retail', phone: '', email: '',
-    website: '', address: '', city: '', state: '', timezone: 'Asia/Kolkata',
-  });
 
   const [apiProvider, setApiProvider] = useState<'OFFICIAL_META' | 'THIRD_PARTY_CLICK2API'>('OFFICIAL_META');
   const [whatsapp, setWhatsapp] = useState({
@@ -71,17 +65,11 @@ export default function LeadSettings() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const [businessRes, waRes, wishesRes, templatesRes, statusesRes, sourcesRes] = await Promise.all([
-        api.get('/api/business'),
+      const [waRes, statusesRes, sourcesRes] = await Promise.all([
         api.get('/api/whatsapp/account'),
-        api.get('/api/engagement-settings'),
-        api.get('/api/templates?status=APPROVED'),
         api.get('/api/statuses'),
         api.get('/api/sources'),
       ]);
-      if (businessRes) {
-        setProfile({ name: businessRes.name || '', ownerName: businessRes.ownerName || '', businessCategory: businessRes.businessCategory || 'Retail', phone: businessRes.phone || '', email: businessRes.email || '', website: businessRes.website || '', address: businessRes.address || '', city: businessRes.city || '', state: businessRes.state || '', timezone: businessRes.timezone || 'Asia/Kolkata' });
-      }
       if (waRes && waRes.connectionStatus !== 'DISCONNECTED') {
         const provider = waRes.apiProvider || 'OFFICIAL_META';
         setApiProvider(provider);
@@ -102,17 +90,6 @@ export default function LeadSettings() {
   };
 
   useEffect(() => { fetchSettings(); }, []);
-
-  const handleSaveProfile = async (e: React.FormEvent) => {
-    e.preventDefault(); setSaving(true); setSaveSuccess(null);
-    try {
-      await api.patch('/api/business', profile);
-      setSaveSuccess('Business profile saved.');
-      success('Profile saved');
-      setTimeout(() => setSaveSuccess(null), 3000);
-    } catch (err: any) { error('Failed to save profile', err.message); }
-    finally { setSaving(false); }
-  };
 
   const handleConnectWhatsApp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -238,11 +215,6 @@ export default function LeadSettings() {
     </div>
   );
 
-  const webhookUrl = `${window.location.protocol}//${window.location.host}/api/webhooks/whatsapp`;
-  const verifyToken = 'leadflow-verify-token-1234';
-  const cats = ['Real Estate', 'Retail', 'Education', 'Automobile', 'Healthcare', 'Software/SaaS', 'Finance', 'Agency', 'Other'];
-  const tzOptions = ['Asia/Kolkata', 'UTC', 'America/New_York', 'Europe/London', 'Asia/Singapore'];
-
   return (
     <div className="space-y-5 pb-12 font-sans text-slate-900 dark:text-slate-100">
 
@@ -250,10 +222,10 @@ export default function LeadSettings() {
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1 pb-1">
         <div>
           <h1 className="text-[22px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            Lead Engine & WhatsApp Settings <Sparkles size={20} className="text-amber-500" />
+            Lead Settings <Sparkles size={20} className="text-amber-500" />
           </h1>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure Meta Cloud API credentials, lead pipeline stages, acquisition channels, and business metadata.
+            Configure Meta Cloud API connection, sales pipeline stages, and lead acquisition channels.
           </p>
         </div>
       </div>
@@ -265,112 +237,110 @@ export default function LeadSettings() {
         </div>
       )}
 
-      {/* ── Grid 1: Business Profile + WhatsApp API Connection ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* ── Main Settings Grid ── */}
+      <div className="space-y-4">
 
-        {/* Business Profile */}
-        <SectionCard title="Organization Profile" icon={<Building2 size={16} />}>
-          <form onSubmit={handleSaveProfile} className="space-y-3.5">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Company Name</label>
-                <input type="text" required value={profile.name} onChange={(e) => setProfile({ ...profile, name: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Owner Name</label>
-                <input type="text" required value={profile.ownerName} onChange={(e) => setProfile({ ...profile, ownerName: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500" />
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Category</label>
-                <select value={profile.businessCategory} onChange={(e) => setProfile({ ...profile, businessCategory: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none">
-                  {cats.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Timezone</label>
-                <select value={profile.timezone} onChange={(e) => setProfile({ ...profile, timezone: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none">
-                  {tzOptions.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Business Email</label>
-                <input type="email" required value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Business Phone</label>
-                <input type="tel" required value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white" />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={saving}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all flex items-center space-x-1.5 mt-2"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={2.5} />}
-              <span>Save Profile</span>
-            </button>
-          </form>
-        </SectionCard>
-
-        {/* WhatsApp API Connection */}
+        {/* ── 1. WhatsApp API Connection (Full-Width Executive Card) ── */}
         <SectionCard
-          title="WhatsApp API Connection"
-          icon={<PhoneCall size={16} />}
+          title="WhatsApp Cloud API Connection"
+          icon={<PhoneCall size={17} />}
           action={
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border flex items-center gap-1.5 ${waStatus === 'CONNECTED' ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${waStatus === 'CONNECTED' ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-              {waStatus === 'CONNECTED' ? 'Connected' : 'Disconnected'}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border flex items-center gap-1.5 shadow-2xs ${
+                waStatus === 'CONNECTED' 
+                  ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" 
+                  : "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
+              }`}>
+                <span className={`w-2 h-2 rounded-full ${waStatus === 'CONNECTED' ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
+                {waStatus === 'CONNECTED' ? 'Connected & Active' : 'Disconnected'}
+              </span>
+            </div>
           }
         >
-          <div className="space-y-3">
-            <div className="flex p-1 bg-slate-100 dark:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setApiProvider('OFFICIAL_META')}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${apiProvider === 'OFFICIAL_META' ? 'bg-amber-500 text-slate-950 font-extrabold shadow-2xs' : 'text-slate-500 dark:text-slate-400'}`}
-              >
-                <Shield size={13} /> Meta Cloud API
-              </button>
+          <div className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 bg-amber-500/5 dark:bg-amber-500/10 rounded-xl border border-amber-500/15">
+              <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-300">
+                <Shield size={16} className="text-amber-500 shrink-0" />
+                <span>Official Meta Cloud API configuration for automated lead notifications & broadcasts.</span>
+              </div>
+              <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-800 shrink-0">
+                v21.0 Graph API
+              </span>
             </div>
 
             {waError && (
-              <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold">
-                {waError}
+              <div className="p-3.5 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-xs font-semibold flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0" />
+                <span>{waError}</span>
               </div>
             )}
 
-            <form onSubmit={handleConnectWhatsApp} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleConnectWhatsApp} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Phone Number ID</label>
-                  <input type="text" required placeholder="1048293740283" value={whatsapp.phoneNumberId} onChange={(e) => setWhatsapp({ ...whatsapp, phoneNumberId: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold" />
+                  <label className="block text-[10.5px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Phone Number ID</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. 1048293740283" 
+                    value={whatsapp.phoneNumberId} 
+                    onChange={(e) => setWhatsapp({ ...whatsapp, phoneNumberId: e.target.value })} 
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-all shadow-2xs placeholder:text-slate-400" 
+                  />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Display Number</label>
-                  <input type="text" required placeholder="+91 98765 43210" value={whatsapp.displayPhoneNumber} onChange={(e) => setWhatsapp({ ...whatsapp, displayPhoneNumber: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold" />
+                  <label className="block text-[10.5px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Display Phone Number</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. +91 98765 43210" 
+                    value={whatsapp.displayPhoneNumber} 
+                    onChange={(e) => setWhatsapp({ ...whatsapp, displayPhoneNumber: e.target.value })} 
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-all shadow-2xs placeholder:text-slate-400" 
+                  />
                 </div>
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Business Account ID</label>
-                <input type="text" required placeholder="849302847294829" value={whatsapp.businessAccountId} onChange={(e) => setWhatsapp({ ...whatsapp, businessAccountId: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold" />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Meta Access Token</label>
-                <textarea rows={2} required placeholder="Paste Meta permanent access token" value={whatsapp.accessToken} onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })} className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono" />
+                <div>
+                  <label className="block text-[10.5px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Business Account ID (WABA ID)</label>
+                  <input 
+                    type="text" 
+                    required 
+                    placeholder="e.g. 849302847294829" 
+                    value={whatsapp.businessAccountId} 
+                    onChange={(e) => setWhatsapp({ ...whatsapp, businessAccountId: e.target.value })} 
+                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-all shadow-2xs placeholder:text-slate-400" 
+                  />
+                </div>
               </div>
 
-              <div className="flex items-center space-x-2 pt-1">
-                <button type="submit" disabled={waTesting} className="flex-1 py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all flex items-center justify-center space-x-1.5">
-                  {waTesting ? <Loader2 size={14} className="animate-spin text-slate-950" /> : <RefreshCw size={14} strokeWidth={2.5} />}
-                  <span>{waTesting ? 'Testing...' : 'Test Connection'}</span>
+              <div>
+                <label className="block text-[10.5px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Meta Permanent System User Access Token</label>
+                <textarea 
+                  rows={2} 
+                  required 
+                  placeholder="Paste Meta permanent System User Token with whatsapp_business_messaging & whatsapp_business_management permissions..." 
+                  value={whatsapp.accessToken} 
+                  onChange={(e) => setWhatsapp({ ...whatsapp, accessToken: e.target.value })} 
+                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-mono text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-all shadow-2xs placeholder:text-slate-400" 
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 pt-1">
+                <button 
+                  type="submit" 
+                  disabled={waTesting} 
+                  className="flex-1 sm:flex-initial px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold rounded-xl text-xs shadow-sm transition-all flex items-center justify-center space-x-2 cursor-pointer"
+                >
+                  {waTesting ? <Loader2 size={14} className="animate-spin text-white" /> : <RefreshCw size={14} strokeWidth={2.5} />}
+                  <span>{waTesting ? 'Validating Connection...' : 'Save & Test Connection'}</span>
                 </button>
+                
                 {waStatus !== 'DISCONNECTED' && (
-                  <button type="button" onClick={handleDisconnectWhatsApp} disabled={isLoading('wa-disconnect')} className="px-4 py-2 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-extrabold rounded-xl text-xs border border-rose-200 dark:border-rose-800">
+                  <button 
+                    type="button" 
+                    onClick={handleDisconnectWhatsApp} 
+                    disabled={isLoading('wa-disconnect')} 
+                    className="px-4 py-2.5 bg-white dark:bg-[#111C24] hover:bg-rose-50 dark:hover:bg-rose-950/30 text-rose-600 dark:text-rose-400 font-extrabold rounded-xl text-xs border border-rose-200 dark:border-rose-900/60 transition-all shadow-2xs cursor-pointer"
+                  >
                     Disconnect
                   </button>
                 )}
@@ -378,90 +348,90 @@ export default function LeadSettings() {
             </form>
           </div>
         </SectionCard>
-      </div>
 
-      {/* ── Grid 2: Pipeline Stages + Lead Sources ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* ── 2. Pipeline Stages & Lead Acquisition Channels (Responsive 2-Column Grid) ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
 
-        {/* Status Stages */}
-        <SectionCard
-          title="Lead Pipeline Stages"
-          icon={<Zap size={16} />}
-          action={
-            <button
-              onClick={() => { setEditingStatus(null); setStatusName(''); setStatusColor('#6366f1'); setStatusIsDefault(false); setShowStatusModal(true); }}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold rounded-xl text-xs border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
-            >
-              <Plus size={13} strokeWidth={2.5} />
-              <span>Add Stage</span>
-            </button>
-          }
-        >
-          <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-            {statuses.length === 0 ? (
-              <p className="text-xs text-slate-400 text-center py-8 font-semibold">No pipeline stages configured.</p>
-            ) : (
-              statuses.map((status, index) => (
-                <div key={status.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{status.name}</span>
-                    {status.isDefault && (
-                      <span className="text-[9.5px] font-black uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-500">
-                        Default
-                      </span>
-                    )}
+          {/* Lead Pipeline Stages */}
+          <SectionCard
+            title="Lead Pipeline Stages"
+            icon={<Zap size={17} />}
+            action={
+              <button
+                onClick={() => { setEditingStatus(null); setStatusName(''); setStatusColor('#6366f1'); setStatusIsDefault(false); setShowStatusModal(true); }}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
+              >
+                <Plus size={13} strokeWidth={2.5} />
+                <span>Add Stage</span>
+              </button>
+            }
+          >
+            <div className="space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar pr-0.5">
+              {statuses.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-10 font-semibold">No pipeline stages configured.</p>
+              ) : (
+                statuses.map((status, index) => (
+                  <div key={status.id} className="p-3 rounded-xl bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-2xs">
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <span className="w-3.5 h-3.5 rounded-full shrink-0 shadow-2xs" style={{ backgroundColor: status.color }} />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{status.name}</span>
+                      {status.isDefault && (
+                        <span className="text-[9.5px] font-black uppercase px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 shrink-0">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <button disabled={index === 0} onClick={() => handleReorderStatus(index, 'UP')} title="Move up" className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold disabled:opacity-30 cursor-pointer">▲</button>
+                      <button disabled={index === statuses.length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} title="Move down" className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white text-xs font-bold disabled:opacity-30 cursor-pointer">▼</button>
+                      <button onClick={() => { setEditingStatus(status); setStatusName(status.name); setStatusColor(status.color); setStatusIsDefault(status.isDefault); setShowStatusModal(true); }} title="Edit stage" className="p-1.5 text-slate-400 hover:text-amber-500 cursor-pointer">
+                        <Edit2 size={13} />
+                      </button>
+                      <button disabled={status.isDefault || isLoading(`del-status-${status.id}`)} onClick={() => handleDeleteStatus(status.id)} title="Delete stage" className="p-1.5 text-slate-400 hover:text-rose-500 disabled:opacity-30 cursor-pointer">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <button disabled={index === 0} onClick={() => handleReorderStatus(index, 'UP')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▲</button>
-                    <button disabled={index === statuses.length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▼</button>
-                    <button onClick={() => { setEditingStatus(status); setStatusName(status.name); setStatusColor(status.color); setStatusIsDefault(status.isDefault); setShowStatusModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
-                      <Edit2 size={13} />
-                    </button>
-                    <button disabled={status.isDefault || isLoading(`del-status-${status.id}`)} onClick={() => handleDeleteStatus(status.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </SectionCard>
+                ))
+              )}
+            </div>
+          </SectionCard>
 
-        {/* Lead Sources */}
-        <SectionCard
-          title="Lead Acquisition Channels"
-          icon={<Users size={16} />}
-          action={
-            <button
-              onClick={() => { setEditingSource(null); setSourceName(''); setShowSourceModal(true); }}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold rounded-xl text-xs border border-amber-500/20 hover:bg-amber-500/20 transition-colors"
-            >
-              <Plus size={13} strokeWidth={2.5} />
-              <span>Add Source</span>
-            </button>
-          }
-        >
-          <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
-            {(!Array.isArray(sources) || sources.length === 0) ? (
-              <p className="text-xs text-slate-400 text-center py-8 font-semibold">No lead acquisition channels configured.</p>
-            ) : (
-              (Array.isArray(sources) ? sources : []).map((source) => (
-                <div key={source.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{source.name}</span>
-                  <div className="flex items-center space-x-1">
-                    <button onClick={() => { setEditingSource(source); setSourceName(source.name); setShowSourceModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
-                      <Edit2 size={13} />
-                    </button>
-                    <button disabled={isLoading(`del-source-${source.id}`)} onClick={() => handleDeleteSource(source.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
-                      <Trash2 size={13} />
-                    </button>
+          {/* Lead Acquisition Channels */}
+          <SectionCard
+            title="Lead Acquisition Channels"
+            icon={<Users size={17} />}
+            action={
+              <button
+                onClick={() => { setEditingSource(null); setSourceName(''); setShowSourceModal(true); }}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
+              >
+                <Plus size={13} strokeWidth={2.5} />
+                <span>Add Channel</span>
+              </button>
+            }
+          >
+            <div className="space-y-2 max-h-[380px] overflow-y-auto custom-scrollbar pr-0.5">
+              {(!Array.isArray(sources) || sources.length === 0) ? (
+                <p className="text-xs text-slate-400 text-center py-10 font-semibold">No lead acquisition channels configured.</p>
+              ) : (
+                (Array.isArray(sources) ? sources : []).map((source) => (
+                  <div key={source.id} className="p-3 rounded-xl bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-colors shadow-2xs">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200 truncate">{source.name}</span>
+                    <div className="flex items-center space-x-1 shrink-0">
+                      <button onClick={() => { setEditingSource(source); setSourceName(source.name); setShowSourceModal(true); }} title="Edit channel" className="p-1.5 text-slate-400 hover:text-amber-500 cursor-pointer">
+                        <Edit2 size={13} />
+                      </button>
+                      <button disabled={isLoading(`del-source-${source.id}`)} onClick={() => handleDeleteSource(source.id)} title="Delete channel" className="p-1.5 text-slate-400 hover:text-rose-500 cursor-pointer">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
-        </SectionCard>
+                ))
+              )}
+            </div>
+          </SectionCard>
+        </div>
       </div>
 
       {/* ── Status Modal ── */}

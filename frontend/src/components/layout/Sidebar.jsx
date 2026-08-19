@@ -36,10 +36,10 @@ const COMPANY_SECTIONS = [
   {
     title: "LEAD ENGINE & WHATSAPP",
     items: [
-      { label: "Leads Pipeline", path: "/company/leads", icon: UsersRound },
-      { label: "WhatsApp Drips", path: "/company/leads/automation", icon: Sparkles },
+      { label: "Leads", path: "/company/leads", icon: UsersRound },
+      { label: "WhatsApp Automation", path: "/company/leads/automation", icon: Sparkles },
       { label: "WhatsApp Campaigns", path: "/company/leads/campaigns", icon: Megaphone },
-      { label: "Service Reminders", path: "/company/leads/reminders", icon: CalendarDays },
+      { label: "Reminders", path: "/company/leads/reminders", icon: CalendarDays },
       { label: "Lead Settings", path: "/company/leads/settings", icon: Settings },
     ],
   },

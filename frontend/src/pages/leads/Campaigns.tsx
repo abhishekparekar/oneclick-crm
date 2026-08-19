@@ -256,7 +256,7 @@ export default function Campaigns() {
       <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1 pb-1">
         <div>
           <h1 className="text-[22px] font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            WhatsApp Broadcast Campaigns <Megaphone size={20} className="text-amber-500" />
+            WhatsApp Campaigns <Megaphone size={20} className="text-amber-500" />
           </h1>
           <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">
             Send targeted bulk WhatsApp messages to lead segments using approved Meta templates.
@@ -280,7 +280,7 @@ export default function Campaigns() {
               className="flex items-center space-x-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all"
             >
               <Plus size={15} strokeWidth={2.5} />
-              <span>New Broadcast Campaign</span>
+              <span>New Campaign</span>
             </button>
           )}
           <button
@@ -312,7 +312,7 @@ export default function Campaigns() {
           }`}
         >
           <Megaphone size={14} />
-          <span>Broadcast Campaigns ({safeCampaigns.length})</span>
+          <span>Campaigns ({safeCampaigns.length})</span>
         </button>
         <button
           onClick={() => setActiveTab('templates')}
@@ -620,12 +620,12 @@ export default function Campaigns() {
                   {savingCampaign ? (
                     <>
                       <Loader2 size={14} className="animate-spin text-slate-950" />
-                      <span>Deploying...</span>
+                      <span>Running...</span>
                     </>
                   ) : (
                     <>
                       <Send size={14} strokeWidth={2.5} />
-                      <span>⚡ Deploy Broadcast</span>
+                      <span>⚡Run</span>
                     </>
                   )}
                 </button>
