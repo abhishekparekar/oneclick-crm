@@ -37,7 +37,15 @@ export default function PublicLeadForm() {
     whatsappOptIn: true,
   });
 
-  const apiBaseUrl = import.meta.env.VITE_API_URL || '';
+  const getApiBaseUrl = () => {
+    const envUrl = (import.meta as any).env?.VITE_API_URL || (import.meta as any).env?.VITE_LEADS_API_URL;
+    if (envUrl && typeof envUrl === 'string' && envUrl.trim() !== '') {
+      return envUrl.replace(/\/+$/, '').replace(/\/api$/, '');
+    }
+    return '';
+  };
+
+  const apiBaseUrl = getApiBaseUrl();
 
   useEffect(() => {
     if (!token) return;
