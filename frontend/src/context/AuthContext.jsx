@@ -145,4 +145,18 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    return {
+      user: null,
+      loading: false,
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+      updateUser: () => {},
+      hasPermission: () => false,
+    };
+  }
+  return context;
+};

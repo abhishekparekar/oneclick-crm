@@ -28,8 +28,8 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
           <span className="text-slate-400 text-[9px] truncate">vs {period}</span>
         </div>
       </div>
-      <div className="h-8 w-14 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="hidden sm:block h-8 sm:h-9 w-10 sm:w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={40}>
           <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={`sk-aud-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">

@@ -33,9 +33,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Clear token on unauthorized if needed, but Context will handle it mostly
-      // localStorage.removeItem("token");
-      // window.location.href = "/login";
+      const isAuthRequest = error.config?.url?.includes("/auth/login") || error.config?.url?.includes("/auth/register");
+      if (!isAuthRequest) {
+        localStorage.removeItem("token");
+        if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login") && !window.location.pathname.startsWith("/register")) {
+          window.location.href = "/login";
+        }
+      }
     }
     return Promise.reject(error);
   }
