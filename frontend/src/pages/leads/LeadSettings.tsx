@@ -354,7 +354,7 @@ export default function LeadSettings() {
 
           {/* Lead Pipeline Stages */}
           <SectionCard
-            title="Lead Pipeline Stages"
+            title="Lead Statuses"
             icon={<Zap size={17} />}
             action={
               <button
@@ -362,7 +362,7 @@ export default function LeadSettings() {
                 className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
               >
                 <Plus size={13} strokeWidth={2.5} />
-                <span>Add Stage</span>
+                <span>Add Status</span>
               </button>
             }
           >
@@ -407,7 +407,7 @@ export default function LeadSettings() {
                 className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-extrabold rounded-xl text-xs shadow-2xs transition-all cursor-pointer"
               >
                 <Plus size={13} strokeWidth={2.5} />
-                <span>Add Channel</span>
+                <span>Add source</span>
               </button>
             }
           >

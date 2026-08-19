@@ -18,6 +18,13 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
+// ── Status Colors ─────────────────────────────────────────────────────────────
+const STATUS_COLORS = [
+  '#6366f1', '#3b82f6', '#06b6d4', '#10b981', '#84cc16',
+  '#eab308', '#f97316', '#ef4444', '#ec4899', '#d946ef',
+  '#a855f7', '#64748b',
+];
+
 // ── Mini Avatar ───────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
   "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900",
@@ -415,6 +422,16 @@ export default function Leads() {
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
+  // Quick Add Status & Source from within Add Lead Modal
+  const [showQuickAddStatus, setShowQuickAddStatus] = useState(false);
+  const [quickStatusName, setQuickStatusName] = useState('');
+  const [quickStatusColor, setQuickStatusColor] = useState('#6366f1');
+  const [savingQuickStatus, setSavingQuickStatus] = useState(false);
+
+  const [showQuickAddSource, setShowQuickAddSource] = useState(false);
+  const [quickSourceName, setQuickSourceName] = useState('');
+  const [savingQuickSource, setSavingQuickSource] = useState(false);
+
   // Public Form Share states
   const [showShareModal, setShowShareModal] = useState(false);
   const [publicToken, setPublicToken] = useState<string | null>(null);
@@ -516,6 +533,54 @@ export default function Leads() {
         setNewLead(prev => ({ ...prev, source: prev.source || list[0].name }));
       }
     } catch (_) { }
+  };
+
+  const handleQuickCreateStatus = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickStatusName.trim()) return;
+    setSavingQuickStatus(true);
+    try {
+      const maxOrder = (Array.isArray(statuses) ? statuses : []).reduce((max: number, s: any) => (s.displayOrder > max ? s.displayOrder : max), 0);
+      const res = await api.post('/api/statuses', {
+        name: quickStatusName.trim(),
+        color: quickStatusColor,
+        isDefault: false,
+        displayOrder: maxOrder + 1,
+      });
+      await fetchStatuses();
+      if (res?.id) {
+        setNewLead(prev => ({ ...prev, statusId: res.id }));
+      }
+      setQuickStatusName('');
+      setQuickStatusColor('#6366f1');
+      setShowQuickAddStatus(false);
+      success('Status created and selected!');
+    } catch (err: any) {
+      error('Failed to create status', err.message);
+    } finally {
+      setSavingQuickStatus(false);
+    }
+  };
+
+  const handleQuickCreateSource = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickSourceName.trim()) return;
+    setSavingQuickSource(true);
+    try {
+      const res = await api.post('/api/sources', {
+        name: quickSourceName.trim(),
+      });
+      await fetchSources();
+      const createdName = res?.name || quickSourceName.trim();
+      setNewLead(prev => ({ ...prev, source: createdName }));
+      setQuickSourceName('');
+      setShowQuickAddSource(false);
+      success('Lead source created and selected!');
+    } catch (err: any) {
+      error('Failed to create source', err.message);
+    } finally {
+      setSavingQuickSource(false);
+    }
   };
 
   const fetchTags = async () => {
@@ -1543,13 +1608,31 @@ export default function Leads() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Pipeline Status</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Pipeline Status</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddStatus(true)}
+                      className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                    >
+                      <Plus size={11} strokeWidth={3} /> Add Status
+                    </button>
+                  </div>
                   <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" value={newLead.statusId} onChange={e => setNewLead({ ...newLead, statusId: e.target.value })}>
                     {(Array.isArray(statuses) ? statuses : []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Lead Source</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-black uppercase text-slate-400">Lead Source</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickAddSource(true)}
+                      className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                    >
+                      <Plus size={11} strokeWidth={3} /> Add Source
+                    </button>
+                  </div>
                   <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" value={newLead.source} onChange={e => setNewLead({ ...newLead, source: e.target.value })}>
                     {(Array.isArray(sources) ? sources : []).map(src => <option key={src.name} value={src.name}>{src.name}</option>)}
                   </select>
@@ -1700,6 +1783,118 @@ export default function Leads() {
                 </button>
               </div>
             )}
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Quick Add Status Modal */}
+      {showQuickAddStatus && createPortal(
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden animate-slideUp">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Zap size={16} className="text-amber-500" /> Add Pipeline Status
+              </h3>
+              <button onClick={() => setShowQuickAddStatus(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleQuickCreateStatus} className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Status Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. In Negotiation, Follow-up"
+                  className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                  value={quickStatusName}
+                  onChange={e => setQuickStatusName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Color Tag</label>
+                <div className="grid grid-cols-6 gap-2">
+                  {STATUS_COLORS.map(c => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setQuickStatusColor(c)}
+                      className={`w-7 h-7 rounded-full transition-all cursor-pointer ${quickStatusColor === c ? "ring-2 ring-slate-900 dark:ring-white scale-110 shadow-xs" : "opacity-80 hover:opacity-100"}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddStatus(false)}
+                  className="flex-1 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingQuickStatus || !quickStatusName.trim()}
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {savingQuickStatus ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} strokeWidth={2.5} />}
+                  <span>{savingQuickStatus ? 'Saving...' : 'Create Status'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Quick Add Source Modal */}
+      {showQuickAddSource && createPortal(
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden animate-slideUp">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Users size={16} className="text-amber-500" /> Add Lead Source
+              </h3>
+              <button onClick={() => setShowQuickAddSource(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleQuickCreateSource} className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Source / Channel Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Instagram, Referral, Google Ads"
+                  className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                  value={quickSourceName}
+                  onChange={e => setQuickSourceName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddSource(false)}
+                  className="flex-1 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingQuickSource || !quickSourceName.trim()}
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {savingQuickSource ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} strokeWidth={2.5} />}
+                  <span>{savingQuickSource ? 'Saving...' : 'Create Source'}</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body
