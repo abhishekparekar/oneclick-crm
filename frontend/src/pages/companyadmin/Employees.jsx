@@ -300,7 +300,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
 
   const empData = fullEmpRes?.data?.employee || employee;
 
-  const name = empData.user?.name || `${empData.firstName || ""} ${empData.lastName || ""}`;
+  const name = empData.user?.name || `${empData.firstName || ""} ${empData.lastName || ""}`.trim() || "Employee";
   const email = empData.user?.email || empData.email;
   const phone = empData.user?.phone || empData.phone;
   const isActive = empData.status === "active";
@@ -327,8 +327,8 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
     { label: "Gender", value: empData.gender },
     { label: "Blood Group", value: empData.bloodGroup },
     { label: "Marital Status", value: empData.maritalStatus },
-    { label: "Aadhaar", value: empData.aadhaarNumber },
-    { label: "PAN", value: empData.panNumber },
+    { label: "Aadhaar No", value: empData.aadhaarNumber },
+    { label: "PAN No", value: empData.panNumber },
   ];
 
   const addressRows = [
@@ -337,52 +337,65 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
   ];
 
   const jobRows = [
-    { label: "Code", value: empData.employeeCode },
+    { label: "Employee Code", value: empData.employeeCode },
     { label: "Department", value: drawerDepts },
-    // { label: "Designation", value: empData.designationId?.name || empData.designation?.name },
-    { label: "Branch", value: empData.branchId?.name || empData.branch?.name },
-    { label: "Role", value: formattedRole },
-    { label: "Type", value: empData.employmentType },
+    { label: "Designation", value: empData.designationId?.name || empData.designation?.name || "—" },
+    { label: "Branch", value: empData.branchId?.name || empData.branch?.name || "Main Office" },
+    { label: "System Role", value: formattedRole },
+    { label: "Employment Type", value: empData.employmentType },
     { label: "Work Mode", value: empData.workMode },
-    { label: "Joined", value: joined ? new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null },
-    { label: "Confirmed", value: empData.confirmationDate ? new Date(empData.confirmationDate).toLocaleDateString("en-IN") : null },
-    { label: "Notice", value: empData.noticePeriod ? `${empData.noticePeriod} Days` : null },
+    { label: "Joined Date", value: joined ? new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null },
+    { label: "Confirmation", value: empData.confirmationDate ? new Date(empData.confirmationDate).toLocaleDateString("en-IN") : null },
+    { label: "Notice Period", value: empData.noticePeriod ? `${empData.noticePeriod} Days` : null },
   ];
 
   const bankRows = [
-    { label: "Bank", value: empData.bankDetails?.bankName },
-    { label: "A/C Name", value: empData.bankDetails?.accountHolderName },
-    { label: "A/C No", value: empData.bankDetails?.accountNumber },
-    { label: "IFSC", value: empData.bankDetails?.ifscCode },
+    { label: "Bank Name", value: empData.bankDetails?.bankName },
+    { label: "Account Holder", value: empData.bankDetails?.accountHolderName },
+    { label: "Account Number", value: empData.bankDetails?.accountNumber },
+    { label: "IFSC Code", value: empData.bankDetails?.ifscCode },
     { label: "UPI ID", value: empData.bankDetails?.upiId },
   ];
 
   const salaryRows = [
-    { label: "CTC", value: empData.salaryDetails?.ctc },
-    { label: "Basic", value: empData.salaryDetails?.basic },
-    { label: "HRA", value: empData.salaryDetails?.hra },
-    { label: "Special", value: empData.salaryDetails?.specialAllowance },
-    { label: "PF", value: empData.salaryDetails?.pf },
-    { label: "ESI", value: empData.salaryDetails?.esi },
-    { label: "TDS", value: empData.salaryDetails?.tds },
+    { label: "Annual CTC", value: empData.salaryDetails?.ctc ? `₹${Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}` : null },
+    { label: "Basic (Monthly)", value: empData.salaryDetails?.basic ? `₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}` : null },
+    { label: "HRA", value: empData.salaryDetails?.hra ? `₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}` : null },
+    { label: "Special Allowance", value: empData.salaryDetails?.specialAllowance ? `₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}` : null },
+    { label: "PF Deduction", value: empData.salaryDetails?.pf ? `₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}` : null },
+    { label: "ESI Deduction", value: empData.salaryDetails?.esi ? `₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}` : null },
+    { label: "TDS Deduction", value: empData.salaryDetails?.tds ? `₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}` : null },
   ];
+
+  const docs = empData.documents || {};
+  const docList = [
+    { key: "offerLetter", label: "Offer Letter", url: docs.offerLetter },
+    { key: "joiningLetter", label: "Joining Letter", url: docs.joiningLetter },
+    { key: "resume", label: "Resume / CV", url: docs.resume },
+    { key: "salarySlipPrevious", label: "Previous Salary Slip", url: docs.salarySlipPrevious },
+    { key: "panCard", label: "PAN Card", url: docs.panCard },
+    { key: "aadhaarFront", label: "Aadhaar Document", url: docs.aadhaarFront || docs.aadhaarBack },
+  ].filter(d => Boolean(d.url));
 
   const GridSection = ({ title, icon: Icon, rows, cols = 3 }) => {
     return (
-      <div className="bg-ca-surface dark:bg-slate-800/60 rounded-xl p-3 border border-ca-border dark:border-slate-700/50 shadow-sm relative overflow-hidden">
+      <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-2xs relative overflow-hidden">
         {isLoadingFull && (
-          <div className="absolute inset-0 bg-ca-surface/60 dark:bg-slate-900/ backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <RefreshCw size={14} className="text-theme-4 animate-spin" />
+          <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
+            <RefreshCw size={14} className="text-amber-500 animate-spin" />
           </div>
         )}
-        <p className="text-[10px] font-bold text-ca-text-secondary uppercase tracking-widest mb-2.5 flex items-center">
-          <Icon size={11} className="mr-1.5" /> {title}
-        </p>
+        <div className="flex items-center gap-1.5 mb-3 border-b border-slate-100 dark:border-slate-800/80 pb-2">
+          <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+            <Icon size={12} strokeWidth={2.5} />
+          </div>
+          <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">{title}</span>
+        </div>
         <div className={`grid grid-cols-2 sm:grid-cols-${cols} gap-2`}>
           {rows.map(({ label, value }) => (
-            <div key={label} className="bg-ca-bg/80 dark:bg-slate-900/ p-2 rounded-lg border border-ca-border/60 dark:border-slate-700/40">
-              <p className="text-[9px] font-bold text-ca-text-secondary dark:text-ca-text-secondary uppercase tracking-wider mb-0.5">{label}</p>
-              <p className="text-xs font-bold text-ca-text dark:text-slate-200 break-words">{value || "—"}</p>
+            <div key={label} className="bg-slate-50/80 dark:bg-[#0D1321] p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
+              <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-0.5 truncate">{label}</p>
+              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 break-words leading-tight">{value || "—"}</p>
             </div>
           ))}
         </div>
@@ -391,27 +404,36 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-slate-900/40 dark:bg-slate-900/ backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onClick={onClose} />
       
-      <div className="relative w-full sm:w-[680px] bg-ca-bg dark:bg-[#1a2b28] h-full flex flex-col shadow-2xl border-l border-ca-border dark:border-slate-800 overflow-hidden animate-slideInRight">
+      <div className="relative w-full sm:w-[620px] bg-slate-50 dark:bg-[#0B111E] h-full flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-hidden animate-slideLeft">
         
-        {/* Header (No Banner) */}
-        <div className="flex justify-end p-3 flex-shrink-0">
-          <button onClick={onClose} className="p-2 rounded-full bg-ca-bg dark:bg-slate-800/60 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-300 dark:text-slate-300 transition-colors">
+        {/* Compact Header Bar */}
+        <div className="flex items-center justify-between px-5 py-3.5 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 shadow-2xs">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-extrabold text-slate-900 dark:text-white">Employee Profile</span>
+            {empData.employeeCode && (
+              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10.5px] font-extrabold border border-amber-500/20">
+                {empData.employeeCode}
+              </span>
+            )}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer">
             <X size={16} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 pb-8">
-          {/* Profile Card */}
-          <div className="px-4 relative text-center mb-5">
-            <div className="relative inline-block">
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
+          
+          {/* Profile Hero Card */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 text-center shadow-2xs">
+            <div className="relative inline-block mb-3">
               {photoUrl ? (
-                <img src={photoUrl} alt={name} className="w-24 h-24 rounded-3xl object-cover mx-auto shadow-md border-4 border-white dark:border-slate-800 bg-ca-surface dark:bg-slate-800" />
+                <img src={photoUrl} alt={name} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-md border-2 border-white dark:border-slate-700 ring-4 ring-amber-500/20" />
               ) : (
-                <div className={`w-24 h-24 rounded-3xl ${ac} flex items-center justify-center text-3xl font-bold mx-auto shadow-md border-4 border-white dark:border-slate-800`}>
+                <div className={`w-20 h-20 rounded-2xl ${ac} flex items-center justify-center text-2xl font-black mx-auto shadow-md border-2 border-white dark:border-slate-700 ring-4 ring-amber-500/20`}>
                   {initials}
                 </div>
               )}
@@ -420,79 +442,107 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
               </div>
             </div>
             
-            <div className="mt-3">
-              <h2 className="text-xl font-extrabold text-white ">{name}</h2>
-              <p className="text-xs font-semibold text-theme-4 mt-0.5">{formattedRole}</p>
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">{name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
+                  {formattedRole}
+                </span>
+                {drawerDepts && drawerDepts !== "—" && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                    {drawerDepts}
+                  </span>
+                )}
+              </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex justify-center space-x-2 mt-4 max-w-sm mx-auto">
+            {/* Quick Action Buttons */}
+            <div className="flex items-center justify-center gap-2 mt-4 max-w-sm mx-auto">
               {email && (
-                <a href={`mailto:${email}`} className="flex-1 flex items-center justify-center space-x-1.5 bg-ca-surface dark:bg-slate-800/80 border border-ca-border dark:border-slate-700/80 text-ca-text dark:text-slate-300 rounded-lg py-1.5 hover:bg-ca-bg dark:hover:bg-slate-700 transition-all font-bold text-xs shadow-sm">
-                  <Mail size={12} className="text-ca-text-secondary dark:text-ca-text-secondary" /><span>Email</span>
+                <a href={`mailto:${email}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
+                  <Mail size={13} className="text-amber-500" /><span>Email</span>
                 </a>
               )}
               {phone && (
-                <a href={`tel:${phone}`} className="flex-1 flex items-center justify-center space-x-1.5 bg-ca-surface dark:bg-slate-800/80 border border-ca-border dark:border-slate-700/80 text-ca-text dark:text-slate-300 rounded-lg py-1.5 hover:bg-ca-bg dark:hover:bg-slate-700 transition-all font-bold text-xs shadow-sm">
-                  <Phone size={12} className="text-ca-text-secondary dark:text-ca-text-secondary" /><span>Call</span>
+                <a href={`tel:${phone}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
+                  <Phone size={13} className="text-emerald-500" /><span>Call</span>
                 </a>
               )}
-              <Link to={`/company/attendance?employee=${employee._id}`} className="flex-1 flex items-center justify-center space-x-1.5 bg-theme-3/10 dark:bg-theme-3/20 border border-theme-3/20 dark:border-theme-3/30 text-theme-3 dark:text-theme-3 rounded-lg py-1.5 hover:bg-theme-3/20 dark:hover:bg-theme-3/40 transition-all font-bold text-xs shadow-sm">
-                <Calendar size={12} /><span>Logs</span>
+              <Link to={`/company/attendance?employee=${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
+                <Calendar size={13} className="text-indigo-500" /><span>Logs</span>
               </Link>
             </div>
           </div>
 
+          {/* Quick Stats Micro Grid */}
+          <div className="grid grid-cols-3 gap-2">
+            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-none mb-1">{employee._stats?.present ?? "0"}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Present</p>
+            </div>
+            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+              <p className="text-lg font-black text-amber-600 dark:text-amber-400 leading-none mb-1">{employee._stats?.leaves ?? "0"}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leaves</p>
+            </div>
+            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+              <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none mb-1">{employee._stats?.tasks ?? "0"}</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tasks</p>
+            </div>
+          </div>
+
           {/* Detailed Sections */}
-          <div className="px-4 space-y-3">
-            
-            {/* Quick Stats Grid */}
-            <div className="bg-ca-surface dark:bg-slate-800/60 rounded-xl p-3 border border-ca-border dark:border-slate-700/50 shadow-sm">
-              <p className="text-[10px] font-bold text-ca-text-secondary uppercase tracking-widest mb-2.5 flex items-center">
-                <Award size={11} className="mr-1.5" /> Quick Stats
-              </p>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="bg-emerald-50/50 dark:bg-emerald-900/20 rounded-lg p-2 text-center border border-emerald-100/50 dark:border-emerald-800/30">
-                  <p className="text-xl font-black text-ca-secondary dark:text-emerald-400 mb-0.5">{employee._stats?.present ?? "0"}</p>
-                  <p className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-500 uppercase tracking-wide">Present</p>
+          <GridSection title="Job Details" icon={Building2} rows={jobRows} cols={3} />
+          <GridSection title="Personal Information" icon={User} rows={personalRows} cols={3} />
+          <GridSection title="Address Details" icon={MapPin} rows={addressRows} cols={2} />
+          <GridSection title="Bank & Statutory" icon={Briefcase} rows={bankRows} cols={3} />
+          <GridSection title="Salary Structure" icon={DollarSign} rows={salaryRows} cols={3} />
+
+          {/* Uploaded Documents Section */}
+          {docList.length > 0 && (
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+              <div className="flex items-center gap-1.5 mb-3 border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                  <FileText size={12} strokeWidth={2.5} />
                 </div>
-                <div className="bg-amber-50/50 dark:bg-amber-900/20 rounded-lg p-2 text-center border border-amber-100/50 dark:border-amber-800/30">
-                  <p className="text-xl font-black text-amber-600 dark:text-amber-400 mb-0.5">{employee._stats?.leaves ?? "0"}</p>
-                  <p className="text-[10px] font-semibold text-amber-700 dark:text-amber-500 uppercase tracking-wide">Leaves</p>
-                </div>
-                <div className="bg-violet-50/50 dark:bg-violet-900/20 rounded-lg p-2 text-center border border-violet-100/50 dark:border-violet-800/30">
-                  <p className="text-xl font-black text-violet-600 dark:text-violet-400 mb-0.5">{employee._stats?.tasks ?? "0"}</p>
-                  <p className="text-[10px] font-semibold text-violet-700 dark:text-violet-500 uppercase tracking-wide">Tasks</p>
-                </div>
+                <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Uploaded Documents ({docList.length})</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {docList.map(doc => (
+                  <a
+                    key={doc.key}
+                    href={doc.url.startsWith("http") ? doc.url : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${doc.url.startsWith("/") ? "" : "/"}${doc.url}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs"
+                  >
+                    <span className="truncate">{doc.label}</span>
+                    <Download size={13} className="text-amber-500 shrink-0 ml-1.5" />
+                  </a>
+                ))}
               </div>
             </div>
+          )}
 
-            <GridSection title="Job Details" icon={Building2} rows={jobRows} cols={3} />
-            <GridSection title="Personal Information" icon={User} rows={personalRows} cols={3} />
-            <GridSection title="Address Details" icon={MapPin} rows={addressRows} cols={2} />
-            <GridSection title="Bank & Identity" icon={Briefcase} rows={bankRows} cols={3} />
-            <GridSection title="Salary Details" icon={Briefcase} rows={salaryRows} cols={4} />
-
-          </div>
         </div>
 
-        {/* Drawer Footer Actions */}
-        <div className="border-t border-ca-border dark:border-slate-800 bg-ca-surface dark:bg-slate-900 p-4 flex space-x-3 z-10 shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
+        {/* Drawer Sticky Footer Actions */}
+        <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] p-4 flex items-center gap-2.5 z-10 shadow-lg">
           <Link
             to={`/company/employees/edit/${employee._id}`}
-            className="flex-1 flex items-center justify-center py-3 bg-theme-3 text-white rounded-xl text-sm font-bold hover:bg-theme-4 transition-colors shadow-sm"
+            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
           >
-            <Edit2 size={16} className="mr-2" /> Edit Employee
+            <Edit2 size={13} strokeWidth={2.5} /> <span>Edit Employee</span>
           </Link>
           <button
             onClick={() => onToggleStatus(employee)}
-            className={`flex-1 flex items-center justify-center py-3 rounded-xl text-sm font-bold transition-all shadow-sm ${isActive
-                ? "bg-ca-surface dark:bg-transparent border-2 border-amber-100 dark:border-amber-500/30 text-amber-600 dark:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-500/10"
-                : "bg-ca-surface dark:bg-transparent border-2 border-theme-5 dark:border-theme-5/50 text-theme-4 dark:text-theme-4 hover:bg-theme-6 dark:hover:bg-theme-5/10"
-              }`}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-extrabold transition-all border shadow-2xs cursor-pointer ${
+              isActive
+                ? "bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                : "bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+            }`}
           >
-            {isActive ? <PowerOff size={16} className="mr-2" /> : <Power size={16} className="mr-2" />}
-            {isActive ? "Deactivate" : "Activate"}
+            {isActive ? <PowerOff size={13} strokeWidth={2.5} /> : <Power size={13} strokeWidth={2.5} />}
+            <span>{isActive ? "Deactivate Account" : "Activate Account"}</span>
           </button>
         </div>
       </div>

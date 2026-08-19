@@ -1,88 +1,87 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "react-hot-toast";
 import {
   getEmployeeByIdApi, updateEmployeeApi, patchEmployeeStatusApi,
   getCompanyAuditLogsApi, getDepartmentsApi, getDesignationsApi,
   getBranchesApi, getEmployeesApi,
   createDepartmentApi, createDesignationApi, createBranchApi,
-  getLeaveBalanceApi, updateLeaveBalanceApi
+  getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi
 } from "../../api/companyAdminApi";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
   FileText, Coins, Award, Camera, Save, ArrowLeft, ChevronDown,
   ChevronUp, CheckCircle2, History, X, Lock, PowerOff, Download,
-  AlertTriangle, RefreshCw, Plus, Loader2, Building2, CalendarDays
+  AlertTriangle, RefreshCw, Plus, Loader2, Building2, CalendarDays,
+  Upload, Eye, ChevronRight, ChevronLeft, CheckCheck, Trash2,
+  ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck
 } from "lucide-react";
 
-// ── Components ─────────────────────────────────────────────────────────────
+// ── Step Definitions ────────────────────────────────────────────────────────
+const STEPS = [
+  { id: 1, label: "Basic Info", icon: User, desc: "Personal info & avatar" },
+  { id: 2, label: "Job Details", icon: Briefcase, desc: "Role & department" },
+  { id: 3, label: "Address & Contact", icon: MapPin, desc: "Location & emergency" },
+  { id: 4, label: "Salary & Leaves", icon: DollarSign, desc: "Compensation & quotas" },
+  { id: 5, label: "Bank & Identity", icon: CreditCard, desc: "Banking & PAN/Aadhaar" },
+  { id: 6, label: "Document Vault", icon: FileText, desc: "Upload files & proofs" },
+  { id: 7, label: "Review & Save", icon: CheckCheck, desc: "Final verification" },
+];
 
-const SectionCard = ({ title, icon: Icon, children, defaultOpen = true }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-  return (
-    <div className="bg-ca-surface rounded-2xl border border-ca-border shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] overflow-hidden mb-3">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between px-6 py-4 bg-ca-surface border-b border-ca-border hover:bg-ca-bg/50 transition-colors group"
-      >
-        <div className="flex items-center space-x-2">
-          <div className="w-9 h-9 rounded-xl bg-theme-3/5 border-none flex items-center justify-center group-hover:bg-theme-3/10 transition-colors">
-            <Icon size={16} className="text-theme-4" />
-          </div>
-          <h3 className="text-base font-bold text-ca-text">{title}</h3>
-        </div>
-        {isOpen ? <ChevronUp size={18} className="text-ca-text-secondary" /> : <ChevronDown size={18} className="text-ca-text-secondary" />}
-      </button>
-      {isOpen && <div className="p-5">{children}</div>}
-    </div>
-  );
-};
-
-const Input = ({ label, type = "text", value, onChange, placeholder, disabled = false, required = false }) => (
-  <div className="space-y-1.5">
-    <label className="block text-[11px] font-bold text-ca-text-secondary uppercase tracking-widest mb-1.5">
-      {label} {required && <span className="text-ca-primary">*</span>}
-    </label>
-    <input
-      type={type}
-      value={value || ""}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      placeholder={placeholder}
-      className={`w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text placeholder-ca-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-ca-primary focus:border-ca-primary transition-shadow ${disabled ? "bg-ca-bg text-ca-text-secondary cursor-not-allowed" : "bg-ca-surface"}`}
-    />
-  </div>
-);
-
-const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action }) => (
-  <div className="space-y-1.5">
+// ── Shared Field Components ──────────────────────────────────────────────────
+const Field = ({ label, required, children, className = "", action, hint }) => (
+  <div className={`space-y-1.5 ${className}`}>
     <div className="flex items-center justify-between">
-      <label className="block text-[11px] font-bold text-ca-text-secondary uppercase tracking-widest mb-1.5">
-        {label} {required && <span className="text-ca-primary">*</span>}
+      <label className="block text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+        {label} {required && <span className="text-rose-500">*</span>}
       </label>
       {action}
     </div>
+    {children}
+    {hint && <p className="text-[10px] text-slate-400 font-medium">{hint}</p>}
+  </div>
+);
+
+const Input = ({ label, type = "text", value, onChange, placeholder, disabled = false, required = false, hint, className = "" }) => (
+  <Field label={label} required={required} hint={hint} className={className}>
+    <input
+      type={type}
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      placeholder={placeholder}
+      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
+        disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
+      }`}
+    />
+  </Field>
+);
+
+const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action, hint, className = "" }) => (
+  <Field label={label} required={required} action={action} hint={hint} className={className}>
     <div className="relative">
       <select
-        value={value || ""}
+        value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`w-full appearance-none pl-3 pr-8 py-2 border border-ca-border rounded-lg text-base text-ca-text focus:outline-none focus:ring-2 focus:ring-ca-primary focus:border-ca-primary transition-shadow ${disabled ? "bg-ca-bg text-ca-text-secondary cursor-not-allowed" : "bg-ca-surface"}`}
+        className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
+          disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
+        }`}
       >
         <option value="" disabled>{placeholder}</option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
-      <ChevronDown size={14} className="absolute right-3 top-2.5 text-ca-text-secondary pointer-events-none" />
+      <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
     </div>
-  </div>
+  </Field>
 );
 
-const MultiSelect = ({ label, selected = [], onChange, options, disabled = false, required = false, placeholder = "Select...", action }) => {
+const MultiSelect = ({ label, selected = [], onChange, options, disabled = false, required = false, placeholder = "Select departments...", action }) => {
   const [open, setOpen] = useState(false);
-  const containerRef = useRef();
+  const containerRef = useRef(null);
 
   useEffect(() => {
     const handleClick = (e) => {
@@ -100,105 +99,174 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
   const selectedLabels = options.filter(o => selected.includes(o.value)).map(o => o.label).join(", ");
 
   return (
-    <div className="space-y-1.5" ref={containerRef}>
-      <div className="flex items-center justify-between">
-        <label className="block text-[11px] font-bold text-ca-text-secondary uppercase tracking-widest mb-1.5">
-          {label} {required && <span className="text-ca-primary">*</span>}
-        </label>
-        {action}
-      </div>
-      <div className="relative">
+    <Field label={label} required={required} action={action}>
+      <div className="relative" ref={containerRef}>
         <div
-          className={`w-full appearance-none pl-3 pr-8 py-2 border border-ca-border rounded-lg text-base text-ca-text transition-shadow flex items-center justify-between min-h-[38px] ${disabled ? "bg-ca-bg text-ca-text-secondary cursor-not-allowed" : "bg-ca-surface cursor-pointer focus:ring-2 focus:ring-ca-primary focus:border-ca-primary"}`}
+          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-all flex items-center justify-between min-h-[40px] cursor-pointer hover:border-amber-500/50 ${
+            disabled ? "opacity-60 cursor-not-allowed" : ""
+          }`}
           onClick={() => !disabled && setOpen(!open)}
         >
-          <span className="truncate block w-full">{selected.length ? selectedLabels : <span className="text-ca-text-secondary">{placeholder}</span>}</span>
+          <span className="truncate block">{selected.length ? selectedLabels : <span className="text-slate-400 font-normal">{placeholder}</span>}</span>
+          <ChevronDown size={14} className="text-slate-400 flex-shrink-0 ml-2" />
         </div>
-        <ChevronDown size={14} className="absolute right-3 top-2.5 text-ca-text-secondary pointer-events-none" />
 
         {open && !disabled && (
-          <div className="absolute z-10 w-full mt-1 bg-ca-surface border border-ca-border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+          <div className="absolute z-20 w-full mt-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl max-h-48 overflow-y-auto p-1.5 animate-fadeIn">
             {options.map(o => (
               <div
                 key={o.value}
-                className="flex items-center px-3 py-2 hover:bg-ca-bg cursor-pointer"
+                className="flex items-center px-3 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/80 rounded-lg cursor-pointer transition-colors"
                 onClick={(e) => { e.stopPropagation(); toggle(o.value); }}
               >
                 <input
                   type="checkbox"
                   checked={selected.includes(o.value)}
                   readOnly
-                  className="mr-2 h-4 w-4 text-theme-4 rounded border-ca-border focus:ring-ca-primary"
+                  className="mr-2.5 h-3.5 w-3.5 text-amber-500 rounded border-slate-300 dark:border-slate-700 focus:ring-amber-500"
                 />
-                <span className="text-base text-ca-text">{o.label}</span>
+                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{o.label}</span>
               </div>
             ))}
-            {options.length === 0 && <div className="p-3 text-base text-ca-text-secondary text-center">No options available</div>}
+            {options.length === 0 && <div className="p-3 text-xs text-slate-400 text-center">No options available</div>}
           </div>
         )}
       </div>
-    </div>
+    </Field>
   );
 };
 
-const MultiInput = ({ label, values, onChange, placeholder }) => {
-  const [inputValue, setInputValue] = useState("");
-  const addValue = (e) => {
-    if (e.key === "Enter" && inputValue.trim()) {
-      e.preventDefault();
-      if (!values.includes(inputValue.trim())) {
-        onChange([...values, inputValue.trim()]);
-      }
-      setInputValue("");
+// ── Document Item Component ────────────────────────────────────────────────
+const DocumentUploader = ({ title, docKey, currentUrl, employeeId, onUploaded }) => {
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef(null);
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (< 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10MB");
+      return;
+    }
+
+    setUploading(true);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("documentType", docKey);
+    form.append("title", title);
+
+    try {
+      const res = await uploadEmployeeDocumentApi(employeeId, form);
+      const fileUrl = res.data?.document?.fileUrl || res.data?.fileUrl || res.data?.employee?.documents?.[docKey];
+      toast.success(`${title} uploaded successfully!`);
+      onUploaded(docKey, fileUrl || file.name);
+    } catch (err) {
+      toast.error(err.response?.data?.message || `Failed to upload ${title}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
-  const removeValue = (val) => onChange(values.filter(v => v !== val));
+
+  const cleanUrl = currentUrl ? (currentUrl.startsWith("http") ? currentUrl : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${currentUrl.startsWith("/") ? "" : "/"}${currentUrl}`) : null;
 
   return (
-    <div className="space-y-1.5">
-      <label className="block text-[11px] font-bold text-ca-text-secondary uppercase tracking-widest mb-1.5">{label}</label>
-      <div className="flex flex-wrap gap-2 mb-2">
-        {values.map((val) => (
-          <span key={val} className="inline-flex items-center px-2.5 py-1 rounded-md text-sm font-medium bg-theme-3/10 text-theme-3 border border-theme-3/30">
-            {val}
-            <button type="button" onClick={() => removeValue(val)} className="ml-1.5 text-theme-3/60 hover:text-theme-4"><X size={12} /></button>
-          </span>
-        ))}
+    <div className="bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 transition-all hover:border-amber-500/30">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2.5">
+          <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${currentUrl ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-slate-200/60 dark:bg-slate-800 text-slate-400'}`}>
+            {currentUrl ? <FileCheck size={18} /> : <FileText size={18} />}
+          </div>
+          <div>
+            <h4 className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight">{title}</h4>
+            <span className={`text-[10px] font-bold ${currentUrl ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+              {currentUrl ? "Uploaded & Verified" : "Not uploaded yet"}
+            </span>
+          </div>
+        </div>
+        {currentUrl && (
+          <a
+            href={cleanUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-200/50 dark:hover:bg-slate-800 transition-colors"
+            title="View File"
+          >
+            <ExternalLink size={14} />
+          </a>
+        )}
       </div>
-      <input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        onKeyDown={addValue}
-        placeholder={placeholder + " (Press Enter to add)"}
-        className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text placeholder-ca-text-secondary/60 focus:outline-none focus:ring-2 focus:ring-ca-primary focus:border-ca-primary"
-      />
+
+      <div className="flex items-center gap-2">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+          className="hidden"
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex-1 py-2 px-3 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 hover:border-amber-500/50 rounded-xl text-[11px] font-bold text-slate-700 dark:text-slate-200 transition-all flex items-center justify-center gap-1.5 shadow-2xs cursor-pointer disabled:opacity-50"
+        >
+          {uploading ? (
+            <>
+              <Loader2 size={13} className="animate-spin text-amber-500" />
+              <span>Uploading...</span>
+            </>
+          ) : (
+            <>
+              <Upload size={13} className="text-amber-500" />
+              <span>{currentUrl ? "Replace Document" : "Upload Document"}</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 };
 
-// ── Main Page Component ───────────────────────────────────────────────────
-
-const EditEmployee = () => {
+// ── Main Page Component ─────────────────────────────────────────────────────
+export default function EditEmployee() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(null);
   const [originalData, setOriginalData] = useState(null);
   const [showAuditLog, setShowAuditLog] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [activeTab, setActiveTab] = useState("all");
-  const [roleUpdatedState, setRoleUpdatedState] = useState(false);
-  const [isRoleEditing, setIsRoleEditing] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const avatarInputRef = useRef(null);
 
   // ── Queries ──
   const { data: empRes, isLoading: empLoading, isError, error } = useQuery({
     queryKey: ["employee", id],
-    queryFn: () => getEmployeeByIdApi(id)
+    queryFn: () => getEmployeeByIdApi(id),
   });
 
+  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
+  const { data: desgRes } = useQuery({ queryKey: ["designations"], queryFn: getDesignationsApi });
+  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
+  const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }) });
+
+  const { data: auditRes, refetch: refetchAudit } = useQuery({
+    queryKey: ["auditLogs", id],
+    queryFn: () => getCompanyAuditLogsApi({ entityId: id, module: "Team Member" }),
+    enabled: showAuditLog,
+  });
+
+  const { data: leaveRes } = useQuery({
+    queryKey: ["leaveBalance", id],
+    queryFn: () => getLeaveBalanceApi({ employeeId: id }),
+  });
+
+  // Populate form data
   useEffect(() => {
     if (empRes?.data?.employee && !formData) {
       const emp = empRes.data.employee;
@@ -219,32 +287,14 @@ const EditEmployee = () => {
         salaryDetails: emp.salaryDetails || {},
         skills: emp.skills || [],
         certifications: emp.certifications || [],
-        experienceDetails: emp.experienceDetails || [],
-        educationDetails: emp.educationDetails || [],
         documents: emp.documents || {},
-        leaveBalance: { casual: 0, sick: 0, annual: 0, unpaid: 0 },
+        leaveBalance: { casual: 12, sick: 6, annual: 15, unpaid: 0 },
         leaveBalanceLoaded: false,
       };
       setFormData(initialData);
       setOriginalData(JSON.stringify(initialData));
     }
   }, [empRes, formData]);
-
-  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const { data: desgRes } = useQuery({ queryKey: ["designations"], queryFn: getDesignationsApi });
-  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
-  const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }) });
-
-  const { data: auditRes, refetch: refetchAudit } = useQuery({
-    queryKey: ["auditLogs", id],
-    queryFn: () => getCompanyAuditLogsApi({ entityId: id, module: "Team Member" }),
-    enabled: showAuditLog,
-  });
-
-  const { data: leaveRes } = useQuery({
-    queryKey: ["leaveBalance", id],
-    queryFn: () => getLeaveBalanceApi({ employeeId: id })
-  });
 
   useEffect(() => {
     if (leaveRes?.data?.balance && formData && !formData.leaveBalanceLoaded) {
@@ -259,7 +309,7 @@ const EditEmployee = () => {
       setFormData(prev => ({
         ...prev,
         leaveBalance: initialLeave,
-        leaveBalanceLoaded: true
+        leaveBalanceLoaded: true,
       }));
 
       setOriginalData(prev => {
@@ -274,7 +324,7 @@ const EditEmployee = () => {
   const branches = branchRes?.data?.branches || branchRes?.data || [];
   const managers = (mgrsRes?.data?.employees || []).filter(e => e._id !== id);
 
-  // ── Quick Create Modal State ─────────────────────────────────────────────
+  // ── Quick Creation Modals ──
   const [quickModal, setQuickModal] = useState(null);
   const [quickForm, setQuickForm] = useState({ name: "", description: "", city: "", address: "", departmentId: "" });
   const [quickSaving, setQuickSaving] = useState(false);
@@ -286,8 +336,8 @@ const EditEmployee = () => {
 
   const handleQuickSave = async (e) => {
     e.preventDefault();
-    if (!quickForm.name.trim()) return alert("Name is required");
-    if (quickModal === "designation" && !quickForm.departmentId) return alert("Please select a department");
+    if (!quickForm.name.trim()) return toast.error("Name is required");
+    if (quickModal === "designation" && !quickForm.departmentId) return toast.error("Please select a department");
     setQuickSaving(true);
     try {
       if (quickModal === "department") {
@@ -300,7 +350,6 @@ const EditEmployee = () => {
         await queryClient.invalidateQueries(["designations"]);
         const newDesg = res.data?.designation;
         if (newDesg?._id) {
-          handleChange("accessibleDepartments", quickForm.departmentId ? [...new Set([...(formData?.accessibleDepartments || []), quickForm.departmentId])] : formData?.accessibleDepartments);
           handleChange("designationId", newDesg._id);
         }
       } else if (quickModal === "branch") {
@@ -309,9 +358,10 @@ const EditEmployee = () => {
         const newBranch = res.data?.branch;
         if (newBranch?._id) handleChange("branchId", newBranch._id);
       }
+      toast.success(`${quickModal} created successfully`);
       setQuickModal(null);
     } catch (err) {
-      alert(err.response?.data?.message || `Failed to create ${quickModal}`);
+      toast.error(err.response?.data?.message || `Failed to create ${quickModal}`);
     } finally {
       setQuickSaving(false);
     }
@@ -320,22 +370,23 @@ const EditEmployee = () => {
   // ── Mutations ──
   const updateMutation = useMutation({
     mutationFn: (data) => updateEmployeeApi(id, data),
-    onSuccess: (res) => {
+    onSuccess: () => {
       queryClient.invalidateQueries(["employee", id]);
       queryClient.invalidateQueries(["employees"]);
       setOriginalData(JSON.stringify(formData));
       setIsDirty(false);
-      alert("Employee updated successfully!");
+      toast.success("Employee profile updated successfully!");
     },
     onError: (err) => {
-      alert(err?.response?.data?.message || "Failed to update employee");
+      toast.error(err?.response?.data?.message || "Failed to update employee");
     }
   });
 
   const statusMutation = useMutation({
-    mutationFn: (status) => patchEmployeeStatusApi(id, { status }),
+    mutationFn: (status) => patchEmployeeStatusApi(id, status),
     onSuccess: () => {
       queryClient.invalidateQueries(["employee", id]);
+      toast.success("Status updated successfully");
     }
   });
 
@@ -343,24 +394,12 @@ const EditEmployee = () => {
     mutationFn: (payload) => updateLeaveBalanceApi(id, payload)
   });
 
-  // ── Handlers ──
+  // Track dirty state
   useEffect(() => {
     if (formData && originalData) {
       setIsDirty(JSON.stringify(formData) !== originalData);
     }
   }, [formData, originalData]);
-
-  // Warn before leaving
-  useEffect(() => {
-    const handleBeforeUnload = (e) => {
-      if (isDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isDirty]);
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -373,18 +412,52 @@ const EditEmployee = () => {
     }));
   };
 
-  const handleSave = () => {
-    if (!isDirty) return;
+  // Avatar Photo Upload Handler
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    // Add confirmation for sensitive changes
-    const original = JSON.parse(originalData);
-    if (original.salaryDetails?.ctc !== formData.salaryDetails?.ctc || original.reportingManagerId !== formData.reportingManagerId) {
-      if (!window.confirm("You are making sensitive changes (Salary or Manager). Are you sure you want to save?")) {
-        return;
-      }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Profile picture must be under 5MB");
+      return;
     }
 
-    // Transform arrays back if needed, prepare payload
+    setUploadingPhoto(true);
+    const form = new FormData();
+    form.append("file", file);
+    form.append("documentType", "photo");
+    form.append("title", "photo");
+
+    try {
+      const res = await uploadEmployeeDocumentApi(id, form);
+      const newPhoto = res.data?.document?.fileUrl || res.data?.fileUrl || res.data?.employee?.photo;
+      if (newPhoto) {
+        handleChange("photo", newPhoto);
+      }
+      queryClient.invalidateQueries(["employee", id]);
+      toast.success("Profile photo updated successfully!");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to upload profile picture");
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDocumentUploaded = (docKey, fileUrl) => {
+    handleNestedChange("documents", docKey, fileUrl);
+    queryClient.invalidateQueries(["employee", id]);
+  };
+
+  const copyCurrentAddressToPermanent = () => {
+    if (formData?.currentAddress) {
+      handleChange("permanentAddress", { ...formData.currentAddress });
+      toast.success("Copied current address to permanent address");
+    }
+  };
+
+  const handleSave = () => {
+    if (!formData) return;
+
     const payload = {
       firstName: formData.firstName,
       middleName: formData.middleName,
@@ -396,6 +469,7 @@ const EditEmployee = () => {
       dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
       bloodGroup: formData.bloodGroup,
       maritalStatus: formData.maritalStatus,
+      photo: formData.photo,
 
       currentAddress: formData.currentAddress,
       permanentAddress: formData.permanentAddress,
@@ -409,22 +483,19 @@ const EditEmployee = () => {
       managerAccessLevel: (formData.role === "Manager" || formData.userId?.role === "Manager") ? formData.managerAccessLevel : undefined,
       employmentType: formData.employmentType,
       workMode: formData.workMode,
+      allowRemotePunch: formData.allowRemotePunch,
       joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : null,
       confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : null,
       noticePeriod: formData.noticePeriod,
 
       bankDetails: formData.bankDetails,
-
       aadhaarNumber: formData.aadhaarNumber,
       panNumber: formData.panNumber,
+      documents: formData.documents,
 
       role: formData.role || formData.userId?.role,
       loginRole: formData.role || formData.userId?.role,
-
       salaryDetails: formData.salaryDetails,
-
-      skills: formData.skills,
-      certifications: formData.certifications,
     };
 
     updateMutation.mutate(payload, {
@@ -443,549 +514,738 @@ const EditEmployee = () => {
 
   if (empLoading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-[400px]">
-        <RefreshCw size={24} className="text-theme-3 animate-spin" />
+      <div className="flex flex-col items-center justify-center h-96 gap-3">
+        <RefreshCw size={28} className="text-amber-500 animate-spin" />
+        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Loading employee workspace...</p>
       </div>
     );
   }
 
-  if (isError) {
+  if (isError || !formData) {
     return (
-      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-ca-primary">
-        <AlertTriangle size={32} className="mb-2" />
-        <p className="font-semibold">Failed to load employee data</p>
-        <p className="text-base">{error?.response?.data?.message || error?.message || "Unknown error"}</p>
+      <div className="flex flex-col items-center justify-center h-96 gap-3 text-rose-500">
+        <AlertTriangle size={36} />
+        <p className="text-sm font-extrabold text-slate-900 dark:text-white">Failed to load employee</p>
+        <p className="text-xs text-slate-400">{error?.response?.data?.message || "Please check your network and try again."}</p>
+        <Link to="/company/employees" className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
+          Return to Employee Directory
+        </Link>
       </div>
     );
   }
 
-  if (!formData) {
-    return null;
-  }
-
-  const name = `${formData.firstName || ""} ${formData.lastName || ""}`.trim();
+  const name = `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Employee";
   const initials = name.slice(0, 2).toUpperCase();
   const photoUrl = formData.photo ? (formData.photo.startsWith("http") ? formData.photo : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${formData.photo.startsWith("/") ? "" : "/"}${formData.photo}`) : null;
 
   return (
-    <div className="pb-20 relative">
-      {/* ── Sticky Header ────────────────────────────────────────── */}
-      <div className="sticky top-0 z-30 bg-[#0f172a]/80 backdrop-blur-md border-b border-white/10 px-6 py-4 -mx-6 mb-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center space-x-4">
-          <Link to="/company/employees" className="p-2 rounded-lg border border-ca-border text-slate-300 hover:bg-ca-bg transition-colors">
-            <ArrowLeft size={16} />
-          </Link>
-          <div>
-            <div className="flex items-center space-x-2 text-sm font-medium text-slate-300 mb-1">
-              <Link to="/company/dashboard" className="hover:text-theme-4 transition-colors">Dashboard</Link>
-              <span>/</span>
-              <Link to="/company/employees" className="hover:text-theme-4 transition-colors">Team Members</Link>
-              <span>/</span>
-              <span className="text-slate-300">Edit Employee</span>
-            </div>
-            <h1 className="text-2xl font-bold text-white leading-tight">Edit Employee Workspace</h1>
-          </div>
-        </div>
+    <div className="min-h-screen pb-24 space-y-6">
+      
+      {/* ── Top Executive Header ────────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Link
+              to="/company/employees"
+              className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              title="Back to Employees"
+            >
+              <ArrowLeft size={18} />
+            </Link>
 
-        <div className="flex items-center space-x-2">
-          {isDirty && (
-            <span className="flex items-center text-sm font-semibold text-amber-600 bg-ca-primary-light px-3 py-1.5 rounded-full border border-amber-200">
-              <AlertTriangle size={12} className="mr-1.5" /> Unsaved Changes
-            </span>
-          )}
-          <button
-            onClick={() => { setShowAuditLog(true); refetchAudit(); }}
-            className="flex items-center space-x-1.5 px-3 py-1.5 border border-ca-border rounded-lg text-base font-semibold text-ca-text hover:bg-ca-bg transition-colors"
-          >
-            <History size={16} /> <span>Audit Log</span>
-          </button>
-          <button
-            onClick={handleSave}
-            disabled={!isDirty || updateMutation.isLoading}
-            className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-sm font-extrabold tracking-wide shadow-sm transition-all ${isDirty ? "bg-theme-4 text-white hover:bg-theme-3 hover:shadow" : "bg-ca-bg text-ca-text-secondary cursor-not-allowed"}`}
-          >
-            {updateMutation.isLoading ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-            <span>Save Changes</span>
-          </button>
-        </div>
-      </div>
-
-      <div className="flex flex-col lg:flex-row gap-3">
-
-        {/* ── Left Sidebar Profile ─────────────────────────────────── */}
-        <div className="w-full lg:w-72 flex-shrink-0 space-y-5">
-          <div className="bg-ca-surface rounded-xl border border-ca-border shadow-sm p-6 text-center relative overflow-hidden">
-            <div className="absolute top-0 left-0 right-0 h-24 bg-theme-3" />
-            <div className="relative mt-4 mb-4">
-              <div className="w-24 h-24 mx-auto rounded-full border-4 border-white shadow-md bg-ca-surface relative">
+            <div className="relative group">
+              <input
+                type="file"
+                ref={avatarInputRef}
+                onChange={handleAvatarUpload}
+                accept="image/*"
+                className="hidden"
+              />
+              <div className="relative">
                 {photoUrl ? (
-                  <img src={photoUrl} alt="Profile" className="w-full h-full rounded-full object-cover" />
+                  <img src={photoUrl} alt={name} className="w-14 h-14 rounded-2xl object-cover border-2 border-white dark:border-slate-700 shadow-md ring-2 ring-amber-500/20" />
                 ) : (
-                  <div className="w-full h-full rounded-full bg-ca-bg flex items-center justify-center text-4xl font-bold text-ca-text-secondary">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-lg flex items-center justify-center shadow-md border-2 border-white dark:border-slate-700">
                     {initials}
                   </div>
                 )}
-                <button className="absolute bottom-0 right-0 w-8 h-8 bg-theme-4 text-white rounded-full flex items-center justify-center border-2 border-white shadow-sm hover:bg-theme-3 transition-colors">
-                  <Camera size={14} />
-                </button>
-              </div>
-            </div>
-
-            <h2 className="text-xl font-bold text-ca-text">{name}</h2>
-            <p className="text-base font-medium text-ca-text-secondary mb-3">{formData.employeeCode}</p>
-
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-sm font-bold border ${formData.status === 'active' ? 'bg-theme-3-light text-theme-2 border-theme-3-light' : 'bg-ca-bg text-ca-text-secondary border-ca-border'}`}>
-              <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${formData.status === 'active' ? 'bg-theme-3' : 'bg-slate-400'}`} />
-              {formData.status === 'active' ? "Active Employee" : "Inactive"}
-            </span>
-
-            <div className="mt-3 pt-5 border-t border-ca-border space-y-3 text-left">
-              <div className="flex items-center justify-between text-base">
-                <span className="text-ca-text-secondary">Profile Completion</span>
-                <span className="font-bold text-theme-3">{formData.profileCompletionPercentage || 0}%</span>
-              </div>
-              <div className="h-1.5 w-full bg-ca-bg rounded-full overflow-hidden">
-                <div className="h-full bg-theme-3 rounded-full" style={{ width: `${formData.profileCompletionPercentage || 0}%` }} />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-ca-surface rounded-xl border border-ca-border shadow-sm p-2">
-            <p className="px-3 py-2 text-sm font-bold text-ca-text-secondary uppercase tracking-wider mb-1">Quick Actions</p>
-            <button className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-ca-bg text-base font-medium text-ca-text transition-colors">
-              <Lock size={13} className="text-ca-text-secondary" /> <span>Reset Password</span>
-            </button>
-            <button className="w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg hover:bg-ca-bg text-base font-medium text-ca-text transition-colors">
-              <Download size={13} className="text-ca-text-secondary" /> <span>Download Employee Card</span>
-            </button>
-            <div className="my-1 border-t border-ca-border" />
-            <button
-              onClick={() => {
-                if (window.confirm(`Are you sure you want to ${formData.status === 'active' ? 'deactivate' : 'activate'} this account?`)) {
-                  statusMutation.mutate(formData.status === 'active' ? 'inactive' : 'active');
-                  setFormData(prev => ({ ...prev, status: prev.status === 'active' ? 'inactive' : 'active' }));
-                }
-              }}
-              className={`w-full flex items-center space-x-3 px-3 py-2.5 rounded-lg text-base font-bold transition-colors ${formData.status === 'active' ? 'text-amber-700 hover:bg-amber-50' : 'text-theme-2 hover:bg-theme-3-light'}`}
-            >
-              <PowerOff size={13} /> <span>{formData.status === 'active' ? 'Disable Account' : 'Enable Account'}</span>
-            </button>
-          </div>
-
-          <div className="bg-ca-surface rounded-2xl border border-ca-border shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] p-5">
-            <h3 className="font-bold text-ca-text mb-4 flex items-center"><User size={16} className="text-theme-3 mr-2" /> Role Management</h3>
-            {!isRoleEditing ? (
-              <div className="flex items-center justify-between pt-1">
-                <div>
-                  <p className="text-[11px] font-bold text-ca-text-secondary uppercase tracking-widest mb-1">System Role</p>
-                  <p className="text-[15px] font-bold text-ca-text">
-                    {formData.role || formData.userId?.role || "Employee"}
-                  </p>
-                </div>
                 <button
-                  onClick={() => setIsRoleEditing(true)}
-                  className="text-theme-4 hover:text-theme-3 text-sm font-bold px-3 py-1.5 rounded-lg hover:bg-ca-bg transition-colors"
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={uploadingPhoto}
+                  className="absolute -bottom-1.5 -right-1.5 w-6 h-6 rounded-lg bg-slate-900 text-white dark:bg-amber-600 flex items-center justify-center shadow-md hover:scale-110 transition-transform cursor-pointer disabled:opacity-50"
+                  title="Upload profile picture"
                 >
-                  Edit
+                  {uploadingPhoto ? <Loader2 size={11} className="animate-spin" /> : <Camera size={11} />}
                 </button>
-              </div>
-            ) : (
-              <div className="flex items-end space-x-2">
-                <div className="flex-1">
-                  <Select
-                    label="System Role"
-                    value={formData.role || formData.userId?.role || "Employee"}
-                    onChange={(v) => handleChange("role", v)}
-                    options={[
-                      { value: "Employee", label: "Team Member / Employee" },
-                      { value: "HR", label: "HR Manager" },
-                      { value: "Manager", label: "Manager" },
-                      { value: "CompanyAdmin", label: "Company Admin" }
-                    ]}
-                  />
-                </div>
-                <button
-                  onClick={() => {
-                    const newRole = formData.role || formData.userId?.role || "Employee";
-                    updateMutation.mutate({ role: newRole, loginRole: newRole }, {
-                      onSuccess: () => {
-                        setIsRoleEditing(false);
-                        setRoleUpdatedState(true);
-                        setTimeout(() => setRoleUpdatedState(false), 3000);
-                      }
-                    });
-                  }}
-                  disabled={updateMutation.isPending}
-                  className="px-4 py-2 bg-theme-3 text-white text-sm font-bold rounded-xl hover:bg-theme-4 transition-colors min-h-[44px] disabled:opacity-50"
-                >
-                  {updateMutation.isPending ? "Saving..." : "Update Role"}
-                </button>
-              </div>
-            )}
-            {roleUpdatedState && (
-              <p className="text-theme-4 text-sm font-semibold mt-3 flex items-center animate-fadeIn">
-                <CheckCircle2 size={14} className="mr-1.5" /> Updated successfully
-              </p>
-            )}
-          </div>
-
-          <div className="bg-ca-surface rounded-2xl border border-ca-border shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] p-5">
-            <h3 className="font-bold text-ca-text mb-4 flex items-center"><CheckCircle2 size={16} className="text-theme-3 mr-2" /> Current Status</h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-ca-text-secondary font-semibold">Active Projects</span>
-                  <span className="font-bold text-ca-text">2</span>
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-ca-text-secondary font-semibold">Pending Tasks</span>
-                  <span className="font-bold text-ca-text">5</span>
-                </div>
-              </div>
-              <div className="pt-3 border-t border-ca-border">
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-ca-text-secondary font-semibold">Attendance (This Month)</span>
-                  <span className="font-bold text-theme-3">92%</span>
-                </div>
-                <div className="h-1.5 bg-ca-bg rounded-full overflow-hidden">
-                  <div className="h-full bg-theme-3 rounded-full" style={{ width: '92%' }} />
-                </div>
-              </div>
-              <div>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="text-ca-text-secondary font-semibold">Available Leaves</span>
-                  <span className="font-bold text-theme-5">12 Days</span>
-                </div>
-                <div className="h-1.5 bg-ca-bg rounded-full overflow-hidden">
-                  <div className="h-full bg-theme-5 rounded-full" style={{ width: '60%' }} />
-                </div>
               </div>
             </div>
-          </div>
 
-          <div className="bg-ca-surface rounded-2xl border border-ca-border shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] p-4">
-            <h3 className="text-sm font-bold text-ca-text-secondary uppercase tracking-wider mb-3">System Info</h3>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-ca-text-secondary">Last Login:</span>
-                <span className="font-semibold text-ca-text">Today, 09:30 AM</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-ca-text-secondary">Last Updated:</span>
-                <span className="font-semibold text-ca-text">
-                  {new Date(formData.updatedAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' })}
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">{name}</h1>
+                <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10.5px] font-extrabold border border-amber-500/20">
+                  {formData.employeeCode || "EMP"}
                 </span>
               </div>
+              <p className="text-xs font-semibold text-slate-400 mt-0.5">
+                {formData.role || "Employee"} • {formData.email || "No email assigned"}
+              </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            {isDirty && (
+              <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse">
+                <AlertCircle size={13} /> Unsaved Changes
+              </span>
+            )}
+            <button
+              onClick={() => { setShowAuditLog(true); refetchAudit(); }}
+              className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            >
+              <History size={14} className="text-amber-500" />
+              <span>Audit Log</span>
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!isDirty || updateMutation.isPending}
+              className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+                isDirty
+                  ? "bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+              }`}
+            >
+              {updateMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} strokeWidth={2.5} />}
+              <span>Save Changes</span>
+            </button>
           </div>
         </div>
 
-        {/* ── Main Edit Sections ────────────────────────────────────── */}
-        <div className="flex-1 space-y-5">
+        {/* ── Modern Step Navigation Bar ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
+          {STEPS.map((s) => {
+            const Icon = s.icon;
+            const isCurrent = step === s.id;
+            const isCompleted = step > s.id;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => setStep(s.id)}
+                className={`p-2.5 rounded-2xl text-left transition-all cursor-pointer border ${
+                  isCurrent
+                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-md border-transparent"
+                    : isCompleted
+                    ? "bg-slate-50 dark:bg-[#0D1321] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:border-amber-500/30"
+                    : "bg-white dark:bg-[#111C24] text-slate-400 border-slate-200/40 dark:border-slate-800/40 opacity-70 hover:opacity-100"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-white/20 text-white' : isCompleted ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-200/60 dark:bg-slate-800 text-slate-400'}`}>
+                    {isCompleted ? <CheckCircle2 size={12} /> : s.id}
+                  </div>
+                  <span className="text-[11px] font-extrabold truncate">{s.label}</span>
+                </div>
+                <p className={`text-[9.5px] truncate font-semibold ${isCurrent ? 'text-white/80' : 'text-slate-400'}`}>{s.desc}</p>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          <SectionCard title="1. Personal Information" icon={User}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input label="First Name" required value={formData.firstName} onChange={(v) => handleChange("firstName", v)} />
-              <Input label="Middle Name" value={formData.middleName} onChange={(v) => handleChange("middleName", v)} />
-              <Input label="Last Name" required value={formData.lastName} onChange={(v) => handleChange("lastName", v)} />
+      {/* ── Form Step Content Container ─────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs animate-fadeIn">
+        
+        {/* ══ STEP 1: Basic & Profile Info ══════════════════════════════════ */}
+        {step === 1 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <User size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Basic & Personal Information</h3>
+                <p className="text-xs text-slate-400 font-medium">Core identification, personal contact, and avatar</p>
+              </div>
+            </div>
+
+            {/* Profile Avatar Card */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
+              {photoUrl ? (
+                <img src={photoUrl} alt={name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white dark:border-slate-700 shadow-sm ring-2 ring-amber-500/20" />
+              ) : (
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-xl flex items-center justify-center shadow-sm">
+                  {initials}
+                </div>
+              )}
+              <div className="space-y-1">
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">Profile Avatar</h4>
+                <p className="text-[11px] text-slate-400">Supported formats: JPG, PNG, WEBP (Max 5MB)</p>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => avatarInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-[11px] font-bold shadow-2xs flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    {uploadingPhoto ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                    <span>Upload New Photo</span>
+                  </button>
+                  {photoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => handleChange("photo", "")}
+                      className="px-3 py-1.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-rose-600 text-[11px] font-bold hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-colors cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Input label="First Name" required value={formData.firstName} onChange={(v) => handleChange("firstName", v)} placeholder="First Name" />
+              <Input label="Middle Name" value={formData.middleName} onChange={(v) => handleChange("middleName", v)} placeholder="Middle Name" />
+              <Input label="Last Name" required value={formData.lastName} onChange={(v) => handleChange("lastName", v)} placeholder="Last Name" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Official / Login Email" type="email" required value={formData.email} onChange={(v) => handleChange("email", v)} placeholder="name@company.com" />
+              <Input label="Primary Phone Number" type="tel" required value={formData.phone} onChange={(v) => handleChange("phone", v)} placeholder="9876543210" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input label="Alternate Mobile" type="tel" value={formData.alternateMobile} onChange={(v) => handleChange("alternateMobile", v)} placeholder="Optional secondary contact" />
+              <Input label="Date of Birth" type="date" value={formData.dateOfBirth} onChange={(v) => handleChange("dateOfBirth", v)} />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Select label="Gender" value={formData.gender} onChange={(v) => handleChange("gender", v)} options={[
-                { value: "male", label: "Male" }, { value: "female", label: "Female" }, { value: "other", label: "Other" }
-              ]} />
-              <Input label="Date of Birth" type="date" value={formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString().split('T')[0] : ""} onChange={(v) => handleChange("dateOfBirth", v)} />
-              <Select label="Marital Status" value={formData.maritalStatus} onChange={(v) => handleChange("maritalStatus", v)} options={[
-                { value: "single", label: "Single" }, { value: "married", label: "Married" }, { value: "divorced", label: "Divorced" }
+                { value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }
               ]} />
               <Select label="Blood Group" value={formData.bloodGroup} onChange={(v) => handleChange("bloodGroup", v)} options={[
                 { value: "A+", label: "A+" }, { value: "A-", label: "A-" }, { value: "B+", label: "B+" }, { value: "B-", label: "B-" },
                 { value: "O+", label: "O+" }, { value: "O-", label: "O-" }, { value: "AB+", label: "AB+" }, { value: "AB-", label: "AB-" }
               ]} />
+              <Select label="Marital Status" value={formData.maritalStatus} onChange={(v) => handleChange("maritalStatus", v)} options={[
+                { value: "Single", label: "Single" }, { value: "Married", label: "Married" }, { value: "Divorced", label: "Divorced" }
+              ]} />
             </div>
-          </SectionCard>
+          </div>
+        )}
 
-          <SectionCard title="2. Contact Information" icon={Phone}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input label="Work Email" type="email" required disabled value={formData.email} onChange={(v) => handleChange("email", v)} />
-              <Input label="Primary Mobile" type="tel" required value={formData.phone} onChange={(v) => handleChange("phone", v)} />
-              <Input label="Alternate Mobile" type="tel" value={formData.alternateMobile} onChange={(v) => handleChange("alternateMobile", v)} />
-              <div className="md:col-span-3 pt-4 mt-2 border-t border-ca-border grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input label="Emergency Contact Name" value={formData.emergencyContact?.name} onChange={(v) => handleNestedChange("emergencyContact", "name", v)} />
-                <Input label="Emergency Contact Number" type="tel" value={formData.emergencyContact?.phone} onChange={(v) => handleNestedChange("emergencyContact", "phone", v)} />
+        {/* ══ STEP 2: Job Details ═══════════════════════════════════════════ */}
+        {step === 2 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <Briefcase size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Job & Employment Details</h3>
+                <p className="text-xs text-slate-400 font-medium">Department, designation, role permissions, and branch</p>
               </div>
             </div>
-          </SectionCard>
 
-          <SectionCard title="3. Address Details" icon={MapPin} defaultOpen={false}>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <div className="space-y-4">
-                <h4 className="text-base font-bold text-ca-text border-b border-ca-border pb-2">Current Address</h4>
-                <Input label="Address Line 1" value={formData.currentAddress?.addressLine1} onChange={(v) => handleNestedChange("currentAddress", "addressLine1", v)} />
-                <Input label="Address Line 2" value={formData.currentAddress?.addressLine2} onChange={(v) => handleNestedChange("currentAddress", "addressLine2", v)} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="City" value={formData.currentAddress?.city} onChange={(v) => handleNestedChange("currentAddress", "city", v)} />
-                  <Input label="State" value={formData.currentAddress?.state} onChange={(v) => handleNestedChange("currentAddress", "state", v)} />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="Country" value={formData.currentAddress?.country} onChange={(v) => handleNestedChange("currentAddress", "country", v)} />
-                  <Input label="PIN Code" value={formData.currentAddress?.pincode} onChange={(v) => handleNestedChange("currentAddress", "pincode", v)} />
-                </div>
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between border-b border-ca-border pb-2">
-                  <h4 className="text-base font-bold text-ca-text">Permanent Address</h4>
-                  <label className="flex items-center space-x-2 text-sm font-semibold text-ca-text-secondary cursor-pointer">
-                    <input type="checkbox" className="rounded text-theme-4 focus:ring-ca-primary"
-                      checked={formData.permanentAddress?.sameAsCurrent}
-                      onChange={(e) => handleNestedChange("permanentAddress", "sameAsCurrent", e.target.checked)}
-                    />
-                    <span>Same as Current</span>
-                  </label>
-                </div>
-                <Input label="Address Line 1" disabled={formData.permanentAddress?.sameAsCurrent} value={formData.permanentAddress?.sameAsCurrent ? formData.currentAddress?.addressLine1 : formData.permanentAddress?.addressLine1} onChange={(v) => handleNestedChange("permanentAddress", "addressLine1", v)} />
-                <Input label="Address Line 2" disabled={formData.permanentAddress?.sameAsCurrent} value={formData.permanentAddress?.sameAsCurrent ? formData.currentAddress?.addressLine2 : formData.permanentAddress?.addressLine2} onChange={(v) => handleNestedChange("permanentAddress", "addressLine2", v)} />
-                <div className="grid grid-cols-2 gap-3">
-                  <Input label="City" disabled={formData.permanentAddress?.sameAsCurrent} value={formData.permanentAddress?.sameAsCurrent ? formData.currentAddress?.city : formData.permanentAddress?.city} onChange={(v) => handleNestedChange("permanentAddress", "city", v)} />
-                  <Input label="PIN Code" disabled={formData.permanentAddress?.sameAsCurrent} value={formData.permanentAddress?.sameAsCurrent ? formData.currentAddress?.pincode : formData.permanentAddress?.pincode} onChange={(v) => handleNestedChange("permanentAddress", "pincode", v)} />
-                </div>
-              </div>
-            </div>
-          </SectionCard>
-
-          <SectionCard title="4. Employment Details" icon={Briefcase}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <MultiSelect
-                label="Departments"
-                required
+                label="Accessible Departments"
                 selected={formData.accessibleDepartments || []}
-                onChange={(v) => handleChange("accessibleDepartments", v)}
+                onChange={(val) => handleChange("accessibleDepartments", val)}
                 options={departments.map(d => ({ value: d._id, label: d.name }))}
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("department")} className="text-[13px] font-semibold text-theme-4 hover:text-theme-3 flex items-center space-x-0.5">
-                    <Plus size={13} /><span>New</span>
+                  <button type="button" onClick={() => handleQuickOpen("department")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                    + Add Dept
                   </button>
                 }
               />
-
               <Select
-                label="Branch"
-                required
-                value={formData.branchId}
+                label="Designation / Title"
+                value={typeof formData.designationId === "object" ? formData.designationId?._id : formData.designationId}
+                onChange={(v) => handleChange("designationId", v)}
+                options={designations.map(d => ({ value: d._id, label: `${d.name} (${d.departmentId?.name || 'All'})` }))}
+                action={
+                  <button type="button" onClick={() => handleQuickOpen("designation")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                    + Add Desg
+                  </button>
+                }
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Branch / Office"
+                value={typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId}
                 onChange={(v) => handleChange("branchId", v)}
                 options={branches.map(b => ({ value: b._id, label: b.name || b.branchName }))}
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[13px] font-semibold text-theme-4 hover:text-theme-3 flex items-center space-x-0.5">
-                    <Plus size={13} /><span>New</span>
+                  <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                    + Add Branch
                   </button>
                 }
               />
+              <Select
+                label="System Role & Access"
+                value={formData.role || formData.userId?.role || "Employee"}
+                onChange={(v) => handleChange("role", v)}
+                options={[
+                  { value: "Employee", label: "Team Member / Employee" },
+                  { value: "HR", label: "HR Manager" },
+                  { value: "Manager", label: "Manager" },
+                  { value: "CompanyAdmin", label: "Company Admin" }
+                ]}
+              />
+            </div>
 
-              <Select label="Reporting Manager" value={formData.reportingManagerId} onChange={(v) => handleChange("reportingManagerId", v)} options={managers.map(m => ({ value: m._id, label: `${m.firstName} ${m.lastName}` }))} />
-              {(formData.role === "Manager" || formData.userId?.role === "Manager") && (
-                <Select label="Manager Access Level" value={formData.managerAccessLevel} onChange={(v) => handleChange("managerAccessLevel", v)} options={[
-                  { value: "team", label: "Team Only (Direct Reports)" },
-                  { value: "department", label: "All" }
-                ]} />
-              )}
-              <Select label="Employment Type" value={formData.employmentType} onChange={(v) => handleChange("employmentType", v)} options={[
-                { value: "full-time", label: "Full Time" }, { value: "part-time", label: "Part Time" }, { value: "contract", label: "Contract" }, { value: "intern", label: "Intern" }
-              ]} />
-              <Select label="Work Mode" value={formData.workMode} onChange={(v) => handleChange("workMode", v)} options={[
-                { value: "office", label: "Office" }, { value: "remote", label: "Remote" }, { value: "hybrid", label: "Hybrid" }
-              ]} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Select
+                label="Reporting Manager"
+                value={typeof formData.reportingManagerId === "object" ? formData.reportingManagerId?._id : formData.reportingManagerId}
+                onChange={(v) => handleChange("reportingManagerId", v)}
+                options={managers.map(m => ({ value: m._id, label: `${m.user?.name || m.firstName + ' ' + m.lastName} (${m.role || 'Member'})` }))}
+              />
+              <Select
+                label="Employment Type"
+                value={formData.employmentType}
+                onChange={(v) => handleChange("employmentType", v)}
+                options={[
+                  { value: "Full-Time", label: "Full-Time" },
+                  { value: "Part-Time", label: "Part-Time" },
+                  { value: "Contract", label: "Contractual" },
+                  { value: "Internship", label: "Internship" },
+                  { value: "Freelance", label: "Freelance" }
+                ]}
+              />
+            </div>
 
-              <div className="flex items-center space-x-2 mt-7">
-                <input
-                  type="checkbox"
-                  id="allowRemotePunch"
-                  checked={formData.allowRemotePunch || false}
-                  onChange={(e) => handleChange("allowRemotePunch", e.target.checked)}
-                  className="w-4 h-4 text-theme-4 border-gray-300 rounded focus:ring-ca-primary"
-                />
-                <label htmlFor="allowRemotePunch" className="text-base font-medium text-ca-text-secondary">
-                  Allow Remote Punch (Field Worker)
-                </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Select
+                label="Work Mode"
+                value={formData.workMode}
+                onChange={(v) => handleChange("workMode", v)}
+                options={[
+                  { value: "Office", label: "In-Office" },
+                  { value: "Remote", label: "Remote / WFH" },
+                  { value: "Hybrid", label: "Hybrid" }
+                ]}
+              />
+              <Input label="Joining Date" type="date" required value={formData.joiningDate} onChange={(v) => handleChange("joiningDate", v)} />
+              <Input label="Confirmation Date" type="date" value={formData.confirmationDate} onChange={(v) => handleChange("confirmationDate", v)} />
+            </div>
+
+            {/* Remote Punch Option */}
+            <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
+              <input
+                type="checkbox"
+                id="allowRemotePunch"
+                checked={formData.allowRemotePunch || false}
+                onChange={(e) => handleChange("allowRemotePunch", e.target.checked)}
+                className="w-4 h-4 text-amber-500 rounded border-slate-300 dark:border-slate-700 focus:ring-amber-500 cursor-pointer"
+              />
+              <label htmlFor="allowRemotePunch" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
+                Allow Remote Punch & Geofence Bypass (Ideal for Field Sales & Remote Executives)
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 3: Address & Emergency ═══════════════════════════════════ */}
+        {step === 3 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <MapPin size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Address & Emergency Contact</h3>
+                <p className="text-xs text-slate-400 font-medium">Residential address and designated emergency contact person</p>
+              </div>
+            </div>
+
+            {/* Current Address */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Current Residence Address</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Address Line 1" value={formData.currentAddress?.addressLine1} onChange={(v) => handleNestedChange("currentAddress", "addressLine1", v)} placeholder="Flat, building, street" />
+                <Input label="Address Line 2" value={formData.currentAddress?.addressLine2} onChange={(v) => handleNestedChange("currentAddress", "addressLine2", v)} placeholder="Area, landmark" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input label="City" value={formData.currentAddress?.city} onChange={(v) => handleNestedChange("currentAddress", "city", v)} placeholder="e.g. Pune" />
+                <Input label="State" value={formData.currentAddress?.state} onChange={(v) => handleNestedChange("currentAddress", "state", v)} placeholder="e.g. Maharashtra" />
+                <Input label="Pincode / ZIP" value={formData.currentAddress?.pincode} onChange={(v) => handleNestedChange("currentAddress", "pincode", v)} placeholder="e.g. 411001" />
+              </div>
+            </div>
+
+            {/* Permanent Address */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Permanent Address</h4>
+                <button
+                  type="button"
+                  onClick={copyCurrentAddressToPermanent}
+                  className="text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+                >
+                  ⚡ Same as Current Address
+                </button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Address Line 1" value={formData.permanentAddress?.addressLine1} onChange={(v) => handleNestedChange("permanentAddress", "addressLine1", v)} placeholder="Flat, building, street" />
+                <Input label="Address Line 2" value={formData.permanentAddress?.addressLine2} onChange={(v) => handleNestedChange("permanentAddress", "addressLine2", v)} placeholder="Area, landmark" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input label="City" value={formData.permanentAddress?.city} onChange={(v) => handleNestedChange("permanentAddress", "city", v)} placeholder="e.g. Pune" />
+                <Input label="State" value={formData.permanentAddress?.state} onChange={(v) => handleNestedChange("permanentAddress", "state", v)} placeholder="e.g. Maharashtra" />
+                <Input label="Pincode / ZIP" value={formData.permanentAddress?.pincode} onChange={(v) => handleNestedChange("permanentAddress", "pincode", v)} placeholder="e.g. 411001" />
+              </div>
+            </div>
+
+            {/* Emergency Contact */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Emergency Contact Person</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input label="Contact Person Name" value={formData.emergencyContact?.name} onChange={(v) => handleNestedChange("emergencyContact", "name", v)} placeholder="e.g. Sunita Patil" />
+                <Input label="Relationship" value={formData.emergencyContact?.relation} onChange={(v) => handleNestedChange("emergencyContact", "relation", v)} placeholder="e.g. Spouse / Parent" />
+                <Input label="Emergency Phone" type="tel" value={formData.emergencyContact?.phone} onChange={(v) => handleNestedChange("emergencyContact", "phone", v)} placeholder="e.g. 9876543210" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 4: Salary & Leaves ═══════════════════════════════════════ */}
+        {step === 4 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <DollarSign size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Compensation & Leave Balance</h3>
+                <p className="text-xs text-slate-400 font-medium">Monthly/Annual salary breakdown and allocated leave quotas</p>
+              </div>
+            </div>
+
+            {/* Salary Breakdown */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Salary Structure (₹ INR)</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input label="Annual CTC (Gross)" type="number" value={formData.salaryDetails?.ctc} onChange={(v) => handleNestedChange("salaryDetails", "ctc", v)} placeholder="₹ 6,00,000" />
+                <Input label="Basic Salary (Monthly)" type="number" value={formData.salaryDetails?.basic} onChange={(v) => handleNestedChange("salaryDetails", "basic", v)} placeholder="₹ 25,000" />
+                <Input label="HRA (Monthly)" type="number" value={formData.salaryDetails?.hra} onChange={(v) => handleNestedChange("salaryDetails", "hra", v)} placeholder="₹ 10,000" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <Input label="Special Allowance" type="number" value={formData.salaryDetails?.specialAllowance} onChange={(v) => handleNestedChange("salaryDetails", "specialAllowance", v)} placeholder="₹ 5,000" />
+                <Input label="PF Deductions" type="number" value={formData.salaryDetails?.pf} onChange={(v) => handleNestedChange("salaryDetails", "pf", v)} placeholder="₹ 1,800" />
+                <Input label="ESI Deductions" type="number" value={formData.salaryDetails?.esi} onChange={(v) => handleNestedChange("salaryDetails", "esi", v)} placeholder="₹ 0" />
+                <Input label="TDS Deductions" type="number" value={formData.salaryDetails?.tds} onChange={(v) => handleNestedChange("salaryDetails", "tds", v)} placeholder="₹ 1,000" />
+              </div>
+            </div>
+
+            {/* Leave Balance Quotas */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Annual Leave Allocations (Days)</h4>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <Input label="Casual Leaves (CL)" type="number" value={formData.leaveBalance?.casual} onChange={(v) => handleNestedChange("leaveBalance", "casual", Number(v))} placeholder="12" />
+                <Input label="Sick Leaves (SL)" type="number" value={formData.leaveBalance?.sick} onChange={(v) => handleNestedChange("leaveBalance", "sick", Number(v))} placeholder="6" />
+                <Input label="Annual Leaves (PL)" type="number" value={formData.leaveBalance?.annual} onChange={(v) => handleNestedChange("leaveBalance", "annual", Number(v))} placeholder="15" />
+                <Input label="Loss of Pay (LOP)" type="number" value={formData.leaveBalance?.unpaid} onChange={(v) => handleNestedChange("leaveBalance", "unpaid", Number(v))} placeholder="0" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 5: Bank & Identity ═══════════════════════════════════════ */}
+        {step === 5 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <CreditCard size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Banking & Government Identification</h3>
+                <p className="text-xs text-slate-400 font-medium">Bank disbursement details, IFSC code, Aadhaar, and PAN</p>
+              </div>
+            </div>
+
+            {/* Banking Details */}
+            <div className="space-y-4">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Bank Account for Payroll</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Bank Name" value={formData.bankDetails?.bankName} onChange={(v) => handleNestedChange("bankDetails", "bankName", v)} placeholder="e.g. HDFC Bank, SBI" />
+                <Input label="Account Holder Name" value={formData.bankDetails?.accountHolderName} onChange={(v) => handleNestedChange("bankDetails", "accountHolderName", v)} placeholder="As in passbook" />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Input label="Account Number" value={formData.bankDetails?.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} placeholder="Account Number" />
+                <Input label="IFSC Code" value={formData.bankDetails?.ifscCode} onChange={(v) => handleNestedChange("bankDetails", "ifscCode", v)} placeholder="e.g. HDFC0001234" />
+                <Input label="UPI ID (Optional)" value={formData.bankDetails?.upiId} onChange={(v) => handleNestedChange("bankDetails", "upiId", v)} placeholder="e.g. rahul@okhdfcbank" />
+              </div>
+            </div>
+
+            {/* Statutory Identity */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Government Identity Numbers</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Aadhaar Card Number" value={formData.aadhaarNumber} onChange={(v) => handleChange("aadhaarNumber", v)} placeholder="12-digit UID" />
+                <Input label="PAN Card Number" value={formData.panNumber} onChange={(v) => handleChange("panNumber", v)} placeholder="10-digit alphanumeric PAN" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 6: Document Vault ════════════════════════════════════════ */}
+        {step === 6 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <FileText size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Document Vault & Verification</h3>
+                <p className="text-xs text-slate-400 font-medium">Upload, view, and replace official employee documents securely</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DocumentUploader
+                title="Offer Letter"
+                docKey="offerLetter"
+                currentUrl={formData.documents?.offerLetter}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+              <DocumentUploader
+                title="Joining Letter"
+                docKey="joiningLetter"
+                currentUrl={formData.documents?.joiningLetter}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+              <DocumentUploader
+                title="Resume / Curriculum Vitae"
+                docKey="resume"
+                currentUrl={formData.documents?.resume}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+              <DocumentUploader
+                title="Previous Salary Slip"
+                docKey="salarySlipPrevious"
+                currentUrl={formData.documents?.salarySlipPrevious}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+              <DocumentUploader
+                title="PAN Card Document"
+                docKey="panCard"
+                currentUrl={formData.documents?.panCard}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+              <DocumentUploader
+                title="Aadhaar Card Document"
+                docKey="aadhaarFront"
+                currentUrl={formData.documents?.aadhaarFront || formData.documents?.aadhaarBack}
+                employeeId={id}
+                onUploaded={handleDocumentUploaded}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ══ STEP 7: Review & Summary ══════════════════════════════════════ */}
+        {step === 7 && (
+          <div className="space-y-6">
+            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
+                <CheckCheck size={16} />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Profile Summary & Verification</h3>
+                <p className="text-xs text-slate-400 font-medium">Verify all employee parameters before committing updates to the database</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              
+              {/* Card 1: Basic */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <User size={13} className="text-amber-500" /> Basic Info
+                  </span>
+                  <button onClick={() => setStep(1)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-slate-400 text-[10px] block">Full Name</span><span className="font-bold text-slate-800 dark:text-slate-200">{name}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Email</span><span className="font-bold text-slate-800 dark:text-slate-200 truncate block">{formData.email}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Phone</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.phone || "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Gender / DOB</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.gender || "—"} • {formData.dateOfBirth || "—"}</span></div>
+                </div>
               </div>
 
-              <Input label="Joining Date" type="date" required value={formData.joiningDate ? new Date(formData.joiningDate).toISOString().split('T')[0] : ""} onChange={(v) => handleChange("joiningDate", v)} />
-              <Input label="Confirmation Date" type="date" value={formData.confirmationDate ? new Date(formData.confirmationDate).toISOString().split('T')[0] : ""} onChange={(v) => handleChange("confirmationDate", v)} />
-              <Select label="Notice Period" value={formData.noticePeriod} onChange={(v) => handleChange("noticePeriod", v)} options={[
-                { value: "0", label: "None" }, { value: "15", label: "15 Days" }, { value: "30", label: "30 Days" }, { value: "60", label: "60 Days" }, { value: "90", label: "90 Days" }
-              ]} />
-            </div>
-          </SectionCard>
+              {/* Card 2: Job */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Briefcase size={13} className="text-amber-500" /> Job & Role
+                  </span>
+                  <button onClick={() => setStep(2)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-slate-400 text-[10px] block">System Role</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.role || "Employee"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Employment Type</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.employmentType || "Full-Time"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Work Mode</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.workMode || "Office"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Joining Date</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.joiningDate || "—"}</span></div>
+                </div>
+              </div>
 
-          <SectionCard title="5. Leave Balance" icon={CalendarDays}>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Input
-                label="Casual Leaves"
-                type="number"
-                value={formData.leaveBalance?.casual || 0}
-                onChange={(v) => handleNestedChange("leaveBalance", "casual", Number(v))}
-              />
-              <Input
-                label="Sick Leaves"
-                type="number"
-                value={formData.leaveBalance?.sick || 0}
-                onChange={(v) => handleNestedChange("leaveBalance", "sick", Number(v))}
-              />
-              <Input
-                label="Annual Leaves"
-                type="number"
-                value={formData.leaveBalance?.annual || 0}
-                onChange={(v) => handleNestedChange("leaveBalance", "annual", Number(v))}
-              />
-              <Input
-                label="Unpaid Leaves"
-                type="number"
-                value={formData.leaveBalance?.unpaid || 0}
-                onChange={(v) => handleNestedChange("leaveBalance", "unpaid", Number(v))}
-              />
-            </div>
-          </SectionCard>
+              {/* Card 3: Salary */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <DollarSign size={13} className="text-amber-500" /> Compensation
+                  </span>
+                  <button onClick={() => setStep(4)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-slate-400 text-[10px] block">Annual CTC</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.ctc ? `₹${Number(formData.salaryDetails.ctc).toLocaleString('en-IN')}` : "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Monthly Basic</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.basic ? `₹${Number(formData.salaryDetails.basic).toLocaleString('en-IN')}` : "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">HRA</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.hra ? `₹${Number(formData.salaryDetails.hra).toLocaleString('en-IN')}` : "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">PF Deduction</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.pf ? `₹${Number(formData.salaryDetails.pf).toLocaleString('en-IN')}` : "—"}</span></div>
+                </div>
+              </div>
 
-          <SectionCard title="6. Banking Details" icon={CreditCard} defaultOpen={false}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Bank Name" value={formData.bankDetails?.bankName} onChange={(v) => handleNestedChange("bankDetails", "bankName", v)} />
-              <Input label="Account Holder Name" value={formData.bankDetails?.accountHolderName} onChange={(v) => handleNestedChange("bankDetails", "accountHolderName", v)} />
-              <Input label="Account Number" type="password" placeholder="••••••••••••" value={formData.bankDetails?.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} />
-              <Input label="IFSC Code" value={formData.bankDetails?.ifscCode} onChange={(v) => handleNestedChange("bankDetails", "ifscCode", v)} />
-              <Input label="Branch Name" value={formData.bankDetails?.branchName} onChange={(v) => handleNestedChange("bankDetails", "branchName", v)} />
-              <Input label="UPI ID (Optional)" value={formData.bankDetails?.upiId} onChange={(v) => handleNestedChange("bankDetails", "upiId", v)} />
-            </div>
-          </SectionCard>
+              {/* Card 4: Banking & Documents */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <FileCheck size={13} className="text-amber-500" /> Identity & Bank
+                  </span>
+                  <button onClick={() => setStep(5)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-slate-400 text-[10px] block">Bank Name</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.bankDetails?.bankName || "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">A/C Number</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.bankDetails?.accountNumber || "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Aadhaar No</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.aadhaarNumber || "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">PAN No</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.panNumber || "—"}</span></div>
+                </div>
+              </div>
 
-          <SectionCard title="7. Identity Documents" icon={ShieldCheck} defaultOpen={false}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Aadhaar Number" placeholder="XXXX XXXX XXXX" value={formData.aadhaarNumber} onChange={(v) => handleChange("aadhaarNumber", v)} />
-              <Input label="PAN Number" placeholder="ABCDE1234F" value={formData.panNumber} onChange={(v) => handleChange("panNumber", v)} />
             </div>
-          </SectionCard>
 
-          <SectionCard title="8. Official Documents" icon={FileText} defaultOpen={false}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Input label="Offer Letter URL" placeholder="https://..." value={formData.documents?.offerLetter} onChange={(v) => handleNestedChange("documents", "offerLetter", v)} />
-              <Input label="Joining Letter URL" placeholder="https://..." value={formData.documents?.joiningLetter} onChange={(v) => handleNestedChange("documents", "joiningLetter", v)} />
-              <Input label="Previous Salary Slip URL" placeholder="https://..." value={formData.documents?.salarySlipPrevious} onChange={(v) => handleNestedChange("documents", "salarySlipPrevious", v)} />
-              <Input label="Resume URL" placeholder="https://..." value={formData.documents?.resume} onChange={(v) => handleNestedChange("documents", "resume", v)} />
+            {/* Commitment CTA Banner */}
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">Ready to save employee profile updates?</h4>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">All updates will be immediately reflected in attendance, payroll, and dashboard access.</p>
+              </div>
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!isDirty || updateMutation.isPending}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} strokeWidth={2.5} />}
+                <span>{updateMutation.isPending ? "Saving..." : "Commit All Changes"}</span>
+              </button>
             </div>
-          </SectionCard>
+          </div>
+        )}
 
-          <SectionCard title="9. Salary Structure" icon={Coins} defaultOpen={false}>
-            <div className="bg-ca-primary-light border border-amber-200 rounded-lg p-3 mb-4 flex items-start space-x-2">
-              <AlertTriangle size={16} className="text-amber-600 mt-0.5 flex-shrink-0" />
-              <p className="text-sm text-amber-800">
-                <strong className="block mb-0.5">Highly Sensitive Information</strong>
-                Changing salary details will require a confirmation before saving and will be logged in the strict audit trail.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Input label="CTC (Annual)" type="number" placeholder="₹" value={formData.salaryDetails?.ctc} onChange={(v) => handleNestedChange("salaryDetails", "ctc", v)} />
-              <Input label="Basic Salary (Monthly)" type="number" placeholder="₹" value={formData.salaryDetails?.basic} onChange={(v) => handleNestedChange("salaryDetails", "basic", v)} />
-              <Input label="HRA (Monthly)" type="number" placeholder="₹" value={formData.salaryDetails?.hra} onChange={(v) => handleNestedChange("salaryDetails", "hra", v)} />
-              <Input label="Special Allowance" type="number" placeholder="₹" value={formData.salaryDetails?.specialAllowance} onChange={(v) => handleNestedChange("salaryDetails", "specialAllowance", v)} />
-              <Input label="PF Deductions" type="number" placeholder="₹" value={formData.salaryDetails?.pf} onChange={(v) => handleNestedChange("salaryDetails", "pf", v)} />
-              <Input label="ESI Deductions" type="number" placeholder="₹" value={formData.salaryDetails?.esi} onChange={(v) => handleNestedChange("salaryDetails", "esi", v)} />
-              <Input label="TDS Deductions" type="number" placeholder="₹" value={formData.salaryDetails?.tds} onChange={(v) => handleNestedChange("salaryDetails", "tds", v)} />
-            </div>
-          </SectionCard>
+        {/* ── Step Navigation Footer ────────────────────────────────────── */}
+        <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
+          <button
+            type="button"
+            onClick={() => setStep(prev => Math.max(1, prev - 1))}
+            disabled={step === 1}
+            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft size={14} /> <span>Previous Step</span>
+          </button>
 
-          <SectionCard title="8. Skills & Experience" icon={Award} defaultOpen={false}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <MultiInput label="Technical Skills" placeholder="e.g. React, Node.js" values={formData.skills} onChange={(v) => handleChange("skills", v)} />
-              <MultiInput label="Certifications" placeholder="e.g. AWS Certified Developer" values={formData.certifications} onChange={(v) => handleChange("certifications", v)} />
-            </div>
-          </SectionCard>
-
+          <div className="flex items-center gap-2">
+            {step < STEPS.length ? (
+              <button
+                type="button"
+                onClick={() => setStep(prev => Math.min(STEPS.length, prev + 1))}
+                className="px-5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-extrabold shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+              >
+                <span>Next Step</span> <ChevronRight size={14} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSave}
+                disabled={!isDirty || updateMutation.isPending}
+                className="px-6 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-extrabold shadow-sm transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {updateMutation.isPending ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} strokeWidth={2.5} />}
+                <span>Save Changes</span>
+              </button>
+            )}
+          </div>
         </div>
-
-
 
       </div>
 
-      {/* ── Audit Log Drawer ────────────────────────────────────────── */}
+      {/* ── Audit Log Slide-over Drawer ─────────────────────────────────── */}
       {showAuditLog && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-sm transition-opacity" onClick={() => setShowAuditLog(false)} />
-          <div className="relative w-full sm:w-[450px] bg-ca-surface h-full flex flex-col shadow-2xl border-l border-ca-border animate-slideInRight">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-ca-border">
-              <h2 className="font-bold text-ca-text flex items-center"><History size={18} className="mr-2 text-theme-4" /> Audit Timeline</h2>
-              <button onClick={() => setShowAuditLog(false)} className="p-1.5 rounded-lg hover:bg-ca-bg text-ca-text-secondary transition-colors"><X size={16} /></button>
+        <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onClick={() => setShowAuditLog(false)} />
+          <div className="relative w-full sm:w-[480px] bg-white dark:bg-[#111C24] h-full flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 animate-slideLeft">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <History size={16} className="text-amber-500" />
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Audit Timeline</h3>
+              </div>
+              <button onClick={() => setShowAuditLog(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                <X size={16} />
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-5 bg-ca-bg">
+
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-slate-50 dark:bg-[#0D1321]">
               {auditRes?.data?.logs?.length > 0 ? (
-                <div className="space-y-3">
-                  {auditRes.data.logs.map((log) => (
-                    <div key={log._id} className="relative pl-6">
-                      <div className="absolute left-0 top-1 w-2 h-2 rounded-full bg-theme-3 ring-4 ring-theme-3/10" />
-                      <div className="absolute left-1 top-3 bottom-[-24px] w-0.5 bg-ca-border last:hidden" />
-
-                      <div className="bg-ca-surface p-4 rounded-xl shadow-sm border border-ca-border text-base">
-                        <div className="flex justify-between items-start mb-2">
-                          <span className="font-bold text-ca-text">{log.performedBy?.name || "System"}</span>
-                          <span className="text-sm text-ca-text-secondary font-medium">{new Date(log.createdAt).toLocaleString()}</span>
-                        </div>
-                        <span className="inline-block px-2 py-0.5 bg-ca-bg text-ca-text-secondary rounded text-sm font-bold mb-3">{log.action}</span>
-
-                        {log.newData && Object.keys(log.newData).length > 0 && (
-                          <div className="space-y-2 mt-2">
-                            {Object.keys(log.newData).filter(k => k !== 'updatedAt').map(key => (
-                              <div key={key} className="bg-ca-bg p-2 rounded border border-ca-border text-sm">
-                                <span className="font-semibold text-ca-text-secondary block mb-1">{key}</span>
-                                <div className="grid grid-cols-2 gap-2">
-                                  <div className="text-ca-primary break-words line-through opacity-70">
-                                    {log.oldData?.[key] ? JSON.stringify(log.oldData[key]) : "None"}
-                                  </div>
-                                  <div className="text-theme-3 break-words font-medium">
-                                    {JSON.stringify(log.newData[key])}
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                auditRes.data.logs.map((log) => (
+                  <div key={log._id} className="p-3.5 rounded-2xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black text-slate-900 dark:text-white">{log.performedBy?.name || "System Admin"}</span>
+                      <span className="text-[10px] font-bold text-slate-400">{new Date(log.createdAt).toLocaleString()}</span>
                     </div>
-                  ))}
-                </div>
+                    <span className="inline-block px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10.5px] font-extrabold">
+                      {log.action}
+                    </span>
+                  </div>
+                ))
               ) : (
-                <div className="text-center py-10 text-ca-text-secondary text-base">No audit logs found for this employee.</div>
+                <div className="text-center py-12 text-slate-400 text-xs font-bold">No historical audit logs found for this employee.</div>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Quick Create Modal ────────────────────────────────────────────── */}
+      {/* ── Quick Create Master Data Modal ───────────────────────────────── */}
       {quickModal && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-ca-surface rounded-2xl max-w-md w-full p-6 shadow-xl border border-ca-border animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-4 border-b border-ca-border mb-4">
-              <div className="flex items-center space-x-2.5">
-                <div className="w-8 h-8 rounded-xl bg-theme-3/10 flex items-center justify-center text-theme-4">
-                  {quickModal === "department" && <Building2 size={16} />}
-                  {quickModal === "designation" && <Briefcase size={16} />}
-                  {quickModal === "branch" && <MapPin size={16} />}
-                </div>
-                <h3 className="font-bold text-ca-text capitalize text-lg">
-                  Create New {quickModal}
-                </h3>
-              </div>
-              <button onClick={() => setQuickModal(null)} className="text-ca-text-secondary hover:text-ca-text-secondary p-1">
-                <X size={18} />
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl max-w-sm w-full p-5 shadow-2xl border border-slate-200 dark:border-slate-800 animate-slideUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Create New {quickModal}
+              </h3>
+              <button onClick={() => setQuickModal(null)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleQuickSave} className="space-y-4">
+            <form onSubmit={handleQuickSave} className="space-y-3.5">
               {quickModal === "designation" && (
                 <div>
-                  <label className="block text-sm font-semibold text-ca-text-secondary mb-1.5 uppercase tracking-wide">
-                    Department <span className="text-red-400">*</span>
-                  </label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Department *</label>
                   <select
                     value={quickForm.departmentId}
                     onChange={(e) => setQuickForm({ ...quickForm, departmentId: e.target.value })}
-                    className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text bg-ca-surface focus:outline-none focus:ring-2 focus:ring-ca-primary"
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                   >
                     <option value="">Select Department</option>
                     {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
@@ -994,86 +1254,52 @@ const EditEmployee = () => {
               )}
 
               <div>
-                <label className="block text-sm font-semibold text-ca-text-secondary mb-1.5 uppercase tracking-wide">
-                  {quickModal === "branch" ? "Branch Name" : `${quickModal} Name`} <span className="text-red-400">*</span>
-                </label>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">{quickModal === "branch" ? "Branch Name" : "Name"} *</label>
                 <input
                   type="text"
+                  required
                   placeholder={`Enter ${quickModal} name`}
                   value={quickForm.name}
                   onChange={(e) => setQuickForm({ ...quickForm, name: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text bg-ca-surface focus:outline-none focus:ring-2 focus:ring-ca-primary"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                 />
               </div>
 
-              {(quickModal === "department" || quickModal === "designation") && (
+              {quickModal === "branch" && (
                 <div>
-                  <label className="block text-sm font-semibold text-ca-text-secondary mb-1.5 uppercase tracking-wide">
-                    Description
-                  </label>
+                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">City</label>
                   <input
                     type="text"
-                    placeholder="Optional description"
-                    value={quickForm.description}
-                    onChange={(e) => setQuickForm({ ...quickForm, description: e.target.value })}
-                    className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text bg-ca-surface focus:outline-none focus:ring-2 focus:ring-ca-primary"
+                    placeholder="e.g. Pune, Mumbai"
+                    value={quickForm.city}
+                    onChange={(e) => setQuickForm({ ...quickForm, city: e.target.value })}
+                    className="w-full px-3 py-2 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
               )}
 
-              {quickModal === "branch" && (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-ca-text-secondary mb-1.5 uppercase tracking-wide">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Pune, Mumbai"
-                      value={quickForm.city}
-                      onChange={(e) => setQuickForm({ ...quickForm, city: e.target.value })}
-                      className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text bg-ca-surface focus:outline-none focus:ring-2 focus:ring-ca-primary"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-ca-text-secondary mb-1.5 uppercase tracking-wide">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="Optional office address"
-                      value={quickForm.address}
-                      onChange={(e) => setQuickForm({ ...quickForm, address: e.target.value })}
-                      className="w-full px-3 py-2 border border-ca-border rounded-lg text-base text-ca-text bg-ca-surface focus:outline-none focus:ring-2 focus:ring-ca-primary"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-end space-x-3 pt-3 border-t border-ca-border">
+              <div className="flex gap-2 pt-2">
                 <button
                   type="button"
                   onClick={() => setQuickModal(null)}
-                  className="px-4 py-2 border border-ca-border rounded-xl text-base font-semibold text-ca-text-secondary hover:bg-ca-bg transition-colors"
+                  className="flex-1 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={quickSaving}
-                  className="px-5 py-2 bg-theme-4 text-white rounded-xl text-base font-semibold hover:bg-theme-3 transition-colors flex items-center space-x-2 shadow-sm disabled:opacity-50"
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
                 >
-                  {quickSaving && <Loader2 size={14} className="animate-spin" />}
-                  <span>Create {quickModal}</span>
+                  {quickSaving ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />}
+                  <span>Save</span>
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
-};
-
-export default EditEmployee;
+}
