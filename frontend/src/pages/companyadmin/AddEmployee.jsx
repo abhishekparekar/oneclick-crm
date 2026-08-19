@@ -38,17 +38,17 @@ const STEPS = [
   { id: 7, label: "Review & Create", icon: CheckCheck, desc: "Final verification" },
 ];
 
-// ── Shared Field Components (Identical to EditEmployee) ────────────────────
+// ── Shared Field Components (Crystal Clear Contrast & High Density) ────────
 const Field = ({ label, required, children, className = "", action, hint }) => (
   <div className={`space-y-1.5 ${className}`}>
     <div className="flex items-center justify-between">
-      <label className="block text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-        {label} {required && <span className="text-rose-500">*</span>}
+      <label className="block text-[11.5px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+        {label} {required && <span className="text-rose-500 font-black">*</span>}
       </label>
       {action}
     </div>
     {children}
-    {hint && <p className="text-[10px] text-slate-400 font-medium">{hint}</p>}
+    {hint && <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{hint}</p>}
   </div>
 );
 
@@ -60,7 +60,7 @@ const Input = ({ label, type = "text", value, onChange, placeholder, disabled = 
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
-      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
+      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
         disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
       }`}
     />
@@ -74,13 +74,15 @@ const Select = ({ label, value, onChange, options, disabled = false, required = 
         value={value ?? ""}
         onChange={(e) => onChange(e.target.value)}
         disabled={disabled}
-        className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
+        className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer ${
           disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
         }`}
       >
-        <option value="" disabled>{placeholder}</option>
+        <option value="" disabled className="bg-white dark:bg-[#111C24] text-slate-400">{placeholder}</option>
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+          <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#111C24] text-slate-900 dark:text-white font-semibold">
+            {opt.label}
+          </option>
         ))}
       </select>
       <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
@@ -111,21 +113,21 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
     <Field label={label} required={required} action={action}>
       <div className="relative" ref={containerRef}>
         <div
-          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white transition-all flex items-center justify-between min-h-[40px] cursor-pointer hover:border-amber-500/50 ${
+          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white transition-all flex items-center justify-between min-h-[40px] cursor-pointer hover:border-amber-500/60 ${
             disabled ? "opacity-60 cursor-not-allowed" : ""
           }`}
           onClick={() => !disabled && setOpen(!open)}
         >
           <span className="truncate">
-            {selected.length ? selectedLabels : <span className="text-slate-400">{placeholder}</span>}
+            {selected.length ? selectedLabels : <span className="text-slate-400 font-normal">{placeholder}</span>}
           </span>
           <ChevronDown size={14} className="text-slate-400 shrink-0 ml-2" />
         </div>
 
         {open && (
-          <div className="absolute z-50 w-full mt-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-1.5 space-y-1 animate-fadeIn">
+          <div className="absolute z-50 w-full mt-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-1.5 space-y-1 animate-fadeIn">
             {options.length === 0 ? (
-              <div className="p-3 text-center text-xs text-slate-400">No departments available</div>
+              <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400">No departments available</div>
             ) : (
               options.map((opt) => {
                 const isSelected = selected.includes(opt.value);
@@ -133,10 +135,10 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
                   <div
                     key={opt.value}
                     onClick={() => toggle(opt.value)}
-                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                    className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold cursor-pointer transition-all ${
                       isSelected
-                        ? "bg-amber-500/10 text-amber-900 dark:text-amber-300 font-bold"
-                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900"
+                        ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 font-extrabold"
+                        : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                     }`}
                   >
                     <span>{opt.label}</span>
@@ -513,8 +515,8 @@ export default function AddEmployee() {
       </div>
 
       {/* ── Step Progress Indicator ─────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2 shadow-2xs overflow-x-auto">
-        <div className="flex items-center justify-between min-w-[720px] gap-1">
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-2 shadow-2xs overflow-x-auto scrollbar-none">
+        <div className="flex items-center justify-between min-w-[720px] gap-1.5">
           {STEPS.map((step) => {
             const Icon = step.icon;
             const isActive = activeStep === step.id;
@@ -526,10 +528,10 @@ export default function AddEmployee() {
                 onClick={() => setActiveStep(step.id)}
                 className={`flex-1 flex items-center gap-2.5 py-2.5 px-3 rounded-xl transition-all text-left cursor-pointer ${
                   isActive
-                    ? "bg-amber-500 text-slate-950 font-extrabold shadow-xs"
+                    ? "bg-amber-500 text-slate-950 font-black shadow-xs"
                     : isDone
-                    ? "bg-slate-50 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-                    : "text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/40"
+                    ? "bg-slate-50 dark:bg-slate-900/80 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/60"
                 }`}
               >
                 <div
@@ -538,16 +540,16 @@ export default function AddEmployee() {
                       ? "bg-slate-950/20 text-slate-950"
                       : isDone
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                      : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                   }`}
                 >
                   {isDone ? <CheckCheck size={14} /> : <Icon size={14} />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[11px] leading-tight truncate font-bold">
+                  <p className={`text-[11.5px] leading-tight truncate ${isActive ? "font-black text-slate-950" : "font-extrabold text-slate-800 dark:text-slate-200"}`}>
                     {step.label}
                   </p>
-                  <p className={`text-[9.5px] truncate ${isActive ? "text-slate-950/70" : "text-slate-400"}`}>
+                  <p className={`text-[9.5px] truncate font-medium ${isActive ? "text-slate-950/80" : "text-slate-500 dark:text-slate-400"}`}>
                     {step.desc}
                   </p>
                 </div>
@@ -564,8 +566,8 @@ export default function AddEmployee() {
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-              <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Candidate Card</span>
-              <span className="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+              <span className="text-[11px] font-black uppercase text-slate-600 dark:text-slate-300 tracking-wider">Candidate Card</span>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
                 Live Draft
               </span>
             </div>
@@ -589,27 +591,27 @@ export default function AddEmployee() {
                 </div>
               </div>
               <div>
-                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white leading-tight">{displayName}</h3>
-                <p className="text-[11px] text-slate-400 font-semibold">{formData.email || "no-email@company.com"}</p>
-                <p className="text-[10px] text-slate-400 font-mono mt-0.5">{formData.phone || "No phone provided"}</p>
+                <h3 className="font-black text-sm text-slate-900 dark:text-white leading-tight">{displayName}</h3>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-semibold mt-0.5">{formData.email || "no-email@company.com"}</p>
+                <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{formData.phone || "No phone provided"}</p>
               </div>
             </div>
 
             <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs font-semibold">
               <div className="flex justify-between py-1">
-                <span className="text-slate-400">Department:</span>
-                <span className="text-slate-800 dark:text-slate-200 font-bold">{selectedDeptName}</span>
+                <span className="text-slate-500 dark:text-slate-400">Department:</span>
+                <span className="text-slate-900 dark:text-white font-bold">{selectedDeptName}</span>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-slate-400">Designation:</span>
-                <span className="text-slate-800 dark:text-slate-200 font-bold">{selectedDesigName}</span>
+                <span className="text-slate-500 dark:text-slate-400">Designation:</span>
+                <span className="text-slate-900 dark:text-white font-bold">{selectedDesigName}</span>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-slate-400">Role:</span>
-                <span className="text-amber-600 dark:text-amber-400 font-extrabold">{formData.role}</span>
+                <span className="text-slate-500 dark:text-slate-400">Role:</span>
+                <span className="text-amber-600 dark:text-amber-400 font-black">{formData.role}</span>
               </div>
               <div className="flex justify-between py-1">
-                <span className="text-slate-400">Annual CTC:</span>
+                <span className="text-slate-500 dark:text-slate-400">Annual CTC:</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-black font-mono">
                   ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
                 </span>
@@ -625,10 +627,10 @@ export default function AddEmployee() {
           {activeStep === 1 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <User size={16} className="text-amber-500" /> Basic Information
                 </h3>
-                <p className="text-[11px] text-slate-400">Candidate personal identity &amp; communication details</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Candidate personal identity &amp; communication details</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -716,10 +718,10 @@ export default function AddEmployee() {
           {activeStep === 2 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Briefcase size={16} className="text-amber-500" /> Job &amp; Organizational Hierarchy
                 </h3>
-                <p className="text-[11px] text-slate-400">Department permissions, branch &amp; reporting chain</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Department permissions, branch &amp; reporting chain</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -744,7 +746,7 @@ export default function AddEmployee() {
                     <button
                       type="button"
                       onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
-                      className="text-[10px] text-amber-500 font-extrabold hover:underline"
+                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
                     >
                       + New Branch
                     </button>
@@ -762,7 +764,7 @@ export default function AddEmployee() {
                   <button
                     type="button"
                     onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
-                    className="text-[10px] text-amber-500 font-extrabold hover:underline"
+                    className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
                   >
                     + New Department
                   </button>
@@ -780,7 +782,7 @@ export default function AddEmployee() {
                     <button
                       type="button"
                       onClick={() => { setQuickModal("desig"); setQuickForm({ name: "", departmentId: formData.accessibleDepartments?.[0] || "" }); }}
-                      className="text-[10px] text-amber-500 font-extrabold hover:underline"
+                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
                     >
                       + New Designation
                     </button>
@@ -838,10 +840,10 @@ export default function AddEmployee() {
           {activeStep === 3 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <MapPin size={16} className="text-amber-500" /> Address &amp; Emergency Contact
                 </h3>
-                <p className="text-[11px] text-slate-400">Residential address and family emergency contacts</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Residential address and family emergency contacts</p>
               </div>
 
               <div className="space-y-3">
@@ -874,7 +876,7 @@ export default function AddEmployee() {
               </div>
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Emergency Contact</span>
+                <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Emergency Contact</span>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input
                     label="Contact Person Name"
@@ -909,30 +911,30 @@ export default function AddEmployee() {
           {activeStep === 4 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <DollarSign size={16} className="text-amber-500" /> Salary Structure &amp; Allowances
                 </h3>
-                <p className="text-[11px] text-slate-400">Standard Indian payroll breakup with automatic CTC calculation</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Standard Indian payroll breakup with automatic CTC calculation</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <span className="text-[10px] font-extrabold uppercase text-amber-900 dark:text-amber-300 tracking-wider">
+                  <span className="text-[10.5px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider">
                     Annual Cost to Company (CTC)
                   </span>
                   <div className="text-xl font-black text-slate-900 dark:text-white font-mono mt-0.5">
                     ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
                   </div>
-                  <span className="text-[10px] font-medium text-slate-400">Auto-splits Basic, HRA, PF &amp; Special Allowance</span>
+                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Auto-splits Basic, HRA, PF &amp; Special Allowance</span>
                 </div>
 
-                <div className="w-48">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Set Annual CTC (₹)</label>
+                <div className="w-full sm:w-48">
+                  <label className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase block mb-1">Set Annual CTC (₹)</label>
                   <input
                     type="number"
                     value={formData.salaryDetails?.ctc}
                     onChange={(e) => handleCtcChange(e.target.value)}
-                    className="w-full px-3 py-1.5 bg-white dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    className="w-full px-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
                   />
                 </div>
               </div>
@@ -985,10 +987,10 @@ export default function AddEmployee() {
           {activeStep === 5 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <CreditCard size={16} className="text-amber-500" /> Banking &amp; Government ID Proofs
                 </h3>
-                <p className="text-[11px] text-slate-400">Direct salary deposit banking &amp; PAN/Aadhaar compliance</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Direct salary deposit banking &amp; PAN/Aadhaar compliance</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1007,7 +1009,7 @@ export default function AddEmployee() {
               </div>
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
-                <span className="text-[11px] font-black uppercase text-slate-400 tracking-wider">Salary Bank Account</span>
+                <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Salary Bank Account</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Input
                     label="Bank Name"
@@ -1047,16 +1049,16 @@ export default function AddEmployee() {
           {activeStep === 6 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <FileText size={16} className="text-amber-500" /> Employee Document Vault
                 </h3>
-                <p className="text-[11px] text-slate-400">Attach Aadhaar, PAN, Resume, Offer Letter or Certificates</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Attach Aadhaar, PAN, Resume, Offer Letter or Certificates</p>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-dashed border-slate-200 dark:border-slate-800 text-center space-y-2">
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-dashed border-slate-300 dark:border-slate-700 text-center space-y-2">
                 <FileCheck size={28} className="mx-auto text-amber-500" />
-                <p className="text-xs font-bold text-slate-900 dark:text-white">Upload Candidate Verified Proofs</p>
-                <p className="text-[10px] text-slate-400">PDF, PNG, JPG files up to 5MB supported</p>
+                <p className="text-xs font-black text-slate-900 dark:text-white">Upload Candidate Verified Proofs</p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">PDF, PNG, JPG files up to 5MB supported</p>
                 <input
                   type="file"
                   id="vaultDocUpload"
@@ -1086,7 +1088,7 @@ export default function AddEmployee() {
                 <button
                   type="button"
                   onClick={() => document.getElementById("vaultDocUpload")?.click()}
-                  className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-2xs transition-all cursor-pointer inline-flex items-center gap-1.5"
                 >
                   <Upload size={13} strokeWidth={2.5} />
                   <span>Choose File to Attach</span>
@@ -1103,9 +1105,9 @@ export default function AddEmployee() {
                     <button
                       type="button"
                       onClick={() => setFormData((p) => ({ ...p, documents: p.documents.filter((_, i) => i !== idx) }))}
-                      className="p-1 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
+                      className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg cursor-pointer"
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
@@ -1117,36 +1119,36 @@ export default function AddEmployee() {
           {activeStep === 7 && (
             <div className="space-y-4 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <CheckCheck size={16} className="text-amber-500" /> Final Review &amp; Onboarding Confirmation
                 </h3>
-                <p className="text-[11px] text-slate-400">Verify all candidate details before database registration</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Verify all candidate details before database registration</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Candidate</span>
-                  <p className="font-extrabold text-slate-900 dark:text-white text-sm">{displayName}</p>
-                  <p className="text-slate-400 font-semibold">{formData.email}</p>
-                  <p className="text-slate-400 font-mono">{formData.phone}</p>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Candidate</span>
+                  <p className="font-black text-slate-900 dark:text-white text-sm">{displayName}</p>
+                  <p className="text-slate-600 dark:text-slate-300 font-semibold">{formData.email}</p>
+                  <p className="text-slate-500 dark:text-slate-400 font-mono">{formData.phone}</p>
                 </div>
 
-                <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Designation &amp; Role</span>
-                  <p className="font-extrabold text-slate-900 dark:text-white text-sm">{selectedDesigName}</p>
-                  <p className="text-slate-400 font-semibold">{selectedDeptName} Department</p>
-                  <p className="text-amber-600 dark:text-amber-400 font-extrabold uppercase">{formData.role}</p>
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-1.5">
+                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Designation &amp; Role</span>
+                  <p className="font-black text-slate-900 dark:text-white text-sm">{selectedDesigName}</p>
+                  <p className="text-slate-600 dark:text-slate-300 font-semibold">{selectedDeptName} Department</p>
+                  <p className="text-amber-600 dark:text-amber-400 font-black uppercase">{formData.role}</p>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-xs">
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
                 <div>
-                  <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase">Annual CTC Compensation</span>
+                  <span className="text-[10.5px] font-black text-emerald-800 dark:text-emerald-300 uppercase">Annual CTC Compensation</span>
                   <h4 className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
                     ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
                   </h4>
                 </div>
-                <span className="px-3 py-1 bg-emerald-500 text-slate-950 font-extrabold rounded-xl text-xs">
+                <span className="px-3.5 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-2xs self-start sm:self-auto">
                   Ready to Register
                 </span>
               </div>
@@ -1154,12 +1156,12 @@ export default function AddEmployee() {
           )}
 
           {/* ── Footer Navigation Buttons ─────────────────────────────────── */}
-          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-6">
+          <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800 mt-6 gap-3">
             <button
               type="button"
               disabled={activeStep === 1}
               onClick={() => setActiveStep((s) => Math.max(1, s - 1))}
-              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1"
+              className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1"
             >
               <ChevronLeft size={14} /> <span>Previous</span>
             </button>
@@ -1169,7 +1171,7 @@ export default function AddEmployee() {
                 <button
                   type="button"
                   onClick={() => setActiveStep((s) => Math.min(7, s + 1))}
-                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-600 text-white dark:text-slate-950 font-extrabold text-xs rounded-xl shadow-sm transition-all cursor-pointer flex items-center gap-1"
+                  className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1"
                 >
                   <span>Next Step</span> <ChevronRight size={14} />
                 </button>
