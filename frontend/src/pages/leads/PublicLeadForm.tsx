@@ -224,7 +224,7 @@ export default function PublicLeadForm() {
                   type="text"
                   name="name"
                   required
-                  placeholder="Rahul Patil"
+                  placeholder="Enter your name"
                   value={formData.name}
                   onChange={handleChange}
                   className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-base sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-none focus:border-[#0E6B50] focus:ring-2 focus:ring-[#0E6B50]/15 transition-all min-h-[44px]"
