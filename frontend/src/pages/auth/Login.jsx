@@ -221,17 +221,17 @@ const Login = () => {
               <div className="flex flex-wrap gap-1.5 sm:gap-2">
                 <button
                   type="button"
-                  onClick={() => fillCredentials("anita@gmail.com", "8485877633")}
-                  className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold border border-purple-200/80 dark:border-purple-800/60 transition-all active:scale-95 shadow-2xs cursor-pointer"
-                >
-                  👥 HR (Anita)
-                </button>
-                <button
-                  type="button"
                   onClick={() => fillCredentials("admin@gmail.com", "Admin@123")}
                   className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold border border-emerald-200/80 dark:border-emerald-800/60 transition-all active:scale-95 shadow-2xs cursor-pointer"
                 >
                   🏢 Company Admin
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fillCredentials("anita@gmail.com", "Admin@123")}
+                  className="px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 text-[11px] font-bold border border-purple-200/80 dark:border-purple-800/60 transition-all active:scale-95 shadow-2xs cursor-pointer"
+                >
+                  👥 HR (Anita)
                 </button>
                 <button
                   type="button"
@@ -242,10 +242,10 @@ const Login = () => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => fillCredentials("employee@gmail.com", "Admin@123")}
+                  onClick={() => fillCredentials("omkar@gmail.com", "Admin@123")}
                   className="px-2.5 py-1.5 rounded-xl bg-cyan-50 dark:bg-cyan-950/40 hover:bg-cyan-100 dark:hover:bg-cyan-900/50 text-cyan-700 dark:text-cyan-300 text-[11px] font-bold border border-cyan-200/80 dark:border-cyan-800/60 transition-all active:scale-95 shadow-2xs cursor-pointer"
                 >
-                  👷 Employee
+                  👷 Employee (Omkar)
                 </button>
                 <button
                   type="button"
