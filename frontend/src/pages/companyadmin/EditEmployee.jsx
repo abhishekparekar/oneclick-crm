@@ -282,8 +282,10 @@ export default function EditEmployee() {
   useEffect(() => {
     if (empRes?.data?.employee && !formData) {
       const emp = empRes.data.employee;
+      const resolvedPhoto = emp.photo || emp.documents?.photo || emp.userId?.profileImage || "";
       const initialData = {
         ...emp,
+        photo: resolvedPhoto,
         dateOfBirth: emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : "",
         joiningDate: emp.joiningDate ? emp.joiningDate.split('T')[0] : "",
         confirmationDate: emp.confirmationDate ? emp.confirmationDate.split('T')[0] : "",

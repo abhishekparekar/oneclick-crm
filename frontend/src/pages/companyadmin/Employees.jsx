@@ -318,7 +318,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
   const joined = empData.joiningDate || empData.user?.joiningDate || empData.dateOfJoining || empData.user?.dateOfJoining || empData.createdAt || empData.user?.createdAt || empData.userId?.createdAt || empData.created_at;
   const initials = name.slice(0, 2).toUpperCase();
   const ac = avatarClass(name);
-  const rawPhoto = empData.photo || empData.user?.profileImage;
+  const rawPhoto = empData.photo || empData.documents?.photo || empData.user?.profileImage || empData.userId?.profileImage;
   const photoUrl = getPhotoUrl(rawPhoto);
 
   const displayRole = empData.role || empData.userId?.role || empData.user?.role || "Employee";
@@ -974,7 +974,7 @@ const Employees = () => {
                     const code = emp.employeeCode || "—";
                     const ac = avatarClass(name);
                     const isSelected = selectedEmployee?._id === emp._id;
-                    const rawPhoto = emp.photo || emp.user?.profileImage;
+                    const rawPhoto = emp.photo || emp.documents?.photo || emp.user?.profileImage || emp.userId?.profileImage;
                     const photoUrl = getPhotoUrl(rawPhoto);
 
                     return (

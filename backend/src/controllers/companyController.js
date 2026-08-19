@@ -2626,6 +2626,12 @@ const uploadEmployeeDocumentAdmin = async (req, res, next) => {
         if (standardFields.includes(fieldKey)) {
             if (!employee.documents) employee.documents = {};
             employee.documents[fieldKey] = fileUrl;
+            if (fieldKey === "photo") {
+                employee.photo = fileUrl;
+                if (employee.userId) {
+                    await User.findByIdAndUpdate(employee.userId, { profileImage: fileUrl });
+                }
+            }
         } else {
             if (!employee.documents.customDocuments) employee.documents.customDocuments = [];
             employee.documents.customDocuments.push({

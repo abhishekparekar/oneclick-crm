@@ -128,9 +128,9 @@ const getEmployees = async (req, res, next) => {
     console.log("DB QUERY: getEmployees");
     const filter = buildEmployeeFilter(req);
     const employees = await Employee.find(filter)
-      .select("employeeCode firstName lastName fullName email phone photo gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions")
+      .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions joiningDate createdAt")
       .populate([
-        { path: "userId", select: "role" },
+        { path: "userId", select: "role profileImage name email" },
         { path: "departmentId", select: "name" },
         { path: "designationId", select: "name" },
         { path: "branchId", select: "branchName" },
@@ -138,7 +138,15 @@ const getEmployees = async (req, res, next) => {
       ])
       .lean();
 
-    employees.sort((a, b) => {
+    const normalized = employees.map((emp) => {
+      const resolvedPhoto = emp.photo || emp.documents?.photo || emp.userId?.profileImage || "";
+      return {
+        ...emp,
+        photo: resolvedPhoto,
+      };
+    });
+
+    normalized.sort((a, b) => {
       const ma = /^EMP-(\d+)$/i.exec(a.employeeCode || "");
       const mb = /^EMP-(\d+)$/i.exec(b.employeeCode || "");
       const na = ma ? parseInt(ma[1], 10) : 0;
@@ -146,7 +154,7 @@ const getEmployees = async (req, res, next) => {
       return na - nb;
     });
 
-    res.json({ employees, count: employees.length });
+    res.json({ employees: normalized, count: normalized.length });
   } catch (error) {
     next(error);
   }
@@ -159,7 +167,7 @@ const getEmployeeById = async (req, res, next) => {
       companyId: req.companyId,
     })
       .populate([
-        { path: "userId", select: "role" },
+        { path: "userId", select: "role profileImage name email" },
         { path: "departmentId", select: "name" },
         { path: "designationId", select: "name" },
         { path: "branchId", select: "branchName" },
@@ -171,7 +179,10 @@ const getEmployeeById = async (req, res, next) => {
       return res.status(404).json({ message: "Employee not found" });
     }
 
-    res.json({ employee });
+    const empObj = employee.toObject();
+    empObj.photo = empObj.photo || empObj.documents?.photo || empObj.userId?.profileImage || "";
+
+    res.json({ employee: empObj });
   } catch (error) {
     next(error);
   }
@@ -385,6 +396,9 @@ const createEmployee = async (req, res, next) => {
       });
 
       user.employeeId = employee._id;
+      if (photo || documents?.photo) {
+        user.profileImage = photo || documents?.photo;
+      }
       await user.save();
 
       // Create initial leave balance
@@ -694,6 +708,11 @@ const updateEmployee = async (req, res, next) => {
     }
     if (newData.phone !== undefined) {
       user.phone = employee.phone;
+    }
+    if (req.body.photo !== undefined || req.body.documents?.photo !== undefined) {
+      const photoVal = req.body.photo || req.body.documents?.photo || "";
+      user.profileImage = photoVal;
+      employee.photo = photoVal;
     }
 
     // Auto calculate profile completion
