@@ -67,6 +67,7 @@ const COMPANY_SECTIONS = [
     title: "WORKFORCE",
     items: [
       { label: "Payroll", path: "/company/payroll/history", icon: DollarSign, module: "payroll" },
+      { label: "Salary Advances", path: "/company/payroll/advances", icon: Receipt, module: "payroll" },
     ],
   },
   {

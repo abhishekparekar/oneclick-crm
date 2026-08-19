@@ -67,6 +67,7 @@ const HR_NAV_SECTIONS = [
       { label: "Salary Structures", path: "/hr/payroll/salary", icon: DollarSign },
       { label: "Generate Payroll", path: "/hr/payroll/generate", icon: Receipt },
       { label: "Payroll History", path: "/hr/payroll/history", icon: FileText },
+      { label: "Salary Advances", path: "/hr/payroll/advances", icon: Award },
       { label: "My Payslips", path: "/hr/payslips", icon: Receipt },
     ],
   },

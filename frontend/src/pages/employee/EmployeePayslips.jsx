@@ -69,6 +69,12 @@ const EmployeePayslips = () => {
     queryFn: () => api.get(`/payroll/my-payslips?year=${yearFilter}`).then((res) => res.data),
   });
 
+  const { data: advanceRes } = useQuery({
+    queryKey: ["employeeMyAdvances"],
+    queryFn: () => api.get("/salary-advances/my").then((res) => res.data),
+  });
+  const activeAdvance = advanceRes?.metrics?.activeAdvance || null;
+
   const payslips = payslipsRes?.data || payslipsRes?.payslips || [];
   const payslipsCount = payslips.length;
 
@@ -155,6 +161,42 @@ const EmployeePayslips = () => {
         </div>
       </div>
 
+      {/* ── Active Salary Advance Banner ─────────────────────────────── */}
+      {activeAdvance && (
+        <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/30 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs">
+              <Wallet size={20} strokeWidth={2.4} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Active Salary Advance</h3>
+                <span className="px-2 py-0.5 text-[9.5px] font-black rounded-full bg-amber-500 text-slate-950 uppercase">
+                  {activeAdvance.repaymentType === "percentage_of_salary"
+                    ? `${activeAdvance.percentage || 15}% Salary Deduction`
+                    : activeAdvance.repaymentType === "fixed_monthly_amount"
+                    ? `Fixed ${fmt(activeAdvance.monthlyDeductionAmount)}/mo EMI`
+                    : "Next Month Full Deduction"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Disbursed: <span className="font-bold text-slate-700 dark:text-slate-300">{fmt(activeAdvance.amount)}</span> on {new Date(activeAdvance.disbursedDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })} • Reason: {activeAdvance.reason}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 sm:border-l sm:border-amber-500/20 sm:pl-5">
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Repaid</span>
+              <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">{fmt(activeAdvance.totalRecovered)}</span>
+            </div>
+            <div>
+              <span className="text-[10px] font-bold text-slate-400 uppercase block">Remaining</span>
+              <span className="text-sm font-black text-amber-600 dark:text-amber-400 font-mono">{fmt(activeAdvance.remainingBalance)}</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 4 Top KPI Stat Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <MetricCard
@@ -182,7 +224,7 @@ const EmployeePayslips = () => {
         <MetricCard
           label="Total Deductions"
           value={fmt(totalDeductions)}
-          subtext={`PF, PT, TDS & LOP`}
+          subtext={`PF, PT, TDS & Advances`}
           Icon={MinusCircle}
           iconBg="bg-rose-50 dark:bg-rose-950/40"
           iconColor="#DB2777"

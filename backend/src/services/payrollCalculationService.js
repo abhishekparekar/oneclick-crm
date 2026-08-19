@@ -1,6 +1,7 @@
 const Employee = require("../models/Employee");
 const SalaryStructure = require("../models/SalaryStructure");
 const PayrollSettings = require("../models/PayrollSettings");
+const SalaryAdvance = require("../models/SalaryAdvance");
 const { getPayrollAttendanceSummary } = require("./payrollAttendanceService");
 
 const numberToWords = (num) => {
@@ -128,12 +129,58 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
   const professionalTax = (settings.professionalTaxEnabled !== false && ss.professionalTax > 0) ? ss.professionalTax : 0;
   const tds = (settings.tdsEnabled !== false && ss.tds > 0) ? ss.tds : 0;
   const otherDeductions = ss.otherDeductions || 0;
-  const advanceDeduction = overrides.advanceDeduction || 0; // one-time advance recovery
+
+  // Advance Deduction Auto-Calculation:
+  // Respect manual override if provided; otherwise automatically calculate scheduled deduction from active SalaryAdvance records
+  let advanceDeduction = 0;
+  const advanceRecoveryDetails = [];
+
+  if (overrides.advanceDeduction !== undefined && overrides.advanceDeduction !== null && overrides.advanceDeduction !== "") {
+    advanceDeduction = Math.max(0, Number(overrides.advanceDeduction) || 0);
+  } else {
+    try {
+      const activeAdvances = await SalaryAdvance.find({
+        employeeId,
+        companyId,
+        status: "active",
+        remainingBalance: { $gt: 0 },
+      });
+
+      for (const adv of activeAdvances) {
+        let deductionForAdv = 0;
+        if (adv.repaymentType === "full_next_month") {
+          deductionForAdv = adv.remainingBalance;
+        } else if (adv.repaymentType === "fixed_monthly_amount") {
+          deductionForAdv = Math.min(adv.monthlyDeductionAmount || 0, adv.remainingBalance);
+        } else if (adv.repaymentType === "percentage_of_salary") {
+          const pct = Math.min(100, Math.max(0, adv.percentage || 0));
+          const pctAmount = Math.round((grossEarnings * pct) / 100);
+          deductionForAdv = Math.min(pctAmount, adv.remainingBalance);
+        } else if (adv.repaymentType === "manual_direct") {
+          deductionForAdv = 0;
+        }
+
+        if (deductionForAdv > 0) {
+          advanceDeduction += deductionForAdv;
+          advanceRecoveryDetails.push({
+            advanceId: adv._id,
+            amount: round(deductionForAdv),
+            repaymentType: adv.repaymentType,
+            totalAmount: adv.amount,
+            remainingBefore: adv.remainingBalance,
+            remainingAfter: Math.max(0, adv.remainingBalance - deductionForAdv),
+          });
+        }
+      }
+    } catch (advErr) {
+      console.error("SalaryAdvance auto-recovery error:", advErr);
+    }
+  }
 
   const statutoryDeductions = pf + esi + professionalTax + tds + otherDeductions + advanceDeduction;
   const totalDeductions = round(statutoryDeductions);
 
-  // 10. Net Salary = grossEarnings - statutoryDeductions - LOP is already baked into grossEarnings via earningMultiplier
+  // 10. Net Salary = grossEarnings - statutoryDeductions
   let netSalary = grossEarnings - statutoryDeductions;
   if (netSalary < 0) netSalary = 0;
 
@@ -178,6 +225,7 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
       tds: round(tds),
       otherDeductions: round(otherDeductions),
       advanceDeduction: round(advanceDeduction),
+      advanceRecoveryDetails,
       lopDeduction: round(lopDeduction),
       totalDeductions,
     },

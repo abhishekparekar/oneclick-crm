@@ -13,6 +13,7 @@ const payrollRoutes = require("./payrollRoutes");
 const taskRoutes = require("./taskRoutes");
 const leadRoutes = require("./leadRoutes");
 const internalRequestRoutes = require("./internalRequestRoutes");
+const salaryAdvanceRoutes = require("./salaryAdvanceRoutes");
 
 const { protect } = require("../middleware/authMiddleware");
 const { checkSubscription } = require("../middleware/subscriptionMiddleware");
@@ -54,6 +55,7 @@ router.use("/users", protect, checkSubscription, userRoutes);
 router.use("/employee", protect, checkSubscription, employeeRoutes);
 router.use("/manager", protect, checkSubscription, managerRoutes);
 router.use("/payroll", protect, checkSubscription, payrollRoutes);
+router.use("/salary-advances", protect, checkSubscription, salaryAdvanceRoutes);
 router.use("/tasks", protect, checkSubscription, taskRoutes);
 router.use("/internal-requests", protect, checkSubscription, internalRequestRoutes);
 router.use("/company-requests", protect, checkSubscription, internalRequestRoutes);

@@ -105,6 +105,7 @@ import GeneratePayroll from "../pages/companyadmin/GeneratePayroll";
 import SalaryStructurePage from "../pages/companyadmin/SalaryStructurePage";
 import PayrollSettingsPage from "../pages/companyadmin/PayrollSettingsPage";
 import AttendanceSummaryPage from "../pages/companyadmin/AttendanceSummaryPage";
+import SalaryAdvancesPage from "../pages/companyadmin/SalaryAdvancesPage";
 
 // Company Admin — Logs & Reports
 import AuditLogs from "../pages/companyadmin/AuditLogs";
@@ -199,6 +200,7 @@ const AppRoutes = () => {
             <Route path="payroll/salary" element={<SalaryStructurePage />} />
             <Route path="payroll/generate" element={<GeneratePayroll />} />
             <Route path="payroll/history" element={<PayrollHistory />} />
+            <Route path="payroll/advances" element={<SalaryAdvancesPage />} />
             <Route path="payroll/attendance-summary" element={<AttendanceSummaryPage />} />
 
             {/* Logs & Reports */}
@@ -255,6 +257,7 @@ const AppRoutes = () => {
             <Route path="payroll/salary" element={<SalaryStructurePage />} />
             <Route path="payroll/generate" element={<GeneratePayroll />} />
             <Route path="payroll/history" element={<PayrollHistory />} />
+            <Route path="payroll/advances" element={<SalaryAdvancesPage />} />
             <Route path="payslips" element={<EmployeePayslips />} />
 
             {/* Reports & Profile */}

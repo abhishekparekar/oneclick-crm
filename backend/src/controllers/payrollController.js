@@ -401,6 +401,69 @@ const markPayrollPaid = async (req, res, next) => {
       { new: true }
     );
     if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+
+    // Process advance deductions if any
+    try {
+      const SalaryAdvance = require("../models/SalaryAdvance");
+      const advDetails = payroll.deductions?.advanceRecoveryDetails || [];
+      if (advDetails.length > 0) {
+        for (const item of advDetails) {
+          if (item.advanceId && item.amount > 0) {
+            const adv = await SalaryAdvance.findOne({ _id: item.advanceId, companyId: req.companyId });
+            if (adv) {
+              const alreadyRecorded = adv.recoveryHistory.some(
+                (h) => h.payrollId?.toString() === payroll._id.toString()
+              );
+              if (!alreadyRecorded) {
+                adv.totalRecovered = Math.round((adv.totalRecovered + item.amount) * 100) / 100;
+                adv.remainingBalance = Math.max(0, Math.round((adv.remainingBalance - item.amount) * 100) / 100);
+                if (adv.remainingBalance <= 0) {
+                  adv.status = "completed";
+                }
+                adv.recoveryHistory.push({
+                  payrollId: payroll._id,
+                  month: payroll.month,
+                  year: payroll.year,
+                  amount: item.amount,
+                  deductedAt: new Date(),
+                  recoveryType: "payroll_deduction",
+                  notes: `Auto-deducted in ${payroll.month}/${payroll.year} payroll`,
+                  recordedBy: req.user._id,
+                });
+                await adv.save();
+              }
+            }
+          }
+        }
+      } else if ((payroll.deductions?.advanceDeduction || 0) > 0) {
+        const activeAdv = await SalaryAdvance.findOne({
+          employeeId: payroll.employeeId,
+          companyId: req.companyId,
+          status: "active",
+          remainingBalance: { $gt: 0 },
+        }).sort({ createdAt: 1 });
+        if (activeAdv) {
+          const deduction = Math.min(payroll.deductions.advanceDeduction, activeAdv.remainingBalance);
+          activeAdv.totalRecovered = Math.round((activeAdv.totalRecovered + deduction) * 100) / 100;
+          activeAdv.remainingBalance = Math.max(0, Math.round((activeAdv.remainingBalance - deduction) * 100) / 100);
+          if (activeAdv.remainingBalance <= 0) activeAdv.status = "completed";
+          activeAdv.recoveryHistory.push({
+            payrollId: payroll._id,
+            month: payroll.month,
+            year: payroll.year,
+            amount: deduction,
+            deductedAt: new Date(),
+            recoveryType: "payroll_deduction",
+            notes: `Auto-deducted in ${payroll.month}/${payroll.year} payroll`,
+            recordedBy: req.user._id,
+          });
+          await activeAdv.save();
+        }
+      }
+    } catch (advRecErr) {
+      console.error("[Advance Deduction Recovery Error]:", advRecErr);
+    }
+
     res.json({ success: true, message: "Payroll marked as paid", data: payroll });
   } catch (err) {
     next(err);

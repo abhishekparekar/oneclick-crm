@@ -62,6 +62,14 @@ const payrollSchema = new mongoose.Schema(
       esi: { type: Number, default: 0 },
       professionalTax: { type: Number, default: 0 },
       tds: { type: Number, default: 0 },
+      advanceDeduction: { type: Number, default: 0 },
+      advanceRecoveryDetails: [
+        {
+          advanceId: { type: mongoose.Schema.Types.ObjectId, ref: "SalaryAdvance" },
+          amount: Number,
+          repaymentType: String,
+        },
+      ],
       otherDeductions: { type: Number, default: 0 },
       lopDeduction: { type: Number, default: 0 },
       totalDeductions: { type: Number, default: 0 },
