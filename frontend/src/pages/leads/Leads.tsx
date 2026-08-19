@@ -14,7 +14,8 @@ import {
   Upload, Download, AlertCircle, Trash2, Share2, Copy, ExternalLink, Link as LinkIcon, Tag,
   ArrowUp, ArrowDown, UserCheck, Sparkles, Filter, SlidersHorizontal, RefreshCw, CheckCircle,
   Kanban, LayoutGrid, List, MessageSquare, Phone, Mail, MoreVertical, Layers, Calendar, ChevronUp, Clock, Globe,
-  Layers3, Flame, CheckSquare
+  Layers3, Flame, CheckSquare,
+  Zap
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
