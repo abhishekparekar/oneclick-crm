@@ -7,7 +7,8 @@ import {
   Magnet, Search, Plus, Phone, MessageSquare, Trash2, Edit2,
   Calendar, Building2, Tag, DollarSign, Filter, RefreshCw,
   ChevronRight, CheckCircle2, AlertCircle, LayoutGrid, List,
-  Clock, X, ArrowUpDown, UserPlus, Sparkles, Users
+  Clock, X, ArrowUpDown, UserPlus, Sparkles, Users, Mail,
+  User, Briefcase, FileText, Globe, Check
 } from "lucide-react";
 
 export default function HRLeads() {
@@ -488,35 +489,216 @@ export default function HRLeads() {
       )}
 
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl max-w-lg w-full p-5 shadow-2xl relative max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-3">
-              <h3 className="text-sm font-black text-slate-800 dark:text-white">Add New Lead</h3>
-              <button onClick={() => setShowAddModal(false)} className="cursor-pointer"><X size={16} /></button>
-            </div>
-            <form onSubmit={handleSaveLead} className="space-y-3">
-              <input type="text" placeholder="Full Name *" required value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
-              <input type="tel" placeholder="WhatsApp / Phone *" required value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
-              <input type="email" placeholder="Email Address" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
-              <div className="grid grid-cols-2 gap-2">
-                <input type="text" placeholder="Company" value={form.company} onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
-                <input type="number" placeholder="Deal Value" value={form.estimatedValue} onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs font-sans animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-scaleUp">
+            
+            {/* ── Modal Header Bar ─────────────────────────────────────── */}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center font-black shadow-2xs">
+                  <UserPlus size={18} strokeWidth={2.4} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                    Add New Candidate / Lead
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Register and assign candidate lead in pipeline
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="text-[11px] font-bold">Assign to Team Member</label>
-                <select value={form.assignedTo} onChange={(e) => setForm((p) => ({ ...p, assignedTo: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900">
-                  <option value="">-- Leave Unassigned --</option>
-                  {employees.map((emp) => (
-                    <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                      {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <textarea placeholder="Notes" value={form.notes} onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))} className="w-full px-3 py-1.5 text-xs rounded-lg border dark:bg-slate-900" />
-              <button disabled={savingLead} type="submit" className="w-full py-2 text-xs font-bold rounded-lg bg-orange-600 text-white cursor-pointer">
-                {savingLead ? "Saving..." : "Save Lead"}
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X size={15} />
               </button>
+            </div>
+
+            {/* ── Modal Form Body ──────────────────────────────────────── */}
+            <form onSubmit={handleSaveLead} className="p-5 space-y-3.5 max-h-[80vh] overflow-y-auto">
+              
+              {/* Row 1: Name & Phone */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Candidate / Name <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="e.g. Rahul Sharma"
+                      required
+                      value={form.name}
+                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    WhatsApp / Phone <span className="text-rose-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="tel"
+                      placeholder="e.g. 9876543210"
+                      required
+                      value={form.phone}
+                      onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 2: Email & Company */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Email Address
+                  </label>
+                  <div className="relative">
+                    <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      placeholder="rahul@example.com"
+                      value={form.email}
+                      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Company / College
+                  </label>
+                  <div className="relative">
+                    <Building2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="e.g. ABC Tech / Pune University"
+                      value={form.company}
+                      onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 3: Deal Value & Lead Source */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Deal Value / Expected CTC (₹)
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₹</span>
+                    <input
+                      type="number"
+                      placeholder="e.g. 500000"
+                      value={form.estimatedValue}
+                      onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
+                      className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                    Lead Source
+                  </label>
+                  <div className="relative">
+                    <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <select
+                      value={form.source}
+                      onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                    >
+                      <option value="Walk-in">Walk-in / Office</option>
+                      <option value="LinkedIn">LinkedIn</option>
+                      <option value="Job Portal">Job Portal (Naukri/Indeed)</option>
+                      <option value="WhatsApp">WhatsApp</option>
+                      <option value="Referral">Employee Referral</option>
+                      <option value="Website">Website Form</option>
+                      <option value="Campus">Campus Drive</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Row 4: Assign to Team Member */}
+              <div>
+                <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                  Assign to Recruiter / Staff
+                </label>
+                <div className="relative">
+                  <Users size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <select
+                    value={form.assignedTo}
+                    onChange={(e) => setForm((p) => ({ ...p, assignedTo: e.target.value }))}
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
+                  >
+                    <option value="">-- Leave Unassigned (HR Pool) --</option>
+                    {employees.map((emp) => (
+                      <option key={emp.id || emp._id} value={emp.id || emp._id}>
+                        {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 5: Notes */}
+              <div>
+                <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
+                  Initial Notes / Key Requirements
+                </label>
+                <div className="relative">
+                  <FileText size={13} className="absolute left-3 top-3 text-slate-400" />
+                  <textarea
+                    rows={2}
+                    placeholder="e.g. Applied for Senior Frontend Engineer, 4 years experience in React..."
+                    value={form.notes}
+                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                    className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* ── Footer Actions ─────────────────────────────────────── */}
+              <div className="flex items-center gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingLead}
+                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {savingLead ? (
+                    <>
+                      <RefreshCw size={13} className="animate-spin" />
+                      <span>Saving Lead...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check size={14} strokeWidth={2.5} />
+                      <span>Save &amp; Add Lead</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
             </form>
           </div>
         </div>
