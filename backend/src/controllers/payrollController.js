@@ -103,6 +103,13 @@ const generatePayroll = async (req, res, next) => {
       }
     }
 
+    try {
+      const { syncSalaryAdvancesWithPayrolls } = require("./salaryAdvanceController");
+      await syncSalaryAdvancesWithPayrolls(req.companyId);
+    } catch (syncErr) {
+      console.error("[Generate Payroll Advance Sync Error]:", syncErr.message);
+    }
+
     res.json({ success: true, message: `Successfully generated ${generatedCount} payroll records.`, errors });
   } catch (err) {
     next(err);
@@ -146,6 +153,13 @@ const recalculatePayroll = async (req, res, next) => {
       },
       { new: true }
     );
+
+    try {
+      const { syncSalaryAdvancesWithPayrolls } = require("./salaryAdvanceController");
+      await syncSalaryAdvancesWithPayrolls(req.companyId);
+    } catch (syncErr) {
+      console.error("[Recalculate Advance Sync Error]:", syncErr.message);
+    }
 
     res.json({ success: true, message: "Payroll recalculated successfully", data: updated });
   } catch (err) {

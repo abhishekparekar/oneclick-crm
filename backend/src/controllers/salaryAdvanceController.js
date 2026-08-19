@@ -4,10 +4,95 @@ const User = require("../models/User");
 const { sendNotificationToEmployees } = require("../utils/notificationHelper");
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SYNC SALARY ADVANCES WITH PAYROLL DEDUCTIONS
+// ─────────────────────────────────────────────────────────────────────────────
+const syncSalaryAdvancesWithPayrolls = async (companyId, employeeId = null) => {
+  try {
+    const Payroll = require("../models/Payroll");
+    const advQuery = { companyId };
+    if (employeeId) advQuery.employeeId = employeeId;
+
+    const advances = await SalaryAdvance.find(advQuery);
+    if (!advances || !advances.length) return;
+
+    for (const adv of advances) {
+      // Find all payrolls for this employee that recorded an advance deduction
+      const payrolls = await Payroll.find({
+        companyId,
+        employeeId: adv.employeeId,
+        $or: [
+          { "deductions.advanceDeduction": { $gt: 0 } },
+          { "deductions.advanceRecoveryDetails": { $exists: true, $ne: [] } },
+        ],
+      }).sort({ year: 1, month: 1 });
+
+      let directTotal = 0;
+      const directRecoveries = (adv.recoveryHistory || []).filter(
+        (h) => h.recoveryType !== "payroll_deduction"
+      );
+      for (const d of directRecoveries) {
+        directTotal += Number(d.amount) || 0;
+      }
+
+      let payrollDeductionsTotal = 0;
+      const newPayrollRecoveries = [];
+
+      for (const p of payrolls) {
+        let dedAmount = 0;
+        const matchingDetail = (p.deductions?.advanceRecoveryDetails || []).find(
+          (d) => String(d.advanceId) === String(adv._id)
+        );
+
+        if (matchingDetail && matchingDetail.amount > 0) {
+          dedAmount = matchingDetail.amount;
+        } else if ((p.deductions?.advanceDeduction || 0) > 0) {
+          dedAmount = p.deductions.advanceDeduction;
+        }
+
+        if (dedAmount > 0) {
+          payrollDeductionsTotal += dedAmount;
+          newPayrollRecoveries.push({
+            payrollId: p._id,
+            month: p.month,
+            year: p.year,
+            amount: dedAmount,
+            deductedAt: p.generatedAt || p.createdAt,
+            recoveryType: "payroll_deduction",
+            notes: `Auto-deducted in ${p.month}/${p.year} payroll (${p.status})`,
+            recordedBy: p.generatedBy,
+          });
+        }
+      }
+
+      const totalRecovered = Math.round((directTotal + payrollDeductionsTotal) * 100) / 100;
+      const remainingBalance = Math.max(0, Math.round((adv.amount - totalRecovered) * 100) / 100);
+      const status =
+        remainingBalance <= 0
+          ? "completed"
+          : adv.status === "cancelled"
+          ? "cancelled"
+          : "active";
+
+      adv.totalRecovered = totalRecovered;
+      adv.remainingBalance = remainingBalance;
+      adv.status = status;
+      adv.recoveryHistory = [...directRecoveries, ...newPayrollRecoveries];
+
+      await adv.save();
+    }
+  } catch (err) {
+    console.error("[SalaryAdvance Sync Error]:", err.message);
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GET ALL SALARY ADVANCES FOR COMPANY (Admin / HR / Manager)
 // ─────────────────────────────────────────────────────────────────────────────
 const getCompanySalaryAdvances = async (req, res, next) => {
   try {
+    // Auto-sync advances with any generated/paid payroll records first
+    await syncSalaryAdvancesWithPayrolls(req.companyId);
+
     const { employeeId, status, search } = req.query;
     const filter = { companyId: req.companyId };
 
@@ -276,6 +361,8 @@ const getEmployeeSalaryAdvances = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "Employee ID is required." });
     }
 
+    await syncSalaryAdvancesWithPayrolls(req.companyId, employeeId);
+
     const advances = await SalaryAdvance.find({
       employeeId,
       companyId: req.companyId,
@@ -306,6 +393,7 @@ const getEmployeeSalaryAdvances = async (req, res, next) => {
 };
 
 module.exports = {
+  syncSalaryAdvancesWithPayrolls,
   getCompanySalaryAdvances,
   createSalaryAdvance,
   recordDirectRepayment,
