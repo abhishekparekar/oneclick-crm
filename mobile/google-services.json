@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "639540371906",
+    "firebase_url": "https://conpany-1dffc-default-rtdb.firebaseio.com",
+    "project_id": "conpany-1dffc",
+    "storage_bucket": "conpany-1dffc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:639540371906:android:dd115b518fb7e1b1f2f65b",
+        "android_client_info": {
+          "package_name": "com.icoded.hrms"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "639540371906-ijuiopll11op0pjf0vr9piojitoogam2.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBxju5z__A5s4qRYOKPmgA0qWj5kSHsOWQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "639540371906-ijuiopll11op0pjf0vr9piojitoogam2.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

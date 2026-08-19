@@ -1,0 +1,11 @@
+{
+  "name": "OneClick",
+  "displayName": "One Click",
+  "expo": {
+    "name": "One Click",
+    "slug": "one-click",
+    "android": {
+      "package": "com.oneclick.hrms"
+    }
+  }
+}

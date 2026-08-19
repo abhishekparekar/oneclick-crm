@@ -1,0 +1,2487 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ONE CLICK — Premium Design System Layer
+   Philosophy: Linear · Stripe · Attio · Vercel quality
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Keyframes ──────────────────────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes countUp {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+/* ── Premium card token ─────────────────────────────────────────────────── */
+.oc-card {
+  background: #ffffff;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 23, 42, 0.05);
+  box-shadow: 0 2px 8px rgba(15,23,42,.04), 0 8px 24px rgba(15,23,42,.04);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+  animation: fadeUp 0.3s ease both;
+}
+.oc-card:hover {
+  box-shadow: 0 4px 16px rgba(15,23,42,.08), 0 12px 32px rgba(15,23,42,.06);
+  transform: translateY(-1px);
+}
+.dark .oc-card {
+  background: #0F172A;
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: 0 2px 8px rgba(0,0,0,.16), 0 8px 24px rgba(0,0,0,.12);
+}
+.dark .oc-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.24), 0 12px 32px rgba(0,0,0,.18);
+}
+
+/* ── Staggered animation delay ──────────────────────────────────────────── */
+.oc-card:nth-child(1)  { animation-delay:  0ms; }
+.oc-card:nth-child(2)  { animation-delay: 40ms; }
+.oc-card:nth-child(3)  { animation-delay: 80ms; }
+.oc-card:nth-child(4)  { animation-delay:120ms; }
+.oc-card:nth-child(5)  { animation-delay:160ms; }
+.oc-card:nth-child(6)  { animation-delay:200ms; }
+
+/* ── Premium scrollbar ──────────────────────────────────────────────────── */
+.oc-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
+.oc-scroll::-webkit-scrollbar-track { background: transparent; }
+.oc-scroll::-webkit-scrollbar-thumb { background: rgba(15,23,42,.12); border-radius: 99px; }
+.oc-scroll::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,.22); }
+
+/* ── Sidebar nav item ───────────────────────────────────────────────────── */
+.oc-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  transition: background 150ms ease, color 150ms ease;
+  cursor: pointer;
+  text-decoration: none;
+  position: relative;
+}
+.oc-nav-item.active {
+  background: rgba(255,255,255,.06);
+  color: #ffffff;
+}
+.oc-nav-item.active::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 4px; bottom: 4px;
+  width: 2.5px;
+  background: #EAB308;
+  border-radius: 0 2px 2px 0;
+}
+.oc-nav-item:not(.active) {
+  color: rgba(148,163,184,1);
+}
+.oc-nav-item:not(.active):hover {
+  background: rgba(255,255,255,.04);
+  color: rgba(226,232,240,1);
+}
+
+/* ── Count-up animation for stats ──────────────────────────────────────── */
+.oc-stat { animation: countUp 0.5s ease both; }
+
+@theme {
+  /* ═══════════════════════════════════════════════════════════════════════════
+     COMPANY ADMIN CENTRALIZED MASTER THEME (ONE-PROMPT PALETTE ENGINE)
+     Brand: Orange Primary + Dark Charcoal (One Click  logo)
+     Rule: Orange = primary actions/accents ONLY. Backgrounds = neutral gray.
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --ca-palette-1: #FFF3E0;
+  --ca-palette-2: #FFE0B2;
+  --ca-palette-3: #FFCC80;
+  --ca-palette-4: #FFB74D;
+  --ca-palette-5: #FFA726;
+  --ca-palette-6: #FF9800;
+  --ca-palette-7: #FB8C00;
+  --ca-palette-8: #F57C00;
+  --ca-palette-9: #EF6C00;
+  --ca-palette-10: #E65100;
+  /* Secondary Green */
+  /* Shade 10 (charcoal / sidebar / dark contrast) */
+
+  /* ── Company Admin Functional Tokens (`ca-*`) ─────────────────────────────── */
+  --color-ca-primary: var(--ca-palette-10);
+  --color-ca-primary-hover: #CC4800;
+  --color-ca-primary-light: #FFF0E5;
+  --color-ca-secondary: #B33F00;
+  --color-ca-accent: var(--ca-palette-10);
+
+  /* Surfaces & Neutrals (Light Mode) */
+  --color-ca-bg: #FBFAFE;
+  --color-ca-surface: #FFFFFF;
+  --color-ca-card: #FFFFFF;
+  --color-ca-border: rgba(0, 0, 0, 0.1);
+  --color-ca-hover: var(--ca-palette-1);
+  --color-ca-text: #000000;
+  --color-ca-text-secondary: rgba(0, 0, 0, 0.6);
+  --color-ca-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --color-ca-sidebar: #171115;
+  --color-ca-sidebar-text: #FFFFFF;
+
+  /* ── Tailwind `primary-*` mapping ──────────────────────────────────────────── */
+  --color-primary: var(--ca-palette-8);
+  --color-primary-50: #FFF7ED;
+  --color-primary-100: #FFEDD5;
+  --color-primary-200: var(--ca-palette-3);
+  --color-primary-300: var(--ca-palette-4);
+  --color-primary-400: var(--ca-palette-5);
+  --color-primary-500: var(--ca-palette-6);
+  --color-primary-600: var(--ca-palette-7);
+  --color-primary-700: var(--ca-palette-8);
+  --color-primary-800: var(--ca-palette-9);
+  --color-primary-900: var(--ca-palette-10);
+
+  --color-secondary: var(--ca-palette-5);
+  --color-accent: var(--ca-palette-3);
+  --color-background: var(--ca-palette-1);
+  --color-card: rgba(255, 255, 255, 0.95);
+  --color-text: #111827;
+  --color-sidebar-bg: #0F1115;
+  --color-sidebar-border: rgba(255, 255, 255, 0.08);
+
+  /* ONE-STOP THEME PALETTE FOR CHARTS, AVATARS, WIDGETS */
+  --color-theme-1: var(--ca-palette-10);
+  --color-theme-2: var(--ca-palette-9);
+  --color-theme-3: var(--ca-palette-8);
+  --color-theme-4: var(--ca-palette-6);
+  --color-theme-5: var(--ca-palette-4);
+  --color-theme-6: var(--ca-palette-3);
+
+  /* REPORT CHART SPECIFIC PALETTE */
+  --color-chart-1: var(--ca-palette-8);
+  --color-chart-2: var(--ca-palette-7);
+  --color-chart-3: var(--ca-palette-6);
+  --color-chart-4: var(--ca-palette-5);
+  --color-chart-5: var(--ca-palette-4);
+  --color-chart-6: var(--ca-palette-3);
+
+  --color-theme-1-light: var(--ca-palette-2);
+  --color-theme-2-light: var(--ca-palette-2);
+  --color-theme-3-light: #FFF7ED;
+  --color-theme-4-light: #FFEDD5;
+  --color-theme-5-light: #FFF7ED;
+  --color-theme-6-light: #FFF7ED;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     MANAGER PANEL THEME (mg-* — ISOLATED FROM CA & SA PALETTES)
+     ⚠️  Replace these placeholder values with your own colors.
+     These variables are ONLY active inside .manager-panel wrapper.
+     ═══════════════════════════════════════════════════════════════════════════ */
+
+  /* 10-shade palette (Dark Orange / Rust) */
+  --mg-palette-1: #FFF0E5;
+  --mg-palette-2: #FFDAC2;
+  --mg-palette-3: #FFBC94;
+  --mg-palette-4: #FF9961;
+  --mg-palette-5: #FF762B;
+  --mg-palette-6: #F05805;
+  --mg-palette-7: #C74402;
+  --mg-palette-8: #9E3502;
+  --mg-palette-9: #7C2D05;
+  --mg-palette-10: #5C2002;
+
+  /* Functional Tokens */
+  --color-mg-primary: var(--mg-palette-8);
+  --color-mg-primary-hover: var(--mg-palette-9);
+  --color-mg-primary-light: var(--mg-palette-1);
+  --color-mg-secondary: var(--mg-palette-9);
+  --color-mg-accent: var(--mg-palette-7);
+
+  /* Surfaces & Neutrals (Light Mode) */
+  --color-mg-bg: #FBFAFE;
+  --color-mg-surface: #FFFFFF;
+  --color-mg-card: #FFFFFF;
+  --color-mg-border: rgba(0, 0, 0, 0.1);
+  --color-mg-hover: var(--mg-palette-1);
+  --color-mg-text: #000000;
+  --color-mg-text-secondary: rgba(0, 0, 0, 0.6);
+  --color-mg-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --color-mg-sidebar: #0f172a;
+  --color-mg-sidebar-text: #FFFFFF;
+
+  /* ═══════════════════════════════════════════════════════════════════════════
+     SUPER ADMIN THEME — Matches Company Admin Amber/Dark palette
+     ═══════════════════════════════════════════════════════════════════════════ */
+  --color-sa-primary: #f59e0b;
+  --color-sa-primary-hover: #d97706;
+  --color-sa-secondary: #fbbf24;
+  --color-sa-accent: #fcd34d;
+
+  /* Surfaces & Neutrals — identical to Company Admin */
+  --color-sa-bg: #F8FAFC;
+  --color-sa-surface: #FFFFFF;
+  --color-sa-card: rgba(255, 255, 255, 0.95);
+  --color-sa-border: rgba(0, 0, 0, 0.1);
+  --color-sa-hover: #FFF7ED;
+  --color-sa-text: #0f172a;
+  --color-sa-text-secondary: rgba(0, 0, 0, 0.6);
+  --color-sa-modal-backdrop: rgba(0, 0, 0, 0.5);
+
+  /* Status Colors — mapped to amber/standard palette */
+  --color-sa-success: #10b981;
+  --color-sa-success-bg: rgba(16, 185, 129, 0.1);
+  --color-sa-success-text: #065f46;
+
+  --color-sa-warning: #f59e0b;
+  --color-sa-warning-bg: rgba(245, 158, 11, 0.12);
+  --color-sa-warning-text: #92400e;
+
+  --color-sa-danger: #ef4444;
+  --color-sa-danger-bg: rgba(239, 68, 68, 0.1);
+  --color-sa-danger-text: #7f1d1d;
+
+  --color-sa-info: #3b82f6;
+  --color-sa-info-bg: rgba(59, 130, 246, 0.1);
+
+  --font-sans: 'Lato', sans-serif;
+  --animate-pulse-slow: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-float-slow: float-slow 12s ease-in-out infinite;
+
+  @keyframes pulse-slow {
+    0%, 100% { opacity: 0.15; }
+    50% { opacity: 0.35; }
+  }
+
+  @keyframes float-slow {
+    0%, 100% { transform: translateY(0px) scale(1); }
+    50% { transform: translateY(-20px) scale(1.05); }
+  }
+}
+
+/* ── Super Admin Dark Theme Token Overrides ──────────────────────────────── */
+.dark, :where(.dark, .dark *) {
+  --color-sa-bg: #070A10;
+  --color-sa-surface: #111C24;
+  --color-sa-card: #111C24;
+  --color-sa-border: rgba(255, 255, 255, 0.08);
+  --color-sa-hover: rgba(255, 255, 255, 0.05);
+  --color-sa-text: #FFFFFF;
+  --color-sa-text-secondary: #94A3B8;
+  --color-sa-modal-backdrop: rgba(0, 0, 0, 0.7);
+}
+
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-text font-sans antialiased;
+    font-family: 'Lato', sans-serif;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   MANAGER PANEL — Color Override Scope
+   Remaps all ca-* tokens → mg-* so every manager page auto-uses manager colors.
+   NO changes needed in individual manager page JSX files.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.manager-panel {
+  /* Remap palette shades */
+  --ca-palette-1: var(--mg-palette-1);
+  --ca-palette-2: var(--mg-palette-2);
+  --ca-palette-3: var(--mg-palette-3);
+  --ca-palette-4: var(--mg-palette-4);
+  --ca-palette-5: var(--mg-palette-5);
+  --ca-palette-6: var(--mg-palette-6);
+  --ca-palette-7: var(--mg-palette-7);
+  --ca-palette-8: var(--mg-palette-8);
+  --ca-palette-9: var(--mg-palette-9);
+  --ca-palette-10: var(--mg-palette-10);
+
+  /* Remap functional tokens */
+  --color-ca-primary: var(--color-mg-primary);
+  --color-ca-primary-hover: var(--color-mg-primary-hover);
+  --color-ca-primary-light: var(--color-mg-primary-light);
+  --color-ca-secondary: var(--color-mg-secondary);
+  --color-ca-accent: var(--color-mg-accent);
+
+  --color-ca-bg: var(--color-mg-bg);
+  --color-ca-surface: var(--color-mg-surface);
+  --color-ca-card: var(--color-mg-card);
+  --color-ca-border: var(--color-mg-border);
+  --color-ca-hover: var(--color-mg-hover);
+  --color-ca-text: var(--color-mg-text);
+  --color-ca-text-secondary: var(--color-mg-text-secondary);
+  --color-ca-modal-backdrop: var(--color-mg-modal-backdrop);
+  --color-ca-sidebar: var(--color-mg-sidebar);
+  --color-ca-sidebar-text: var(--color-mg-sidebar-text);
+
+  /* Remap primary Tailwind palette to manager colors */
+  --color-primary: var(--mg-palette-8);
+  --color-primary-50: var(--mg-palette-1);
+  --color-primary-100: var(--mg-palette-1);
+  --color-primary-200: var(--mg-palette-3);
+  --color-primary-300: var(--mg-palette-4);
+  --color-primary-400: var(--mg-palette-5);
+  --color-primary-500: var(--mg-palette-6);
+  --color-primary-600: var(--mg-palette-7);
+  --color-primary-700: var(--mg-palette-8);
+  --color-primary-800: var(--mg-palette-9);
+  --color-primary-900: var(--mg-palette-10);
+
+  background-color: var(--color-mg-bg);
+  color: var(--color-mg-text);
+}
+
+@layer components {
+
+  /* Company Admin Inline & Fractional Borders: Keep main outer card boxes crisp (`--color-ca-border`), but soften all internal fractional, directional (`border-t`, `border-b`), table rows, and inner filter/input borders to be light and clean (`inline borders should be light`) */
+  [class*="border-ca-border/"],
+  .border-t[class*="border-ca-border"],
+  .border-b[class*="border-ca-border"],
+  .border-l[class*="border-ca-border"],
+  .border-r[class*="border-ca-border"],
+  table tr[class*="border-ca-border"],
+  .divide-y>*+*,
+  .divide-x>*+*,
+  .bg-ca-surface .bg-ca-bg[class*="border-ca-border"],
+  .bg-ca-surface input[class*="border-ca-border"],
+  .bg-ca-surface select[class*="border-ca-border"],
+  button[class*="border-ca-border"],
+  span[class*="border-ca-border"],
+  a[class*="border-ca-border"],
+  .inline-flex[class*="border-ca-border"] {
+    border-color: rgba(165, 150, 104, 0.25) !important;
+  }
+
+  .dark [class*="border-ca-border/"],
+  .dark .border-t[class*="border-ca-border"],
+  .dark .border-b[class*="border-ca-border"],
+  .dark .border-l[class*="border-ca-border"],
+  .dark .border-r[class*="border-ca-border"],
+  .dark table tr[class*="border-ca-border"],
+  .dark .divide-y>*+*,
+  .dark .divide-x>*+*,
+  .dark .bg-ca-surface .bg-ca-bg[class*="border-ca-border"],
+  .dark .bg-ca-surface input[class*="border-ca-border"],
+  .dark .bg-ca-surface select[class*="border-ca-border"],
+  .dark button[class*="border-ca-border"],
+  .dark span[class*="border-ca-border"],
+  .dark a[class*="border-ca-border"],
+  .dark .inline-flex[class*="border-ca-border"] {
+    border-color: rgba(165, 150, 104, 0.15) !important;
+  }
+
+
+  /* Super Admin Sub-Borders: Soften borders on search inputs, dropdown selects, and secondary buttons/pills inside cards/toolbars */
+  input[class*="border-sa-border"]:not([type="checkbox"]):not([type="radio"]):not(:focus),
+  select[class*="border-sa-border"]:not(:focus),
+  textarea[class*="border-sa-border"]:not(:focus),
+  button[class*="border-sa-border"]:not(.btn-primary):not(:hover):not(:focus),
+  .border-sa-border\/80 input:not(:focus),
+  .border-sa-border\/80 select:not(:focus),
+  .border-sa-border input:not(:focus),
+  .border-sa-border select:not(:focus) {
+    border-color: rgba(142, 181, 240, 0.32) !important;
+  }
+
+  .dark input[class*="border-sa-border"]:not([type="checkbox"]):not([type="radio"]):not(:focus),
+  .dark select[class*="border-sa-border"]:not(:focus),
+  .dark textarea[class*="border-sa-border"]:not(:focus),
+  .dark button[class*="border-sa-border"]:not(.btn-primary):not(:hover):not(:focus),
+  .dark .border-sa-border\/80 input:not(:focus),
+  .dark .border-sa-border\/80 select:not(:focus),
+  .dark .border-sa-border input:not(:focus),
+  .dark .border-sa-border select:not(:focus) {
+    border-color: rgba(255, 255, 255, 0.12) !important;
+  }
+
+  /* Ensure <select> options across the entire platform use palette colors and never grey on hover */
+  select option {
+    background-color: var(--color-sa-surface, #FFFFFF) !important;
+    color: var(--color-sa-text, #0F172A) !important;
+    padding: 10px 14px !important;
+  }
+
+  .dark select option {
+    background-color: var(--color-sa-card, #1E1B4B) !important;
+    color: var(--color-sa-text, #FFFFFF) !important;
+  }
+
+  select option:hover,
+  select option:focus,
+  select option:active {
+    background: linear-gradient(135deg, rgba(97, 61, 193, 0.18), rgba(133, 138, 227, 0.22)) !important;
+    background-color: #EDE9FE !important;
+    color: #4E148C !important;
+  }
+
+  .dark select option:hover,
+  .dark select option:focus,
+  .dark select option:active {
+    background: linear-gradient(135deg, rgba(133, 138, 227, 0.25), rgba(151, 223, 252, 0.15)) !important;
+    background-color: #3D0E61 !important;
+    color: #97DFFC !important;
+  }
+
+  select option:checked {
+    background: linear-gradient(135deg, #613DC1, #4E148C) !important;
+    background-color: #613DC1 !important;
+    color: #FFFFFF !important;
+  }
+
+  /* Sleek custom scrollbars */
+  .sa-dropdown-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(97, 61, 193, 0.35) transparent;
+  }
+
+  .sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 121, 22, 0.35) transparent;
+  }
+
+  .sa-dropdown-scroll::-webkit-scrollbar,
+  .sidebar-scroll::-webkit-scrollbar {
+    width: 4px !important;
+    height: 4px !important;
+  }
+
+  .sa-dropdown-scroll::-webkit-scrollbar-track,
+  .sidebar-scroll::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .sa-dropdown-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(97, 61, 193, 0.35) !important;
+    border-radius: 9999px !important;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 121, 22, 0.35) !important;
+    border-radius: 9999px !important;
+  }
+
+  .sa-dropdown-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(97, 61, 193, 0.65) !important;
+  }
+
+  .sidebar-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 121, 22, 0.65) !important;
+  }
+
+  .sa-dropdown-scroll::-webkit-scrollbar-button,
+  .sidebar-scroll::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  /* Sleek custom scrollbars */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(150, 150, 150, 0.3) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 5px !important;
+    height: 5px !important;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent !important;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(150, 150, 150, 0.4) !important;
+    border-radius: 9999px !important;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(150, 150, 150, 0.6) !important;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+
+  .btn-primary {
+    background: var(--color-ca-primary);
+    color: #FFFFFF;
+    padding: 0.5rem 1rem;
+    border-radius: 14px;
+    box-shadow: none;
+    transition: all 300ms ease;
+    border: none;
+    font-weight: 500;
+    font-size: 0.875rem;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    transform: scale(1.04);
+    background: var(--color-ca-primary-hover);
+    box-shadow: none;
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+  }
+
+  .btn-outline {
+    background-color: white;
+    border: 1px solid #E9DDFB;
+    color: #7A6F92;
+    padding: 0.5rem 1rem;
+    border-radius: 14px;
+    font-weight: 500;
+    font-size: 0.875rem;
+    transition: all 300ms ease;
+  }
+
+  .btn-outline:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background-color: #F8F5FF;
+    box-shadow: 0 4px 14px rgba(35, 83, 71, 0.1);
+  }
+
+  .card {
+    background: var(--color-ca-card);
+    border-radius: 20px;
+    border: 1px solid var(--color-ca-border);
+    box-shadow: none;
+    padding: 1.5rem;
+    transition: all 300ms ease;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  .stat-card {
+    background: rgba(255, 255, 255, 0.75);
+    backdrop-filter: blur(16px);
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    padding: 1rem;
+    transition: all 300ms ease;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.06);
+  }
+
+  .input-field {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: 14px;
+    border: 1px solid #E9DDFB;
+    background-color: white;
+    color: #000000;
+    font-size: 0.875rem;
+    transition: all 300ms ease;
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(35, 83, 71, 0.3);
+  }
+
+  .input-field::placeholder {
+    color: #7A6F92;
+  }
+
+  .label-text {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #7A6F92;
+    margin-bottom: 0.375rem;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    column-gap: 0.625rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 9999px;
+    /* Pill */
+    cursor: pointer;
+    color: #000000;
+    font-size: 0.9rem;
+    font-weight: 600;
+    transition: all 300ms ease;
+  }
+
+  .nav-item:hover {
+    background-color: rgba(35, 83, 71, 0.08);
+    color: var(--color-primary);
+  }
+
+  .nav-item-active {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    color: white;
+    box-shadow: 0 4px 14px rgba(35, 83, 71, 0.25);
+  }
+
+  .nav-item-active:hover {
+    background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+    color: white;
+  }
+
+  .section-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #7A6F92;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+    margin-bottom: 0.25rem;
+    margin-top: 1rem;
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+
+    100% {
+      background-position: -200% 0;
+    }
+  }
+}
+
+
+/* ── Slide-in drawer animations ─────────────────────────────────────────────── */
+@keyframes slideInFromLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+
+@keyframes slideInFromRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* ── Smooth Transitions Globally ────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DARK MODE — "Modern Purple" implementation
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* ── Body / Page ──────────────────────────────────────────────────────────── */
+html.dark body {
+  background-color: var(--color-ca-bg) !important;
+  color: var(--color-ca-text);
+}
+
+html.dark:has(.bg-sa-bg) body,
+html.dark:has([class*="bg-sa-"]) body,
+body:has(.bg-sa-bg),
+body:has([class*="bg-sa-"]) {
+  background-color: #120421 !important;
+}
+
+/* ── Backgrounds ──────────────────────────────────────────────────────────── */
+html.dark .bg-white {
+  background: var(--color-ca-card) !important;
+  backdrop-filter: none;
+  border: 1px solid var(--color-ca-border);
+}
+
+html.dark .bg-slate-50 {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+html.dark .bg-slate-100 {
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+html.dark .bg-slate-200 {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+html.dark .bg-slate-300 {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .bg-background {
+  background-color: var(--color-primary-900) !important;
+}
+
+/* ── Text ─────────────────────────────────────────────────────────────────── */
+html.dark .text-slate-950,
+html.dark .text-slate-900 {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-slate-800 {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-slate-700 {
+  color: #F3F4F6 !important;
+}
+
+html.dark .text-slate-600 {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark .text-slate-500 {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark .react-datepicker__day--outside-month {
+  color: var(--color-primary-600) !important;
+}
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * DARK MODE PALETTE OVERRIDES
+ * Lighter theme colors for dark mode only to avoid pitch black shades 
+ * ──────────────────────────────────────────────────────────────────────────── */
+html.dark {
+  /* ── Company Admin Functional Tokens (`ca-*`) in Dark Mode ── */
+  --color-ca-primary: var(--ca-palette-6);
+  --color-ca-primary-hover: var(--ca-palette-7);
+  --color-ca-primary-light: rgba(234, 88, 12, 0.15);
+  --color-ca-secondary: #10b981;
+  --color-ca-accent: #3b82f6;
+
+  --color-ca-bg: #0a0f1c;
+  --color-ca-surface: #0a0f1c;
+  --color-ca-card: #0a0f1c;
+  --color-ca-border: #1e293b;
+  --color-ca-hover: rgba(30, 41, 59, 0.5);
+  --color-ca-text: #f8fafc;
+  --color-ca-text-secondary: #94a3b8;
+  --color-ca-modal-backdrop: rgba(0, 0, 0, 0.75);
+  --color-ca-sidebar: #0a0f1c;
+  --color-ca-sidebar-text: #f8fafc;
+
+  /* ── Manager Functional Tokens (`mg-*`) in Dark Mode ── */
+  --color-mg-primary: var(--mg-palette-6);
+  --color-mg-primary-hover: var(--mg-palette-7);
+  --color-mg-primary-light: rgba(234, 88, 12, 0.15);
+  --color-mg-secondary: #10b981;
+  --color-mg-accent: #3b82f6;
+
+  --color-mg-bg: #0a0f1c;
+  --color-mg-surface: #0a0f1c;
+  --color-mg-card: #0a0f1c;
+  --color-mg-border: #1e293b;
+  --color-mg-hover: rgba(30, 41, 59, 0.5);
+  --color-mg-text: #f8fafc;
+  --color-mg-text-secondary: #94a3b8;
+  --color-mg-modal-backdrop: rgba(0, 0, 0, 0.75);
+  --color-mg-sidebar: #0a0f1c;
+  --color-mg-sidebar-text: #f8fafc;
+
+  /* ── Automatic Mapping to Tailwind `primary-*` & `theme-*` in Dark Mode ── */
+  --color-primary-500: var(--ca-palette-6);
+  --color-primary-600: var(--ca-palette-7);
+  --color-primary-700: var(--ca-palette-8);
+  --color-primary-800: #111C24;
+  --color-primary-900: #090F14;
+  --color-text: #FFFFFF;
+  --color-card: #0a0f1c;
+  --color-sidebar-bg: #0a0f1c;
+  --color-sidebar-border: rgba(255, 255, 255, 0.1);
+
+  --color-theme-1: var(--ca-palette-10);
+  --color-theme-2: var(--ca-palette-9);
+  --color-theme-3: var(--ca-palette-8);
+  --color-theme-4: var(--ca-palette-6);
+  --color-theme-5: var(--ca-palette-4);
+  --color-theme-6: var(--ca-palette-3);
+
+  /* Super Admin Dark Mode Theme Overrides (STRICT 10-SHADE PALETTE) */
+  --color-sa-primary: #858AE3;
+  --color-sa-primary-hover: #93CAF6;
+  --color-sa-secondary: #8EB5F0;
+  --color-sa-accent: #97DFFC;
+
+  --color-sa-bg: #120421;
+  --color-sa-surface: #140525;
+  --color-sa-card: rgba(38, 10, 64, 0.94);
+  --color-sa-border: #461177;
+  --color-sa-hover: rgba(133, 138, 227, 0.22);
+  --color-sa-text: #FFFFFF;
+  --color-sa-text-secondary: #E5E7EB;
+  --color-sa-modal-backdrop: rgba(10, 2, 18, 0.82);
+
+  --color-sa-success: #93CAF6;
+  --color-sa-success-bg: rgba(147, 202, 246, 0.25);
+  --color-sa-success-text: #93CAF6;
+
+  --color-sa-info: #97DFFC;
+  --color-sa-info-bg: rgba(151, 223, 252, 0.25);
+  --color-sa-info-text: #97DFFC;
+
+  --color-sa-warning: #8EB5F0;
+  --color-sa-warning-bg: rgba(142, 181, 240, 0.25);
+  --color-sa-warning-text: #8EB5F0;
+
+  --color-sa-danger: #858AE3;
+  --color-sa-danger-bg: rgba(133, 138, 227, 0.35);
+  --color-sa-danger-text: #858AE3;
+
+  /* REPORT CHART SPECIFIC PALETTE (Original for Dark Mode) */
+  --color-chart-1: var(--color-theme-3);
+  --color-chart-2: var(--color-theme-4);
+  --color-chart-3: var(--color-theme-5);
+  --color-chart-4: var(--color-theme-1);
+  --color-chart-5: var(--color-theme-2);
+  --color-chart-6: var(--color-theme-6);
+}
+
+html.dark .text-slate-300 {
+  color: var(--color-primary-400) !important;
+}
+
+html.dark .text-gray-900 {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-gray-800 {
+  color: #FFFFFF !important;
+}
+
+html.dark .text-gray-700 {
+  color: #F3F4F6 !important;
+}
+
+html.dark .text-gray-600 {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark .text-gray-500 {
+  color: var(--color-theme-5) !important;
+}
+
+/* ── Borders ──────────────────────────────────────────────────────────────── */
+html.dark .border-slate-50 {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .border-slate-100 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+
+html.dark .border-slate-300 {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+html.dark .border-b {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .input-field {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .input-field:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--color-ca-primary) !important;
+  box-shadow: 0 0 0 2px rgba(230, 81, 0, 0.2) !important;
+}
+
+html.dark .border-t {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .border-r {
+  border-right-color: rgba(255, 255, 255, 0.08);
+}
+
+html.dark .border-l {
+  border-left-color: rgba(255, 255, 255, 0.08);
+}
+
+
+html.dark .border-slate-200 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark .border-gray-200 {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+html.dark .border-gray-100 {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Divide utilities */
+html.dark .divide-slate-50>*+* {
+  border-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .divide-slate-100>*+* {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .divide-slate-200>*+* {
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ── Component classes in Dark Mode ───────────────────────────────────────── */
+html.dark .card {
+  background: var(--color-ca-card) !important;
+  backdrop-filter: none !important;
+  border-color: var(--color-ca-border) !important;
+  box-shadow: none !important;
+}
+
+html.dark .card:hover {
+  background: #1C1C1E !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+html.dark .stat-card {
+  background: #1C1C1E !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+}
+
+html.dark .btn-primary {
+  background: var(--color-ca-primary) !important;
+  box-shadow: none !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .btn-primary:hover:not(:disabled) {
+  background: var(--color-ca-primary-hover) !important;
+  box-shadow: none !important;
+}
+
+html.dark .btn-outline {
+  background-color: var(--color-theme-5) !important;
+  border-color: var(--color-primary) !important;
+  color: #F3F4F6 !important;
+}
+
+html.dark .btn-outline:hover {
+  background-color: var(--color-theme-3) !important;
+  box-shadow: 0 4px 14px rgba(35, 83, 71, 0.2) !important;
+}
+
+html.dark .input-field {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .input-field:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--color-ca-primary) !important;
+  box-shadow: 0 0 0 2px rgba(230, 81, 0, 0.2) !important;
+}
+
+
+html.dark .input-field {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .input-field:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--color-ca-primary) !important;
+  box-shadow: 0 0 0 2px rgba(230, 81, 0, 0.2) !important;
+}
+
+\n
+
+/* ── Layout: Header ───────────────────────────────────────────────────────── */
+header:not([class*="bg-sa-"]) {
+  background: #0f172a !important;
+  backdrop-filter: blur(20px) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* ── Layout: Sidebar ──────────────────────────────────────────────────────── */
+html.dark .bg-sidebar-bg {
+  background-color: var(--color-theme-1) !important;
+  border-right-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .nav-item {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark .nav-item:hover {
+  background-color: rgba(35, 83, 71, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark .nav-item-active {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(35, 83, 71, 0.3) !important;
+}
+
+html.dark .nav-item-active:hover {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary)) !important;
+}
+
+html.dark .section-label {
+  color: var(--color-primary-300) !important;
+}
+
+html.dark .sidebar-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Layout: Footer ───────────────────────────────────────────────────────── */
+html.dark footer {
+  background-color: var(--color-theme-2) !important;
+  border-top-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Layout: Main content wrapper ─────────────────────────────────────────── */
+html.dark main:not([class*="bg-sa-"]) {
+  background-color: transparent;
+}
+
+html.dark .flex.h-screen.bg-slate-50:not([class*="bg-sa-"]) {
+  background-color: var(--color-primary-900) !important;
+}
+
+/* ── Inputs / Forms ───────────────────────────────────────────────────────── */
+html.dark input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+html.dark select,
+html.dark textarea {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: #FFFFFF !important;
+}
+
+html.dark input::placeholder,
+html.dark textarea::placeholder {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark option {
+  background-color: #111827;
+  color: #FFFFFF;
+}
+
+html.dark label {
+  color: var(--color-theme-5);
+}
+
+html.dark input:focus,
+html.dark select:focus,
+html.dark textarea:focus {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: var(--color-ca-primary) !important;
+  box-shadow: 0 0 0 2px rgba(230, 81, 0, 0.2) !important;
+}
+
+/* ── Hover overrides ──────────────────────────────────────────────────────── */
+html.dark .hover\:bg-slate-50:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .hover\:bg-slate-100:hover {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .hover\:bg-red-50:hover {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+}
+
+html.dark .hover\:bg-primary-50:hover {
+  background-color: rgba(35, 83, 71, 0.15) !important;
+}
+
+html.dark .hover\:bg-green-50:hover {
+  background-color: rgba(34, 197, 94, 0.1) !important;
+}
+
+html.dark .hover\:bg-blue-50:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+}
+
+html.dark .hover\:text-slate-900:hover {
+  color: #FFFFFF !important;
+}
+
+/* ── Dropdowns / Popovers ─────────────────────────────────────────────────── */
+html.dark .absolute.bg-white,
+html.dark .fixed>.bg-white,
+html.dark [class*="absolute"][class*="bg-white"] {
+  background: #1E1E1E !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 14px;
+}
+
+/* ── Tables ───────────────────────────────────────────────────────────────── */
+html.dark table {
+  background: transparent !important;
+}
+
+html.dark thead,
+html.dark thead tr {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+}
+
+html.dark tbody tr {
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+}
+
+html.dark th {
+  color: var(--color-theme-5) !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark td {
+  color: #F3F4F6 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+/* ── Modals / Dialogs ─────────────────────────────────────────────────────── */
+html.dark .fixed.inset-0>.bg-white,
+html.dark .fixed>*>.bg-white {
+  background: #1E1E1E !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 24px !important;
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6) !important;
+}
+
+html.dark .bg-black\/50 {
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  backdrop-filter: blur(4px);
+}
+
+html.dark .bg-black\/40 {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  backdrop-filter: blur(4px);
+}
+
+/* ── Badges ───────────────────────────────────────────────────────────────── */
+html.dark .bg-green-50 {
+  background-color: rgba(34, 197, 94, 0.15) !important;
+  border: 1px solid rgba(34, 197, 94, 0.2) !important;
+}
+
+html.dark .bg-blue-50 {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border: 1px solid rgba(59, 130, 246, 0.2) !important;
+}
+
+html.dark .bg-red-50 {
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  border: 1px solid rgba(239, 68, 68, 0.2) !important;
+}
+
+html.dark .bg-amber-50 {
+  background-color: rgba(245, 158, 11, 0.15) !important;
+  border: 1px solid rgba(245, 158, 11, 0.2) !important;
+}
+
+html.dark .bg-orange-50 {
+  background-color: rgba(249, 115, 22, 0.15) !important;
+  border: 1px solid rgba(249, 115, 22, 0.2) !important;
+}
+
+html.dark .bg-purple-50 {
+  background-color: rgba(168, 85, 247, 0.15) !important;
+  border: 1px solid rgba(168, 85, 247, 0.2) !important;
+}
+
+html.dark .bg-pink-50 {
+  background-color: rgba(236, 72, 153, 0.15) !important;
+  border: 1px solid rgba(236, 72, 153, 0.2) !important;
+}
+
+html.dark .bg-teal-50 {
+  background-color: rgba(20, 184, 166, 0.15) !important;
+  border: 1px solid rgba(20, 184, 166, 0.2) !important;
+}
+
+html.dark .bg-indigo-50 {
+  background-color: rgba(99, 102, 241, 0.15) !important;
+  border: 1px solid rgba(99, 102, 241, 0.2) !important;
+}
+
+html.dark .bg-rose-50 {
+  background-color: rgba(244, 63, 94, 0.15) !important;
+  border: 1px solid rgba(244, 63, 94, 0.2) !important;
+}
+
+html.dark .bg-emerald-50 {
+  background-color: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.2) !important;
+}
+
+/* ── Status pill text stays vibrant in dark mode ─────────────────────────── */
+html.dark .text-green-600,
+html.dark .text-green-700 {
+  color: #4ade80 !important;
+}
+
+html.dark .text-emerald-600,
+html.dark .text-emerald-700 {
+  color: #34d399 !important;
+}
+
+html.dark .text-blue-600,
+html.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+html.dark .text-red-600,
+html.dark .text-red-700 {
+  color: #f87171 !important;
+}
+
+html.dark .text-amber-600,
+html.dark .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+html.dark .text-orange-600,
+html.dark .text-orange-700 {
+  color: #fb923c !important;
+}
+
+html.dark .text-purple-600,
+html.dark .text-purple-700 {
+  color: #c084fc !important;
+}
+
+html.dark .text-teal-600,
+html.dark .text-teal-700 {
+  color: #2dd4bf !important;
+}
+
+html.dark .text-indigo-600,
+html.dark .text-indigo-700 {
+  color: #818cf8 !important;
+}
+
+html.dark .text-rose-600,
+html.dark .text-rose-700 {
+  color: #fb7185 !important;
+}
+
+html.dark .text-cyan-600,
+html.dark .text-cyan-700 {
+  color: #22d3ee !important;
+}
+
+html.dark .text-pink-600,
+html.dark .text-pink-700 {
+  color: #f472b6 !important;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+html.dark ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.25);
+}
+
+/* ── Recharts charts in dark mode ────────────────────────────────────────── */
+html.dark .recharts-cartesian-grid line {
+  stroke: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .recharts-text {
+  fill: var(--color-theme-5) !important;
+}
+
+html.dark .recharts-tooltip-wrapper .recharts-default-tooltip {
+  background: #1A1A1A !important;
+  backdrop-filter: blur(12px) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: #FFFFFF !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+}
+
+html.dark .recharts-rectangle.recharts-tooltip-cursor {
+  fill: rgba(255, 255, 255, 0.03) !important;
+}
+
+/* ── Glassmorphism Utility Overrides ──────────────────────────────────────── */
+html.dark [class*="bg-white\/"] {
+  background-color: rgba(26, 26, 26, 0.7) !important;
+  backdrop-filter: blur(16px);
+}
+
+html.dark [class*="bg-white\/8"] {
+  background-color: rgba(26, 26, 26, 0.9) !important;
+}
+
+/* ── Gradient page backgrounds ─── */
+html.dark [class*="bg-gradient-to-br"][class*="from-blue-50"],
+html.dark [class*="bg-gradient-to-br"][class*="via-white"],
+html.dark [class*="bg-gradient-to-br"][class*="from-slate"] {
+  background: linear-gradient(135deg, var(--color-primary-900) 0%, var(--color-theme-1) 50%, var(--color-theme-2) 100%) !important;
+}
+
+/* ── Tab buttons ─────────────────── */
+/* Removed aggressive !important overrides so native Tailwind dark: classes can work */
+
+/* ── Status badge bg-*-100 colors in dark mode ───────────────────────────── */
+html.dark .bg-slate-100 {
+  background-color: rgba(100, 116, 139, 0.18) !important;
+}
+
+html.dark .bg-blue-100 {
+  background-color: rgba(59, 130, 246, 0.18) !important;
+}
+
+html.dark .bg-green-100 {
+  background-color: rgba(34, 197, 94, 0.18) !important;
+}
+
+html.dark .bg-red-100 {
+  background-color: rgba(239, 68, 68, 0.18) !important;
+}
+
+html.dark .bg-amber-100 {
+  background-color: rgba(245, 158, 11, 0.18) !important;
+}
+
+html.dark .bg-purple-100 {
+  background-color: rgba(168, 85, 247, 0.18) !important;
+}
+
+html.dark .bg-pink-100 {
+  background-color: rgba(236, 72, 153, 0.18) !important;
+}
+
+html.dark .bg-emerald-100 {
+  background-color: rgba(16, 185, 129, 0.18) !important;
+}
+
+/* Status badge text stays vibrant for *-700 and *-800 ─────────────────────── */
+html.dark .text-slate-700 {
+  color: var(--color-theme-5) !important;
+}
+
+html.dark .text-blue-700 {
+  color: #60a5fa !important;
+}
+
+html.dark .text-green-700 {
+  color: #4ade80 !important;
+}
+
+html.dark .text-red-700 {
+  color: #f87171 !important;
+}
+
+html.dark .text-amber-700 {
+  color: #fbbf24 !important;
+}
+
+html.dark .text-purple-700 {
+  color: #c084fc !important;
+}
+
+/* ── Projects Colored Borders ────────────────────────────────────────────── */
+html.dark [class*="border-emerald-"] {
+  border-color: rgba(16, 185, 129, 0.3) !important;
+}
+
+html.dark [class*="border-red-"] {
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+html.dark [class*="border-blue-"] {
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+html.dark [class*="border-amber-"] {
+  border-color: rgba(245, 158, 11, 0.3) !important;
+}
+
+html.dark [class*="border-purple-"] {
+  border-color: rgba(168, 85, 247, 0.3) !important;
+}
+
+/* ── Stat Card Gradients (Dark) ──────────────────────────────────────────── */
+html.dark [class*="from-emerald-50"] {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(16, 185, 129, 0.05) 100%) !important;
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+
+html.dark [class*="from-red-50"] {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(239, 68, 68, 0.05) 100%) !important;
+  border-color: rgba(239, 68, 68, 0.2) !important;
+}
+
+html.dark [class*="from-blue-50"] {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.15) 0%, rgba(59, 130, 246, 0.05) 100%) !important;
+  border-color: rgba(59, 130, 246, 0.2) !important;
+}
+
+html.dark [class*="from-amber-50"] {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(245, 158, 11, 0.05) 100%) !important;
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+
+html.dark [class*="from-purple-50"] {
+  background: linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(168, 85, 247, 0.05) 100%) !important;
+  border-color: rgba(168, 85, 247, 0.2) !important;
+}
+
+/* ── Fixes for inputs with white/50 bg ───────────────────────────────────── */
+html.dark [class*="bg-white\/50"] {
+  background-color: rgba(26, 26, 26, 0.9) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Border-white overrides ──────────────────────────────────────────────── */
+html.dark [class*="border-white"] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* ── Specific structural elements ────────────────────────────────────────── */
+html.dark .bg-white.border.border-slate-100 {
+  background: var(--color-ca-card) !important;
+  backdrop-filter: none !important;
+  border-color: var(--color-ca-border) !important;
+}
+
+html.dark [class*="bg-slate-50\/30"] {
+  background-color: rgba(26, 26, 26, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.dark .bg-white.p-2.rounded-lg,
+html.dark .bg-white.rounded-lg,
+html.dark .p-2\.5.bg-white.rounded-lg {
+  background-color: var(--color-ca-card) !important;
+  border-color: var(--color-ca-border) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SUPER ADMIN PURPLE THEME INSULATION & OVERRIDES
+   Ensures ZERO green leaks into any Super Admin layout or component in Dark Mode
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Core Layout Containers inside Super Admin (.bg-sa-bg) ─────────────────── */
+html.dark .bg-sa-bg,
+.bg-sa-bg {
+  background-color: var(--color-sa-bg) !important;
+}
+
+html.dark .bg-sa-bg main,
+.bg-sa-bg main {
+  background-color: transparent !important;
+}
+
+html.dark .bg-sa-bg header,
+.bg-sa-bg header,
+html.dark header.bg-sa-surface,
+header.bg-sa-surface {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+}
+
+html.dark .bg-sa-bg footer,
+.bg-sa-bg footer,
+html.dark footer.bg-sa-surface,
+footer.bg-sa-surface {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text-secondary) !important;
+}
+
+/* ── Cards and Surfaces inside Super Admin ─────────────────────────────────── */
+html.dark .bg-sa-bg .card,
+.bg-sa-bg .card,
+html.dark .bg-sa-bg .stat-card,
+.bg-sa-bg .stat-card,
+html.dark .bg-sa-card,
+.bg-sa-card {
+  background: var(--color-sa-card) !important;
+  border-color: var(--color-sa-border) !important;
+}
+
+html.dark .bg-sa-surface,
+.bg-sa-surface {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+}
+
+/* ── Buttons inside Super Admin ────────────────────────────────────────────── */
+html.dark .bg-sa-bg .btn-primary,
+.bg-sa-bg .btn-primary {
+  background: linear-gradient(135deg, var(--color-sa-primary), var(--color-sa-secondary)) !important;
+  box-shadow: 0 12px 30px rgba(97, 61, 193, 0.35) !important;
+}
+
+html.dark .bg-sa-bg .btn-outline,
+.bg-sa-bg .btn-outline {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+}
+
+/* ── Inputs, Selects, Textareas inside Super Admin ─────────────────────────── */
+html.dark .bg-sa-bg input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+html.dark .bg-sa-bg select,
+html.dark .bg-sa-bg textarea,
+html.dark .bg-sa-surface select,
+html.dark .bg-sa-card select,
+.bg-sa-bg input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+.bg-sa-bg select,
+.bg-sa-bg textarea,
+.bg-sa-surface select,
+.bg-sa-card select,
+select[class*="bg-sa-"] {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+  color-scheme: light;
+}
+
+html.dark .bg-sa-bg select,
+html.dark .bg-sa-surface select,
+html.dark .bg-sa-card select,
+html.dark select[class*="bg-sa-"] {
+  color-scheme: dark;
+}
+
+html.dark .bg-sa-bg input:focus,
+html.dark .bg-sa-bg select:focus,
+html.dark .bg-sa-bg textarea:focus,
+html.dark .bg-sa-surface select:focus,
+html.dark select[class*="bg-sa-"]:focus,
+.bg-sa-bg input:focus,
+.bg-sa-bg select:focus,
+.bg-sa-bg textarea:focus,
+.bg-sa-surface select:focus,
+select[class*="bg-sa-"]:focus {
+  background-color: var(--color-sa-bg) !important;
+  border-color: var(--color-sa-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-sa-hover) !important;
+}
+
+/* ── Eliminate Native Grey Option Backgrounds across all Super Admin Dropdowns ── */
+html.dark .bg-sa-bg option,
+html.dark .bg-sa-surface option,
+html.dark .bg-sa-card option,
+html.dark select[class*="bg-sa-"] option,
+html.dark select option,
+.bg-sa-bg option,
+.bg-sa-surface option,
+.bg-sa-card option,
+select[class*="bg-sa-"] option,
+select option {
+  background-color: var(--color-sa-surface) !important;
+  color: var(--color-sa-text) !important;
+  font-weight: 600 !important;
+  padding: 10px 14px !important;
+}
+
+/* Force Palette Purple on Selected/Checked/Focus Option Items (No Muddy Slate/Grey!) */
+html.dark .bg-sa-bg option:checked,
+html.dark .bg-sa-surface option:checked,
+html.dark .bg-sa-card option:checked,
+html.dark select[class*="bg-sa-"] option:checked,
+html.dark select option:checked,
+html.dark option:hover,
+html.dark option:focus,
+html.dark option:active,
+.bg-sa-bg option:checked,
+.bg-sa-surface option:checked,
+.bg-sa-card option:checked,
+select[class*="bg-sa-"] option:checked,
+select option:checked,
+option:hover,
+option:focus,
+option:active {
+  background: var(--color-sa-primary) !important;
+  background-color: var(--color-sa-primary) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+/* ── Popovers, Dropdowns, and Modals inside Super Admin ────────────────────── */
+html.dark .bg-sa-bg [class*="absolute"][class*="bg-white"],
+html.dark .bg-sa-bg .fixed>.bg-white,
+html.dark .bg-sa-bg .fixed>*>.bg-white,
+html.dark .bg-sa-bg [class*="bg-white\/"],
+html.dark [class*="bg-sa-"] [class*="bg-gray-"],
+html.dark [class*="bg-sa-"] [class*="bg-slate-"],
+[class*="bg-sa-"] [class*="bg-gray-100"],
+[class*="bg-sa-"] [class*="bg-slate-100"] {
+  background: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+}
+
+/* ── Tables inside Super Admin ─────────────────────────────────────────────── */
+html.dark .bg-sa-bg table,
+.bg-sa-bg table {
+  background: transparent !important;
+}
+
+html.dark .bg-sa-bg thead,
+html.dark .bg-sa-bg thead tr,
+.bg-sa-bg thead,
+.bg-sa-bg thead tr {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .bg-sa-bg tbody tr,
+html.dark [class*="bg-sa-"] tbody tr,
+.bg-sa-bg tbody tr,
+[class*="bg-sa-"] tbody tr {
+  border-bottom-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg tbody tr,
+html.dark [class*="bg-sa-"] tbody tr {
+  border-bottom-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.dark .bg-sa-bg tbody,
+html.dark [class*="bg-sa-"] tbody,
+.bg-sa-bg tbody,
+[class*="bg-sa-"] tbody {
+  border-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg tbody,
+html.dark [class*="bg-sa-"] tbody {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+html.dark .bg-sa-bg th,
+html.dark [class*="bg-sa-"] th,
+.bg-sa-bg th,
+[class*="bg-sa-"] th {
+  color: var(--color-sa-text-secondary) !important;
+  border-bottom-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg th,
+html.dark [class*="bg-sa-"] th {
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .bg-sa-bg td,
+html.dark [class*="bg-sa-"] td,
+.bg-sa-bg td,
+[class*="bg-sa-"] td {
+  color: var(--color-sa-text) !important;
+  border-bottom-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg td,
+html.dark [class*="bg-sa-"] td {
+  border-bottom-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+html.dark .bg-sa-bg [class*="divide-"]>*+*,
+html.dark [class*="bg-sa-"] [class*="divide-"]>*+*,
+.bg-sa-bg [class*="divide-"]>*+*,
+[class*="bg-sa-"] [class*="divide-"]>*+* {
+  border-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg [class*="divide-"]>*+*,
+html.dark [class*="bg-sa-"] [class*="divide-"]>*+* {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+/* ── Scrollbars inside Super Admin ─────────────────────────────────────────── */
+html.dark .bg-sa-bg ::-webkit-scrollbar-thumb,
+.bg-sa-bg ::-webkit-scrollbar-thumb {
+  background-color: var(--color-sa-border) !important;
+}
+
+/* ── Clean Hidden / Ultra-Thin Scrollbars (`hide-scrollbar`, `no-scrollbar`) ── */
+.no-scrollbar::-webkit-scrollbar,
+.hide-scrollbar::-webkit-scrollbar,
+main.hide-scrollbar::-webkit-scrollbar,
+.bg-sa-bg main::-webkit-scrollbar,
+.bg-sa-bg form::-webkit-scrollbar,
+.bg-sa-surface form::-webkit-scrollbar,
+.bg-sa-surface [class*="overflow-y-auto"]::-webkit-scrollbar,
+.bg-sa-bg [class*="overflow-y-auto"]::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.no-scrollbar,
+.hide-scrollbar,
+main.hide-scrollbar,
+.bg-sa-bg main,
+.bg-sa-bg form,
+.bg-sa-surface form,
+.bg-sa-surface [class*="overflow-y-auto"],
+.bg-sa-bg [class*="overflow-y-auto"] {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* ── Total Insulation against Green/Primary Leakage in Super Admin (Light & Dark) ── */
+.bg-sa-bg [class*="border-primary-"],
+html.dark .bg-sa-bg [class*="border-primary-"] {
+  border-color: var(--color-sa-primary) !important;
+}
+
+.bg-sa-bg [class*="focus:ring-primary-"]:focus,
+html.dark .bg-sa-bg [class*="focus:ring-primary-"]:focus {
+  --tw-ring-color: var(--color-sa-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-sa-primary) !important;
+}
+
+.bg-sa-bg [class*="bg-green-500"],
+html.dark .bg-sa-bg [class*="bg-green-500"],
+.bg-sa-bg [class*="bg-emerald-500"],
+html.dark .bg-sa-bg [class*="bg-emerald-500"] {
+  background-color: var(--color-sa-primary) !important;
+}
+
+.bg-sa-bg [class*="text-green-"],
+html.dark .bg-sa-bg [class*="text-green-"],
+.bg-sa-bg [class*="text-emerald-"],
+html.dark .bg-sa-bg [class*="text-emerald-"] {
+  color: var(--color-sa-success-text) !important;
+}
+
+.bg-sa-bg [class*="bg-green-50"],
+html.dark .bg-sa-bg [class*="bg-green-50"],
+.bg-sa-bg [class*="bg-emerald-50"],
+html.dark .bg-sa-bg [class*="bg-emerald-50"] {
+  background-color: var(--color-sa-success-bg) !important;
+}
+
+.bg-sa-bg [class*="border-green-"],
+html.dark .bg-sa-bg [class*="border-green-"],
+.bg-sa-bg [class*="border-emerald-"],
+html.dark .bg-sa-bg [class*="border-emerald-"] {
+  border-color: var(--color-sa-primary) !important;
+}
+
+/* ── TOTAL SUPER ADMIN DARK MODE OVERRIDES & CHART TOOLTIP SEALING ── */
+html.dark .bg-sa-bg,
+.bg-sa-bg {
+  --color-primary-500: var(--color-sa-primary) !important;
+  --color-primary-600: var(--color-sa-primary-hover) !important;
+  --color-primary-700: var(--color-sa-secondary) !important;
+  --color-primary-800: var(--color-sa-border) !important;
+  --color-primary-900: var(--color-sa-surface) !important;
+  --color-theme-1: var(--color-sa-surface) !important;
+  --color-theme-2: var(--color-sa-border) !important;
+  --color-theme-3: var(--color-sa-primary) !important;
+  --color-theme-4: var(--color-sa-secondary) !important;
+  --color-theme-5: var(--color-sa-accent) !important;
+  --color-theme-6: var(--color-sa-hover) !important;
+  --color-card: var(--color-sa-card) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COMPANY ADMIN CENTRALIZED THEME UTILITIES (`ca-*`) & INSULATION
+   Ensures one-prompt color management and high-contrast dark/light adaptability across `/company/*`
+   ═══════════════════════════════════════════════════════════════════════════ */
+html.dark .bg-ca-bg,
+.bg-ca-bg {
+  background-color: var(--color-ca-bg) !important;
+}
+
+html.dark .bg-ca-surface,
+.bg-ca-surface {
+  background-color: var(--color-ca-surface) !important;
+  border-color: var(--color-ca-border) !important;
+}
+
+html.dark .bg-ca-card,
+.bg-ca-card {
+  background: var(--color-ca-card) !important;
+  border-color: var(--color-ca-border) !important;
+}
+
+html.dark .border-ca-border,
+.border-ca-border {
+  border-color: var(--color-ca-border) !important;
+}
+
+html.dark .text-ca-text,
+.text-ca-text {
+  color: var(--color-ca-text) !important;
+}
+
+html.dark .text-ca-text-secondary,
+.text-ca-text-secondary {
+  color: var(--color-ca-text-secondary) !important;
+}
+
+html.dark .bg-ca-primary,
+.bg-ca-primary {
+  background-color: var(--color-ca-primary) !important;
+}
+
+html.dark .text-ca-primary,
+.text-ca-primary {
+  color: var(--color-ca-primary) !important;
+}
+
+html.dark .border-ca-primary,
+.border-ca-primary {
+  border-color: var(--color-ca-primary) !important;
+}
+
+/* Insulation when inside Company Admin (`.bg-ca-bg` container) */
+html.dark .bg-ca-bg main,
+.bg-ca-bg main {
+  background-color: transparent !important;
+}
+
+html.dark .bg-ca-bg header.bg-ca-surface,
+.bg-ca-bg header.bg-ca-surface,
+html.dark header.bg-ca-surface,
+header.bg-ca-surface {
+  background-color: var(--color-ca-surface) !important;
+  border-color: var(--color-ca-border) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+html.dark .bg-ca-bg footer,
+.bg-ca-bg footer,
+html.dark footer.bg-ca-surface,
+footer.bg-ca-surface {
+  background-color: var(--color-ca-surface) !important;
+  border-color: var(--color-ca-border) !important;
+  color: var(--color-ca-text-secondary) !important;
+}
+
+html.dark .bg-ca-bg .card,
+.bg-ca-bg .card,
+html.dark .bg-ca-bg .stat-card,
+.bg-ca-bg .stat-card {
+  background: var(--color-ca-card) !important;
+  border-color: var(--color-ca-border) !important;
+}
+
+/* Scrollbars & Table integration inside Company Admin */
+html.dark .bg-ca-bg table,
+.bg-ca-bg table {
+  background: transparent !important;
+}
+
+html.dark .bg-ca-bg thead,
+html.dark .bg-ca-bg thead tr,
+.bg-ca-bg thead,
+.bg-ca-bg thead tr {
+  background-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+html.dark .bg-ca-bg tbody tr,
+.bg-ca-bg tbody tr {
+  border-bottom-color: var(--color-ca-border) !important;
+}
+
+html.dark .bg-ca-bg th,
+.bg-ca-bg th {
+  color: var(--color-ca-text-secondary) !important;
+  border-bottom-color: var(--color-ca-border) !important;
+}
+
+html.dark .bg-ca-bg td,
+.bg-ca-bg td {
+  color: var(--color-ca-text) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.03) !important;
+}
+
+html.dark .bg-ca-bg ::-webkit-scrollbar-thumb,
+.bg-ca-bg ::-webkit-scrollbar-thumb {
+  background-color: var(--color-ca-border) !important;
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   CHART TOOLTIPS SEALING (ZERO BOXES-INSIDE-BOXES FOR ALL PAGES & THEMES)
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Strip ALL borders, backgrounds, shadows, and extra border-radius from ALL INNER TOOLTIP DESCENDANTS */
+.recharts-default-tooltip *,
+.recharts-tooltip-label,
+.recharts-tooltip-item-list,
+.recharts-tooltip-item,
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-separator,
+.recharts-tooltip-item-value,
+.recharts-tooltip-item-unit {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* 2. Company Admin Tooltip Container (Placed FIRST so Super Admin can override) */
+html.dark .recharts-default-tooltip,
+html.dark .recharts-tooltip-wrapper>.recharts-default-tooltip,
+html.dark :not([class*="bg-sa-"]) .recharts-default-tooltip,
+html.dark :not([class*="bg-sa-"]) .recharts-tooltip-wrapper>.recharts-default-tooltip {
+  background-color: rgba(17, 28, 36, 0.96) !important;
+  border: 1px solid rgba(85, 141, 124, 0.3) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6) !important;
+  padding: 10px 14px !important;
+}
+
+.recharts-default-tooltip,
+.recharts-tooltip-wrapper>.recharts-default-tooltip,
+:not([class*="bg-sa-"]) .recharts-default-tooltip,
+:not([class*="bg-sa-"]) .recharts-tooltip-wrapper>.recharts-default-tooltip {
+  background-color: #FFFFFF !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12) !important;
+  padding: 10px 14px !important;
+}
+
+/* 3. Company Admin Tooltip Inner Elements (Placed FIRST) */
+html.dark .recharts-tooltip-label,
+html.dark :not([class*="bg-sa-"]) .recharts-tooltip-label {
+  color: var(--color-theme-5) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 0 4px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+html.dark .recharts-tooltip-item,
+html.dark :not([class*="bg-sa-"]) .recharts-tooltip-item {
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+  margin: 0 !important;
+}
+
+.recharts-tooltip-label,
+:not([class*="bg-sa-"]) .recharts-tooltip-label {
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 0 4px 0 !important;
+}
+
+.recharts-tooltip-item,
+:not([class*="bg-sa-"]) .recharts-tooltip-item {
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+  margin: 0 !important;
+}
+
+/* 4. SUPER ADMIN TOOLTIP CONTAINER (Placed AFTER with high specificity so it NEVER turns green!) */
+html.dark .bg-sa-bg .recharts-default-tooltip,
+html.dark .bg-sa-bg .recharts-tooltip-wrapper>.recharts-default-tooltip,
+html.dark [class*="bg-sa-"] .recharts-default-tooltip,
+html.dark [class*="bg-sa-"] .recharts-tooltip-wrapper>.recharts-default-tooltip,
+.bg-sa-bg .recharts-default-tooltip,
+.bg-sa-bg .recharts-tooltip-wrapper>.recharts-default-tooltip,
+[class*="bg-sa-"] .recharts-default-tooltip,
+[class*="bg-sa-"] .recharts-tooltip-wrapper>.recharts-default-tooltip {
+  background-color: var(--color-sa-surface) !important;
+  border: 1px solid var(--color-sa-border) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4) !important;
+  padding: 10px 14px !important;
+}
+
+/* 5. SUPER ADMIN TOOLTIP INNER ELEMENTS (Placed AFTER with high specificity) */
+html.dark .bg-sa-bg .recharts-tooltip-label,
+html.dark [class*="bg-sa-"] .recharts-tooltip-label,
+.bg-sa-bg .recharts-tooltip-label,
+[class*="bg-sa-"] .recharts-tooltip-label {
+  color: var(--color-sa-text-secondary) !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  margin: 0 0 6px 0 !important;
+  padding: 0 0 4px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+html.dark .bg-sa-bg .recharts-tooltip-item,
+html.dark [class*="bg-sa-"] .recharts-tooltip-item,
+.bg-sa-bg .recharts-tooltip-item,
+[class*="bg-sa-"] .recharts-tooltip-item {
+  color: var(--color-sa-text) !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  padding: 3px 0 !important;
+  margin: 0 !important;
+}
+
+/* Card and Stat Card Dark Mode Overrides inside Super Admin */
+html.dark .bg-sa-bg .card,
+.bg-sa-bg .card {
+  background: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+
+html.dark .bg-sa-bg .stat-card,
+.bg-sa-bg .stat-card {
+  background: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+}
+
+/* Input Fields inside Super Admin */
+html.dark .bg-sa-bg .input-field:focus,
+.bg-sa-bg .input-field:focus,
+html.dark .bg-sa-bg input:focus,
+.bg-sa-bg input:focus,
+html.dark .bg-sa-bg select:focus,
+.bg-sa-bg select:focus,
+html.dark .bg-sa-bg textarea:focus,
+.bg-sa-bg textarea:focus {
+  background-color: var(--color-sa-bg) !important;
+  border-color: var(--color-sa-primary) !important;
+  box-shadow: 0 0 0 2px var(--color-sa-primary) !important;
+}
+
+/* Absolute Popups, Dropdowns, and Modals inside Super Admin */
+html.dark .bg-sa-bg .absolute.bg-white,
+html.dark .bg-sa-bg .fixed>.bg-white,
+html.dark .bg-sa-bg [class*="absolute"][class*="bg-white"],
+html.dark .bg-sa-bg .fixed.inset-0>.bg-white,
+html.dark .bg-sa-bg .fixed>*>.bg-white,
+.bg-sa-bg .absolute.bg-white,
+.bg-sa-bg .fixed>.bg-white,
+.bg-sa-bg [class*="absolute"][class*="bg-white"],
+.bg-sa-bg .fixed.inset-0>.bg-white,
+.bg-sa-bg .fixed>*>.bg-white {
+  background: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* ═════════════════════════════════════════════════════════════════════════════
+   SUPER ADMIN DARK MODE FINAL BACKGROUND SEALING (TABLE FOOTERS, BUTTONS, BODY)
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  --animate-wave: wave 2.5s infinite;
+
+  @keyframes wave {
+    0% { transform: rotate(0deg); }
+    10% { transform: rotate(14deg); }
+    20% { transform: rotate(-8deg); }
+    30% { transform: rotate(14deg); }
+    40% { transform: rotate(-4deg); }
+    50% { transform: rotate(10deg); }
+    60% { transform: rotate(0deg); }
+    100% { transform: rotate(0deg); }
+  }
+}
+
+:root {
+}
+
+/* 1. Ensure body & root container never show green below the footer in Super Admin */
+html.dark:has(.bg-sa-bg) body,
+html.dark:has([class*="bg-sa-"]) body,
+body:has(.bg-sa-bg),
+body:has([class*="bg-sa-"]),
+html.dark:has(.bg-sa-bg) #root,
+html.dark:has([class*="bg-sa-"]) #root,
+#root:has(.bg-sa-bg),
+#root:has([class*="bg-sa-"]) {
+  background-color: var(--color-sa-bg) !important;
+}
+
+/* 2. Ensure Table Pagination Footers, Card Footers, and any bg-white elements inside Super Admin NEVER turn green in dark mode */
+html.dark .bg-sa-bg .bg-white,
+html.dark [class*="bg-sa-"] .bg-white,
+.bg-sa-bg .bg-white,
+[class*="bg-sa-"] .bg-white {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+}
+
+/* 3. Ensure any bg-slate-50 / bg-slate-100 / bg-slate-200 inside Super Admin NEVER turn green in dark mode */
+html.dark .bg-sa-bg .bg-slate-50,
+html.dark .bg-sa-bg .bg-slate-100,
+html.dark .bg-sa-bg .bg-slate-200,
+html.dark [class*="bg-sa-"] .bg-slate-50,
+html.dark [class*="bg-sa-"] .bg-slate-100,
+html.dark [class*="bg-sa-"] .bg-slate-200,
+.bg-sa-bg .bg-slate-50,
+.bg-sa-bg .bg-slate-100,
+.bg-sa-bg .bg-slate-200,
+[class*="bg-sa-"] .bg-slate-50,
+[class*="bg-sa-"] .bg-slate-100,
+[class*="bg-sa-"] .bg-slate-200 {
+  background-color: var(--color-sa-card) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+}
+
+/* 4. Ensure Pagination Buttons (<nav aria-label="Pagination"> ... button) have clean purple hover inside Super Admin */
+html.dark .bg-sa-bg nav button,
+html.dark [class*="bg-sa-"] nav button,
+.bg-sa-bg nav button,
+[class*="bg-sa-"] nav button {
+  background-color: var(--color-sa-surface) !important;
+  border-color: var(--color-sa-border) !important;
+  color: var(--color-sa-text) !important;
+}
+
+html.dark .bg-sa-bg nav button:hover,
+html.dark [class*="bg-sa-"] nav button:hover,
+.bg-sa-bg nav button:hover,
+[class*="bg-sa-"] nav button:hover {
+  background-color: var(--color-sa-primary) !important;
+  color: #FFFFFF !important;
+}
+
+/* 5. Override any general border-t / border-b / border-slate colors inside Super Admin tables and pagination */
+html.dark .bg-sa-bg [class*="border-slate-"],
+html.dark [class*="bg-sa-"] [class*="border-slate-"],
+.bg-sa-bg [class*="border-slate-"],
+[class*="bg-sa-"] [class*="border-slate-"] {
+  border-color: rgba(216, 226, 220, 0.3) !important;
+}
+
+html.dark .bg-sa-bg [class*="border-slate-"],
+html.dark [class*="bg-sa-"] [class*="border-slate-"] {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Ensure when DataTable sits inside a main border-sa-border outer box, it does not draw a duplicate inner border */
+html.dark [class*="border-sa-border"]>[class*="border-slate-"].rounded-2xl,
+[class*="border-sa-border"]>[class*="border-slate-"].rounded-2xl {
+  border: none !important;
+}
+
+/* 6. Ensure Super Admin Sidebar, Header, and Footer turn deep dark obsidian strictly in Dark Mode */
+html.dark .bg-\[\#3D0E61\],
+html.dark [class*="bg-[#3D0E61]"],
+html.dark .bg-sa-bg .bg-\[\#3D0E61\] {
+  background-color: #0F031D !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark header.bg-sa-surface,
+html.dark footer.bg-sa-surface,
+html.dark .bg-sa-bg header,
+html.dark .bg-sa-bg footer {
+  background-color: #120421 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .bg-sa-bg .card,
+html.dark .bg-sa-bg .stat-card,
+html.dark .bg-sa-bg .bg-sa-card {
+  background: var(--color-sa-card) !important;
+  border-color: var(--color-sa-border) !important;
+}
+
+/* 7. Ensure Company Admin Left Sidebar (`.ca-sidebar`) stays sleek Obsidian/Transparent without clunky green boxes */
+html.dark .ca-sidebar {
+  background: linear-gradient(180deg, #090F14 0%, #0D161F 50%, #080E14 100%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+html.dark .ca-sidebar a:not([class*="bg-[#111C24]"]):not([class*="bg-white"]),
+html.dark .ca-sidebar nav a[style*="background: transparent"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html.dark .ca-sidebar .card,
+html.dark .ca-sidebar .stat-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* 8. Enable buttery smooth scrolling and touch scrolling globally across all pages and tables */
+html,
+body,
+[class*="overflow-x-"],
+[class*="overflow-y-"],
+main,
+div[class*="scroll"] {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Hide default browser password reveal icon */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+/* ═══════════════════════════════════════════════════════
+   EASYLEADS ENGINE STYLES
+   ═══════════════════════════════════════════════════════ */
+.input-base {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 13.5px;
+  color: #0F172A;
+  outline: none;
+  transition: all 180ms ease;
+  font-family: inherit;
+}
+
+.input-base:hover {
+  border-color: #CBD5E1;
+}
+
+.input-base:focus {
+  border-color: #0E6B50;
+  box-shadow: 0 0 0 2px rgba(14, 107, 80, 0.18);
+}
+
+.textarea-base {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 13.5px;
+  color: #0F172A;
+  outline: none;
+  resize: vertical;
+  transition: all 180ms ease;
+  font-family: inherit;
+  line-height: 1.5;
+}
+
+.select-base {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  background: #FFFFFF;
+  font-size: 13.5px;
+  color: #0F172A;
+  outline: none;
+  transition: all 180ms ease;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%2364748B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 16px;
+  padding-right: 32px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 500;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 180ms cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  user-select: none;
+  font-family: inherit;
+  padding: 0 14px;
+  height: 36px;
+}
+
+.btn-primary {
+  background: linear-gradient(180deg, #FE6D04, #E65100);
+  color: #FFFFFF !important;
+  border: 1px solid #E65100;
+  box-shadow: 0 1px 2px 0 rgba(230, 81, 0, 0.25);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #E65100, #B33F00);
+}
+
+.btn-secondary {
+  background: #FFFFFF !important;
+  color: #334155 !important;
+  border: 1px solid #E2E8F0 !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+}
+
+.btn-secondary:hover {
+  background: #F8FAFC !important;
+  border-color: #CBD5E1 !important;
+  color: #0F172A !important;
+}
+
+.btn-ghost {
+  background: transparent !important;
+  color: #64748B !important;
+  border-color: transparent !important;
+}
+
+.btn-ghost:hover {
+  background: #F1F5F9 !important;
+  color: #0F172A !important;
+}
+
+.btn-danger {
+  background: #EF4444 !important;
+  color: #FFFFFF !important;
+  border-color: #EF4444 !important;
+}
+
+.btn-sm {
+  height: 30px !important;
+  padding: 0 10px !important;
+  font-size: 13px !important;
+  border-radius: 6px !important;
+  gap: 4px !important;
+}
+
+.btn-lg {
+  height: 44px !important;
+  padding: 0 20px !important;
+  font-size: 15px !important;
+  border-radius: 10px !important;
+}
+
+.card-elevated {
+  background: #FFFFFF !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.05) !important;
+}
+
+.table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.data-table thead tr {
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.data-table thead th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #64748B;
+  white-space: nowrap;
+  user-select: none;
+  background: #F8FAFC;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.data-table tbody tr {
+  border-bottom: 1px solid #F1F5F9;
+  transition: all 150ms ease;
+}
+
+.data-table tbody tr:hover {
+  background: rgba(14, 107, 80, 0.015);
+}
+
+.data-table tbody td {
+  padding: 12.5px 16px;
+  color: #334155;
+  vertical-align: middle;
+}

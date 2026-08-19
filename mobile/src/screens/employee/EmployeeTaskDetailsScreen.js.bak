@@ -1,0 +1,1358 @@
+import React, { useState, useEffect, useRef } from "react";
+import api from "../../api/api";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  TextInput,
+  ActivityIndicator,
+  RefreshControl,
+  Alert,
+  Platform,
+  findNodeHandle,
+  Modal,
+  Linking,
+} from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
+import { Ionicons } from "@expo/vector-icons";
+import EmployeeLayout from "../../components/EmployeeLayout";
+import AppCard from "../../components/AppCard";
+import TaskActionModal from "../../components/TaskActionModal";
+import {
+  getEmployeeTaskDetailsApi,
+  updateTaskChecklistApi,
+  addTaskCommentApi,
+  updateTaskStatusApi,
+  uploadTaskAttachmentApi,
+  deleteTaskAttachmentApi,
+  getActiveTaskStatusesApi,
+} from "../../api/taskService";
+import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
+import { useAuth } from "../../context/AuthContext";
+
+const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
+  const { taskId } = route.params || {};
+  const { user } = useAuth();
+
+  const [task, setTask] = useState(null);
+  const [taskStatuses, setTaskStatuses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [newComment, setNewComment] = useState("");
+  const [submittingComment, setSubmittingComment] = useState(false);
+  const [updatingChecklistId, setUpdatingChecklistId] = useState(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [commentCardY, setCommentCardY] = useState(0);
+  const [attachmentMenuVisible, setAttachmentMenuVisible] = useState(false);
+  const [actionModalVisible, setActionModalVisible] = useState(false);
+  const [actionType, setActionType] = useState("");
+  const [submittingAction, setSubmittingAction] = useState(false);
+  const [commentFile, setCommentFile] = useState(null);
+  const [uploadingCommentMedia, setUploadingCommentMedia] = useState(false);
+  
+  const scrollViewRef = useRef(null);
+  const commentInputRef = useRef(null);
+
+  const fetchTaskDetails = async (showLoading = true) => {
+    try {
+      if (showLoading) setLoading(true);
+      const [resTask, resStatuses] = await Promise.all([
+        getEmployeeTaskDetailsApi(taskId),
+        getActiveTaskStatusesApi()
+      ]);
+      if (resTask.data && resTask.data.success) {
+        console.log("Task details API response:", JSON.stringify(resTask.data));
+        const fetchedTask = resTask.data.task || (resTask.data.data && resTask.data.data.task) || null;
+        setTask(fetchedTask);
+      }
+      if (resStatuses.data && resStatuses.data.success) {
+        setTaskStatuses(resStatuses.data.statuses || []);
+      }
+    } catch (error) {
+      console.error("Error fetching task details:", error);
+      Alert.alert("Error", "Could not fetch task details.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (taskId) {
+      fetchTaskDetails();
+    }
+  }, [taskId]);
+
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchTaskDetails(false);
+  };
+
+  const handleToggleSubtask = async (subtaskId, currentCompleted) => {
+    try {
+      setUpdatingChecklistId(subtaskId);
+      const res = await updateTaskChecklistApi(taskId, {
+        subtaskId,
+        completed: !currentCompleted,
+      });
+      if (res.data && res.data.success) {
+        fetchTaskDetails(false);
+      }
+    } catch (error) {
+      console.error("Failed to toggle subtask:", error);
+      Alert.alert("Error", "Failed to update subtask.");
+    } finally {
+      setUpdatingChecklistId(null);
+    }
+  };
+
+  const handleSelectCommentMedia = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setCommentFile({
+          uri: file.uri,
+          name: file.name,
+          type: file.mimeType || "application/octet-stream"
+        });
+      }
+    } catch (error) {
+      console.error("Select comment media error:", error);
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!newComment.trim() && !commentFile) return;
+    try {
+      setSubmittingComment(true);
+      
+      let attachmentsList = [];
+      if (commentFile) {
+        setUploadingCommentMedia(true);
+        const formData = new FormData();
+        formData.append("file", {
+          uri: commentFile.uri,
+          name: commentFile.name,
+          type: commentFile.type
+        });
+        
+        const { uploadMediaFileApi } = require("../../api/taskService");
+        const uploadRes = await uploadMediaFileApi(formData);
+        if (uploadRes.data && uploadRes.data.success) {
+          attachmentsList.push({
+            fileUrl: uploadRes.data.fileUrl,
+            fileName: uploadRes.data.fileName,
+            fileType: uploadRes.data.fileType
+          });
+        }
+        setUploadingCommentMedia(false);
+      }
+
+      const res = await addTaskCommentApi(taskId, newComment.trim(), attachmentsList);
+      if (res.data && res.data.success) {
+        setNewComment("");
+        setCommentFile(null);
+        fetchTaskDetails(false);
+      }
+    } catch (error) {
+      console.error("Failed to post comment:", error);
+      Alert.alert("Error", "Could not add comment.");
+    } finally {
+      setSubmittingComment(false);
+      setUploadingCommentMedia(false);
+    }
+  };
+
+  const handleFileUpload = async (fileUri, fileName, mimeType) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", {
+        uri: fileUri,
+        name: fileName,
+        type: mimeType || "application/octet-stream",
+      });
+
+      setUploadingAttachment(true);
+      const res = await uploadTaskAttachmentApi(taskId, formData);
+      if (res.data && res.data.success) {
+        Alert.alert("Success", "Attachment uploaded successfully");
+        fetchTaskDetails(false);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      Alert.alert("Error", "Failed to upload attachment");
+    } finally {
+      setUploadingAttachment(false);
+    }
+  };
+
+  const handleDeleteAttachment = (attachmentId) => {
+    Alert.alert(
+      "Delete Attachment",
+      "Are you sure you want to delete this attachment?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const res = await deleteTaskAttachmentApi(taskId, attachmentId);
+              if (res.data && res.data.success) {
+                fetchTaskDetails(false);
+              }
+            } catch (error) {
+              console.error("Delete attachment error:", error);
+              Alert.alert("Error", "Failed to delete attachment.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handlePickDocument = async () => {
+    setAttachmentMenuVisible(false);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        handleFileUpload(file.uri, file.name, file.mimeType);
+      }
+    } catch (error) {
+      console.error("Doc pick error:", error);
+    }
+  };
+
+  const handlePickImage = async () => {
+    setAttachmentMenuVisible(false);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const filename = file.uri.split("/").pop();
+        handleFileUpload(file.uri, filename, "image/jpeg");
+      }
+    } catch (error) {
+      console.error("Image pick error:", error);
+    }
+  };
+
+  const handleTakeCameraPhoto = async () => {
+    setAttachmentMenuVisible(false);
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission needed', 'Camera permission is required to take photos.');
+        return;
+      }
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: false,
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        const filename = file.uri.split("/").pop();
+        handleFileUpload(file.uri, filename, "image/jpeg");
+      }
+    } catch (error) {
+      console.error("Camera pick error:", error);
+    }
+  };
+
+  const handleStatusChange = async (status) => {
+    try {
+      const res = await updateTaskStatusApi(taskId, status);
+      if (res.data && res.data.success) {
+        fetchTaskDetails(false);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Failed to update task status.");
+    }
+  };
+
+  const handleActionSubmit = async (data) => {
+    try {
+      setSubmittingAction(true);
+      
+      const payload = {
+        remarks: data.remarks,
+        attachments: data.attachments || [],
+        nextFollowUpDate: data.nextFollowUpDate || null
+      };
+
+      const endpoint = `/tasks/${taskId}/${actionType.replace('re_', '')}`;
+      const res = await api.patch(endpoint, payload);
+      
+      if (res.data && res.data.success) {
+        setActionModalVisible(false);
+        fetchTaskDetails(false);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", err?.response?.data?.message || "Failed to update task status.");
+    } finally {
+      setSubmittingAction(false);
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority?.toLowerCase()) {
+      case "high":
+        return { bg: "#fee2e2", text: "#ef4444", border: "#fca5a5" };
+      case "medium":
+        return { bg: "#fef3c7", text: "#f59e0b", border: "#fde047" };
+      default:
+        return { bg: "#ecfdf5", text: "#10b981", border: "#a7f3d0" };
+    }
+  };
+
+  if (loading) {
+    return (
+      <EmployeeLayout navigation={navigation} title="Task Detail" backEnabled={true}>
+        <View style={styles.centerContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+        </View>
+      </EmployeeLayout>
+    );
+  }
+
+  if (!task) {
+    return (
+      <EmployeeLayout navigation={navigation} title="Task Detail" backEnabled={true}>
+        <View style={styles.centerContainer}>
+          <Ionicons name="alert-circle-outline" size={48} color="#dc2626" />
+          <Text style={styles.errorText}>Task could not be found.</Text>
+        </View>
+      </EmployeeLayout>
+    );
+  }
+
+  const priorityColors = getPriorityColor(task.priority);
+  const totalSubtasks = task.subtasks?.length || 0;
+  const completedSubtasks = task.subtasks?.filter((s) => s.completed).length || 0;
+  const percent = totalSubtasks > 0 ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+  const normalizeStatusValue = (val) => {
+    if (!val) return "";
+    let s = val.toLowerCase().replace(/-/g, "_");
+    if (s === "todo" || s === "pending" || s === "re_pending") return "pending";
+    if (s === "in_progress" || s === "in_process" || s === "re_in_process" || s === "in-progress") return "in_process";
+    if (s === "completed" || s === "done" || s === "complete" || s === "re_complete") return "complete";
+    if (s === "late_completed" || s === "late_complete" || s === "re_late_complete") return "late_complete";
+    return s;
+  };
+  const st = (task.status || "").toLowerCase();
+  const normalizedSt = normalizeStatusValue(st);
+  const isOverdue = task.endDateTime && new Date(task.endDateTime) < new Date() && st !== "completed" && st !== "complete";
+
+  const chatFeed = [
+    ...(task.comments || []).map(c => ({ ...c, itemType: 'comment', time: new Date(c.createdAt).getTime() })),
+    ...(task.attachments || []).map(a => ({ ...a, itemType: 'attachment', time: new Date(a.uploadedAt).getTime() }))
+  ].sort((a, b) => a.time - b.time);
+
+  const renderAssignees = () => {
+    if (task.assignees && task.assignees.length > 0) {
+      return task.assignees.map(a => a.name || (a.firstName ? `${a.firstName} ${a.lastName}` : "Unnamed")).join(", ");
+    }
+    if (task.assignedTo) {
+      return task.assignedTo.name || (task.assignedTo.firstName ? `${task.assignedTo.firstName} ${task.assignedTo.lastName}` : "Unnamed");
+    }
+    return "Unassigned";
+  };
+
+  return (
+    <EmployeeLayout navigation={navigation} title="Task Details" backEnabled={true}>
+      <View style={styles.container}>
+        {/* Sub-Header */}
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={20} color="#1e293b" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>Task Scope</Text>
+        </View>
+
+        <KeyboardAwareScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2563eb"]} />}
+          keyboardShouldPersistTaps="handled"
+          enableOnAndroid={true}
+          extraScrollHeight={20}
+        >
+          {isOverdue && (
+            <View style={styles.overdueBanner}>
+              <Ionicons name="warning" size={20} color="#fff" />
+              <Text style={styles.overdueText}>This task is overdue!</Text>
+            </View>
+          )}
+          {/* Main Info Card */}
+          <AppCard style={styles.infoCard}>
+            <View style={styles.badgeRow}>
+              <View
+                style={[
+                  styles.priorityBadge,
+                  { backgroundColor: priorityColors.bg, borderColor: priorityColors.border, borderWidth: 1 },
+                ]}
+              >
+                <Text style={[styles.priorityText, { color: priorityColors.text }]}>
+                  {task.priority?.toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.statusBadge}>
+                <Text style={styles.statusText}>{task.status?.toUpperCase()}</Text>
+              </View>
+            </View>
+
+            <Text style={styles.taskTitle}>{task.title}</Text>
+            {task.description ? (
+              <Text style={styles.taskDesc}>{task.description}</Text>
+            ) : (
+              <Text style={[styles.taskDesc, { fontStyle: "italic", color: "#94a3b8" }]}>
+                No description provided.
+              </Text>
+            )}
+
+            {task.projectId && (
+              <View style={styles.projectBlock}>
+                <Ionicons name="folder-open" size={16} color="#2563eb" />
+                <Text style={styles.projectNameText} numberOfLines={1}>
+                  Project: {task.projectId?.name}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.metaGrid}>
+              <View style={styles.metaItem}>
+                <Ionicons name="people-outline" size={16} color="#64748b" />
+                <View style={styles.metaTexts}>
+                  <Text style={styles.metaLabel}>ASSIGNED TO</Text>
+                  <Text style={styles.metaValue}>{renderAssignees()}</Text>
+                </View>
+              </View>
+
+              <View style={styles.metaItem}>
+                <Ionicons name="person-add-outline" size={16} color="#64748b" />
+                <View style={styles.metaTexts}>
+                  <Text style={styles.metaLabel}>ASSIGNED BY</Text>
+                  <Text style={styles.metaValue} numberOfLines={1}>
+                    {task.activityLog && task.activityLog.length > 0 
+                      ? task.activityLog[0].performedBy 
+                      : "Company Admin"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.divider} />
+
+            <View style={styles.metaGrid}>
+              <View style={styles.metaItem}>
+                <Ionicons name="calendar-outline" size={16} color="#64748b" />
+                <View style={styles.metaTexts}>
+                  <Text style={styles.metaLabel}>DUE DATE</Text>
+                  <Text style={[styles.metaValue, isOverdue && { color: "#ef4444" }]}>
+                    {task.endDateTime ? new Date(task.endDateTime).toLocaleDateString() : "Not set"}
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.metaItem}>
+                <Ionicons name="hourglass-outline" size={16} color="#64748b" />
+                <View style={styles.metaTexts}>
+                  <Text style={styles.metaLabel}>PROGRESS</Text>
+                  <Text style={styles.metaValue}>{percent}% Completed</Text>
+                </View>
+              </View>
+            </View>
+
+            
+            {/* Stepper / Flow Workflow Status Section */}
+            <View style={{ marginTop: 20, padding: 16, backgroundColor: "#fff", borderRadius: 12, borderWidth: 1, borderColor: "#e2e8f0", marginBottom: 16 }}>
+              <Text style={{ fontSize: 11, fontWeight: "800", color: "#64748b", textTransform: "uppercase", letterSpacing: 0.5 }}>Task Workflow Progress</Text>
+              
+              {/* Stepper progress indicator */}
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginVertical: 16 }}>
+                {/* Node 1: Pending */}
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <View style={{ 
+                    width: 24, 
+                    height: 24, 
+                    borderRadius: 12, 
+                    backgroundColor: (normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete") ? "#10b981" : (normalizedSt === "pending" ? "#f59e0b" : "#cbd5e1"),
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    { (normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete") ? (
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    ) : (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 10, color: "#64748b", fontWeight: "700", marginTop: 4 }}>Pending</Text>
+                </View>
+
+                {/* Line 1 */}
+                <View style={{ height: 3, flex: 1, backgroundColor: (normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete") ? "#10b981" : "#cbd5e1" }} />
+
+                {/* Node 2: In Process */}
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <View style={{ 
+                    width: 24, 
+                    height: 24, 
+                    borderRadius: 12, 
+                    backgroundColor: (normalizedSt === "complete" || normalizedSt === "late_complete") ? "#10b981" : (normalizedSt === "in_process" ? "#f59e0b" : "#cbd5e1"),
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    { (normalizedSt === "complete" || normalizedSt === "late_complete") ? (
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    ) : (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 10, color: "#64748b", fontWeight: "700", marginTop: 4 }}>In Process</Text>
+                </View>
+
+                {/* Line 2 */}
+                <View style={{ height: 3, flex: 1, backgroundColor: (normalizedSt === "complete" || normalizedSt === "late_complete") ? "#10b981" : "#cbd5e1" }} />
+
+                {/* Node 3: Completed */}
+                <View style={{ alignItems: "center", flex: 1 }}>
+                  <View style={{ 
+                    width: 24, 
+                    height: 24, 
+                    borderRadius: 12, 
+                    backgroundColor: (normalizedSt === "complete" || normalizedSt === "late_complete") ? "#10b981" : "#cbd5e1",
+                    alignItems: "center",
+                    justifyContent: "center"
+                  }}>
+                    { (normalizedSt === "complete" || normalizedSt === "late_complete") ? (
+                      <Ionicons name="checkmark" size={14} color="#fff" />
+                    ) : (
+                      <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#fff" }} />
+                    )}
+                  </View>
+                  <Text style={{ fontSize: 10, color: "#64748b", fontWeight: "700", marginTop: 4 }}>
+                    {normalizedSt === "late_complete" ? "Late Done" : "Completed"}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Action Button to trigger status update */}
+              <View style={{ marginTop: 16 }}>
+                {isOverdue && (normalizedSt !== "complete" && normalizedSt !== "late_complete") && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: "#f97316", paddingVertical: 10, borderRadius: 8, alignItems: "center", justifyContent: "center" }}
+                    onPress={() => {
+                      setActionType(task.reopenCount > 0 ? "re_late_complete" : "late_complete");
+                      setActionModalVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>Mark Late Complete</Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isOverdue && normalizedSt === "pending" && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: "#3b82f6", paddingVertical: 10, borderRadius: 8, alignItems: "center", justifyContent: "center" }}
+                    onPress={() => {
+                      setActionType(st === "re_pending" ? "re_in_process" : "in_process");
+                      setActionModalVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>Start Task (In Process)</Text>
+                  </TouchableOpacity>
+                )}
+
+                {!isOverdue && normalizedSt === "in_process" && (
+                  <TouchableOpacity
+                    style={{ backgroundColor: "#10b981", paddingVertical: 10, borderRadius: 8, alignItems: "center", justifyContent: "center" }}
+                    onPress={() => {
+                      setActionType(st === "re_in_process" ? "re_complete" : "complete");
+                      setActionModalVisible(true);
+                    }}
+                  >
+                    <Text style={{ color: "#ffffff", fontSize: 13, fontWeight: "700" }}>Mark Completed</Text>
+                  </TouchableOpacity>
+                )}
+
+                {(normalizedSt === "complete" || normalizedSt === "late_complete") && (
+                  <View style={{ backgroundColor: "#e2fbe8", paddingVertical: 10, borderRadius: 8, alignItems: "center", justifyContent: "center" }}>
+                    <Text style={{ color: "#16a34a", fontSize: 13, fontWeight: "700" }}>✓ Task is Fully Completed</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+
+          </AppCard>
+
+          {/* Checklist Card */}
+          <Text style={styles.sectionTitle}>Checklist Items</Text>
+          <AppCard style={styles.checklistCard}>
+            {totalSubtasks === 0 ? (
+              <Text style={styles.noItemsText}>No checklist subtasks registered.</Text>
+            ) : (
+              <View>
+                {/* Progress bar */}
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressTitle}>Checklist Completion</Text>
+                  <Text style={styles.progressPercent}>{percent}%</Text>
+                </View>
+                <View style={styles.progressBarBg}>
+                  <View style={[styles.progressBarFill, { width: `${percent}%` }]} />
+                </View>
+
+                {task.subtasks.map((sub, index) => {
+                  const isToggling = updatingChecklistId === sub._id;
+                  return (
+                    <TouchableOpacity
+                      key={sub._id || index}
+                      style={styles.subtaskRow}
+                      onPress={() => handleToggleSubtask(sub._id, sub.completed)}
+                      activeOpacity={0.7}
+                    >
+                      {isToggling ? (
+                        <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 10 }} />
+                      ) : (
+                        <Ionicons
+                          name={sub.completed ? "checkmark-circle" : "ellipse-outline"}
+                          size={20}
+                          color={sub.completed ? "#10b981" : "#94a3b8"}
+                          style={{ marginRight: 10 }}
+                        />
+                      )}
+                      <Text style={[styles.subtaskTitleText, sub.completed && styles.subtaskCompletedText]}>
+                        {sub.title}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </AppCard>
+
+
+
+          {/* Comments Feed Section */}
+          <Text style={styles.sectionTitle}>Discussion & Files ({chatFeed.length})</Text>
+          <AppCard 
+            style={styles.commentsCard}
+            onLayout={(e) => setCommentCardY(e.nativeEvent.layout.y)}
+          >
+            {/* Unified list */}
+            {chatFeed.length === 0 ? (
+              <Text style={[styles.noItemsText, { marginBottom: 12 }]}>No discussion or files yet.</Text>
+            ) : (
+              chatFeed.map((item, idx) => {
+                if (item.itemType === 'comment') {
+                  const isCurrentUser = item.addedBy === user?._id || item.senderName?.includes(user?.name?.split(" ")[0]) || item.senderName === user?.name;
+                  return (
+                    <View 
+                      key={item._id || `c-${idx}`} 
+                      style={{ 
+                        alignSelf: isCurrentUser ? "flex-end" : "flex-start", 
+                        backgroundColor: isCurrentUser ? "#0f766e" : "#f1f5f9", 
+                        paddingHorizontal: 12, 
+                        paddingVertical: 8, 
+                        borderRadius: 16, 
+                        borderBottomRightRadius: isCurrentUser ? 2 : 16,
+                        borderBottomLeftRadius: isCurrentUser ? 16 : 2,
+                        maxWidth: "85%", 
+                        marginBottom: 10,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 1,
+                        elevation: 1
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, color: isCurrentUser ? "#b5d5d2" : "#64748b", fontWeight: "700" }}>
+                        {isCurrentUser ? "You" : item.senderName} ({item.senderRole})
+                      </Text>
+                      {item.comment ? (
+                        <Text style={{ fontSize: 14, color: isCurrentUser ? "#ffffff" : "#1e293b", marginTop: 4 }}>
+                          {item.comment}
+                        </Text>
+                      ) : null}
+                      {item.attachments && item.attachments.map((att, idx) => (
+                        <TouchableOpacity 
+                          key={idx} 
+                          style={{ flexDirection: "row", alignItems: "center", backgroundColor: isCurrentUser ? "rgba(255,255,255,0.15)" : "#e2e8f0", padding: 6, borderRadius: 6, marginTop: 6 }}
+                          onPress={() => Linking.openURL(att.fileUrl).catch(err => console.error("URL Open Err", err))}
+                        >
+                          <Ionicons name="document-outline" size={14} color={isCurrentUser ? "#ffffff" : "#475569"} />
+                          <Text style={{ fontSize: 11, color: isCurrentUser ? "#ffffff" : "#475569", marginLeft: 4 }} numberOfLines={1}>{att.fileName}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      <Text style={{ fontSize: 9, color: isCurrentUser ? "#a5d2ce" : "#94a3b8", alignSelf: "flex-end", marginTop: 4 }}>
+                        {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
+                  );
+                } else {
+                  return (
+                    <View 
+                      key={item._id || `a-${idx}`} 
+                      style={{ 
+                        alignSelf: "flex-start", 
+                        backgroundColor: "#f3e8ff", 
+                        paddingHorizontal: 12, 
+                        paddingVertical: 8, 
+                        borderRadius: 16, 
+                        borderBottomLeftRadius: 2,
+                        maxWidth: "85%", 
+                        marginBottom: 10,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.05,
+                        shadowRadius: 1,
+                        elevation: 1
+                      }}
+                    >
+                      <Text style={{ fontSize: 10, color: "#8b5cf6", fontWeight: "700" }}>
+                        Task Attachment File
+                      </Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#ffffff", padding: 8, borderRadius: 8, marginTop: 6, minWidth: 200 }}>
+                        <Ionicons name="document-text" size={24} color="#8b5cf6" />
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text style={{ fontSize: 12, fontWeight: "600", color: "#1e293b" }} numberOfLines={1}>{item.fileName}</Text>
+                          <Text style={{ fontSize: 9, color: "#94a3b8", marginTop: 2 }}>
+                            {new Date(item.uploadedAt).toLocaleDateString()}
+                          </Text>
+                        </View>
+                        <TouchableOpacity onPress={() => Linking.openURL(item.fileUrl)} style={{ padding: 6 }}>
+                          <Ionicons name="eye-outline" size={18} color="#0f766e" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleDeleteAttachment(item._id)} style={{ padding: 6, marginLeft: 2 }}>
+                          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  );
+                }
+              })
+            )}
+
+            {uploadingAttachment && (
+              <View style={[styles.uploadingContainer, { marginBottom: 16 }]}>
+                <ActivityIndicator size="small" color="#2563eb" />
+                <Text style={styles.uploadingText}>Uploading attachment...</Text>
+              </View>
+            )}
+
+            <View style={styles.divider} />
+
+            {commentFile && (
+              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#f1f5f9", padding: 8, borderRadius: 8, marginTop: 8, marginBottom: 8 }}>
+                <Ionicons name="document-attach" size={16} color="#64748b" />
+                <Text style={{ flex: 1, fontSize: 12, color: "#475569", marginLeft: 6 }} numberOfLines={1}>
+                  {commentFile.name}
+                </Text>
+                <TouchableOpacity onPress={() => setCommentFile(null)}>
+                  <Ionicons name="close-circle" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {/* Comment Input */}
+            <View style={styles.commentInputRow}>
+              <TouchableOpacity
+                style={styles.attachmentBtn}
+                onPress={handleSelectCommentMedia}
+              >
+                <Ionicons name="attach" size={24} color="#64748b" />
+              </TouchableOpacity>
+              <TextInput
+                ref={commentInputRef}
+                style={styles.commentInput}
+                placeholder="Write a comment..."
+                placeholderTextColor="#94a3b8"
+                value={newComment}
+                onChangeText={setNewComment}
+                multiline
+                onFocus={() => {
+                  setTimeout(() => {
+                    if (scrollViewRef.current && commentCardY > 0) {
+                      scrollViewRef.current.scrollTo({ y: commentCardY, animated: true });
+                    }
+                  }, 300);
+                }}
+              />
+              <TouchableOpacity
+                style={styles.commentSendBtn}
+                onPress={handleAddComment}
+                disabled={submittingComment || uploadingCommentMedia || (!newComment.trim() && !commentFile)}
+              >
+                {submittingComment || uploadingCommentMedia ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Ionicons name="send" size={16} color="#ffffff" />
+                )}
+              </TouchableOpacity>
+            </View>
+          </AppCard>
+
+          {/* Activity Logs Feed */}
+          <Text style={styles.sectionTitle}>Activity Logs</Text>
+          <AppCard style={styles.activityCard}>
+            {!task.activityLog || task.activityLog.length === 0 ? (
+              <Text style={styles.noItemsText}>No activity registered yet.</Text>
+            ) : (
+              task.activityLog.slice(0, 8).map((act, index) => (
+                <View key={act._id || index} style={styles.activityRow}>
+                  <View style={styles.activityDot} />
+                  <View style={styles.activityInfo}>
+                    <Text style={styles.activityText}>{act.action.toUpperCase()}</Text>
+                    {act.remarks && <Text style={{fontSize: 12, color: '#475569', marginTop: 4}}>{act.remarks}</Text>}
+                    {act.nextFollowUpDate && <Text style={{fontSize: 11, color: '#2563eb', marginTop: 4, fontWeight: 'bold'}}>Follow-up: {new Date(act.nextFollowUpDate).toLocaleDateString()}</Text>}
+                    {act.shiftedTo && <Text style={{fontSize: 11, color: '#9333ea', marginTop: 4, fontWeight: 'bold'}}>Shifted</Text>}
+                    <Text style={styles.activityMeta}>
+                      By {act.performedBy} • {new Date(act.createdAt).toLocaleTimeString()}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            )}
+          </AppCard>
+
+        </KeyboardAwareScrollView>
+      </View>
+
+      <Modal
+        visible={attachmentMenuVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setAttachmentMenuVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setAttachmentMenuVisible(false)}
+        >
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Attach File</Text>
+              <TouchableOpacity onPress={() => setAttachmentMenuVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.sheetOptions}>
+              <TouchableOpacity style={styles.sheetOptionBtn} onPress={handlePickDocument}>
+                <View style={[styles.sheetIconCircle, { backgroundColor: "#8b5cf6" }]}>
+                  <Ionicons name="document-text" size={24} color="#ffffff" />
+                </View>
+                <Text style={styles.sheetOptionText}>Document</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.sheetOptionBtn} onPress={handleTakeCameraPhoto}>
+                <View style={[styles.sheetIconCircle, { backgroundColor: "#ef4444" }]}>
+                  <Ionicons name="camera" size={24} color="#ffffff" />
+                </View>
+                <Text style={styles.sheetOptionText}>Camera</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.sheetOptionBtn} onPress={handlePickImage}>
+                <View style={[styles.sheetIconCircle, { backgroundColor: "#3b82f6" }]}>
+                  <Ionicons name="image" size={24} color="#ffffff" />
+                </View>
+                <Text style={styles.sheetOptionText}>Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <TaskActionModal
+        visible={actionModalVisible}
+        onClose={() => setActionModalVisible(false)}
+        actionType={actionType ? actionType.replace('re_', '') : ''}
+        task={task}
+        onSubmit={handleActionSubmit}
+        loading={submittingAction}
+      />
+    </EmployeeLayout>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#f8fafc",
+  },
+  overdueBanner: { backgroundColor: "#ef4444", flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 10, borderRadius: 8, marginBottom: 16 },
+  overdueText: { color: "#fff", fontWeight: "800", marginLeft: 8 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  backBtn: {
+    marginRight: 12,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e293b",
+  },
+  centerContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    padding: 20,
+  },
+  errorText: {
+    fontSize: 14,
+    color: "#64748b",
+    marginTop: 8,
+    fontWeight: "600",
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  infoCard: {
+    padding: 18,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    marginBottom: 20,
+    elevation: 3,
+    shadowColor: "#0f172a",
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  badgeRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  priorityBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  priorityText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#eff6ff",
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  statusText: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: "#2563eb",
+  },
+  taskTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#1e293b",
+    marginBottom: 8,
+  },
+  taskDesc: {
+    fontSize: 13,
+    color: "#475569",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  projectBlock: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#f1f5f9",
+    marginBottom: 16,
+  },
+  projectNameText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#334155",
+    marginLeft: 6,
+    flex: 1,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#f1f5f9",
+    marginBottom: 14,
+  },
+  metaGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+  },
+  metaTexts: {
+    marginLeft: 8,
+  },
+  metaLabel: {
+    fontSize: 9,
+    fontWeight: "700",
+    color: "#64748b",
+    letterSpacing: 0.5,
+  },
+  metaValue: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#1e293b",
+    marginTop: 1,
+  },
+  trackerQuickLaunch: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    paddingVertical: 12,
+    marginTop: 6,
+  },
+  quickLaunchText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginLeft: 6,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#475569",
+    marginBottom: 10,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  checklistCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    marginBottom: 20,
+  },
+  noItemsText: {
+    fontSize: 12.5,
+    color: "#94a3b8",
+    fontStyle: "italic",
+    textAlign: "center",
+    paddingVertical: 12,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  progressTitle: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontWeight: "850",
+    color: "#10b981",
+  },
+  progressBarBg: {
+    height: 6,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 3,
+    overflow: "hidden",
+    marginBottom: 16,
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#10b981",
+  },
+  subtaskRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f8fafc",
+  },
+  subtaskTitleText: {
+    fontSize: 13,
+    fontWeight: "550",
+    color: "#334155",
+    flex: 1,
+  },
+  subtaskCompletedText: {
+    textDecorationLine: "line-through",
+    color: "#94a3b8",
+  },
+  attachmentsCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    marginBottom: 20,
+  },
+  attachmentList: {
+    marginBottom: 16,
+  },
+  attachmentItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  attachmentInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  attachmentName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
+  },
+  attachmentDate: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  attachmentDropzone: {
+    paddingVertical: 20,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: "#cbd5e1",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f8fafc",
+  },
+  dropzoneTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#475569",
+    marginTop: 6,
+  },
+  dropzoneSubtitle: {
+    fontSize: 11,
+    color: "#94a3b8",
+    marginTop: 2,
+  },
+  activityCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    marginBottom: 20,
+  },
+  activityRow: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  activityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#2563eb",
+    marginTop: 5,
+    marginRight: 10,
+  },
+  activityInfo: {
+    flex: 1,
+  },
+  activityText: {
+    fontSize: 12.5,
+    fontWeight: "600",
+    color: "#334155",
+  },
+  activityMeta: {
+    fontSize: 10.5,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  commentsCard: {
+    padding: 16,
+    borderRadius: 16,
+    backgroundColor: "#ffffff",
+    marginBottom: 20,
+  },
+  commentRow: {
+    flexDirection: "row",
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f8fafc",
+    paddingBottom: 10,
+  },
+  commentAvatarCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 10,
+  },
+  commentAvatarText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  commentContent: {
+    flex: 1,
+  },
+  commentSenderRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    marginBottom: 2,
+  },
+  commentSenderName: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#1e293b",
+  },
+  commentSenderRole: {
+    fontSize: 9.5,
+    fontWeight: "600",
+    color: "#2563eb",
+    marginLeft: 6,
+    backgroundColor: "#eff6ff",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  commentBodyText: {
+    fontSize: 12.5,
+    color: "#475569",
+    lineHeight: 18,
+  },
+  commentDateText: {
+    fontSize: 9.5,
+    color: "#94a3b8",
+    marginTop: 4,
+  },
+  commentInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+  },
+  commentInput: {
+    flex: 1,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: "#334155",
+    maxHeight: 80,
+  },
+  commentSendBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 8,
+  },
+  attachmentBtn: {
+    paddingHorizontal: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  uploadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    backgroundColor: "#f8fafc",
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  uploadingText: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: "#64748b",
+    fontWeight: "500",
+  },
+  inlineAttachmentCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+  },
+  inlineAttachmentName: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#334155",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  bottomSheet: {
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
+  },
+  sheetHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#1e293b",
+  },
+  sheetOptions: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  sheetOptionBtn: {
+    alignItems: "center",
+  },
+  sheetIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  sheetOptionText: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: "500",
+  },
+});
+
+export default EmployeeTaskDetailsScreen;

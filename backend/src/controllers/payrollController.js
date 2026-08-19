@@ -1,0 +1,373 @@
+const Payroll = require("../models/Payroll");
+const Employee = require("../models/Employee");
+const PayrollSettings = require("../models/PayrollSettings");
+const { calculateEmployeePayroll } = require("../services/payrollCalculationService");
+const { getCompanyAttendanceSummary } = require("../services/payrollAttendanceService");
+const { generatePayslipHTML, generatePayslipPDF } = require("../services/pdfGeneratorService");
+const Company = require("../models/Company");
+
+// ─────────────────────────────────────────────
+// PREVIEW PAYROLL
+// ─────────────────────────────────────────────
+const previewPayroll = async (req, res, next) => {
+  try {
+    const { month, year, employeeIds, overrides = {} } = req.body;
+    if (!month || !year || !employeeIds || !employeeIds.length) {
+      return res.status(400).json({ success: false, message: "Month, year, and employeeIds are required" });
+    }
+
+    const previews = [];
+    for (const empId of employeeIds) {
+      try {
+        const empOverrides = overrides[empId] || {};
+        const result = await calculateEmployeePayroll(empId, month, year, req.companyId, empOverrides);
+        previews.push({ success: true, employeeId: empId, ...result });
+      } catch (err) {
+        let employeeSnapshot = null;
+        try {
+          const empBasic = await Employee.findOne({ _id: empId, companyId: req.companyId })
+            .populate("departmentId", "name").populate("designationId", "name").lean();
+          if (empBasic) {
+            employeeSnapshot = {
+              employeeCode: empBasic.employeeCode,
+              employeeName: `${empBasic.firstName} ${empBasic.lastName}`,
+              department: empBasic.departmentId?.name || "N/A",
+              designation: empBasic.designationId?.name || "N/A",
+            };
+          }
+        } catch (_) {}
+        previews.push({ success: false, employeeId: empId, employeeSnapshot, message: err.message });
+      }
+    }
+    res.json({ success: true, data: previews });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// GENERATE FINAL PAYROLL
+// ─────────────────────────────────────────────
+const generatePayroll = async (req, res, next) => {
+  try {
+    const { month, year, employeeIds, overrides = {} } = req.body;
+    if (!month || !year || !employeeIds || !employeeIds.length) {
+      return res.status(400).json({ success: false, message: "Month, year, and employeeIds are required" });
+    }
+
+    let generatedCount = 0;
+    const errors = [];
+
+    for (const empId of employeeIds) {
+      try {
+        const existing = await Payroll.findOne({ employeeId: empId, month: String(month), year, companyId: req.companyId });
+        if (existing && existing.status === "paid") {
+          errors.push({ employeeId: empId, message: "Payroll already paid. Use recalculate to override." });
+          continue;
+        }
+
+        const empOverrides = overrides[empId] || {};
+        const result = await calculateEmployeePayroll(empId, month, year, req.companyId, empOverrides);
+
+        const payload = {
+          companyId: req.companyId,
+          employeeId: empId,
+          employeeSnapshot: result.employeeSnapshot,
+          month: String(month),
+          year: Number(year),
+          payrollPeriod: {
+            fromDate: new Date(year, month - 1, 1),
+            toDate: new Date(year, month, 0),
+          },
+          attendanceSummary: result.attendanceSummary,
+          earnings: result.earnings,
+          deductions: result.deductions,
+          grossSalary: result.earnings.grossEarnings,
+          netSalary: result.netSalary,
+          amountInWords: result.amountInWords,
+          salaryDivisor: result.salaryDivisor,
+          perDaySalary: result.perDaySalary,
+          status: "generated",
+          generatedBy: req.user._id,
+          generatedAt: new Date(),
+        };
+
+        if (existing) {
+          await Payroll.findByIdAndUpdate(existing._id, payload);
+        } else {
+          await Payroll.create(payload);
+        }
+        generatedCount++;
+      } catch (err) {
+        errors.push({ employeeId: empId, message: err.message });
+      }
+    }
+
+    res.json({ success: true, message: `Successfully generated ${generatedCount} payroll records.`, errors });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// RECALCULATE (Admin can override even paid payrolls)
+// ─────────────────────────────────────────────
+const recalculatePayroll = async (req, res, next) => {
+  try {
+    const { reason, overrides = {} } = req.body;
+    if (!reason) {
+      return res.status(400).json({ success: false, message: "Recalculation reason is required" });
+    }
+
+    const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+
+    const empOverrides = overrides[payroll.employeeId] || {};
+    const result = await calculateEmployeePayroll(
+      payroll.employeeId, payroll.month, payroll.year, req.companyId, empOverrides
+    );
+
+    const updated = await Payroll.findByIdAndUpdate(
+      payroll._id,
+      {
+        employeeSnapshot: result.employeeSnapshot,
+        attendanceSummary: result.attendanceSummary,
+        earnings: result.earnings,
+        deductions: result.deductions,
+        grossSalary: result.earnings.grossEarnings,
+        netSalary: result.netSalary,
+        amountInWords: result.amountInWords,
+        salaryDivisor: result.salaryDivisor,
+        perDaySalary: result.perDaySalary,
+        status: "generated",
+        recalculatedAt: new Date(),
+        recalculatedBy: req.user._id,
+        recalculationReason: reason,
+      },
+      { new: true }
+    );
+
+    res.json({ success: true, message: "Payroll recalculated successfully", data: updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// GET ALL PAYROLLS FOR A MONTH (Admin/HR)
+// ─────────────────────────────────────────────
+const getCompanyPayrolls = async (req, res, next) => {
+  try {
+    const { month, year, status } = req.query;
+    let query = { companyId: req.companyId };
+    if (month) query.month = String(month);
+    if (year) query.year = Number(year);
+    if (status) query.status = status;
+
+    const payrolls = await Payroll.find(query)
+      .populate("employeeId", "firstName lastName employeeCode departmentId branchId")
+      .sort({ createdAt: -1 });
+
+    res.json({ success: true, data: payrolls });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// GET EMPLOYEE'S OWN PAYROLLS
+// ─────────────────────────────────────────────
+const getEmployeePayrolls = async (req, res, next) => {
+  try {
+    const { month, year } = req.query;
+    const employeeId = req.params.employeeId || req.user.employeeId;
+    let query = { companyId: req.companyId, employeeId };
+    if (month) query.month = String(month);
+    if (year) query.year = Number(year);
+
+    const payrolls = await Payroll.find(query).sort({ year: -1, month: -1 });
+    res.json({ success: true, data: payrolls });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// ATTENDANCE SUMMARY (all employees, one month)
+// ─────────────────────────────────────────────
+const getAttendanceSummary = async (req, res, next) => {
+  try {
+    const { month, year } = req.query;
+    if (!month || !year) {
+      return res.status(400).json({ success: false, message: "month and year are required" });
+    }
+    const summaries = await getCompanyAttendanceSummary(month, year, req.companyId);
+    res.json({ success: true, data: summaries, month, year });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// PAYSLIP PREVIEW (HTML)
+// ─────────────────────────────────────────────
+const getPayslipDetails = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    if (req.user.role === "Employee" || req.user.role === "Manager") {
+      if (payroll.employeeId.toString() !== req.user.employeeId?.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
+    res.json({ success: true, payslip: payroll });
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getPayslipPreview = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    const company = await Company.findById(req.companyId);
+    const settings = await PayrollSettings.findOne({ companyId: req.companyId });
+    const html = generatePayslipHTML(payroll, company, settings || {});
+    res.send(html);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const downloadPayslipPDF = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    const company = await Company.findById(req.companyId);
+    const settings = await PayrollSettings.findOne({ companyId: req.companyId });
+    const html = generatePayslipHTML(payroll, company, settings || {});
+    const pdfBuffer = await generatePayslipPDF(html);
+    const code = payroll.employeeSnapshot?.employeeCode || "EMP";
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=Payslip_${code}_${payroll.month}_${payroll.year}.pdf`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// SEND PAYSLIP (To individual employee)
+// ─────────────────────────────────────────────
+const sendPayslip = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findOneAndUpdate(
+      { _id: req.params.id, companyId: req.companyId },
+      { sentToEmployee: true, sentAt: new Date() },
+      { new: true }
+    );
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+
+    try {
+      const { sendNotificationToEmployees } = require("../utils/notificationHelper");
+      await sendNotificationToEmployees(
+        req.companyId,
+        [payroll.employeeId],
+        "📄 Payslip Released",
+        `Your payslip for ${payroll.month}/${payroll.year} has been released. You can now view and download it.`,
+        "payroll",
+        { payrollId: payroll._id.toString() }
+      );
+    } catch (notifErr) {
+      console.error("[Payroll Send Notification Error]:", notifErr.message);
+    }
+
+    res.json({ success: true, message: "Payslip sent to employee successfully", data: payroll });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// BULK SEND PAYSLIPS (To all employees for a month)
+// ─────────────────────────────────────────────
+const bulkSendPayslips = async (req, res, next) => {
+  try {
+    const { month, year } = req.body;
+    if (!month || !year) {
+      return res.status(400).json({ success: false, message: "month and year are required" });
+    }
+
+    const payrolls = await Payroll.find({
+      companyId: req.companyId,
+      month: String(month),
+      year: Number(year),
+      sentToEmployee: { $ne: true }
+    });
+
+    if (payrolls.length === 0) {
+      return res.json({ success: true, message: "All payslips for this period are already sent." });
+    }
+
+    const employeeIds = payrolls.map(p => p.employeeId);
+
+    await Payroll.updateMany(
+      {
+        companyId: req.companyId,
+        month: String(month),
+        year: Number(year)
+      },
+      { sentToEmployee: true, sentAt: new Date() }
+    );
+
+    try {
+      const { sendNotificationToEmployees } = require("../utils/notificationHelper");
+      await sendNotificationToEmployees(
+        req.companyId,
+        employeeIds,
+        "📄 Payslip Released",
+        `Your payslip for ${month}/${year} has been released. You can now view and download it.`,
+        "payroll",
+        {}
+      );
+    } catch (notifErr) {
+      console.error("[Payroll Bulk Send Notification Error]:", notifErr.message);
+    }
+
+    res.json({ success: true, message: `Successfully dispatched ${payrolls.length} payslips to staff.` });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// ─────────────────────────────────────────────
+// MARK PAID
+// ─────────────────────────────────────────────
+const markPayrollPaid = async (req, res, next) => {
+  try {
+    const payroll = await Payroll.findOneAndUpdate(
+      { _id: req.params.id, companyId: req.companyId },
+      { status: "paid", paidBy: req.user._id, paidAt: new Date() },
+      { new: true }
+    );
+    if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    res.json({ success: true, message: "Payroll marked as paid", data: payroll });
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = {
+  previewPayroll,
+  generatePayroll,
+  recalculatePayroll,
+  getCompanyPayrolls,
+  getEmployeePayrolls,
+  getAttendanceSummary,
+  getPayslipDetails,
+  getPayslipPreview,
+  downloadPayslipPDF,
+  markPayrollPaid,
+  sendPayslip,
+  bulkSendPayslips,
+};

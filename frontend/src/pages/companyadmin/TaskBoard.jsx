@@ -1,0 +1,950 @@
+import { useState, useEffect, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useSearchParams, useNavigate } from "react-router-dom";
+import {
+  getTasksApi,
+  getDepartmentsApi,
+  getEmployeesApi
+} from "../../api/companyAdminApi";
+import {
+  AreaChart, Area, ResponsiveContainer
+} from "recharts";
+import {
+  Search, Plus, Filter, CheckCircle, Clock, AlertCircle,
+  ChevronRight, X, Download, Tag, User, Users,
+  CalendarClock, Repeat, LayoutGrid, List, ChevronDown, ChevronUp, Kanban,
+  ArrowUp, ArrowDown, CheckSquare, Sparkles, AlertTriangle, Layers,
+  Calendar, RotateCcw, SlidersHorizontal, RefreshCw, Layers3, Flame
+} from "lucide-react";
+import TaskCreateModal from "../../components/tasks/TaskCreateModal";
+
+// ── Status Config ─────────────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  pending: { label: "Pending", hex: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800/60", dot: "bg-blue-500" },
+  in_process: { label: "In Process", hex: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800/60", dot: "bg-amber-500" },
+  re_pending: { label: "Re-Pending", hex: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-950/40", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800/60", dot: "bg-indigo-500" },
+  re_in_process: { label: "Re-In Process", hex: "#0891b2", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800/60", dot: "bg-cyan-500" },
+  complete: { label: "Completed", hex: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/60", dot: "bg-emerald-500" },
+  re_complete: { label: "Re-Completed", hex: "#059669", bg: "bg-teal-50 dark:bg-teal-950/40", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800/60", dot: "bg-teal-500" },
+  late_complete: { label: "Late Completed", hex: "#0d9488", bg: "bg-teal-50 dark:bg-teal-950/40", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800/60", dot: "bg-teal-500" },
+  re_late_complete: { label: "Re-Late Completed", hex: "#0f766e", bg: "bg-teal-50 dark:bg-teal-950/40", text: "text-teal-700 dark:text-teal-300", border: "border-teal-200 dark:border-teal-800/60", dot: "bg-teal-600" },
+  overdue: { label: "Overdue", hex: "#ef4444", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800/60", dot: "bg-rose-500" },
+  cancelled: { label: "Cancelled", hex: "#64748b", bg: "bg-slate-100 dark:bg-slate-800/60", text: "text-slate-600 dark:text-slate-300", border: "border-slate-200 dark:border-slate-700", dot: "bg-slate-400" },
+  active: { label: "Active Recurring", hex: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/60", dot: "bg-emerald-500" },
+  stopped: { label: "Stopped Recurring", hex: "#ef4444", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-700 dark:text-rose-300", border: "border-rose-200 dark:border-rose-800/60", dot: "bg-rose-500" },
+};
+
+const PRIORITY_CONFIG = {
+  high: { label: "High", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500", border: "border-rose-200 dark:border-rose-800/60" },
+  medium: { label: "Medium", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-400", dot: "bg-amber-500", border: "border-amber-200 dark:border-amber-800/60" },
+  low: { label: "Low", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", border: "border-emerald-200 dark:border-emerald-800/60" },
+};
+
+// ── Mini Avatar ───────────────────────────────────────────────────────────────
+const AVATAR_COLORS = [
+  "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900",
+  "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
+  "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900",
+  "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900",
+];
+const MiniAvatar = ({ name, idx = 0, size = "w-6 h-6", textSize = "text-[10px]" }) => (
+  <div className={`${size} rounded-full ${AVATAR_COLORS[idx % AVATAR_COLORS.length]} flex items-center justify-center font-black ${textSize} flex-shrink-0 shadow-xs`}>
+    {(name || "?").charAt(0).toUpperCase()}
+  </div>
+);
+
+// ── Status Badge ──────────────────────────────────────────────────────────────
+const StatusBadge = ({ status, isTemplate, isActive }) => {
+  if (isTemplate) {
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
+        {isActive ? "Active" : "Stopped"}
+      </span>
+    );
+  }
+  const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label || status?.replace(/_/g, " ")}
+    </span>
+  );
+};
+
+// ── Priority Badge ────────────────────────────────────────────────────────────
+const PriorityBadge = ({ priority }) => {
+  if (!priority) return null;
+  const cfg = PRIORITY_CONFIG[priority?.toLowerCase()] || PRIORITY_CONFIG.medium;
+  return (
+    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${cfg.text} ${cfg.bg} border ${cfg.border}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </div>
+  );
+};
+
+// ── Top KPI Stat Card (Matching Dashboard Header Cards) ──────────────────────
+const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, extraClass = "" }) => {
+  const sparkData = useMemo(() => [
+    { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
+  ], []);
+
+  return (
+    <div className={`bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group ${extraClass}`}>
+      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
+          <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
+            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.4} />
+          </div>
+          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{label}</span>
+        </div>
+        <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1 sm:mb-1.5">{value}</h3>
+        <div className="flex items-center gap-1 text-[9px] sm:text-[10.5px]">
+          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
+            {trend}
+          </span>
+          <span className="text-slate-400 text-[8.5px] sm:text-[9.5px] truncate hidden sm:inline">vs {period}</span>
+        </div>
+      </div>
+      <div className="h-8 sm:h-10 w-12 sm:w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0 hidden md:block">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`sk-tb-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-tb-${label.replace(/\s+/g, '')})`}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+// ── Task Card ─────────────────────────────────────────────────────────────────
+const TaskCard = ({ task, onClick, activeTab }) => {
+  const status = task.status || "pending";
+  const statusCfg = task.isTemplate 
+    ? { hex: "#8b5cf6", bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-500" } 
+    : (STATUS_CONFIG[status] || STATUS_CONFIG.pending);
+
+  const assignedNames = (task.assignedTo || []).filter(a => a && (a.firstName || a.name));
+  const deadline = task.endDateTime
+    ? new Date(task.endDateTime)
+    : task.isTemplate && (task.finishDate || task.endDate) ? new Date(task.finishDate || task.endDate) : null;
+  const isOverdue = !task.isTemplate && deadline && !["complete", "completed", "done", "late_complete", "re_late_complete", "cancelled"].includes(status) && deadline < new Date();
+
+  // Subtask progress
+  const checklist = task.checklist || task.subtasks || [];
+  const completedCount = checklist.filter(s => s.isCompleted || s.completed).length;
+  const progressPct = checklist.length > 0 ? Math.round((completedCount / checklist.length) * 100) : (["complete", "completed", "done", "late_complete", "re_late_complete"].includes(status) ? 100 : 0);
+
+  return (
+    <div
+      onClick={onClick}
+      className="group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden p-3 sm:p-4 min-h-[110px] sm:min-h-[140px] isolate"
+    >
+      <div 
+        className="absolute top-0 left-0 bottom-0 w-[3.5px] group-hover:w-[4.5px] transition-all duration-300 z-20"
+        style={{ backgroundColor: statusCfg.hex }}
+      />
+
+      <div className="flex items-center justify-between mb-1.5 sm:mb-2 z-10 relative">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[9.5px] sm:text-[10px] font-mono font-black tracking-widest uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700">
+            {task.taskId || (task.isTemplate ? "TMPL" : "—")}
+          </span>
+          <StatusBadge status={status} isTemplate={task.isTemplate} isActive={task.isActive} />
+        </div>
+        <div className="flex-shrink-0">
+          <PriorityBadge priority={task.priority} />
+        </div>
+      </div>
+
+      <h3 className="font-extrabold text-[13px] sm:text-[14px] text-slate-900 dark:text-white leading-snug mb-1.5 sm:mb-3 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-1 sm:line-clamp-2 pr-1 z-10 relative">
+        {task.title}
+      </h3>
+
+      {checklist.length > 0 && (
+        <div className="mb-2 sm:mb-3 z-10 relative">
+          <div className="flex items-center justify-between text-[9.5px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-0.5 sm:mb-1">
+            <span>Checkpoints</span>
+            <span>{completedCount}/{checklist.length} ({progressPct}%)</span>
+          </div>
+          <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+            <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
+          </div>
+        </div>
+      )}
+
+      <div className="mt-auto flex items-end justify-between z-10 relative pt-1 border-t border-slate-100 dark:border-slate-800/80">
+        <div className="flex flex-col gap-1">
+          {deadline && activeTab !== "Recurring" && (
+            <div className={`flex items-center gap-1 text-[10px] sm:text-[10.5px] font-bold ${isOverdue ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"}`}>
+              <CalendarClock size={11} strokeWidth={2.2} />
+              {deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              {isOverdue && <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">Overdue</span>}
+            </div>
+          )}
+          
+          <div className="flex flex-wrap items-center gap-1">
+            {(task.isRecurring || task.isGeneratedFromTemplate || task.parentTemplateId) && !task.isTemplate && (
+              <div className="flex items-center gap-1 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
+                <Repeat size={9} strokeWidth={2.5} /> Recurring
+              </div>
+            )}
+            
+            {task.departmentId?.name && (
+              <div className="flex items-center gap-1 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700">
+                <Tag size={9} strokeWidth={2.5} /> {task.departmentId.name}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {assignedNames.length > 0 ? (
+            <div className="flex -space-x-1.5">
+              {assignedNames.slice(0, 3).map((a, i) => (
+                <MiniAvatar key={a._id || i} name={a.firstName || a.name} idx={i} size="w-5.5 h-5.5 sm:w-6 sm:h-6 ring-2 ring-white dark:ring-[#111C24]" textSize="text-[9px] sm:text-[10px]" />
+              ))}
+              {assignedNames.length > 3 && (
+                <div className="w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 flex items-center justify-center text-[8.5px] sm:text-[9px] font-black ring-2 ring-white dark:ring-[#111C24] z-10 shadow-xs">
+                  +{assignedNames.length - 3}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-full bg-slate-100 dark:bg-slate-800 ring-2 ring-white dark:ring-[#111C24] flex items-center justify-center text-slate-400 border border-dashed border-slate-300 dark:border-slate-700">
+              <User size={10} />
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ── Table Row Component ───────────────────────────────────────────────────────
+const TableRow = ({ task, onClick, activeTab }) => {
+  const status = task.status || "pending";
+  const assignedNames = (task.assignedTo || []).filter(a => a && (a.firstName || a.name));
+  const deadline = task.endDateTime
+    ? new Date(task.endDateTime)
+    : task.isTemplate && (task.finishDate || task.endDate) ? new Date(task.finishDate || task.endDate) : null;
+  const assignedByName = task.assignedBy?.name || (task.assignedBy?.firstName ? `${task.assignedBy.firstName} ${task.assignedBy.lastName || ""}` : "System");
+
+  return (
+    <tr onClick={onClick} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group">
+      <td className="px-4 py-3 font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400">{task.taskId || "—"}</td>
+      <td className="px-4 py-3 max-w-[240px]">
+        <div className="flex items-center gap-2">
+          <p className="font-bold text-slate-900 dark:text-white text-[13px] truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{task.title}</p>
+          {task.isTemplate ? (
+            <span className="inline-flex items-center text-[9px] font-black text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 px-1.5 py-0.5 rounded border border-violet-200 dark:border-violet-800 uppercase tracking-wider">
+              Template
+            </span>
+          ) : (task.isRecurring || task.isGeneratedFromTemplate || task.parentTemplateId) ? (
+            <span className="inline-flex items-center text-[9px] font-black text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
+              Recurring
+            </span>
+          ) : null}
+        </div>
+        {task.departmentId?.name && <p className="text-[10px] font-medium text-slate-400 mt-0.5">{task.departmentId.name}</p>}
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <MiniAvatar name={assignedByName} size="w-5 h-5" textSize="text-[9px]" />
+          <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate max-w-[110px]">{assignedByName}</span>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="flex -space-x-1.5">
+          {assignedNames.slice(0, 3).map((a, i) => {
+            const name = a.firstName ? `${a.firstName} ${a.lastName || ""}` : (a.name || "");
+            return <MiniAvatar key={a._id || i} name={name} idx={i} size="w-6 h-6 ring-2 ring-white dark:ring-[#111C24]" textSize="text-[10px]" />;
+          })}
+          {assignedNames.length > 3 && (
+            <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center text-[9px] font-black ring-2 ring-white dark:ring-[#111C24]">+{assignedNames.length - 3}</div>
+          )}
+          {assignedNames.length === 0 && <span className="text-[11px] text-slate-400">—</span>}
+        </div>
+      </td>
+      <td className="px-4 py-3 text-[12px] text-slate-700 dark:text-slate-300 font-medium">
+        {deadline && activeTab !== "Recurring" ? (
+          deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+        ) : task.isTemplate ? (
+          <span className="text-violet-600 dark:text-violet-400 font-bold capitalize">{task.repeatType || "Recurring"}</span>
+        ) : (
+          "—"
+        )}
+      </td>
+      <td className="px-4 py-3"><PriorityBadge priority={task.priority} /></td>
+      <td className="px-4 py-3"><StatusBadge status={status} isTemplate={task.isTemplate} isActive={task.isActive} /></td>
+      <td className="px-4 py-3 text-right">
+        <ChevronRight size={15} className="text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 inline-block transition-colors" />
+      </td>
+    </tr>
+  );
+};
+
+// ── TaskBoard Main Component ──────────────────────────────────────────────────
+export default function TaskBoard() {
+  const formatDate = (d) =>
+    d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+
+  const getDates = (tabName) => {
+    const now = new Date();
+    let start = "", end = "";
+    if (tabName === "Today") { start = end = formatDate(now); }
+    else if (tabName === "Yesterday") { const y = new Date(now); y.setDate(now.getDate() - 1); start = end = formatDate(y); }
+    else if (tabName === "This Week") {
+      const s = new Date(now); s.setDate(now.getDate() - now.getDay());
+      const e = new Date(now); e.setDate(s.getDate() + 6);
+      start = formatDate(s); end = formatDate(e);
+    } else if (tabName === "Last Month") {
+      start = formatDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      end = formatDate(new Date(now.getFullYear(), now.getMonth(), 0));
+    } else if (tabName === "This Month") {
+      start = formatDate(new Date(now.getFullYear(), now.getMonth(), 1));
+      end = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+    } else if (tabName === "Next Month") {
+      start = formatDate(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+      end = formatDate(new Date(now.getFullYear(), now.getMonth() + 2, 0));
+    }
+    return { start, end };
+  };
+
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("tb_activeTab") || "All Time");
+  const [statusFilter, setStatusFilter] = useState(() => sessionStorage.getItem("tb_statusFilter") || "");
+  const [searchQ, setSearchQ] = useState(() => sessionStorage.getItem("tb_searchQ") || "");
+  const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "cards");
+  const [showStatusCards, setShowStatusCards] = useState(false);
+
+  const [filters, setFilters] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem("tb_filters");
+      return stored ? JSON.parse(stored) : { departmentId: "", assignedTo: "", startDate: "", endDate: "", status: "", overdue: false };
+    } catch {
+      return { departmentId: "", assignedTo: "", startDate: "", endDate: "", status: "", overdue: false };
+    }
+  });
+  const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
+
+  useEffect(() => { sessionStorage.setItem("tb_activeTab", activeTab); }, [activeTab]);
+  useEffect(() => { sessionStorage.setItem("tb_statusFilter", statusFilter); }, [statusFilter]);
+  useEffect(() => { sessionStorage.setItem("tb_searchQ", searchQ); }, [searchQ]);
+  useEffect(() => { sessionStorage.setItem("tb_viewMode", viewMode); }, [viewMode]);
+  useEffect(() => { sessionStorage.setItem("tb_filters", JSON.stringify(filters)); }, [filters]);
+
+  useEffect(() => {
+    const statusParam = searchParams.get("status");
+    const overdueParam = searchParams.get("overdue");
+    if (statusParam !== null || overdueParam !== null) {
+      setFilters(prev => ({ ...prev, status: statusParam || "", overdue: overdueParam === "true" }));
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (tabName) => {
+    setActiveTab(tabName);
+    const { start, end } = getDates(tabName);
+    const statusF = tabName === "Re Open" ? "re_pending,re_in_process,re_complete,re_late_complete" : "";
+    setFilters(prev => ({ ...prev, startDate: start, endDate: end, status: statusF }));
+    setStatusFilter("");
+  };
+
+  // Data Queries
+  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
+  const { data: empRes } = useQuery({ queryKey: ["employees"], queryFn: getEmployeesApi });
+
+  const apiFilters = { departmentId: filters.departmentId, assignedTo: filters.assignedTo };
+
+  const { data: tasksRes, isLoading: tasksLoading, refetch, isFetching } = useQuery({
+    queryKey: ["tasks", apiFilters],
+    queryFn: async () => {
+      const [regRes, tplRes] = await Promise.all([
+        getTasksApi(apiFilters).catch(() => ({ data: { tasks: [] } })),
+        getTasksApi({ ...apiFilters, isTemplate: true }).catch(() => ({ data: { tasks: [] } }))
+      ]);
+      const reg = regRes.data?.tasks || [];
+      const tpls = (tplRes.data?.tasks || []).map(t => ({ ...t, isTemplate: true }));
+      return { tasks: [...reg, ...tpls] };
+    }
+  });
+
+  const departments = deptRes?.data?.departments || [];
+  const employees = empRes?.data?.employees || [];
+  const allTasks = useMemo(() => {
+    const raw = tasksRes?.tasks || [];
+    return raw.map(t => {
+      if (t.isTemplate) {
+        return {
+          ...t,
+          status: t.isActive ? "active" : "stopped"
+        };
+      }
+      return t;
+    });
+  }, [tasksRes]);
+
+  const isTaskInDateRange = (task, startStr, endStr) => {
+    if (!startStr || !endStr) return true;
+    const startD = new Date(startStr);
+    const endD = new Date(endStr);
+    endD.setHours(23, 59, 59, 999);
+    const checkBetween = (dateVal) => {
+      if (!dateVal) return false;
+      const d = new Date(dateVal);
+      return d >= startD && d <= endD;
+    };
+    return checkBetween(task.startDateTime || task.startDate) ||
+      checkBetween(task.nextFollowUpDate) ||
+      checkBetween(task.endDateTime || task.endDate);
+  };
+
+  // Tab-filtered tasks
+  const tabFilteredTasks = useMemo(() => allTasks.filter(task => {
+    if (activeTab === "Recurring") {
+      if (!task.isTemplate && !task.isRecurring && !task.isGeneratedFromTemplate && !task.parentTemplateId) return false;
+    } else {
+      if (task.isTemplate) return false;
+      if (activeTab === "Re Open" && !["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(task.status)) return false;
+    }
+    const passesDate = isTaskInDateRange(task, filters.startDate, filters.endDate);
+    let passesStatus = true;
+    if (filters.status) {
+      const allowed = filters.status.split(",");
+      passesStatus = allowed.includes(task.status);
+    }
+    let passesOverdue = true;
+    if (filters.overdue) {
+      const st = (task.status || "").toLowerCase();
+      const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "late-complete"].includes(st);
+      const due = task.endDateTime ? new Date(task.endDateTime) : null;
+      passesOverdue = !done && due && due < new Date();
+    }
+    return passesDate && passesStatus && passesOverdue;
+  }), [allTasks, activeTab, filters]);
+
+  // Compute status counts for status chips
+  const statusCounts = useMemo(() => {
+    const counts = {};
+    tabFilteredTasks.forEach(t => {
+      counts[t.status] = (counts[t.status] || 0) + 1;
+    });
+    return counts;
+  }, [tabFilteredTasks]);
+
+  // Final filtered tasks
+  const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
+    if (statusFilter && task.status !== statusFilter) return false;
+    if (searchQ) {
+      const q = searchQ.toLowerCase();
+      const title = (task.title || "").toLowerCase();
+      const id = (task.taskId || "").toLowerCase();
+      const dept = (task.departmentId?.name || "").toLowerCase();
+      if (!title.includes(q) && !id.includes(q) && !dept.includes(q)) return false;
+    }
+    return true;
+  }), [tabFilteredTasks, statusFilter, searchQ]);
+
+  // KPI Metrics Calculation
+  const totalCount = tabFilteredTasks.length;
+  const pendingCount = tabFilteredTasks.filter(t => ["pending", "re_pending"].includes(t.status)).length;
+  const inProgressCount = tabFilteredTasks.filter(t => ["in_process", "re_in_process"].includes(t.status)).length;
+  const completedCount = tabFilteredTasks.filter(t => ["complete", "re_complete", "late_complete", "re_late_complete"].includes(t.status)).length;
+  const overdueCount = tabFilteredTasks.filter(t => {
+    if (t.isTemplate) return false;
+    const st = (t.status || "").toLowerCase();
+    const done = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(st);
+    const due = t.endDateTime ? new Date(t.endDateTime) : null;
+    return !done && due && due < new Date();
+  }).length;
+
+  // STRICT UNIQUE DATE CATEGORIES
+  const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
+  
+  const categoryCounts = dateCategories.map(cat => {
+    let count = 0;
+    if (cat === "Re Open") {
+      count = allTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
+    } else if (cat === "Recurring") {
+      count = allTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    } else if (cat === "All Time") {
+      count = allTasks.filter(t => !t.isTemplate).length;
+    } else {
+      const { start, end } = getDates(cat);
+      count = allTasks.filter(t => !t.isTemplate && isTaskInDateRange(t, start, end)).length;
+    }
+    return { name: cat, count };
+  });
+
+  // Calculate ONLY custom dropdown filters count (ignoring date tab filters)
+  const activeCustomFiltersCount = useMemo(() => {
+    return [filters.departmentId, filters.assignedTo, filters.overdue].filter(Boolean).length;
+  }, [filters.departmentId, filters.assignedTo, filters.overdue]);
+
+  const STATUS_CHIPS = Object.entries(STATUS_CONFIG)
+    .map(([key, cfg]) => ({ key, ...cfg, count: statusCounts[key] || 0 }));
+
+  const escapeCSVCell = (val) => {
+    if (val === null || val === undefined) return "";
+    const str = String(val);
+    if (/[",\n\r]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const exportToCSV = () => {
+    if (!filteredTasks.length) return alert("No tasks to export!");
+    const headers = [
+      "Task ID", "Title", "Description", "Checkpoints (Subtasks)", "Status",
+      "Priority", "Assigned By", "Assigned To", "Department", "Start Date",
+      "Deadline", "Is Template", "Repeat Type", "Status (Active/Stopped)"
+    ];
+    const rows = filteredTasks.map(t => {
+      const checkpointsList = t.checklist || t.subtasks || [];
+      const subtasksStr = checkpointsList
+        .map(s => `[${(s.isCompleted || s.completed) ? "x" : " "}] ${s.title || ""}`)
+        .join("; ");
+      const assignedToNames = (t.assignedTo || [])
+        .map(a => a ? (a.firstName ? `${a.firstName} ${a.lastName || ""}` : a.name || "") : "")
+        .filter(Boolean)
+        .join(", ");
+      
+      return [
+        t.taskId || "",
+        t.title || "",
+        t.description || "",
+        subtasksStr,
+        t.status || "",
+        t.priority || "",
+        t.assignedBy?.name || `${t.assignedBy?.firstName || ""} ${t.assignedBy?.lastName || ""}`.trim() || "System",
+        assignedToNames || "Unassigned",
+        t.departmentId?.name || "",
+        t.startDateTime ? new Date(t.startDateTime).toLocaleDateString("en-GB") : "",
+        t.endDateTime ? new Date(t.endDateTime).toLocaleDateString("en-GB") : "",
+        t.isTemplate ? "Yes" : "No",
+        t.repeatType || "",
+        t.isTemplate ? (t.isActive ? "Active" : "Stopped") : ""
+      ].map(escapeCSVCell);
+    });
+
+    const csvContent = [headers.map(escapeCSVCell).join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `tasks_${new Date().toISOString().split("T")[0]}.csv`;
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+
+  // Kanban Columns Definition
+  const kanbanColumns = [
+    { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes(t.status) },
+    { key: "in_process", title: "In Process", dot: "bg-amber-500", filterFn: t => ["in_process", "re_in_process"].includes(t.status) },
+    { key: "completed", title: "Completed", dot: "bg-emerald-500", filterFn: t => ["complete", "re_complete", "late_complete", "re_late_complete"].includes(t.status) },
+    { key: "overdue", title: "Overdue", dot: "bg-rose-500", filterFn: t => t.status === "overdue" || (!["complete", "completed", "done", "late_complete"].includes(t.status) && t.endDateTime && new Date(t.endDateTime) < new Date()) },
+  ];
+
+  return (
+    <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
+
+      {/* ── Page Header & Fixed Height Action Toolbar ── */}
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1">
+        <div>
+          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+            Task Management
+          </h1>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+            Track team tasks, deadlines, assignments, and project deliverables
+          </p>
+        </div>
+
+        {/* ── Action Toolbar ── */}
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
+          {/* Search Box */}
+          <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              placeholder="Search tasks..."
+              className="pl-9 pr-8 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all w-full sm:w-52 shadow-2xs"
+            />
+            {searchQ && (
+              <button onClick={() => setSearchQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* Grouped View Switcher & Action Container */}
+          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#1E293B] p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs h-9 overflow-x-auto hide-scrollbar max-w-full">
+            {/* View Switcher Pills */}
+            <div className="flex items-center bg-white dark:bg-[#111C24] p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-800 shadow-2xs gap-0.5 h-7">
+              <button
+                onClick={() => setViewMode("cards")}
+                title="Grid Cards View"
+                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
+                  viewMode === "cards"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <LayoutGrid size={13} /> <span className="hidden sm:inline">Grid</span>
+              </button>
+              <button
+                onClick={() => setViewMode("kanban")}
+                title="Kanban Board View"
+                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
+                  viewMode === "kanban"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <Kanban size={13} /> <span className="hidden sm:inline">Kanban</span>
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                title="Table List View"
+                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
+                  viewMode === "list"
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
+              >
+                <List size={13} /> <span className="hidden sm:inline">List</span>
+              </button>
+            </div>
+
+            {/* Export CSV Button */}
+            <button
+              onClick={exportToCSV}
+              className="flex items-center gap-1 px-2.5 h-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-all shadow-2xs shrink-0"
+              title="Export tasks to CSV"
+            >
+              <Download size={13} className="text-slate-400" /> <span className="hidden xs:inline">Export</span>
+            </button>
+
+            {/* Advanced Filters Trigger */}
+            <div className="relative z-20 shrink-0">
+              <button
+                onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
+                className={`flex items-center gap-1 px-2.5 h-7 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 ${
+                  showFiltersDropdown || activeCustomFiltersCount > 0
+                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40"
+                    : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              >
+                <SlidersHorizontal size={13} className="text-amber-600 dark:text-amber-400" />
+                <span className="hidden xs:inline">Filters</span>
+                {activeCustomFiltersCount > 0 && (
+                  <span className="flex items-center justify-center min-w-[15px] h-[15px] px-1 bg-slate-900 text-white dark:bg-amber-600 dark:text-white text-[9px] rounded-full font-black ml-0.5">
+                    {activeCustomFiltersCount}
+                  </span>
+                )}
+              </button>
+
+              {/* Filters Dropdown Card */}
+              {showFiltersDropdown && (
+                <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-30 space-y-4 shadow-2xl rounded-2xl animate-fadeIn">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                    <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
+                    <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Department</label>
+                    <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl" value={filters.departmentId} onChange={e => setFilters({ ...filters, departmentId: e.target.value })}>
+                      <option value="">All Departments</option>
+                      {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned To</label>
+                    <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl" value={filters.assignedTo} onChange={e => setFilters({ ...filters, assignedTo: e.target.value })}>
+                      <option value="">All Members</option>
+                      {employees.map(e => <option key={e._id} value={e._id}>{e.firstName} {e.lastName}</option>)}
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
+                      <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs py-2 px-2 outline-none rounded-xl" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">End Date</label>
+                      <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs py-2 px-2 outline-none rounded-xl" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
+                    </div>
+                  </div>
+                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+                    <button onClick={() => { setFilters({ departmentId: "", assignedTo: "", startDate: "", endDate: "", status: "", overdue: false }); setStatusFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl transition-colors">Clear</button>
+                    <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-xs px-3 py-2 rounded-xl transition-colors">Apply</button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Refresh Data */}
+            <button onClick={() => refetch()} disabled={isFetching} className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs shrink-0" title="Refresh Tasks">
+              <RefreshCw size={13} className={isFetching ? "animate-spin" : ""}/>
+            </button>
+
+            {/* Primary Action Button (+ New Task) with Crisp White Text */}
+            <button
+              onClick={() => setIsCreateOpen(true)}
+              className="flex items-center gap-1.5 px-3.5 h-7 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+            >
+              <Plus size={14} strokeWidth={3} /> New Task
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Top 5 KPI Summary Stat Cards ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 pt-1">
+        <KPICard label="Total Tasks"     value={totalCount}     trend="14.2%" isUp period="last month" strokeColor="#EAB308" Icon={CheckSquare} iconBg="bg-amber-500/10"  iconColor="#D97706"/>
+        <KPICard label="Pending Tasks"   value={pendingCount}   trend="8.1%"  isUp period="last month" strokeColor="#06B6D4" Icon={Clock}        iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
+        <KPICard label="In Progress"     value={inProgressCount} trend="12.5%" isUp period="last month" strokeColor="#8B5CF6" Icon={Sparkles}     iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
+        <KPICard label="Completed"       value={completedCount} trend="19.4%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle}  iconBg="bg-emerald-500/10" iconColor="#059669"/>
+        <KPICard label="Overdue Tasks"   value={overdueCount}   trend="4.2%"  isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={AlertTriangle} iconBg="bg-rose-500/10" iconColor="#E11D48" extraClass="col-span-2 sm:col-span-1"/>
+      </div>
+
+      {/* ── PERFECT SINGLE-LINE BASELINE ALIGNED TIMEFRAME TAB BAR + STATUS FILTER ── */}
+      <div className="bg-white dark:bg-[#111C24] px-3 py-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3 min-h-[44px]">
+        {/* Clean Date Filter Chips Container */}
+        <div className="flex items-center overflow-x-auto gap-1 hide-scrollbar flex-1 min-w-0">
+          {categoryCounts.map((cat) => {
+            const isActive = activeTab === cat.name;
+            return (
+              <button
+                key={cat.name}
+                onClick={() => handleTabChange(cat.name)}
+                className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold transition-colors duration-150 whitespace-nowrap shrink-0 ${
+                  isActive
+                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-extrabold"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                }`}
+              >
+                <span>{cat.name}</span>
+                {cat.count > 0 && (
+                  <span className={`px-1.5 py-[1px] rounded-md text-[10px] font-black ${
+                    isActive ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                  }`}>
+                    {cat.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Status Drawer Toggle Button on Perfect Baseline Alignment */}
+        {activeTab !== "Recurring" && (
+          <div className="flex items-center shrink-0">
+            <button
+              onClick={() => setShowStatusCards(!showStatusCards)}
+              className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-xl border text-xs font-extrabold transition-colors shadow-2xs cursor-pointer shrink-0 ${
+                showStatusCards || statusFilter
+                  ? "bg-slate-900 text-white dark:bg-amber-500/20 dark:text-amber-300 border-slate-800 shadow-xs"
+                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+              }`}
+            >
+              <Filter size={13} className="text-amber-500" />
+              <span>Status Filter</span>
+              {statusFilter && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
+              )}
+              {showStatusCards ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* ── PREMIUM COLLAPSIBLE STATUS FILTER DRAWER (HIDDEN BY DEFAULT) ───────── */}
+      {showStatusCards && activeTab !== "Recurring" && (
+        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white p-4 rounded-2xl border border-slate-800 shadow-2xl space-y-3 animate-fadeIn">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                <Layers3 size={14} />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-slate-100">Status Quick Filters</h4>
+                <p className="text-[10px] text-slate-400">Select a status chip to filter the task pipeline</p>
+              </div>
+            </div>
+            {statusFilter ? (
+              <button
+                onClick={() => setStatusFilter("")}
+                className="text-xs font-extrabold text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
+              >
+                <X size={13} /> Reset Filter
+              </button>
+            ) : (
+              <button onClick={() => setShowStatusCards(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-2">
+            {/* All Tasks Card */}
+            <button
+              onClick={() => setStatusFilter("")}
+              className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                !statusFilter
+                  ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
+                  : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-200 font-bold"
+              }`}
+            >
+              <div className="text-[9px] uppercase tracking-wider opacity-80">Show All</div>
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs font-extrabold">All Tasks</span>
+                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${!statusFilter ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700 text-slate-300"}`}>
+                  {tabFilteredTasks.length}
+                </span>
+              </div>
+            </button>
+
+            {/* Status Chips */}
+            {STATUS_CHIPS.map(chip => {
+              const isSelected = statusFilter === chip.key;
+              return (
+                <button
+                  key={chip.key}
+                  onClick={() => setStatusFilter(prev => prev === chip.key ? "" : chip.key)}
+                  className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                    isSelected
+                      ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
+                      : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-300 font-semibold"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={`w-2 h-2 rounded-full ${chip.dot}`} />
+                    <span className={`text-[9px] uppercase tracking-wider truncate ${isSelected ? "text-amber-400 font-bold" : "text-slate-400"}`}>{chip.key.replace(/_/g, " ")}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`text-xs truncate ${isSelected ? "font-black text-amber-300" : "font-bold text-slate-200"}`}>{chip.label}</span>
+                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${isSelected ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700/80 text-slate-300"}`}>
+                      {chip.count}
+                    </span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main Task View Content ───────────────────────────────────────────── */}
+      {tasksLoading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-44 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
+          ))}
+        </div>
+      ) : filteredTasks.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3 border border-amber-500/20">
+            <CheckCircle size={26} strokeWidth={2} />
+          </div>
+          <p className="text-slate-900 dark:text-white font-extrabold text-base">No tasks found</p>
+          <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">Try adjusting your status filter, search term, or date range</p>
+          {(statusFilter || searchQ) && (
+            <button onClick={() => { setStatusFilter(""); setSearchQ(""); }} className="mt-4 text-xs font-extrabold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer">
+              <X size={13} /> Reset status & search filters
+            </button>
+          )}
+        </div>
+      ) : viewMode === "cards" ? (
+        /* ── GRID CARDS VIEW ── */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredTasks.map(task => (
+            <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+          ))}
+        </div>
+      ) : viewMode === "kanban" ? (
+        /* ── KANBAN BOARD VIEW ── */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {kanbanColumns.map(col => {
+            const colTasks = filteredTasks.filter(col.filterFn);
+            return (
+              <div key={col.key} className="flex flex-col bg-slate-50/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 min-h-[450px]">
+                {/* Column Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800 mb-3 px-1">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2.5 h-2.5 rounded-full ${col.dot}`} />
+                    <h3 className="font-extrabold text-xs text-slate-900 dark:text-white tracking-tight">{col.title}</h3>
+                  </div>
+                  <span className="text-[10px] font-black text-slate-500 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                    {colTasks.length}
+                  </span>
+                </div>
+                {/* Column Tasks */}
+                <div className="space-y-3 flex-1 overflow-y-auto max-h-[700px] hide-scrollbar pr-0.5">
+                  {colTasks.length === 0 ? (
+                    <div className="h-28 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center text-[11px] font-medium text-slate-400">
+                      No {col.title.toLowerCase()} tasks
+                    </div>
+                  ) : (
+                    colTasks.map(task => (
+                      <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+                    ))
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── ENTERPRISE TABLE LIST VIEW ── */
+        <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
+          <div className="px-4 py-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
+            <h3 className="font-extrabold text-slate-900 dark:text-white text-xs tracking-wider uppercase flex items-center gap-2">
+              <Layers size={14} className="text-amber-500" /> Tasks Pipeline Log
+            </h3>
+            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+              {filteredTasks.length} tasks
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="px-4 py-3 font-semibold">ID</th>
+                  <th className="px-4 py-3 font-semibold">Task Title</th>
+                  <th className="px-4 py-3 font-semibold">Assigned By</th>
+                  <th className="px-4 py-3 font-semibold">Assignees</th>
+                  <th className="px-4 py-3 font-semibold">Deadline</th>
+                  <th className="px-4 py-3 font-semibold">Priority</th>
+                  <th className="px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                {filteredTasks.map(task => (
+                  <TableRow key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Task Creation Modal ────────────────────────────────────────────── */}
+      <TaskCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} departments={departments} employees={employees} />
+    </div>
+  );
+}

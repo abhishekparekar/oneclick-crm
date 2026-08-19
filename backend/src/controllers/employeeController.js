@@ -1,0 +1,839 @@
+const { validationResult } = require("express-validator");
+const User = require("../models/User");
+const Employee = require("../models/Employee");
+const AuditLog = require("../models/AuditLog");
+const Designation = require("../models/Designation");
+const Branch = require("../models/Branch");
+const LeaveBalance = require("../models/LeaveBalance");
+const CompanyLeaveSettings = require("../models/CompanyLeaveSettings");
+const Company = require("../models/Company");
+const {
+  findCompanyResource,
+  validateDepartmentBelongsToCompany,
+} = require("../utils/companyScope");
+const generateNextEmployeeCode = require("../utils/generateNextEmployeeCode");
+const tempPasswordFromPhone = require("../utils/tempPasswordFromPhone");
+const { notifyUser } = require("../utils/notificationHelper");
+
+const populateEmployee = [
+  { path: "userId", select: "role" },
+  { path: "departmentId", select: "name" },
+  { path: "designationId", select: "name" },
+  { path: "branchId", select: "branchName" },
+];
+
+const handleValidation = (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res
+      .status(400)
+      .json({ message: errors.array()[0].msg, errors: errors.array() });
+    return true;
+  }
+  return false;
+};
+
+const syncUserFromEmployeeStatus = async (employee) => {
+  if (!employee?.userId) return;
+  const isActive = employee.status === "active";
+  await User.findByIdAndUpdate(employee.userId, { isActive });
+};
+
+const validateRefsForCompany = async (body, companyId) => {
+  if (body.departmentId) {
+    const dept = await validateDepartmentBelongsToCompany(
+      body.departmentId,
+      companyId
+    );
+    if (!dept) return "Invalid department for this company";
+  }
+
+  if (body.designationId) {
+    const des = await findCompanyResource(
+      Designation,
+      body.designationId,
+      companyId
+    );
+    if (!des) return "Invalid designation for this company";
+    if (body.departmentId) {
+      if (des.departmentId.toString() !== body.departmentId.toString()) {
+        return "Designation does not belong to the selected department";
+      }
+    }
+  }
+
+  if (body.branchId) {
+    const branch = await findCompanyResource(Branch, body.branchId, companyId);
+    if (!branch) return "Invalid branch for this company";
+  }
+
+  return null;
+};
+
+const buildEmployeeFilter = (req) => {
+  const {
+    search,
+    departmentId,
+    designationId,
+    branchId,
+    employmentType,
+    status,
+  } = req.query;
+
+  const filter = { companyId: req.companyId };
+
+  if (departmentId) filter.departmentId = departmentId;
+  if (designationId) filter.designationId = designationId;
+  if (branchId) filter.branchId = branchId;
+  if (employmentType) filter.employmentType = employmentType;
+  if (status) filter.status = status;
+
+  if (search && String(search).trim()) {
+    const q = String(search).trim();
+    const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const regex = new RegExp(escaped, "i");
+    filter.$or = [
+      { firstName: regex },
+      { lastName: regex },
+      { email: regex },
+      { phone: regex },
+      { employeeCode: regex },
+    ];
+  }
+
+  return filter;
+};
+
+const getMyEmployee = async (req, res, next) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.user.employeeId,
+      companyId: req.companyId,
+    })
+      .populate(populateEmployee)
+      .populate("createdBy", "name email");
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    res.json({ employee });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEmployees = async (req, res, next) => {
+  try {
+    console.log("DB QUERY: getEmployees");
+    const filter = buildEmployeeFilter(req);
+    const employees = await Employee.find(filter)
+      .select("employeeCode firstName lastName fullName email phone photo gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions")
+      .populate([
+        { path: "userId", select: "role" },
+        { path: "departmentId", select: "name" },
+        { path: "designationId", select: "name" },
+        { path: "branchId", select: "branchName" },
+        { path: "accessibleDepartments", select: "name" },
+      ])
+      .lean();
+
+    employees.sort((a, b) => {
+      const ma = /^EMP-(\d+)$/i.exec(a.employeeCode || "");
+      const mb = /^EMP-(\d+)$/i.exec(b.employeeCode || "");
+      const na = ma ? parseInt(ma[1], 10) : 0;
+      const nb = mb ? parseInt(mb[1], 10) : 0;
+      return na - nb;
+    });
+
+    res.json({ employees, count: employees.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getEmployeeById = async (req, res, next) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    })
+      .populate([
+        { path: "userId", select: "role" },
+        { path: "departmentId", select: "name" },
+        { path: "designationId", select: "name" },
+        { path: "branchId", select: "branchName" },
+        { path: "accessibleDepartments", select: "name" },
+      ])
+      .populate("createdBy", "name email");
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    res.json({ employee });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createEmployee = async (req, res, next) => {
+  try {
+    if (handleValidation(req, res)) return;
+
+    const companyId = req.companyId;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    const employeeCount = await User.countDocuments({ 
+      companyId, 
+      isActive: true, 
+      role: { $in: ["Employee", "Manager", "HR"] } 
+    });
+
+    if (employeeCount >= (company.employeeLimit || 50)) {
+      return res.status(400).json({ 
+        message: `Active employee limit reached (${company.employeeLimit || 50}). Please upgrade your subscription plan to add more employees.` 
+      });
+    }
+
+    const {
+      firstName,
+      lastName,
+      email,
+      phone,
+      photo,
+      gender,
+      dateOfBirth,
+      joiningDate,
+      departmentId,
+      departmentIds,
+      designationId,
+      branchId,
+      employmentType,
+      workMode,
+      salary,
+      address,
+      emergencyContactName,
+      emergencyContactPhone,
+      documents,
+      loginRole,
+      managerAccessLevel,
+      accessibleDepartments,
+      allowRemotePunch,
+      reportingManagerId,
+      leaveBalance,
+      permissions,
+    } = req.body;
+
+    // Support multi-department: use first departmentId from array if departmentId not set
+    const resolvedDeptId = departmentId ||
+      (Array.isArray(departmentIds) && departmentIds.length > 0 ? departmentIds[0] : null);
+
+    const emailLower = email.toLowerCase();
+    let effectiveDeptId = resolvedDeptId;
+    let effectiveDesigId = designationId;
+
+    if (effectiveDesigId && !effectiveDeptId) {
+      const des = await findCompanyResource(
+        Designation,
+        effectiveDesigId,
+        companyId
+      );
+      if (des) {
+        effectiveDeptId = des.departmentId;
+      }
+    }
+
+    const refErr = await validateRefsForCompany(
+      {
+        departmentId: effectiveDeptId,
+        designationId: effectiveDesigId,
+        branchId,
+      },
+      companyId
+    );
+    if (refErr) {
+      return res.status(400).json({ message: refErr });
+    }
+
+    // Manager Department check
+    if (req.user && req.user.role === "Manager") {
+      // Manager can only create Employee (Team Member)
+      const requestedRole = loginRole || "Employee";
+      if (requestedRole !== "Employee") {
+        return res.status(403).json({ message: "Forbidden: Managers can only create Team Members" });
+      }
+
+      const managerEmp = await Employee.findOne({ userId: req.user._id, companyId }).lean();
+      if (managerEmp) {
+        const primaryDeptId = managerEmp.departmentId;
+        const allowedDeptIds = (managerEmp.accessibleDepartments || []).map(id => id.toString());
+        
+        const managerDeptIds = [];
+        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
+        allowedDeptIds.forEach(id => {
+          if (id) managerDeptIds.push(id);
+        });
+
+        const resolvedDeptStr = effectiveDeptId ? effectiveDeptId.toString() : null;
+        if (!resolvedDeptStr || !managerDeptIds.includes(resolvedDeptStr)) {
+          return res.status(403).json({ message: "Forbidden: You can only add employees to your own department(s)" });
+        }
+      }
+    }
+
+    const existingUser = await User.findOne({ email: emailLower });
+    if (existingUser) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    const existingEmployeeEmail = await Employee.findOne({
+      companyId,
+      email: emailLower,
+    });
+    if (existingEmployeeEmail) {
+      return res.status(400).json({ message: "Employee email already exists" });
+    }
+
+    const role = loginRole && ["Employee", "Manager", "HR", "CompanyAdmin"].includes(loginRole)
+      ? loginRole
+      : "Employee";
+
+    const temporaryPassword = req.body.password && req.body.password.trim().length >= 6
+      ? req.body.password.trim()
+      : tempPasswordFromPhone(phone || "000000");
+    const employeeCode = await generateNextEmployeeCode(companyId);
+
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
+    const user = await User.create({
+      name: fullName,
+      email: emailLower,
+      phone,
+      password: temporaryPassword,
+      role,
+      companyId,
+      isPasswordResetRequired: true,
+    });
+
+    let finalPermissions = permissions;
+    if (!finalPermissions || Object.keys(finalPermissions).length === 0) {
+      if (role === "HR") {
+        finalPermissions = {
+          tasks: { create: true, edit: true, shift: true, cancel: true, reopen: true },
+          leaves: { approveReject: true },
+          teamMembers: { add: true, edit: true, activeInactive: true },
+          announcementsHolidays: true,
+        };
+      } else if (role === "Manager") {
+        finalPermissions = {
+          tasks: { create: true, edit: true, shift: true, cancel: false, reopen: true },
+          leaves: { approveReject: true },
+          teamMembers: { add: false, edit: false, activeInactive: false },
+          announcementsHolidays: false,
+        };
+      } else {
+        finalPermissions = {
+          tasks: { create: false, edit: false, shift: false, cancel: false, reopen: false },
+          leaves: { approveReject: false },
+          teamMembers: { add: false, edit: false, activeInactive: false },
+          announcementsHolidays: false,
+        };
+      }
+    }
+
+    let employee = null;
+
+    try {
+      employee = await Employee.create({
+        companyId,
+        userId: user._id,
+        employeeCode,
+        firstName,
+        lastName,
+        email: emailLower,
+        phone,
+        photo,
+        gender,
+        role,
+        dateOfBirth: dateOfBirth || null,
+        joiningDate: joiningDate || null,
+        departmentId: effectiveDeptId || null,
+        departmentIds: Array.isArray(departmentIds) && departmentIds.length > 0
+          ? departmentIds
+          : (effectiveDeptId ? [effectiveDeptId] : []),
+        designationId: effectiveDesigId || null,
+        branchId: branchId || null,
+        employmentType,
+        workMode,
+        allowRemotePunch: allowRemotePunch === true,
+        salary: salary !== undefined && salary !== "" ? Number(salary) : null,
+        address,
+        emergencyContactName,
+        emergencyContactPhone,
+        documents: documents || {},
+        status: "active",
+        managerAccessLevel: managerAccessLevel || "team",
+        accessibleDepartments: accessibleDepartments || [],
+        reportingManagerId: reportingManagerId || null,
+        permissions: finalPermissions || {},
+        createdBy: req.user._id,
+      });
+
+      user.employeeId = employee._id;
+      await user.save();
+
+      // Create initial leave balance
+      let settings = null;
+      if (!leaveBalance) {
+        settings = await CompanyLeaveSettings.findOne({ companyId });
+        if (!settings) {
+          settings = await CompanyLeaveSettings.create({ companyId });
+        }
+      }
+
+      await LeaveBalance.create({
+        companyId,
+        employeeId: employee._id,
+        casual: leaveBalance && leaveBalance.casual !== undefined ? Number(leaveBalance.casual) : (settings ? settings.defaultCasualLeaves : 0),
+        sick: leaveBalance && leaveBalance.sick !== undefined ? Number(leaveBalance.sick) : (settings ? settings.defaultSickLeaves : 0),
+        annual: leaveBalance && leaveBalance.annual !== undefined ? Number(leaveBalance.annual) : (settings ? settings.defaultAnnualLeaves : 0),
+        lop: leaveBalance && leaveBalance.lop !== undefined ? Number(leaveBalance.lop) : (settings ? settings.defaultUnpaidLeaves : 0),
+      });
+    } catch (err) {
+      await User.findByIdAndDelete(user._id);
+      if (employee && employee._id) {
+        await Employee.findByIdAndDelete(employee._id);
+      }
+      if (err.code === 11000) {
+        return res.status(400).json({ message: "Duplicate employee or employee code" });
+      }
+      throw err;
+    }
+
+    await syncUserFromEmployeeStatus(employee);
+
+    // Notify employee of their new account
+    try {
+      await notifyUser(
+        user._id,
+        companyId,
+        "Welcome to HRMS!",
+        `Your account has been created. Login with your email.`,
+        "profile",
+        { employeeId: employee._id.toString() }
+      );
+    } catch (err) {
+      console.error("Error sending welcome notification:", err);
+    }
+
+    const populated = await Employee.findById(employee._id).populate(populateEmployee);
+
+    res.status(201).json({
+      employee: populated,
+      login: {
+        email: user.email,
+        temporaryPassword,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateEmployee = async (req, res, next) => {
+  try {
+    console.log("UPDATE EMPLOYEE PAYLOAD PERMISSIONS:", JSON.stringify(req.body.permissions));
+    if (handleValidation(req, res)) return;
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    // Manager Department check for update
+    if (req.user && req.user.role === "Manager") {
+      // Manager cannot edit another Manager or HR
+      if (employee.role !== "Employee") {
+        return res.status(403).json({ message: "Forbidden: You do not have permission to manage this role" });
+      }
+
+      // Manager cannot change someone's role to Manager/HR
+      if (req.body.loginRole && req.body.loginRole !== "Employee") {
+        return res.status(403).json({ message: "Forbidden: Managers can only assign the Team Member role" });
+      }
+
+      const managerEmp = await Employee.findOne({ userId: req.user._id, companyId: req.companyId }).lean();
+      if (managerEmp) {
+        const primaryDeptId = managerEmp.departmentId;
+        const allowedDeptIds = (managerEmp.accessibleDepartments || []).map(id => id.toString());
+        
+        const managerDeptIds = [];
+        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
+        allowedDeptIds.forEach(id => {
+          if (id) managerDeptIds.push(id);
+        });
+
+        // 1. Check if the employee currently belongs to the manager's authorized departments
+        const targetEmpDeptId = employee.departmentId ? employee.departmentId.toString() : null;
+        if (!targetEmpDeptId || !managerDeptIds.includes(targetEmpDeptId)) {
+          return res.status(403).json({ message: "Forbidden: You can only manage employees belonging to your own department(s)" });
+        }
+
+        // 2. Check if the manager is trying to change the employee's department to an unauthorized one
+        if (req.body.departmentId && !managerDeptIds.includes(req.body.departmentId.toString())) {
+          return res.status(403).json({ message: "Forbidden: You can only assign employees to your own department(s)" });
+        }
+      }
+    }
+
+    const oldData = {};
+    const newData = {};
+    let hasChanges = false;
+
+    // Standard scalar fields
+    const fieldsToCheck = [
+      "firstName", "lastName", "middleName", "phone", "alternateMobile", "photo", "gender", 
+      "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "designationId", 
+      "branchId", "employmentType", "workMode", "allowRemotePunch", "status", "skills", "certifications", "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions"
+    ];
+    
+    for (const field of fieldsToCheck) {
+      if (req.body[field] !== undefined) {
+        let newVal = req.body[field];
+        if (newVal === "") newVal = null;
+
+        let oldVal = employee[field];
+        if (oldVal === undefined) oldVal = null;
+        
+        // Handle array comparison for skills/certifications
+        if (Array.isArray(newVal)) {
+           const oldArr = Array.isArray(oldVal) ? oldVal : [];
+           if (JSON.stringify(newVal) !== JSON.stringify(oldArr)) {
+             oldData[field] = oldArr;
+             newData[field] = newVal;
+             employee[field] = newVal;
+             hasChanges = true;
+           }
+        } 
+        // Handle object/Mixed comparison (like permissions)
+        else if (field === "permissions" || (newVal !== null && typeof newVal === "object")) {
+           const oldObj = (oldVal && typeof oldVal === "object") ? oldVal : {};
+           if (JSON.stringify(newVal) !== JSON.stringify(oldObj)) {
+             oldData[field] = oldObj;
+             newData[field] = newVal;
+             employee[field] = newVal;
+             employee.markModified(field);
+             hasChanges = true;
+           }
+        }
+        // Handle normal scalar values
+        else {
+          const newStr = newVal !== null ? newVal.toString() : null;
+          const oldStr = oldVal !== null ? oldVal.toString() : null;
+          
+          if (newStr !== oldStr) {
+            oldData[field] = oldVal;
+            newData[field] = newVal;
+            
+            // Reference fields
+            if (field === "departmentId" || field === "designationId" || field === "branchId" || field === "reportingManagerId") {
+              employee[field] = newVal || null;
+              if (field === "branchId") {
+                if (newVal) {
+                  const Branch = require("../models/Branch");
+                  const branchObj = await Branch.findById(newVal).lean();
+                  employee.branchName = branchObj ? branchObj.branchName : "";
+                } else {
+                  employee.branchName = "";
+                }
+              }
+              if (field === "departmentId") {
+                if (newVal) {
+                  const Department = require("../models/Department");
+                  const deptObj = await Department.findById(newVal).lean();
+                  employee.departmentName = deptObj ? deptObj.name : "";
+                } else {
+                  employee.departmentName = "";
+                }
+              }
+            } else {
+              employee[field] = newVal;
+            }
+            hasChanges = true;
+          }
+        }
+      }
+    }
+    
+    // Address objects
+    const addressFields = ["currentAddress", "permanentAddress", "emergencyContact", "bankDetails"];
+    for (const addrField of addressFields) {
+      if (req.body[addrField] !== undefined) {
+        const oldObj = employee[addrField] ? employee[addrField].toObject() : {};
+        const newObj = { ...oldObj, ...req.body[addrField] };
+        
+        if (JSON.stringify(oldObj) !== JSON.stringify(newObj)) {
+          oldData[addrField] = oldObj;
+          newData[addrField] = newObj;
+          employee[addrField] = newObj;
+          hasChanges = true;
+        }
+      }
+    }
+
+    // Salary Details
+    if (req.body.salaryDetails !== undefined) {
+      const oldObj = employee.salaryDetails ? employee.salaryDetails.toObject() : {};
+      const newObj = { ...oldObj, ...req.body.salaryDetails };
+      
+      // cleanup nulls/empty for comparison
+      Object.keys(newObj).forEach(k => { if (newObj[k] === "" || newObj[k] === null) newObj[k] = null; else newObj[k] = Number(newObj[k]); });
+      
+      if (JSON.stringify(oldObj) !== JSON.stringify(newObj)) {
+        oldData.salaryDetails = oldObj;
+        newData.salaryDetails = newObj;
+        employee.salaryDetails = newObj;
+        hasChanges = true;
+      }
+    }
+
+    const user = await User.findById(employee.userId);
+    if (!user) {
+      return res.status(400).json({ message: "Linked user not found" });
+    }
+
+    if (req.body.email !== undefined) {
+      const emailLower = req.body.email.toLowerCase();
+      if (emailLower !== employee.email) {
+        const taken = await User.findOne({ email: emailLower });
+        if (taken && taken._id.toString() !== user._id.toString()) {
+          return res.status(400).json({ message: "Email already in use" });
+        }
+        oldData.email = employee.email;
+        newData.email = emailLower;
+        user.email = emailLower;
+        employee.email = emailLower;
+        hasChanges = true;
+      }
+    }
+
+    const targetRole = req.body.loginRole || req.body.role;
+    if (targetRole && ["Employee", "Manager", "HR", "CompanyAdmin"].includes(targetRole)) {
+      if (user.role !== targetRole || employee.role !== targetRole) {
+        oldData.role = user.role;
+        newData.role = targetRole;
+        user.role = targetRole;
+        employee.role = targetRole;
+        hasChanges = true;
+      }
+    }
+
+    if (req.body.documents && typeof req.body.documents === "object") {
+      const docObj =
+        typeof employee.documents?.toObject === "function"
+          ? employee.documents.toObject()
+          : { ...(employee.documents || {}) };
+      
+      const newDocObj = { ...docObj, ...req.body.documents };
+      if (JSON.stringify(docObj) !== JSON.stringify(newDocObj)) {
+        oldData.documents = docObj;
+        newData.documents = newDocObj;
+        employee.documents = newDocObj;
+        hasChanges = true;
+      }
+    }
+
+    if (!hasChanges) {
+      console.log("NO CHANGES DETECTED: updateEmployee");
+      const populated = await Employee.findById(employee._id).populate(populateEmployee).lean();
+      return res.json({ success: true, message: "No changes detected", employee: populated });
+    }
+
+    // Validation for refs
+    const effectiveDeptId = employee.departmentId;
+    const effectiveDesigId = employee.designationId;
+
+    let deptForValidation = effectiveDeptId;
+    let desigForValidation = effectiveDesigId;
+
+    if (desigForValidation && !deptForValidation) {
+      const des = await findCompanyResource(Designation, desigForValidation, req.companyId);
+      if (des) deptForValidation = des.departmentId;
+    }
+
+    const refsToValidate = {};
+    if (newData.departmentId !== undefined || newData.designationId !== undefined) {
+      refsToValidate.departmentId = deptForValidation;
+      refsToValidate.designationId = desigForValidation;
+    }
+    if (newData.branchId !== undefined) {
+      refsToValidate.branchId = employee.branchId;
+    }
+
+    const refErr = Object.keys(refsToValidate).length > 0 ? await validateRefsForCompany(
+      refsToValidate,
+      req.companyId
+    ) : null;
+    
+    if (refErr) {
+      return res.status(400).json({ message: refErr });
+    }
+
+    if (newData.firstName !== undefined || newData.lastName !== undefined) {
+      user.name = `${employee.firstName} ${employee.lastName}`.trim();
+    }
+    if (newData.phone !== undefined) {
+      user.phone = employee.phone;
+    }
+
+    // Auto calculate profile completion
+    let filledFields = 0;
+    const requiredProfileFields = ['firstName', 'lastName', 'email', 'phone', 'gender', 'dateOfBirth', 'address', 'bloodGroup', 'maritalStatus'];
+    requiredProfileFields.forEach(f => {
+      if (employee[f] || (employee.currentAddress && employee.currentAddress.addressLine1)) filledFields++;
+    });
+    employee.profileCompletionPercentage = Math.round((filledFields / requiredProfileFields.length) * 100);
+
+    await user.save();
+    await employee.save();
+    await syncUserFromEmployeeStatus(employee);
+
+    // Create Audit Log
+    await AuditLog.create({
+      action: "UPDATE",
+      module: "Employee",
+      performedBy: req.user._id,
+      companyId: req.companyId,
+      entityId: employee._id,
+      oldData,
+      newData,
+      ipAddress: req.ip,
+    });
+
+    const populated = await Employee.findById(employee._id).populate(populateEmployee);
+
+    res.json({ employee: populated });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Duplicate field value" });
+    }
+    next(error);
+  }
+};
+
+const patchEmployeeStatus = async (req, res, next) => {
+  try {
+    if (handleValidation(req, res)) return;
+
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    employee.status = req.body.status;
+    await employee.save();
+    await syncUserFromEmployeeStatus(employee);
+
+    const populated = await Employee.findById(employee._id).populate(populateEmployee);
+
+    res.json({ employee: populated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetEmployeePassword = async (req, res, next) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+
+    let employee = await Employee.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    });
+
+    if (!employee) {
+      employee = await Employee.findOne({
+        userId: req.params.id,
+        companyId: req.companyId,
+      });
+    }
+
+    if (!employee || !employee.userId) {
+      return res.status(404).json({ message: "Employee user account not found" });
+    }
+
+    const user = await User.findById(employee.userId);
+    if (!user) {
+      return res.status(404).json({ message: "User account not found" });
+    }
+
+    user.password = newPassword;
+    user.isPasswordResetRequired = false;
+    await user.save();
+
+    await AuditLog.create({
+      action: "UPDATE",
+      module: "Employee",
+      performedBy: req.user._id,
+      companyId: req.companyId,
+      entityId: employee._id,
+      newData: { resetPassword: true },
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: `Password for ${employee.firstName || user.name} reset successfully` });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteEmployee = async (req, res, next) => {
+  try {
+    const employee = await Employee.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    });
+
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    const userId = employee.userId;
+    await employee.deleteOne();
+    if (userId) {
+      await User.findByIdAndDelete(userId);
+    }
+
+    res.json({ message: "Employee deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getMyEmployee,
+  getEmployees,
+  getEmployeeById,
+  createEmployee,
+  updateEmployee,
+  patchEmployeeStatus,
+  resetEmployeePassword,
+  deleteEmployee,
+};

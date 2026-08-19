@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Arial', sans-serif; font-size: 12px; color: #1e293b; background: #fff; }
+  .page { width: 794px; min-height: 1123px; margin: 0 auto; padding: 36px 40px; }
+
+  /* Header */
+  .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e40af; padding-bottom: 14px; margin-bottom: 18px; }
+  .company-name { font-size: 20px; font-weight: 800; color: #1e40af; }
+  .company-sub { font-size: 10px; color: #64748b; margin-top: 3px; }
+  .payslip-title { text-align: right; }
+  .payslip-title h2 { font-size: 15px; font-weight: 800; color: #1e293b; letter-spacing: 1px; }
+  .payslip-title .month { font-size: 11px; color: #64748b; margin-top: 2px; }
+  .payslip-id { font-size: 10px; color: #94a3b8; margin-top: 3px; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #16a34a; border: 1.5px solid #16a34a; margin-top: 5px; }
+
+  /* Section title */
+  .section-title { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; color: #fff; background: #1e40af; padding: 5px 10px; margin: 14px 0 8px 0; border-radius: 4px; }
+
+  /* Employee + Bank grid */
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; margin-bottom: 6px; }
+  .info-row { display: flex; gap: 6px; }
+  .info-label { font-size: 10px; color: #64748b; min-width: 110px; }
+  .info-val { font-size: 11px; font-weight: 700; color: #1e293b; }
+
+  /* Attendance table */
+  .att-table { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .att-cell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 7px 10px; }
+  .att-cell.highlight { background: #ecfdf5; border-color: #86efac; }
+  .att-cell.red { background: #fef2f2; border-color: #fca5a5; }
+  .att-label { font-size: 9px; color: #64748b; text-transform: uppercase; }
+  .att-val { font-size: 15px; font-weight: 800; margin-top: 2px; }
+  .att-cell.highlight .att-val { color: #16a34a; }
+  .att-cell.red .att-val { color: #dc2626; }
+
+  /* Salary table */
+  .sal-table { width: 100%; border-collapse: collapse; }
+  .sal-table th { background: #f1f5f9; font-size: 10px; font-weight: 700; color: #475569; padding: 6px 10px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+  .sal-table th.right { text-align: right; }
+  .sal-table td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
+  .sal-table td.right { text-align: right; font-weight: 600; }
+  .sal-table tr:nth-child(even) td { background: #f8fafc; }
+  .sal-table .total-row td { background: #1e40af; color: #fff; font-weight: 800; font-size: 12px; border: none; padding: 8px 10px; }
+  .sal-table .total-row td.right { text-align: right; }
+
+  /* Net salary box */
+  .net-box { background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color: #fff; border-radius: 10px; padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+  .net-label { font-size: 12px; font-weight: 600; opacity: 0.9; }
+  .net-amount { font-size: 22px; font-weight: 900; }
+  .net-words { font-size: 10px; opacity: 0.8; margin-top: 4px; }
+
+  /* Formula */
+  .formula-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 10px 14px; margin-top: 12px; }
+  .formula-text { font-size: 10px; color: #1e40af; font-family: monospace; }
+
+  /* Footer */
+  .footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: space-between; }
+  .footer-sig { text-align: center; }
+  .sig-line { border-top: 1px solid #94a3b8; width: 130px; margin: 0 auto 5px; }
+  .sig-label { font-size: 9px; color: #64748b; }
+  .footer-note { font-size: 9px; color: #94a3b8; text-align: center; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <div class="company-name">Nextact Pvt Ltd</div>
+      <div class="company-sub">Pune, Maharashtra</div>
+      <div class="company-sub">hr@icoded.com · +91 9876543210</div>
+    </div>
+    <div class="payslip-title">
+      <h2>SALARY SLIP</h2>
+      <div class="month">June 2026</div>
+      <div class="payslip-id">PAY-2026-06-EMP-001</div>
+      <span class="status-badge">PAID</span>
+    </div>
+  </div>
+
+  <!-- Employee Details -->
+  <div class="section-title">Employee Information</div>
+  <div class="info-grid">
+    <div>
+      <div class="info-row"><span class="info-label">Employee Name</span><span class="info-val">Rameshwar</span></div>
+      <div class="info-row"><span class="info-label">Employee Code</span><span class="info-val">EMP-001</span></div>
+      <div class="info-row"><span class="info-label">Department</span><span class="info-val">Engineering</span></div>
+      <div class="info-row"><span class="info-label">Designation</span><span class="info-val">Software Developer</span></div>
+    </div>
+    <div>
+      <div class="info-row"><span class="info-label">Bank Name</span><span class="info-val">State Bank of India</span></div>
+      <div class="info-row"><span class="info-label">Account No.</span><span class="info-val">12345678901</span></div>
+      <div class="info-row"><span class="info-label">IFSC Code</span><span class="info-val">SBIN0001234</span></div>
+      <div class="info-row"><span class="info-label">PAN</span><span class="info-val">ABCDE1234F</span></div>
+    </div>
+  </div>
+
+  <!-- Attendance Summary -->
+  <div class="section-title">Attendance Summary</div>
+  <div class="att-table">
+    
+      <div class="att-cell  ">
+        <div class="att-label">Total Calendar Days</div>
+        <div class="att-val">30</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Working Days</div>
+        <div class="att-val">26</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Weekly Offs</div>
+        <div class="att-val">4</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Holidays</div>
+        <div class="att-val">2</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Days Present</div>
+        <div class="att-val">20</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Half Days</div>
+        <div class="att-val">3</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Days Absent</div>
+        <div class="att-val">1</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Paid Leaves</div>
+        <div class="att-val">1</div>
+      </div>
+    
+      <div class="att-cell  ">
+        <div class="att-label">Unpaid / LOP Leaves</div>
+        <div class="att-val">0</div>
+      </div>
+    
+      <div class="att-cell highlight ">
+        <div class="att-label">Payable Days</div>
+        <div class="att-val">24.5</div>
+      </div>
+    
+      <div class="att-cell  red">
+        <div class="att-label">Loss of Pay Days</div>
+        <div class="att-val">1.5</div>
+      </div>
+    
+  </div>
+
+  <!-- Salary Breakdown -->
+  <div class="section-title">Salary Breakdown</div>
+  <table class="sal-table">
+    <thead>
+      <tr>
+        <th>Earnings</th>
+        <th class="right">Amount</th>
+        <th>Deductions</th>
+        <th class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+          <td>Basic Salary</td>
+          <td class="right">₹ 14,134.62</td>
+          <td style="color:#dc2626"></td>
+          <td class="right" style="color:#dc2626"></td>
+        </tr><tr>
+          <td>HRA</td>
+          <td class="right">₹ 9,423.08</td>
+          <td style="color:#dc2626"></td>
+          <td class="right" style="color:#dc2626"></td>
+        </tr><tr>
+          <td>Special Allowance</td>
+          <td class="right">₹ 4,711.54</td>
+          <td style="color:#dc2626"></td>
+          <td class="right" style="color:#dc2626"></td>
+        </tr>
+      <tr class="total-row">
+        <td>Gross Earnings</td>
+        <td class="right">₹ 28,269.23</td>
+        <td>Total Deductions</td>
+        <td class="right">₹ 0.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- Net Salary -->
+  <div class="net-box">
+    <div>
+      <div class="net-label">Net Salary (Take Home)</div>
+      <div class="net-words">Twenty Eight Thousand Two Hundred and Sixty Nine Rupees Only</div>
+    </div>
+    <div class="net-amount">₹ 28,269.00</div>
+  </div>
+
+  <!-- Formula -->
+  
+  <div class="formula-box">
+    <div class="formula-text">
+      Formula: ₹30,000 (Monthly CTC) ÷ 26 (Payable Days) × 24.5 (Employee Days) = ₹ 28,269.00 Net
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <div class="footer-sig">
+      <div class="sig-line"></div>
+      <div class="sig-label">Employee Signature</div>
+    </div>
+    <div style="text-align:center; font-size:10px; color:#94a3b8;">
+      This is a computer-generated payslip.<br/>No signature required.
+    </div>
+    <div class="footer-sig">
+      <div class="sig-line"></div>
+      <div class="sig-label">Authorized Signatory</div>
+    </div>
+  </div>
+  <div class="footer-note">Generated on 25 June 2026 · Nextact Pvt Ltd HRMS</div>
+
+</div>
+</body>
+</html>

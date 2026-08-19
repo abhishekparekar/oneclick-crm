@@ -1,0 +1,32 @@
+[
+  {
+    "_id": "6a2becc7cd24415bbf271631",
+    "companyId": "6a154be9586c3e7e12bedcfc",
+    "employeeId": "6a155ad4586c3e7e12bedd09",
+    "month": "6",
+    "year": 2026,
+    "basicSalary": 35000,
+    "hra": 0,
+    "allowances": 2000,
+    "deductions": 2000,
+    "pf": 0,
+    "esi": 0,
+    "tds": 0,
+    "grossSalary": 0,
+    "netSalary": 35000,
+    "attendanceRate": 100,
+    "performanceScore": 40,
+    "paidDays": 30,
+    "totalDays": 30,
+    "performanceBonus": 0,
+    "attendanceDeduction": 0,
+    "status": "paid",
+    "paidAt": "2026-06-24T13:55:19.260Z",
+    "createdAt": "2026-06-12T11:25:59.855Z",
+    "updatedAt": "2026-06-24T13:55:19.261Z",
+    "__v": 0,
+    "paidBy": "6a154be9586c3e7e12bedcfd",
+    "paymentDate": "2026-06-24T13:55:19.260Z",
+    "paymentStatus": "paid"
+  }
+]
