@@ -330,14 +330,14 @@ const {
     updateSettings,
 } = require("../controllers/attendanceController");
 
-router.get("/attendance", ...adminOnly, companyAttendance);
-router.get("/attendance/:employeeId/monthly", ...adminOnly, employeeAttendance);
-router.patch("/attendance/:id/manual-update", ...adminOnly, manualUpdateAttendance);
-router.post("/attendance/manual-update", ...adminOnly, manualUpdateAttendance);
-router.delete("/attendance/:id", ...adminOnly, deleteAttendance);
-router.get("/attendance/regularization", ...adminOnly, getRegularizationRequests);
-router.patch("/attendance/regularization/:id/approve", ...adminOnly, approveRegularization);
-router.patch("/attendance/regularization/:id/reject", ...adminOnly, rejectRegularization);
+router.get("/attendance", ...adminHr, companyAttendance);
+router.get("/attendance/:employeeId/monthly", ...adminHr, employeeAttendance);
+router.patch("/attendance/:id/manual-update", ...adminHr, manualUpdateAttendance);
+router.post("/attendance/manual-update", ...adminHr, manualUpdateAttendance);
+router.delete("/attendance/:id", ...adminHr, deleteAttendance);
+router.get("/attendance/regularization", ...adminHr, getRegularizationRequests);
+router.patch("/attendance/regularization/:id/approve", ...adminHr, approveRegularization);
+router.patch("/attendance/regularization/:id/reject", ...adminHr, rejectRegularization);
 
 // Attendance Settings
 router.get("/attendance-settings", ...adminHr, getSettings);

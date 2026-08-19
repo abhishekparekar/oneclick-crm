@@ -1,8 +1,12 @@
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
+const connectDB = require("../config/db");
 
 const protect = async (req, res, next) => {
   let token;
+
+  // Ensure DB connection is active for serverless/cold starts
+  await connectDB();
 
   if (
     req.headers.authorization &&
@@ -10,11 +14,9 @@ const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(" ")[1];
-      console.log("[Auth Middleware] Token received, verifying...");
       
       const secret = process.env.JWT_SECRET || "oneclick_secret_key_2026";
       const decoded = jwt.verify(token, secret);
-      console.log("[Auth Middleware] Token verified, user ID:", decoded.id);
 
       req.user = await User.findById(decoded.id).select("-password");
 
@@ -23,7 +25,7 @@ const protect = async (req, res, next) => {
         return res.status(401).json({ message: "User not found" });
       }
 
-      if (!req.user.isActive) {
+      if (req.user.isActive === false) {
         console.warn("[Auth Middleware] Account is inactive for user:", req.user.email);
         return res.status(401).json({ message: "Account is deactivated" });
       }

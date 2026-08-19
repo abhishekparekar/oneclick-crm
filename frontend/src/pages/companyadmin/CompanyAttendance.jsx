@@ -197,7 +197,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-8 sm:h-9 w-10 sm:w-12 opacity-65 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={32}>
           <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={`sk-att-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -263,7 +263,7 @@ const CompanyAttendance = () => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: settingsRes } = useQuery({ queryKey: ["companySettings"], queryFn: getCompanySettingsApi });
+  const { data: settingsRes } = useQuery({ queryKey: ["companySettings"], queryFn: () => getCompanySettingsApi() });
   const companyWorkingDays = settingsRes?.data?.settings?.workingDays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 
   // ── States ─────────────────────────────────────────────────────────────────
@@ -325,25 +325,25 @@ const CompanyAttendance = () => {
   // Departments
   const { data: deptsRes } = useQuery({
     queryKey: ["companyDepartmentsList"],
-    queryFn: getDepartmentsApi,
+    queryFn: () => getDepartmentsApi(),
   });
 
   // Branches
   const { data: branchesRes } = useQuery({
     queryKey: ["companyBranchesList"],
-    queryFn: getBranchesApi,
+    queryFn: () => getBranchesApi(),
   });
 
   // Pending regularizations
   const { data: regularizationRes, refetch: refetchRegularizations } = useQuery({
     queryKey: ["pendingRegularizations"],
-    queryFn: getRegularizationRequestsApi,
+    queryFn: () => getRegularizationRequestsApi(),
   });
 
   // Attendance settings
   const { data: attendanceSettingsRes, refetch: refetchSettings } = useQuery({
     queryKey: ["attendanceSettings"],
-    queryFn: getAttendanceSettingsApi,
+    queryFn: () => getAttendanceSettingsApi(),
   });
 
   // Monthly attendance grid for selected employee

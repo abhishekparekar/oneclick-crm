@@ -40,7 +40,10 @@ export const getCompanyAttendanceApi = (params = {}) => api.get("/company/attend
 export const getEmployeeAttendanceApi = (employeeId, params = {}) => api.get(`/company/attendance/${employeeId}/monthly`, { params });
 export const manualUpdateAttendanceApi = (id, data) => api.patch(`/company/attendance/${id}/manual-update`, data);
 export const deleteAttendanceApi = (id) => api.delete(`/company/attendance/${id}`);
-export const getRegularizationRequestsApi = (params = {}) => api.get("/company/attendance/regularization", { params });
+export const getRegularizationRequestsApi = (params = {}) => {
+  const cleanParams = params && typeof params === 'object' && !params.queryKey && !params.client && !params.signal ? params : {};
+  return api.get("/company/attendance/regularization", { params: cleanParams });
+};
 export const approveRegularizationApi = (id) => api.patch(`/company/attendance/regularization/${id}/approve`);
 export const rejectRegularizationApi = (id, reason) => api.patch(`/company/attendance/regularization/${id}/reject`, { rejectionReason: reason });
 export const getAttendanceSettingsApi = () => api.get("/company/attendance-settings");
