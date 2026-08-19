@@ -967,7 +967,7 @@ const AddEmployee = () => {
       {/* ── Sticky Bottom Action Bar ─────────────────────────────────────────── */}
       <div className="fixed bottom-0 left-56 right-0 bg-ca-surface border-t border-ca-border px-6 py-3 flex items-center justify-between z-30 shadow-lg">
         <div className="flex items-center space-x-2">
-          <Link to="/company/employees" className="px-4 py-2 text-sm font-medium text-ca-text-secondary hover:text-ca-text transition-colors">
+          <Link to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees`} className="px-4 py-2 text-sm font-medium text-ca-text-secondary hover:text-ca-text transition-colors">
             Cancel
           </Link>
           {step > 1 && (

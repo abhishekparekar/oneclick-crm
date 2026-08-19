@@ -182,6 +182,7 @@ const AppRoutes = () => {
             <Route path="upload-document" element={<UploadDocument />} />
             <Route path="employees/add" element={<AddEmployee />} />
             <Route path="employees/edit/:id" element={<EditEmployee />} />
+            <Route path="employees/:id/edit" element={<EditEmployee />} />
 
             {/* Time Off */}
             <Route path="leaves" element={<LeaveRequests />} />
@@ -238,6 +239,7 @@ const AppRoutes = () => {
             <Route path="upload-document" element={<UploadDocument />} />
             <Route path="employees/add" element={<AddEmployee />} />
             <Route path="employees/edit/:id" element={<EditEmployee />} />
+            <Route path="employees/:id/edit" element={<EditEmployee />} />
             <Route path="departments" element={<Departments />} />
 
             {/* Attendance & Time-Off */}

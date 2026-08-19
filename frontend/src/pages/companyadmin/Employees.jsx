@@ -105,7 +105,7 @@ const ActionMenu = ({ employee, onView, onToggleStatus, onResetPassword, onDelet
             <button onClick={() => { onView(employee); setPos(null); }} className="flex items-center space-x-2.5 w-full px-3.5 py-2 text-[13px] text-ca-text hover:bg-ca-bg">
               <Eye size={14} className="text-ca-text-secondary" /><span>View Details</span>
             </button>
-            <Link to={`/company/employees/edit/${employee._id}`} className="flex items-center space-x-2.5 w-full px-3.5 py-2 text-[13px] text-ca-text hover:bg-ca-bg" onClick={() => setPos(null)}>
+            <Link to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${employee._id}`} className="flex items-center space-x-2.5 w-full px-3.5 py-2 text-[13px] text-ca-text hover:bg-ca-bg" onClick={() => setPos(null)}>
               <Edit2 size={14} className="text-ca-text-secondary" /><span>Edit Employee</span>
             </Link>
             <button onClick={() => { onToggleStatus(employee); setPos(null); }} className="flex items-center space-x-2.5 w-full px-3.5 py-2 text-[13px] text-ca-text hover:bg-ca-bg">
@@ -539,7 +539,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
         {/* Drawer Sticky Footer Actions */}
         <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] p-4 flex items-center gap-2.5 z-10 shadow-lg">
           <Link
-            to={`/company/employees/edit/${employee._id}`}
+            to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${employee._id}`}
             className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
           >
             <Edit2 size={13} strokeWidth={2.5} /> <span>Edit Employee</span>
@@ -750,7 +750,7 @@ const Employees = () => {
               <RefreshCw size={14} className={isRefetching ? "animate-spin text-amber-500" : ""} />
             </button>
             <Link
-              to="/company/employees/add"
+              to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/add`}
               className="flex-1 sm:flex-initial flex items-center justify-center space-x-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-bold shadow-xs transition-all"
             >
               <UserPlus size={14} strokeWidth={2.5} /><span>Add Team Member</span>

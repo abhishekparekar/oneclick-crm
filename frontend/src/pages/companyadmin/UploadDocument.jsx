@@ -697,7 +697,7 @@ const UploadDocument = () => {
                   </div>
 
                   <Link
-                    to={`/company/employees/${selectedEmployee._id}/edit`}
+                    to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${selectedEmployee._id}`}
                     className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all text-xs font-bold flex items-center gap-1"
                     title="Open Full 7-Step Employee Editor"
                   >
@@ -1000,7 +1000,7 @@ const UploadDocument = () => {
                             <Download size={13} />
                           </a>
                           <Link
-                            to={`/company/employees/${doc.employeeId}/edit`}
+                            to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${doc.employeeId}`}
                             className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 transition-all"
                             title="Edit Employee"
                           >
@@ -1115,7 +1115,7 @@ const UploadDocument = () => {
                                 <Download size={14} />
                               </a>
                               <Link
-                                to={`/company/employees/${doc.employeeId}/edit`}
+                                to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${doc.employeeId}`}
                                 className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
                                 title="Edit Employee"
                               >

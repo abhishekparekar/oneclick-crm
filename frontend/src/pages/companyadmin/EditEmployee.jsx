@@ -555,7 +555,7 @@ export default function EditEmployee() {
         <AlertTriangle size={36} />
         <p className="text-sm font-extrabold text-slate-900 dark:text-white">Failed to load employee</p>
         <p className="text-xs text-slate-400">{error?.response?.data?.message || "Please check your network and try again."}</p>
-        <Link to="/company/employees" className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
+        <Link to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees`} className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
           Return to Employee Directory
         </Link>
       </div>
@@ -565,6 +565,7 @@ export default function EditEmployee() {
   const name = `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Employee";
   const initials = name.slice(0, 2).toUpperCase();
   const photoUrl = getPhotoUrl(formData.photo);
+  const baseRoute = window.location.pathname.startsWith("/hr") ? "/hr" : "/company";
 
   return (
     <div className="min-h-screen pb-24 space-y-6">
@@ -574,7 +575,7 @@ export default function EditEmployee() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link
-              to="/company/employees"
+              to={`${baseRoute}/employees`}
               className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
               title="Back to Employees"
             >
