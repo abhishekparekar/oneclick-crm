@@ -65,3 +65,9 @@ desktop.ini
 **/android/build/
 *.apk
 *.aab
+
+# Uploaded files
+uploads/
+**/uploads/*
+!**/uploads/**/.gitkeep
+
