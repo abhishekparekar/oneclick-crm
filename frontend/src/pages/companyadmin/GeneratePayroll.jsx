@@ -615,18 +615,18 @@ const GeneratePayroll = () => {
                     </h4>
                     <span className="text-[10px] font-mono text-slate-400">{activeOverrideEmp.employeeSnapshot?.employeeCode}</span>
                   </div>
-                  {activeOverrideEmp.advanceSummary?.activeAdvance && activeOverrideEmp.advanceSummary?.remainingBalance > 0 && (
+                  {((activeOverrideEmp.deductions?.advanceRecoveryDetails?.length > 0) || (activeOverrideEmp.deductions?.advanceDeduction > 0)) && (
                     <div className="pt-1.5 border-t border-slate-200/60 dark:border-slate-800 flex items-center justify-between text-[10.5px]">
                       <span className="text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1">
                         <Banknote size={12} />
-                        Active Loan Bal: {fmt(activeOverrideEmp.advanceSummary.remainingBalance)}
+                        Auto Advance Scheduled: {fmt(activeOverrideEmp.deductions?.advanceDeduction || 0)}
                       </span>
                       <span className="text-slate-500 dark:text-slate-400 font-semibold">
-                        {activeOverrideEmp.advanceSummary.repaymentMode === "salary_deduction"
-                          ? (activeOverrideEmp.advanceSummary.deductionType === "percentage_salary"
-                              ? `${activeOverrideEmp.advanceSummary.monthlyDeductionPercentage}% Salary EMI`
-                              : `${fmt(activeOverrideEmp.advanceSummary.monthlyDeductionAmount)}/mo`)
-                          : "Direct Payment"}
+                        {activeOverrideEmp.deductions?.advanceRecoveryDetails?.[0]?.repaymentType === "percentage_of_salary"
+                          ? "Percentage of Salary Deduction"
+                          : activeOverrideEmp.deductions?.advanceRecoveryDetails?.[0]?.repaymentType === "fixed_monthly_amount"
+                          ? "Fixed EMI Deduction"
+                          : "Payroll Recovery"}
                       </span>
                     </div>
                   )}
