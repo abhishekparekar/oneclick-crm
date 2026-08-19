@@ -1,327 +1,1060 @@
 import { useState, useMemo, useRef } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getEmployeesApi, uploadEmployeeDocumentApi } from "../../api/companyAdminApi";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { Link } from "react-router-dom";
 import {
   FileUp, User, Tag, UploadCloud, CheckCircle2,
-  ChevronDown, X, FileText, Image, File, Sparkles,
-  ArrowUp, ArrowDown, ShieldCheck, FolderUp, Check
+  ChevronDown, X, FileText, Image as ImageIcon, File, Sparkles,
+  ArrowUp, ArrowDown, ShieldCheck, FolderUp, Check, Search,
+  Filter, Eye, Download, ExternalLink, RefreshCw, AlertCircle,
+  Building2, Briefcase, Plus, FolderCheck, CreditCard, Award,
+  Clock, ArrowRight, UserCheck
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ── Document Category Definitions ─────────────────────────────────────────────
 const DOCUMENT_CATEGORIES = [
-  { label: "Offer Letter",        value: "Offer Letter",        icon: "📄" },
-  { label: "Joining Letter",      value: "Joining Letter",      icon: "📋" },
-  { label: "Aadhaar Card",        value: "Aadhaar Card",        icon: "🪪" },
-  { label: "PAN Card",            value: "PAN Card",            icon: "💳" },
-  { label: "Resume",              value: "Resume",              icon: "📝" },
-  { label: "Previous Salary Slip",value: "Previous Salary Slip",icon: "💰" },
-  { label: "Other (Custom)",      value: "Other",               icon: "✏️" },
+  { label: "Offer Letter",          value: "Offer Letter",          icon: "📄", color: "text-blue-500",   bg: "bg-blue-500/10",   border: "border-blue-500/20" },
+  { label: "Joining Letter",        value: "Joining Letter",        icon: "📋", color: "text-indigo-500", bg: "bg-indigo-500/10", border: "border-indigo-500/20" },
+  { label: "Aadhaar Card",          value: "Aadhaar Card",          icon: "🪪", color: "text-emerald-500",bg: "bg-emerald-500/10",border: "border-emerald-500/20" },
+  { label: "PAN Card",              value: "PAN Card",              icon: "💳", color: "text-purple-500", bg: "bg-purple-500/10", border: "border-purple-500/20" },
+  { label: "Resume / CV",           value: "Resume",                icon: "📝", color: "text-amber-500",  bg: "bg-amber-500/10",  border: "border-amber-500/20" },
+  { label: "Previous Salary Slip",  value: "Previous Salary Slip",  icon: "💰", color: "text-teal-500",   bg: "bg-teal-500/10",   border: "border-teal-500/20" },
+  { label: "Other / Custom Proof",  value: "Other",                 icon: "✨", color: "text-rose-500",   bg: "bg-rose-500/10",   border: "border-rose-500/20" },
 ];
 
-// ── Top KPI Stat Card ──────────────────────────────────────────────────────────
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }) => {
-  const sparkData = useMemo(() => [
-    { v: 12 }, { v: 22 }, { v: 18 }, { v: 28 }, { v: 24 }, { v: 34 }, { v: 30 }, { v: 42 },
-  ], []);
+const STANDARD_DOC_FIELDS = [
+  { key: "aadhaarFront",       title: "Aadhaar Card (Front/Main)", icon: "🪪", category: "Identity" },
+  { key: "aadhaarBack",        title: "Aadhaar Card (Back)",       icon: "🪪", category: "Identity" },
+  { key: "panCard",            title: "PAN Card",                  icon: "💳", category: "Identity" },
+  { key: "offerLetter",        title: "Offer Letter",              icon: "📄", category: "Contract" },
+  { key: "joiningLetter",      title: "Joining Letter",            icon: "📋", category: "Contract" },
+  { key: "resume",             title: "Resume / CV",               icon: "📝", category: "Career" },
+  { key: "salarySlipPrevious", title: "Previous Salary Slip",      icon: "💰", category: "Finance" },
+];
 
-  return (
-    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group">
-      <div className="flex-1 min-w-0 pr-2">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
-            <Icon size={13} style={{ color: iconColor }} strokeWidth={2.4} />
-          </div>
-          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</span>
-        </div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight leading-tight mb-1 truncate">{value}</h3>
-        <div className="flex items-center gap-1 text-[11px]">
-          <span className={`inline-flex items-center font-medium ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={10} strokeWidth={2.5}/> : <ArrowDown size={10} strokeWidth={2.5}/>}
-            {trend}
-          </span>
-          <span className="text-slate-400 text-[9.5px] truncate">vs {period}</span>
-        </div>
-      </div>
-      <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={40}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-[#E65100]-doc-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-[#E65100]-doc-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-};
+// ── Avatar styling ────────────────────────────────────────────────────────────
+const AVATAR_BG = [
+  "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
+];
+const getAvatarClass = (name) => AVATAR_BG[(name?.charCodeAt(0) || 0) % AVATAR_BG.length];
 
-// ── Mini custom select ─────────────────────────────────────────────────────────
-const CustomSelect = ({ value, onChange, options, placeholder, disabled }) => {
-  const [open, setOpen] = useState(false);
-  const selected = options.find((o) => o.value === value);
-  return (
-    <div className="relative">
-      {open && <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />}
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border rounded-xl text-xs font-bold cursor-pointer transition-all ${
-          open
-            ? "border-amber-500 ring-2 ring-amber-500/20 text-slate-900 dark:text-white"
-            : value
-            ? "border-amber-500/50 text-slate-900 dark:text-white shadow-2xs"
-            : "border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 hover:border-amber-500/40"
-        } disabled:opacity-50 disabled:cursor-not-allowed`}
-      >
-        <span className="flex items-center gap-2 truncate">
-          {selected?.icon && <span>{selected.icon}</span>}
-          {selected ? selected.label : placeholder}
-        </span>
-        <ChevronDown size={14} className={`flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180 text-amber-500" : "text-slate-400"}`} />
-      </button>
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-30 w-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden">
-          <div className="py-1 max-h-56 overflow-y-auto custom-scrollbar">
-            <button
-              type="button"
-              onClick={() => { onChange(""); setOpen(false); }}
-              className={`w-full text-left px-3.5 py-2 text-xs font-bold transition-colors ${!value ? "bg-amber-500 text-slate-950 font-extrabold" : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"}`}
-            >
-              {placeholder}
-            </button>
-            {options.map((o) => (
-              <button
-                key={o.value}
-                type="button"
-                onClick={() => { onChange(o.value); setOpen(false); }}
-                className={`w-full text-left px-3.5 py-2 text-xs font-bold flex items-center gap-2 transition-colors ${
-                  value === o.value
-                    ? "bg-amber-500 text-slate-950 font-extrabold"
-                    : "text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-              >
-                <span>{o.icon}</span>{o.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+const getSafeUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
+  return `${base}/${trimmed.replace(/^\/+/, "")}`;
 };
 
 const formatBytes = (bytes) => {
+  if (!bytes || bytes === 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
+// ── Real-Time KPI Stat Card ───────────────────────────────────────────────────
+const RealTimeKPICard = ({ label, value, subtext, Icon, iconBg, iconColor, progress }) => {
+  return (
+    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-2xs hover:shadow-md transition-all duration-300 group">
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div>
+          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+            {label}
+          </span>
+          <h3 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight mt-0.5">
+            {value}
+          </h3>
+        </div>
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs group-hover:scale-105 transition-transform`}>
+          <Icon size={18} style={{ color: iconColor }} strokeWidth={2.4} />
+        </div>
+      </div>
+
+      {progress !== undefined && (
+        <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden mb-2">
+          <div
+            className="h-full rounded-full transition-all duration-500"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%`, backgroundColor: iconColor }}
+          />
+        </div>
+      )}
+
+      <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-500 truncate">
+        {subtext}
+      </p>
+    </div>
+  );
+};
+
 const UploadDocument = () => {
+  const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("upload"); // "upload" | "vault"
   const [employeeId, setEmployeeId] = useState("");
-  const [category,   setCategory]   = useState("");
+  const [category, setCategory] = useState("");
   const [customCategory, setCustomCategory] = useState("");
-  const [file, setFile]             = useState(null);
+  const [file, setFile] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [searchEmployeeQuery, setSearchEmployeeQuery] = useState("");
+  const [vaultSearchQuery, setVaultSearchQuery] = useState("");
+  const [vaultFilterCategory, setVaultFilterCategory] = useState("all");
+  const [isEmpDropdownOpen, setIsEmpDropdownOpen] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleFileChange = (e) => { if (e.target.files?.[0]) setFile(e.target.files[0]); };
-  const handleDragOver  = (e) => e.preventDefault();
-  const handleDragEnter = (e) => { e.preventDefault(); setIsDragging(true); };
-  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
-  const handleDrop      = (e) => {
-    e.preventDefault(); setIsDragging(false);
-    if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
-  };
-
-  const { data: empRes, isLoading: isEmpLoading } = useQuery({
+  // ── Fetch Real-time Employees from Database ─────────────────────────────────
+  const { data: empRes, isLoading: isEmpLoading, refetch } = useQuery({
     queryKey: ["employeesList"],
     queryFn: () => getEmployeesApi({ limit: 1000 }),
   });
+
   const employees = useMemo(() => empRes?.data?.employees || [], [empRes]);
 
-  const employeeOptions = employees.map((emp) => ({
-    value: emp._id,
-    label: `${emp.user?.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim()} (${emp.employeeCode})`,
-    icon: "👤",
-  }));
+  // Selected Employee object
+  const selectedEmployee = useMemo(() => {
+    return employees.find((e) => e._id === employeeId) || null;
+  }, [employees, employeeId]);
 
+  // ── Flatten All Real Documents in Database ──────────────────────────────────
+  const allVaultDocuments = useMemo(() => {
+    const docs = [];
+    employees.forEach((emp) => {
+      const empName = emp.user?.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown Employee";
+      const empCode = emp.employeeCode || "—";
+      const empDept = emp.departmentId?.name || emp.department?.name || "General";
+      const empRole = emp.role || emp.designationId?.name || "Staff";
+      const empPhoto = emp.photo || emp.user?.profileImage;
+
+      // Standard docs
+      if (emp.documents) {
+        STANDARD_DOC_FIELDS.forEach((std) => {
+          const docUrl = emp.documents[std.key];
+          if (docUrl && typeof docUrl === "string" && docUrl.trim()) {
+            docs.push({
+              id: `${emp._id}-${std.key}`,
+              employeeId: emp._id,
+              employeeName: empName,
+              employeeCode: empCode,
+              employeeDept: empDept,
+              employeeRole: empRole,
+              employeePhoto: empPhoto,
+              title: std.title,
+              category: std.category,
+              icon: std.icon,
+              url: docUrl,
+              isCustom: false,
+              uploadedAt: emp.updatedAt || emp.createdAt || null,
+            });
+          }
+        });
+
+        // Custom docs
+        if (Array.isArray(emp.documents.customDocuments)) {
+          emp.documents.customDocuments.forEach((cd, idx) => {
+            if (cd && cd.url) {
+              docs.push({
+                id: `${emp._id}-custom-${idx}`,
+                employeeId: emp._id,
+                employeeName: empName,
+                employeeCode: empCode,
+                employeeDept: empDept,
+                employeeRole: empRole,
+                employeePhoto: empPhoto,
+                title: cd.title || "Custom Document",
+                category: "Custom",
+                icon: "✨",
+                url: cd.url,
+                isCustom: true,
+                uploadedBy: cd.uploadedBy || "Admin",
+                uploadedAt: cd.uploadedAt || null,
+              });
+            }
+          });
+        }
+      }
+    });
+    return docs;
+  }, [employees]);
+
+  // ── Real-time Database Metrics ──────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const totalDocs = allVaultDocuments.length;
+    const totalEmployees = employees.length;
+    const identityDocs = allVaultDocuments.filter((d) => d.category === "Identity").length;
+    const contractDocs = allVaultDocuments.filter((d) => d.category === "Contract").length;
+    const employeesWithDocs = employees.filter((emp) => {
+      const hasStd = emp.documents && Object.keys(emp.documents).some((k) => k !== "customDocuments" && Boolean(emp.documents[k]));
+      const hasCust = emp.documents?.customDocuments?.length > 0;
+      return hasStd || hasCust;
+    }).length;
+
+    const complianceRate = totalEmployees > 0 ? Math.round((employeesWithDocs / totalEmployees) * 100) : 0;
+
+    return {
+      totalDocs,
+      totalEmployees,
+      identityDocs,
+      contractDocs,
+      employeesWithDocs,
+      complianceRate,
+    };
+  }, [allVaultDocuments, employees]);
+
+  // Filtered employees for dropdown
+  const filteredEmployees = useMemo(() => {
+    if (!searchEmployeeQuery.trim()) return employees;
+    const q = searchEmployeeQuery.toLowerCase();
+    return employees.filter((e) => {
+      const name = `${e.firstName || ""} ${e.lastName || ""} ${e.user?.name || ""}`.toLowerCase();
+      const code = (e.employeeCode || "").toLowerCase();
+      const dept = (e.departmentId?.name || e.department?.name || "").toLowerCase();
+      return name.includes(q) || code.includes(q) || dept.includes(q);
+    });
+  }, [employees, searchEmployeeQuery]);
+
+  // Filtered Vault Documents
+  const filteredVaultDocs = useMemo(() => {
+    return allVaultDocuments.filter((d) => {
+      const matchesSearch =
+        vaultSearchQuery.trim() === "" ||
+        d.employeeName.toLowerCase().includes(vaultSearchQuery.toLowerCase()) ||
+        d.employeeCode.toLowerCase().includes(vaultSearchQuery.toLowerCase()) ||
+        d.title.toLowerCase().includes(vaultSearchQuery.toLowerCase()) ||
+        d.employeeDept.toLowerCase().includes(vaultSearchQuery.toLowerCase());
+
+      const matchesCat =
+        vaultFilterCategory === "all" ||
+        (vaultFilterCategory === "identity" && d.category === "Identity") ||
+        (vaultFilterCategory === "contract" && d.category === "Contract") ||
+        (vaultFilterCategory === "career" && d.category === "Career") ||
+        (vaultFilterCategory === "finance" && d.category === "Finance") ||
+        (vaultFilterCategory === "custom" && d.category === "Custom");
+
+      return matchesSearch && matchesCat;
+    });
+  }, [allVaultDocuments, vaultSearchQuery, vaultFilterCategory]);
+
+  // ── Drag & Drop Handlers ────────────────────────────────────────────────────
+  const handleFileChange = (e) => {
+    if (e.target.files?.[0]) setFile(e.target.files[0]);
+  };
+  const handleDragOver = (e) => e.preventDefault();
+  const handleDragEnter = (e) => { e.preventDefault(); setIsDragging(true); };
+  const handleDragLeave = (e) => { e.preventDefault(); setIsDragging(false); };
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files?.[0]) setFile(e.dataTransfer.files[0]);
+  };
+
+  // ── Upload Mutation ─────────────────────────────────────────────────────────
   const uploadMutation = useMutation({
     mutationFn: (formData) => uploadEmployeeDocumentApi(employeeId, formData),
     onSuccess: () => {
-      toast.success("Document uploaded successfully!");
-      setEmployeeId(""); setCategory(""); setCustomCategory(""); setFile(null);
+      toast.success("Document uploaded & saved to database successfully!");
+      queryClient.invalidateQueries({ queryKey: ["employeesList"] });
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      setCategory("");
+      setCustomCategory("");
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     },
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to upload document"),
+    onError: (err) => {
+      toast.error(err.response?.data?.message || "Failed to upload document");
+    },
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!employeeId)  return toast.error("Please select an employee.");
-    if (!category)    return toast.error("Please select a document category.");
-    if (category === "Other" && !customCategory.trim()) return toast.error("Please enter a custom category name.");
-    if (!file)        return toast.error("Please select a file to upload.");
+    if (!employeeId) return toast.error("Please select a target employee.");
+    if (!category) return toast.error("Please select a document category.");
+    if (category === "Other" && !customCategory.trim()) return toast.error("Please enter a custom document title.");
+    if (!file) return toast.error("Please select a file to upload.");
+
     const finalCategory = category === "Other" ? customCategory.trim() : category;
     const fd = new FormData();
+    fd.append("title", finalCategory);
     fd.append("documentType", finalCategory);
     fd.append("file", file);
     uploadMutation.mutate(fd);
   };
 
-  const isComplete = employeeId && category && (category !== "Other" || customCategory.trim()) && file;
+  const isFormComplete = employeeId && category && (category !== "Other" || customCategory.trim()) && file;
 
   return (
-    <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100">
-
-      {/* ── Page Header Banner ── */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1 pb-1">
+    <div className="space-y-5 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-[1600px] mx-auto">
+      
+      {/* ── Header Bar ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1 border-b border-slate-200/80 dark:border-slate-800">
         <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            Upload Employee Document <FileUp size={20} className="text-amber-500" />
-          </h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Attach official identity cards, offer letters, resumes, and salary slips directly to employee profiles.
-          </p>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shadow-xs">
+              <FileUp size={22} strokeWidth={2.2} />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Employee Document Vault
+              </h1>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Official document storage, KYC verification & real-time compliance tracker.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* View Toggle Tabs */}
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <button
+            onClick={() => setActiveTab("upload")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "upload"
+                ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20"
+                : "bg-white dark:bg-[#111C24] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40"
+            }`}
+          >
+            <FolderUp size={15} />
+            <span>Upload Document</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab("vault")}
+            className={`px-3.5 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+              activeTab === "vault"
+                ? "bg-amber-500 text-slate-950 shadow-sm shadow-amber-500/20"
+                : "bg-white dark:bg-[#111C24] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-800 hover:border-amber-500/40"
+            }`}
+          >
+            <FolderCheck size={15} />
+            <span>All Documents Vault ({stats.totalDocs})</span>
+          </button>
+
+          <button
+            onClick={() => refetch()}
+            title="Refresh database records"
+            className="p-2 rounded-xl bg-white dark:bg-[#111C24] text-slate-500 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800 transition-all cursor-pointer"
+          >
+            <RefreshCw size={15} className={isEmpLoading ? "animate-spin text-amber-500" : ""} />
+          </button>
         </div>
       </div>
 
-      {/* ── Top 4 Compact KPI Stat Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5">
-        <KPICard label="Total Uploaded Docs" value="128 Files" trend="12.5%" isUp period="last month" strokeColor="#06B6D4" Icon={FileText} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label="Aadhaar & Identity" value="48 Uploaded" trend="9.4%" isUp period="last month" strokeColor="#10B981" Icon={ShieldCheck} iconBg="bg-emerald-500/10" iconColor="#059669" />
-        <KPICard label="Offer & Joining Letters" value="36 Files" trend="15.2%" isUp period="last month" strokeColor="#8B5CF6" Icon={FolderUp} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
-        <KPICard label="Recent Uploads" value="14 Today" trend="8.0%" isUp period="last 24 hours" strokeColor="#EAB308" Icon={UploadCloud} iconBg="bg-amber-500/10" iconColor="#D97706" />
+      {/* ── Real-Time Metrics (Calculated directly from Database) ─────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <RealTimeKPICard
+          label="Total Uploaded Docs"
+          value={`${stats.totalDocs} Files`}
+          subtext={`Stored in database across ${stats.totalEmployees} employees`}
+          Icon={FileText}
+          iconBg="bg-blue-500/10"
+          iconColor="#3B82F6"
+          progress={stats.totalEmployees > 0 ? (stats.totalDocs / (stats.totalEmployees * 4)) * 100 : 0}
+        />
+        <RealTimeKPICard
+          label="Identity & KYC Docs"
+          value={`${stats.identityDocs} Verified`}
+          subtext="Aadhaar & PAN cards on file"
+          Icon={ShieldCheck}
+          iconBg="bg-emerald-500/10"
+          iconColor="#10B981"
+          progress={stats.totalEmployees > 0 ? (stats.identityDocs / (stats.totalEmployees * 2)) * 100 : 0}
+        />
+        <RealTimeKPICard
+          label="Contracts & Offers"
+          value={`${stats.contractDocs} Issued`}
+          subtext="Offer and joining letter agreements"
+          Icon={Award}
+          iconBg="bg-purple-500/10"
+          iconColor="#8B5CF6"
+          progress={stats.totalEmployees > 0 ? (stats.contractDocs / stats.totalEmployees) * 100 : 0}
+        />
+        <RealTimeKPICard
+          label="Workforce Coverage"
+          value={`${stats.complianceRate}% Documented`}
+          subtext={`${stats.employeesWithDocs} of ${stats.totalEmployees} employees have files`}
+          Icon={UserCheck}
+          iconBg="bg-amber-500/10"
+          iconColor="#F59E0B"
+          progress={stats.complianceRate}
+        />
       </div>
 
-      {/* ── Form Card ── */}
-      <div className="max-w-2xl mx-auto bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
-        <form onSubmit={handleSubmit} className="divide-y divide-slate-100 dark:divide-slate-800/80">
-
-          {/* Step 1 — Employee */}
-          <div className="p-5 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 text-xs font-black flex items-center justify-center">1</div>
-              <label className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider">Select Target Employee *</label>
+      {/* ── MAIN CONTENT AREA ───────────────────────────────────────────────── */}
+      {activeTab === "upload" ? (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          
+          {/* ── Left Column: Upload Wizard Form ──────────────────────────────── */}
+          <div className="lg:col-span-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-6">
+            <div>
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                  <UploadCloud size={18} className="text-amber-500" />
+                  Attach New Document
+                </h2>
+                <span className="text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
+                  Real-time Cloud Sync
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                Select target employee, pick document type, and drop proof file.
+              </p>
             </div>
-            <CustomSelect
-              value={employeeId}
-              onChange={setEmployeeId}
-              options={employeeOptions}
-              placeholder={isEmpLoading ? "Loading employees…" : "— Choose an Employee —"}
-              disabled={isEmpLoading}
-            />
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              
+              {/* Step 1: Select Employee */}
+              <div className="space-y-2">
+                <label className="flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  <span className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black flex items-center justify-center">1</span>
+                    Target Employee <span className="text-rose-500">*</span>
+                  </span>
+                  {selectedEmployee && (
+                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 size={12} /> Selected
+                    </span>
+                  )}
+                </label>
+
+                {/* Searchable Dropdown */}
+                <div className="relative">
+                  <div
+                    onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
+                    className={`w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/80 border rounded-2xl cursor-pointer transition-all ${
+                      isEmpDropdownOpen
+                        ? "border-amber-500 ring-2 ring-amber-500/20"
+                        : selectedEmployee
+                        ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-500/5"
+                        : "border-slate-200 dark:border-slate-700 hover:border-amber-500/40"
+                    }`}
+                  >
+                    {selectedEmployee ? (
+                      <div className="flex items-center gap-3 min-w-0">
+                        {selectedEmployee.photo ? (
+                          <img
+                            src={getSafeUrl(selectedEmployee.photo)}
+                            alt=""
+                            className="w-8 h-8 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
+                          />
+                        ) : (
+                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${getAvatarClass(selectedEmployee.firstName)}`}>
+                            {selectedEmployee.firstName?.[0]}
+                          </div>
+                        )}
+                        <div className="truncate">
+                          <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate">
+                            {selectedEmployee.firstName} {selectedEmployee.lastName}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400">
+                            {selectedEmployee.employeeCode} • {selectedEmployee.departmentId?.name || "General"}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-xs font-bold text-slate-400">
+                        {isEmpLoading ? "Loading employees from database..." : "— Search & Select an Employee —"}
+                      </span>
+                    )}
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isEmpDropdownOpen ? "rotate-180 text-amber-500" : ""}`} />
+                  </div>
+
+                  {/* Dropdown Menu */}
+                  {isEmpDropdownOpen && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setIsEmpDropdownOpen(false)} />
+                      <div className="absolute left-0 top-[calc(100%+6px)] z-40 w-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden p-2 space-y-2">
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search by name, code, or department..."
+                            value={searchEmployeeQuery}
+                            onChange={(e) => setSearchEmployeeQuery(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+
+                        <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
+                          {filteredEmployees.length === 0 ? (
+                            <div className="p-4 text-center text-xs text-slate-400 font-bold">
+                              No employees matching search
+                            </div>
+                          ) : (
+                            filteredEmployees.map((emp) => {
+                              const isSelected = emp._id === employeeId;
+                              const docCount = (emp.documents ? Object.keys(emp.documents).filter(k => k !== 'customDocuments' && Boolean(emp.documents[k])).length : 0) + (emp.documents?.customDocuments?.length || 0);
+
+                              return (
+                                <button
+                                  key={emp._id}
+                                  type="button"
+                                  onClick={() => {
+                                    setEmployeeId(emp._id);
+                                    setIsEmpDropdownOpen(false);
+                                  }}
+                                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
+                                    isSelected
+                                      ? "bg-amber-500 text-slate-950 font-extrabold"
+                                      : "hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200"
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-2.5 min-w-0">
+                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${isSelected ? "bg-slate-950 text-amber-400" : getAvatarClass(emp.firstName)}`}>
+                                      {emp.firstName?.[0]}
+                                    </div>
+                                    <div className="truncate">
+                                      <p className="text-xs font-bold truncate">
+                                        {emp.firstName} {emp.lastName}
+                                      </p>
+                                      <p className={`text-[10px] truncate ${isSelected ? "text-slate-800" : "text-slate-400"}`}>
+                                        {emp.employeeCode} • {emp.departmentId?.name || "General"}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? "bg-slate-950/20 text-slate-950" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                      {docCount} docs
+                                    </span>
+                                  </div>
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Step 2: Document Category */}
+              <div className="space-y-2.5">
+                <label className="flex items-center gap-2 text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${employeeId ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>2</span>
+                  Document Category <span className="text-rose-500">*</span>
+                </label>
+
+                {/* Category Grid Badges */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {DOCUMENT_CATEGORIES.map((cat) => {
+                    const isSelected = category === cat.value;
+                    return (
+                      <button
+                        key={cat.value}
+                        type="button"
+                        onClick={() => setCategory(cat.value)}
+                        className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                          isSelected
+                            ? "border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white ring-1 ring-amber-500/50 shadow-2xs font-extrabold"
+                            : "border-slate-200 dark:border-slate-800 hover:border-amber-500/40 bg-slate-50/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 font-bold"
+                        }`}
+                      >
+                        <span className="text-base">{cat.icon}</span>
+                        <span className="text-xs truncate">{cat.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {category === "Other" && (
+                  <div className="pt-1">
+                    <input
+                      type="text"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      placeholder="Enter custom document title (e.g., Police Verification, Appraisal Letter)..."
+                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-amber-500/50 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Step 3: Drag & Drop Upload Zone */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${category ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>3</span>
+                    Upload File <span className="text-rose-500">*</span>
+                  </label>
+                  {file && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = "";
+                      }}
+                      className="text-xs font-bold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <X size={13} /> Remove File
+                    </button>
+                  )}
+                </div>
+
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDragEnter={handleDragEnter}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  className={`rounded-3xl border-2 border-dashed p-6 sm:p-8 text-center cursor-pointer transition-all duration-200 ${
+                    isDragging
+                      ? "border-amber-500 bg-amber-500/10 scale-[0.99]"
+                      : file
+                      ? "border-emerald-500/60 bg-emerald-500/5 dark:bg-emerald-500/5"
+                      : "border-slate-200 dark:border-slate-800 hover:border-amber-500/50 bg-slate-50/50 dark:bg-slate-900/40"
+                  }`}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="sr-only"
+                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx"
+                    onChange={handleFileChange}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+
+                  {file ? (
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
+                        <FileCheck size={24} />
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white max-w-xs truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                          {formatBytes(file.size)} • Ready to save
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                        <UploadCloud size={24} strokeWidth={2.2} />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-white">
+                          Choose a file or drag & drop here
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                          PDF, PNG, JPG, or DOC (Max size: 10MB)
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={uploadMutation.isPending || !isFormComplete}
+                className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-2xl text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {uploadMutation.isPending ? (
+                  <>
+                    <RefreshCw size={16} className="animate-spin" />
+                    <span>Uploading & Saving to Database...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check size={16} strokeWidth={2.5} />
+                    <span>Confirm & Upload Document</span>
+                  </>
+                )}
+              </button>
+
+            </form>
           </div>
 
-          {/* Step 2 — Category */}
-          <div className="p-5 space-y-2">
-            <div className="flex items-center gap-2">
-              <div className={`w-5 h-5 rounded-full text-xs font-black flex items-center justify-center ${employeeId ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>2</div>
-              <label className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider">Document Category *</label>
-            </div>
-            <CustomSelect
-              value={category}
-              onChange={setCategory}
-              options={DOCUMENT_CATEGORIES}
-              placeholder="— Choose a Category —"
-            />
-            {category === "Other" && (
-              <div className="pt-2">
-                <input
-                  type="text"
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                  placeholder="Enter custom category name…"
-                  className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
-                />
+          {/* ── Right Column: Selected Employee Vault Live Status ───────────── */}
+          <div className="lg:col-span-5 space-y-4">
+            {selectedEmployee ? (
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4">
+                
+                {/* Employee Profile Preview Header */}
+                <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    {selectedEmployee.photo ? (
+                      <img
+                        src={getSafeUrl(selectedEmployee.photo)}
+                        alt=""
+                        className="w-11 h-11 rounded-2xl object-cover border border-slate-200 dark:border-slate-700"
+                      />
+                    ) : (
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-extrabold ${getAvatarClass(selectedEmployee.firstName)}`}>
+                        {selectedEmployee.firstName?.[0]}{selectedEmployee.lastName?.[0]}
+                      </div>
+                    )}
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                        {selectedEmployee.firstName} {selectedEmployee.lastName}
+                      </h3>
+                      <p className="text-[11px] font-bold text-slate-400 mt-0.5">
+                        {selectedEmployee.employeeCode} • {selectedEmployee.role || "Employee"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <Link
+                    to={`/company/employees/${selectedEmployee._id}/edit`}
+                    className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all text-xs font-bold flex items-center gap-1"
+                    title="Open Full 7-Step Employee Editor"
+                  >
+                    <ExternalLink size={13} />
+                  </Link>
+                </div>
+
+                {/* Real-time Checklist of Documents */}
+                <div>
+                  <h4 className="text-[11px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2.5">
+                    Live Document Checklist (Database)
+                  </h4>
+
+                  <div className="space-y-2">
+                    {STANDARD_DOC_FIELDS.map((doc) => {
+                      const docUrl = selectedEmployee.documents?.[doc.key];
+                      const isUploaded = Boolean(docUrl && typeof docUrl === "string" && docUrl.trim());
+                      const cleanUrl = getSafeUrl(docUrl);
+
+                      return (
+                        <div
+                          key={doc.key}
+                          className={`p-3 rounded-2xl border flex items-center justify-between transition-all ${
+                            isUploaded
+                              ? "bg-emerald-500/5 dark:bg-emerald-500/5 border-emerald-500/20"
+                              : "bg-slate-50 dark:bg-slate-900/60 border-slate-200/80 dark:border-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-sm">{doc.icon}</span>
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {doc.title}
+                              </p>
+                              <span className={`text-[10px] font-bold ${isUploaded ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}`}>
+                                {isUploaded ? "Uploaded & Available" : "Missing / Not Uploaded"}
+                              </span>
+                            </div>
+                          </div>
+
+                          {isUploaded ? (
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={cleanUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 transition-all"
+                                title="View Document"
+                              >
+                                <Eye size={13} />
+                              </a>
+                              <a
+                                href={cleanUrl}
+                                download
+                                target="_blank"
+                                rel="noreferrer"
+                                className="p-1.5 rounded-lg bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 transition-all"
+                                title="Download Document"
+                              >
+                                <Download size={13} />
+                              </a>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (doc.key === "aadhaarFront" || doc.key === "aadhaarBack") setCategory("Aadhaar Card");
+                                else if (doc.key === "panCard") setCategory("PAN Card");
+                                else if (doc.key === "offerLetter") setCategory("Offer Letter");
+                                else if (doc.key === "joiningLetter") setCategory("Joining Letter");
+                                else if (doc.key === "resume") setCategory("Resume");
+                                else if (doc.key === "salarySlipPrevious") setCategory("Previous Salary Slip");
+                              }}
+                              className="px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-extrabold transition-all cursor-pointer"
+                            >
+                              Upload This
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {/* Custom Docs for selected employee */}
+                    {selectedEmployee.documents?.customDocuments?.map((cd, idx) => {
+                      const cleanUrl = getSafeUrl(cd.url);
+                      return (
+                        <div
+                          key={`custom-${idx}`}
+                          className="p-3 rounded-2xl border bg-purple-500/5 dark:bg-purple-500/5 border-purple-500/20 flex items-center justify-between"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="text-sm">✨</span>
+                            <div className="truncate">
+                              <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                                {cd.title}
+                              </p>
+                              <span className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+                                Custom Proof
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <a
+                              href={cleanUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg bg-purple-500/10 text-purple-600 dark:text-purple-400 hover:bg-purple-500/20 transition-all"
+                              title="View Document"
+                            >
+                              <Eye size={13} />
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-[#111C24] border border-dashed border-slate-300 dark:border-slate-800 rounded-3xl p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                  <User size={22} />
+                </div>
+                <h3 className="text-sm font-extrabold text-slate-800 dark:text-white">
+                  No Employee Selected
+                </h3>
+                <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                  Pick an employee from step 1 on the left to see their live compliance checklist and existing database files.
+                </p>
               </div>
             )}
-          </div>
 
-          {/* Step 3 — Dropzone */}
-          <div className="p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className={`w-5 h-5 rounded-full text-xs font-black flex items-center justify-center ${category ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>3</div>
-                <label className="text-xs font-extrabold text-slate-800 dark:text-white uppercase tracking-wider">File Upload *</label>
+            {/* Quick Helper Notice */}
+            <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 flex items-start gap-3">
+              <Sparkles size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">
+                  Automated Cloud Storage & Security
+                </h4>
+                <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">
+                  All documents are securely encrypted and synchronized across the employee profile, HR portal, and company audits in real-time.
+                </p>
               </div>
-              {file && (
-                <button
-                  type="button"
-                  onClick={() => setFile(null)}
-                  className="text-xs font-bold text-rose-500 hover:underline flex items-center gap-1"
-                >
-                  <X size={13} /> Remove
-                </button>
-              )}
             </div>
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDragEnter={handleDragEnter}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
-              className={`rounded-2xl border-2 border-dashed p-6 text-center cursor-pointer transition-all duration-200 ${
-                isDragging
-                  ? "border-amber-500 bg-amber-500/10 scale-[0.99]"
-                  : file
-                  ? "border-amber-500/60 bg-amber-500/5"
-                  : "border-slate-200 dark:border-slate-800 hover:border-amber-500/50 bg-slate-50/50 dark:bg-slate-900/40"
-              }`}
-            >
-              <input
-                ref={fileInputRef}
-                type="file"
-                className="sr-only"
-                onChange={handleFileChange}
-                onClick={(e) => e.stopPropagation()}
-              />
+          </div>
 
-              {file ? (
-                <div className="flex items-center justify-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
-                    <FileText size={20} />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-xs font-extrabold text-slate-900 dark:text-white">{file.name}</p>
-                    <p className="text-[11px] text-slate-400 font-medium">{formatBytes(file.size)}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  <UploadCloud size={32} className="mx-auto text-amber-500" />
-                  <p className="text-xs font-extrabold text-slate-800 dark:text-white">Click or Drag & Drop File</p>
-                  <p className="text-[11px] text-slate-400 font-medium">Supports PDF, PNG, JPG up to 10MB</p>
-                </div>
-              )}
+        </div>
+      ) : (
+        
+        /* ── VAULT TAB: Complete Company-wide Document Directory ─────────────── */
+        <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-5">
+          
+          {/* Vault Top Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <FolderCheck size={18} className="text-amber-500" />
+                Real-Time Document Repository
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Showing {filteredVaultDocs.length} real files across the organization
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Category Filter Chips */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-xl">
+                {[
+                  { id: "all", label: "All" },
+                  { id: "identity", label: "Identity (KYC)" },
+                  { id: "contract", label: "Contracts" },
+                  { id: "career", label: "Resumes" },
+                  { id: "finance", label: "Salary Slips" },
+                  { id: "custom", label: "Custom" },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setVaultFilterCategory(tab.id)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                      vaultFilterCategory === tab.id
+                        ? "bg-amber-500 text-slate-950 shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Search input */}
+              <div className="relative min-w-[220px]">
+                <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search vault docs..."
+                  value={vaultSearchQuery}
+                  onChange={(e) => setVaultSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Submit Action */}
-          <div className="p-5 bg-slate-50/50 dark:bg-slate-900/50">
-            <button
-              type="submit"
-              disabled={uploadMutation.isPending || !isComplete}
-              className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-sm transition-all flex items-center justify-center space-x-1.5"
-            >
-              {uploadMutation.isPending ? (
-                <span>Uploading...</span>
-              ) : (
-                <>
-                  <Check size={15} strokeWidth={2.5} />
-                  <span>Upload Document</span>
-                </>
-              )}
-            </button>
-          </div>
+          {/* Vault Documents Table */}
+          {filteredVaultDocs.length === 0 ? (
+            <div className="py-16 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-400 flex items-center justify-center mx-auto">
+                <FileText size={24} />
+              </div>
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                No Documents Found
+              </h3>
+              <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                No documents match the current filter or search term. Upload documents using the upload tab.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveTab("upload")}
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all cursor-pointer inline-flex items-center gap-1.5"
+              >
+                <Plus size={14} /> Upload New Document
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 text-[10px] font-extrabold uppercase tracking-wider">
+                    <th className="pb-3 px-3">Employee</th>
+                    <th className="pb-3 px-3">Document Title</th>
+                    <th className="pb-3 px-3">Category</th>
+                    <th className="pb-3 px-3">Department</th>
+                    <th className="pb-3 px-3">Source & Status</th>
+                    <th className="pb-3 px-3 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-semibold">
+                  {filteredVaultDocs.map((doc) => {
+                    const cleanUrl = getSafeUrl(doc.url);
+                    return (
+                      <tr key={doc.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-900/40 transition-colors">
+                        
+                        {/* Employee Column */}
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2.5">
+                            {doc.employeePhoto ? (
+                              <img
+                                src={getSafeUrl(doc.employeePhoto)}
+                                alt=""
+                                className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700"
+                              />
+                            ) : (
+                              <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${getAvatarClass(doc.employeeName)}`}>
+                                {doc.employeeName?.[0]}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight">
+                                {doc.employeeName}
+                              </p>
+                              <p className="text-[10px] text-slate-400 font-bold">
+                                {doc.employeeCode}
+                              </p>
+                            </div>
+                          </div>
+                        </td>
 
-        </form>
-      </div>
+                        {/* Title Column */}
+                        <td className="py-3 px-3">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{doc.icon}</span>
+                            <span className="font-extrabold text-slate-800 dark:text-slate-100">
+                              {doc.title}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Category Column */}
+                        <td className="py-3 px-3">
+                          <span className={`text-[10px] font-extrabold px-2.5 py-1 rounded-full ${
+                            doc.category === "Identity" ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20" :
+                            doc.category === "Contract" ? "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20" :
+                            doc.category === "Career" ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20" :
+                            doc.category === "Finance" ? "bg-teal-500/10 text-teal-600 dark:text-teal-400 border border-teal-500/20" :
+                            "bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20"
+                          }`}>
+                            {doc.category}
+                          </span>
+                        </td>
+
+                        {/* Department Column */}
+                        <td className="py-3 px-3 text-slate-500 dark:text-slate-400">
+                          {doc.employeeDept}
+                        </td>
+
+                        {/* Status Column */}
+                        <td className="py-3 px-3">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 size={12} /> Stored in DB
+                          </span>
+                        </td>
+
+                        {/* Actions Column */}
+                        <td className="py-3 px-3 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <a
+                              href={cleanUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                              title="View Document"
+                            >
+                              <Eye size={14} />
+                            </a>
+                            <a
+                              href={cleanUrl}
+                              download
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                              title="Download File"
+                            >
+                              <Download size={14} />
+                            </a>
+                            <Link
+                              to={`/company/employees/${doc.employeeId}/edit`}
+                              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
+                              title="Edit Employee"
+                            >
+                              <ExternalLink size={14} />
+                            </Link>
+                          </div>
+                        </td>
+
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+        </div>
+      )}
 
     </div>
   );
