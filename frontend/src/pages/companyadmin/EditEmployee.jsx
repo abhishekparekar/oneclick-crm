@@ -299,7 +299,7 @@ export default function EditEmployee() {
         skills: emp.skills || [],
         certifications: emp.certifications || [],
         documents: emp.documents || {},
-        leaveBalance: { casual: 12, sick: 6, annual: 15, unpaid: 0 },
+        leaveBalance: { monthly: 2, paidLeaves: 18, unpaidLeaves: 0, casual: 12, sick: 6, annual: 15, unpaid: 0 },
         leaveBalanceLoaded: false,
       };
       setFormData(initialData);
@@ -310,11 +310,21 @@ export default function EditEmployee() {
   useEffect(() => {
     if (leaveRes?.data?.balance && formData && !formData.leaveBalanceLoaded) {
       const lb = leaveRes.data.balance;
+      const casual = Number(lb.casual ?? 12);
+      const sick = Number(lb.sick ?? 6);
+      const annual = Number(lb.annual ?? 15);
+      const unpaid = Number(lb.lop ?? lb.unpaid ?? lb.unpaidLeaves ?? 0);
+      const paidLeaves = Number(lb.paidLeaves ?? (casual + sick + annual));
+      const monthly = Number(lb.monthlyLeaves ?? lb.monthly ?? 2);
+
       const initialLeave = {
-        casual: lb.casual ?? 0,
-        sick: lb.sick ?? 0,
-        annual: lb.annual ?? 0,
-        unpaid: lb.lop ?? lb.unpaid ?? 0,
+        monthly,
+        paidLeaves,
+        unpaidLeaves: unpaid,
+        casual,
+        sick,
+        annual,
+        unpaid,
       };
 
       setFormData(prev => ({
@@ -513,10 +523,14 @@ export default function EditEmployee() {
       onSuccess: () => {
         if (formData.leaveBalanceLoaded) {
           updateLeaveMutation.mutate({
+            monthlyLeaves: formData.leaveBalance.monthly,
+            paidLeaves: formData.leaveBalance.paidLeaves,
+            unpaidLeaves: formData.leaveBalance.unpaidLeaves ?? formData.leaveBalance.unpaid,
             casual: formData.leaveBalance.casual,
             sick: formData.leaveBalance.sick,
             annual: formData.leaveBalance.annual,
-            lop: formData.leaveBalance.unpaid
+            lop: formData.leaveBalance.unpaidLeaves ?? formData.leaveBalance.unpaid,
+            unpaid: formData.leaveBalance.unpaidLeaves ?? formData.leaveBalance.unpaid,
           });
         }
       }
@@ -955,12 +969,105 @@ export default function EditEmployee() {
 
             {/* Leave Balance Quotas */}
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Annual Leave Allocations (Days)</h4>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                <Input label="Casual Leaves (CL)" type="number" value={formData.leaveBalance?.casual} onChange={(v) => handleNestedChange("leaveBalance", "casual", Number(v))} placeholder="12" />
-                <Input label="Sick Leaves (SL)" type="number" value={formData.leaveBalance?.sick} onChange={(v) => handleNestedChange("leaveBalance", "sick", Number(v))} placeholder="6" />
-                <Input label="Annual Leaves (PL)" type="number" value={formData.leaveBalance?.annual} onChange={(v) => handleNestedChange("leaveBalance", "annual", Number(v))} placeholder="15" />
-                <Input label="Loss of Pay (LOP)" type="number" value={formData.leaveBalance?.unpaid} onChange={(v) => handleNestedChange("leaveBalance", "unpaid", Number(v))} placeholder="0" />
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
+                    <Calendar size={14} className="text-amber-500" />
+                    Leave Allocations & Quota Matrix
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    Configure monthly allowances, total paid leaves, and unpaid loss-of-pay quota.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                    Paid: {Number(formData.leaveBalance?.paidLeaves ?? (Number(formData.leaveBalance?.casual || 0) + Number(formData.leaveBalance?.sick || 0) + Number(formData.leaveBalance?.annual || 0)))} Days/Yr
+                  </span>
+                  <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    Monthly: {formData.leaveBalance?.monthly ?? 2} Days/Mo
+                  </span>
+                </div>
+              </div>
+
+              {/* Primary Entitlements: Month Leaves, Paid Leaves, Unpaid Leaves */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/5 border border-amber-500/20">
+                <Input
+                  label="Monthly Leaves (Allowed / Month)"
+                  type="number"
+                  value={formData.leaveBalance?.monthly}
+                  onChange={(v) => handleNestedChange("leaveBalance", "monthly", v === "" ? "" : Number(v))}
+                  placeholder="e.g. 2"
+                  hint="Leaves allowed per month"
+                />
+                <Input
+                  label="Total Paid Leaves (Annual Quota)"
+                  type="number"
+                  value={formData.leaveBalance?.paidLeaves}
+                  onChange={(v) => handleNestedChange("leaveBalance", "paidLeaves", v === "" ? "" : Number(v))}
+                  placeholder="e.g. 18"
+                  hint="Total paid leave quota per year"
+                />
+                <Input
+                  label="Unpaid Leaves (LOP / Loss of Pay)"
+                  type="number"
+                  value={formData.leaveBalance?.unpaidLeaves ?? formData.leaveBalance?.unpaid}
+                  onChange={(v) => {
+                    const val = v === "" ? "" : Number(v);
+                    handleNestedChange("leaveBalance", "unpaidLeaves", val);
+                    handleNestedChange("leaveBalance", "unpaid", val);
+                  }}
+                  placeholder="e.g. 0"
+                  hint="Unpaid / LWP leave balance buffer"
+                />
+              </div>
+
+              {/* Category Breakdown (CL, SL, PL) */}
+              <div className="space-y-2">
+                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                  Detailed Leave Type Distribution (Days)
+                </h5>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <Input
+                    label="Casual Leaves (CL)"
+                    type="number"
+                    value={formData.leaveBalance?.casual}
+                    onChange={(v) => {
+                      const val = v === "" ? "" : Number(v);
+                      handleNestedChange("leaveBalance", "casual", val);
+                      const s = Number(formData.leaveBalance?.sick || 0);
+                      const a = Number(formData.leaveBalance?.annual || 0);
+                      handleNestedChange("leaveBalance", "paidLeaves", (Number(val) || 0) + s + a);
+                    }}
+                    placeholder="12"
+                  />
+                  <Input
+                    label="Sick Leaves (SL)"
+                    type="number"
+                    value={formData.leaveBalance?.sick}
+                    onChange={(v) => {
+                      const val = v === "" ? "" : Number(v);
+                      handleNestedChange("leaveBalance", "sick", val);
+                      const c = Number(formData.leaveBalance?.casual || 0);
+                      const a = Number(formData.leaveBalance?.annual || 0);
+                      handleNestedChange("leaveBalance", "paidLeaves", c + (Number(val) || 0) + a);
+                    }}
+                    placeholder="6"
+                  />
+                  <Input
+                    label="Annual / Privilege Leaves (PL)"
+                    type="number"
+                    value={formData.leaveBalance?.annual}
+                    onChange={(v) => {
+                      const val = v === "" ? "" : Number(v);
+                      handleNestedChange("leaveBalance", "annual", val);
+                      const c = Number(formData.leaveBalance?.casual || 0);
+                      const s = Number(formData.leaveBalance?.sick || 0);
+                      handleNestedChange("leaveBalance", "paidLeaves", c + s + (Number(val) || 0));
+                    }}
+                    placeholder="15"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -1127,7 +1234,7 @@ export default function EditEmployee() {
                 </div>
               </div>
 
-              {/* Card 4: Banking & Documents */}
+              {/* Card 4: Banking */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
                   <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
@@ -1140,6 +1247,22 @@ export default function EditEmployee() {
                   <div><span className="text-slate-400 text-[10px] block">A/C Number</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.bankDetails?.accountNumber || "—"}</span></div>
                   <div><span className="text-slate-400 text-[10px] block">Aadhaar No</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.aadhaarNumber || "—"}</span></div>
                   <div><span className="text-slate-400 text-[10px] block">PAN No</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.panNumber || "—"}</span></div>
+                </div>
+              </div>
+
+              {/* Card 5: Leave Quotas */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2 sm:col-span-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Calendar size={13} className="text-amber-500" /> Leave Entitlements & Allocations
+                  </span>
+                  <button onClick={() => setStep(4)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                  <div><span className="text-slate-400 text-[10px] block">Monthly Leaves</span><span className="font-bold text-amber-600 dark:text-amber-400">{formData.leaveBalance?.monthly ?? 2} Days / Mo</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Paid Leaves</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formData.leaveBalance?.paidLeaves ?? 18} Days / Yr</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Unpaid Leaves (LOP)</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.leaveBalance?.unpaidLeaves ?? formData.leaveBalance?.unpaid ?? 0} Days</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Breakdown</span><span className="font-bold text-slate-800 dark:text-slate-200">CL: {formData.leaveBalance?.casual || 0} | SL: {formData.leaveBalance?.sick || 0} | PL: {formData.leaveBalance?.annual || 0}</span></div>
                 </div>
               </div>
 

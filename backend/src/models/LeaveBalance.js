@@ -15,13 +15,25 @@ const leaveBalanceSchema = new mongoose.Schema(
       index: true,
       unique: true,
     },
+    monthlyLeaves: {
+      type: Number,
+      default: 2,
+    },
+    paidLeaves: {
+      type: Number,
+      default: 18,
+    },
+    unpaidLeaves: {
+      type: Number,
+      default: 0,
+    },
     casual: {
       type: Number,
       default: 12,
     },
     sick: {
       type: Number,
-      default: 10,
+      default: 6,
     },
     annual: {
       type: Number,

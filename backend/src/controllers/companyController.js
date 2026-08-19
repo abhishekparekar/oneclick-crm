@@ -1132,7 +1132,7 @@ const getLeaveBalance = async (req, res, next) => {
 // PUT /api/leaves/balance/:employeeId
 const updateLeaveBalance = async (req, res, next) => {
     try {
-        const { casual, sick, annual, lop, unpaid } = req.body;
+        const { casual, sick, annual, lop, unpaid, unpaidLeaves, paidLeaves, monthlyLeaves, monthly } = req.body;
 
         // Manager Department check
         if (req.user && req.user.role === "Manager") {
@@ -1163,12 +1163,16 @@ const updateLeaveBalance = async (req, res, next) => {
             });
         }
 
-        if (casual !== undefined) balance.casual = casual;
-        if (sick !== undefined) balance.sick = sick;
-        if (annual !== undefined) balance.annual = annual;
+        if (monthlyLeaves !== undefined) balance.monthlyLeaves = Number(monthlyLeaves);
+        if (monthly !== undefined) balance.monthlyLeaves = Number(monthly);
+        if (paidLeaves !== undefined) balance.paidLeaves = Number(paidLeaves);
+        if (unpaidLeaves !== undefined) { balance.unpaidLeaves = Number(unpaidLeaves); balance.lop = Number(unpaidLeaves); }
+        if (casual !== undefined) balance.casual = Number(casual);
+        if (sick !== undefined) balance.sick = Number(sick);
+        if (annual !== undefined) balance.annual = Number(annual);
         // accept both `lop` (old) and `unpaid` (new mobile/web alias)
-        if (lop !== undefined) balance.lop = lop;
-        if (unpaid !== undefined) balance.lop = unpaid;
+        if (lop !== undefined) { balance.lop = Number(lop); balance.unpaidLeaves = Number(lop); }
+        if (unpaid !== undefined) { balance.lop = Number(unpaid); balance.unpaidLeaves = Number(unpaid); }
 
         await balance.save();
         res.json({ success: true, balance, message: "Leave balance updated successfully" });
