@@ -231,20 +231,25 @@ const SuperAdminSidebar = ({ logout, onItemClick }) => {
             <span className="truncate">One Click Platform</span>
           </div>
         </div>
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all cursor-pointer group">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
+          <Link
+            to="/superadmin/profile"
+            onClick={onItemClick}
+            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
+            title="View Super Admin Profile"
+          >
             <div className="relative flex-shrink-0">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-bold text-[11px]">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-bold text-[11px] shadow-xs">
                 SA
               </div>
               <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight">Super Admin</p>
+              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-amber-400 transition-colors">Super Admin</p>
               <p className="text-[10px] text-slate-500 leading-tight">Platform Root</p>
             </div>
-          </div>
-          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1">
+          </Link>
+          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
             <LogOut size={13} strokeWidth={1.75} />
           </button>
         </div>
@@ -342,30 +347,45 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
           <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
         </div>
 
-        {/* User */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all cursor-pointer group">
-          <div className="flex items-center gap-2 min-w-0">
+        {/* User Profile Card */}
+        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
+          <Link
+            to="/company/profile"
+            onClick={onItemClick}
+            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
+            title="View Company Admin Profile"
+          >
             <div className="relative flex-shrink-0">
               {(() => {
-                const rawAvatar = user?.profileImage;
-                const avatarUrl = rawAvatar ? (rawAvatar.startsWith("http") || rawAvatar.startsWith("data:") ? rawAvatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawAvatar.startsWith("/") ? "" : "/"}${rawAvatar}`) : null;
+                const rawAvatar = user?.profileImage || user?.photo || user?.avatar || user?.profilePicture;
+                let avatarUrl = null;
+                if (rawAvatar && typeof rawAvatar === "string") {
+                  const trimmed = rawAvatar.trim();
+                  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+                    avatarUrl = trimmed;
+                  } else {
+                    const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+                    const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+                    avatarUrl = `${base}/${cleanPath}`;
+                  }
+                }
 
                 return avatarUrl ? (
-                  <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
+                  <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-2xs border border-slate-700" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[11px]">
-                    {userName.slice(0, 2).toUpperCase()}
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow-2xs">
+                    {(userName || "A").slice(0, 2).toUpperCase()}
                   </div>
                 );
               })()}
               <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight">{userName}</p>
-              <p className="text-[10px] text-slate-500 leading-tight">Admin</p>
+              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-amber-400 transition-colors">{userName}</p>
+              <p className="text-[10px] text-slate-500 leading-tight">Company Admin</p>
             </div>
-          </div>
-          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1">
+          </Link>
+          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
             <LogOut size={13} strokeWidth={1.75} />
           </button>
         </div>

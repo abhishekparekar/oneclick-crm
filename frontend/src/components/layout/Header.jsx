@@ -138,6 +138,18 @@ const Header = ({ onMenuClick }) => {
   };
 
   // ── Getters ───────────────────────────────────────────────────────────────
+  const getPhotoUrl = (rawPhoto) => {
+    if (!rawPhoto || typeof rawPhoto !== "string") return null;
+    const trimmed = rawPhoto.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+      return trimmed;
+    }
+    const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+    const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+    return `${base}/${cleanPath}`;
+  };
+
   const getInitials = (name) => {
     if (!name) return "A";
     const parts = name.trim().split(" ");
@@ -521,86 +533,131 @@ const Header = ({ onMenuClick }) => {
         <Megaphone size={18} />
       </Link>
 
+      {/* ── User Profile Menu & Dropdown ─────────────────────────────── */}
       <div className="relative" ref={dropdownRef}>
-        <button
-          onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
-          className={`flex items-center space-x-2 pl-2 pr-2 py-1 rounded-xl transition-colors ${
-            isSuperAdmin ? "hover:bg-sa-hover" : "hover:bg-slate-800"
-          }`}
-        >
-          {user?.profileImage ? (
-            <img
-              src={
-                user.profileImage.startsWith("http") || user.profileImage.startsWith("data:")
-                  ? user.profileImage
-                  : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${
-                      user.profileImage.startsWith("/") ? "" : "/"
-                    }${user.profileImage}`
-              }
-              alt={user.name}
-              className={`w-8 h-8 rounded-full object-cover flex-shrink-0 shadow-sm border ${
-                isSuperAdmin ? "border-sa-border" : "border-slate-700"
-              }`}
-            />
-          ) : (
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-base flex-shrink-0 ${
-              isSuperAdmin ? "bg-sa-primary" : "bg-orange-700"
-            }`}>
-              {getInitials(user?.name)}
-            </div>
-          )}
-          <div className="text-left hidden sm:block">
-            <p className={`text-xs font-bold leading-tight ${isSuperAdmin ? "text-sa-text" : "!text-slate-900 dark:!text-white"}`}>{user?.name || "Admin"}</p>
-            <p className={`text-[10px] font-medium leading-tight ${isSuperAdmin ? "text-sa-text-secondary" : "!text-slate-600 dark:!text-slate-400"}`}>
-              {user?.role === "SuperAdmin" ? "Super Admin" : user?.role === "HR" ? "HR Manager" : user?.role === "Manager" ? "Manager" : user?.role === "Employee" ? "Employee" : user?.role === "CompanyAdmin" ? "Company Admin" : (user?.role || "User")}
-            </p>
-          </div>
-          <ChevronDown size={14} className={isSuperAdmin ? "text-sa-text-secondary hidden sm:block" : "text-slate-400 hidden sm:block"} />
-        </button>
+        {(() => {
+          const rawAvatar = user?.profileImage || user?.photo || user?.avatar || user?.profilePicture;
+          const avatarUrl = getPhotoUrl(rawAvatar);
+          const userName = user?.fullName || user?.name || "User";
+          const userEmail = user?.email || "";
+          const roleLabel =
+            user?.role === "SuperAdmin"
+              ? "Super Admin"
+              : user?.role === "HR"
+              ? "HR Manager"
+              : user?.role === "Manager"
+              ? "Manager"
+              : user?.role === "Employee"
+              ? "Employee"
+              : user?.role === "CompanyAdmin"
+              ? "Company Admin"
+              : user?.role || "User";
 
-        {profileOpen && (
-          <div className={`absolute right-0 top-full mt-2 w-52 border rounded-xl shadow-lg overflow-hidden z-50 ${
-            isSuperAdmin ? "bg-sa-surface border-sa-border" : "bg-ca-surface border-ca-border"
-          }`}>
-            <div className={`px-4 py-3 border-b ${isSuperAdmin ? "border-sa-border bg-sa-bg/60" : "border-ca-border bg-ca-bg/60"}`}>
-              <p className={`text-base font-semibold ${isSuperAdmin ? "text-sa-text" : "text-ca-text"}`}>{user?.name}</p>
-              <p className={`text-sm ${isSuperAdmin ? "text-sa-text-secondary" : "text-ca-text-secondary"}`}>{user?.email}</p>
-            </div>
-            <div className="py-1">
-              <Link
-                to={profileRoute}
-                onClick={() => setProfileOpen(false)}
-                className={`flex items-center space-x-2.5 w-full px-4 py-2.5 text-base transition-colors ${
-                  isSuperAdmin ? "text-sa-text hover:bg-sa-hover" : "text-ca-text hover:bg-ca-hover"
-                }`}
-              >
-                <User size={15} className={isSuperAdmin ? "text-sa-text-secondary" : "text-ca-text-secondary"} />
-                <span>My Profile</span>
-              </Link>
-              <Link
-                to={settingsRoute}
-                onClick={() => setProfileOpen(false)}
-                className={`flex items-center space-x-2.5 w-full px-4 py-2.5 text-base transition-colors ${
-                  isSuperAdmin ? "text-sa-text hover:bg-sa-hover" : "text-ca-text hover:bg-ca-hover"
-                }`}
-              >
-                <Settings size={15} className={isSuperAdmin ? "text-sa-text-secondary" : "text-ca-text-secondary"} />
-                <span>Settings</span>
-              </Link>
-            </div>
-            <div className={`py-1 border-t ${isSuperAdmin ? "border-sa-border" : "border-ca-border"}`}>
+          return (
+            <>
               <button
-                onClick={logout}
-                className={`flex items-center space-x-2.5 w-full px-4 py-2.5 text-base text-left transition-colors ${
-                  isSuperAdmin ? "text-sa-danger hover:bg-sa-danger-bg/50" : "text-orange-700 hover:bg-orange-700-light"
-                }`}
+                onClick={() => { setProfileOpen(!profileOpen); setNotifOpen(false); }}
+                className="flex items-center space-x-2 pl-1.5 pr-2 py-1 rounded-xl transition-all cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/80 group"
+                title="Account & User Profile"
               >
-                <LogOut size={15} />
-                <span>Logout</span>
+                <div className="relative flex-shrink-0">
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={userName}
+                      className="w-8 h-8 rounded-full object-cover shadow-2xs border border-slate-200 dark:border-slate-700 group-hover:border-amber-500 transition-colors"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 font-extrabold text-xs bg-amber-500 shadow-2xs">
+                      {getInitials(userName)}
+                    </div>
+                  )}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#090D16]" />
+                </div>
+
+                <div className="text-left hidden sm:block">
+                  <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[130px] group-hover:text-amber-500 transition-colors">
+                    {userName}
+                  </p>
+                  <p className="text-[10px] font-medium leading-tight text-slate-500 dark:text-slate-400 mt-0.5">
+                    {roleLabel}
+                  </p>
+                </div>
+                <ChevronDown size={14} className="text-slate-400 hidden sm:block group-hover:text-slate-700 dark:group-hover:text-slate-200 transition-transform duration-200" />
               </button>
-            </div>
-          </div>
-        )}
+
+              {profileOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                  {/* Profile Header Header */}
+                  <div className="px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-900/60 flex items-center gap-3">
+                    <div className="relative flex-shrink-0">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={userName}
+                          className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200 dark:border-slate-700"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-slate-950 font-black text-sm bg-amber-500 shadow-sm">
+                          {getInitials(userName)}
+                        </div>
+                      )}
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate leading-tight">{userName}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{userEmail}</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mt-1">
+                        {roleLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Profile Actions */}
+                  <div className="p-1.5 space-y-0.5">
+                    <Link
+                      to={profileRoute}
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition-colors"
+                    >
+                      <User size={15} className="text-amber-500" />
+                      <span>User Profile</span>
+                    </Link>
+                    <Link
+                      to={settingsRoute}
+                      onClick={() => setProfileOpen(false)}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition-colors"
+                    >
+                      <Settings size={15} className="text-slate-400" />
+                      <span>Account Settings</span>
+                    </Link>
+                    {!isSuperAdmin && (
+                      <Link
+                        to="/company/profile"
+                        onClick={() => setProfileOpen(false)}
+                        className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition-colors"
+                      >
+                        <Building2 size={15} className="text-slate-400" />
+                        <span>Organization Profile</span>
+                      </Link>
+                    )}
+                  </div>
+
+                  {/* Logout Button */}
+                  <div className="p-1.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30">
+                    <button
+                      onClick={logout}
+                      className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-bold text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors cursor-pointer text-left"
+                    >
+                      <LogOut size={15} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
       </div>
     </header>
