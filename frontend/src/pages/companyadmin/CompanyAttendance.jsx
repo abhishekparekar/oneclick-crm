@@ -102,18 +102,44 @@ const formatDate = (isoString) => {
   }
 };
 
+// ── Safe Image URL Helper ───────────────────────────────────────────────────
+const getSafeUrl = (rawUrl) => {
+  if (!rawUrl || typeof rawUrl !== "string") return null;
+  const trimmed = rawUrl.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+    return trimmed;
+  }
+  const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
+  return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
+
 // ── Avatar Helper ────────────────────────────────────────────────────────────
 const AVATAR_COLORS = [
-  "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900",
-  "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
-  "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900",
-  "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900",
+  "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+  "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
+  "bg-purple-500/15 text-purple-600 dark:text-purple-400",
+  "bg-rose-500/15 text-rose-600 dark:text-rose-400",
+  "bg-cyan-500/15 text-cyan-600 dark:text-cyan-400",
 ];
-const MiniAvatar = ({ name, idx = 0, size = "w-7 h-7", textSize = "text-[10px]" }) => (
-  <div className={`${size} rounded-full ${AVATAR_COLORS[(name?.charCodeAt(0) || idx) % AVATAR_COLORS.length]} flex items-center justify-center font-black ${textSize} flex-shrink-0 shadow-xs ring-2 ring-white dark:ring-[#111C24]`}>
-    {(name || "?").charAt(0).toUpperCase()}
-  </div>
-);
+const MiniAvatar = ({ name, photo, size = "w-8 h-8", textSize = "text-[11px]" }) => {
+  const photoUrl = getSafeUrl(photo);
+  if (photoUrl) {
+    return (
+      <img
+        src={photoUrl}
+        alt={name || "Avatar"}
+        className={`${size} rounded-xl object-cover border border-slate-200 dark:border-slate-700 flex-shrink-0 shadow-2xs`}
+      />
+    );
+  }
+  return (
+    <div className={`${size} rounded-xl ${AVATAR_COLORS[(name?.charCodeAt(0) || 0) % AVATAR_COLORS.length]} flex items-center justify-center font-black ${textSize} flex-shrink-0 shadow-2xs border border-slate-200 dark:border-slate-700`}>
+      {(name || "?").charAt(0).toUpperCase()}
+    </div>
+  );
+};
 
 // ── Status Configurations ───────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -675,25 +701,41 @@ const CompanyAttendance = () => {
   }, [monthlyGrid]);
 
   if (selectedEmployee) {
+    const selectedEmpPhoto = selectedEmployee?.photo || selectedEmployee?.documents?.photo || selectedEmployee?.userId?.profileImage;
+    const selectedEmpPhotoUrl = getSafeUrl(selectedEmpPhoto);
+    const selectedEmpName = `${selectedEmployee.firstName || ""} ${selectedEmployee.lastName || ""}`.trim();
+
     return (
       <div className="space-y-4 animate-fadeIn pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
         {/* Premium Profile Header */}
         <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex-shrink-0">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3.5">
               <button 
                 onClick={() => setSelectedEmployee(null)}
-                className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer shrink-0"
+                className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer shrink-0"
               >
                 <ArrowLeft size={16} />
               </button>
+
+              {selectedEmpPhotoUrl ? (
+                <img
+                  src={selectedEmpPhotoUrl}
+                  alt={selectedEmpName}
+                  className="w-11 h-11 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+                />
+              ) : (
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm text-amber-500 bg-amber-500/10 border border-amber-500/20 shadow-2xs shrink-0`}>
+                  {selectedEmpName.charAt(0).toUpperCase()}
+                </div>
+              )}
               
               <div>
                 <div className="flex items-center space-x-2 text-[10px] font-black text-amber-500 uppercase tracking-widest mb-0.5">
-                  <span>Employee Profile</span>
+                  <span>Employee Attendance Profile</span>
                 </div>
-                <h1 className="font-extrabold text-slate-900 dark:text-white text-xl tracking-tight leading-tight">
-                  {selectedEmployee.firstName} {selectedEmployee.lastName}
+                <h1 className="font-extrabold text-slate-900 dark:text-white text-lg sm:text-xl tracking-tight leading-tight">
+                  {selectedEmpName}
                 </h1>
               </div>
             </div>
@@ -1136,7 +1178,12 @@ const CompanyAttendance = () => {
                     >
                       <td className="px-4 sm:px-6 py-3.5">
                         <div className="flex items-center space-x-3">
-                          <MiniAvatar name={empName} size="w-8 h-8" textSize="text-[11px]" />
+                          <MiniAvatar
+                            name={empName}
+                            photo={rec.employeeId?.photo || rec.employeeId?.documents?.photo || rec.employeeId?.userId?.profileImage}
+                            size="w-8 h-8"
+                            textSize="text-[11px]"
+                          />
                           <div className="flex flex-col justify-center">
                             <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{empName}</p>
                             <p className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider mt-0.5">{empCode}</p>

@@ -788,16 +788,28 @@ const companyAttendance = async (req, res, next) => {
     const records = await Attendance.find(filter)
       .populate({
         path: "employeeId",
-        select: "employeeCode firstName lastName departmentId designationId userId",
+        select: "employeeCode firstName lastName photo documents departmentId designationId userId",
         populate: [
           { path: "designationId", select: "name" },
           { path: "departmentId", select: "name" },
-          { path: "userId", select: "role" }
+          { path: "userId", select: "role profileImage" }
         ]
       })
       .sort({ date: -1, createdAt: -1 });
 
-    res.json({ success: true, attendance: records, count: records.length });
+    const normalizedRecords = records.map((rec) => {
+      const doc = rec.toObject ? rec.toObject() : { ...rec };
+      if (doc.employeeId) {
+        doc.employeeId.photo =
+          doc.employeeId.photo ||
+          doc.employeeId.documents?.photo ||
+          doc.employeeId.userId?.profileImage ||
+          "";
+      }
+      return doc;
+    });
+
+    res.json({ success: true, attendance: normalizedRecords, count: normalizedRecords.length });
   } catch (error) {
     next(error);
   }
@@ -1187,10 +1199,29 @@ const getRegularizationRequests = async (req, res, next) => {
   try {
     const filter = { companyId: req.companyId, regularizationStatus: "pending" };
     const requests = await Attendance.find(filter)
-      .populate("employeeId", "firstName lastName employeeCode departmentId")
+      .populate({
+        path: "employeeId",
+        select: "firstName lastName employeeCode photo documents departmentId userId",
+        populate: [
+          { path: "departmentId", select: "name" },
+          { path: "userId", select: "role profileImage" }
+        ]
+      })
       .sort({ updatedAt: -1 });
 
-    res.json({ success: true, requests });
+    const normalizedRequests = requests.map((reqDoc) => {
+      const doc = reqDoc.toObject ? reqDoc.toObject() : { ...reqDoc };
+      if (doc.employeeId) {
+        doc.employeeId.photo =
+          doc.employeeId.photo ||
+          doc.employeeId.documents?.photo ||
+          doc.employeeId.userId?.profileImage ||
+          "";
+      }
+      return doc;
+    });
+
+    res.json({ success: true, requests: normalizedRequests });
   } catch (error) {
     next(error);
   }

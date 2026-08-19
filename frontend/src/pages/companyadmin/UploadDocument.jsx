@@ -290,10 +290,10 @@ const UploadDocument = () => {
   const isFormComplete = employeeId && category && (category !== "Other" || customCategory.trim()) && file;
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-20 font-sans text-slate-900 dark:text-slate-100 max-w-[1600px] mx-auto px-1 sm:px-2">
+    <div className="space-y-3 sm:space-y-4 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
       
       {/* ── Header Bar (100% Responsive for Mobile & Desktop) ──────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 pb-2 border-b border-slate-200/80 dark:border-slate-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 shadow-2xs">
             <FileUp size={22} strokeWidth={2.2} />
@@ -386,37 +386,32 @@ const UploadDocument = () => {
 
       {/* ── MAIN CONTENT AREA ───────────────────────────────────────────────── */}
       {activeTab === "upload" ? (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
           
           {/* ── Left Column: Upload Wizard Form ──────────────────────────────── */}
-          <div className="lg:col-span-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs space-y-6">
-            <div>
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                  <UploadCloud size={18} className="text-amber-500" />
-                  Attach New Document
-                </h2>
-                <span className="text-[11px] font-bold text-amber-500 bg-amber-500/10 px-2.5 py-0.5 rounded-full">
-                  Real-time Cloud Sync
-                </span>
-              </div>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Select target employee, pick document type, and drop proof file.
-              </p>
+          <div className="lg:col-span-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
+              <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <UploadCloud size={16} className="text-amber-500" />
+                Attach New Document
+              </h2>
+              <span className="text-[10px] font-bold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md">
+                Cloud Sync
+              </span>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-3.5">
               
               {/* Step 1: Select Employee */}
-              <div className="space-y-2">
-                <label className="flex items-center justify-between text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                  <span className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black flex items-center justify-center">1</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center justify-between text-[11px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-4 h-4 rounded-full bg-amber-500 text-slate-950 text-[9px] font-black flex items-center justify-center">1</span>
                     Target Employee <span className="text-rose-500">*</span>
                   </span>
                   {selectedEmployee && (
-                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                      <CheckCircle2 size={12} /> Selected
+                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <CheckCircle2 size={11} /> Selected
                     </span>
                   )}
                 </label>
@@ -425,7 +420,7 @@ const UploadDocument = () => {
                 <div className="relative">
                   <div
                     onClick={() => setIsEmpDropdownOpen(!isEmpDropdownOpen)}
-                    className={`w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-900/80 border rounded-2xl cursor-pointer transition-all ${
+                    className={`w-full flex items-center justify-between p-2.5 bg-slate-50 dark:bg-slate-900/80 border rounded-xl cursor-pointer transition-all ${
                       isEmpDropdownOpen
                         ? "border-amber-500 ring-2 ring-amber-500/20"
                         : selectedEmployee
@@ -434,15 +429,15 @@ const UploadDocument = () => {
                     }`}
                   >
                     {selectedEmployee ? (
-                      <div className="flex items-center gap-3 min-w-0">
+                      <div className="flex items-center gap-2.5 min-w-0">
                         {selectedEmployee.photo ? (
                           <img
                             src={getSafeUrl(selectedEmployee.photo)}
                             alt=""
-                            className="w-8 h-8 rounded-xl object-cover border border-slate-200 dark:border-slate-700"
+                            className="w-7 h-7 rounded-lg object-cover border border-slate-200 dark:border-slate-700 shrink-0"
                           />
                         ) : (
-                          <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold ${getAvatarClass(selectedEmployee.firstName)}`}>
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold shrink-0 ${getAvatarClass(selectedEmployee.firstName)}`}>
                             {selectedEmployee.firstName?.[0]}
                           </div>
                         )}
@@ -457,33 +452,33 @@ const UploadDocument = () => {
                       </div>
                     ) : (
                       <span className="text-xs font-bold text-slate-400">
-                        {isEmpLoading ? "Loading employees from database..." : "— Search & Select an Employee —"}
+                        {isEmpLoading ? "Loading employees..." : "— Search & Select an Employee —"}
                       </span>
                     )}
-                    <ChevronDown size={16} className={`text-slate-400 transition-transform ${isEmpDropdownOpen ? "rotate-180 text-amber-500" : ""}`} />
+                    <ChevronDown size={15} className={`text-slate-400 transition-transform ${isEmpDropdownOpen ? "rotate-180 text-amber-500" : ""}`} />
                   </div>
 
                   {/* Dropdown Menu */}
                   {isEmpDropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-30" onClick={() => setIsEmpDropdownOpen(false)} />
-                      <div className="absolute left-0 top-[calc(100%+6px)] z-40 w-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden p-2 space-y-2">
+                      <div className="absolute left-0 top-[calc(100%+4px)] z-40 w-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden p-2 space-y-1.5">
                         <div className="relative">
-                          <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                          <Search size={13} className="absolute left-3 top-2.5 text-slate-400" />
                           <input
                             type="text"
-                            placeholder="Search by name, code, or department..."
+                            placeholder="Search by name, code..."
                             value={searchEmployeeQuery}
                             onChange={(e) => setSearchEmployeeQuery(e.target.value)}
                             onClick={(e) => e.stopPropagation()}
-                            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                           />
                         </div>
 
-                        <div className="max-h-60 overflow-y-auto space-y-1 custom-scrollbar">
+                        <div className="max-h-48 overflow-y-auto space-y-1 custom-scrollbar">
                           {filteredEmployees.length === 0 ? (
-                            <div className="p-4 text-center text-xs text-slate-400 font-bold">
-                              No employees matching search
+                            <div className="p-3 text-center text-xs text-slate-400 font-bold">
+                              No employees found
                             </div>
                           ) : (
                             filteredEmployees.map((emp) => {
@@ -498,31 +493,29 @@ const UploadDocument = () => {
                                     setEmployeeId(emp._id);
                                     setIsEmpDropdownOpen(false);
                                   }}
-                                  className={`w-full flex items-center justify-between p-2.5 rounded-xl text-left transition-all ${
+                                  className={`w-full flex items-center justify-between p-2 rounded-lg text-left transition-all ${
                                     isSelected
                                       ? "bg-amber-500 text-slate-950 font-extrabold"
                                       : "hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-200"
                                   }`}
                                 >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold ${isSelected ? "bg-slate-950 text-amber-400" : getAvatarClass(emp.firstName)}`}>
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${isSelected ? "bg-slate-950 text-amber-400" : getAvatarClass(emp.firstName)}`}>
                                       {emp.firstName?.[0]}
                                     </div>
                                     <div className="truncate">
                                       <p className="text-xs font-bold truncate">
                                         {emp.firstName} {emp.lastName}
                                       </p>
-                                      <p className={`text-[10px] truncate ${isSelected ? "text-slate-800" : "text-slate-400"}`}>
+                                      <p className={`text-[9.5px] truncate ${isSelected ? "text-slate-800" : "text-slate-400"}`}>
                                         {emp.employeeCode} • {emp.departmentId?.name || "General"}
                                       </p>
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isSelected ? "bg-slate-950/20 text-slate-950" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
-                                      {docCount} docs
-                                    </span>
-                                  </div>
+                                  <span className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded-full ${isSelected ? "bg-slate-950/20 text-slate-950" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"}`}>
+                                    {docCount} docs
+                                  </span>
                                 </button>
                               );
                             })
@@ -535,14 +528,14 @@ const UploadDocument = () => {
               </div>
 
               {/* Step 2: Document Category */}
-              <div className="space-y-2.5">
-                <label className="flex items-center gap-2 text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                  <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${employeeId ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>2</span>
+              <div className="space-y-1.5">
+                <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                  <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center ${employeeId ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>2</span>
                   Document Category <span className="text-rose-500">*</span>
                 </label>
 
-                {/* Category Grid Badges */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {/* Category Grid Badges (Compact) */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-1.5">
                   {DOCUMENT_CATEGORIES.map((cat) => {
                     const isSelected = category === cat.value;
                     return (
@@ -550,13 +543,13 @@ const UploadDocument = () => {
                         key={cat.value}
                         type="button"
                         onClick={() => setCategory(cat.value)}
-                        className={`p-3 rounded-2xl border text-left flex items-center gap-2.5 transition-all cursor-pointer ${
+                        className={`p-2 rounded-xl border text-left flex items-center gap-2 transition-all cursor-pointer ${
                           isSelected
                             ? "border-amber-500 bg-amber-500/10 text-slate-900 dark:text-white ring-1 ring-amber-500/50 shadow-2xs font-extrabold"
                             : "border-slate-200 dark:border-slate-800 hover:border-amber-500/40 bg-slate-50/60 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 font-bold"
                         }`}
                       >
-                        <span className="text-base">{cat.icon}</span>
+                        <span className="text-sm">{cat.icon}</span>
                         <span className="text-xs truncate">{cat.label}</span>
                       </button>
                     );
@@ -569,18 +562,18 @@ const UploadDocument = () => {
                       type="text"
                       value={customCategory}
                       onChange={(e) => setCustomCategory(e.target.value)}
-                      placeholder="Enter custom document title (e.g., Police Verification, Appraisal Letter)..."
-                      className="w-full px-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-amber-500/50 rounded-2xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
+                      placeholder="Enter custom document title..."
+                      className="w-full px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-amber-500/50 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-amber-500/20"
                     />
                   </div>
                 )}
               </div>
 
-              {/* Step 3: Drag & Drop Upload Zone */}
-              <div className="space-y-2">
+              {/* Step 3: Compact Drag & Drop Upload Zone */}
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-xs font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
-                    <span className={`w-5 h-5 rounded-full text-[10px] font-black flex items-center justify-center ${category ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>3</span>
+                  <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+                    <span className={`w-4 h-4 rounded-full text-[9px] font-black flex items-center justify-center ${category ? "bg-amber-500 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-500"}`}>3</span>
                     Upload File <span className="text-rose-500">*</span>
                   </label>
                   {file && (
@@ -590,9 +583,9 @@ const UploadDocument = () => {
                         setFile(null);
                         if (fileInputRef.current) fileInputRef.current.value = "";
                       }}
-                      className="text-xs font-bold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] font-bold text-rose-500 hover:underline flex items-center gap-1 cursor-pointer"
                     >
-                      <X size={13} /> Remove File
+                      <X size={12} /> Remove
                     </button>
                   )}
                 </div>
@@ -603,7 +596,7 @@ const UploadDocument = () => {
                   onDragEnter={handleDragEnter}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  className={`rounded-3xl border-2 border-dashed p-6 sm:p-8 text-center cursor-pointer transition-all duration-200 ${
+                  className={`rounded-2xl border-2 border-dashed p-4 text-center cursor-pointer transition-all duration-200 ${
                     isDragging
                       ? "border-amber-500 bg-amber-500/10 scale-[0.99]"
                       : file
@@ -621,30 +614,30 @@ const UploadDocument = () => {
                   />
 
                   {file ? (
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                      <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold">
-                        <FileCheck size={24} />
+                    <div className="flex items-center justify-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center font-bold shrink-0">
+                        <Check size={16} />
                       </div>
-                      <div className="text-center sm:text-left">
-                        <p className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white max-w-xs truncate">
+                      <div className="text-left min-w-0">
+                        <p className="text-xs font-extrabold text-slate-900 dark:text-white truncate max-w-xs">
                           {file.name}
                         </p>
-                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                          {formatBytes(file.size)} • Ready to save
+                        <p className="text-[10px] text-slate-400 font-semibold">
+                          {formatBytes(file.size)} • Ready to upload
                         </p>
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
-                        <UploadCloud size={24} strokeWidth={2.2} />
+                    <div className="flex items-center justify-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
+                        <UploadCloud size={16} strokeWidth={2.2} />
                       </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-extrabold text-slate-800 dark:text-white">
+                      <div className="text-left">
+                        <p className="text-xs font-bold text-slate-800 dark:text-white">
                           Choose a file or drag & drop here
                         </p>
-                        <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                          PDF, PNG, JPG, or DOC (Max size: 10MB)
+                        <p className="text-[10px] text-slate-400 font-semibold">
+                          PDF, PNG, JPG, or DOC (Max: 10MB)
                         </p>
                       </div>
                     </div>
@@ -656,16 +649,16 @@ const UploadDocument = () => {
               <button
                 type="submit"
                 disabled={uploadMutation.isPending || !isFormComplete}
-                className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-2xl text-xs shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-extrabold rounded-xl text-xs shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer mt-1"
               >
                 {uploadMutation.isPending ? (
                   <>
-                    <RefreshCw size={16} className="animate-spin" />
-                    <span>Uploading & Saving to Database...</span>
+                    <RefreshCw size={14} className="animate-spin" />
+                    <span>Uploading & Saving...</span>
                   </>
                 ) : (
                   <>
-                    <Check size={16} strokeWidth={2.5} />
+                    <Check size={14} strokeWidth={2.5} />
                     <span>Confirm & Upload Document</span>
                   </>
                 )}
@@ -675,7 +668,7 @@ const UploadDocument = () => {
           </div>
 
           {/* ── Right Column: Selected Employee Vault Live Status ───────────── */}
-          <div className="lg:col-span-5 space-y-4">
+          <div className="lg:col-span-5 space-y-3">
             {selectedEmployee ? (
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs space-y-4">
                 
