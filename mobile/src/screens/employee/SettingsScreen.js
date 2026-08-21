@@ -274,7 +274,7 @@ const SettingsScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.supportLabel}>Nextact HRMS • Version 1.2.0</Text>
+          <Text style={styles.supportLabel}>One Click Business • Version 1.2.0</Text>
         </ScrollView>
 
         {/* Change Password Modal */}

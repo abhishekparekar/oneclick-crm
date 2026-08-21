@@ -1,20 +1,19 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getManagerMyLeavesApi, applyManagerLeaveApi, getManagerLeaveBalanceApi } from "../../api/managerApi";
-import {  FileText, RefreshCw, Plus, X, CalendarDays , CalendarOff } from "lucide-react";
+import { FileText, RefreshCw, Plus, X, CalendarDays, CalendarOff } from "lucide-react";
 import toast from "react-hot-toast";
-import PageHeader from "../../components/common/PageHeader";
 
 const LEAVE_TYPES = ["Sick Leave", "Casual Leave", "Annual Leave", "Emergency Leave", "Maternity Leave", "Paternity Leave", "Other"];
 
-const getStatusStyle = (status) => {
-  const s = status?.toLowerCase();
-  if (s === "approved") return { color: "#10b981", bg: "rgba(16,185,129,0.1)" };
-  if (s === "rejected") return { color: "#ef4444", bg: "rgba(239,68,68,0.1)" };
-  return { color: "#f59e0b", bg: "rgba(245,158,11,0.1)" };
+const getStatusBadge = (status) => {
+  const s = (status || "pending").toLowerCase();
+  if (s === "approved") return { label: "Approved", color: "text-emerald-700 dark:text-emerald-400", bg: "bg-emerald-500/10 border-emerald-500/20" };
+  if (s === "rejected") return { label: "Rejected", color: "text-rose-700 dark:text-rose-400", bg: "bg-rose-500/10 border-rose-500/20" };
+  return { label: "Pending", color: "text-amber-700 dark:text-amber-400", bg: "bg-amber-500/10 border-amber-500/20" };
 };
 
-const ManagerMyLeave = () => {
+export default function ManagerMyLeave() {
   const [showApply, setShowApply] = useState(false);
   const [form, setForm] = useState({ leaveType: "Sick Leave", startDate: "", endDate: "", reason: "" });
   const queryClient = useQueryClient();
@@ -57,167 +56,191 @@ const ManagerMyLeave = () => {
     applyMut.mutate(form);
   };
 
-  return (
-    <div className="space-y-4 pb-4 max-w-[1400px] mx-auto font-sans">
-      <PageHeader title="My Leaves" icon={CalendarOff}>
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md transition-all border border-[#CC4800]/50 bg-[#E65100] hover:bg-[#CC4800] disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} />
-        </button>
-        <button
-          onClick={() => setShowApply(true)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md hover:opacity-95 transition-opacity bg-orange-500 hover:bg-orange-600"
-        >
-          <Plus size={13} /> Apply Leave
-        </button>
-      </PageHeader>
+  const formatDate = (d) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  };
 
-      {/* Leave Balance Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+  return (
+    <div className="space-y-3 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
+      {/* ── 1. SLIM EXECUTIVE HEADER ───────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-4 py-3 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+              <CalendarOff size={16} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                My Leaves
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium">
+                View your leave balances and request time-off
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Refresh Leaves"
+            >
+              <RefreshCw size={13} className={isFetching ? "animate-spin text-amber-500" : ""} />
+            </button>
+
+            <button
+              onClick={() => setShowApply(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-extrabold shadow-2xs transition-all cursor-pointer"
+            >
+              <Plus size={13} strokeWidth={3} />
+              <span>Apply Leave</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── 2. LEAVE BALANCE CARDS ────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         {[
-          { label: "Casual Leave", val: balance.casual ?? 0, color: "from-blue-500 to-indigo-600" },
-          { label: "Sick Leave", val: balance.sick ?? 0, color: "from-rose-500 to-pink-600" },
-          { label: "Annual Leave", val: balance.annual ?? balance.paid ?? 0, color: "from-emerald-500 to-teal-600" },
-          { label: "Unpaid / LOP", val: balance.lop ?? balance.unpaid ?? 0, color: "from-amber-500 to-orange-600" },
+          { label: "Casual Leave", val: balance.casual ?? 0, bg: "bg-blue-500/10", text: "text-blue-600" },
+          { label: "Sick Leave", val: balance.sick ?? 0, bg: "bg-rose-500/10", text: "text-rose-600" },
+          { label: "Annual Leave", val: balance.annual ?? balance.paid ?? 0, bg: "bg-emerald-500/10", text: "text-emerald-600" },
+          { label: "Unpaid / LOP", val: balance.lop ?? balance.unpaid ?? 0, bg: "bg-amber-500/10", text: "text-amber-600" },
         ].map((item, idx) => (
-          <div key={idx} className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-3 shadow-sm relative overflow-hidden group">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">{item.label}</p>
-            <h3 className="text-2xl font-black text-slate-800 dark:text-white mt-1">{item.val}</h3>
-            <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-0.5">Days remaining</p>
-            <div className={`absolute top-0 right-0 w-1.5 h-full bg-gradient-to-b ${item.color} opacity-80 group-hover:opacity-100 transition-opacity`} />
+          <div key={idx} className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{item.label}</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white font-mono mt-0.5">{item.val}</h3>
+              <p className="text-[9.5px] text-slate-400 font-medium">Days remaining</p>
+            </div>
+            <div className={`w-8 h-8 rounded-lg ${item.bg} ${item.text} flex items-center justify-center font-bold text-xs`}>
+              {item.val}d
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Leaves Table */}
-      <div className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-3xl overflow-hidden shadow-sm">
-        {isLoading ? (
-          <div className="p-12 text-center">
-            <div className="animate-spin w-8 h-8 border-2 border-[#6366f1] border-t-transparent rounded-full mx-auto" />
-          </div>
-        ) : leaves.length === 0 ? (
-          <div className="p-16 text-center text-slate-400">
-            <CalendarDays size={40} className="mx-auto mb-3 opacity-30" />
-            <p className="text-sm font-semibold">No leave records. Apply for a leave above.</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-150 dark:border-slate-800 bg-slate-50/50 dark:bg-[var(--color-ca-card)]/">
-                  {["Leave Type", "From", "To", "Days", "Reason", "Applied On", "Status"].map((h) => (
-                    <th key={h} className="text-left px-5 py-3.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                      {h}
-                    </th>
-                  ))}
+      {/* ── 3. MY LEAVE APPLICATIONS TABLE ─────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <tr>
+                <th className="px-3 py-2.5">Leave Type</th>
+                <th className="px-3 py-2.5">Start Date</th>
+                <th className="px-3 py-2.5">End Date</th>
+                <th className="px-3 py-2.5">Total Days</th>
+                <th className="px-3 py-2.5">Reason</th>
+                <th className="px-3 py-2.5">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-400">
+                    <RefreshCw className="animate-spin mx-auto mb-1 text-amber-500" size={18} />
+                    Loading leave history...
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {leaves.map((leave, i) => {
-                  const ss = getStatusStyle(leave.status);
+              ) : leaves.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="text-center py-10 text-slate-400">
+                    No leave applications recorded.
+                  </td>
+                </tr>
+              ) : (
+                leaves.map((l) => {
+                  const badge = getStatusBadge(l.status);
                   return (
-                    <tr
-                      key={leave._id}
-                      className="transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-950/10"
-                      style={{ borderBottom: i < leaves.length - 1 ? "1px solid rgba(226, 232, 240, 0.5)" : "none" }}
-                    >
-                      <td className="px-5 py-4 text-xs font-bold text-slate-800 dark:text-slate-200">{leave.leaveType || "—"}</td>
-                      <td className="px-5 py-4 text-xs font-semibold text-slate-600 dark:text-slate-450">
-                        {leave.startDate ? new Date(leave.startDate).toLocaleDateString("en-IN") : "—"}
-                      </td>
-                      <td className="px-5 py-4 text-xs font-semibold text-slate-600 dark:text-slate-450">
-                        {leave.endDate ? new Date(leave.endDate).toLocaleDateString("en-IN") : "—"}
-                      </td>
-                      <td className="px-5 py-4 text-xs font-bold text-slate-700 dark:text-slate-350">{leave.totalDays || 1}</td>
-                      <td className="px-5 py-4 max-w-[150px]">
-                        <p className="text-xs text-slate-500 dark:text-slate-450 truncate" title={leave.reason}>{leave.reason || "—"}</p>
-                      </td>
-                      <td className="px-5 py-4 text-xs font-medium text-slate-500 dark:text-slate-450">
-                        {leave.createdAt ? new Date(leave.createdAt).toLocaleDateString("en-IN") : "—"}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="px-2.5 py-1 rounded-full text-[10px] font-bold" style={{ background: ss.bg, color: ss.color }}>
-                          {leave.status || "Pending"}
+                    <tr key={l._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="px-3 py-2 font-bold text-slate-900 dark:text-white">{l.leaveType || l.type || "Casual Leave"}</td>
+                      <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">{formatDate(l.startDate)}</td>
+                      <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">{formatDate(l.endDate)}</td>
+                      <td className="px-3 py-2 font-mono font-bold text-slate-800 dark:text-slate-200">{l.totalDays || 1}d</td>
+                      <td className="px-3 py-2 text-slate-500 dark:text-slate-400 max-w-[220px] truncate font-medium">{l.reason || "—"}</td>
+                      <td className="px-3 py-2">
+                        <span className={`inline-block px-1.5 py-0.2 rounded text-[10px] font-bold border ${badge.bg} ${badge.color}`}>
+                          {badge.label}
                         </span>
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Apply Leave Modal */}
       {showApply && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-3xl p-6 w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between mb-5 border-b border-slate-50 dark:border-slate-800 pb-3">
-              <h3 className="text-base font-black text-slate-800 dark:text-white">Apply for Leave</h3>
-              <button onClick={() => setShowApply(false)} className="text-slate-400 hover:text-slate-650">
-                <X size={18} />
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-[#111C24] rounded-xl w-full max-w-md overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-800 animate-scaleUp">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-xs uppercase tracking-wider">Apply For Leave</h3>
+              <button onClick={() => setShowApply(false)} className="p-1 text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={15} />
               </button>
             </div>
-            <form onSubmit={handleApply} className="space-y-4">
+
+            <form onSubmit={handleApply} className="p-4 space-y-3 text-xs">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-400">Leave Type</label>
+                <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Leave Type *</label>
                 <select
                   value={form.leaveType}
-                  onChange={(e) => setForm((f) => ({ ...f, leaveType: e.target.value }))}
-                  className="w-full px-3 py-2.5 rounded-xl text-sm font-semibold outline-none bg-slate-50 dark:bg-[var(--color-ca-card)] border border-slate-150 dark:border-slate-850 text-slate-800 dark:text-white cursor-pointer"
+                  onChange={(e) => setForm({ ...form, leaveType: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                 >
-                  {LEAVE_TYPES.map((t) => <option key={t} value={t} style={{ background: "#1e2329" }}>{t}</option>)}
+                  {LEAVE_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-3">
+
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-400">From</label>
+                  <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Start Date *</label>
                   <input
                     type="date"
+                    required
                     value={form.startDate}
-                    onChange={(e) => setForm((f) => ({ ...f, startDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl text-xs font-bold outline-none bg-slate-50 dark:bg-[var(--color-ca-card)] border border-slate-150 dark:border-slate-850 text-slate-800 dark:text-white cursor-pointer"
+                    onChange={(e) => setForm({ ...form, startDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-400">To</label>
+                  <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">End Date *</label>
                   <input
                     type="date"
+                    required
                     value={form.endDate}
-                    onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
-                    className="w-full px-3 py-2.5 rounded-xl text-xs font-bold outline-none bg-slate-50 dark:bg-[var(--color-ca-card)] border border-slate-150 dark:border-slate-850 text-slate-800 dark:text-white cursor-pointer"
+                    onChange={(e) => setForm({ ...form, endDate: e.target.value })}
+                    className="w-full bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                   />
                 </div>
               </div>
+
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider mb-1.5 text-slate-400">Reason</label>
+                <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Reason / Details *</label>
                 <textarea
-                  rows={3}
-                  placeholder="Reason for leave..."
+                  required
                   value={form.reason}
-                  onChange={(e) => setForm((f) => ({ ...f, reason: e.target.value }))}
-                  className="w-full p-3 rounded-2xl text-sm outline-none resize-none bg-slate-50 dark:bg-[var(--color-ca-card)] border border-slate-150 dark:border-slate-855 text-slate-800 dark:text-white"
+                  onChange={(e) => setForm({ ...form, reason: e.target.value })}
+                  className="w-full bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 min-h-[60px] resize-none font-semibold"
+                  placeholder="State reason for absence..."
                 />
               </div>
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowApply(false)}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-slate-50 dark:bg-[var(--color-ca-card)] border border-slate-150 dark:border-slate-850 text-slate-650 dark:text-slate-400 hover:bg-slate-100"
-                >
-                  Cancel
-                </button>
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <button type="button" onClick={() => setShowApply(false)} className="px-3 py-1.5 text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
                 <button
                   type="submit"
-                  disabled={applyMut.isPending}
-                  className="flex-1 py-2.5 rounded-xl text-xs font-bold text-white shadow-md hover:opacity-95 transition-opacity"
-                  style={{ background: "linear-gradient(135deg, #6366f1, #4f46e5)" }}
+                  disabled={applyMut.isLoading}
+                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-2xs disabled:opacity-50 cursor-pointer"
                 >
-                  {applyMut.isPending ? "Submitting..." : "Submit Application"}
+                  {applyMut.isLoading ? "Submitting..." : "Submit Application"}
                 </button>
               </div>
             </form>
@@ -226,7 +249,4 @@ const ManagerMyLeave = () => {
       )}
     </div>
   );
-};
-
-export default ManagerMyLeave;
-
+}

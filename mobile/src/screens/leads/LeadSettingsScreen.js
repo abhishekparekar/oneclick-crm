@@ -13,6 +13,7 @@ import {
   Clipboard,
   Platform,
   KeyboardAvoidingView,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
@@ -46,6 +47,7 @@ const COLOR_PRESETS = [
 
 const TABS = [
   { id: "whatsapp", label: "WhatsApp", icon: "logo-whatsapp" },
+  { id: "templates", label: "Templates", icon: "document-text-outline" },
   { id: "profile", label: "Profile", icon: "business-outline" },
   { id: "statuses", label: "Stages", icon: "git-branch-outline" },
   { id: "sources", label: "Sources", icon: "funnel-outline" },
@@ -57,8 +59,11 @@ export default function LeadSettingsScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingWa, setTestingWa] = useState(false);
+  const [syncingTemplates, setSyncingTemplates] = useState(false);
+  const [templates, setTemplates] = useState([]);
 
   // WhatsApp State
+  const [apiProvider, setApiProvider] = useState("THIRD_PARTY_CLICK2API");
   const [waStatus, setWaStatus] = useState("CONNECTED");
   const [whatsapp, setWhatsapp] = useState({
     displayPhoneNumber: "+91 98220 12345",
@@ -66,6 +71,12 @@ export default function LeadSettingsScreen({ navigation }) {
     businessAccountId: "108923489234",
     accessToken: "••••••••••••••••••••",
   });
+
+  // Test Message Modal State
+  const [testMsgModal, setTestMsgModal] = useState(false);
+  const [testRecipient, setTestRecipient] = useState("918485877633");
+  const [testText, setTestText] = useState("Hello from ONE CLICK CRM! Your WhatsApp integration is working perfectly.");
+  const [sendingTest, setSendingTest] = useState(false);
 
   // Business Profile State
   const [profile, setProfile] = useState({
@@ -96,13 +107,14 @@ export default function LeadSettingsScreen({ navigation }) {
   const fetchData = async () => {
     try {
       setLoading(true);
-      const [waRes, profRes, stRes, soRes, tgRes, tokRes] = await Promise.all([
+      const [waRes, profRes, stRes, soRes, tgRes, tokRes, tplRes] = await Promise.all([
         leadsService.getWhatsAppAccount().catch(() => ({})),
         leadsService.getBusinessProfile().catch(() => ({})),
         leadsService.getStatuses(),
         leadsService.getSources(),
         leadsService.getTags(),
         leadsService.getPublicToken().catch(() => ({})),
+        leadsService.getTemplates().catch(() => []),
       ]);
 
       if (waRes) {
@@ -115,6 +127,7 @@ export default function LeadSettingsScreen({ navigation }) {
       setSources(Array.isArray(soRes) ? soRes : []);
       setTags(Array.isArray(tgRes) ? tgRes : []);
       if (tokRes?.publicToken) setPublicToken(tokRes.publicToken);
+      if (Array.isArray(tplRes)) setTemplates(tplRes);
     } catch (err) {
       console.warn("[LeadSettings] Fetch note:", err?.message || err);
     } finally {
@@ -154,6 +167,59 @@ export default function LeadSettingsScreen({ navigation }) {
       Alert.alert("Failed", "Unable to connect to WhatsApp API. Check credentials.");
     } finally {
       setTestingWa(false);
+    }
+  };
+
+  const handleSyncTemplates = async () => {
+    try {
+      setSyncingTemplates(true);
+      const res = await leadsService.syncTemplates({
+        businessAccountId: whatsapp.businessAccountId,
+        accessToken: whatsapp.accessToken,
+        apiEndpoint: whatsapp.apiEndpoint,
+      });
+      const tpls = await leadsService.getTemplates();
+      setTemplates(Array.isArray(tpls) ? tpls : []);
+      Alert.alert("Templates Synced! ⚡", res?.message || "WhatsApp templates synchronized successfully!");
+    } catch (err) {
+      Alert.alert("Error", "Failed to sync templates.");
+    } finally {
+      setSyncingTemplates(false);
+    }
+  };
+
+  const handleSendTestMessage = async () => {
+    if (!testRecipient.trim()) return Alert.alert("Required", "Recipient mobile number is required");
+
+    let cleanPhone = testRecipient.trim().replace(/[^0-9]/g, "");
+    if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+    const msgText = testText.trim() || "Test message from ONE CLICK CRM";
+
+    setSendingTest(true);
+    try {
+      const res = await leadsService.sendWhatsAppMessage({
+        recipient: cleanPhone,
+        template: "reminder_marathi_3_lines_without_bt",
+        language: "mr",
+        params: ["Valued Client", "ONE CLICK CRM Services", cleanPhone],
+        variables: { 1: "Valued Client", 2: "ONE CLICK CRM Services", 3: cleanPhone },
+        text: msgText,
+      });
+      setTestMsgModal(false);
+      Alert.alert(
+        "Delivered! ⚡",
+        `Test WhatsApp message dispatched directly to +${cleanPhone} via Cloud Gateway! Message is queued for delivery.`
+      );
+    } catch (err) {
+      const errMsg =
+        err?.response?.data?.metaError ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err.message ||
+        "Failed to send test message via Cloud Gateway";
+      Alert.alert("Gateway Notice ⚠️", errMsg);
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -413,6 +479,137 @@ export default function LeadSettingsScreen({ navigation }) {
                     </>
                   )}
                 </TouchableOpacity>
+
+                {/* Secondary Fast Action Buttons */}
+                <View style={{ flexDirection: "row", gap: 6, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.saveBtnCompact, { flex: 1, backgroundColor: "#0284C7", marginTop: 0 }]}
+                    onPress={handleSyncTemplates}
+                    disabled={syncingTemplates}
+                  >
+                    {syncingTemplates ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="sync" size={13} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.saveBtnCompactText}>Sync Templates</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.saveBtnCompact, { flex: 1, backgroundColor: "#10B981", marginTop: 0 }]}
+                    onPress={() => setTestMsgModal(true)}
+                  >
+                    <Ionicons name="send" size={12} color="#FFF" style={{ marginRight: 4 }} />
+                    <Text style={styles.saveBtnCompactText}>Send Test</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
+            {/* ══════════ TEMPLATES TAB ══════════ */}
+            {activeTab === "templates" && (
+              <View style={styles.compactCard}>
+                <View style={styles.cardHeaderStrip}>
+                  <View>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <Ionicons name="logo-whatsapp" size={14} color="#25D366" />
+                      <Text style={styles.cardHeaderTitle}>Approved Meta Templates</Text>
+                    </View>
+                    <Text style={{ fontSize: 9.5, color: C.sub, marginTop: 1 }}>
+                      {templates.length} gateway templates active & synced
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.addBtnMini, { backgroundColor: "#0284C7" }]}
+                    onPress={handleSyncTemplates}
+                    disabled={syncingTemplates}
+                  >
+                    {syncingTemplates ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="sync" size={10} color="#FFF" style={{ marginRight: 3 }} />
+                        <Text style={styles.addBtnMiniText}>Sync Gateway</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {templates.length === 0 ? (
+                  <View style={{ paddingVertical: 20, alignItems: "center" }}>
+                    <Ionicons name="document-text-outline" size={28} color={C.muted} />
+                    <Text style={{ fontSize: 11, color: C.sub, marginTop: 4 }}>No templates synced yet.</Text>
+                    <TouchableOpacity
+                      style={[styles.saveBtnCompact, { paddingHorizontal: 14, marginTop: 8 }]}
+                      onPress={handleSyncTemplates}
+                    >
+                      <Text style={styles.saveBtnCompactText}>Sync Templates Now ⚡</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <View style={{ marginTop: 6 }}>
+                    {templates.map((tpl, idx) => (
+                      <View
+                        key={tpl.id || tpl._id || idx}
+                        style={{
+                          backgroundColor: "#F8FAFC",
+                          borderWidth: 1,
+                          borderColor: C.borderLight,
+                          borderRadius: 8,
+                          padding: 8,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                            <Ionicons name="flash" size={11} color="#10B981" />
+                            <Text style={{ fontSize: 11.5, fontFamily: FONTS.displayBold, color: C.text }}>
+                              {tpl.name}
+                            </Text>
+                          </View>
+                          <View
+                            style={{
+                              backgroundColor: "#ECFDF5",
+                              borderColor: "#A7F3D0",
+                              borderWidth: 1,
+                              paddingHorizontal: 5,
+                              paddingVertical: 1,
+                              borderRadius: 4,
+                              flexDirection: "row",
+                              alignItems: "center",
+                              gap: 2,
+                            }}
+                          >
+                            <Ionicons name="checkmark-circle" size={9} color="#059669" />
+                            <Text style={{ fontSize: 8.5, fontFamily: FONTS.bodyBold, color: "#059669" }}>
+                              {tpl.status || "APPROVED"}
+                            </Text>
+                          </View>
+                        </View>
+                        <Text style={{ fontSize: 10.5, color: C.sub, marginTop: 3, lineHeight: 14 }}>
+                          {tpl.bodyText || tpl.message}
+                        </Text>
+                        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 4, paddingTop: 4, borderTopWidth: 1, borderTopColor: "#F1F5F9" }}>
+                          <Text style={{ fontSize: 8.5, color: C.muted, textTransform: "uppercase" }}>
+                            Category: {tpl.category || "UTILITY"}
+                          </Text>
+                          <TouchableOpacity
+                            style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#10B98115", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}
+                            onPress={() => {
+                              setTestText(tpl.bodyText || tpl.message || "Hello!");
+                              setTestMsgModal(true);
+                            }}
+                          >
+                            <Ionicons name="send" size={9} color="#10B981" style={{ marginRight: 3 }} />
+                            <Text style={{ fontSize: 9.5, fontFamily: FONTS.bodyBold, color: "#10B981" }}>Test Send</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
             )}
 
@@ -724,6 +921,66 @@ export default function LeadSettingsScreen({ navigation }) {
                   </TouchableOpacity>
                 </View>
               )}
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+
+        {/* Test WhatsApp Message Modal */}
+        <Modal
+          visible={testMsgModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setTestMsgModal(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalBackdrop}
+          >
+            <View style={styles.modalBox}>
+              <View style={styles.modalHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="logo-whatsapp" size={16} color="#10B981" style={{ marginRight: 6 }} />
+                  <Text style={styles.modalTitle}>Send WhatsApp Message</Text>
+                </View>
+                <TouchableOpacity onPress={() => setTestMsgModal(false)}>
+                  <Ionicons name="close" size={18} color={C.muted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={{ marginTop: 4 }}>
+                <Text style={styles.fieldLabel}>Recipient Mobile Number *</Text>
+                <TextInput
+                  style={styles.inputMini}
+                  placeholder="e.g. 918485877633"
+                  keyboardType="phone-pad"
+                  value={testRecipient}
+                  onChangeText={setTestRecipient}
+                />
+
+                <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Message Body *</Text>
+                <TextInput
+                  style={[styles.inputMini, { height: 75, textAlignVertical: "top" }]}
+                  placeholder="Type WhatsApp message..."
+                  multiline
+                  value={testText}
+                  onChangeText={setTestText}
+                />
+
+                <TouchableOpacity
+                  style={[styles.saveBtnCompact, { backgroundColor: "#10B981", marginTop: 12 }]}
+                  onPress={handleSendTestMessage}
+                  disabled={sendingTest}
+                >
+                  {sendingTest ? (
+                    <ActivityIndicator size="small" color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="send" size={12} color="#FFF" style={{ marginRight: 5 }} />
+                      <Text style={styles.saveBtnCompactText}>Dispatch WhatsApp Message ⚡</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </KeyboardAvoidingView>
         </Modal>

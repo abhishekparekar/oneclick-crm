@@ -43,9 +43,9 @@ const STEPS = [
 
 // ── Shared Field Components ──────────────────────────────────────────────────
 const Field = ({ label, required, children, className = "", action, hint }) => (
-  <div className={`space-y-1.5 ${className}`}>
+  <div className={`space-y-1 ${className}`}>
     <div className="flex items-center justify-between">
-      <label className="block text-[11px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+      <label className="block text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">
         {label} {required && <span className="text-rose-500">*</span>}
       </label>
       {action}
@@ -86,7 +86,7 @@ const Select = ({ label, value, onChange, options, disabled = false, required = 
           <option key={opt.value} value={opt.value}>{opt.label}</option>
         ))}
       </select>
-      <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
+      <ChevronDown size={13} className="absolute right-2.5 top-2 text-slate-400 pointer-events-none" />
     </div>
   </Field>
 );
@@ -568,18 +568,18 @@ export default function EditEmployee() {
   const baseRoute = window.location.pathname.startsWith("/hr") ? "/hr" : "/company";
 
   return (
-    <div className="min-h-screen pb-24 space-y-6">
+    <div className="min-h-screen pb-20 space-y-3">
       
       {/* ── Top Executive Header ────────────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-5 shadow-2xs">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3 min-w-0">
             <Link
               to={`${baseRoute}/employees`}
-              className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0"
               title="Back to Employees"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={15} />
             </Link>
 
             <div className="relative group">
@@ -592,9 +592,9 @@ export default function EditEmployee() {
               />
               <div className="relative">
                 {photoUrl ? (
-                  <img src={photoUrl} alt={name} className="w-14 h-14 rounded-2xl object-cover border-2 border-white dark:border-slate-700 shadow-md ring-2 ring-amber-500/20" />
+                  <img src={photoUrl} alt={name} className="w-10 h-10 rounded-xl object-cover border-2 border-white dark:border-slate-700 shadow-md ring-1 ring-amber-500/20" />
                 ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-lg flex items-center justify-center shadow-md border-2 border-white dark:border-slate-700">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-sm flex items-center justify-center shadow-md border-2 border-white dark:border-slate-700">
                     {initials}
                   </div>
                 )}
@@ -612,7 +612,7 @@ export default function EditEmployee() {
 
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">{name}</h1>
+                <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight leading-tight">{name}</h1>
                 <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10.5px] font-extrabold border border-amber-500/20">
                   {formData.employeeCode || "EMP"}
                 </span>
@@ -623,7 +623,7 @@ export default function EditEmployee() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
             {isDirty && (
               <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-amber-500/10 text-amber-600 border border-amber-500/20 animate-pulse">
                 <AlertCircle size={13} /> Unsaved Changes
@@ -631,7 +631,7 @@ export default function EditEmployee() {
             )}
             <button
               onClick={() => { setShowAuditLog(true); refetchAudit(); }}
-              className="px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+              className="px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 text-xs font-bold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
             >
               <History size={14} className="text-amber-500" />
               <span>Audit Log</span>
@@ -639,7 +639,7 @@ export default function EditEmployee() {
             <button
               onClick={handleSave}
               disabled={!isDirty || updateMutation.isPending}
-              className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
+              className={`px-4 py-1.5 rounded-lg text-xs font-extrabold transition-all flex items-center gap-1.5 shadow-sm cursor-pointer ${
                 isDirty
                   ? "bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white"
                   : "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
@@ -651,66 +651,66 @@ export default function EditEmployee() {
           </div>
         </div>
 
-        {/* ── Modern Step Navigation Bar ──────────────────────────────────── */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 mt-5 pt-4 border-t border-slate-100 dark:border-slate-800">
-          {STEPS.map((s) => {
-            const Icon = s.icon;
-            const isCurrent = step === s.id;
-            const isCompleted = step > s.id;
-            return (
-              <button
-                key={s.id}
-                type="button"
-                onClick={() => setStep(s.id)}
-                className={`p-2.5 rounded-2xl text-left transition-all cursor-pointer border ${
-                  isCurrent
-                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-md border-transparent"
-                    : isCompleted
-                    ? "bg-slate-50 dark:bg-[#0D1321] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:border-amber-500/30"
-                    : "bg-white dark:bg-[#111C24] text-slate-400 border-slate-200/40 dark:border-slate-800/40 opacity-70 hover:opacity-100"
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black ${isCurrent ? 'bg-white/20 text-white' : isCompleted ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-200/60 dark:bg-slate-800 text-slate-400'}`}>
-                    {isCompleted ? <CheckCircle2 size={12} /> : s.id}
-                  </div>
-                  <span className="text-[11px] font-extrabold truncate">{s.label}</span>
-                </div>
-                <p className={`text-[9.5px] truncate font-semibold ${isCurrent ? 'text-white/80' : 'text-slate-400'}`}>{s.desc}</p>
-              </button>
-            );
-          })}
-        </div>
+        {/* ── Compact Step Bar ── */}
+      </div>
+      <div className="flex border-t border-slate-100 dark:border-slate-800/60 overflow-x-auto scrollbar-none">
+        {STEPS.map((s) => {
+          const Icon = s.icon;
+          const isCurrent = step === s.id;
+          const isCompleted = step > s.id;
+          return (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setStep(s.id)}
+              className={`flex-1 flex items-center justify-center gap-1 py-2.5 px-2 text-[10.5px] font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer whitespace-nowrap ${
+                isCurrent
+                  ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20"
+                  : isCompleted
+                  ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10"
+                  : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40"
+              }`}
+            >
+              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                isCurrent ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : isCompleted ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
+              }`}>
+                {isCompleted ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <Icon size={11} strokeWidth={2.5} />}
+              </div>
+              <span className="hidden sm:inline truncate">{s.label}</span>
+              <span className="sm:hidden font-black">{s.id}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Form Step Content Container ─────────────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-2xs animate-fadeIn">
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-4 shadow-2xs animate-fadeIn">
         
         {/* ══ STEP 1: Basic & Profile Info ══════════════════════════════════ */}
         {step === 1 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <User size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <User size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Basic & Personal Information</h3>
-                <p className="text-xs text-slate-400 font-medium">Core identification, personal contact, and avatar</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Basic & Personal Information</h3>
+                <p className="hidden">Core identification, personal contact, and avatar</p>
               </div>
             </div>
 
             {/* Profile Avatar Card */}
-            <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80">
               {photoUrl ? (
-                <img src={photoUrl} alt={name} className="w-16 h-16 rounded-2xl object-cover border-2 border-white dark:border-slate-700 shadow-sm ring-2 ring-amber-500/20" />
+                <img src={photoUrl} alt={name} className="w-12 h-12 rounded-xl object-cover border-2 border-white dark:border-slate-700 shadow-sm ring-1 ring-amber-500/20" />
               ) : (
-                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-xl flex items-center justify-center shadow-sm">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white font-black text-base flex items-center justify-center shadow-sm">
                   {initials}
                 </div>
               )}
               <div className="space-y-1">
-                <h4 className="text-xs font-extrabold text-slate-900 dark:text-white">Profile Avatar</h4>
-                <p className="text-[11px] text-slate-400">Supported formats: JPG, PNG, WEBP (Max 5MB)</p>
+                <p className="text-xs font-bold text-slate-800 dark:text-white">Profile Photo</p>
+                <p className="text-[10px] text-slate-400">JPG, PNG, WEBP - Max 5MB</p>
                 <div className="flex gap-2 pt-1">
                   <button
                     type="button"
@@ -734,23 +734,23 @@ export default function EditEmployee() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Input label="First Name" required value={formData.firstName} onChange={(v) => handleChange("firstName", v)} placeholder="First Name" />
               <Input label="Middle Name" value={formData.middleName} onChange={(v) => handleChange("middleName", v)} placeholder="Middle Name" />
               <Input label="Last Name" required value={formData.lastName} onChange={(v) => handleChange("lastName", v)} placeholder="Last Name" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Input label="Official / Login Email" type="email" required value={formData.email} onChange={(v) => handleChange("email", v)} placeholder="name@company.com" />
               <Input label="Primary Phone Number" type="tel" required value={formData.phone} onChange={(v) => handleChange("phone", v)} placeholder="9876543210" />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Input label="Alternate Mobile" type="tel" value={formData.alternateMobile} onChange={(v) => handleChange("alternateMobile", v)} placeholder="Optional secondary contact" />
               <Input label="Date of Birth" type="date" value={formData.dateOfBirth} onChange={(v) => handleChange("dateOfBirth", v)} />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Select label="Gender" value={formData.gender} onChange={(v) => handleChange("gender", v)} options={[
                 { value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }
               ]} />
@@ -767,18 +767,18 @@ export default function EditEmployee() {
 
         {/* ══ STEP 2: Job Details ═══════════════════════════════════════════ */}
         {step === 2 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <Briefcase size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <Briefcase size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Job & Employment Details</h3>
-                <p className="text-xs text-slate-400 font-medium">Department, designation, role permissions, and branch</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Job & Employment Details</h3>
+                <p className="hidden">Department, designation, role permissions, and branch</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <MultiSelect
                 label="Accessible Departments"
                 selected={formData.accessibleDepartments || []}
@@ -803,7 +803,7 @@ export default function EditEmployee() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Select
                 label="Branch / Office"
                 value={typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId}
@@ -828,7 +828,7 @@ export default function EditEmployee() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Select
                 label="Reporting Manager"
                 value={typeof formData.reportingManagerId === "object" ? formData.reportingManagerId?._id : formData.reportingManagerId}
@@ -849,7 +849,7 @@ export default function EditEmployee() {
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Select
                 label="Work Mode"
                 value={formData.workMode}
@@ -882,25 +882,25 @@ export default function EditEmployee() {
 
         {/* ══ STEP 3: Address & Emergency ═══════════════════════════════════ */}
         {step === 3 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <MapPin size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <MapPin size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Address & Emergency Contact</h3>
-                <p className="text-xs text-slate-400 font-medium">Residential address and designated emergency contact person</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Address & Emergency Contact</h3>
+                <p className="hidden">Residential address and designated emergency contact person</p>
               </div>
             </div>
 
             {/* Current Address */}
             <div className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Current Residential Address</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input label="Address Line 1" value={formData.currentAddress?.addressLine1} onChange={(v) => handleNestedChange("currentAddress", "addressLine1", v)} placeholder="Enter full street address" />
                 <Input label="Address Line 2" value={formData.currentAddress?.addressLine2} onChange={(v) => handleNestedChange("currentAddress", "addressLine2", v)} placeholder="Enter area, landmark (optional)" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="City" value={formData.currentAddress?.city} onChange={(v) => handleNestedChange("currentAddress", "city", v)} placeholder="Enter city name" />
                 <Input label="State" value={formData.currentAddress?.state} onChange={(v) => handleNestedChange("currentAddress", "state", v)} placeholder="Enter state name" />
                 <Input label="Pincode / ZIP" value={formData.currentAddress?.pincode} onChange={(v) => handleNestedChange("currentAddress", "pincode", v)} placeholder="Enter 6-digit pincode" />
@@ -919,11 +919,11 @@ export default function EditEmployee() {
                   ⚡ Same as Current Address
                 </button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input label="Address Line 1" value={formData.permanentAddress?.addressLine1} onChange={(v) => handleNestedChange("permanentAddress", "addressLine1", v)} placeholder="Enter full street address" />
                 <Input label="Address Line 2" value={formData.permanentAddress?.addressLine2} onChange={(v) => handleNestedChange("permanentAddress", "addressLine2", v)} placeholder="Enter area, landmark (optional)" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="City" value={formData.permanentAddress?.city} onChange={(v) => handleNestedChange("permanentAddress", "city", v)} placeholder="Enter city name" />
                 <Input label="State" value={formData.permanentAddress?.state} onChange={(v) => handleNestedChange("permanentAddress", "state", v)} placeholder="Enter state name" />
                 <Input label="Pincode / ZIP" value={formData.permanentAddress?.pincode} onChange={(v) => handleNestedChange("permanentAddress", "pincode", v)} placeholder="Enter 6-digit pincode" />
@@ -933,7 +933,7 @@ export default function EditEmployee() {
             {/* Emergency Contact */}
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Emergency Contact Person</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="Contact Person Name" value={formData.emergencyContact?.name} onChange={(v) => handleNestedChange("emergencyContact", "name", v)} placeholder="Enter emergency contact person name" />
                 <Input label="Relationship" value={formData.emergencyContact?.relation} onChange={(v) => handleNestedChange("emergencyContact", "relation", v)} placeholder="Enter relationship (e.g. Spouse, Parent)" />
                 <Input label="Emergency Phone" type="tel" value={formData.emergencyContact?.phone} onChange={(v) => handleNestedChange("emergencyContact", "phone", v)} placeholder="Enter emergency contact phone number" />
@@ -944,26 +944,26 @@ export default function EditEmployee() {
 
         {/* ══ STEP 4: Salary & Leaves ═══════════════════════════════════════ */}
         {step === 4 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <DollarSign size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <DollarSign size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Compensation & Leave Balance</h3>
-                <p className="text-xs text-slate-400 font-medium">Monthly/Annual salary breakdown and allocated leave quotas</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Compensation & Leave Balance</h3>
+                <p className="hidden">Monthly/Annual salary breakdown and allocated leave quotas</p>
               </div>
             </div>
 
             {/* Salary Breakdown */}
             <div className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Salary Structure (₹ INR)</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="Annual CTC (Gross)" type="number" value={formData.salaryDetails?.ctc} onChange={(v) => handleNestedChange("salaryDetails", "ctc", v)} placeholder="₹ 6,00,000" />
                 <Input label="Basic Salary (Monthly)" type="number" value={formData.salaryDetails?.basic} onChange={(v) => handleNestedChange("salaryDetails", "basic", v)} placeholder="₹ 25,000" />
                 <Input label="HRA (Monthly)" type="number" value={formData.salaryDetails?.hra} onChange={(v) => handleNestedChange("salaryDetails", "hra", v)} placeholder="₹ 10,000" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
                 <Input label="Special Allowance" type="number" value={formData.salaryDetails?.specialAllowance} onChange={(v) => handleNestedChange("salaryDetails", "specialAllowance", v)} placeholder="₹ 5,000" />
                 <Input label="PF Deductions" type="number" value={formData.salaryDetails?.pf} onChange={(v) => handleNestedChange("salaryDetails", "pf", v)} placeholder="₹ 1,800" />
                 <Input label="ESI Deductions" type="number" value={formData.salaryDetails?.esi} onChange={(v) => handleNestedChange("salaryDetails", "esi", v)} placeholder="₹ 0" />
@@ -1031,7 +1031,7 @@ export default function EditEmployee() {
                 <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   Detailed Leave Type Distribution (Days)
                 </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <Input
                     label="Casual Leaves (CL)"
                     type="number"
@@ -1079,25 +1079,25 @@ export default function EditEmployee() {
 
         {/* ══ STEP 5: Bank & Identity ═══════════════════════════════════════ */}
         {step === 5 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <CreditCard size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <CreditCard size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Banking & Government Identification</h3>
-                <p className="text-xs text-slate-400 font-medium">Bank disbursement details, IFSC code, Aadhaar, and PAN</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Banking & Government Identification</h3>
+                <p className="hidden">Bank disbursement details, IFSC code, Aadhaar, and PAN</p>
               </div>
             </div>
 
             {/* Banking Details */}
             <div className="space-y-4">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Bank Account for Payroll</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input label="Bank Name" value={formData.bankDetails?.bankName} onChange={(v) => handleNestedChange("bankDetails", "bankName", v)} placeholder="Enter bank name" />
                 <Input label="Account Holder Name" value={formData.bankDetails?.accountHolderName} onChange={(v) => handleNestedChange("bankDetails", "accountHolderName", v)} placeholder="Enter account holder name" />
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input label="Account Number" value={formData.bankDetails?.accountNumber} onChange={(v) => handleNestedChange("bankDetails", "accountNumber", v)} placeholder="Enter bank account number" />
                 <Input label="IFSC Code" value={formData.bankDetails?.ifscCode} onChange={(v) => handleNestedChange("bankDetails", "ifscCode", v)} placeholder="Enter 11-character IFSC code" />
                 <Input label="UPI ID (Optional)" value={formData.bankDetails?.upiId} onChange={(v) => handleNestedChange("bankDetails", "upiId", v)} placeholder="Enter UPI ID (optional)" />
@@ -1107,7 +1107,7 @@ export default function EditEmployee() {
             {/* Statutory Identity */}
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <h4 className="text-xs font-black uppercase tracking-wider text-slate-400">Government Identity Numbers</h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input label="Aadhaar Card Number" value={formData.aadhaarNumber} onChange={(v) => handleChange("aadhaarNumber", v)} placeholder="Enter 12-digit Aadhaar number" />
                 <Input label="PAN Card Number" value={formData.panNumber} onChange={(v) => handleChange("panNumber", v)} placeholder="Enter 10-character PAN number" />
               </div>
@@ -1117,18 +1117,18 @@ export default function EditEmployee() {
 
         {/* ══ STEP 6: Document Vault ════════════════════════════════════════ */}
         {step === 6 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <FileText size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <FileText size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Document Vault & Verification</h3>
-                <p className="text-xs text-slate-400 font-medium">Upload, view, and replace official employee documents securely</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Document Vault & Verification</h3>
+                <p className="hidden">Upload, view, and replace official employee documents securely</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <DocumentUploader
                 title="Offer Letter"
                 docKey="offerLetter"
@@ -1177,18 +1177,18 @@ export default function EditEmployee() {
 
         {/* ══ STEP 7: Review & Summary ══════════════════════════════════════ */}
         {step === 7 && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold">
-                <CheckCheck size={16} />
+          <div className="space-y-3.5">
+            <div className="flex items-center gap-2 pb-2 mb-1 border-b border-slate-100 dark:border-slate-800/60">
+              <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center">
+                <CheckCheck size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Profile Summary & Verification</h3>
-                <p className="text-xs text-slate-400 font-medium">Verify all employee parameters before committing updates to the database</p>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Profile Summary & Verification</h3>
+                <p className="hidden">Verify all employee parameters before committing updates to the database</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               
               {/* Card 1: Basic */}
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2">
@@ -1335,7 +1335,7 @@ export default function EditEmployee() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
               <div className="flex items-center gap-2">
                 <History size={16} className="text-amber-500" />
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Audit Timeline</h3>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Audit Timeline</h3>
               </div>
               <button onClick={() => setShowAuditLog(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X size={16} />

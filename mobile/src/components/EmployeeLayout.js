@@ -16,7 +16,7 @@ import { useAppData } from "../context/AppDataContext";
 const EmployeeLayout = ({
   children,
   navigation: propNavigation,
-  title = "Nextact",
+  title = "One Click",
   rightActionType = "default", // "default", "tasks", "projects", "profile", "none"
   onRightActionPress = {}, // callbacks: { onSearch, onFilter, onPlus, onEdit }
   headerRightElement = null,

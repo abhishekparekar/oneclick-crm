@@ -1,10 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getManagerTeamApi } from "../../api/managerApi";
-import { UsersRound, Search, RefreshCw, Mail, Phone, Briefcase, MapPin, Users } from "lucide-react";
-import PageHeader from "../../components/common/PageHeader";
+import { UsersRound, Search, RefreshCw, Mail, Phone, Briefcase, MapPin, Users, Building2, ShieldCheck, ChevronRight } from "lucide-react";
 
-const ManagerTeamMembers = () => {
+export default function ManagerTeamMembers() {
   const [search, setSearch] = useState("");
 
   const { data, isLoading, refetch, isFetching } = useQuery({
@@ -29,141 +28,121 @@ const ManagerTeamMembers = () => {
     );
   });
 
-  const getInitials = (name = "") =>
-    name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-
-  const AVATAR_COLORS = [
-    ["#f97316", "rgba(249,115,22,0.1)"],
-    ["#8b5cf6", "rgba(139,92,246,0.1)"],
-    ["#10b981", "rgba(16,185,129,0.1)"],
-    ["#3b82f6", "rgba(59,130,246,0.1)"],
-    ["#f59e0b", "rgba(245,158,11,0.1)"],
-  ];
-
   return (
-    <div className="space-y-3 max-w-[1400px] mx-auto pb-8 font-sans">
-      {/* Header */}
-      <PageHeader
-        title={
-          <div className="flex items-center gap-2">
-            <span>Team Members</span>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-white/10 text-white border border-white/20">
-              {filtered.length}
-            </span>
+    <div className="space-y-3 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
+      {/* ── 1. SLIM EXECUTIVE HEADER ───────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-4 py-3 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
+              <Users size={16} strokeWidth={2.5} />
+            </div>
+            <div>
+              <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Team Members
+                <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                  {filtered.length} Staff
+                </span>
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium">
+                Directory of assigned team members and direct reports
+              </p>
+            </div>
           </div>
-        }
-        icon={Users}
-      >
-        <button
-          onClick={() => refetch()}
-          disabled={isFetching}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold text-white shadow-md transition-all border border-[#CC4800]/50 bg-[#E65100] hover:bg-[#CC4800] disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={isFetching ? "animate-spin" : ""} /> Refresh
-        </button>
-      </PageHeader>
 
-      {/* Search */}
-      <div className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-3xl p-4 shadow-sm">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name, email or department..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm font-semibold outline-none bg-slate-50 dark:bg-[var(--color-ca-card)]/ border border-slate-150 dark:border-slate-800 text-slate-850 dark:text-white"
-          />
+          <div className="flex items-center gap-2">
+            <div className="relative w-48 sm:w-64">
+              <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search name, email, dept..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-7 pr-3 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Refresh Team Members"
+            >
+              <RefreshCw size={13} className={isFetching ? "animate-spin text-amber-500" : ""} />
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Members Grid */}
+      {/* ── 2. TEAM MEMBERS CARD GRID ──────────────────────────────────────── */}
       {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="rounded-3xl h-40 animate-pulse bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800" />
-          ))}
+        <div className="py-20 text-center text-slate-400">
+          <RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />
+          Loading team directory...
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-3xl p-16 text-center text-slate-400 shadow-sm">
-          <UsersRound size={40} className="mx-auto mb-3 opacity-30" />
-          <p className="text-sm font-semibold">No team members found</p>
+        <div className="py-14 text-center rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+          <UsersRound size={28} className="mx-auto mb-2 opacity-40 text-amber-500" />
+          <h3 className="text-xs font-bold text-slate-800 dark:text-white">No Team Members Found</h3>
+          <p className="text-[10.5px] text-slate-400 mt-0.5">
+            {search ? "No members match your search criteria." : "No team members are assigned yet."}
+          </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5">
           {filtered.map((member, i) => {
-            const name = member.fullName || member.name || (member.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : null) || member.employeeId?.fullName || member.employeeId?.name || "Unknown";
+            const name = member.fullName || member.name || (member.firstName ? `${member.firstName} ${member.lastName || ''}`.trim() : null) || member.employeeId?.fullName || member.employeeId?.name || "Unknown Staff";
             const email = member.email || member.employeeId?.email || "";
             const phone = member.phone || member.employeeId?.phone || "";
-            const dept = member.department?.name || member.departmentId?.name || member.departmentName || member.employeeId?.departmentId?.name || "";
-            const desig = member.designation?.name || member.designationId?.name || member.designationName || member.employeeId?.designationId?.name || "";
+            const dept = member.department?.name || member.departmentId?.name || member.departmentName || member.employeeId?.departmentId?.name || "General";
+            const desig = member.designation?.name || member.designationId?.name || member.designationName || member.employeeId?.designationId?.name || "Team Member";
             const branch = member.branch?.name || member.branchId?.branchName || member.employeeId?.branchId?.branchName || "";
-            const [color, bg] = AVATAR_COLORS[i % AVATAR_COLORS.length];
-            const status = member.status || "Active";
-
-            const rawPhoto = member.photo || member.user?.profileImage;
-            const photoUrl = rawPhoto ? (rawPhoto.startsWith("http") || rawPhoto.startsWith("data:") ? rawPhoto : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawPhoto.startsWith("/") ? "" : "/"}${rawPhoto}`) : null;
 
             return (
               <div
-                key={member._id}
-                className="bg-white dark:bg-[var(--color-ca-card)] border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-sm hover:shadow-md transition-all duration-200"
+                key={member._id || i}
+                className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/40 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
               >
-                <div className="flex items-center gap-3 mb-4 border-b border-slate-50 dark:border-slate-800 pb-3">
-                  {photoUrl ? (
-                    <img 
-                      src={photoUrl} 
-                      alt={name} 
-                      className="w-12 h-12 rounded-2xl object-cover shadow-sm border border-slate-200 dark:border-slate-700 flex-shrink-0"
-                    />
-                  ) : (
-                    <div
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center text-base font-black flex-shrink-0"
-                      style={{ background: bg, color }}
-                    >
-                      {getInitials(name)}
+                <div>
+                  <div className="flex items-start gap-2.5 mb-2.5">
+                    <div className="relative shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-black text-xs shadow-2xs">
+                        {name.slice(0, 2).toUpperCase()}
+                      </div>
+                      <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111C24]" />
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-black text-slate-800 dark:text-white truncate">{name}</p>
-                    <p className="text-xs font-bold text-slate-400 dark:text-slate-500 mt-0.5 truncate">{desig || "Employee"}</p>
-                  </div>
-                  <span
-                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex-shrink-0 ${
-                      status === "Active"
-                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/20"
-                        : "bg-red-50 text-red-600 dark:bg-red-950/20"
-                    }`}
-                  >
-                    {status}
-                  </span>
-                </div>
 
-                <div className="space-y-2">
-                  {email && (
-                    <div className="flex items-center gap-2">
-                      <Mail size={12} className="text-slate-400" />
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 truncate">{email}</span>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="text-xs font-black text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
+                        {name}
+                      </h3>
+                      <p className="text-[10.5px] text-slate-400 font-medium truncate">{desig}</p>
+                      <span className="inline-block mt-1 text-[9.5px] font-bold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                        {dept}
+                      </span>
                     </div>
-                  )}
-                  {phone && (
-                    <div className="flex items-center gap-2">
-                      <Phone size={12} className="text-slate-400" />
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{phone}</span>
-                    </div>
-                  )}
-                  {dept && (
-                    <div className="flex items-center gap-2">
-                      <Briefcase size={12} className="text-slate-400" />
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{dept}</span>
-                    </div>
-                  )}
-                  {branch && (
-                    <div className="flex items-center gap-2">
-                      <MapPin size={12} className="text-slate-400" />
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-400">{branch}</span>
-                    </div>
-                  )}
+                  </div>
+
+                  <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-slate-800/80 text-[11px] text-slate-600 dark:text-slate-300">
+                    {email && (
+                      <div className="flex items-center gap-1.5 truncate">
+                        <Mail size={11} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{email}</span>
+                      </div>
+                    )}
+                    {phone && (
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={11} className="text-slate-400 shrink-0" />
+                        <span className="font-mono">{phone}</span>
+                      </div>
+                    )}
+                    {branch && (
+                      <div className="flex items-center gap-1.5 text-slate-400 text-[10px]">
+                        <MapPin size={11} className="shrink-0" />
+                        <span className="truncate">{branch}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
@@ -172,7 +151,4 @@ const ManagerTeamMembers = () => {
       )}
     </div>
   );
-};
-
-export default ManagerTeamMembers;
-
+}

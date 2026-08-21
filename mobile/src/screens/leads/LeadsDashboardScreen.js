@@ -134,9 +134,10 @@ export default function LeadsDashboardScreen({ navigation }) {
 
   const handleWhatsApp = (phone, name) => {
     if (!phone) return;
-    const cleanPhone = phone.replace(/[^0-9]/g, "");
-    const msg = `Hello ${name || ""}, thank you for connecting with us!`;
-    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
+    let cleanPhone = phone.replace(/[^0-9]/g, "");
+    if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+    const msg = `Hello ${name || ""}, thank you for connecting with OneClick HRMS!`;
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {});
   };
 
   const handleCall = (phone) => {

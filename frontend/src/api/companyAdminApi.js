@@ -143,6 +143,18 @@ export const getReportsTaskDetailedApi = (params) => api.get("/company/reports/t
 export const getReportsEmployeeDetailedApi = (params) => api.get("/company/reports/employees-detailed", { params });
 export const getReportsLeaveDetailedApi = (params) => api.get("/company/reports/leaves-detailed", { params });
 
+// ── NEW: BI Reports & Intelligence Suite API Endpoints ───────────────────────
+export const getBIExecutiveReportApi = (params = {}) => api.get("/company/reports/bi/executive", { params });
+export const getBIWorkforceReportApi = (params = {}) => api.get("/company/reports/bi/workforce", { params });
+export const getBIAttendanceReportApi = (params = {}) => api.get("/company/reports/bi/attendance", { params });
+export const getBILeaveReportApi = (params = {}) => api.get("/company/reports/bi/leaves", { params });
+export const getBITaskReportApi = (params = {}) => api.get("/company/reports/bi/tasks", { params });
+export const getBIPayrollReportApi = (params = {}) => api.get("/company/reports/bi/payroll", { params });
+export const getBIPerformanceReportApi = (params = {}) => api.get("/company/reports/bi/performance", { params });
+export const getBIAuditReportApi = (params = {}) => api.get("/company/reports/bi/audit", { params });
+export const getBIEmployeeDrillDownApi = (id) => api.get(`/company/reports/bi/employee-drilldown/${id}`);
+export const getBIDepartmentDrillDownApi = (id) => api.get(`/company/reports/bi/department-drilldown/${id}`);
+
 // ── Subscription ──────────────────────────────────────────────────────────
 export const getActiveSubscriptionApi = () => api.get("/company/subscription/active");
 

@@ -16,6 +16,7 @@ const {
   getPublicToken, getBusiness, getEngagementSettings,
   addLeadDocument, deleteLeadDocument,
   sendLeadTemplateMessage, getLeadMessages, getLeadActivities, addLeadNote,
+  sendMobileLeadTemplateMessage, sendMobileTestWhatsappMessage,
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
   sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
@@ -133,7 +134,12 @@ router.get("/leads/:id/messages", getLeadMessages);
 router.post("/leads/:id/notes", addLeadNote);
 router.post("/leads/:id/send-template", sendLeadTemplateMessage);
 router.post("/leads/:id/send", sendLeadTemplateMessage);
-router.post("/whatsapp/send", sendLeadTemplateMessage);
+router.post("/whatsapp/send", sendTestWhatsappMessage);
+
+// ── Dedicated Mobile Client WhatsApp Endpoints ──
+router.post("/mobile/leads/:id/send-template", sendMobileLeadTemplateMessage);
+router.post("/mobile/whatsapp/send", sendMobileTestWhatsappMessage);
+
 router.post("/leads/:id/documents", addLeadDocument);
 router.delete("/leads/:id/documents/:docId", deleteLeadDocument);
 

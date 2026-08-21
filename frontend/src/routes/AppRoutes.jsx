@@ -209,6 +209,7 @@ const AppRoutes = () => {
             <Route path="access-control" element={<AccessControl />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="subscription" element={<SubscriptionDetails />} />
+            <Route path="reports" element={<Reports />} />
             <Route path="reports/attendance" element={<Reports />} />
             <Route path="reports/leave" element={<Reports />} />
             <Route path="reports/payroll" element={<Reports />} />

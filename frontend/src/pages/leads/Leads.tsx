@@ -129,18 +129,19 @@ const CustomSelect = ({ value, onChange, options, defaultLabel }: {
   );
 };
 
-// ── Contact Card Component (Ultra-Sleek, Compact SaaS CRM Card) ────────────────
+// ── Contact Card Component (Ultra-Compact, High-Density SaaS CRM Card) ────────────────
 const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onToggleSelect }: {
   lead: any; onClick: () => void; onDelete: (id: string, name: string) => void; onStatusChange: (lead: any, rect: DOMRect) => void;
   isSelected?: boolean; onToggleSelect?: () => void;
 }) => {
   const statusColor = lead.status?.color || "#F97316";
-  const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
+  const displayPhone = lead.whatsappPhone || lead.phone || "";
+  const cleanPhone = displayPhone.replace(/[^0-9]/g, "");
 
   return (
     <div 
       onClick={onClick}
-      className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl border p-3.5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden isolate ${
+      className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl border p-2.5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden isolate ${
         isSelected
           ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-500/5 dark:bg-amber-500/5"
           : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
@@ -152,8 +153,8 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
         style={{ backgroundColor: statusColor }}
       />
 
-      {/* Header: Checkbox, Avatar, Name, Phone & Status Badge */}
-      <div className="flex items-start justify-between gap-2 mb-2 relative z-10">
+      {/* Row 1: Checkbox, Avatar, Name & Status Pill */}
+      <div className="flex items-center justify-between gap-1.5 mb-1.5 relative z-10">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {onToggleSelect && (
             <input 
@@ -168,7 +169,7 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
             />
           )}
           <div 
-            className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 border"
+            className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 border shadow-2xs"
             style={{ 
               backgroundColor: `${statusColor}14`, 
               borderColor: `${statusColor}30`, 
@@ -177,84 +178,85 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
           >
             {(lead.name || "LD").slice(0, 2).toUpperCase()}
           </div>
-          <div className="min-w-0 flex-1">
-            <h4 className="font-extrabold text-[13px] text-slate-800 dark:text-white leading-tight truncate group-hover:text-[#f97316] transition-colors">
-              {lead.name}
-            </h4>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="text-[10.5px] font-mono font-bold text-slate-400 truncate">
-                {lead.whatsappPhone || lead.phone || "No Phone"}
-              </span>
-              {lead.whatsappOptIn && (
-                <span className="inline-flex items-center text-[8.5px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200/60 dark:border-emerald-800 shrink-0">
-                  Opt-In
-                </span>
-              )}
-            </div>
-          </div>
+          <h4 className="font-extrabold text-[13px] text-slate-900 dark:text-white leading-tight truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+            {lead.name}
+          </h4>
         </div>
 
-        {/* Status Pill with Dropdown Trigger */}
+        {/* Status Dropdown Trigger */}
         <button
           onClick={(e) => {
             e.stopPropagation();
             onStatusChange(lead, (e.currentTarget as HTMLButtonElement).getBoundingClientRect());
           }}
-          className="px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[10.5px] font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 hover:bg-slate-100 dark:hover:bg-slate-700"
+          className="px-1.5 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-[9.5px] font-bold transition-all shadow-2xs flex items-center gap-1 shrink-0 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
         >
           <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: statusColor }} />
-          <span className="text-slate-700 dark:text-slate-200 text-[10.5px] font-semibold">{lead.status?.name || "New"}</span>
-          <ChevronDown size={10} className="text-slate-400" />
+          <span className="text-slate-700 dark:text-slate-200">{lead.status?.name || "New"}</span>
+          <ChevronDown size={9} className="text-slate-400" />
         </button>
       </div>
 
-      {/* Middle Row: Company / Product Interest & Deal Value */}
-      {(lead.company || lead.productService || lead.estimatedValue) && (
-        <div className="flex items-center justify-between gap-1.5 py-1 px-2 mb-1.5 rounded-lg bg-slate-50/80 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800/80 text-[11px] min-w-0">
-          <span className="text-slate-600 dark:text-slate-300 font-medium truncate flex-1">
-            {lead.company || lead.productService || "Sales Prospect"}
+      {/* Row 2: Phone & Deal Value */}
+      <div className="flex items-center justify-between gap-1.5 mb-1.5 text-[11px]">
+        <div className="flex items-center gap-1 min-w-0">
+          <Phone size={10} className="text-slate-400 shrink-0" />
+          <span className="font-mono font-bold text-slate-700 dark:text-slate-200 text-[11px] tracking-tight">
+            {displayPhone || "No Mobile"}
           </span>
-          {lead.estimatedValue ? (
-            <span className="text-[10px] font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-200/60 dark:border-emerald-800 shrink-0">
-              ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
+          {lead.whatsappOptIn && (
+            <span className="text-[8px] font-black uppercase text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded border border-emerald-200/60 shrink-0">
+              OPT-IN
             </span>
-          ) : null}
+          )}
         </div>
-      )}
 
-      {/* Assigned Employee Tag */}
-      <div className="flex items-center justify-between gap-1.5 mb-2">
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-800 truncate">
-          <UserCheck size={10} className="text-indigo-500 shrink-0" />
-          <span className="truncate">{lead.assignedTo?.name ? `${lead.assignedTo.name}` : "Unassigned"}</span>
+        {lead.estimatedValue ? (
+          <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200/60 shrink-0">
+            ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
+          </span>
+        ) : null}
+      </div>
+
+      {/* Row 3: Requirement / Company & Assigned Agent */}
+      <div className="flex items-center justify-between gap-1.5 mb-1.5 text-[10.5px]">
+        <span className="text-slate-600 dark:text-slate-400 font-medium truncate flex-1">
+          {lead.company || lead.productService || "General Lead"}
+        </span>
+
+        <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 shrink-0 max-w-[100px] truncate">
+          <UserCheck size={9} className="text-indigo-500 shrink-0" />
+          <span className="truncate">{lead.assignedTo?.name || "Unassigned"}</span>
         </span>
       </div>
 
-      {/* Tags Row */}
+      {/* Tags (if any) */}
       {lead.tags && lead.tags.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2 z-10 relative">
-          {lead.tags.map((tag: any) => (
+        <div className="flex flex-wrap gap-1 mb-1.5 z-10 relative">
+          {lead.tags.slice(0, 3).map((tag: any) => (
             <span 
               key={tag.id || tag.name} 
-              className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded text-[9px] font-bold border"
+              className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8.5px] font-bold border"
               style={{
                 backgroundColor: `${tag.color || '#D97706'}15`,
                 color: tag.color || '#D97706',
                 borderColor: `${tag.color || '#D97706'}30`
               }}
             >
-              <Tag size={8} />
+              <Tag size={7} />
               {tag.name}
             </span>
           ))}
         </div>
       )}
 
-      {/* Footer: Source on Left & Direct 1-Click Action Buttons on Right */}
-      <div className="mt-auto pt-2 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10.5px] text-slate-400">
-        <span className="inline-flex items-center gap-1 text-[10.5px] text-slate-400 font-medium bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded border border-slate-100 dark:border-slate-800">
-          <Globe size={10} className="text-slate-400" /> {lead.source || "Walk-in"}
-        </span>
+      {/* Row 4: Footer (Source, Date & Quick 1-Click Action Buttons) */}
+      <div className="mt-auto pt-1.5 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
+        <div className="flex items-center gap-1.5">
+          <span>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" }) : "Active"}</span>
+          <span>•</span>
+          <span className="text-slate-400 font-medium truncate max-w-[70px]">{lead.source || "Walk-in"}</span>
+        </div>
 
         <div className="flex items-center gap-1">
           {cleanPhone && (
@@ -263,20 +265,20 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
               target="_blank"
               rel="noopener noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="w-6 h-6 rounded-md bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all"
+              className="w-5.5 h-5.5 rounded-md bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all shadow-2xs"
               title="Chat on WhatsApp"
             >
-              <MessageSquare size={11} />
+              <MessageSquare size={10} />
             </a>
           )}
           {cleanPhone && (
             <a
               href={`tel:${cleanPhone}`}
               onClick={(e) => e.stopPropagation()}
-              className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all"
+              className="w-5.5 h-5.5 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all shadow-2xs"
               title="Call Contact"
             >
-              <Phone size={11} />
+              <Phone size={10} />
             </a>
           )}
           <button
@@ -284,10 +286,10 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
               e.stopPropagation();
               onDelete(lead.id, lead.name);
             }}
-            className="w-6 h-6 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center transition-all"
+            className="w-5.5 h-5.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center justify-center transition-all cursor-pointer"
             title="Delete Contact"
           >
-            <Trash2 size={11} />
+            <Trash2 size={10} />
           </button>
         </div>
       </div>

@@ -36,7 +36,7 @@ const SystemSettingsScreen = ({ navigation }) => {
   const [error, setError] = useState("");
 
   const [form, setForm] = useState({
-    appName: "Nextact",
+    appName: "One Click Business",
     supportEmail: "support@icodedhrms.com",
     supportPhone: "+91 9876543210",
     defaultCurrency: "INR",
@@ -51,7 +51,7 @@ const SystemSettingsScreen = ({ navigation }) => {
       const { data } = await getSystemSettingsApi();
       if (data.settings) {
         setForm({
-          appName: data.settings.appName || "Nextact",
+          appName: data.settings.appName || "One Click Business",
           supportEmail: data.settings.supportEmail || "support@icodedhrms.com",
           supportPhone: data.settings.supportPhone || "+91 9876543210",
           defaultCurrency: data.settings.defaultCurrency || "INR",
@@ -115,7 +115,7 @@ const SystemSettingsScreen = ({ navigation }) => {
                 label="Application Name"
                 value={form.appName}
                 onChangeText={(v) => setForm((p) => ({ ...p, appName: v }))}
-                placeholder="E.g. Nextact"
+                placeholder="E.g. One Click Business"
               />
 
               <Text style={styles.fieldLabel}>Default Currency Prefix</Text>

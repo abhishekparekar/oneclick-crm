@@ -222,7 +222,7 @@ const ManagerLayout = ({
           <View style={styles.titleBlock}>
             <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
             <Text style={styles.companySubtitle} numberOfLines={1}>
-              {subtitle || user?.companyName || "Nextact"}
+              {subtitle || user?.companyName || "One Click Business"}
             </Text>
           </View>
         </View>

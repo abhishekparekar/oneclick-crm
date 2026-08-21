@@ -90,13 +90,14 @@ android {
             def mKeyAlias = localProperties.getProperty('release.keyAlias') ?: ''
             def mKeyPassword = localProperties.getProperty('release.keyPassword') ?: ''
 
-            if (mKeystorePassword && mKeyAlias && mKeyPassword) {
-                storeFile file(mKeystorePath)
+            def releaseKeystoreFile = file(mKeystorePath)
+            if (mKeystorePassword && mKeyAlias && mKeyPassword && releaseKeystoreFile.exists()) {
+                storeFile releaseKeystoreFile
                 storePassword mKeystorePassword
                 keyAlias mKeyAlias
                 keyPassword mKeyPassword
             } else {
-                // Fallback to debug signing config if release credentials aren't defined yet
+                // Fallback to debug signing config if release keystore file is not found
                 storeFile file('debug.keystore')
                 storePassword 'android'
                 keyAlias 'androiddebugkey'

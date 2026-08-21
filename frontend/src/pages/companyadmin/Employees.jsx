@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+﻿import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -301,83 +301,32 @@ const Select = ({ value, onChange, options, placeholder, className = "" }) => {
 
 // ── Employee Drawer ────────────────────────────────────────────────────────────
 const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
+  const [drawerTab, setDrawerTab] = useState("overview");
   const { data: fullEmpRes, isLoading: isLoadingFull } = useQuery({
     queryKey: ["employee", employee?._id],
     queryFn: () => getEmployeeByIdApi(employee?._id),
     enabled: !!employee?._id,
   });
-
   if (!employee) return null;
-
   const empData = fullEmpRes?.data?.employee || employee;
-
   const name = empData.user?.name || `${empData.firstName || ""} ${empData.lastName || ""}`.trim() || "Employee";
   const email = empData.user?.email || empData.email;
   const phone = empData.user?.phone || empData.phone;
   const isActive = empData.status === "active";
-  const joined = empData.joiningDate || empData.user?.joiningDate || empData.dateOfJoining || empData.user?.dateOfJoining || empData.createdAt || empData.user?.createdAt || empData.userId?.createdAt || empData.created_at;
+  const joined = empData.joiningDate || empData.user?.joiningDate || empData.dateOfJoining || empData.createdAt || empData.userId?.createdAt;
   const initials = name.slice(0, 2).toUpperCase();
   const ac = avatarClass(name);
   const rawPhoto = empData.photo || empData.documents?.photo || empData.user?.profileImage || empData.userId?.profileImage;
   const photoUrl = getPhotoUrl(rawPhoto);
-
   const displayRole = empData.role || empData.userId?.role || empData.user?.role || "Employee";
   const formattedRole = displayRole === "CompanyAdmin" ? "Company Admin" : displayRole;
-
   const drawerDepts = Array.isArray(empData.accessibleDepartments) && empData.accessibleDepartments.length > 0
-    ? empData.accessibleDepartments.map(d => typeof d === 'object' ? d.name : d).filter(Boolean).join(", ")
+    ? empData.accessibleDepartments.map(d => typeof d === "object" ? d.name : d).filter(Boolean).join(", ")
     : (empData.departmentId?.name || empData.department?.name || "—");
-
   const formatAddress = (addr) => {
     if (!addr) return null;
     return [addr.addressLine1, addr.addressLine2, addr.city, addr.state, addr.country, addr.pincode].filter(Boolean).join(", ");
   };
-
-  const personalRows = [
-    { label: "Date of Birth", value: empData.dateOfBirth ? new Date(empData.dateOfBirth).toLocaleDateString("en-IN") : null },
-    { label: "Gender", value: empData.gender },
-    { label: "Blood Group", value: empData.bloodGroup },
-    { label: "Marital Status", value: empData.maritalStatus },
-    { label: "Aadhaar No", value: empData.aadhaarNumber },
-    { label: "PAN No", value: empData.panNumber },
-  ];
-
-  const addressRows = [
-    { label: "Current Address", value: formatAddress(empData.currentAddress) },
-    { label: "Permanent Address", value: formatAddress(empData.permanentAddress) },
-  ];
-
-  const jobRows = [
-    { label: "Employee Code", value: empData.employeeCode },
-    { label: "Department", value: drawerDepts },
-    { label: "Designation", value: empData.designationId?.name || empData.designation?.name || "—" },
-    { label: "Branch", value: empData.branchId?.name || empData.branch?.name || "Main Office" },
-    { label: "System Role", value: formattedRole },
-    { label: "Employment Type", value: empData.employmentType },
-    { label: "Work Mode", value: empData.workMode },
-    { label: "Joined Date", value: joined ? new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null },
-    { label: "Confirmation", value: empData.confirmationDate ? new Date(empData.confirmationDate).toLocaleDateString("en-IN") : null },
-    { label: "Notice Period", value: empData.noticePeriod ? `${empData.noticePeriod} Days` : null },
-  ];
-
-  const bankRows = [
-    { label: "Bank Name", value: empData.bankDetails?.bankName },
-    { label: "Account Holder", value: empData.bankDetails?.accountHolderName },
-    { label: "Account Number", value: empData.bankDetails?.accountNumber },
-    { label: "IFSC Code", value: empData.bankDetails?.ifscCode },
-    { label: "UPI ID", value: empData.bankDetails?.upiId },
-  ];
-
-  const salaryRows = [
-    { label: "Annual CTC", value: empData.salaryDetails?.ctc ? `₹${Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}` : null },
-    { label: "Basic (Monthly)", value: empData.salaryDetails?.basic ? `₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}` : null },
-    { label: "HRA", value: empData.salaryDetails?.hra ? `₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}` : null },
-    { label: "Special Allowance", value: empData.salaryDetails?.specialAllowance ? `₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}` : null },
-    { label: "PF Deduction", value: empData.salaryDetails?.pf ? `₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}` : null },
-    { label: "ESI Deduction", value: empData.salaryDetails?.esi ? `₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}` : null },
-    { label: "TDS Deduction", value: empData.salaryDetails?.tds ? `₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}` : null },
-  ];
-
   const docs = empData.documents || {};
   const docList = [
     { key: "offerLetter", label: "Offer Letter", url: docs.offerLetter },
@@ -387,180 +336,170 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
     { key: "panCard", label: "PAN Card", url: docs.panCard },
     { key: "aadhaarFront", label: "Aadhaar Document", url: docs.aadhaarFront || docs.aadhaarBack },
   ].filter(d => Boolean(d.url));
-
-  const GridSection = ({ title, icon: Icon, rows, cols = 3 }) => {
-    return (
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-2xs relative overflow-hidden">
-        {isLoadingFull && (
-          <div className="absolute inset-0 bg-white/60 dark:bg-slate-900/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
-            <RefreshCw size={14} className="text-amber-500 animate-spin" />
-          </div>
-        )}
-        <div className="flex items-center gap-1.5 mb-3 border-b border-slate-100 dark:border-slate-800/80 pb-2">
-          <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <Icon size={12} strokeWidth={2.5} />
-          </div>
-          <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">{title}</span>
-        </div>
-        <div className={`grid grid-cols-2 sm:grid-cols-${cols} gap-2`}>
-          {rows.map(({ label, value }) => (
-            <div key={label} className="bg-slate-50/80 dark:bg-[#0D1321] p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800">
-              <p className="text-[9.5px] font-bold text-slate-400 dark:text-slate-400 uppercase tracking-wider mb-0.5 truncate">{label}</p>
-              <p className="text-xs font-bold text-slate-800 dark:text-slate-200 break-words leading-tight">{value || "—"}</p>
-            </div>
-          ))}
-        </div>
+  const TABS = [
+    { id: "overview", label: "Overview", icon: User },
+    { id: "job", label: "Job Info", icon: Briefcase },
+    { id: "personal", label: "Personal", icon: Shield },
+    { id: "finance", label: "Finance", icon: DollarSign },
+  ];
+  const InfoRow = ({ label, value, highlight = false }) => (
+    <div className="flex flex-col gap-0.5 py-2 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
+      <span className={`text-xs font-bold leading-snug ${highlight ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-200"}`}>{value || "—"}</span>
+    </div>
+  );
+  const InfoGrid = ({ items }) => (
+    <div className="grid grid-cols-2 gap-x-4">
+      {items.map(({ label, value, highlight }) => (<InfoRow key={label} label={label} value={value} highlight={highlight} />))}
+    </div>
+  );
+  const SectionBlock = ({ title, iconEl, iconColor = "text-amber-500", iconBg = "bg-amber-500/10", children }) => (
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
+      <div className={`flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/60 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-800/80`}>
+        <div className={`w-5 h-5 rounded-md ${iconBg} ${iconColor} flex items-center justify-center shrink-0`}>{iconEl}</div>
+        <span className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">{title}</span>
       </div>
-    );
-  };
-
+      <div className="px-3.5 pt-0.5 pb-2">{children}</div>
+    </div>
+  );
   return (
     <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
-      {/* Overlay */}
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity" onClick={onClose} />
-      
-      <div className="relative w-full sm:w-[620px] bg-slate-50 dark:bg-[#0B111E] h-full flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-hidden animate-slideLeft">
-        
-        {/* Compact Header Bar */}
-        <div className="flex items-center justify-between px-5 py-3.5 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800 flex-shrink-0 shadow-2xs">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-extrabold text-slate-900 dark:text-white">Employee Profile</span>
-            {empData.employeeCode && (
-              <span className="px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 font-mono text-[10.5px] font-extrabold border border-amber-500/20">
-                {empData.employeeCode}
-              </span>
-            )}
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
-          
-          {/* Profile Hero Card */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 text-center shadow-2xs">
-            <div className="relative inline-block mb-3">
-              {photoUrl ? (
-                <img src={photoUrl} alt={name} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-md border-2 border-white dark:border-slate-700 ring-4 ring-amber-500/20" />
-              ) : (
-                <div className={`w-20 h-20 rounded-2xl ${ac} flex items-center justify-center text-2xl font-black mx-auto shadow-md border-2 border-white dark:border-slate-700 ring-4 ring-amber-500/20`}>
-                  {initials}
-                </div>
-              )}
-              <div className="absolute -bottom-1 -right-1">
-                <EmpStatusBadge status={employee.status} />
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={onClose} />
+      <div className="relative w-full sm:w-[660px] bg-slate-50 dark:bg-[#0B111E] h-full flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-hidden animate-slideLeft">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800/60">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
+                <Users size={13} className="text-amber-600 dark:text-amber-400" />
               </div>
-            </div>
-            
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">{name}</h2>
-              <div className="flex flex-wrap items-center justify-center gap-1.5 mt-1.5">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">
-                  {formattedRole}
+              <div className="min-w-0">
+                <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest leading-none">Employee Profile</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight">{name}</p>
+              </div>
+              {empData.employeeCode && (
+                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-[9.5px] font-extrabold border border-slate-200 dark:border-slate-700 shrink-0">
+                  {empData.employeeCode}
                 </span>
-                {drawerDepts && drawerDepts !== "—" && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                    {drawerDepts}
-                  </span>
-                )}
+              )}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <EmpStatusBadge status={empData.status} />
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"><X size={14} /></button>
+            </div>
+          </div>
+          {/* Profile Banner */}
+          <div className="px-4 py-3 flex items-start gap-3.5">
+            <div className="relative shrink-0">
+              {photoUrl ? (
+                <img src={photoUrl} alt={name} className="w-14 h-14 rounded-xl object-cover shadow-md border-2 border-white dark:border-slate-700 ring-2 ring-amber-500/20" />
+              ) : (
+                <div className={`w-14 h-14 rounded-xl ${ac} flex items-center justify-center text-lg font-black shadow-md border-2 border-white dark:border-slate-700 ring-2 ring-amber-500/20`}>{initials}</div>
+              )}
+              {isActive && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111C24]" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-1 mb-1">
+                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">{formattedRole}</span>
+                {drawerDepts && drawerDepts !== "—" && (<span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/60">{drawerDepts}</span>)}
+                {empData.employmentType && (<span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{empData.employmentType}</span>)}
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {email && <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate"><Mail size={10} className="text-amber-500 shrink-0" />{email}</span>}
+                {phone && <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium"><Phone size={10} className="text-emerald-500 shrink-0" />{phone}</span>}
               </div>
             </div>
-
-            {/* Quick Action Buttons */}
-            <div className="flex items-center justify-center gap-2 mt-4 max-w-sm mx-auto">
-              {email && (
-                <a href={`mailto:${email}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
-                  <Mail size={13} className="text-amber-500" /><span>Email</span>
-                </a>
-              )}
-              {phone && (
-                <a href={`tel:${phone}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
-                  <Phone size={13} className="text-emerald-500" /><span>Call</span>
-                </a>
-              )}
-              <Link to={`/company/attendance?employee=${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl py-2 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all font-bold text-xs shadow-2xs">
-                <Calendar size={13} className="text-indigo-500" /><span>Logs</span>
+            <div className="flex flex-col gap-1 shrink-0">
+              {email && (<a href={`mailto:${email}`} className="flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all font-bold text-[10px] cursor-pointer"><Mail size={10} className="text-amber-500" /> Email</a>)}
+              {phone && (<a href={`tel:${phone}`} className="flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-lg hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all font-bold text-[10px] cursor-pointer"><Phone size={10} className="text-emerald-500" /> Call</a>)}
+            </div>
+          </div>
+          {/* Stats Strip */}
+          <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-800/50 border-t border-slate-100 dark:border-slate-800/50">
+            {[{ label:"Present", value:employee._stats?.present??"0", color:"text-emerald-600 dark:text-emerald-400" },{ label:"Leaves", value:employee._stats?.leaves??"0", color:"text-amber-600 dark:text-amber-400" },{ label:"Tasks", value:employee._stats?.tasks??"0", color:"text-indigo-600 dark:text-indigo-400" }].map(s=>(
+              <div key={s.label} className="flex flex-col items-center py-2">
+                <span className={`text-base font-black leading-none ${s.color}`}>{s.value}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{s.label}</span>
+              </div>
+            ))}
+          </div>
+          {/* Tab Bar */}
+          <div className="flex border-t border-slate-100 dark:border-slate-800/50">
+            {TABS.map(t=>(
+              <button key={t.id} onClick={()=>setDrawerTab(t.id)} className={`flex-1 flex items-center justify-center gap-1 py-2.5 text-[10.5px] font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer ${drawerTab===t.id ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20" : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"}`}>
+                <t.icon size={11} strokeWidth={2.5} />{t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar">
+          {isLoadingFull && (<div className="flex items-center justify-center py-8 gap-2"><RefreshCw size={16} className="text-amber-500 animate-spin" /><span className="text-xs text-slate-400 font-bold">Loading full profile...</span></div>)}
+          {/* OVERVIEW */}
+          {drawerTab==="overview" && (<>
+            <SectionBlock title="Work Information" iconEl={<Building2 size={11} strokeWidth={2.5}/>} iconColor="text-amber-600 dark:text-amber-400" iconBg="bg-amber-500/10">
+              <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"Joined Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Department",value:drawerDepts},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Work Mode",value:empData.workMode}]}/>
+            </SectionBlock>
+            <SectionBlock title="Contact Details" iconEl={<Phone size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+              <InfoGrid items={[{label:"Official Email",value:email},{label:"Phone Number",value:phone},{label:"Emergency Contact",value:empData.emergencyContact?.name||null},{label:"Emergency Phone",value:empData.emergencyContact?.phone||null}]}/>
+            </SectionBlock>
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs">
+              <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all cursor-pointer">
+                <div className="flex items-center gap-2"><Calendar size={13}/><span>View Full Attendance Logs</span></div><ChevronRight size={13}/>
               </Link>
             </div>
-          </div>
-
-          {/* Quick Stats Micro Grid */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-              <p className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-none mb-1">{employee._stats?.present ?? "0"}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Present</p>
-            </div>
-            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-              <p className="text-lg font-black text-amber-600 dark:text-amber-400 leading-none mb-1">{employee._stats?.leaves ?? "0"}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leaves</p>
-            </div>
-            <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 text-center border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-              <p className="text-lg font-black text-indigo-600 dark:text-indigo-400 leading-none mb-1">{employee._stats?.tasks ?? "0"}</p>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tasks</p>
-            </div>
-          </div>
-
-          {/* Detailed Sections */}
-          <GridSection title="Job Details" icon={Building2} rows={jobRows} cols={3} />
-          <GridSection title="Personal Information" icon={User} rows={personalRows} cols={3} />
-          <GridSection title="Address Details" icon={MapPin} rows={addressRows} cols={2} />
-          <GridSection title="Bank & Statutory" icon={Briefcase} rows={bankRows} cols={3} />
-          <GridSection title="Salary Structure" icon={DollarSign} rows={salaryRows} cols={3} />
-
-          {/* Uploaded Documents Section */}
-          {docList.length > 0 && (
-            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-              <div className="flex items-center gap-1.5 mb-3 border-b border-slate-100 dark:border-slate-800/80 pb-2">
-                <div className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-                  <FileText size={12} strokeWidth={2.5} />
-                </div>
-                <span className="text-xs font-extrabold text-slate-900 dark:text-white uppercase tracking-wider">Uploaded Documents ({docList.length})</span>
+          </>)}
+          {/* JOB INFO */}
+          {drawerTab==="job" && (<>
+            <SectionBlock title="Employment Details" iconEl={<Briefcase size={11} strokeWidth={2.5}/>} iconColor="text-amber-600 dark:text-amber-400" iconBg="bg-amber-500/10">
+              <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"System Role",value:formattedRole},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Department",value:drawerDepts},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Employment Type",value:empData.employmentType},{label:"Work Mode",value:empData.workMode},{label:"Joining Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Confirmation Date",value:empData.confirmationDate?new Date(empData.confirmationDate).toLocaleDateString("en-IN"):null},{label:"Notice Period",value:empData.noticePeriod?`${empData.noticePeriod} Days`:null}]}/>
+            </SectionBlock>
+            <SectionBlock title="Reporting & Access" iconEl={<Shield size={11} strokeWidth={2.5}/>} iconColor="text-purple-600 dark:text-purple-400" iconBg="bg-purple-500/10">
+              <InfoGrid items={[{label:"Reports To / Manager",value:empData.reportsTo?.name||empData.managerId?.name||null},{label:"Access Level",value:formattedRole},{label:"Multi-Dept Access",value:Array.isArray(empData.accessibleDepartments)&&empData.accessibleDepartments.length>1?"Yes":"No"},{label:"Portal Status",value:isActive?"Active & Enabled":"Suspended"}]}/>
+            </SectionBlock>
+          </>)}
+          {/* PERSONAL */}
+          {drawerTab==="personal" && (<>
+            <SectionBlock title="Personal Information" iconEl={<User size={11} strokeWidth={2.5}/>} iconColor="text-cyan-600 dark:text-cyan-400" iconBg="bg-cyan-500/10">
+              <InfoGrid items={[{label:"Date of Birth",value:empData.dateOfBirth?new Date(empData.dateOfBirth).toLocaleDateString("en-IN"):null},{label:"Gender",value:empData.gender},{label:"Blood Group",value:empData.bloodGroup},{label:"Marital Status",value:empData.maritalStatus},{label:"Aadhaar No.",value:empData.aadhaarNumber},{label:"PAN No.",value:empData.panNumber}]}/>
+            </SectionBlock>
+            <SectionBlock title="Address Information" iconEl={<MapPin size={11} strokeWidth={2.5}/>} iconColor="text-rose-600 dark:text-rose-400" iconBg="bg-rose-500/10">
+              <InfoRow label="Current Address" value={formatAddress(empData.currentAddress)}/>
+              <InfoRow label="Permanent Address" value={formatAddress(empData.permanentAddress)}/>
+            </SectionBlock>
+            {docList.length>0&&(<SectionBlock title={`Uploaded Documents (${docList.length})`} iconEl={<FileText size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
+                {docList.map(doc=>(<a key={doc.key} href={doc.url.startsWith("http")?doc.url:`${(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace("/api","")}${doc.url.startsWith("/")?"":" /"}${doc.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer group"><span className="truncate">{doc.label}</span><Download size={12} className="text-amber-500 shrink-0 ml-1.5 group-hover:text-amber-600"/></a>))}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {docList.map(doc => (
-                  <a
-                    key={doc.key}
-                    href={doc.url.startsWith("http") ? doc.url : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${doc.url.startsWith("/") ? "" : "/"}${doc.url}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-2xs"
-                  >
-                    <span className="truncate">{doc.label}</span>
-                    <Download size={13} className="text-amber-500 shrink-0 ml-1.5" />
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-
+            </SectionBlock>)}
+          </>)}
+          {/* FINANCE */}
+          {drawerTab==="finance" && (<>
+            <SectionBlock title="Salary Structure" iconEl={<DollarSign size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+              {empData.salaryDetails?(<>
+                {empData.salaryDetails.ctc&&(<div className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-slate-800/50 mb-0.5"><span className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider">Annual CTC</span><span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₹{Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}</span></div>)}
+                <InfoGrid items={[{label:"Basic (Monthly)",value:empData.salaryDetails?.basic?`₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}`:null},{label:"HRA",value:empData.salaryDetails?.hra?`₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}`:null},{label:"Special Allowance",value:empData.salaryDetails?.specialAllowance?`₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}`:null},{label:"PF Deduction",value:empData.salaryDetails?.pf?`₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}`:null},{label:"ESI Deduction",value:empData.salaryDetails?.esi?`₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}`:null},{label:"TDS Deduction",value:empData.salaryDetails?.tds?`₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}`:null}]}/>
+              </>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No salary data configured</div>)}
+            </SectionBlock>
+            <SectionBlock title="Bank Account Details" iconEl={<Briefcase size={11} strokeWidth={2.5}/>} iconColor="text-blue-600 dark:text-blue-400" iconBg="bg-blue-500/10">
+              {empData.bankDetails?.accountNumber?(<InfoGrid items={[{label:"Bank Name",value:empData.bankDetails?.bankName},{label:"Account Holder",value:empData.bankDetails?.accountHolderName},{label:"Account Number",value:empData.bankDetails?.accountNumber,highlight:true},{label:"IFSC Code",value:empData.bankDetails?.ifscCode},{label:"UPI ID",value:empData.bankDetails?.upiId}]}/>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No bank details on file</div>)}
+            </SectionBlock>
+          </>)}
         </div>
-
-        {/* Drawer Sticky Footer Actions */}
-        <div className="border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] p-4 flex items-center gap-2.5 z-10 shadow-lg">
-          <Link
-            to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${employee._id}`}
-            className="flex-1 flex items-center justify-center gap-1.5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm transition-all cursor-pointer"
-          >
-            <Edit2 size={13} strokeWidth={2.5} /> <span>Edit Employee</span>
-          </Link>
-          <button
-            onClick={() => onToggleStatus(employee)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-extrabold transition-all border shadow-2xs cursor-pointer ${
-              isActive
-                ? "bg-white dark:bg-slate-900 border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                : "bg-white dark:bg-slate-900 border-emerald-200 dark:border-emerald-900/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
-            }`}
-          >
-            {isActive ? <PowerOff size={13} strokeWidth={2.5} /> : <Power size={13} strokeWidth={2.5} />}
-            <span>{isActive ? "Deactivate Account" : "Activate Account"}</span>
+        {/* Sticky Footer */}
+        <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] p-3 flex items-center gap-2 shadow-lg">
+          <Link to={`${window.location.pathname.startsWith("/hr")?"/hr":"/company"}/employees/edit/${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-extrabold shadow-2xs transition-all cursor-pointer"><Edit2 size={12} strokeWidth={2.5}/><span>Edit Employee</span></Link>
+          <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-extrabold transition-all cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"><Calendar size={12} strokeWidth={2.5}/><span className="hidden sm:inline">Attendance</span></Link>
+          <button onClick={()=>onToggleStatus(employee)} className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${isActive?"bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100":"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"}`}>
+            {isActive?<PowerOff size={12} strokeWidth={2.5}/>:<Power size={12} strokeWidth={2.5}/>}<span className="hidden sm:inline">{isActive?"Deactivate":"Activate"}</span>
           </button>
         </div>
       </div>
     </div>
   );
 };
-
+// ── Reset Password Modal ───────────────────────────────────────────────────────
 const ROWS_PER_PAGE = 10;
 const Employees = () => {
   const queryClient = useQueryClient();

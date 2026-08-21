@@ -267,7 +267,7 @@ const ManagerDrawerContent = (props) => {
             {user?.name || "Manager"}
           </Text>
           <Text style={styles.companyName} numberOfLines={1}>
-            {user?.companyName || "Nextact"}
+            {user?.companyName || "One Click Business"}
           </Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleText}>MANAGER</Text>

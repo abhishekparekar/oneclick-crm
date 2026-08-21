@@ -221,7 +221,8 @@ export default function HRLeadsScreen({ navigation, route }) {
   // WhatsApp & Call Actions
   const handleWhatsApp = (phoneNumber, leadName) => {
     if (!phoneNumber) return;
-    const cleanNum = phoneNumber.replace(/[^0-9]/g, "");
+    let cleanNum = phoneNumber.replace(/[^0-9]/g, "");
+    if (cleanNum.length === 10) cleanNum = `91${cleanNum}`;
     const msg = `Hello ${leadName || ""}, thank you for contacting us!`;
     const url = `whatsapp://send?phone=${cleanNum}&text=${encodeURIComponent(msg)}`;
     Linking.canOpenURL(url)
@@ -229,7 +230,11 @@ export default function HRLeadsScreen({ navigation, route }) {
         if (supported) return Linking.openURL(url);
         return Linking.openURL(`https://wa.me/${cleanNum}?text=${encodeURIComponent(msg)}`);
       })
-      .catch(() => Alert.alert("Error", "Could not open WhatsApp."));
+      .catch(() => {
+        Linking.openURL(`https://wa.me/${cleanNum}?text=${encodeURIComponent(msg)}`).catch(() => {
+          Alert.alert("Error", "Could not open WhatsApp.");
+        });
+      });
   };
 
   const handleCall = (phoneNumber) => {

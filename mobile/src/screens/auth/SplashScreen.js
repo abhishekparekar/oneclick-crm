@@ -94,7 +94,7 @@ const SplashScreen = ({ navigation }) => {
         ]}
       >
         <Image
-          source={require("../../../assets/icon.png")}
+          source={require("../../../assets/logo.png")}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -102,10 +102,10 @@ const SplashScreen = ({ navigation }) => {
 
       {/* Animated Brand Title & Subtitle */}
       <Animated.View style={[styles.textContainer, { opacity: textFadeAnim }]}>
-        <Text style={styles.title}>Nextact</Text>
+        <Text style={styles.title}>One Click</Text>
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.subtitle}>WORKFORCE & HRMS</Text>
+          <Text style={styles.subtitle}>BUSINESS & HRMS</Text>
           <View style={styles.dividerLine} />
         </View>
       </Animated.View>
@@ -113,7 +113,7 @@ const SplashScreen = ({ navigation }) => {
       {/* Footer tagline indicator */}
       <Animated.View style={[styles.footerProgress, { opacity: textFadeAnim }]}>
         <View style={styles.progressDot} />
-        <Text style={styles.footerText}>Smart HR & Business Management</Text>
+        <Text style={styles.footerText}>One Click Business Management</Text>
       </Animated.View>
     </LinearGradient>
   );
@@ -145,23 +145,14 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(59, 130, 246, 0.08)",
   },
   logoContainer: {
-    width: 140,
-    height: 140,
-    borderRadius: 36,
-    backgroundColor: "#FFFFFF",
-    padding: 14,
+    width: 250,
+    height: 100,
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#F97316",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.35,
-    shadowRadius: 20,
-    elevation: 12,
   },
   logo: {
     width: "100%",
     height: "100%",
-    borderRadius: 22,
   },
   textContainer: {
     alignItems: "center",

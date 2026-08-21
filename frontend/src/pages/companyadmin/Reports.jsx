@@ -1,120 +1,54 @@
 import { useState, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
-import html2canvas from "html2canvas-pro";
-import jsPDF from "jspdf";
 import {
-  getReportsAttendanceSummaryApi,
-  getReportsLeaveSummaryApi,
-  getReportsPayrollSummaryApi,
-  getReportsTaskSummaryApi,
-  getReportsEmployeeSummaryApi,
-  getEmployeesApi,
-  getProjectsApi,
-  getCompanyPayrollApi,
-  getCompanyLeavesApi,
-  getTasksApi,
+  getBIExecutiveReportApi,
+  getBIWorkforceReportApi,
+  getBIAttendanceReportApi,
+  getBILeaveReportApi,
+  getBITaskReportApi,
+  getBIPayrollReportApi,
+  getBIPerformanceReportApi,
+  getBIAuditReportApi,
+  getBIEmployeeDrillDownApi,
+  getBIDepartmentDrillDownApi,
   getDepartmentsApi,
+  getBranchesApi,
+  getEmployeesApi,
 } from "../../api/companyAdminApi";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  ComposedChart,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
+  BarChart, Bar,
+  LineChart, Line,
+  AreaChart, Area,
+  PieChart, Pie, Cell,
+  XAxis, YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
-  PieChart,
-  Pie,
-  Cell,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  Radar,
 } from "recharts";
 import {
-  Users,
-  CalendarCheck,
-  CalendarOff,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Folder,
-  CheckSquare,
-  Download,
-  FileText,
-  RefreshCw,
-  Share2,
-  Clock,
-  Building2,
-  Award,
-  Activity,
-  ChevronRight,
-  ChevronLeft,
-  BarChart2,
-  UserCheck,
-  UserX,
-  AlertCircle,
-  Target,
-  Zap,
-  X,
-  Scale,
-  Calendar,
-  Star,
-  ShieldAlert,
-  Mail,
-  Bell,
-  ArrowUpRight,
-  CheckCircle2,
-  ShieldCheck,
-  Trophy,
-  Sparkles,
-  HelpCircle,
-  Briefcase,
-  AlertTriangle,
-  Send,
-  Sliders,
-  ChevronDown,
+  BarChart2, Users, CalendarCheck, CalendarOff, DollarSign,
+  TrendingUp, TrendingDown, CheckSquare, Download, FileText,
+  RefreshCw, Building2, Award, ChevronRight, AlertCircle,
+  Clock, Target, Sparkles, Filter, CheckCircle2, ShieldCheck,
+  Search, ArrowUp, ArrowDown, Activity, Layers, Printer, Briefcase,
+  Sliders, X, User, ArrowUpRight, AlertTriangle, ShieldAlert,
+  Calendar, Check, Eye
 } from "lucide-react";
-import TaskDetailedReport from "../../components/reports/TaskDetailedReport";
-import EmployeeDetailedReport from "../../components/reports/EmployeeDetailedReport";
-import LeaveDetailedReport from "../../components/reports/LeaveDetailedReport";
-import EmployeeProductivityReport from "../../components/reports/EmployeeProductivityReport";
-import WorkloadReport from "../../components/reports/WorkloadReport";
-import DelayedTaskAnalysisReport from "../../components/reports/DelayedTaskAnalysisReport";
-import DailyWorkReport from "../../components/reports/DailyWorkReport";
-import WeeklyBusinessReport from "../../components/reports/WeeklyBusinessReport";
-import MonthlyBusinessReport from "../../components/reports/MonthlyBusinessReport";
-import EmployeeRankingReport from "../../components/reports/EmployeeRankingReport";
-import WorkEfficiencyReport from "../../components/reports/WorkEfficiencyReport";
 
-const DATE_OPTIONS = [
-  { value: "all", label: "All Time" },
-  { value: "this_month", label: "This Month" },
-  { value: "last_month", label: "Last Month" },
-  { value: "this_year", label: "This Year" },
-];
-
-// ── Color Palette ─────────────────────────────────────────────────────────────
-const COLORS = {
-  primary: "#ea580c",    // Orange 600 (Brand Primary)
-  accent: "#10b981",     // Emerald 500 (Success/Active)
-  amber: "#f59e0b",      // Amber 500 (Pending/Warning)
-  red: "#ef4444",        // Red 500 (Danger/Inactive)
-  rose: "#f43f5e",       // Rose 500 (Contrast)
-  violet: "#8b5cf6",     // Violet 500 (Accent)
-  light: "#ffedd5",      // Orange 100 (Light)
+// ── Design Tokens ─────────────────────────────────────────────────────────────
+const THEME = {
+  amber: "#f59e0b",
+  blue: "#3b82f6",
+  emerald: "#10b981",
+  rose: "#f43f5e",
+  purple: "#8b5cf6",
+  cyan: "#06b6d4",
+  slate: "#64748b",
 };
 
-const CHART_COLORS = [
-  "#ea580c", "#3b82f6", "#10b981", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4"
-];
+const CHART_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#06b6d4", "#f43f5e", "#ec4899", "#84cc16"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtCurrency = (v) =>
@@ -122,2730 +56,1210 @@ const fmtCurrency = (v) =>
 
 const fmtNumber = (v) => new Intl.NumberFormat("en-IN").format(v || 0);
 const fmtPct = (v) => `${Number(v || 0).toFixed(1)}%`;
-
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
+const fmtDateTime = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-
-const KPICard = ({ label, value, sub, icon: Icon, iconBg, iconColor, trend, trendUp }) => {
-  const resolveColor = (c) => {
-    if (!c || typeof c !== "string" || c.includes("var(--color-theme-3)") || c.includes("primary")) return "#ea580c";
-    if (c.includes("var(--color-theme-4)") || c.includes("accent")) return "#10b981";
-    if (c.includes("var(--color-theme-5)") || c.includes("amber")) return "#f59e0b";
-    if (c.includes("var(--color-theme-1)") || c.includes("red")) return "#ef4444";
-    if (c.includes("var(--color-theme-6)") || c.includes("rose")) return "#f43f5e";
-    if (c.includes("var(--color-theme-2)") || c.includes("violet")) return "#8b5cf6";
-    return c;
-  };
-
-  const activeColor = resolveColor(iconColor);
-
-  return (
-    <div className="group relative bg-white dark:bg-[#111C24] rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-all duration-200 flex items-center justify-between gap-3 overflow-hidden">
-      {/* Left accent indicator bar */}
-      <div 
-        className="absolute top-0 left-0 bottom-0 w-1 transition-all duration-200 group-hover:w-1.5" 
-        style={{ background: activeColor }} 
-      />
-
-      {/* Main Info */}
-      <div className="flex-1 min-w-0 pl-1.5">
-        <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider m-0 overflow-hidden text-ellipsis whitespace-nowrap">
-          {label}
-        </p>
-        
-        <div className="flex items-baseline gap-2 mt-1">
-          <span className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight leading-tight">
-            {value ?? "—"}
-          </span>
-          {trend !== undefined && (
-            <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 flex items-center gap-0.5 shrink-0 ${
-              trendUp 
-                ? "text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800" 
-                : "text-rose-600 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800"
-            }`}>
-              {trendUp ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-              {trend}%
-            </span>
-          )}
-        </div>
-
-        {sub && (
-          <p className="text-[10.5px] font-medium text-slate-400 m-0 mt-1 flex items-center gap-1.5 overflow-hidden text-ellipsis whitespace-nowrap">
-            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: activeColor }} />
-            {sub}
-          </p>
-        )}
-      </div>
-
-      {/* Compact Icon Box */}
-      <div 
-        className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs transition-transform duration-200 group-hover:scale-105 border border-slate-100 dark:border-slate-800"
-        style={{ background: `${activeColor}15` }}
-      >
-        {Icon && <Icon size={16} style={{ color: activeColor }} />}
-      </div>
-    </div>
-  );
-};
-
-const ChartCard = ({ title, subtitle, children }) => (
-  <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-[0_1px_2px_rgba(0,0,0,0.03)] border border-slate-200/80 dark:border-slate-800 h-full flex flex-col transition-all duration-200">
-    <div className="mb-3 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
-      <div>
-        <p className="text-sm font-bold text-slate-900 dark:text-white m-0 tracking-tight">{title}</p>
-        {subtitle && <p className="text-xs font-medium text-slate-400 mt-0.5 mb-0">{subtitle}</p>}
-      </div>
-    </div>
-    <div className="flex-1 min-h-[180px] w-full min-w-[200px]">
-      {children}
-    </div>
-  </div>
-);
-
-const TableBadge = ({ text, color }) => (
-  <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold inline-block capitalize" style={{ background: color + "18", color }}>{text}</span>
-);
-
+// ── Custom Tooltip for Recharts ───────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 shadow-xl">
-      <p className="text-xs font-bold text-slate-900 dark:text-white mb-1 mt-0">{label}</p>
+    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 shadow-xl text-xs font-sans">
+      <p className="font-bold text-slate-900 dark:text-white mb-1">{label}</p>
       {payload.map((p, i) => (
-        <p key={i} className="text-xs m-0 mt-0.5 font-semibold" style={{ color: p.color || "#ea580c" }}>
-          {p.name}: {typeof p.value === "number" && p.value > 10000 ? fmtCurrency(p.value) : fmtNumber(p.value)}
-        </p>
+        <div key={i} className="flex items-center justify-between gap-3 text-[11px] font-semibold" style={{ color: p.color || THEME.amber }}>
+          <span>{p.name}:</span>
+          <span className="font-mono font-bold">
+            {typeof p.value === "number" && p.value > 10000 ? fmtCurrency(p.value) : fmtNumber(p.value)}
+          </span>
+        </div>
       ))}
     </div>
   );
 };
 
-const EmptyState = ({ message = "No data available" }) => (
-  <div className="text-center py-10 px-4 text-slate-400 dark:text-slate-500">
-    <BarChart2 size={32} className="mx-auto mb-2 opacity-40 text-amber-500" />
-    <p className="text-xs font-semibold m-0">{message}</p>
+// ── Executive KPI Card with Previous Period Delta ────────────────────────────
+const KPICard = ({ label, metric, sub, icon: Icon, color = THEME.amber, isCurrency = false, isPercentage = false }) => {
+  const current = metric?.current ?? metric ?? 0;
+  const previous = metric?.previous;
+  const pctChange = metric?.percentageChange ?? 0;
+  const isUp = metric?.isUp ?? true;
+
+  return (
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-2.5">
+      <div className="flex-1 min-w-0">
+        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">{label}</p>
+        <div className="flex items-baseline gap-2 my-0.5">
+          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none truncate font-mono">
+            {isCurrency ? fmtCurrency(current) : isPercentage ? `${current}%` : fmtNumber(current)}
+          </span>
+          {previous !== undefined && (
+            <span className={`text-[9.5px] font-extrabold flex items-center gap-0.5 ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+              {isUp ? <ArrowUp size={9} strokeWidth={2.5} /> : <ArrowDown size={9} strokeWidth={2.5} />}
+              {pctChange}%
+            </span>
+          )}
+        </div>
+        <p className="text-[10px] font-medium text-slate-400 truncate">
+          {sub ? sub : previous !== undefined ? `vs prev: ${isCurrency ? fmtCurrency(previous) : isPercentage ? `${previous}%` : previous}` : "Period Summary"}
+        </p>
+      </div>
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
+        style={{ backgroundColor: `${color}18`, color }}
+      >
+        <Icon size={15} strokeWidth={2.5} />
+      </div>
+    </div>
+  );
+};
+
+// ── Chart Wrapper Card ────────────────────────────────────────────────────────
+const ChartCard = ({ title, subtitle, action, children }) => (
+  <div className="bg-white dark:bg-[#111C24] rounded-xl p-3.5 border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col h-full">
+    <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800/80 gap-2">
+      <div>
+        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider leading-tight">{title}</h3>
+        {subtitle && <p className="text-[10px] text-slate-400 font-medium">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+    <div className="flex-1 min-h-[200px] w-full">{children}</div>
   </div>
 );
 
-// ── TABS ──────────────────────────────────────────────────────────────────────
-const TABS = [
-  { key: "executive", label: "Executive Summary", icon: BarChart2 },
-  { key: "employee", label: "Employee & Productivity Report", icon: Users },
-  { key: "workload", label: "Workload Report", icon: Scale },
-  { key: "delayed_tasks", label: "Delayed Task Analysis", icon: Clock },
-  { key: "daily_work", label: "Daily Work Report", icon: Calendar },
-  { key: "weekly_business", label: "Weekly Business Report", icon: TrendingUp },
-  { key: "monthly_business", label: "Monthly Business Report", icon: Award },
-  { key: "employee_ranking", label: "Employee Ranking Report", icon: Award },
-  { key: "work_efficiency", label: "Work Efficiency Report", icon: Target },
-  { key: "attendance", label: "Attendance", icon: CalendarCheck },
-  { key: "leave", label: "Leave Report", icon: CalendarOff },
-  { key: "payroll", label: "Payroll", icon: DollarSign },
-  { key: "projects", label: "Task Report", icon: Folder },
-];
+// ── Empty State Component ─────────────────────────────────────────────────────
+const EmptyState = ({ message = "No reporting data available for the selected period." }) => (
+  <div className="text-center py-12 px-4 text-slate-400 dark:text-slate-500">
+    <BarChart2 size={28} className="mx-auto mb-2 opacity-40 text-amber-500" />
+    <p className="text-xs font-bold">{message}</p>
+    <p className="text-[10px] mt-0.5 text-slate-400">Try adjusting your filters or date range.</p>
+  </div>
+);
 
-// ── EXECUTIVE SUMMARY (Business Intelligence Dashboard) ────────────────────────
-const ExecutiveSummaryTab = ({
-  attSummary,
-  lvSummary,
-  paySummary,
-  taskSummary,
-  empSummary,
-  projects,
-  payrollList,
-  employees = [],
-  departments = [],
-  tasksList = [],
-  showCharts = true,
-  onNavigateTab,
-  onOpenPrintModal,
-  onExportCSV
-}) => {
-  const [showFormula, setShowFormula] = useState(false);
-  const [trendFilter, setTrendFilter] = useState("all");
-  const [dismissedAlerts, setDismissedAlerts] = useState([]);
+// ── MAIN BUSINESS INTELLIGENCE & REPORTING SUITE ──────────────────────────────
+export default function Reports() {
+  const queryClient = useQueryClient();
+  const printRef = useRef(null);
 
-  // Interactive Action Modals
-  const [showEmailModal, setShowEmailModal] = useState(false);
-  const [emailRecipient, setEmailRecipient] = useState("owner@companyadmin.com");
-  const [emailSubject, setEmailSubject] = useState("Executive Business Intelligence Summary - Monthly Digest");
+  // Filter States
+  const [activeTab, setActiveTab] = useState("executive");
+  const [dateRange, setDateRange] = useState("this_month");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [selectedDept, setSelectedDept] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedEmployee, setSelectedEmployee] = useState("all");
+  const [searchTableQuery, setSearchTableQuery] = useState("");
 
-  const [showCriticalModal, setShowCriticalModal] = useState(false);
-  const [showMoMModal, setShowMoMModal] = useState(false);
+  // Drill-Down States
+  const [drillEmployeeId, setDrillEmployeeId] = useState(null);
+  const [drillDepartmentId, setDrillDepartmentId] = useState(null);
 
-  const [showTargetsModal, setShowTargetsModal] = useState(false);
-  const [targets, setTargets] = useState({
-    healthScoreSLA: 90,
-    teamPerfSLA: 92,
-    completionRateSLA: 85,
-    maxOverdueAllowed: 0
+  // Performance Weights Configuration Modal
+  const [showWeightsModal, setShowWeightsModal] = useState(false);
+  const [weights, setWeights] = useState({
+    attendance: 20,
+    taskCompletion: 30,
+    punctuality: 15,
+    productivity: 20,
+    leaveDiscipline: 15,
   });
 
-  // 1. Dynamic Employees
-  const emp = empSummary?.employees || {};
-  const totalEmps = emp.total || (Array.isArray(employees) ? employees.length : 0);
-  const activeEmps = emp.active || (Array.isArray(employees) ? employees.filter(e => e.status !== "inactive" && e.status !== "terminated").length : 0);
+  // Query Params
+  const queryParams = useMemo(() => ({
+    dateRange,
+    startDate: dateRange === "custom" ? customStart : undefined,
+    endDate: dateRange === "custom" ? customEnd : undefined,
+    departmentId: selectedDept,
+    branchId: selectedBranch,
+    employeeId: selectedEmployee,
+    weights: JSON.stringify(weights),
+  }), [dateRange, customStart, customEnd, selectedDept, selectedBranch, selectedEmployee, weights]);
 
-  // 2. Dynamic Attendance (calculated 100% from database attendance records)
-  const att = attSummary?.attendance || {};
-  const attTotal = att.totalRecords || 0;
-  const attPresent = att.presentCount || 0;
-  const attRate = attTotal > 0 ? Math.round((attPresent / attTotal) * 100) : (att.complianceRate || 0);
+  // Master Queries
+  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
+  const departments = deptRes?.data?.departments || deptRes?.data || [];
 
-  // 3. Dynamic Tasks (calculated 100% from database task records)
-  const t = taskSummary?.tasks || {};
-  const allTasks = useMemo(() => {
-    if (Array.isArray(tasksList) && tasksList.length > 0) return tasksList;
-    if (Array.isArray(t.list) && t.list.length > 0) return t.list;
-    return [];
-  }, [tasksList, t]);
+  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
+  const branches = branchRes?.data?.branches || branchRes?.data || [];
 
-  const tTotal = t.total || allTasks.length;
-  const tDone = t.done || allTasks.filter(tsk => tsk.status === "done" || tsk.status === "completed").length;
-  const tPending = allTasks.filter(tsk => tsk.status === "pending" || tsk.status === "to_do" || tsk.status === "in_progress").length;
-  const tOverdue = allTasks.filter(tsk => tsk.dueDate && new Date(tsk.dueDate) < new Date() && tsk.status !== "done" && tsk.status !== "completed").length;
-  const tCompletionRate = tTotal > 0 ? Math.round((tDone / tTotal) * 100) : 0;
+  const { data: empRes } = useQuery({ queryKey: ["employeesList"], queryFn: () => getEmployeesApi({ limit: 1000 }) });
+  const employees = empRes?.data?.employees || [];
 
-  // 4. Dynamic Projects
-  const projList = useMemo(() => {
-    const d = projects?.data;
-    if (!d) return [];
-    return Array.isArray(d) ? d : (d.projects || []);
-  }, [projects]);
-  const activeProjCount = projList.filter(p => p.status === "active" || p.status === "in_progress" || p.status === "working").length || projList.length;
+  // Tab Reports Queries
+  const { data: execRes, isLoading: execLoading, refetch: refetchExec } = useQuery({
+    queryKey: ["biExecutive", queryParams],
+    queryFn: () => getBIExecutiveReportApi(queryParams).then(r => r.data?.data),
+  });
 
-  // 5. Dynamic Critical Pending Tasks
-  const computedCritical = useMemo(() => {
-    const pending = allTasks.filter(tsk => tsk.status !== "done" && tsk.status !== "completed");
-    const critical = pending.filter(tsk => tsk.priority === "urgent" || tsk.priority === "high" || (tsk.dueDate && new Date(tsk.dueDate) < new Date()));
-    if (critical.length > 0) {
-      return critical.slice(0, 5).map((tsk, idx) => ({
-        id: tsk._id || idx + 1,
-        title: tsk.title || tsk.name || "Task Item",
-        status: tsk.dueDate && new Date(tsk.dueDate) < new Date() ? "Overdue" : "Urgent",
-        priority: tsk.priority ? tsk.priority.toUpperCase() : "HIGH",
-        dept: tsk.department || tsk.assigneeName || "Assigned Team",
-        desc: tsk.description || "High priority item requiring timely completion and review.",
-        color: "border-rose-500/30 bg-rose-500/5 text-rose-500"
-      }));
-    }
-    return [];
-  }, [allTasks]);
+  const { data: workRes, isLoading: workLoading } = useQuery({
+    queryKey: ["biWorkforce", queryParams],
+    queryFn: () => getBIWorkforceReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "workforce",
+  });
 
-  const activeCriticalTasks = computedCritical.filter(ct => !dismissedAlerts.includes(ct.id));
-  const criticalCount = activeCriticalTasks.length;
+  const { data: attRes, isLoading: attLoading } = useQuery({
+    queryKey: ["biAttendance", queryParams],
+    queryFn: () => getBIAttendanceReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "attendance",
+  });
 
-  // 6. Dynamic Top Team Members (calculated 100% from database employee & task records)
-  const computedTopEmployees = useMemo(() => {
-    if (!Array.isArray(employees) || employees.length === 0) return [];
-    const scored = employees.map((empItem, idx) => {
-      const empTasks = allTasks.filter(tsk => tsk.assignedTo === empItem._id || tsk.assigneeId === empItem._id || tsk.assigneeName === empItem.name);
-      const done = empTasks.filter(tsk => tsk.status === "done" || tsk.status === "completed").length;
-      const total = empTasks.length;
-      const score = total > 0 ? Math.round((done / total) * 100) : 0;
-      return {
-        id: empItem._id || idx,
-        name: empItem.name || empItem.fullName || "Team Member",
-        role: empItem.designation || empItem.role || "Team Member",
-        score: `${score}%`,
-        rawScore: score,
-        statusClass: score >= 90 ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20" : "bg-teal-500/10 text-teal-600 border-teal-500/20"
-      };
-    }).sort((a, b) => b.rawScore - a.rawScore).slice(0, 10);
+  const { data: leaveRes, isLoading: leaveLoading } = useQuery({
+    queryKey: ["biLeaves", queryParams],
+    queryFn: () => getBILeaveReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "leaves",
+  });
 
-    return scored.map((empItem, idx) => ({
-      ...empItem,
-      rank: idx + 1,
-      badge: idx === 0 ? "1st Place" : idx === 1 ? "2nd Place" : idx === 2 ? "3rd Place" : "Top Performer"
-    }));
-  }, [employees, allTasks]);
+  const { data: taskRes, isLoading: taskLoading } = useQuery({
+    queryKey: ["biTasks", queryParams],
+    queryFn: () => getBITaskReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "tasks",
+  });
 
-  // 7. Dynamic Best & Attention Departments (calculated 100% from database department records)
-  const { bestDept, attnDept } = useMemo(() => {
-    if (!Array.isArray(departments) || departments.length === 0) return { bestDept: null, attnDept: null };
-    const deptStats = departments.map(d => {
-      const deptName = d.name || d.departmentName || "Department";
-      const deptEmps = Array.isArray(employees) ? employees.filter(e => (e.department === deptName || e.department?._id === d._id || e.department?.name === deptName)) : [];
-      const deptTasks = allTasks.filter(tsk => tsk.department === deptName || tsk.departmentId === d._id);
-      const doneCount = deptTasks.filter(tsk => tsk.status === "done" || tsk.status === "completed").length;
-      const totalCount = deptTasks.length;
-      const rate = totalCount > 0 ? Math.round((doneCount / totalCount) * 100) : 0;
-      const pendingCount = totalCount - doneCount;
-      const lateCount = deptTasks.filter(tsk => tsk.dueDate && new Date(tsk.dueDate) < new Date() && tsk.status !== "done").length;
-      return {
-        name: deptName,
-        performance: rate,
-        completedTasks: doneCount,
-        pendingTasks: pendingCount,
-        lateTasks: lateCount
-      };
-    });
-    const sorted = [...deptStats].sort((a, b) => b.performance - a.performance);
-    return {
-      bestDept: sorted[0] || null,
-      attnDept: sorted[sorted.length - 1] || null
-    };
-  }, [departments, employees, allTasks]);
+  const { data: payRes, isLoading: payLoading } = useQuery({
+    queryKey: ["biPayroll", queryParams],
+    queryFn: () => getBIPayrollReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "payroll",
+  });
 
-  // 8. Dynamic Health Score & Core KPIs
-  const teamPerfScore = useMemo(() => {
-    if (computedTopEmployees.length > 0) {
-      return Math.round(computedTopEmployees.reduce((acc, e) => acc + e.rawScore, 0) / computedTopEmployees.length);
-    }
-    return 0;
-  }, [computedTopEmployees, totalEmps]);
+  const { data: perfRes, isLoading: perfLoading } = useQuery({
+    queryKey: ["biPerformance", queryParams],
+    queryFn: () => getBIPerformanceReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "performance",
+  });
 
-  const prodScore = useMemo(() => {
-    if (tTotal > 0 || attRate > 0) return Math.round((tCompletionRate + attRate) / (attRate > 0 && tTotal > 0 ? 2 : 1));
-    return 0;
-  }, [tTotal, attRate, tCompletionRate, totalEmps]);
+  const { data: auditRes, isLoading: auditLoading } = useQuery({
+    queryKey: ["biAudit", queryParams],
+    queryFn: () => getBIAuditReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "audit",
+  });
 
-  const healthScore = useMemo(() => {
-    if (totalEmps === 0 && tTotal === 0 && attTotal === 0 && projList.length === 0) return 0;
-    const taskW = tCompletionRate * 0.30;
-    const teamW = teamPerfScore * 0.20;
-    const prodW = prodScore * 0.20;
-    const onTimeW = tCompletionRate * 0.15;
-    const attW = attRate * 0.10;
-    const penalty = criticalCount * 3;
-    return Math.max(0, Math.min(100, Math.round(taskW + teamW + prodW + onTimeW + attW - penalty)));
-  }, [totalEmps, tTotal, attTotal, projList.length, tCompletionRate, teamPerfScore, prodScore, attRate, criticalCount]);
+  // Drill-Down Queries
+  const { data: drillEmpRes, isLoading: drillEmpLoading } = useQuery({
+    queryKey: ["biDrillEmployee", drillEmployeeId],
+    queryFn: () => getBIEmployeeDrillDownApi(drillEmployeeId).then(r => r.data?.data),
+    enabled: !!drillEmployeeId,
+  });
 
-  // Average Task Turnaround (calculated from real completion timestamps)
-  const avgTaskTime = useMemo(() => {
-    if (!Array.isArray(allTasks) || allTasks.length === 0) return "No tasks logged";
-    const completedTasks = allTasks.filter(t => (t.status === "done" || t.status === "completed") && t.createdAt && (t.updatedAt || t.completedAt));
-    if (completedTasks.length === 0) return "Pending completion";
-    
-    let totalHours = 0;
-    completedTasks.forEach(t => {
-      const start = new Date(t.createdAt).getTime();
-      const end = new Date(t.completedAt || t.updatedAt).getTime();
-      const diffHours = Math.max(1, (end - start) / (1000 * 60 * 60));
-      totalHours += diffHours;
-    });
+  const { data: drillDeptRes, isLoading: drillDeptLoading } = useQuery({
+    queryKey: ["biDrillDept", drillDepartmentId],
+    queryFn: () => getBIDepartmentDrillDownApi(drillDepartmentId).then(r => r.data?.data),
+    enabled: !!drillDepartmentId,
+  });
 
-    const avg = Math.round(totalHours / completedTasks.length);
-    if (avg < 24) return `${avg} hrs`;
-    const days = (avg / 24).toFixed(1);
-    return `${days} days`;
-  }, [allTasks]);
+  // CSV Export Engine
+  const handleExportCSV = () => {
+    let rows = [];
+    let filename = `hrms_bi_${activeTab}_report_${new Date().toISOString().slice(0, 10)}.csv`;
 
-  // 9. Real Dynamic 12-Month Trend Data calculated from real tasks & attendance
-  const trendData = useMemo(() => {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const currentMonthIdx = new Date().getMonth();
-    
-    const monthlyTaskStats = {};
-    for (let i = 0; i < 12; i++) {
-      monthlyTaskStats[i] = { total: 0, done: 0 };
-    }
-
-    if (Array.isArray(allTasks) && allTasks.length > 0) {
-      allTasks.forEach(tsk => {
-        if (tsk.createdAt) {
-          const d = new Date(tsk.createdAt);
-          const m = d.getMonth();
-          monthlyTaskStats[m].total += 1;
-          if (tsk.status === "done" || tsk.status === "completed") {
-            monthlyTaskStats[m].done += 1;
-          }
-        }
+    if (activeTab === "executive" && execRes) {
+      rows.push(["Department", "Headcount", "Active", "Tasks Assigned", "Tasks Completed", "Completion Rate %"]);
+      (execRes.departmentAnalytics || []).forEach(d => {
+        rows.push([`"${d.name}"`, d.headcount, d.activeHeadcount, d.tasksAssigned, d.tasksCompleted, `${d.completionRate}%`]);
+      });
+    } else if (activeTab === "workforce" && workRes) {
+      rows.push(["Name", "Code", "Email", "Department", "Designation", "Branch", "Status", "Joining Date"]);
+      (workRes.employeesList || []).forEach(e => {
+        rows.push([`"${e.name}"`, e.code, e.email, `"${e.department}"`, `"${e.designation}"`, `"${e.branch}"`, e.status, fmtDate(e.joiningDate)]);
+      });
+    } else if (activeTab === "attendance" && attRes) {
+      rows.push(["Employee Name", "Date", "Punch In", "Punch Out", "Total Hours", "Status"]);
+      (attRes.records || []).forEach(a => {
+        rows.push([`"${a.employeeName}"`, a.date, fmtDateTime(a.punchIn), fmtDateTime(a.punchOut), a.totalHours || 0, a.status]);
+      });
+    } else if (activeTab === "leaves" && leaveRes) {
+      rows.push(["Employee Name", "Leave Type", "Start Date", "End Date", "Days", "Status", "Reason"]);
+      (leaveRes.records || []).forEach(l => {
+        rows.push([`"${l.employeeName}"`, l.leaveType, fmtDate(l.startDate), fmtDate(l.endDate), l.days, l.status, `"${l.reason || ""}"`]);
+      });
+    } else if (activeTab === "tasks" && taskRes) {
+      rows.push(["Task Title", "Assignee", "Priority", "Department", "Due Date", "Status"]);
+      (taskRes.records || []).forEach(t => {
+        rows.push([`"${t.title}"`, `"${t.assigneeName}"`, t.priority, `"${t.department}"`, fmtDate(t.dueDate), t.status]);
+      });
+    } else if (activeTab === "payroll" && payRes) {
+      rows.push(["Employee Name", "Month", "Year", "Basic Salary", "Net Salary", "Status"]);
+      (payRes.records || []).forEach(p => {
+        rows.push([`"${p.employeeName}"`, p.month, p.year, p.basicSalary, p.netSalary, p.status]);
+      });
+    } else if (activeTab === "performance" && perfRes) {
+      rows.push(["Name", "Code", "Department", "Role", "Score %", "Tier", "Tasks Completed", "Attendance %"]);
+      (perfRes.rankings || []).forEach(r => {
+        rows.push([`"${r.name}"`, r.code, `"${r.department}"`, `"${r.role}"`, `${r.score}%`, r.tier, `${r.tasksCompleted}/${r.tasksTotal}`, `${r.attendanceRate}%`]);
+      });
+    } else if (activeTab === "audit" && auditRes) {
+      rows.push(["Date & Time", "Performed By", "Role", "Module", "Action", "IP Address"]);
+      (auditRes.records || []).forEach(a => {
+        rows.push([fmtDateTime(a.createdAt), `"${a.performedByName}"`, a.role, a.module, a.action, a.ipAddress]);
       });
     }
 
-    const result = [];
-    for (let i = 11; i >= 0; i--) {
-      const idx = (currentMonthIdx - i + 12) % 12;
-      const mLabel = months[idx];
-      const stats = monthlyTaskStats[idx];
-      const taskComp = stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : (tCompletionRate > 0 ? tCompletionRate : 0);
-      const prod = attRate > 0 ? Math.round((taskComp + attRate) / 2) : taskComp;
-      const overall = Math.round((prod + taskComp + (attRate || 0)) / (attRate > 0 ? 3 : 2)) || healthScore;
-
-      result.push({
-        month: mLabel,
-        overall: overall > 0 ? overall : 0,
-        productivity: prod > 0 ? prod : 0,
-        taskCompletion: taskComp > 0 ? taskComp : 0,
-        attendance: attRate > 0 ? attRate : 0
-      });
+    if (rows.length === 0) {
+      toast.error("No data available to export in this tab.");
+      return;
     }
-    return result;
-  }, [allTasks, healthScore, prodScore, tCompletionRate, attRate]);
 
-  // Health Indicators List
-  const healthIndicators = [
-    { kpi: "Business Health Score", status: healthScore >= 85 ? "Excellent" : healthScore >= 70 ? "Good" : "Needs Attention", statusClass: healthScore >= 85 ? "bg-emerald-500/10 text-ca-secondary border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20", score: `${healthScore}/100` },
-    { kpi: "Team Performance", status: teamPerfScore >= 85 ? "Excellent" : teamPerfScore >= 70 ? "Good" : "Needs Attention", statusClass: teamPerfScore >= 85 ? "bg-emerald-500/10 text-ca-secondary border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20", score: `${teamPerfScore}%` },
-    { kpi: "Productivity Score", status: prodScore >= 85 ? "Good" : "Stable", statusClass: "bg-teal-500/10 text-teal-600 border-teal-500/20", score: `${prodScore}%` },
-    { kpi: "Task Completion Speed", status: tCompletionRate >= 80 ? "Excellent" : "On Track", statusClass: "bg-emerald-500/10 text-ca-secondary border-emerald-500/20", score: avgTaskTime },
-    { kpi: "Critical Pending Tasks", status: criticalCount === 0 ? "Optimal" : "Needs Review", statusClass: criticalCount === 0 ? "bg-emerald-500/10 text-ca-secondary border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20", score: `${criticalCount} Items` },
-    { kpi: "Department Efficiency", status: bestDept ? "Good" : "No Data", statusClass: "bg-teal-500/10 text-teal-600 border-teal-500/20", score: bestDept ? `${bestDept.performance}% peak` : "N/A" },
-    { kpi: "Attendance Rate", status: attRate >= 90 ? "Excellent" : "Good", statusClass: "bg-emerald-500/10 text-ca-secondary border-emerald-500/20", score: `${attRate}%` }
-  ];
+    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success(`Exported ${filename}`);
+  };
 
-  const handleAction = (name) => {
-    switch (name) {
-      case "Export Executive Report":
-        if (onOpenPrintModal) {
-          onOpenPrintModal();
-          toast.success("Opening Official Printable PDF Report Studio...");
-        } else if (onExportCSV) {
-          onExportCSV();
-        } else {
-          window.print();
-        }
-        break;
-      case "Email Monthly Business Summary":
-        setShowEmailModal(true);
-        break;
-      case "View Critical Alerts":
-        if (activeCriticalTasks.length > 0) {
-          setShowCriticalModal(true);
-        } else {
-          toast.success("All critical alerts cleared! No urgent items pending resolution.");
-        }
-        break;
-      case "Balance Employee Workload":
-        if (onNavigateTab) {
-          onNavigateTab("workload");
-          toast.info("Navigated to Workload Report to review & rebalance task assignments.");
-        } else {
-          toast.info("Reviewing active workload across departments...");
-        }
-        break;
-      case "Review Manager Performance":
-      case "Full Employee Productivity Report generated":
-        if (onNavigateTab) {
-          onNavigateTab("employee");
-          toast.info("Navigated to Employee & Manager Productivity Report.");
-        } else {
-          toast.info("Loading manager evaluation metrics...");
-        }
-        break;
-      case "Review Department Performance":
-        if (onNavigateTab) {
-          onNavigateTab("work_efficiency");
-          toast.info("Navigated to Work Efficiency & Department Analytics.");
-        } else {
-          toast.info("Loading department efficiency breakdown...");
-        }
-        break;
-      case "Compare Current vs Previous Month":
-        setShowMoMModal(true);
-        break;
-      case "Set Business Targets":
-        setShowTargetsModal(true);
-        break;
-      case "Alert notification dispatched to department leads":
-        toast.success("High priority alerts dispatched via instant notification to all department leads!");
-        break;
-      default:
-        toast.success(`${name} executed successfully!`);
-    }
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleRefresh = () => {
+    queryClient.invalidateQueries({ queryKey: ["biExecutive"] });
+    queryClient.invalidateQueries({ queryKey: ["biWorkforce"] });
+    queryClient.invalidateQueries({ queryKey: ["biAttendance"] });
+    queryClient.invalidateQueries({ queryKey: ["biLeaves"] });
+    queryClient.invalidateQueries({ queryKey: ["biTasks"] });
+    queryClient.invalidateQueries({ queryKey: ["biPayroll"] });
+    queryClient.invalidateQueries({ queryKey: ["biPerformance"] });
+    queryClient.invalidateQueries({ queryKey: ["biAudit"] });
+    toast.success("Reports refreshed");
   };
 
   return (
-    <div className="space-y-3 font-sans pb-6">
-      {/* ── Header Banner: Business Intelligence Dashboard ── */}
-      <div className="bg-white dark:bg-[#111C24] p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white tracking-tight m-0 flex items-center gap-2">
-              Business Intelligence Dashboard <BarChart2 size={20} className="text-amber-500" />
-            </h2>
-            <span className="text-xs font-semibold px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-              Executive Overview
-            </span>
-          </div>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1">
-            Real-time organizational performance, department task compliance, and executive health index.
-          </p>
-        </div>
+    <div ref={printRef} className="space-y-3 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
 
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={() => setShowFormula(!showFormula)}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold cursor-pointer transition-all shadow-2xs"
-          >
-            <Sparkles size={14} className="text-amber-500" />
-            <span>{showFormula ? "Hide Health Formula" : "Business Health Score Formula"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Business Health Score Formula Accordion ── */}
-      {showFormula && (
-        <div className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-md animate-in fade-in duration-200">
-          <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
-                <Target size={13} className="text-amber-500" />
-                Business Health Score Formula
-              </span>
-            </div>
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-              Weighted Score Out of 100
-            </span>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 text-center">
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">Task Completion Rate</span>
-              <span className="text-sm font-bold text-amber-500 block mt-0.5">30% Weight</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">Team Performance</span>
-              <span className="text-sm font-bold text-amber-500 block mt-0.5">20% Weight</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">Productivity Score</span>
-              <span className="text-sm font-bold text-amber-500 block mt-0.5">20% Weight</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">On-Time Completion</span>
-              <span className="text-sm font-bold text-teal-600 dark:text-teal-400 block mt-0.5">15% Weight</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800">
-              <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 block">Attendance Compliance</span>
-              <span className="text-sm font-bold text-teal-600 dark:text-teal-400 block mt-0.5">10% Weight</span>
-            </div>
-            <div className="p-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-800">
-              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400 block">Critical Pending Tasks</span>
-              <span className="text-sm font-bold text-rose-600 dark:text-rose-400 block mt-0.5">-3% per Alert</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Executive Summary Cards Strip (Core Dynamic KPIs) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-        {/* Card 1: Business Health Score */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Business Health Score</span>
+      {/* ── Page Header & Global Filters ─────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-4 py-3 shadow-2xs print:border-none">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0">
-              <Trophy size={16} />
+              <BarChart2 size={16} />
+            </div>
+            <div>
+              <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Business Intelligence & Analytics
+              </h1>
+              <p className="text-[11px] text-slate-400 font-medium">
+                Enterprise workforce performance, operational intelligence & audit analytics
+              </p>
             </div>
           </div>
-          <div className="my-2">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{healthScore}</span>
-              <span className="text-xs font-semibold text-slate-400">/ 100</span>
-            </div>
-            <span className="text-xs font-semibold px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 inline-block mt-1">
-              {healthScore >= 85 ? "Excellent" : healthScore >= 70 ? "Good" : "Action Needed"}
-            </span>
-          </div>
-          <span className="text-xs font-medium text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-1 truncate">
-            Computed from tasks, team & attendance
-          </span>
-        </div>
 
-        {/* Card 2: Team Performance Score */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Team Performance</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
-              <Users size={16} />
-            </div>
-          </div>
-          <div className="my-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{teamPerfScore}%</span>
-            <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 mt-0.5">Overall workforce rating</div>
-          </div>
-          <span className="text-xs font-medium text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-1 truncate">
-            Based on active employee evaluations
-          </span>
-        </div>
-
-        {/* Card 3: Productivity Score */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Productivity Score</span>
-            <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-500 flex items-center justify-center shrink-0">
-              <Activity size={16} />
-            </div>
-          </div>
-          <div className="my-1.5">
-            <span className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{prodScore}%</span>
-            <div className="text-xs font-semibold text-teal-600 dark:text-teal-400 mt-0.5">Organization-wide efficiency</div>
-          </div>
-          <span className="text-xs font-medium text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-1 truncate">
-            Tasks completed vs time utilization
-          </span>
-        </div>
-
-        {/* Card 4: Average Task Completion Time */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">Avg Task Time</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center shrink-0">
-              <Clock size={16} />
-            </div>
-          </div>
-          <div className="my-1.5">
-            <span className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">{avgTaskTime}</span>
-            <div className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 mt-0.5">Turnaround metric</div>
-          </div>
-          <span className="text-xs font-medium text-slate-400 border-t border-slate-100 dark:border-slate-800 pt-2 mt-1 truncate">
-            Average completion window per task
-          </span>
-        </div>
-
-        {/* Card 5: Critical Pending Tasks */}
-        <div className="p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-rose-500">Critical Pending</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-500/15 text-rose-500 flex items-center justify-center shrink-0">
-              <AlertTriangle size={16} />
-            </div>
-          </div>
-          <div className="my-1.5">
-            <span className="text-2xl sm:text-3xl font-bold text-rose-500">{criticalCount}</span>
-            <div className="text-xs font-semibold text-rose-500 mt-0.5">
-              {criticalCount === 0 ? "Zero critical alerts" : "Requires attention"}
-            </div>
-          </div>
-          <span className="text-xs font-medium text-rose-500/80 border-t border-rose-500/20 pt-2 mt-1 truncate">
-            High priority / overdue items
-          </span>
-        </div>
-
-        {/* Card 6: Best Performing Department */}
-        <div className="col-span-2 sm:col-span-3 lg:col-span-2 p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Best Performing Department</span>
-            <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-semibold text-xs flex items-center gap-1">
-              <Award size={13} />
-              {bestDept ? bestDept.name : "No Department Data"}
-            </span>
-          </div>
-          {bestDept ? (
-            <div className="grid grid-cols-3 gap-2 my-2 text-center bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-200/60 dark:border-slate-800">
-              <div>
-                <span className="text-xs font-semibold text-slate-400 block">Performance</span>
-                <span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{bestDept.performance}%</span>
-              </div>
-              <div className="border-x border-slate-200 dark:border-slate-800">
-                <span className="text-xs font-semibold text-slate-400 block">Completed Tasks</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">{bestDept.completedTasks}</span>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-slate-400 block">Pending Tasks</span>
-                <span className="text-sm font-bold text-amber-500">{bestDept.pendingTasks}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="my-3 text-center text-xs font-medium text-slate-400">
-              Add departments and employees to view performance breakdown.
-            </div>
-          )}
-        </div>
-
-        {/* Card 7: Department Needing Attention */}
-        <div className="col-span-2 sm:col-span-3 lg:col-span-2 p-3.5 sm:p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-500">Department Needing Attention</span>
-            <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 font-semibold text-xs flex items-center gap-1">
-              <AlertCircle size={13} />
-              {attnDept && attnDept.name !== bestDept?.name ? attnDept.name : "All Departments Stable"}
-            </span>
-          </div>
-          {attnDept && attnDept.name !== bestDept?.name ? (
-            <div className="grid grid-cols-3 gap-2 my-2 text-center bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl border border-slate-200/60 dark:border-slate-800">
-              <div>
-                <span className="text-xs font-semibold text-slate-400 block">Performance</span>
-                <span className="text-sm font-bold text-amber-500">{attnDept.performance}%</span>
-              </div>
-              <div className="border-x border-slate-200 dark:border-slate-800">
-                <span className="text-xs font-semibold text-slate-400 block">Completed Tasks</span>
-                <span className="text-sm font-bold text-slate-900 dark:text-white">{attnDept.completedTasks}</span>
-              </div>
-              <div>
-                <span className="text-xs font-semibold text-slate-400 block">Late Tasks</span>
-                <span className="text-sm font-bold text-rose-500">{attnDept.lateTasks}</span>
-              </div>
-            </div>
-          ) : (
-            <div className="my-3 text-center text-xs font-medium text-slate-400">
-              All departments are currently meeting target operational SLAs.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Status Task Counters ── */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-3">
-        <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-2xs">
-          <span className="text-xs font-bold text-rose-500 flex items-center gap-1.5">
-            <AlertTriangle size={14} className="shrink-0" />
-            <span className="hidden sm:inline">Overdue Tasks</span>
-            <span className="sm:hidden">Overdue</span>
-          </span>
-          <span className="text-xs sm:text-sm font-bold text-rose-500 px-2 sm:px-2.5 py-0.5 rounded-lg bg-rose-500/10 border border-rose-500/20">{tOverdue}</span>
-        </div>
-        <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-2xs">
-          <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
-            <Clock size={14} className="shrink-0" />
-            <span className="hidden sm:inline">Pending Tasks</span>
-            <span className="sm:hidden">Pending</span>
-          </span>
-          <span className="text-xs sm:text-sm font-bold text-amber-500 px-2 sm:px-2.5 py-0.5 rounded-lg bg-amber-500/10 border border-amber-500/20">{tPending}</span>
-        </div>
-        <div className="p-2.5 sm:p-3 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between shadow-2xs">
-          <span className="text-xs font-bold text-emerald-500 flex items-center gap-1.5">
-            <CheckSquare size={14} className="shrink-0" />
-            <span className="hidden sm:inline">Completed Tasks</span>
-            <span className="sm:hidden">Completed</span>
-          </span>
-          <span className="text-xs sm:text-sm font-bold text-emerald-500 px-2 sm:px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">{tDone}</span>
-        </div>
-      </div>
-
-      {/* ── Quick Actions Panel (Clean Vector Icons & Professional Labels) ── */}
-      <div className="bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-        <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <Zap size={16} className="text-amber-500" />
-            <span className="text-sm font-bold text-slate-900 dark:text-white">Quick Actions for Business Owner</span>
-          </div>
-          <span className="text-[11px] font-medium text-slate-400">Click any action to execute or review immediately</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2">
-        </div>
-      </div>
-
-      {/* ── 2-Column Section: 12-Month Trend Chart vs Executive Health Indicators ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        {/* Left: Last 12 Months Performance Trend Chart */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0 flex items-center gap-2">
-                <TrendingUp size={16} className="text-amber-500 shrink-0" />
-                Last 12 Months Performance Trend
-              </h3>
-              <div className="flex items-center gap-1.5 flex-wrap">
-                {[
-                  { key: "all", label: "All Metrics" },
-                  { key: "overall", label: "Overall Business" },
-                  { key: "productivity", label: "Productivity" },
-                  { key: "completion", label: "Task Done" },
-                ].map((tf) => (
-                  <button
-                    key={tf.key}
-                    onClick={() => setTrendFilter(tf.key)}
-                    className={`px-2.5 py-1 rounded-xl text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-                      trendFilter === tf.key
-                        ? "bg-amber-500 text-slate-950 font-bold shadow-2xs"
-                        : "bg-slate-50 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
-                  >
-                    {tf.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <ResponsiveContainer width="100%" height={260} minWidth={1} minHeight={1}>
-              <ComposedChart data={trendData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} axisLine={false} tickLine={false} />
-                <YAxis domain={[60, 100]} tick={{ fontSize: 11, fill: "#94a3b8", fontWeight: 600 }} tickFormatter={(v) => `${v}%`} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 11, fontWeight: 600, paddingTop: 6 }} />
-                {(trendFilter === "all" || trendFilter === "overall") && (
-                  <Bar dataKey="overall" name="Overall Business (%)" fill="#ea580c" radius={[4, 4, 0, 0]} barSize={18} />
-                )}
-                {(trendFilter === "all" || trendFilter === "productivity") && (
-                  <Line type="monotone" dataKey="productivity" name="Productivity Score (%)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 3 }} />
-                )}
-                {(trendFilter === "all" || trendFilter === "completion") && (
-                  <Line type="monotone" dataKey="taskCompletion" name="Task Completion Rate (%)" stroke="#3b82f6" strokeWidth={2.5} dot={{ r: 3 }} />
-                )}
-                {trendFilter === "all" && (
-                  <Line type="monotone" dataKey="attendance" name="Attendance Trend (%)" stroke="#f59e0b" strokeWidth={2} strokeDasharray="3 3" dot={false} />
-                )}
-              </ComposedChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-900/60 p-2 rounded-xl text-center mt-2 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold text-slate-500 dark:text-slate-400">
-            Projections show an overall business trajectory aligned with current <span className="text-emerald-600 dark:text-emerald-400 font-bold">{healthScore}%</span> organizational health.
-          </div>
-        </div>
-
-        {/* Right: Executive Health Indicators */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5">
-                <ShieldCheck size={16} className="text-emerald-500 shrink-0" />
-                Executive Health Indicators
-              </h3>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 shrink-0">
-                8 KPIs Tracked
-              </span>
-            </div>
-            <div className="space-y-1 mt-2">
-              {healthIndicators.map((hi, idx) => (
-                <div key={idx} className="flex items-center justify-between group hover:bg-slate-50 dark:hover:bg-slate-900/60 py-1.5 px-2 rounded-xl transition-colors">
-                  <div className="flex flex-col w-[55%]">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 leading-tight">{hi.kpi}</span>
-                  </div>
-                  <div className="flex items-center justify-end gap-2 w-[45%]">
-                    <span className="text-xs font-bold text-slate-900 dark:text-white">{hi.score}</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap shrink-0 ${hi.statusClass}`}>
-                      {hi.status}
-                    </span>
-                  </div>
-                </div>
+          {/* Top Global Filters Bar */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Department Filter */}
+            <select
+              value={selectedDept}
+              onChange={(e) => setSelectedDept(e.target.value)}
+              className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option value="all">All Departments</option>
+              {departments.map((d) => (
+                <option key={d._id} value={d._id}>{d.name}</option>
               ))}
-            </div>
-          </div>
-          <div className="bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 mt-4 text-xs font-semibold text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
-            <span>Overall Organization Assessment:</span>
-            <span className="font-bold px-2 py-0.5 rounded bg-emerald-500/20">
-              {healthScore >= 80 ? "High Performing" : "Stable Operation"}
-            </span>
-          </div>
-        </div>
-      </div>
+            </select>
 
-      {/* ── 2-Column Section: Critical Pending Tasks & Top Team Members Leaderboard ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
-        {/* Left: Critical Pending Tasks */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-rose-500 m-0 flex items-center gap-1.5 shrink-0">
-                <AlertTriangle size={16} className="shrink-0" />
-                Critical Pending Tasks ({criticalCount})
-              </h3>
-              {criticalCount > 0 && (
-                <button
-                  onClick={() => handleAction("Alert notification dispatched to department leads")}
-                  className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs cursor-pointer shadow-2xs transition-all shrink-0"
-                >
-                  Notify Leads
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              {activeCriticalTasks.map((task) => (
-                <div key={task.id} className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/5 text-slate-900 dark:text-white shadow-2xs transition-all">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-slate-900 dark:text-white">{task.title}</span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-600 text-white">{task.status}</span>
-                      </div>
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400 m-0 mt-1">{task.desc}</p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setDismissedAlerts([...dismissedAlerts, task.id]);
-                        toast.success(`Task '${task.title}' marked as reviewed/resolved!`);
-                      }}
-                      title="Mark as Resolved"
-                      className="p-1 rounded-lg hover:bg-black/10 text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer shrink-0"
-                    >
-                      <CheckCircle2 size={16} className="text-emerald-500" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-rose-500/15 text-xs font-semibold">
-                    <span>Priority: {task.priority}</span>
-                    <span>Assignee: {task.dept}</span>
-                  </div>
-                </div>
+            {/* Branch Filter */}
+            <select
+              value={selectedBranch}
+              onChange={(e) => setSelectedBranch(e.target.value)}
+              className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option value="all">All Locations</option>
+              {branches.map((b) => (
+                <option key={b._id} value={b._id}>{b.name || b.branchName}</option>
               ))}
+            </select>
 
-              {criticalCount === 0 && (
-                <div className="p-6 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-center space-y-1">
-                  <div className="flex justify-center mb-1">
-                    <CheckCircle2 size={32} className="text-emerald-500" />
-                  </div>
-                  <h4 className="text-sm font-bold text-emerald-600 dark:text-emerald-400 m-0">Zero Critical Pending Tasks</h4>
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 m-0">All high-priority items have been cleared or resolved.</p>
-                  {dismissedAlerts.length > 0 && (
-                    <button
-                      onClick={() => setDismissedAlerts([])}
-                      className="mt-2 px-3 py-1 rounded-lg bg-emerald-600 text-white text-xs font-semibold cursor-pointer"
-                    >
-                      Restore Cleared Tasks
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="bg-rose-500/5 p-2 rounded-lg border border-rose-500/20 mt-3 text-xs font-semibold text-rose-500 text-center">
-            Tasks overdue by over 48 hours trigger automatic notification alerts.
-          </div>
-        </div>
+            {/* Date Range Selector */}
+            <select
+              value={dateRange}
+              onChange={(e) => setDateRange(e.target.value)}
+              className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
+            >
+              <option value="today">Today</option>
+              <option value="this_week">This Week</option>
+              <option value="this_month">This Month</option>
+              <option value="last_month">Last Month</option>
+              <option value="this_quarter">This Quarter</option>
+              <option value="this_year">This Year</option>
+              <option value="custom">Custom Date</option>
+            </select>
 
-        {/* Right: Top Team Members Table */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white m-0 flex items-center gap-1.5 shrink-0">
-                <Award size={16} className="text-amber-500 shrink-0" />
-                Top Team Members Leaderboard
-              </h3>
-              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">
-                Top Performer Rankings
-              </span>
-            </div>
-
-            {computedTopEmployees.length > 0 ? (
-              <div className="overflow-x-auto max-h-[380px] pr-1 hide-scrollbar">
-                <table className="w-full text-left border-collapse">
-                  <thead className="sticky top-0 bg-white dark:bg-[#111C24] z-10 border-b border-slate-100 dark:border-slate-800 text-xs font-bold uppercase tracking-wider text-slate-400">
-                    <tr>
-                      <th className="py-2 pl-2">Rank</th>
-                      <th className="py-2">Employee</th>
-                      <th className="py-2">Designation / Role</th>
-                      <th className="py-2 text-center">Score</th>
-                      <th className="py-2 pr-2 text-right">Badge</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
-                    {computedTopEmployees.map((empItem) => (
-                      <tr key={empItem.id || empItem.rank} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="py-2.5 pl-2 font-bold text-slate-900 dark:text-white">
-                          <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg font-bold text-xs ${
-                            empItem.rank === 1 ? "bg-amber-400 text-slate-950 shadow-2xs" :
-                            empItem.rank === 2 ? "bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white" :
-                            empItem.rank === 3 ? "bg-amber-600/30 text-amber-700 dark:text-amber-300" :
-                            "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                          }`}>
-                            {empItem.rank}
-                          </span>
-                        </td>
-                        <td className="py-2.5 font-semibold text-slate-900 dark:text-white whitespace-nowrap">{empItem.name}</td>
-                        <td className="py-2.5 font-medium text-slate-500 dark:text-slate-400 text-xs whitespace-nowrap">{empItem.role}</td>
-                        <td className="py-2.5 text-center font-bold text-emerald-600 dark:text-emerald-400 text-xs">{empItem.score}</td>
-                        <td className="py-2.5 pr-2 text-right whitespace-nowrap">
-                          <span className={`px-2 py-0.5 rounded-md font-semibold text-xs border ${empItem.statusClass}`}>
-                            {empItem.badge}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="py-12 text-center text-slate-400 dark:text-slate-500">
-                <Users size={36} className="mx-auto mb-2 opacity-40 text-amber-500" />
-                <p className="text-xs font-semibold m-0">No active team members found.</p>
-                <p className="text-xs font-medium m-0 mt-1 opacity-70">Add employees to view performance rankings and productivity scores.</p>
+            {/* Custom Date Pickers */}
+            {dateRange === "custom" && (
+              <div className="flex items-center gap-1">
+                <input
+                  type="date"
+                  value={customStart}
+                  onChange={(e) => setCustomStart(e.target.value)}
+                  className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono"
+                />
+                <span className="text-slate-400 text-xs">–</span>
+                <input
+                  type="date"
+                  value={customEnd}
+                  onChange={(e) => setCustomEnd(e.target.value)}
+                  className="px-2 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono"
+                />
               </div>
             )}
-          </div>
-          <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200/60 dark:border-slate-800 mt-3 flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-            <span>Top performers receive quarterly executive recognition bonuses.</span>
-            <button onClick={() => handleAction("Full Employee Productivity Report generated")} className="text-amber-500 hover:underline font-bold cursor-pointer">
-              View All Employees &rarr;
+
+            {/* Export CSV */}
+            <button
+              onClick={handleExportCSV}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
+              title="Export active report as CSV"
+            >
+              <Download size={13} strokeWidth={2.5} />
+              <span>Export</span>
+            </button>
+
+            {/* Print */}
+            <button
+              onClick={handlePrint}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Print view"
+            >
+              <Printer size={13} />
+            </button>
+
+            {/* Refresh */}
+            <button
+              onClick={handleRefresh}
+              className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Refresh queries"
+            >
+              <RefreshCw size={13} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Email Monthly Summary Modal ── */}
-      {showEmailModal && (
-        <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] w-full max-w-lg rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
-                  <Mail size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">Dispatch Executive Summary</h3>
-                  <span className="text-xs font-medium text-slate-400">Email intelligence digest directly to stakeholders</span>
-                </div>
-              </div>
-              <button onClick={() => setShowEmailModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-3 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Recipient Email Address</label>
-                <input
-                  type="email"
-                  value={emailRecipient}
-                  onChange={(e) => setEmailRecipient(e.target.value)}
-                  placeholder="e.g. owner@company.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Email Subject</label>
-                <input
-                  type="text"
-                  value={emailSubject}
-                  onChange={(e) => setEmailSubject(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-semibold focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div className="bg-slate-50 dark:bg-slate-900/60 p-3.5 rounded-xl border border-slate-200/60 dark:border-slate-800 space-y-1.5 text-slate-800 dark:text-slate-200">
-                <span className="font-extrabold text-[11px] uppercase tracking-wider text-amber-500 block mb-2">Digest Preview Summary</span>
-                <div className="flex justify-between font-bold"><span>Business Health Score:</span> <span className="font-black text-emerald-500">{healthScore} / 100</span></div>
-                <div className="flex justify-between font-bold"><span>Workforce Performance:</span> <span className="font-black text-slate-900 dark:text-white">{teamPerfScore}%</span></div>
-                <div className="flex justify-between font-bold"><span>Task Completion Rate:</span> <span className="font-black text-slate-900 dark:text-white">{tCompletionRate}%</span></div>
-                <div className="flex justify-between font-bold"><span>Active Projects:</span> <span className="font-black text-slate-900 dark:text-white">{activeProjCount}</span></div>
-                <div className="flex justify-between font-bold"><span>Urgent Critical Alerts:</span> <span className="font-black text-rose-500">{criticalCount}</span></div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2.5 mt-5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button onClick={() => setShowEmailModal(false)} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all">
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  toast.success(`Executive summary report dispatched via email to ${emailRecipient}!`);
-                  setShowEmailModal(false);
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold cursor-pointer shadow-sm transition-all"
-              >
-                <Send size={14} />
-                Send Summary Email Now
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Critical Alerts Action Center Modal ── */}
-      {showCriticalModal && (
-        <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] w-full max-w-2xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4 shrink-0">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-500 flex items-center justify-center">
-                  <AlertTriangle size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-rose-600 dark:text-rose-400 m-0">Critical Alerts Action Center</h3>
-                  <span className="text-xs font-medium text-slate-400">Direct resolution & warning dispatch for high priority tasks</span>
-                </div>
-              </div>
-              <button onClick={() => setShowCriticalModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-2.5 overflow-y-auto pr-1 grow">
-              {activeCriticalTasks.length > 0 ? activeCriticalTasks.map((task) => (
-                <div key={task.id} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-rose-500/20 shadow-xs flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-slate-900 dark:text-white">{task.title}</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">{task.priority} Priority</span>
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-white dark:bg-[#111C24] text-slate-500 border border-slate-200 dark:border-slate-800">{task.dept}</span>
-                    </div>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400 m-0 mt-1">{task.desc}</p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setDismissedAlerts([...dismissedAlerts, task.id]);
-                      toast.success(`Resolved & cleared priority alert: ${task.title}`);
-                    }}
-                    className="shrink-0 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold cursor-pointer flex items-center gap-1.5 transition-all shadow-2xs"
-                  >
-                    <CheckCircle2 size={14} />
-                    Resolve Task
-                  </button>
-                </div>
-              )) : (
-                <div className="py-10 text-center text-emerald-600 dark:text-emerald-400 font-bold text-sm">
-                  All high-priority critical alerts have been cleared!
-                </div>
-              )}
-            </div>
-            <div className="flex justify-between items-center mt-5 pt-3 border-t border-slate-100 dark:border-slate-800 shrink-0">
-              <button
-                onClick={() => {
-                  toast.success("Priority warning notifications dispatched to all responsible department leads!");
-                  setShowCriticalModal(false);
-                }}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
-              >
-                <Bell size={14} />
-                Dispatch Warning to Leads
-              </button>
-              <button onClick={() => setShowCriticalModal(false)} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all">
-                Close Action Center
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Month-over-Month (MoM) Comparison Modal ── */}
-      {showMoMModal && (
-        <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] w-full max-w-xl rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-violet-500/15 text-violet-500 flex items-center justify-center">
-                  <BarChart2 size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">Month-over-Month Intelligence Comparison</h3>
-                  <span className="text-xs font-medium text-slate-400">Comparing Current Month performance against Previous Month</span>
-                </div>
-              </div>
-              <button onClick={() => setShowMoMModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 font-extrabold text-[10px] uppercase tracking-wider text-slate-400">
-                    <th className="py-2">Metric & Benchmark</th>
-                    <th className="py-2 text-center">Previous Month</th>
-                    <th className="py-2 text-center">Current Live</th>
-                    <th className="py-2 text-right">Comparative Delta</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-bold">
-                  <tr>
-                    <td className="py-2.5 text-slate-900 dark:text-white">Business Health Score</td>
-                    <td className="py-2.5 text-center text-slate-400">84 / 100</td>
-                    <td className="py-2.5 text-center font-black text-slate-900 dark:text-white">{healthScore} / 100</td>
-                    <td className="py-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">+{healthScore - 84} pts (Improvement)</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 text-slate-900 dark:text-white">Workforce Productivity</td>
-                    <td className="py-2.5 text-center text-slate-400">88%</td>
-                    <td className="py-2.5 text-center font-black text-slate-900 dark:text-white">{prodScore}%</td>
-                    <td className="py-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">+{prodScore - 88 >= 0 ? '+' : ''}{prodScore - 88}%</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 text-slate-900 dark:text-white">Task Completion Rate</td>
-                    <td className="py-2.5 text-center text-slate-400">76%</td>
-                    <td className="py-2.5 text-center font-black text-slate-900 dark:text-white">{tCompletionRate}%</td>
-                    <td className="py-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">+{tCompletionRate - 76 >= 0 ? '+' : ''}{tCompletionRate - 76}%</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 text-slate-900 dark:text-white">Attendance Compliance</td>
-                    <td className="py-2.5 text-center text-slate-400">91%</td>
-                    <td className="py-2.5 text-center font-black text-slate-900 dark:text-white">{attRate}%</td>
-                    <td className="py-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">{attRate - 91 >= 0 ? '+' : ''}{attRate - 91}%</td>
-                  </tr>
-                  <tr>
-                    <td className="py-2.5 text-slate-900 dark:text-white">Critical Overdue Backlog</td>
-                    <td className="py-2.5 text-center text-slate-400">14 Tasks</td>
-                    <td className="py-2.5 text-center font-black text-rose-500">{tOverdue} Tasks</td>
-                    <td className="py-2.5 text-right font-black text-emerald-600 dark:text-emerald-400">{tOverdue <= 14 ? `Reduced by ${14 - tOverdue}` : `+${tOverdue - 14}`} Tasks</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div className="flex justify-end gap-2.5 mt-5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button onClick={() => setShowMoMModal(false)} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all">
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  if (onOpenPrintModal) onOpenPrintModal();
-                  else window.print();
-                  setShowMoMModal(false);
-                }}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
-              >
-                <FileText size={14} />
-                Export Comparison PDF
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Executive SLAs & Targets Modal ── */}
-      {showTargetsModal && (
-        <div className="fixed inset-0 z-[99999] bg-black/65 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl p-6 relative">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-rose-500/15 text-rose-500 flex items-center justify-center">
-                  <Target size={18} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-slate-900 dark:text-white m-0">Set Executive SLAs & Targets</h3>
-                  <span className="text-xs font-medium text-slate-400">Configure organization-wide target benchmarks</span>
-                </div>
-              </div>
-              <button onClick={() => setShowTargetsModal(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white p-1 cursor-pointer">
-                <X size={18} />
-              </button>
-            </div>
-            <div className="space-y-3.5 text-xs">
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Target Business Health Score (Out of 100)</label>
-                <input
-                  type="number"
-                  value={targets.healthScoreSLA}
-                  onChange={(e) => setTargets({...targets, healthScoreSLA: Number(e.target.value)})}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-black focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Minimum Team Performance SLA (%)</label>
-                <input
-                  type="number"
-                  value={targets.teamPerfSLA}
-                  onChange={(e) => setTargets({...targets, teamPerfSLA: Number(e.target.value)})}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-black focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Minimum Task Completion Rate (%)</label>
-                <input
-                  type="number"
-                  value={targets.completionRateSLA}
-                  onChange={(e) => setTargets({...targets, completionRateSLA: Number(e.target.value)})}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-black focus:outline-none focus:border-amber-500"
-                />
-              </div>
-              <div>
-                <label className="font-bold text-slate-700 dark:text-slate-300 block mb-1">Max Allowed Overdue Tasks Threshold</label>
-                <input
-                  type="number"
-                  value={targets.maxOverdueAllowed}
-                  onChange={(e) => setTargets({...targets, maxOverdueAllowed: Number(e.target.value)})}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-black focus:outline-none focus:border-amber-500"
-                />
-              </div>
-            </div>
-            <div className="flex justify-between items-center mt-5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                onClick={() => setTargets({ healthScoreSLA: 90, teamPerfSLA: 92, completionRateSLA: 85, maxOverdueAllowed: 0 })}
-                className="text-xs font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-              >
-                Reset Defaults
-              </button>
-              <div className="flex gap-2">
-                <button onClick={() => setShowTargetsModal(false)} className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-bold cursor-pointer transition-all">
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    toast.success("Executive SLAs and Business Targets updated successfully!");
-                    setShowTargetsModal(false);
-                  }}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold cursor-pointer transition-all shadow-xs"
-                >
-                  <Target size={14} />
-                  Save Targets
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// ── EMPLOYEE TAB ───────────────────────────────────────────────────────────────
-const EmployeeTab = ({ empSummary, employeesList }) => {
-  const [showCharts, setShowCharts] = useState(false);
-  const emp = empSummary?.employees || {};
-  const rawEmpList = employeesList?.data;
-  const empList = useMemo(() => {
-    if (!rawEmpList) return [];
-    return Array.isArray(rawEmpList) ? rawEmpList : (rawEmpList.employees || []);
-  }, [rawEmpList]);
-
-  const byDept = useMemo(() => {
-    const map = {};
-    empList.forEach((e) => {
-      const deptName = e.department?.name || e.departmentName || e.designationId?.name || "Other";
-      map[deptName] = (map[deptName] || 0) + 1;
-    });
-    return Object.entries(map).map(([name, count]) => ({ name, count }));
-  }, [empList]);
-
-  const stats = [
-    { label: "Total Employees", value: fmtNumber(emp.total || empList.length), icon: Users, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-    { label: "Active", value: fmtNumber(emp.active), icon: UserCheck, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-    { label: "Inactive", value: fmtNumber(emp.inactive), icon: UserX, iconBg: "rgba(11, 43, 38, 0.1)", iconColor: COLORS.red },
-    { label: "Departments", value: fmtNumber(byDept.length), icon: Building2, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.violet },
-    { label: "Male", value: fmtNumber(empList.filter(e => e.gender === "Male" || e.gender === "male").length), icon: Award, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-    { label: "Female", value: fmtNumber(empList.filter(e => e.gender === "Female" || e.gender === "female").length), icon: Zap, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-  ];
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {stats.map((s) => <KPICard key={s.label} {...s} />)}
-      </div>
-
-      {/* ── Visualized Data Toggle Button Bar ──────────────────────────────── */}
-      <div className="flex items-center justify-between bg-ca-surface p-4 rounded-2xl border border-ca-border shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-ca-primary/10 flex items-center justify-center text-ca-primary">
-            <TrendingUp size={20} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-ca-text uppercase tracking-wider m-0">Visualized Analytics & Chart Distribution</h3>
-            <p className="text-xs text-ca-text-secondary m-0 mt-0.5">Interactive graphical breakdown of employee headcount across {byDept.length} departments</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowCharts(!showCharts)}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer ${
-            showCharts
-              ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20"
-              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20"
-          }`}
-        >
-          {showCharts ? (
-            <>📉 Hide Visualized Data</>
-          ) : (
-            <>📊 Show Visualized Data ({byDept.length} Depts / Status)</>
-          )}
-        </button>
-      </div>
-
-      {showCharts && (
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }} className="animate-in fade-in-50 duration-300">
-          <ChartCard title="Employees by Department" subtitle="Headcount across departments">
-            {byDept.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-                <BarChart data={byDept} margin={{ top: 5, right: 5, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} angle={-15} dy={8} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="count" name="Team Members" radius={[6, 6, 0, 0]}>
-                    {byDept.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <EmptyState />}
-          </ChartCard>
-
-          <ChartCard title="Active vs Inactive" subtitle="Employee status distribution">
-            <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie
-                  data={[
-                    { name: "Active", value: emp.active || 0 },
-                    { name: "Inactive", value: emp.inactive || 0 },
-                  ].filter(d => d.value > 0)}
-                  cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value"
-                >
-                  <Cell fill={COLORS.primary} />
-                  <Cell fill={COLORS.red} />
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </ChartCard>
-        </div>
-      )}
-
-      <ChartCard title="Employee Directory" subtitle={`${empList.length} employees`}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="border-b-2 border-ca-border/60">
-                {["#", "Team Member", "Department", "Designation", "Branch", "Status"].map((h) => (
-                  <th key={h} className="py-2.5 px-3 text-left text-ca-text-secondary font-bold text-[11px] uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ca-border/30">
-              {empList.length === 0 && (
-                <tr><td colSpan={6} className="p-6 text-center text-ca-text-secondary">No employees found</td></tr>
-              )}
-              {empList.slice(0, 12).map((e, i) => (
-                <tr key={e._id || i} className="hover:bg-ca-bg/50 transition-colors">
-                  <td className="py-2.5 px-3 text-ca-text-secondary font-semibold text-[11px]">{i + 1}</td>
-                  <td className="py-2.5 px-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-extrabold shrink-0" style={{ background: CHART_COLORS[i % CHART_COLORS.length] + "22", color: CHART_COLORS[i % CHART_COLORS.length] }}>
-                        {((e.firstName || e.name || "?")[0] || "?").toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-bold text-ca-text m-0 text-xs">{e.firstName ? `${e.firstName} ${e.lastName || ""}`.trim() : (e.name || "—")}</p>
-                        <p className="text-ca-text-secondary m-0 text-[10px]">{e.employeeCode || e.code || ""}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{e.department?.name || e.departmentName || e.departmentId?.name || "—"}</td>
-                  <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{e.designation?.name || e.designationName || e.designationId?.name || "—"}</td>
-                  <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{e.branch?.name || e.branchName || e.branchId?.name || "—"}</td>
-                  <td className="py-2.5 px-3"><TableBadge text={e.status || "—"} color={e.status === "active" ? COLORS.accent : COLORS.red} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </ChartCard>
-    </div>
-  );
-};
-
-// ── ATTENDANCE TAB ────────────────────────────────────────────────────────────
-const AttendanceTab = ({ attSummary, showCharts = false }) => {
-  const att = attSummary?.attendance || {};
-  const total = att.totalRecords || 0;
-  const present = att.presentCount || 0;
-  const late = att.lateCount || 0;
-  const absent = att.absentCount || 0;
-  const rate = total ? ((present / total) * 100) : (att.complianceRate || 0);
-
-  const stats = [
-    { label: "Attendance Rate", value: fmtPct(rate), icon: Activity, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-    { label: "Total Records", value: fmtNumber(total), icon: CalendarCheck, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-    { label: "Present Count", value: fmtNumber(present), icon: UserCheck, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-    { label: "Absent Count", value: fmtNumber(absent), icon: CalendarOff, iconBg: "rgba(11, 43, 38, 0.1)", iconColor: COLORS.red },
-    { label: "Late Arrivals", value: fmtNumber(late), icon: Clock, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-    { label: "Compliance Rate", value: fmtPct(att.complianceRate || rate), icon: Target, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-  ];
-
-  const statusData = [
-    { name: "Present", value: present },
-    { name: "Absent", value: absent },
-    { name: "Late", value: late },
-  ].filter(d => d.value > 0);
-
-  return (
-    <div className="flex flex-col gap-2.5 font-sans">
-      {/* ── Sleek 6-Column High-Density Top KPI Bar ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-        {stats.map((s) => <KPICard key={s.label} {...s} />)}
-      </div>
-
-      {showCharts && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="animate-in fade-in-50 duration-300">
-          <ChartCard title="Attendance Status Breakdown" subtitle="All-time attendance records">
-            {statusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260} minWidth={1} minHeight={1}>
-                <BarChart data={statusData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="value" name="Count" radius={[6, 6, 0, 0]}>
-                    <Cell fill={COLORS.accent} />
-                    <Cell fill={COLORS.red} />
-                    <Cell fill={COLORS.amber} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <EmptyState />}
-          </ChartCard>
-
-          <ChartCard title="Attendance Distribution" subtitle="Pie chart of status">
-            {statusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260} minWidth={1} minHeight={1}>
-                <PieChart>
-                  <Pie data={statusData} cx="50%" cy="50%" innerRadius={0} outerRadius={100} paddingAngle={2} dataKey="value" stroke="none">
-                    <Cell fill={COLORS.accent} />
-                    <Cell fill={COLORS.red} />
-                    <Cell fill={COLORS.amber} />
-                  </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <EmptyState />}
-          </ChartCard>
-        </div>
-      )}
-
-      {/* ── Ultra-Compact High-Density Analytical Ratio & Status Breakdown Summary ── */}
-      <div className="bg-ca-surface rounded-2xl p-4 sm:p-5 border border-ca-border shadow-2xs space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-ca-border/60 pb-3.5">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-teal-500/15 flex items-center justify-center text-teal-600 dark:text-teal-400 shrink-0 shadow-2xs">
-              <Activity size={18} />
-            </div>
-            <div>
-              <h4 className="text-sm font-black text-ca-text m-0 tracking-tight">Attendance Ratio & Status Breakdown Summary</h4>
-              <p className="text-[11px] font-semibold text-ca-text-secondary m-0 mt-0.5">Comprehensive real-time analysis of {total} attendance logs across the organization</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-              Compliance: {fmtPct(att.complianceRate || rate)}
-            </span>
-            <span className="px-2.5 py-1 rounded-full text-[11px] font-black bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-500/30">
-              Absence: {total ? fmtPct((absent / total) * 100) : "0.0%"}
-            </span>
-          </div>
-        </div>
-
-        {/* Segmented Visual Log Distribution Bar */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs font-black text-ca-text">
-            <span className="uppercase tracking-wider text-[10px] text-ca-text-secondary">Log Distribution Share</span>
-            <span className="text-[11px] font-bold text-ca-text">{present} Present ({fmtPct((present / (total || 1)) * 100)}) vs {absent} Absent ({fmtPct((absent / (total || 1)) * 100)})</span>
-          </div>
-          <div className="w-full h-3.5 rounded-full bg-ca-bg flex overflow-hidden border border-ca-border/60 shadow-inner">
-            <div style={{ width: `${Math.max(4, ((present - late) / (total || 1)) * 100)}%` }} className="bg-ca-secondary hover:opacity-90 transition-all text-[9px] font-black text-white flex items-center justify-center truncate px-1" title={`On-Time: ${present - late}`}>
-              {present - late > 0 ? `${present - late} On-Time` : ""}
-            </div>
-            <div style={{ width: `${Math.max(4, (late / (total || 1)) * 100)}%` }} className="bg-ca-primary hover:opacity-90 transition-all text-[9px] font-black text-white flex items-center justify-center truncate px-1" title={`Late Arrivals: ${late}`}>
-              {late > 0 ? `${late} Late` : ""}
-            </div>
-            <div style={{ width: `${Math.max(4, (absent / (total || 1)) * 100)}%` }} className="bg-rose-500 hover:opacity-90 transition-all text-[9px] font-black text-white flex items-center justify-center truncate px-1" title={`Absent: ${absent}`}>
-              {absent > 0 ? `${absent} Absent` : ""}
-            </div>
-          </div>
-        </div>
-
-        {/* 4 Sleek Analytical Ratio Pills */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1 border-t border-ca-border/40">
-          <div className="p-3 rounded-xl bg-ca-bg border border-ca-border/60 flex flex-col justify-between">
-            <span className="text-[10px] font-extrabold text-ca-text-secondary uppercase tracking-wider">Punctuality Ratio</span>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-base font-black text-ca-secondary dark:text-emerald-400">{fmtNumber(present - late)} / {fmtNumber(present)}</span>
-              <span className="text-xs font-bold text-ca-text-secondary">{total ? fmtPct(((present - late) / total) * 100) : "0%"} On-Time</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-ca-bg border border-ca-border/60 flex flex-col justify-between">
-            <span className="text-[10px] font-extrabold text-ca-text-secondary uppercase tracking-wider">Late Arrival Impact</span>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-base font-black text-amber-600 dark:text-amber-400">{fmtNumber(late)} Logs</span>
-              <span className="text-xs font-bold text-ca-text-secondary">{total ? fmtPct((late / total) * 100) : "0%"} Share</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-ca-bg border border-ca-border/60 flex flex-col justify-between">
-            <span className="text-[10px] font-extrabold text-ca-text-secondary uppercase tracking-wider">Unplanned Absence</span>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-base font-black text-rose-600 dark:text-rose-400">{fmtNumber(absent)} Logs</span>
-              <span className="text-xs font-bold text-ca-text-secondary">{total ? fmtPct((absent / total) * 100) : "0%"} Rate</span>
-            </div>
-          </div>
-
-          <div className="p-3 rounded-xl bg-ca-bg border border-ca-border/60 flex flex-col justify-between">
-            <span className="text-[10px] font-extrabold text-ca-text-secondary uppercase tracking-wider">Overall Compliance</span>
-            <div className="mt-1 flex items-baseline justify-between gap-2">
-              <span className="text-base font-black text-ca-primary">{fmtPct(att.complianceRate || rate)}</span>
-              <span className="text-xs font-bold text-ca-secondary dark:text-emerald-400">Target Met</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ── LEAVE TAB ──────────────────────────────────────────────────────────────────
-const LeaveTab = ({ lvSummary, leavesList }) => {
-  const [showCharts, setShowCharts] = useState(false);
-  const lv = lvSummary?.leaves || {};
-  const total = lv.total || (lv.approved || 0) + (lv.pending || 0) + (lv.rejected || 0);
-
-  const rawLeaves = leavesList?.data;
-  const leaveList = useMemo(() => {
-    if (!rawLeaves) return [];
-    return Array.isArray(rawLeaves) ? rawLeaves : (rawLeaves.leaves || []);
-  }, [rawLeaves]);
-
-  const stats = [
-    { label: "Total Requests", value: fmtNumber(total), icon: CalendarOff, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-    { label: "Approved", value: fmtNumber(lv.approved), icon: CalendarCheck, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-    { label: "Rejected", value: fmtNumber(lv.rejected), icon: UserX, iconBg: "rgba(11, 43, 38, 0.1)", iconColor: COLORS.red },
-    { label: "Pending", value: fmtNumber(lv.pending), icon: Clock, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-    { label: "Approval Rate", value: total ? fmtPct(((lv.approved || 0) / total) * 100) : "—", icon: Target, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-    { label: "Rejection Rate", value: total ? fmtPct(((lv.rejected || 0) / total) * 100) : "—", icon: AlertCircle, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.rose },
-  ];
-
-  const leaveStatusData = [
-    { name: "Approved", value: lv.approved || 0 },
-    { name: "Pending", value: lv.pending || 0 },
-    { name: "Rejected", value: lv.rejected || 0 },
-  ].filter(d => d.value > 0);
-
-  // Group by leave type from list
-  const leaveByType = useMemo(() => {
-    const map = {};
-    leaveList.forEach(l => {
-      const type = l.leaveType || l.type || "Other";
-      map[type] = (map[type] || 0) + 1;
-    });
-    return Object.entries(map).map(([name, value]) => ({ name, value }));
-  }, [leaveList]);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {stats.map((s) => <KPICard key={s.label} {...s} />)}
-      </div>
-
-      {/* ── Visualized Data Toggle Button Bar ──────────────────────────────── */}
-      <div className="flex items-center justify-between bg-ca-surface p-4 rounded-2xl border border-ca-border shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-ca-primary/10 flex items-center justify-center text-ca-primary">
-            <TrendingUp size={20} />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-ca-text uppercase tracking-wider m-0">Visualized Analytics & Chart Distribution</h3>
-            <p className="text-xs text-ca-text-secondary m-0 mt-0.5">Interactive graphical breakdown of leave request status & type distribution across {total} requests</p>
-          </div>
-        </div>
-        <button
-          onClick={() => setShowCharts(!showCharts)}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer ${
-            showCharts
-              ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/20"
-              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/20"
-          }`}
-        >
-          {showCharts ? (
-            <>📉 Hide Visualized Data</>
-          ) : (
-            <>📊 Show Visualized Data ({leaveStatusData.length} Statuses / {leaveByType.length} Types)</>
-          )}
-        </button>
-      </div>
-
-      {showCharts && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }} className="animate-in fade-in-50 duration-300">
-          <ChartCard title="Leave Status Distribution" subtitle="Approved / Pending / Rejected">
-            {leaveStatusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-                <PieChart>
-                  <Pie data={leaveStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                    <Cell fill={COLORS.accent} />
-                    <Cell fill={COLORS.amber} />
-                    <Cell fill={COLORS.red} />
-                  </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <EmptyState />}
-          </ChartCard>
-
-          <ChartCard title="Leave by Type" subtitle="From recent leave requests">
-            {leaveByType.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-                <BarChart data={leaveByType} margin={{ top: 5, right: 5, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                  <XAxis dataKey="name" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} angle={-15} dy={8} />
-                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Bar dataKey="value" name="Requests" radius={[6, 6, 0, 0]}>
-                    {leaveByType.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <EmptyState message="No leave type data available" />}
-          </ChartCard>
-        </div>
-      )}
-
-      <ChartCard title="Recent Leave Requests" subtitle={`${leaveList.length} total records`}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="border-b-2 border-ca-border/60">
-                {["Team Member", "Leave Type", "From", "To", "Days", "Reason", "Status"].map((h) => (
-                  <th key={h} className="py-2.5 px-3 text-left text-ca-text-secondary font-bold text-[11px] uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ca-border/30">
-              {leaveList.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-ca-text-secondary">No leave requests found</td></tr>
-              )}
-              {leaveList.slice(0, 10).map((l, i) => {
-                const emp = l.employee || l.employeeId || {};
-                const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ""}`.trim() : (emp.name || "—");
-                const sColor = l.status === "approved" ? COLORS.accent : l.status === "rejected" ? COLORS.red : COLORS.amber;
-                return (
-                  <tr key={l._id || i} className="hover:bg-ca-bg/50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-ca-text">{name}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{l.leaveType || l.type || "—"}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary">{fmtDate(l.startDate)}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary">{fmtDate(l.endDate)}</td>
-                    <td className="py-2.5 px-3 font-bold text-ca-text">{l.days || l.numberOfDays || "—"}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary max-w-[160px] truncate">{l.reason || "—"}</td>
-                    <td className="py-2.5 px-3"><TableBadge text={l.status || "pending"} color={sColor} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </ChartCard>
-    </div>
-  );
-};
-
-// ── PAYROLL TAB ────────────────────────────────────────────────────────────────
-const PayrollTab = ({ paySummary, payrollList, showCharts = false }) => {
-  const pay = paySummary?.payroll || {};
-  const payTotal = pay.totalPayrollCost || (pay.totalPaid || 0) + (pay.totalPending || 0);
-
-  const rawPayrolls = payrollList?.data;
-  const payrolls = useMemo(() => {
-    if (!rawPayrolls) return [];
-    return Array.isArray(rawPayrolls) ? rawPayrolls : (rawPayrolls.payrolls || []);
-  }, [rawPayrolls]);
-
-  const stats = [
-    { label: "Total Payroll Cost", value: fmtCurrency(payTotal), icon: DollarSign, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-    { label: "Total Paid", value: fmtCurrency(pay.totalPaid), icon: UserCheck, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-    { label: "Pending Amount", value: fmtCurrency(pay.totalPending), icon: Clock, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-    { label: "Total Records", value: fmtNumber(payrolls.length), icon: FileText, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.violet },
-    { label: "Paid Count", value: fmtNumber(payrolls.filter(p => p.status === "paid").length), icon: CalendarCheck, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-    { label: "Pending Count", value: fmtNumber(payrolls.filter(p => p.status !== "paid").length), icon: AlertCircle, iconBg: "rgba(11, 43, 38, 0.1)", iconColor: COLORS.red },
-  ];
-
-  // Group by payroll cycle
-  const byMonth = useMemo(() => {
-    const map = {};
-    payrolls.forEach(p => {
-      const key = `${p.payrollMonth || "?"} ${p.payrollYear || ""}`.trim();
-      if (!map[key]) map[key] = { month: key, gross: 0, net: 0, count: 0 };
-      map[key].gross += (p.basicSalary || 0) + (p.totalAllowances || 0);
-      map[key].net += p.netSalary || 0;
-      map[key].count += 1;
-    });
-    return Object.values(map).slice(-6);
-  }, [payrolls]);
-
-  const payStatusData = [
-    { name: "Paid", value: payrolls.filter(p => p.status === "paid").length },
-    { name: "Pending", value: payrolls.filter(p => p.status !== "paid").length },
-  ].filter(d => d.value > 0);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {stats.map((s) => <KPICard key={s.label} {...s} />)}
-      </div>
-
-      {showCharts && (
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 10 }} className="animate-in fade-in-50 duration-300">
-          <ChartCard title="Payroll by Cycle" subtitle="Gross vs Net per payroll period">
-            {byMonth.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-                <BarChart data={byMonth} margin={{ top: 5, right: 5, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                  <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} angle={-15} dy={8} />
-                  <YAxis tickFormatter={(v) => `₹${(v / 100000).toFixed(0)}L`} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Bar dataKey="gross" name="Gross" fill={COLORS.primary} radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="net" name="Net" fill={COLORS.accent} radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : <EmptyState message="No payroll records yet" />}
-          </ChartCard>
-
-          <ChartCard title="Payment Status" subtitle="Paid vs Pending records">
-            {payStatusData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-                <PieChart>
-                  <Pie data={payStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={4} dataKey="value">
-                    <Cell fill={COLORS.accent} />
-                    <Cell fill={COLORS.amber} />
-                  </Pie>
-                  <Tooltip />
-                  <Legend wrapperStyle={{ fontSize: 11 }} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : <EmptyState />}
-          </ChartCard>
-        </div>
-      )}
-
-      <ChartCard title="Payroll Records" subtitle={`${payrolls.length} total records`}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="border-b-2 border-ca-border/60">
-                {["Team Member", "Cycle", "Basic", "Allowances", "Deductions", "Net Salary", "Status"].map((h) => (
-                  <th key={h} className="py-2.5 px-3 text-left text-ca-text-secondary font-bold text-[11px] uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ca-border/30">
-              {payrolls.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-ca-text-secondary">No payroll records found</td></tr>
-              )}
-              {payrolls.slice(0, 10).map((p, i) => {
-                const emp = p.employee || p.employeeId || {};
-                const name = emp.firstName ? `${emp.firstName} ${emp.lastName || ""}`.trim() : (emp.name || "—");
-                return (
-                  <tr key={p._id || i} className="hover:bg-ca-bg/50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-ca-text">{name}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{`${p.payrollMonth || ""} ${p.payrollYear || ""}`.trim() || "—"}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary">{fmtCurrency(p.basicSalary)}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary">{fmtCurrency(p.totalAllowances)}</td>
-                    <td className="py-2.5 px-3 font-medium" style={{ color: COLORS.red }}>{fmtCurrency(p.totalDeductions)}</td>
-                    <td className="py-2.5 px-3 font-bold" style={{ color: COLORS.primary }}>{fmtCurrency(p.netSalary)}</td>
-                    <td className="py-2.5 px-3"><TableBadge text={p.status || "pending"} color={p.status === "paid" ? COLORS.accent : COLORS.amber} /></td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </ChartCard>
-    </div>
-  );
-};
-
-// ── PROJECTS & TASKS TAB ──────────────────────────────────────────────────────
-const ProjectsTasksTab = ({ taskSummary, projects }) => {
-  const t = taskSummary?.tasks || {};
-  const tTotal = t.total || (t.todo || 0) + (t.inProgress || 0) + (t.review || 0) + (t.done || 0);
-  const tCompletionRate = tTotal ? ((t.done || 0) / tTotal) * 100 : 0;
-
-  const projList = useMemo(() => {
-    const d = projects?.data;
-    if (!d) return [];
-    return Array.isArray(d) ? d : (d.projects || []);
-  }, [projects]);
-
-  const activeProjects = projList.filter(p => p.status === "active" || p.status === "in_progress" || p.status === "working").length;
-
-  const now = new Date();
-  const overdueProjects = projList.filter(p => p.endDate && new Date(p.endDate) < now && p.status !== "completed").length;
-
-  const stats = [
-    { label: "Total Projects", value: fmtNumber(projList.length), icon: Folder, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-    { label: "Active Projects", value: fmtNumber(activeProjects), icon: Activity, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-    { label: "Total Tasks", value: fmtNumber(tTotal), icon: CheckSquare, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.violet },
-    { label: "Tasks Done", value: fmtNumber(t.done), icon: CalendarCheck, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-    { label: "Overdue Projects", value: fmtNumber(overdueProjects), icon: AlertCircle, iconBg: "rgba(11, 43, 38, 0.1)", iconColor: COLORS.red },
-    { label: "Completion Rate", value: fmtPct(tCompletionRate), icon: Target, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-  ];
-
-  const taskStatusData = [
-    { name: "To Do", value: t.todo || 0 },
-    { name: "In Progress", value: t.inProgress || 0 },
-    { name: "In Review", value: t.review || 0 },
-    { name: "Done", value: t.done || 0 },
-  ].filter(d => d.value > 0);
-
-  const projStatusData = useMemo(() => {
-    const counts = {};
-    projList.forEach(p => {
-      const s = p.status || "other";
-      counts[s] = (counts[s] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [projList]);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-        {stats.map((s) => <KPICard key={s.label} {...s} />)}
-      </div>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <ChartCard title="Task Status Breakdown" subtitle="Current task distribution">
-          {taskStatusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-              <BarChart data={taskStatusData} margin={{ top: 5, right: 5, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-slate-100 dark:text-slate-800" />
-                <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <Tooltip content={<CustomTooltip />} />
-                <Bar dataKey="value" name="Tasks" radius={[6, 6, 0, 0]}>
-                  {taskStatusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          ) : <EmptyState />}
-        </ChartCard>
-
-        <ChartCard title="Project Status Distribution" subtitle="All projects by status">
-          {projStatusData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240} minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie data={projStatusData} cx="50%" cy="50%" innerRadius={55} outerRadius={90} paddingAngle={3} dataKey="value">
-                  {projStatusData.map((_, i) => <Cell key={i} fill={CHART_COLORS[i]} />)}
-                </Pie>
-                <Tooltip />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          ) : <EmptyState />}
-        </ChartCard>
-      </div>
-
-      <ChartCard title="Project List" subtitle={`${projList.length} projects`}>
-        <div style={{ overflowX: "auto" }}>
-          <table className="w-full border-collapse text-xs">
-            <thead>
-              <tr className="border-b-2 border-ca-border/60">
-                {["Project", "Code", "Manager", "Status", "Priority", "Progress", "Due Date"].map((h) => (
-                  <th key={h} className="py-2.5 px-3 text-left text-ca-text-secondary font-bold text-[11px] uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-ca-border/30">
-              {projList.length === 0 && (
-                <tr><td colSpan={7} className="p-6 text-center text-ca-text-secondary">No projects found</td></tr>
-              )}
-              {projList.slice(0, 10).map((p, i) => {
-                const manager = p.projectManager || p.manager || {};
-                const managerName = manager.firstName ? `${manager.firstName} ${manager.lastName || ""}`.trim() : (manager.name || "—");
-                const sColor = p.status === "active" || p.status === "working" || p.status === "in_progress" ? COLORS.accent : p.status === "completed" ? COLORS.primary : p.status === "overdue" ? COLORS.red : COLORS.amber;
-                const prColor = p.priority === "critical" ? COLORS.red : p.priority === "high" ? COLORS.amber : COLORS.accent;
-                const prog = p.completionPercentage || p.progress || 0;
-                const isOverdue = p.endDate && new Date(p.endDate) < now && p.status !== "completed";
-                return (
-                  <tr key={p._id || i} className="hover:bg-ca-bg/50 transition-colors">
-                    <td className="py-2.5 px-3 font-bold text-ca-text">{p.name || p.projectName || "—"}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary text-[11px]">{p.projectCode || p.code || "—"}</td>
-                    <td className="py-2.5 px-3 text-ca-text-secondary font-medium">{managerName}</td>
-                    <td className="py-2.5 px-3"><TableBadge text={p.status || "—"} color={isOverdue ? COLORS.red : sColor} /></td>
-                    <td className="py-2.5 px-3">{p.priority ? <TableBadge text={p.priority} color={prColor} /> : "—"}</td>
-                    <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-1.5 bg-ca-border/40 rounded-full overflow-hidden min-w-[60px]">
-                          <div className="h-full rounded-full" style={{ width: `${Math.min(prog, 100)}%`, background: prog >= 80 ? COLORS.primary : prog >= 50 ? COLORS.accent : COLORS.amber }} />
-                        </div>
-                        <span className="font-bold text-ca-text-secondary text-[11px] min-w-[30px]">{prog}%</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-3 font-medium" style={{ color: isOverdue ? COLORS.red : "inherit" }}>
-                      <span className={isOverdue ? "font-bold" : "text-ca-text-secondary"}>{fmtDate(p.endDate || p.dueDate)}</span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      </ChartCard>
-    </div>
-  );
-};
-
-// ── MAIN COMPONENT ─────────────────────────────────────────────────────────────
-const Reports = () => {
-  const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState("executive");
-  const [dateRange, setDateRange] = useState("all");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [showCharts, setShowCharts] = useState(false);
-  const [showPDFPreview, setShowPDFPreview] = useState(false);
-  const [isDownloadingPDF, setIsDownloadingPDF] = useState(false);
-  const tabsScrollRef = useRef(null);
-
-  const scrollTabs = (direction) => {
-    if (tabsScrollRef.current) {
-      const scrollAmount = direction === "left" ? -260 : 260;
-      tabsScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
-    }
-  };
-
-  // ── Data Fetching ──
-  const { data: attSummary, refetch: refetchAtt } = useQuery({ queryKey: ["reportAttendance"], queryFn: getReportsAttendanceSummaryApi });
-  const { data: lvSummary, refetch: refetchLv } = useQuery({ queryKey: ["reportLeave"], queryFn: getReportsLeaveSummaryApi });
-  const { data: paySummary, refetch: refetchPay } = useQuery({ queryKey: ["reportPayroll"], queryFn: getReportsPayrollSummaryApi });
-  const { data: empSummary, refetch: refetchEmp } = useQuery({ queryKey: ["reportEmployee"], queryFn: getReportsEmployeeSummaryApi });
-  const { data: taskSummary, refetch: refetchTask } = useQuery({ queryKey: ["reportTasks"], queryFn: getReportsTaskSummaryApi });
-  const { data: allTasksRes } = useQuery({ queryKey: ["companyAllTasks"], queryFn: () => getTasksApi({ limit: 1000 }) });
-  const { data: employees } = useQuery({ queryKey: ["employees"], queryFn: getEmployeesApi });
-  const { data: projects } = useQuery({ queryKey: ["projects"], queryFn: getProjectsApi });
-  const { data: payrollList } = useQuery({ queryKey: ["companyPayroll"], queryFn: () => getCompanyPayrollApi({ limit: 100 }) });
-  const { data: leavesList } = useQuery({ queryKey: ["companyLeaves"], queryFn: () => getCompanyLeavesApi({ limit: 100 }) });
-  const { data: deptsRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const departments = deptsRes?.data?.departments || deptsRes?.data || [];
-
-  // ── Compute KPI Metrics for Export & Printable PDF Report ──
-  const {
-    kpis, emp, attRate, attPresent, attTotal, payTotal, pay, tCompletionRate, tDone, tTotal, activeProjects, projList, lvTotal, lv, t
-  } = useMemo(() => {
-    const att = attSummary?.data?.attendance || attSummary?.data || attSummary?.attendance || {};
-    const attTot = att.totalRecords || att.total || 0;
-    const attPres = att.presentCount || att.present || 0;
-    const attRt = attTot ? ((attPres / attTot) * 100) : (att.complianceRate || 0);
-
-    const lvData = lvSummary?.data?.leaves || lvSummary?.data || lvSummary?.leaves || {};
-    const lvTot = (lvData.total) || ((lvData.approved || 0) + (lvData.pending || 0) + (lvData.rejected || 0));
-
-    const payData = paySummary?.data?.payroll || paySummary?.data || paySummary?.payroll || {};
-    const payTot = payData.totalPayrollCost || payData.totalCost || (payData.totalPaid || 0) + (payData.totalPending || 0);
-
-    const tData = taskSummary?.data?.tasks || taskSummary?.data || taskSummary?.tasks || {};
-    const tTot = tData.total || (tData.todo || 0) + (tData.inProgress || 0) + (tData.review || 0) + (tData.done || 0);
-    const tDn = tData.done || 0;
-    const tCompRate = tTot ? ((tDn / tTot) * 100) : 0;
-
-    const empData = empSummary?.data?.employees || empSummary?.data || empSummary?.employees || {};
-
-    const pList = Array.isArray(projects?.data) ? projects.data : (projects?.data?.projects || projects?.projects || []);
-    const actProjects = pList.filter(p => p.status === "active" || p.status === "in_progress" || p.status === "working").length;
-
-    const kpiList = [
-      { label: "Total Employees", value: fmtNumber(empData.total || 0), sub: `${empData.active || 0} active`, icon: Users, iconBg: "rgba(22, 56, 50,0.1)", iconColor: COLORS.primary },
-      { label: "Attendance Rate", value: fmtPct(attRt), sub: `${attPres} of ${attTot} records`, icon: CalendarCheck, iconBg: "rgba(35, 83, 71,0.1)", iconColor: COLORS.accent },
-      { label: "Total Payroll Cost", value: fmtCurrency(payTot), sub: `Paid: ${fmtCurrency(payData.totalPaid || 0)}`, icon: DollarSign, iconBg: "rgba(142, 182, 155,0.1)", iconColor: COLORS.amber },
-      { label: "Active Projects", value: fmtNumber(actProjects), sub: `${pList.length} total`, icon: Folder, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.violet },
-      { label: "Task Completion", value: fmtPct(tCompRate), sub: `${tDn} / ${tTot} done`, icon: CheckSquare, iconBg: "rgba(218, 241, 222,0.1)", iconColor: COLORS.accent },
-      { label: "Leave Requests", value: fmtNumber(lvTot), sub: `${lvData.pending || 0} pending`, icon: CalendarOff, iconBg: "rgba(11, 43, 38,0.1)", iconColor: COLORS.rose },
-    ];
-
-    return {
-      kpis: kpiList, emp: empData, attRate: attRt, attPresent: attPres, attTotal: attTot, payTotal: payTot, pay: payData, tCompletionRate: tCompRate, tDone: tDn, tTotal: tTot, activeProjects: actProjects, projList: pList, lvTotal: lvTot, lv: lvData, t: tData
-    };
-  }, [attSummary, lvSummary, paySummary, taskSummary, empSummary, projects]);
-
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    try {
-      refetchAtt(); refetchLv(); refetchPay(); refetchEmp(); refetchTask();
-      queryClient.invalidateQueries({ queryKey: ["taskDetailedAnalytics"] });
-      queryClient.invalidateQueries({ queryKey: ["leaveDetailedAnalytics"] });
-      queryClient.invalidateQueries({ queryKey: ["employeeDetailedAnalytics"] });
-      queryClient.invalidateQueries({ queryKey: ["companyPayroll"] });
-      queryClient.invalidateQueries({ queryKey: ["companyLeaves"] });
-      queryClient.invalidateQueries({ queryKey: ["companyAllTasks"] });
-      queryClient.invalidateQueries({ queryKey: ["employees"] });
-      queryClient.invalidateQueries({ queryKey: ["projects"] });
-      toast.success("Live report and detailed analytics refreshed successfully!");
-    } catch (err) {
-      toast.error("Failed to refresh data");
-    } finally {
-      setIsRefreshing(false);
-    }
-  };
-
-  const downloadDirectPDF = async () => {
-    let element = document.getElementById("pdf-print-area");
-    if (!element) {
-      setShowPDFPreview(true);
-      toast.loading("Preparing document and generating direct PDF... Please wait 1 second.");
-      setTimeout(() => downloadDirectPDF(), 1000);
-      return;
-    }
-    try {
-      setIsDownloadingPDF(true);
-      const toastId = toast.loading("Converting detailed report into multi-page PDF... Please wait.");
-
-      const canvas = await html2canvas(element, {
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        backgroundColor: "#ffffff",
-        windowWidth: 1400,
-        onclone: (clonedDoc) => {
-          const el = clonedDoc.getElementById("pdf-print-area");
-          if (el) {
-            el.style.maxHeight = "none";
-            el.style.overflow = "visible";
-            el.style.height = "auto";
-            el.style.width = "1200px";
-            el.style.padding = "40px";
-          }
-        }
-      });
-
-      const imgData = canvas.toDataURL("image/jpeg", 0.98);
-      const pdf = new jsPDF("p", "mm", "a4");
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      let heightLeft = imgHeight;
-      let position = 0;
-
-      pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pdfHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "JPEG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pdfHeight;
-      }
-
-      pdf.save(`iCoded_HRMS_${activeTab.toUpperCase()}_Detailed_Report_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.dismiss(toastId);
-      toast.success("PDF file generated and saved directly to your Downloads folder!");
-    } catch (err) {
-      console.error("PDF Generation Error:", err);
-      toast.error("Failed to generate PDF directly. Please try again.");
-    } finally {
-      setIsDownloadingPDF(false);
-    }
-  };
-
-  const handleExportPDF = () => {
-    setShowPDFPreview(true);
-    toast.loading("Preparing document and saving directly as PDF... Please wait 1 second.");
-    setTimeout(() => {
-      downloadDirectPDF();
-    }, 900);
-  };
-
-  const handleExportExcel = () => {
-    let csvContent = "";
-    const tabName = (activeTab === "projects" || activeTab === "task") ? "TASK" : activeTab.toUpperCase();
-    const filename = `iCoded_HRMS_Detailed_${tabName}_Report_${new Date().toISOString().slice(0, 10)}.csv`;
-
-    const list = employees?.data?.employees || employees?.data || [];
-    const leaves = leavesList?.data?.leaves || leavesList?.data || [];
-    const tasks = Array.isArray(taskSummary?.data?.list) ? taskSummary.data.list : (Array.isArray(taskSummary?.data?.tasks) ? taskSummary.data.tasks : (Array.isArray(allTasksRes?.data?.tasks) ? allTasksRes.data.tasks : (Array.isArray(allTasksRes?.data) ? allTasksRes.data : [])));
-    const payrolls = payrollList?.data?.payrolls || payrollList?.data || [];
-
-    if (activeTab === "executive") {
-      csvContent += "=== EXECUTIVE SUMMARY & KEY PERFORMANCE METRICS ===\n";
-      csvContent += "Metric Category,Current Value,Sub-Text / Target Status\n";
-      csvContent += `"Total Workforce",${emp.total || 0},"${emp.active || 0} active employees / ${emp.inactive || 0} inactive"\n`;
-      csvContent += `"Attendance Compliance",${attRate.toFixed(1)}%,"${attPresent} Present records out of ${attTotal} total records"\n`;
-      csvContent += `"Total Monthly Payroll Cost",${payTotal},"Paid Disbursed: ₹${pay.totalPaid || 0}"\n`;
-      csvContent += `"Task Completion Rate",${tCompletionRate.toFixed(1)}%,"${tDone} completed tasks / ${tTotal} total assigned"\n`;
-      csvContent += `"Active Client Projects",${activeProjects},"${projList.length} total projects across organization"\n`;
-    } else if (activeTab === "employee" || activeTab === "employee_productivity" || activeTab === "employee_ranking") {
-      csvContent += "=== WORKFORCE MASTER ROSTER & INDIVIDUAL PERFORMANCE METRICS ===\n";
-      csvContent += "Employee Code,Full Name,Email Address,Phone Number,Employment Status,Department,Designation,Joining Date,Total Assigned Tasks,Completed Tasks,Completion Rate (%)\n";
-      
-      list.forEach(emp => {
-        const code = emp.employeeCode || emp._id?.toString().slice(-6) || "EMP";
-        const name = (emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || "Employee").replace(/"/g, '""');
-        const email = emp.email || emp.personalEmail || "—";
-        const phone = emp.phone || emp.mobileNumber || "—";
-        const status = emp.status || "active";
-        const dept = (emp.departmentId?.name || emp.departmentId?.departmentName || "General").replace(/"/g, '""');
-        const desig = (emp.designationId?.name || emp.designationId?.title || "Staff").replace(/"/g, '""');
-        const rawDate = emp.joinDate || emp.joiningDate || emp.dateOfJoining || emp.confirmationDate || emp.createdAt || emp.created_at;
-        let joinDate = "—";
-        if (rawDate && rawDate !== "—" && rawDate !== "-") {
-          const parsed = new Date(rawDate);
-          if (!isNaN(parsed.getTime())) joinDate = parsed.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "2-digit" });
-        }
-        
-        const empIds = [emp._id?.toString(), emp.userId?.toString(), emp.employeeCode].filter(Boolean);
-        const empEmails = [emp.email].filter(Boolean).map(e => e.toLowerCase());
-        const empName = name.toLowerCase().trim();
-
-        const empTasks = tasks.filter(t => {
-          const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : (Array.isArray(t.assignees) ? t.assignees : (t.assignees ? [t.assignees] : [])));
-          return assignees.some(a => {
-            const aId = a?._id?.toString() || a?.id?.toString() || a?.userId?.toString() || a?.employeeId?.toString() || (typeof a === 'string' && a.match(/^[0-9a-fA-F]{24}$/) ? a : "");
-            const aEmail = a?.email ? a.email.toLowerCase() : "";
-            const aName = (a?.fullName || `${a?.firstName || ""} ${a?.lastName || ""}`.trim() || a?.name || "").toLowerCase().trim();
-            if (aId && empIds.includes(aId)) return true;
-            if (aEmail && empEmails.includes(aEmail)) return true;
-            if (!aId && !aEmail && aName && aName === empName && empName !== "") return true;
-            return false;
-          });
-        });
-        const completedTasks = empTasks.filter(t => ["complete", "completed", "done"].includes((t.status || "").toLowerCase())).length;
-        const totalTasks = empTasks.length;
-        const rate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-
-        csvContent += `"${code}","${name}","${email}","${phone}","${status}","${dept}","${desig}","${joinDate}",${totalTasks},${completedTasks},${rate}%\n`;
-      });
-    }
-
-    if (!csvContent) {
-      toast.error("No data available to export for this tab");
-      return;
-    }
-
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute("download", filename);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    toast.success(`Successfully exported detailed Excel report (${filename})!`);
-  };
-
-
-
-  return (
-    <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
-
-      {/* ── Page Header Banner ────────────────────────────────────────── */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-1 pb-1">
-        <div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2.5">
-            Reports & Business Intelligence Analytics <BarChart2 size={22} className="text-amber-500 shrink-0" />
-          </h1>
-          <p className="text-xs sm:text-sm font-medium text-slate-500 dark:text-slate-400 mt-1">
-            Real-time executive summaries, employee productivity metrics, and department compliance tracking.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2 flex-wrap lg:justify-end shrink-0">
-          {/* Date Range Dropdown */}
-          <div
-            className="relative outline-none"
-            tabIndex={0}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget)) {
-                setIsDropdownOpen(false);
-              }
-            }}
-          >
-            <div
-              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center justify-between px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-700 dark:text-slate-300 cursor-pointer shadow-2xs transition-all min-w-[125px]"
-            >
-              <span>{DATE_OPTIONS.find(opt => opt.value === dateRange)?.label || "All Time"}</span>
-              <ChevronDown size={14} className={`text-slate-400 transition-transform ${isDropdownOpen ? "rotate-180" : ""}`} />
-            </div>
-
-            <div
-              className={`absolute z-50 right-0 mt-1 w-full min-w-[130px] bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden transition-all duration-200 origin-top-right ${isDropdownOpen ? "opacity-100 scale-100 visible" : "opacity-0 scale-95 invisible"}`}
-            >
-              <ul className="py-1 m-0 list-none">
-                {DATE_OPTIONS.map((opt) => (
-                  <li key={opt.value}>
-                    <button
-                      className={`w-full text-left px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                        dateRange === opt.value
-                          ? "bg-amber-500/10 text-amber-500 font-bold"
-                          : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-                      }`}
-                      onClick={() => {
-                        setDateRange(opt.value);
-                        setIsDropdownOpen(false);
-                      }}
-                    >
-                      {opt.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <button onClick={handleExportPDF} title="Export PDF" className="flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">
-            <FileText size={14} className="text-slate-400" /><span>PDF</span>
-          </button>
-          <button onClick={handleExportExcel} title="Export Excel" className="flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 font-semibold rounded-xl text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer">
-            <Download size={14} className="text-amber-500" /><span>Excel</span>
-          </button>
-          <button
-            onClick={() => setShowCharts(!showCharts)}
-            title="Toggle Visualized Analytics Charts"
-            className={`flex items-center space-x-1.5 px-3 py-1.5 sm:px-3.5 sm:py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-              showCharts
-                ? "bg-amber-500/10 text-amber-500 border border-amber-500/20 font-bold"
-                : "bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-            }`}
-          >
-            <TrendingUp size={14} />
-            <span>{showCharts ? "Hide Charts" : "Visual Charts"}</span>
-          </button>
-          <button onClick={handleRefresh} disabled={isRefreshing} title="Refresh Live Data" className="flex items-center space-x-1.5 px-3.5 py-1.5 sm:px-4 sm:py-2 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-slate-950 font-bold rounded-xl text-xs shadow-2xs transition-all cursor-pointer">
-            <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} strokeWidth={2.2} />
-            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* ── Executive Horizontal Scrollable Report Filter Tab Bar ── */}
-      <div className="relative bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-1.5 shadow-2xs flex items-center gap-1.5">
-        {/* Left scroll arrow button */}
-        <button
-          type="button"
-          onClick={() => scrollTabs("left")}
-          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer hidden sm:flex items-center justify-center shadow-2xs"
-          title="Scroll left"
-        >
-          <ChevronLeft size={14} />
-        </button>
-
-        {/* Scrollable tab pill container */}
-        <div
-          ref={tabsScrollRef}
-          className="flex items-center gap-1.5 overflow-x-auto scroll-smooth py-1 px-1 custom-scrollbar w-full"
-          style={{ scrollbarWidth: "thin" }}
-        >
-          {TABS.map((tab) => {
+      {/* ── 8 Core Report Tabs Strip ─────────────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-1.5 shadow-2xs overflow-x-auto scrollbar-none">
+        <div className="flex items-center gap-1 min-w-[760px]">
+          {[
+            { id: "executive", label: "Executive BI", icon: Sparkles },
+            { id: "workforce", label: "Workforce", icon: Users },
+            { id: "attendance", label: "Attendance", icon: CalendarCheck },
+            { id: "leaves", label: "Leaves", icon: CalendarOff },
+            { id: "tasks", label: "Tasks & Ops", icon: CheckSquare },
+            { id: "payroll", label: "Payroll", icon: DollarSign },
+            { id: "performance", label: "Performance", icon: Award },
+            { id: "audit", label: "Audit Ledger", icon: ShieldCheck },
+          ].map(tab => {
             const Icon = tab.icon;
-            const active = activeTab === tab.key;
+            const isActive = activeTab === tab.id;
             return (
               <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs cursor-pointer whitespace-nowrap transition-all shrink-0 ${
-                  active
-                    ? "bg-amber-500 text-slate-950 font-extrabold shadow-sm shadow-amber-500/20 ring-1 ring-amber-500/50"
-                    : "bg-slate-50/80 dark:bg-slate-900/60 text-slate-600 dark:text-slate-300 font-bold border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 hover:bg-slate-100 dark:hover:bg-slate-800"
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
                 }`}
               >
-                <Icon size={14} strokeWidth={active ? 2.5 : 2} />
+                <Icon size={12} strokeWidth={2.5} />
                 <span>{tab.label}</span>
               </button>
             );
           })}
         </div>
-
-        {/* Right scroll arrow button */}
-        <button
-          type="button"
-          onClick={() => scrollTabs("right")}
-          className="p-2 rounded-xl bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-all shrink-0 cursor-pointer hidden sm:flex items-center justify-center shadow-2xs"
-          title="Scroll right"
-        >
-          <ChevronRight size={14} />
-        </button>
       </div>
 
-      {/* ── Tab Content ── */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 1. EXECUTIVE DASHBOARD TAB                                            */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === "executive" && (
-        <ExecutiveSummaryTab
-          attSummary={attSummary?.data}
-          lvSummary={lvSummary?.data}
-          paySummary={paySummary?.data}
-          taskSummary={taskSummary?.data}
-          empSummary={empSummary?.data}
-          projects={projects}
-          payrollList={payrollList}
-          employees={employees?.data?.employees || employees?.data || employees || []}
-          departments={departments?.data?.departments || departments?.data || departments || []}
-          tasksList={taskSummary?.data?.list || allTasksRes?.data?.tasks || []}
-          showCharts={showCharts}
-          onNavigateTab={setActiveTab}
-          onOpenPrintModal={() => setShowPrintModal(true)}
-          onExportCSV={handleExportExcel}
-        />
-      )}
-      {activeTab === "employee" && (
-        <EmployeeDetailedReport fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} fallbackLeaves={leavesList?.data?.leaves || leavesList?.data || []} fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} empSummary={empSummary?.data} departments={departments} showCharts={showCharts} initialSubView="roster" />
-      )}
-      {activeTab === "employee_productivity" && (
-        <EmployeeDetailedReport fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} fallbackLeaves={leavesList?.data?.leaves || leavesList?.data || []} fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} empSummary={empSummary?.data} departments={departments} showCharts={showCharts} initialSubView="productivity" />
-      )}
-      {activeTab === "workload" && (
-        <WorkloadReport fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "delayed_tasks" && (
-        <DelayedTaskAnalysisReport fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "daily_work" && (
-        <DailyWorkReport fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} departments={departments} />
-      )}
-      {activeTab === "weekly_business" && (
-        <WeeklyBusinessReport taskSummary={taskSummary?.data} empSummary={empSummary?.data} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "monthly_business" && (
-        <MonthlyBusinessReport taskSummary={taskSummary?.data} empSummary={empSummary?.data} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "employee_ranking" && (
-        <EmployeeRankingReport fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "work_efficiency" && (
-        <WorkEfficiencyReport fallbackEmployees={employees?.data?.employees || employees?.data || employees || []} fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || []} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "attendance" && (
-        <AttendanceTab attSummary={attSummary?.data} showCharts={showCharts} />
-      )}
-      {activeTab === "leave" && (
-        <LeaveDetailedReport fallbackLeaves={leavesList?.data?.leaves || leavesList?.data || leavesList || []} lvSummary={lvSummary?.data} departments={departments} showCharts={showCharts} />
-      )}
-      {activeTab === "payroll" && (
-        <PayrollTab paySummary={paySummary?.data} payrollList={payrollList} showCharts={showCharts} />
-      )}
-      {activeTab === "projects" && (
-        <TaskDetailedReport fallbackTasks={taskSummary?.data?.list || allTasksRes?.data?.tasks || taskSummary?.data || []} taskSummary={taskSummary?.data} departments={departments} showCharts={showCharts} />
-      )}
+        <div className="space-y-3 animate-fadeIn">
+          {execLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Executive BI...</div>
+          ) : execRes ? (
+            <>
+              {/* 8 Executive KPI Cards with Delta */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Employees" metric={execRes.kpis?.totalEmployees} icon={Users} color={THEME.blue} />
+                <KPICard label="Active Workforce" metric={execRes.kpis?.activeEmployees} icon={Users} color={THEME.emerald} />
+                <KPICard label="Attendance Rate" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
+                <KPICard label="Present Marks" metric={execRes.kpis?.presentCount} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Late Arrivals" metric={execRes.kpis?.lateCount} icon={Clock} color={THEME.amber} />
+                <KPICard label="Leave Requests" metric={execRes.kpis?.leaveRequests} icon={CalendarOff} color={THEME.purple} />
+                <KPICard label="Task Completion" metric={execRes.kpis?.taskCompletionRate} icon={CheckSquare} color={THEME.emerald} isPercentage />
+                <KPICard label="Payroll Cost" metric={execRes.kpis?.payrollCost} icon={DollarSign} color={THEME.rose} isCurrency />
+              </div>
 
-      {/* ── Official Printable PDF Report Studio & Preview Modal ── */}
-      {showPDFPreview && (
-        <div className="fixed inset-0 z-[99999] bg-black/75 backdrop-blur-sm flex flex-col items-center justify-center p-4 print:p-0 print:bg-white print:block">
-          {/* Modal Header Bar (Hidden during actual print) */}
-          <div className="print:hidden flex items-center justify-between w-full max-w-6xl bg-ca-text text-white px-6 py-4 rounded-t-2xl shadow-xl border-b border-slate-700 shrink-0">
-            <div>
-              <h3 className="text-lg font-black tracking-tight text-white m-0 flex items-center gap-2">
-                <FileText className="text-emerald-400" size={20} />
-                Official Printable PDF Report — {activeTab.toUpperCase()}
-              </h3>
-              <p className="text-xs text-ca-text-secondary m-0 mt-0.5">Comprehensive multi-table data formatted cleanly for professional A4 / Letter PDF document print & export.</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <button
-                onClick={downloadDirectPDF}
-                disabled={isDownloadingPDF}
-                className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-extrabold text-sm shadow-lg shadow-emerald-600/30 transition-all cursor-pointer"
-              >
-                <Download size={16} /> {isDownloadingPDF ? "Generating .PDF File..." : "Direct Download .PDF File"}
-              </button>
-              <button
-                onClick={() => setShowPDFPreview(false)}
-                className="p-2 rounded-xl bg-ca-text hover:bg-slate-700 text-slate-300 transition-colors cursor-pointer"
-                title="Close Preview"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          </div>
-
-          {/* Printable Document Container */}
-          <div
-            id="pdf-print-area"
-            className="bg-ca-surface text-ca-text w-full max-w-6xl p-10 rounded-b-2xl shadow-2xl overflow-y-auto max-h-[82vh] print:max-h-none print:shadow-none print:rounded-none print:w-full print:p-0 print:m-0 font-sans"
-          >
-            <style>{`
-              @media print {
-                body * { visibility: hidden !important; }
-                #pdf-print-area, #pdf-print-area * { visibility: visible !important; }
-                #pdf-print-area {
-                  position: absolute !important;
-                  left: 0 !important;
-                  top: 0 !important;
-                  width: 100% !important;
-                  max-width: 100% !important;
-                  background: white !important;
-                  color: #0f172a !important;
-                  padding: 20px !important;
-                  margin: 0 !important;
-                  box-shadow: none !important;
-                  overflow: visible !important;
-                }
-                table { page-break-inside: auto !important; width: 100% !important; border-collapse: collapse !important; }
-                tr { page-break-inside: avoid !important; page-break-after: auto !important; }
-                thead { display: table-header-group !important; }
-                .no-break { page-break-inside: avoid !important; }
-              }
-            `}</style>
-
-            {/* Document Header */}
-            <div className="border-b-2 border-slate-900 pb-5 mb-3 flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <div className="flex items-center gap-2 text-emerald-800 font-extrabold text-xs uppercase tracking-wider mb-1">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-600 inline-block"></span>
-                  iCoded Enterprise HRMS & CRM
+              {/* Department Performance Bar & Workforce Share */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                <div className="lg:col-span-7">
+                  <ChartCard title="Department Operations & Completion" subtitle="Live task volume and delivery rate by team">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={execRes.departmentAnalytics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="tasksAssigned" name="Assigned Tasks" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="tasksCompleted" name="Completed Tasks" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
                 </div>
-                <h1 className="text-2xl font-black text-ca-text tracking-tight m-0">
-                  {activeTab === "executive" ? "Executive Summary & Comprehensive Operations Report" : `${TABS.find(t => t.key === activeTab)?.label || 'Detailed'} Analytics Extract`}
-                </h1>
-                <p className="text-xs text-ca-text-secondary m-0 mt-1 font-medium">
-                  Official certified data extract generated for administrative audit, management review, and compliance records.
-                </p>
-              </div>
-              <div className="text-right text-xs text-ca-text-secondary bg-ca-bg p-3 rounded-xl border border-ca-border">
-                <div><span className="font-bold">Date Range Filter:</span> {dateRange.toUpperCase()}</div>
-                <div className="mt-1"><span className="font-bold">Generated On:</span> {new Date().toLocaleString("en-GB")}</div>
-                <div className="mt-1"><span className="font-bold">Document Status:</span> <span className="text-emerald-700 font-bold">VERIFIED & LIVE</span></div>
-              </div>
-            </div>
 
-            {/* Section 1: KPI Metrics Block */}
-            <div className="mb-4 no-break">
-              <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3">
-                Key Performance Indicators & Organizational Snapshot
-              </h2>
-              <div className="grid grid-cols-3 gap-3">
-                {kpis.map((k) => (
-                  <div key={k.label} className="p-3.5 rounded-xl border border-ca-border bg-slate-50/60 flex flex-col justify-between">
-                    <span className="text-[11px] font-bold text-ca-text-secondary uppercase tracking-wide">{k.label}</span>
-                    <span className="text-lg font-black text-ca-text my-1">{k.value}</span>
-                    <span className="text-[11px] font-semibold text-emerald-700">{k.sub}</span>
+                <div className="lg:col-span-5">
+                  <ChartCard title="Department Headcount Share" subtitle="Workforce distribution across business units">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={execRes.departmentAnalytics}
+                          dataKey="headcount"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={70}
+                          innerRadius={40}
+                          paddingAngle={3}
+                        >
+                          {(execRes.departmentAnalytics || []).map((_, i) => (
+                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend wrapperStyle={{ fontSize: 10 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+              </div>
+
+              {/* Top Performers Leaderboard */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <div className="flex items-center gap-1.5">
+                    <Award size={14} className="text-amber-500" />
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Performing Team Members</h3>
                   </div>
-                ))}
-              </div>
-            </div>
+                  <span className="text-[10px] text-slate-400 font-bold">Click member for Analytics Drill Down</span>
+                </div>
 
-            {/* Section 2: Comprehensive Detailed Tables based on Tab */}
-            {(activeTab === "executive" || activeTab === "employee") && (
-              <div className="mb-4 no-break">
-                <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3 flex items-center justify-between">
-                  <span>Workforce Master Roster & Individual Performance</span>
-                  <span className="text-xs font-semibold text-ca-text-secondary lowercase">({(employees?.data?.employees || employees?.data || []).length} records)</span>
-                </h2>
-                <table className="w-full text-left text-xs border border-ca-border rounded-lg overflow-hidden">
-                  <thead className="bg-ca-text text-white font-bold">
-                    <tr>
-                      <th className="p-2 border-r border-slate-700">Code</th>
-                      <th className="p-2 border-r border-slate-700">Employee Name</th>
-                      <th className="p-2 border-r border-slate-700">Department</th>
-                      <th className="p-2 border-r border-slate-700">Designation</th>
-                      <th className="p-2 border-r border-slate-700">Status</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Tasks Done</th>
-                      <th className="p-2 text-center">Leaves Approved</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-ca-text font-medium">
-                    {(employees?.data?.employees || employees?.data || []).map((emp, i) => {
-                      const code = emp.employeeCode || emp._id?.toString().slice(-6) || "EMP";
-                      const name = emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.name || "Employee";
-                      const dept = emp.departmentId?.name || emp.departmentId?.departmentName || "General";
-                      const desig = emp.designationId?.name || emp.designationId?.title || "Staff";
-                      const status = emp.status || "active";
-                      
-                      const empIds = [emp._id?.toString(), emp.userId?.toString(), emp.employeeCode].filter(Boolean);
-                      const empEmails = [emp.email].filter(Boolean).map(e => e.toLowerCase());
-                      const empName = name.toLowerCase().trim();
-
-                      const empTasks = (allTasksRes?.data?.tasks || []).filter(t => {
-                        const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : (Array.isArray(t.assignees) ? t.assignees : (t.assignees ? [t.assignees] : [])));
-                        return assignees.some(a => {
-                          const aId = a?._id?.toString() || a?.id?.toString() || a?.userId?.toString() || a?.employeeId?.toString() || (typeof a === 'string' && a.match(/^[0-9a-fA-F]{24}$/) ? a : "");
-                          const aEmail = a?.email ? a.email.toLowerCase() : "";
-                          const aName = (a?.fullName || `${a?.firstName || ""} ${a?.lastName || ""}`.trim() || a?.name || "").toLowerCase().trim();
-                          if (aId && empIds.includes(aId)) return true;
-                          if (aEmail && empEmails.includes(aEmail)) return true;
-                          if (!aId && !aEmail && aName && aName === empName && empName !== "") return true;
-                          return false;
-                        });
-                      });
-                      const completedTasks = empTasks.filter(t => ["complete", "completed", "done", "late_complete"].includes((t.status || "").toLowerCase())).length;
-                      const totalTasks = empTasks.length;
-
-                      const empLeaves = (leavesList?.data?.leaves || leavesList?.data || []).filter(l => {
-                        const lId = l.employeeId?._id?.toString() || l.employeeId?.toString() || l.userId?.toString() || l.user?._id?.toString() || (typeof l.employeeId === 'string' && l.employeeId.match(/^[0-9a-fA-F]{24}$/) ? l.employeeId : "");
-                        const lEmail = l.email?.toLowerCase() || l.employeeId?.email?.toLowerCase() || l.user?.email?.toLowerCase() || "";
-                        const lName = (l.employeeName || l.employeeId?.fullName || `${l.employeeId?.firstName || ""} ${l.employeeId?.lastName || ""}`.trim() || l.employeeId?.name || "").toLowerCase().trim();
-                        if (lId && empIds.includes(lId)) return true;
-                        if (lEmail && empEmails.includes(lEmail)) return true;
-                        if (!lId && !lEmail && lName && lName === empName && empName !== "") return true;
-                        return false;
-                      });
-                      const approvedLeaves = empLeaves.filter(l => (l.status || "").toLowerCase() === "approved").length;
-
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-ca-surface" : "bg-ca-bg"}>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text">{code}</td>
-                          <td className="p-2 border-r border-ca-border font-semibold">{name}</td>
-                          <td className="p-2 border-r border-ca-border">{dept}</td>
-                          <td className="p-2 border-r border-ca-border text-ca-text-secondary">{desig}</td>
-                          <td className="p-2 border-r border-ca-border">
-                            <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase bg-ca-bg text-emerald-800">{status}</span>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-4 py-2">Rank</th>
+                        <th className="px-4 py-2">Member</th>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2 text-center">Tasks Closed</th>
+                        <th className="px-4 py-2 text-center">Completion %</th>
+                        <th className="px-4 py-2 text-center">Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(execRes.topPerformers || []).map((emp, idx) => (
+                        <tr
+                          key={emp._id}
+                          onClick={() => setDrillEmployeeId(emp._id)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group"
+                        >
+                          <td className="px-4 py-2 font-mono font-black text-amber-600 dark:text-amber-400">#{idx + 1}</td>
+                          <td className="px-4 py-2">
+                            <p className="font-extrabold text-slate-900 dark:text-white leading-tight group-hover:text-amber-600 transition-colors">{emp.name}</p>
+                            <p className="text-[10px] text-slate-400">{emp.employeeCode} · {emp.role}</p>
                           </td>
-                          <td className="p-2 border-r border-ca-border text-center font-bold">{completedTasks} / {totalTasks}</td>
-                          <td className="p-2 text-center font-bold text-ca-text-secondary">{approvedLeaves} / {empLeaves.length}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {(activeTab === "executive" || activeTab === "attendance") && (
-              <div className="mb-4 no-break">
-                <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3">
-                  Department Attendance Compliance Breakdown
-                </h2>
-                <table className="w-full text-left text-xs border border-ca-border rounded-lg overflow-hidden">
-                  <thead className="bg-ca-text text-white font-bold">
-                    <tr>
-                      <th className="p-2 border-r border-slate-700">Department Name</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Total Staff</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Present</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Absent</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Late Arrivals</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Half Day</th>
-                      <th className="p-2 text-center">Compliance Rate</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-ca-text font-medium">
-                    {Object.entries(attSummary?.data?.departmentBreakdown || attSummary?.data?.attendance?.departmentBreakdown || attSummary?.departmentBreakdown || {}).map(([dept, vals], i) => {
-                      const tot = vals.total || 0;
-                      const pres = vals.present || 0;
-                      const comp = tot > 0 ? Math.round((pres / tot) * 100) : 0;
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-ca-surface" : "bg-ca-bg"}>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text">{dept || 'General'}</td>
-                          <td className="p-2 border-r border-ca-border text-center">{tot}</td>
-                          <td className="p-2 border-r border-ca-border text-center text-emerald-700 font-bold">{pres}</td>
-                          <td className="p-2 border-r border-ca-border text-center text-rose-700 font-semibold">{vals.absent || 0}</td>
-                          <td className="p-2 border-r border-ca-border text-center text-amber-700 font-semibold">{vals.late || 0}</td>
-                          <td className="p-2 border-r border-ca-border text-center">{vals.halfDay || 0}</td>
-                          <td className="p-2 text-center font-black text-emerald-800">{comp}%</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {(activeTab === "executive" || activeTab === "leave") && (
-              <div className="mb-4 no-break">
-                <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3 flex items-center justify-between">
-                  <span>Detailed Leave Applications Log</span>
-                  <span className="text-xs font-semibold text-ca-text-secondary lowercase">({(leavesList?.data?.leaves || leavesList?.data || []).length} applications)</span>
-                </h2>
-                <table className="w-full text-left text-xs border border-ca-border rounded-lg overflow-hidden">
-                  <thead className="bg-ca-text text-white font-bold">
-                    <tr>
-                      <th className="p-2 border-r border-slate-700">App ID</th>
-                      <th className="p-2 border-r border-slate-700">Employee Name</th>
-                      <th className="p-2 border-r border-slate-700">Department</th>
-                      <th className="p-2 border-r border-slate-700">Leave Type</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Duration</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Days</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Status</th>
-                      <th className="p-2">Reason / Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-ca-text font-medium">
-                    {(leavesList?.data?.leaves || leavesList?.data || []).slice(0, 50).map((l, i) => {
-                      const id = l._id?.toString().slice(-6) || "LV";
-                      const name = l.employeeName || l.employeeId?.fullName || `${l.employeeId?.firstName || ""} ${l.employeeId?.lastName || ""}`.trim() || l.employeeId?.name || "Employee";
-                      const dept = l.employeeId?.departmentId?.name || l.department || "General";
-                      const type = l.leaveType || l.type || "Casual";
-                      const from = l.startDate || l.fromDate ? new Date(l.startDate || l.fromDate).toLocaleDateString("en-GB") : "—";
-                      const to = l.endDate || l.toDate ? new Date(l.endDate || l.toDate).toLocaleDateString("en-GB") : "—";
-                      const days = l.days || l.totalDays || 1;
-                      const status = l.status || "Pending";
-                      const reason = l.reason || l.remarks || "—";
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-ca-surface" : "bg-ca-bg"}>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text">{id}</td>
-                          <td className="p-2 border-r border-ca-border font-semibold">{name}</td>
-                          <td className="p-2 border-r border-ca-border">{dept}</td>
-                          <td className="p-2 border-r border-ca-border text-ca-text-secondary">{type}</td>
-                          <td className="p-2 border-r border-ca-border text-center text-[11px]">{from} → {to}</td>
-                          <td className="p-2 border-r border-ca-border text-center font-bold">{days}</td>
-                          <td className="p-2 border-r border-ca-border text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                              status.toLowerCase() === "approved" ? "bg-ca-bg text-emerald-800" :
-                              status.toLowerCase() === "rejected" ? "bg-rose-100 text-rose-800" : "bg-amber-100 text-amber-800"
-                            }`}>{status}</span>
-                          </td>
-                          <td className="p-2 text-ca-text-secondary italic truncate max-w-[180px]">{reason}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {(activeTab === "executive" || activeTab === "task" || activeTab === "projects") && (
-              <div className="mb-4 no-break">
-                <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3 flex items-center justify-between">
-                  <span>Comprehensive Task Master Schedule</span>
-                  <span className="text-xs font-semibold text-ca-text-secondary lowercase">({(allTasksRes?.data?.tasks || []).length} tasks)</span>
-                </h2>
-                <table className="w-full text-left text-xs border border-ca-border rounded-lg overflow-hidden">
-                  <thead className="bg-ca-text text-white font-bold">
-                    <tr>
-                      <th className="p-2 border-r border-slate-700">ID</th>
-                      <th className="p-2 border-r border-slate-700">Task Title</th>
-                      <th className="p-2 border-r border-slate-700">Assigned Team Members</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Priority</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Status</th>
-                      <th className="p-2 border-r border-slate-700 text-center">Due Date</th>
-                      <th className="p-2 text-center">Timeline Flag</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-ca-text font-medium">
-                    {(allTasksRes?.data?.tasks || []).slice(0, 50).map((task, i) => {
-                      const id = task._id?.toString().slice(-6) || "TSK";
-                      const title = task.title || task.name || "Task";
-                      const priority = task.priority || "normal";
-                      const status = task.status || "pending";
-                      const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : (Array.isArray(task.assignees) ? task.assignees : (task.assignees ? [task.assignees] : [])));
-                      const assignedNames = assignees.map(a => a?.fullName || `${a?.firstName || ""} ${a?.lastName || ""}`.trim() || a?.name || a?.email || "Team Member").join("; ");
-                      const dueDate = task.dueDate ? new Date(task.dueDate).toLocaleDateString("en-GB") : "—";
-                      const isOverdue = task.status !== "complete" && task.status !== "completed" && task.dueDate && new Date(task.dueDate) < new Date();
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-ca-surface" : "bg-ca-bg"}>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text">{id}</td>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text max-w-[200px] truncate">{title}</td>
-                          <td className="p-2 border-r border-ca-border text-ca-text-secondary">{assignedNames || "Unassigned"}</td>
-                          <td className="p-2 border-r border-ca-border text-center uppercase font-bold text-[10px]">{priority}</td>
-                          <td className="p-2 border-r border-ca-border text-center">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-ca-border text-ca-text">{status}</span>
-                          </td>
-                          <td className="p-2 border-r border-ca-border text-center font-semibold">{dueDate}</td>
-                          <td className="p-2 text-center">
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isOverdue ? "bg-rose-100 text-rose-800 font-extrabold" : "bg-ca-bg text-emerald-800"}`}>
-                              {isOverdue ? "OVERDUE" : "On Schedule"}
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{emp.department}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold">{emp.tasksCompleted} / {emp.tasksAssigned}</td>
+                          <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{emp.completionRate}%</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className="inline-flex px-2 py-0.5 rounded-md font-mono font-black text-[11px] bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                              {emp.performanceScore}%
                             </span>
                           </td>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            )}
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
 
-            {(activeTab === "executive" || activeTab === "payroll") && (
-              <div className="mb-4 no-break">
-                <h2 className="text-sm font-black text-ca-text uppercase tracking-wider bg-ca-bg px-3.5 py-2 rounded-lg border-l-4 border-emerald-600 mb-3 flex items-center justify-between">
-                  <span>Individual Employee Payroll & Salary Roster</span>
-                  <span className="text-xs font-semibold text-ca-text-secondary lowercase">({(payrollList?.data?.payrolls || payrollList?.data || []).length} disbursements)</span>
-                </h2>
-                <table className="w-full text-left text-xs border border-ca-border rounded-lg overflow-hidden">
-                  <thead className="bg-ca-text text-white font-bold">
-                    <tr>
-                      <th className="p-2 border-r border-slate-700">Code</th>
-                      <th className="p-2 border-r border-slate-700">Employee Name</th>
-                      <th className="p-2 border-r border-slate-700">Department</th>
-                      <th className="p-2 border-r border-slate-700 text-right">Basic Salary</th>
-                      <th className="p-2 border-r border-slate-700 text-right">Allowances</th>
-                      <th className="p-2 border-r border-slate-700 text-right">Deductions</th>
-                      <th className="p-2 border-r border-slate-700 text-right">Net Payable</th>
-                      <th className="p-2 text-center">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200 text-ca-text font-medium">
-                    {(payrollList?.data?.payrolls || payrollList?.data || []).map((p, i) => {
-                      const code = p.employeeId?.employeeCode || p.employeeId?._id?.toString().slice(-6) || "EMP";
-                      const name = p.employeeId?.fullName || `${p.employeeId?.firstName || ""} ${p.employeeId?.lastName || ""}`.trim() || p.employeeName || "Employee";
-                      const dept = p.employeeId?.departmentId?.name || p.department || "General";
-                      const basic = p.basicSalary || 0;
-                      const allow = p.totalAllowances || 0;
-                      const ded = p.totalDeductions || 0;
-                      const net = p.netSalary || p.netPay || 0;
-                      const status = p.paymentStatus || p.status || "Paid";
-                      return (
-                        <tr key={i} className={i % 2 === 0 ? "bg-ca-surface" : "bg-ca-bg"}>
-                          <td className="p-2 border-r border-ca-border font-bold text-ca-text">{code}</td>
-                          <td className="p-2 border-r border-ca-border font-semibold">{name}</td>
-                          <td className="p-2 border-r border-ca-border">{dept}</td>
-                          <td className="p-2 border-r border-ca-border text-right font-medium">₹{basic.toLocaleString("en-IN")}</td>
-                          <td className="p-2 border-r border-ca-border text-right text-emerald-700 font-medium">₹{allow.toLocaleString("en-IN")}</td>
-                          <td className="p-2 border-r border-ca-border text-right text-rose-700 font-medium">₹{ded.toLocaleString("en-IN")}</td>
-                          <td className="p-2 border-r border-ca-border text-right font-black text-ca-text">₹{net.toLocaleString("en-IN")}</td>
-                          <td className="p-2 text-center">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-ca-bg text-emerald-800">{status}</span>
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 2. WORKFORCE REPORT TAB                                               */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "workforce" && (
+        <div className="space-y-3 animate-fadeIn">
+          {workLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Workforce Analytics...</div>
+          ) : workRes ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Headcount" metric={workRes.kpis?.totalEmployees} icon={Users} color={THEME.blue} />
+                <KPICard label="Active Staff" metric={workRes.kpis?.activeEmployees} icon={Users} color={THEME.emerald} />
+                <KPICard label="New Joinings" metric={workRes.kpis?.newJoinings} icon={User} color={THEME.purple} />
+                <KPICard label="Attrition Rate" metric={workRes.kpis?.attritionRate} icon={TrendingDown} color={THEME.rose} isPercentage isUp={false} />
+              </div>
+
+              {/* Department Breakdown Table */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Analytics Matrix</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">Click any department to open Department Drill-Down</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2 text-center">Headcount</th>
+                        <th className="px-4 py-2 text-center">Active</th>
+                        <th className="px-4 py-2 text-center">New Joinings</th>
+                        <th className="px-4 py-2 text-center">Resignations</th>
+                        <th className="px-4 py-2 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(workRes.departmentBreakdown || []).map((d) => (
+                        <tr
+                          key={d._id}
+                          onClick={() => setDrillDepartmentId(d._id)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group"
+                        >
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 transition-colors flex items-center gap-1.5">
+                            <Building2 size={13} className="text-slate-400" />
+                            <span>{d.name}</span>
+                          </td>
+                          <td className="px-4 py-2 text-center font-mono font-bold">{d.headcount}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{d.active}</td>
+                          <td className="px-4 py-2 text-center font-mono text-purple-600 font-bold">+{d.newJoinings}</td>
+                          <td className="px-4 py-2 text-center font-mono text-rose-600 font-bold">{d.resignations}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-bold">
+                              <span>Drill Down</span>
+                              <ChevronRight size={11} />
+                            </span>
                           </td>
                         </tr>
-                      );
-                    })}
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 3. ATTENDANCE REPORT TAB                                              */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "attendance" && (
+        <div className="space-y-3 animate-fadeIn">
+          {attLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Attendance Analytics...</div>
+          ) : attRes ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Attendance Rate" metric={attRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.emerald} isPercentage />
+                <KPICard label="Present Marks" metric={attRes.kpis?.present} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Late Arrivals" metric={attRes.kpis?.late} icon={Clock} color={THEME.amber} isUp={false} />
+                <KPICard label="Absences" metric={attRes.kpis?.absent} icon={CalendarOff} color={THEME.rose} isUp={false} />
+              </div>
+
+              {/* Attendance Anomalies */}
+              {(attRes.anomalies || []).length > 0 && (
+                <div className="bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-xl p-3">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <AlertTriangle size={14} className="text-rose-600" />
+                    <h3 className="text-xs font-black text-rose-900 dark:text-rose-300 uppercase tracking-wider">Attendance Anomalies & Repeated Lates</h3>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {attRes.anomalies.map((ano, idx) => (
+                      <div
+                        key={idx}
+                        onClick={() => setDrillEmployeeId(ano.employeeId)}
+                        className="bg-white dark:bg-[#111C24] p-2.5 rounded-lg border border-rose-200 dark:border-rose-900/30 flex items-center justify-between cursor-pointer hover:border-rose-500 transition-colors"
+                      >
+                        <div>
+                          <p className="text-xs font-extrabold text-slate-900 dark:text-white">{ano.name}</p>
+                          <p className="text-[10px] text-slate-400">{ano.type}</p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-rose-500/10 text-rose-600">
+                          {ano.occurrences}x ({ano.severity})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Attendance Records Table */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Attendance Audit Logs</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">Showing latest verified records</span>
+                </div>
+
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2">Staff Member</th>
+                        <th className="px-4 py-2">Date</th>
+                        <th className="px-4 py-2">Punch In</th>
+                        <th className="px-4 py-2">Punch Out</th>
+                        <th className="px-4 py-2 text-center">Total Hours</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(attRes.records || []).map((a) => (
+                        <tr
+                          key={a._id}
+                          onClick={() => a.employeeId && setDrillEmployeeId(a.employeeId)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
+                        >
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{a.employeeName}</td>
+                          <td className="px-4 py-2 font-mono text-slate-500">{a.date}</td>
+                          <td className="px-4 py-2 font-mono text-[11px]">{fmtDateTime(a.punchIn)}</td>
+                          <td className="px-4 py-2 font-mono text-[11px]">{fmtDateTime(a.punchOut)}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold">{a.totalHours ? `${a.totalHours}h` : "—"}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                              a.status === "present"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : a.status === "late"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                            }`}>
+                              {a.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 4. LEAVES REPORT TAB                                                  */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "leaves" && (
+        <div className="space-y-3 animate-fadeIn">
+          {leaveLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Leaves Analytics...</div>
+          ) : leaveRes ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Applications" metric={leaveRes.kpis?.totalRequests} icon={CalendarOff} color={THEME.blue} />
+                <KPICard label="Approved" metric={leaveRes.kpis?.approved} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Pending Approvals" metric={leaveRes.kpis?.pending} icon={Clock} color={THEME.amber} />
+                <KPICard label="Rejected" metric={leaveRes.kpis?.rejected} icon={AlertCircle} color={THEME.rose} isUp={false} />
+              </div>
+
+              {/* Leave Records */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Leave Applications Registry</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{leaveRes.records?.length || 0} applications logged</span>
+                </div>
+
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2">Staff Member</th>
+                        <th className="px-4 py-2">Leave Type</th>
+                        <th className="px-4 py-2">Duration</th>
+                        <th className="px-4 py-2 text-center">Days</th>
+                        <th className="px-4 py-2">Reason</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(leaveRes.records || []).map((l) => (
+                        <tr
+                          key={l._id}
+                          onClick={() => l.employeeId && setDrillEmployeeId(l.employeeId)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
+                        >
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{l.employeeName}</td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-bold capitalize">{l.leaveType}</td>
+                          <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(l.startDate)} – {fmtDate(l.endDate)}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold">{l.days}</td>
+                          <td className="px-4 py-2 text-slate-400 truncate max-w-xs">{l.reason || "Personal"}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                              l.status === "approved"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : l.status === "rejected"
+                                ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {l.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 5. TASKS & OPS REPORT TAB                                             */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "tasks" && (
+        <div className="space-y-3 animate-fadeIn">
+          {taskLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Task Analytics...</div>
+          ) : taskRes ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Tasks" metric={taskRes.kpis?.totalTasks} icon={CheckSquare} color={THEME.amber} />
+                <KPICard label="Completed" metric={taskRes.kpis?.completed} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="In Progress" metric={taskRes.kpis?.inProgress} icon={Clock} color={THEME.blue} />
+                <KPICard label="Overdue" metric={taskRes.kpis?.overdue} icon={AlertCircle} color={THEME.rose} isUp={false} />
+              </div>
+
+              {/* Tasks List */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Operational Tasks Ledger</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{taskRes.records?.length || 0} tasks</span>
+                </div>
+
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2">Task Title</th>
+                        <th className="px-4 py-2">Assignee</th>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2">Priority</th>
+                        <th className="px-4 py-2">Due Date</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(taskRes.records || []).map((t) => (
+                        <tr key={t._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white truncate max-w-xs">{t.title}</td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{t.assigneeName}</td>
+                          <td className="px-4 py-2 text-slate-500">{t.department}</td>
+                          <td className="px-4 py-2">
+                            <span className={`inline-flex px-2 py-0.2 rounded text-[9.5px] font-extrabold uppercase ${
+                              t.priority === "urgent" || t.priority === "high" ? "bg-rose-500/10 text-rose-600" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
+                            }`}>
+                              {t.priority || "normal"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                              t.status === "completed" || t.status === "done"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {t.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 6. PAYROLL REPORT TAB (Protected)                                     */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "payroll" && (
+        <div className="space-y-3 animate-fadeIn">
+          {payLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Payroll Analytics...</div>
+          ) : payRes ? (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Gross Payroll" metric={payRes.kpis?.grossPayroll} icon={DollarSign} color={THEME.purple} isCurrency />
+                <KPICard label="Net Disbursed" metric={payRes.kpis?.disbursedPaid} icon={CheckCircle2} color={THEME.emerald} isCurrency />
+                <KPICard label="Pending Dues" metric={payRes.kpis?.pendingDue} icon={Clock} color={THEME.amber} isCurrency />
+                <KPICard label="Deductions" metric={payRes.kpis?.totalDeductions} icon={TrendingDown} color={THEME.rose} isCurrency />
+              </div>
+
+              {/* Payroll Register Table */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Payroll Disbursal Register</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{payRes.records?.length || 0} pay slips</span>
+                </div>
+
+                <div className="overflow-x-auto max-h-96">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                      <tr>
+                        <th className="px-4 py-2">Staff Member</th>
+                        <th className="px-4 py-2">Month & Year</th>
+                        <th className="px-4 py-2 text-right">Basic Salary</th>
+                        <th className="px-4 py-2 text-right">Net Payable</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(payRes.records || []).map((p) => (
+                        <tr
+                          key={p._id}
+                          onClick={() => p.employeeId && setDrillEmployeeId(p.employeeId)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
+                        >
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{p.employeeName}</td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.month} {p.year}</td>
+                          <td className="px-4 py-2 text-right font-mono text-slate-500">{fmtCurrency(p.basicSalary)}</td>
+                          <td className="px-4 py-2 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">{fmtCurrency(p.netSalary)}</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                              p.status === "paid"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                            }`}>
+                              {p.status || "Paid"}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 7. PERFORMANCE SCORING TAB (Configurable Weights)                     */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "performance" && (
+        <div className="space-y-3 animate-fadeIn">
+          {perfLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Performance Matrix...</div>
+          ) : perfRes ? (
+            <>
+              {/* Header Action Bar */}
+              <div className="flex items-center justify-between bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Dynamic Performance Weights</h3>
+                  <p className="text-[10px] text-slate-400">Task Completion ({weights.taskCompletion}%), Attendance ({weights.attendance}%), Productivity ({weights.productivity}%), Punctuality ({weights.punctuality}%), Leave ({weights.leaveDiscipline}%)</p>
+                </div>
+                <button
+                  onClick={() => setShowWeightsModal(true)}
+                  className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                >
+                  <Sliders size={12} />
+                  <span>Configure Weights</span>
+                </button>
+              </div>
+
+              {/* Performance Rankings Table */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Staff Performance Rankings</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">Click member for Analytics Drill Down</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                      <tr>
+                        <th className="px-4 py-2">Rank</th>
+                        <th className="px-4 py-2">Staff Member</th>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2 text-center">Tasks Closed</th>
+                        <th className="px-4 py-2 text-center">Attendance</th>
+                        <th className="px-4 py-2 text-center">Score</th>
+                        <th className="px-4 py-2 text-center">Tier</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(perfRes.rankings || []).map((r, idx) => (
+                        <tr
+                          key={r._id}
+                          onClick={() => setDrillEmployeeId(r._id)}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group"
+                        >
+                          <td className="px-4 py-2 font-mono font-black text-amber-600 dark:text-amber-400">#{idx + 1}</td>
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 transition-colors">
+                            {r.name}
+                            <span className="block text-[10px] font-mono text-slate-400 font-normal">{r.code} · {r.role}</span>
+                          </td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{r.department}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold">{r.tasksCompleted} / {r.tasksTotal}</td>
+                          <td className="px-4 py-2 text-center font-mono font-bold text-cyan-600">{r.attendanceRate}%</td>
+                          <td className="px-4 py-2 text-center font-mono font-black text-amber-600">{r.score}%</td>
+                          <td className="px-4 py-2 text-center">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                              r.tier === "Excellent"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : r.tier === "Good"
+                                ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20"
+                                : r.tier === "Average"
+                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                            }`}>
+                              {r.tier}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 8. AUDIT LEDGER TAB                                                   */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "audit" && (
+        <div className="space-y-3 animate-fadeIn">
+          {auditLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Audit Ledger...</div>
+          ) : auditRes ? (
+            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck size={14} className="text-amber-500" />
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Immutable Security Audit Ledger</h3>
+                </div>
+                <span className="text-[10px] text-slate-400 font-bold">{auditRes.totalLogs || 0} events logged</span>
+              </div>
+
+              <div className="overflow-x-auto max-h-96">
+                <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                    <tr>
+                      <th className="px-4 py-2">Timestamp</th>
+                      <th className="px-4 py-2">Performed By</th>
+                      <th className="px-4 py-2">Role</th>
+                      <th className="px-4 py-2">Module</th>
+                      <th className="px-4 py-2">Action</th>
+                      <th className="px-4 py-2 font-mono">IP Address</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-medium">
+                    {(auditRes.records || []).map((a) => (
+                      <tr key={a._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                        <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDateTime(a.createdAt)}</td>
+                        <td className="px-4 py-2 font-bold text-slate-900 dark:text-white">{a.performedByName}</td>
+                        <td className="px-4 py-2 text-slate-500">{a.role}</td>
+                        <td className="px-4 py-2">
+                          <span className="inline-flex px-2 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {a.module}
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 font-bold text-amber-600 dark:text-amber-400">{a.action}</td>
+                        <td className="px-4 py-2 font-mono text-[10.5px] text-slate-400">{a.ipAddress}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
-            )}
+            </div>
+          ) : <EmptyState />}
+        </div>
+      )}
 
-            {/* Document Footer */}
-            <div className="border-t-2 border-slate-900 pt-4 mt-4 flex items-center justify-between text-xs text-ca-text-secondary">
-              <div>
-                <span className="font-bold text-ca-text">System Certification:</span> This document contains verified real-time database logs extracted from iCoded Enterprise Portal.
+      {/* ── EMPLOYEE DRILL DOWN MODAL ─────────────────────────────────────── */}
+      {drillEmployeeId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                  <User size={14} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Employee Analytics Drill Down</h3>
+                  <p className="text-[10px] text-slate-400">Complete performance & operational records</p>
+                </div>
               </div>
-              <div className="font-semibold text-ca-text-secondary">
-                Page <span className="font-black text-ca-text">1 of 1</span> — Confidential & Proprietary
+              <button onClick={() => setDrillEmployeeId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
+              {drillEmpLoading ? (
+                <div className="py-12 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={20} />Loading details...</div>
+              ) : drillEmpRes ? (
+                <>
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-700/80">
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white">{drillEmpRes.employee?.fullName}</h4>
+                      <p className="text-xs text-slate-400 font-medium">{drillEmpRes.employee?.employeeCode} · {drillEmpRes.employee?.designationId?.name || "Staff"}</p>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-md text-xs font-extrabold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                      {drillEmpRes.employee?.departmentId?.name || "General"}
+                    </span>
+                  </div>
+
+                  {/* Task Records */}
+                  <div>
+                    <h5 className="text-[11px] font-black uppercase text-slate-500 mb-1.5">Assigned Tasks ({drillEmpRes.tasks?.length || 0})</h5>
+                    <div className="space-y-1 max-h-36 overflow-y-auto">
+                      {(drillEmpRes.tasks || []).map(t => (
+                        <div key={t._id} className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-900/60 text-xs">
+                          <span className="font-bold truncate max-w-xs">{t.title}</span>
+                          <span className="text-[10px] font-mono text-slate-400">{t.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : <p className="text-center py-6 text-xs text-slate-400">Employee details not found.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── DEPARTMENT DRILL DOWN MODAL ───────────────────────────────────── */}
+      {drillDepartmentId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-600 flex items-center justify-center font-bold">
+                  <Building2 size={14} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Analytics Drill Down</h3>
+                  <p className="text-[10px] text-slate-400">Department metrics & staff breakdown</p>
+                </div>
+              </div>
+              <button onClick={() => setDrillDepartmentId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
+              {drillDeptLoading ? (
+                <div className="py-12 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={20} />Loading details...</div>
+              ) : drillDeptRes ? (
+                <>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-400 uppercase font-black">Headcount</p>
+                      <p className="text-base font-black font-mono mt-0.5">{drillDeptRes.employeeCount}</p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-400 uppercase font-black">Total Tasks</p>
+                      <p className="text-base font-black font-mono mt-0.5">{drillDeptRes.tasksCount}</p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
+                      <p className="text-[10px] text-slate-400 uppercase font-black">Completed</p>
+                      <p className="text-base font-black font-mono text-emerald-600 mt-0.5">{drillDeptRes.completedTasks}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h5 className="text-[11px] font-black uppercase text-slate-500 mb-1.5">Department Employees ({drillDeptRes.employees?.length || 0})</h5>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {(drillDeptRes.employees || []).map(e => (
+                        <div key={e._id} className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-900/60 text-xs">
+                          <span className="font-bold">{e.fullName || `${e.firstName || ""} ${e.lastName || ""}`}</span>
+                          <span className="text-[10px] text-slate-400">{e.employeeCode} · {e.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : <p className="text-center py-6 text-xs text-slate-400">Department details not found.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CONFIGURE WEIGHTS MODAL ───────────────────────────────────────── */}
+      {showWeightsModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+              <div className="flex items-center gap-2">
+                <Sliders size={14} className="text-amber-500" />
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Configure Performance Weights</h3>
+              </div>
+              <button onClick={() => setShowWeightsModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
+                <X size={15} />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              {[
+                { key: "taskCompletion", label: "Task Completion Rate Weight (%)" },
+                { key: "productivity", label: "Productivity Output Weight (%)" },
+                { key: "attendance", label: "Attendance Compliance Weight (%)" },
+                { key: "punctuality", label: "Punctuality & On-Time Arrival (%)" },
+                { key: "leaveDiscipline", label: "Leave & Absence Discipline (%)" },
+              ].map(w => (
+                <div key={w.key} className="flex items-center justify-between gap-3">
+                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">{w.label}</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={weights[w.key]}
+                    onChange={(e) => setWeights(prev => ({ ...prev, [w.key]: Number(e.target.value) }))}
+                    className="w-16 px-2 py-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs font-mono font-bold text-right"
+                  />
+                </div>
+              ))}
+
+              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[11px] font-bold text-slate-500">
+                  Total: <span className={Object.values(weights).reduce((a,b)=>a+b,0) === 100 ? "text-emerald-600 font-black" : "text-rose-600 font-black"}>
+                    {Object.values(weights).reduce((a,b)=>a+b,0)}%
+                  </span> (Must equal 100%)
+                </span>
+                <button
+                  onClick={() => {
+                    if (Object.values(weights).reduce((a,b)=>a+b,0) !== 100) {
+                      toast.error("Total weights must equal 100%");
+                      return;
+                    }
+                    setShowWeightsModal(false);
+                    queryClient.invalidateQueries({ queryKey: ["biPerformance"] });
+                    toast.success("Performance formula weights updated");
+                  }}
+                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-lg text-xs"
+                >
+                  Apply Formula
+                </button>
               </div>
             </div>
           </div>
         </div>
       )}
+
     </div>
   );
-};
-
-export default Reports;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+﻿import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
@@ -625,7 +625,7 @@ export default function AddEmployee() {
           
           {/* STEP 1: Basic Info */}
           {activeStep === 1 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <User size={16} className="text-amber-500" /> Basic Information
@@ -633,7 +633,7 @@ export default function AddEmployee() {
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Candidate personal identity &amp; communication details</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input
                   label="First Name"
                   required
@@ -655,7 +655,7 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input
                   label="Email Address (Login ID)"
                   required
@@ -674,7 +674,7 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Select
                   label="Gender"
                   value={formData.gender}
@@ -716,7 +716,7 @@ export default function AddEmployee() {
 
           {/* STEP 2: Job Details */}
           {activeStep === 2 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <Briefcase size={16} className="text-amber-500" /> Job &amp; Organizational Hierarchy
@@ -724,7 +724,7 @@ export default function AddEmployee() {
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Department permissions, branch &amp; reporting chain</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Select
                   label="System Role"
                   required
@@ -771,7 +771,7 @@ export default function AddEmployee() {
                 }
               />
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Select
                   label="Job Designation"
                   value={formData.designationId}
@@ -797,7 +797,7 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Select
                   label="Employment Type"
                   value={formData.employmentType}
@@ -838,7 +838,7 @@ export default function AddEmployee() {
 
           {/* STEP 3: Address & Contact */}
           {activeStep === 3 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <MapPin size={16} className="text-amber-500" /> Address &amp; Emergency Contact
@@ -853,7 +853,7 @@ export default function AddEmployee() {
                   value={formData.address?.street}
                   onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, street: v } }))}
                 />
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <Input
                     label="City"
                     placeholder="Enter city name"
@@ -877,7 +877,7 @@ export default function AddEmployee() {
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                 <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Emergency Contact</span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                   <Input
                     label="Contact Person Name"
                     placeholder="Enter emergency contact person name"
@@ -909,7 +909,7 @@ export default function AddEmployee() {
 
           {/* STEP 4: Salary & Compensation */}
           {activeStep === 4 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <DollarSign size={16} className="text-amber-500" /> Salary Structure &amp; Allowances
@@ -939,7 +939,7 @@ export default function AddEmployee() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input
                   label="Basic Salary (Annual)"
                   type="number"
@@ -963,7 +963,7 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Input
                   label="Provident Fund (Employee)"
                   type="number"
@@ -991,7 +991,7 @@ export default function AddEmployee() {
 
           {/* STEP 5: Bank & Identity */}
           {activeStep === 5 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <CreditCard size={16} className="text-amber-500" /> Banking &amp; Government ID Proofs
@@ -999,7 +999,7 @@ export default function AddEmployee() {
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Direct salary deposit banking &amp; PAN/Aadhaar compliance</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input
                   label="Aadhaar Card Number"
                   placeholder="Enter 12-digit Aadhaar number"
@@ -1016,7 +1016,7 @@ export default function AddEmployee() {
 
               <div className="pt-2 border-t border-slate-100 dark:border-slate-800 space-y-3">
                 <span className="text-[11px] font-black uppercase text-slate-700 dark:text-slate-300 tracking-wider">Salary Bank Account</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <Input
                     label="Bank Name"
                     placeholder="Enter bank name"
@@ -1030,7 +1030,7 @@ export default function AddEmployee() {
                     onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, accountNumber: v } }))}
                   />
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <Input
                     label="IFSC Code"
                     placeholder="Enter 11-character IFSC code"
@@ -1053,7 +1053,7 @@ export default function AddEmployee() {
 
           {/* STEP 6: Document Vault */}
           {activeStep === 6 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <FileText size={16} className="text-amber-500" /> Employee Document Vault
@@ -1123,7 +1123,7 @@ export default function AddEmployee() {
 
           {/* STEP 7: Review & Final Submit */}
           {activeStep === 7 && (
-            <div className="space-y-4 animate-fadeIn">
+            <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
                   <CheckCheck size={16} className="text-amber-500" /> Final Review &amp; Onboarding Confirmation
@@ -1131,7 +1131,7 @@ export default function AddEmployee() {
                 <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Verify all candidate details before database registration</p>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-1.5">
                   <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Candidate</span>
                   <p className="font-black text-slate-900 dark:text-white text-sm">{displayName}</p>
@@ -1201,7 +1201,7 @@ export default function AddEmployee() {
       {/* ── Quick Create Modals ─────────────────────────────────────────── */}
       {quickModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs font-sans animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-sm w-full p-5 space-y-4 animate-scaleUp">
+          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-sm w-full p-4 space-y-3 animate-scaleUp">
             <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
                 {quickModal === "dept" && "Add New Department"}

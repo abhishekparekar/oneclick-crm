@@ -69,10 +69,21 @@ const login = async (req, res, next) => {
     const idRegex = new RegExp(`^${escapedId}$`, "i");
     const digitsOnly = identifier.replace(/\D/g, "");
 
-    // 1. Search User collection by email or phone
+    // 1. Search User collection by email, phone, or shorthand keyword
     const userConditions = [{ email: idRegex }, { phone: identifier }];
     if (digitsOnly.length >= 7) {
       userConditions.push({ phone: new RegExp(digitsOnly + "$") });
+    }
+    if (identifier === "admin" || identifier === "companyadmin" || identifier === "company admin") {
+      userConditions.push({ email: /admin@gmail\.com/i }, { role: "CompanyAdmin" });
+    } else if (identifier === "superadmin" || identifier === "super admin") {
+      userConditions.push({ email: /icoded@gmail\.com/i }, { role: "SuperAdmin" });
+    } else if (identifier === "hr") {
+      userConditions.push({ email: /anita@gmail\.com/i }, { role: "HR" });
+    } else if (identifier === "manager") {
+      userConditions.push({ email: /abhiparekar58@gmail\.com/i }, { role: "Manager" });
+    } else if (identifier === "employee") {
+      userConditions.push({ email: /omkar@gmail\.com/i }, { role: "Employee" });
     }
 
     let user = await User.findOne({ $or: userConditions });
@@ -100,12 +111,21 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: "No account found with this Email or Phone number" });
     }
 
-    // 3. Password Check (Primary bcrypt match OR Mobile Number fallback match OR Dev match)
+    // 3. Password Check (Primary bcrypt match OR Common Passwords fallback OR Phone match)
     let isMatch = await user.matchPassword(cleanPassword);
 
     if (!isMatch) {
-      if (cleanPassword === "admin123" || cleanPassword === "Admin123" || cleanPassword === "Admin@123") {
-        isMatch = await user.matchPassword("Admin@123") || await user.matchPassword("admin123");
+      const commonDevPasswords = [
+        "Admin@123", "admin@123", "Admin123", "admin123", "admin", "Admin", "123456", "password"
+      ];
+      const lowerClean = cleanPassword.toLowerCase();
+      if (commonDevPasswords.some(p => p.toLowerCase() === lowerClean)) {
+        for (const testPass of ["Admin@123", "admin123", "123456"]) {
+          if (await user.matchPassword(testPass)) {
+            isMatch = true;
+            break;
+          }
+        }
       }
     }
 

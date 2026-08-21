@@ -175,7 +175,7 @@ const SuperAdminLayout = ({
                 <View style={{ width: 8 }} />
               )}
               <Text style={styles.headerTitle} numberOfLines={1}>
-                Nextact Panel
+                One Click Panel
               </Text>
             </View>
 

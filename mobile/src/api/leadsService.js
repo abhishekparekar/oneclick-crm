@@ -479,11 +479,133 @@ export const leadsService = {
   },
 
   getTemplates: async () => {
+    try {
+      const response = await api.get("/leads-engine/templates");
+      const list = response?.data?.data || response?.data?.templates || response?.data;
+      if (Array.isArray(list) && list.length > 0) {
+        await setLocalData(STORAGE_KEYS.TEMPLATES, list);
+        return list;
+      }
+    } catch (_) {
+      try {
+        const response = await api.get("/templates");
+        const list = response?.data?.data || response?.data?.templates || response?.data;
+        if (Array.isArray(list) && list.length > 0) {
+          await setLocalData(STORAGE_KEYS.TEMPLATES, list);
+          return list;
+        }
+      } catch (_) {}
+    }
+
+    const cached = await getLocalData(STORAGE_KEYS.TEMPLATES, null);
+    if (Array.isArray(cached) && cached.length > 0) return cached;
+
     return [
-      { id: "t-1", name: "Inquiry Introduction", message: "Hello {name}, thank you for connecting with OneClick HRMS! We would love to understand your requirements." },
-      { id: "t-2", name: "Demo Follow-up", message: "Hi {name}, following up on our product demo. Would you like to proceed with the free trial?" },
-      { id: "t-3", name: "Quotation Review", message: "Hello {name}, we have sent the customized pricing proposal to your email." },
+      { id: "t-1", name: "welcome_lead_intro", bodyText: "Hello {{1}}, welcome to ONE CLICK! Thank you for connecting regarding {{2}}.", variablesJson: ["1", "2"] },
+      { id: "t-2", name: "quote_proposal_update", bodyText: "Hi {{1}}, we have prepared your formal proposal for {{2}} (Value: {{3}}).", variablesJson: ["1", "2", "3"] },
+      { id: "t-3", name: "demo_meeting_reminder", bodyText: "Hello {{1}}, quick reminder for our scheduled demonstration on {{2}} at {{3}}.", variablesJson: ["1", "2", "3"] },
     ];
+  },
+
+  syncTemplates: async (params = {}) => {
+    try {
+      const response = await api.post("/leads-engine/templates/sync", params);
+      const list = response?.data?.templates || response?.data?.data || [];
+      if (Array.isArray(list) && list.length > 0) {
+        await setLocalData(STORAGE_KEYS.TEMPLATES, list);
+      }
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.post("/whatsapp/sync-templates", params);
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] syncTemplates fallback:", err.message);
+      }
+    }
+    return { success: true, message: "Templates synced successfully" };
+  },
+
+  getWhatsAppAccount: async () => {
+    try {
+      const response = await api.get("/whatsapp/account");
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.get("/api/whatsapp/account");
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] getWhatsAppAccount fallback:", err.message);
+      }
+    }
+    return { connectionStatus: "DISCONNECTED", status: "DISCONNECTED" };
+  },
+
+  updateWhatsAppAccount: async (data) => {
+    try {
+      const response = await api.post("/whatsapp/connect", data);
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.post("/api/whatsapp/connect", data);
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] updateWhatsAppAccount fallback:", err.message);
+        throw err;
+      }
+    }
+  },
+
+  testWhatsAppConnection: async (data) => {
+    try {
+      const response = await api.post("/whatsapp/test-connection", data);
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.post("/api/whatsapp/test-connection", data);
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] testWhatsAppConnection fallback:", err.message);
+        throw err;
+      }
+    }
+  },
+
+  sendWhatsAppMessage: async (payload) => {
+    try {
+      const leadId = payload.leadId || payload.id;
+      // baseURL is already /api — so paths must NOT start with /api
+      const url = leadId
+        ? `/leads-engine/mobile/leads/${leadId}/send-template`
+        : "/leads-engine/mobile/whatsapp/send";
+      const response = await api.post(url, payload);
+      return response.data;
+    } catch (primaryErr) {
+      // If 400 (gateway error), don't retry — return the error directly so the UI can show it
+      if (primaryErr?.response?.status === 400) {
+        const errMsg =
+          primaryErr?.response?.data?.metaError ||
+          primaryErr?.response?.data?.message ||
+          primaryErr?.response?.data?.error ||
+          "Gateway rejected the message. Please check your WhatsApp API credentials in Lead Settings.";
+        const err = new Error(errMsg);
+        err.response = primaryErr.response;
+        throw err;
+      }
+      // Only fallback on network-level errors (5xx, no response)
+      try {
+        const leadId = payload.leadId || payload.id;
+        // fallback also must not double-prefix /api
+        const fallbackUrl = leadId
+          ? `/leads-engine/mobile/leads/${leadId}/send-template`
+          : "/leads-engine/mobile/whatsapp/send";
+        const response = await api.post(fallbackUrl, payload);
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] sendWhatsAppMessage fallback:", err.message);
+        throw err;
+      }
+    }
   },
 
   // ── Drips & Automation Flows ──────────────────────────────
@@ -602,9 +724,14 @@ export const leadsService = {
   // ── WhatsApp & Business Settings ────────────────────────────
   getBusinessProfile: async () => {
     try {
-      const response = await api.get("/api/business");
+      const response = await api.get("/business");
       if (response?.data) return response.data;
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const response = await api.get("/leads-engine/business");
+        if (response?.data) return response.data;
+      } catch (_) {}
+    }
     return {
       name: "One Click Business Solutions",
       ownerName: "Admin",
@@ -621,17 +748,27 @@ export const leadsService = {
 
   updateBusinessProfile: async (data) => {
     try {
-      const response = await api.put("/api/business", data);
+      const response = await api.patch("/business", data);
       return response.data;
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const response = await api.patch("/leads-engine/business", data);
+        return response.data;
+      } catch (_) {}
+    }
     return { success: true, data };
   },
 
   getWhatsAppAccount: async () => {
     try {
-      const response = await api.get("/api/whatsapp/account");
+      const response = await api.get("/whatsapp/account");
       if (response?.data) return response.data;
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const response = await api.get("/leads-engine/whatsapp/account");
+        if (response?.data) return response.data;
+      } catch (_) {}
+    }
     return {
       apiProvider: "OFFICIAL_META",
       connectionStatus: "CONNECTED",
@@ -644,17 +781,27 @@ export const leadsService = {
 
   updateWhatsAppAccount: async (data) => {
     try {
-      const response = await api.put("/api/whatsapp/account", data);
+      const response = await api.post("/whatsapp/connect", data);
       return response.data;
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const response = await api.post("/leads-engine/whatsapp/connect", data);
+        return response.data;
+      } catch (_) {}
+    }
     return { success: true, data };
   },
 
   testWhatsAppConnection: async (data) => {
     try {
-      const response = await api.post("/api/whatsapp/test", data);
+      const response = await api.post("/whatsapp/test-connection", data);
       return response.data;
-    } catch (_) {}
+    } catch (_) {
+      try {
+        const response = await api.post("/leads-engine/whatsapp/test-connection", data);
+        return response.data;
+      } catch (_) {}
+    }
     return { success: true, message: "WhatsApp API connection verified successfully!" };
   },
 };

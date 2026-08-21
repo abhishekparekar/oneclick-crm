@@ -30,7 +30,19 @@ function analyzeWhatsAppError(error) {
   let resolutionHint = "Please check your WhatsApp API credentials and permissions.";
   let formattedMessage = rawMsg;
 
-  if (code === 190 || /malformed|invalid.*token/i.test(rawMsg)) {
+  if (/channel not active/i.test(rawMsg)) {
+    errorCategory = "CLICK2API_CHANNEL_INACTIVE";
+    resolutionHint = "Your Click2API WhatsApp channel is currently inactive or QR is disconnected. Please login to crm.click2api.in > Channels > Relink/Scan WhatsApp QR.";
+    formattedMessage = "Click2API WhatsApp channel is inactive or disconnected. Please scan QR in Click2API dashboard.";
+  } else if (/invalid call/i.test(rawMsg) || (responseData?.error === 'invalid call')) {
+    errorCategory = "CLICK2API_INVALID_CALL";
+    resolutionHint = "Click2API rejected the send request. Possible reasons: (1) Phone number not properly registered in Click2API portal, (2) API token lacks send permission, (3) Template not approved in the linked WhatsApp Business Account. Visit crm.click2api.in to verify your account and phone setup.";
+    formattedMessage = "Click2API rejected message send: 'invalid call'. Phone/token may not have send permission in Click2API portal.";
+  } else if (/unauthorized access/i.test(rawMsg)) {
+    errorCategory = "CLICK2API_UNAUTHORIZED";
+    resolutionHint = "Click2API token is expired or wallet balance is zero. Check your Click2API dashboard (crm.click2api.in).";
+    formattedMessage = "Click2API authorization rejected. Check token and balance in Click2API portal.";
+  } else if (code === 190 || /malformed|invalid.*token/i.test(rawMsg)) {
     errorCategory = "INVALID_ACCESS_TOKEN";
     resolutionHint = "Meta Access Token is invalid or expired. Copy a fresh token from developers.facebook.com > WhatsApp > API Setup.";
     formattedMessage = "Meta Access Token is malformed or invalid. Please copy a valid token from Meta Developers Portal.";
@@ -52,8 +64,8 @@ function analyzeWhatsAppError(error) {
     formattedMessage = "Gateway endpoint not found (HTTP 404). Check Phone Number ID and API Base URL.";
   } else if (status === 401 || status === 403 || /permission/i.test(rawMsg)) {
     errorCategory = "PERMISSIONS_DENIED";
-    resolutionHint = "Your Meta Token lacks 'whatsapp_business_messaging' or 'whatsapp_business_management' permissions.";
-    formattedMessage = "Permission denied. Ensure System User has whatsapp_business_messaging permission.";
+    resolutionHint = "Your WhatsApp Gateway token lacks permission or channel is unauthorized.";
+    formattedMessage = "Permission denied or channel unauthorized by WhatsApp gateway.";
   } else if (/timeout|econnaborted|enotfound/i.test(error.message || "")) {
     errorCategory = "NETWORK_TIMEOUT";
     resolutionHint = "Could not reach WhatsApp gateway. Check internet connection and API base URL.";
@@ -153,27 +165,35 @@ async function sendWhatsAppNotification({
       return { success: false, error: "WhatsApp service is disabled in Settings." };
     }
 
-    const token = config?.accessToken || process.env.WHATSAPP_API_TOKEN;
-    const phoneId = config?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID;
+    const isClick2Api = config?.apiProvider === "THIRD_PARTY_CLICK2API" || String(config?.apiEndpoint || "").includes("click2api");
+    const token = (isClick2Api
+      ? (config?.thirdPartyToken || config?.accessToken)
+      : (config?.accessToken || config?.thirdPartyToken)) || process.env.WHATSAPP_API_TOKEN;
+
+    const phoneId = config?.phoneNumberId || config?.thirdPartyInstanceId || process.env.WHATSAPP_PHONE_NUMBER_ID;
 
     if (!token || !phoneId) {
       return {
         success: false,
-        error: "WhatsApp API Credentials (Phone Number ID / Meta Access Token) are missing. Please enter and save your credentials in WhatsApp Settings.",
+        error: "WhatsApp API Credentials (Phone Number ID / Access Token) are missing. Please enter and save your credentials in WhatsApp Settings.",
       };
     }
 
     let externalWamid = null;
     let dispatchError = null;
-    const cleanBase = (config?.apiEndpoint || config?.metaApiBaseUrl || "https://graph.facebook.com").trim().replace(/\/+$/, "");
 
-    // Dispatch via Official Meta Cloud API
-    const metaBase = cleanBase || "https://graph.facebook.com";
-    let metaBaseUrl;
-    if (/\/v\d+(\.\d+)?$/i.test(metaBase)) {
-      metaBaseUrl = metaBase;
+    let cleanBase;
+    if (isClick2Api) {
+      cleanBase = (config?.thirdPartyEndpoint || config?.apiEndpoint || "https://crm.click2api.in/api/meta").trim().replace(/\/+$/, "");
     } else {
-      metaBaseUrl = `${metaBase}/${DEFAULT_API_VERSION}`;
+      cleanBase = (config?.apiEndpoint || config?.metaApiBaseUrl || "https://graph.facebook.com").trim().replace(/\/+$/, "");
+    }
+
+    let metaBaseUrl;
+    if (/\/v\d+(\.\d+)?$/i.test(cleanBase)) {
+      metaBaseUrl = cleanBase;
+    } else {
+      metaBaseUrl = `${cleanBase}/${DEFAULT_API_VERSION}`;
     }
     const sendUrl = `${metaBaseUrl}/${phoneId}/messages`;
 
@@ -183,37 +203,56 @@ async function sendWhatsAppNotification({
         // 1. Meta Template Message Format
         const templateName = payload.template;
         const customTemplates = Array.isArray(config?.customTemplates) ? config.customTemplates : [];
-        const matchedTpl = customTemplates.find((t) => t.name === templateName);
-        const templateLang = payload.language || matchedTpl?.language || "en_US";
+        let matchedTpl = customTemplates.find((t) => t.name === templateName);
+        if (!matchedTpl) {
+          try {
+            const LeadTemplate = require("../models/LeadTemplate");
+            const dbTpl = await LeadTemplate.findOne({ name: templateName, isActive: { $ne: false } });
+            if (dbTpl) matchedTpl = dbTpl.toJSON ? dbTpl.toJSON() : dbTpl;
+          } catch (_) {}
+        }
+
+        const templateLang = payload.language || matchedTpl?.language || "en";
         const components = [];
 
         // Determine Header Media Component (IMAGE, VIDEO, DOCUMENT) based on template definition
         const headerFormat = (matchedTpl?.headerType || payload.mediaType || "NONE").toUpperCase();
-        const headerLink = payload.mediaUrl || matchedTpl?.headerContent;
+        let headerLink = payload.mediaUrl || matchedTpl?.headerContent;
 
         const isValidHttpUrl = headerLink && (headerLink.startsWith("http://") || headerLink.startsWith("https://"));
 
-        if (headerFormat === "IMAGE" && isValidHttpUrl) {
+        // If template requires a header media but none provided, provide standard placeholder
+        if (!isValidHttpUrl) {
+          if (headerFormat === "IMAGE") {
+            headerLink = "https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=800";
+          } else if (headerFormat === "VIDEO") {
+            headerLink = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+          } else if (headerFormat === "DOCUMENT") {
+            headerLink = "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
+          }
+        }
+
+        if (headerFormat === "IMAGE" && headerLink) {
           components.push({
             type: "header",
             parameters: [{ type: "image", image: { link: headerLink } }],
           });
-        } else if (headerFormat === "VIDEO" && isValidHttpUrl) {
+        } else if (headerFormat === "VIDEO" && headerLink) {
           components.push({
             type: "header",
             parameters: [{ type: "video", video: { link: headerLink } }],
           });
-        } else if (headerFormat === "DOCUMENT" && isValidHttpUrl) {
+        } else if (headerFormat === "DOCUMENT" && headerLink) {
           components.push({
             type: "header",
-            parameters: [{ type: "document", document: { link: headerLink } }],
+            parameters: [{ type: "document", document: { link: headerLink, filename: "Details.pdf" } }],
           });
         }
 
         // Add Body Parameters with safe padding
         const resolvedParams = payload.params && Array.isArray(payload.params)
           ? payload.params
-          : Object.values(payload.variables || {});
+          : Object.values(payload.variables || payload.variableValues || {});
 
         const bodyParamsCount = Math.max(
           resolvedParams.length,
@@ -259,7 +298,9 @@ async function sendWhatsAppNotification({
       }
 
       console.log(`[Meta WhatsApp Outbound Dispatch] POST ${sendUrl} to ${formattedRecipient}`);
-
+      console.log(`[Meta WhatsApp Payload]:`, JSON.stringify(bodyPayload, null, 2));
+      console.log(`[Meta WhatsApp PhoneId]: ${phoneId}, Provider: ${isClick2Api ? 'CLICK2API' : 'META_DIRECT'}`);
+      console.log(`[Meta WhatsApp Token Prefix]: ${String(token).substring(0, 20)}...`);
       try {
         const cleanToken = String(token).replace(/^Bearer\s+/i, "").trim();
         const response = await axios.post(sendUrl, bodyPayload, {
@@ -276,6 +317,7 @@ async function sendWhatsAppNotification({
         const extractedId =
           apiData?.messages?.[0]?.id ||
           apiData?.data?.messages?.[0]?.id ||
+          apiData?.message?.queue_id ||
           apiData?.queue_id ||
           apiData?.data?.queue_id ||
           apiData?.id ||
@@ -286,6 +328,7 @@ async function sendWhatsAppNotification({
           apiData?.data?.wamid;
 
         const isQueuedOrSent =
+          apiData?.message?.message_status === "queued" ||
           apiData?.message_status === "queued" ||
           apiData?.message_status === "accepted" ||
           apiData?.status === "sent" ||

@@ -18,15 +18,15 @@ const STATUS_COLORS = [
 
 function SectionCard({ title, icon, children, action }: { title: string; icon: React.ReactNode; children: React.ReactNode; action?: React.ReactNode }) {
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_2px_10px_rgba(0,0,0,0.03)] overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
-        <div className="flex items-center space-x-2.5">
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+      <div className="px-3.5 py-2 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
+        <div className="flex items-center space-x-2">
           <div className="text-amber-500 font-bold">{icon}</div>
-          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white tracking-tight">{title}</h3>
+          <h3 className="text-xs font-black text-slate-900 dark:text-white tracking-tight">{title}</h3>
         </div>
         {action}
       </div>
-      <div className="p-5">
+      <div className="p-3 sm:p-3.5">
         {children}
       </div>
     </div>

@@ -159,7 +159,7 @@ const EmployeeDrawerContent = (props) => {
             {user?.name || "Team Member"}
           </Text>
           <Text style={styles.companyName} numberOfLines={1}>
-            {user?.companyName || "Nextact"}
+            {user?.companyName || "One Click Business"}
           </Text>
           <View style={styles.roleBadge}>
             <Text style={styles.roleBadgeText}>

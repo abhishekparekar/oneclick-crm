@@ -425,7 +425,7 @@ const CompanyAdminLayout = ({
 
           <View style={styles.titleBlock}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {headerTitle || user?.companyName || "Nextact HRMS"}
+              {headerTitle || user?.companyName || "One Click Business HRMS"}
             </Text>
             <Text style={styles.companySubtitle} numberOfLines={1}>
               {user?.role === "CompanyAdmin" ? "Company Administration" : "HR Operations Hub"}

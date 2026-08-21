@@ -15,7 +15,7 @@ import {
 
 type TabId = 'campaigns' | 'templates';
 
-// ── Top KPI Stat Card (Matching Dashboard KPI Style) ──────────────────────────
+// ── Top KPI Stat Card (Ultra-Compact SaaS Style) ──────────────────────────
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }: {
   label: string; value: string | number; trend: string; isUp: boolean; period: string; strokeColor: string; Icon: any; iconBg: string; iconColor: string;
 }) => {
@@ -24,32 +24,32 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
   ], []);
 
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group">
-      <div className="flex-1 min-w-0 pr-2">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
-            <Icon size={13} style={{ color: iconColor }} strokeWidth={2.4} />
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:p-3 flex items-center justify-between shadow-2xs hover:shadow-md transition-all duration-200 group">
+      <div className="flex-1 min-w-0 pr-1.5">
+        <div className="flex items-center gap-1.5 mb-1">
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} shrink-0`}>
+            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.4} />
           </div>
-          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</span>
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</span>
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight leading-tight mb-1 truncate">{value}</h3>
-        <div className="flex items-center gap-1 text-[11px]">
-          <span className={`inline-flex items-center font-medium ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={10} strokeWidth={2.5}/> : <ArrowDown size={10} strokeWidth={2.5}/>}
+        <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-0.5 truncate">{value}</h3>
+        <div className="flex items-center gap-1 text-[10px]">
+          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
             {trend}
           </span>
-          <span className="text-slate-400 text-[9.5px] truncate">vs {period}</span>
+          <span className="text-slate-400 text-[9px] truncate">vs {period}</span>
         </div>
       </div>
-      <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <AreaChart width={64} height={40} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+      <div className="hidden sm:block h-8 w-12 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
+        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={`sk-camp-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
               <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-camp-${label.replace(/\s+/g, '')})`}/>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-camp-${label.replace(/\s+/g, '')})`}/>
         </AreaChart>
       </div>
     </div>

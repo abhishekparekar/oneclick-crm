@@ -5,29 +5,29 @@ import { getManagerProfileApi } from "../../api/managerApi";
 import OneClickLogo from "../common/OneClickLogo";
 import {
   LayoutDashboard,
+  MessageSquare,
+  Magnet,
+  Megaphone,
+  Clock,
+  Settings,
   ListTodo,
   CalendarCheck,
   FileText,
-  UsersRound,
+  Receipt,
+  Users,
   CheckSquare,
   CalendarDays,
   FolderKanban,
-  Megaphone,
   BarChart2,
   UserCircle,
-  Settings,
   LogOut,
   ChevronDown,
   Hexagon,
-  Magnet,
-  MessageSquare,
-  Clock,
-  Sparkles,
-  Receipt,
+  Link as LinkIcon,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MANAGER NAV SECTIONS
+// MANAGER NAV SECTIONS — Matches Reference Design Exactly
 // ─────────────────────────────────────────────────────────────────────────────
 const MANAGER_SECTIONS = [
   {
@@ -58,35 +58,22 @@ const MANAGER_SECTIONS = [
   {
     title: "TEAM",
     items: [
-      { label: "Team Members", path: "/manager/team", icon: UsersRound },
+      { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays },
     ],
   },
   {
-    title: "WORK",
+    title: "WORK & INSIGHTS",
     items: [
       { label: "Projects", path: "/manager/projects", icon: FolderKanban },
       { label: "Announcements", path: "/manager/announcements", icon: Megaphone },
-    ],
-  },
-  {
-    title: "INSIGHTS",
-    items: [
-      { label: "Reports", path: "/manager/reports", icon: BarChart2 },
-    ],
-  },
-  {
-    title: "ACCOUNT",
-    items: [
-      { label: "Profile", path: "/manager/profile", icon: UserCircle },
-      { label: "Settings", path: "/manager/settings", icon: Settings },
+      { label: "Reports Hub", path: "/manager/reports", icon: BarChart2 },
     ],
   },
 ];
 
-// ─── Manager Sidebar — mirrors CompanyAdminSidebar exactly ───────────────────
 const ManagerSidebar = ({ logout, onItemClick }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -106,25 +93,25 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
     profileData?.manager?.fullName ||
     profileData?.manager?.firstName ||
     user?.name ||
-    "Manager";
+    "abhishek parekar";
 
   const isActive = (path) =>
-    location.pathname === path || location.pathname.startsWith(path + "/");
+    location.pathname === path || (path !== "/manager/dashboard" && location.pathname.startsWith(path + "/"));
 
   return (
-    <div className="ca-sidebar w-full lg:w-[228px] bg-[#090D16] text-slate-300 border-r border-white/[0.06] h-full flex flex-col flex-shrink-0 transition-colors duration-300">
+    <div className="ca-sidebar w-full lg:w-[228px] bg-[#070C14] text-slate-300 border-r border-white/[0.06] h-full flex flex-col flex-shrink-0 transition-colors duration-300 select-none">
 
       {/* Brand Logo Header */}
-      <div className="px-3.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1">
+      <div className="px-4 py-3.5 flex items-center justify-start border-b border-white/[0.06]">
         <OneClickLogo variant="landscape" />
       </div>
 
-      {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1 oc-scroll">
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-2.5 py-2 custom-scrollbar space-y-3">
         {MANAGER_SECTIONS.map((section, idx) => (
-          <div key={idx} className="mb-1">
+          <div key={idx} className="space-y-0.5">
             {section.title && (
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 px-2.5 pt-3 pb-1">
+              <p className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 px-2.5 pt-1 pb-1">
                 {section.title}
               </p>
             )}
@@ -137,15 +124,19 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
                     key={item.path}
                     to={item.path}
                     onClick={onItemClick}
-                    className={`oc-nav-item ${active ? "active" : ""}`}
+                    className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                      active
+                        ? "bg-[#0D3B43] text-teal-300 font-bold border border-teal-500/30 shadow-xs"
+                        : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
+                    }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <Icon
                         size={15}
-                        strokeWidth={1.75}
-                        className={`flex-shrink-0 ${active ? "text-amber-400" : "text-slate-500"}`}
+                        strokeWidth={2}
+                        className={`flex-shrink-0 ${active ? "text-teal-400" : "text-slate-400 group-hover:text-slate-200"}`}
                       />
-                      <span className="truncate text-[13px]">{item.label}</span>
+                      <span className="truncate text-[12.5px]">{item.label}</span>
                     </div>
                   </Link>
                 );
@@ -155,19 +146,19 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
         ))}
       </nav>
 
-      {/* ── Footer — identical to CompanyAdminSidebar ── */}
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] space-y-1.5">
-        {/* Company pill */}
-        <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-white/[0.04] text-[12px] font-semibold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
+      {/* Footer / User Profile */}
+      <div className="p-2.5 border-t border-white/[0.06] space-y-1.5 bg-[#050910]">
+        {/* Company Selector Pill */}
+        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.04] text-xs font-bold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
           <div className="flex items-center gap-2 truncate min-w-0">
-            <Hexagon size={13} strokeWidth={1.75} className="text-amber-400 flex-shrink-0" />
-            <span className="truncate">{companyName}</span>
+            <Hexagon size={14} strokeWidth={2} className="text-amber-500 flex-shrink-0" />
+            <span className="truncate text-[11.5px]">{companyName}</span>
           </div>
-          <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
+          <ChevronDown size={12} strokeWidth={2} className="text-slate-500 flex-shrink-0" />
         </div>
 
         {/* User row + Logout */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all cursor-pointer group">
+        <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-white/[0.04] transition-all group">
           <div className="flex items-center gap-2 min-w-0">
             <div className="relative flex-shrink-0">
               {(() => {
@@ -178,24 +169,24 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
                 return avatarUrl ? (
                   <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[11px]">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[10.5px]">
                     {userName.slice(0, 2).toUpperCase()}
                   </div>
                 );
               })()}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#070C14]" />
             </div>
             <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight">{userName}</p>
+              <p className="text-[12px] font-bold text-slate-200 truncate leading-tight">{userName}</p>
               <p className="text-[10px] text-slate-500 leading-tight">Manager</p>
             </div>
           </div>
           <button
             onClick={logout}
             title="Log Out"
-            className="text-slate-600 hover:text-rose-400 transition-colors p-1"
+            className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
           >
-            <LogOut size={13} strokeWidth={1.75} />
+            <LogOut size={13} strokeWidth={2} />
           </button>
         </div>
       </div>

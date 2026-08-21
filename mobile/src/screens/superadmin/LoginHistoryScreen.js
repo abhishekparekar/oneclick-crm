@@ -113,7 +113,7 @@ const LoginHistoryScreen = ({ navigation }) => {
         <View style={styles.infoRow}>
           <Ionicons name="business-outline" size={14} color="#64748b" style={styles.infoIcon} />
           <Text style={styles.infoText} numberOfLines={1}>
-            Company: <Text style={styles.boldVal}>{item.companyId?.companyName || "Nextact Support"}</Text>
+            Company: <Text style={styles.boldVal}>{item.companyId?.companyName || "One Click Support"}</Text>
           </Text>
         </View>
 

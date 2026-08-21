@@ -17,29 +17,37 @@ export const getBackendHost = () => {
   }
 
   if (__DEV__) {
-    let ip = "192.168.1.13"; 
+    // 127.0.0.1 works seamlessly over USB with adb reverse (tcp:5000), and LAN IP 192.168.1.12 works over Wi-Fi
+    let ip = "127.0.0.1";
 
-    const isValidLanIp = (val) => {
-      if (!val) return false;
-      const lower = val.trim().toLowerCase();
-      if (lower === "localhost" || lower === "127.0.0.1" || lower === "0.0.0.0" || lower === "10.0.2.2") {
-        return false;
-      }
-      return true;
-    };
+    const hostUri =
+      Constants.expoConfig?.hostUri ||
+      Constants.manifest?.hostUri ||
+      Constants.manifest2?.extra?.expoGo?.debuggerHost;
 
-    const hostUri = Constants.expoConfig?.hostUri || Constants.manifest?.hostUri || Constants.manifest2?.extra?.expoGo?.debuggerHost;
     if (hostUri) {
-      const extractedIp = hostUri.split(':')[0];
-      if (isValidLanIp(extractedIp)) {
+      const extractedIp = hostUri.split(":")[0];
+      if (
+        extractedIp &&
+        extractedIp !== "0.0.0.0" &&
+        extractedIp !== "localhost" &&
+        extractedIp !== "127.0.0.1" &&
+        extractedIp !== "10.0.2.2"
+      ) {
         ip = extractedIp;
       }
     } else {
       try {
         const scriptURL = NativeModules.SourceCode?.scriptURL;
         if (scriptURL) {
-          const extractedIp = scriptURL.split("://")[1].split(":")[0];
-          if (isValidLanIp(extractedIp)) {
+          const extractedIp = scriptURL.split("://")[1]?.split(":")[0];
+          if (
+            extractedIp &&
+            extractedIp !== "0.0.0.0" &&
+            extractedIp !== "localhost" &&
+            extractedIp !== "127.0.0.1" &&
+            extractedIp !== "10.0.2.2"
+          ) {
             ip = extractedIp;
           }
         }
@@ -50,7 +58,7 @@ export const getBackendHost = () => {
     console.log("[getBackendHost] Resolved API Host:", _cachedHost);
     return _cachedHost;
   }
-  
+
   return "nextact-backend.vercel.app";
 };
 
@@ -85,8 +93,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response?.status;
+    const url = error.config?.url || "";
     const message = error.response?.data?.message || error.message;
-    console.warn(`[API] ✗ ${status ?? "NET"} ${error.config?.url}: ${message}`);
+
+    // Suppress verbose WARN for known gateway 400s — these are handled silently by the app
+    const isKnownGateway400 = status === 400 && (url.includes("whatsapp/send") || url.includes("send-template"));
+    if (!isKnownGateway400) {
+      console.warn(`[API] ✗ ${status ?? "NET"} ${url}: ${message}`);
+    }
     return Promise.reject(error);
   }
 );

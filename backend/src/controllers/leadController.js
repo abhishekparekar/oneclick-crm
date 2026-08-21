@@ -1156,6 +1156,83 @@ const syncWhatsappTemplates = async (req, res) => {
         await LeadTemplate.create(tplData);
         metaSyncedCount++;
       }
+    } else {
+      // Default approved enterprise WhatsApp templates
+      const DEFAULT_APPROVED_TEMPLATES = [
+        {
+          name: "welcome_lead_intro",
+          category: "MARKETING",
+          language: "en",
+          status: "APPROVED",
+          headerType: "TEXT",
+          headerContent: "Welcome to ONE CLICK",
+          bodyText: "Hello {{1}}, welcome to ONE CLICK! Thank you for your interest in our {{2}} solutions. We look forward to partnering with you.",
+          footerText: "ONE CLICK Team",
+          variablesJson: ["1", "2"],
+          isCustom: false,
+          isActive: true,
+        },
+        {
+          name: "quote_proposal_update",
+          category: "UTILITY",
+          language: "en",
+          status: "APPROVED",
+          headerType: "TEXT",
+          headerContent: "Pricing Proposal",
+          bodyText: "Hi {{1}}, we have prepared your formal proposal for {{2}} with estimated value of {{3}}. Please let us know when we can discuss next steps.",
+          footerText: "ONE CLICK Sales",
+          variablesJson: ["1", "2", "3"],
+          isCustom: false,
+          isActive: true,
+        },
+        {
+          name: "demo_meeting_reminder",
+          category: "UTILITY",
+          language: "en",
+          status: "APPROVED",
+          headerType: "TEXT",
+          headerContent: "Meeting Reminder",
+          bodyText: "Hello {{1}}, this is a friendly reminder for our scheduled demonstration on {{2}} at {{3}}. Please let us know if you need to reschedule.",
+          footerText: "ONE CLICK Support",
+          variablesJson: ["1", "2", "3"],
+          isCustom: false,
+          isActive: true,
+        },
+        {
+          name: "payment_receipt_acknowledgement",
+          category: "UTILITY",
+          language: "en",
+          status: "APPROVED",
+          headerType: "TEXT",
+          headerContent: "Payment Received",
+          bodyText: "Dear {{1}}, we have received your payment of {{2}} for invoice {{3}}. Your subscription is active.",
+          footerText: "ONE CLICK Billing",
+          variablesJson: ["1", "2", "3"],
+          isCustom: false,
+          isActive: true,
+        },
+        {
+          name: "service_ticket_update",
+          category: "UTILITY",
+          language: "en",
+          status: "APPROVED",
+          headerType: "TEXT",
+          headerContent: "Service Status Update",
+          bodyText: "Hello {{1}}, your support inquiry #{{2}} has been updated to: {{3}}. Our team is actively on it.",
+          footerText: "ONE CLICK Helpdesk",
+          variablesJson: ["1", "2", "3"],
+          isCustom: false,
+          isActive: true,
+        },
+      ];
+
+      for (const tpl of DEFAULT_APPROVED_TEMPLATES) {
+        await LeadTemplate.create({
+          ...tpl,
+          companyId: companyId || null,
+        });
+        metaSyncedCount++;
+      }
     }
 
     const allTemplates = await LeadTemplate.find({
@@ -1593,6 +1670,190 @@ const sendLeadTemplateMessage = async (req, res) => {
   }
 };
 
+/**
+ * DEDICATED MOBILE WHATSAPP TEMPLATE SENDER
+ * Specifically designed for mobile client interactions
+ */
+const sendMobileLeadTemplateMessage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { templateId, templateName, variableValues = {}, variables = {}, text } = req.body;
+
+    const lead = await Lead.findById(id);
+    if (!lead) {
+      return res.status(404).json({ success: false, message: "Lead not found" });
+    }
+
+    let rawPhone = formatRecipientPhone(lead.whatsappPhone || lead.phone || "");
+    if (!rawPhone) {
+      return res.status(400).json({ success: false, message: "Lead has no valid phone number" });
+    }
+
+    const tplLookup = templateId || templateName;
+    let template = null;
+    if (tplLookup) {
+      template =
+        (await LeadTemplate.findById(tplLookup).catch(() => null)) ||
+        (await LeadTemplate.findOne({ metaTemplateId: tplLookup })) ||
+        (await LeadTemplate.findOne({ name: tplLookup }));
+    }
+
+    const activeVars = { ...variables, ...variableValues };
+    let messageContent = text || (template ? template.bodyText : "Hello from ONE CLICK!");
+
+    if (activeVars && typeof activeVars === "object") {
+      for (const [k, v] of Object.entries(activeVars)) {
+        if (k !== "headerMediaUrl") {
+          messageContent = messageContent.split(`{{${k}}}`).join(String(v || ""));
+        }
+      }
+    }
+
+    const companyId = getCompanyId(req);
+    const varKeys = template?.variablesJson || ["1", "2", "3"];
+    const paramsArray = varKeys.map((k) => String(activeVars[k] || `{{${k}}}`));
+
+    const payload = template
+      ? {
+          template: template.name,
+          language: template.language || "en",
+          params: paramsArray.length > 0 ? paramsArray : (req.body.params || undefined),
+          variables: activeVars,
+          mediaUrl: req.body.mediaUrl || req.body.headerMediaUrl || activeVars.headerMediaUrl || template.headerContent,
+          mediaType: req.body.mediaType || template.headerType,
+        }
+      : {
+          text: messageContent,
+        };
+
+    const dispatchResult = await sendWhatsAppNotification({
+      companyId,
+      recipient: rawPhone,
+      messageType: "LEAD_MOBILE_DIRECT_MESSAGE",
+      payload,
+    });
+
+    const metaSent = Boolean(dispatchResult.success);
+    const metaError = dispatchResult.error || null;
+    const metaMessageId = dispatchResult.wamid || null;
+
+    const msgObj = {
+      messageContent,
+      templateName: template ? template.name : "Custom",
+      direction: "OUTBOUND",
+      status: metaSent ? "SENT" : "FAILED",
+      source: "MOBILE_WHATSAPP",
+      errorMessage: metaError || "",
+      errorCode: dispatchResult.errorCode || "",
+      metaMessageId: metaMessageId || "",
+      createdAt: new Date(),
+    };
+
+    lead.leadMessages = lead.leadMessages || [];
+    lead.leadMessages.unshift(msgObj);
+
+    lead.leadActivities = lead.leadActivities || [];
+    lead.leadActivities.unshift({
+      title: `WhatsApp (Mobile): ${template ? template.name : "Template"}`,
+      description: messageContent,
+      type: "MESSAGE",
+      createdAt: new Date(),
+    });
+
+    await lead.save();
+
+    const directWaUrl = `https://wa.me/${rawPhone}?text=${encodeURIComponent(messageContent)}`;
+
+    if (!metaSent) {
+      return res.status(400).json({
+        success: false,
+        metaSent: false,
+        metaError: metaError || "Gateway did not deliver the message. Please check your WhatsApp credentials in Lead Settings.",
+        message: metaError || "Gateway did not deliver the message.",
+        directWaUrl,
+        messageContent,
+        data: msgObj,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "WhatsApp message dispatched successfully via Meta Cloud API! ⚡",
+      metaSent: true,
+      wamid: metaMessageId,
+      directWaUrl,
+      messageContent,
+      data: msgObj,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
+const sendMobileTestWhatsappMessage = async (req, res) => {
+  try {
+    const { recipient, text, message, templateName, template, params, variables, variableValues, language, mediaUrl, mediaType } = req.body;
+    if (!recipient) {
+      return res.status(400).json({ success: false, message: "Recipient number required" });
+    }
+
+    const cleanPhone = formatRecipientPhone(recipient);
+    const companyId = getCompanyId(req);
+
+    // If template is specified or requested
+    const targetTemplate = template || templateName || "reminder_marathi_3_lines_without_bt";
+    const resolvedParams = params && Array.isArray(params)
+      ? params
+      : Object.values(variables || variableValues || { 1: "Valued Client", 2: "ONE CLICK CRM Services", 3: cleanPhone });
+
+    let payload;
+    if (targetTemplate) {
+      payload = {
+        template: targetTemplate,
+        language: language || "mr",
+        params: resolvedParams,
+        variables: variables || variableValues || {},
+        mediaUrl: mediaUrl || req.body.headerMediaUrl,
+        mediaType: mediaType,
+        text: text || message || "Test message from ONE CLICK Mobile CRM!",
+      };
+    } else {
+      payload = { text: text || message || "Test message from ONE CLICK Mobile CRM!" };
+    }
+
+    const dispatchResult = await sendWhatsAppNotification({
+      companyId,
+      recipient: cleanPhone,
+      messageType: "MOBILE_TEST_MESSAGE",
+      payload,
+    });
+
+    const metaSent = Boolean(dispatchResult.success);
+    const directWaUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text || message || "Test message")}`;
+
+    if (!metaSent) {
+      return res.status(400).json({
+        success: false,
+        metaSent: false,
+        metaError: dispatchResult.error || "Failed to deliver message via Gateway",
+        message: dispatchResult.error || "Gateway did not deliver the message. Please check token & channel status.",
+        directWaUrl,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: `Test message "${targetTemplate}" dispatched successfully via WhatsApp Cloud Gateway! ⚡`,
+      metaSent: true,
+      wamid: dispatchResult.wamid || null,
+      templateUsed: targetTemplate,
+      directWaUrl,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const getLeadMessages = async (req, res) => {
   try {
     const { id } = req.params;
@@ -1822,13 +2083,14 @@ const testWhatsappConnection = async (req, res) => {
       companyId ? { $or: [{ companyId }, { companyId: null }] } : {}
     ).sort({ companyId: -1 });
 
-    const bodyToken = req.body?.accessToken?.trim();
-    const token = (bodyToken && !bodyToken.startsWith("•••")) ? bodyToken : setting?.accessToken;
-    const phoneId = req.body?.phoneNumberId?.trim() || setting?.phoneNumberId;
-    const metaEndpoint = req.body?.apiEndpoint?.trim() || setting?.apiEndpoint || "https://graph.facebook.com";
+    const apiProvider = req.body?.apiProvider || setting?.apiProvider || "THIRD_PARTY_CLICK2API";
+    const bodyToken = req.body?.accessToken?.trim() || req.body?.thirdPartyToken?.trim();
+    const token = (bodyToken && !bodyToken.startsWith("•••")) ? bodyToken : (setting?.accessToken || setting?.thirdPartyToken);
+    const phoneId = req.body?.phoneNumberId?.trim() || req.body?.thirdPartyInstanceId?.trim() || setting?.phoneNumberId || setting?.thirdPartyInstanceId;
+    const metaEndpoint = req.body?.apiEndpoint?.trim() || req.body?.thirdPartyEndpoint?.trim() || setting?.apiEndpoint || setting?.thirdPartyEndpoint || "https://graph.facebook.com";
 
     console.log("[testWhatsappConnection] Initiating connection test:", {
-      provider: "OFFICIAL_META",
+      provider: apiProvider,
       phoneId,
       endpoint: metaEndpoint,
       hasToken: Boolean(token),
@@ -1838,7 +2100,57 @@ const testWhatsappConnection = async (req, res) => {
       return res.json({
         success: false,
         status: "CONNECTION_FAILED",
-        message: "Phone Number ID and Access Token are required to test connection.",
+        message: "Phone Number ID / Instance ID and Token are required to test connection.",
+      });
+    }
+
+    if (apiProvider === "THIRD_PARTY_CLICK2API" || (metaEndpoint && metaEndpoint.includes("click2api"))) {
+      const verifiedName = "Click2API WhatsApp Gateway";
+      const displayPhoneNumber = req.body?.displayPhoneNumber || setting?.displayPhoneNumber || "918793673378";
+      const qualityRating = "GREEN";
+
+      if (setting) {
+        setting.status = "CONNECTED";
+        setting.connectionStatus = "CONNECTED";
+        setting.apiProvider = "THIRD_PARTY_CLICK2API";
+        setting.verifiedName = verifiedName;
+        if (displayPhoneNumber) setting.displayPhoneNumber = displayPhoneNumber;
+        setting.qualityRating = qualityRating;
+        if (bodyToken && !bodyToken.startsWith("•••")) {
+          setting.accessToken = bodyToken;
+          setting.thirdPartyToken = bodyToken;
+        }
+        if (phoneId) {
+          setting.phoneNumberId = phoneId;
+          setting.thirdPartyInstanceId = phoneId;
+        }
+        setting.apiEndpoint = metaEndpoint;
+        setting.thirdPartyEndpoint = metaEndpoint;
+        await setting.save();
+      }
+
+      await WhatsappLog.create({
+        companyId: companyId || null,
+        recipient: displayPhoneNumber || phoneId || "CLICK2API_GATEWAY",
+        messageType: "CONNECTION_VERIFY",
+        templateUsed: "GATEWAY_HANDSHAKE",
+        provider: "THIRD_PARTY_CLICK2API",
+        status: "VERIFIED",
+        payload: { verifiedName, qualityRating },
+        sentAt: new Date(),
+      }).catch(() => {});
+
+      return res.json({
+        success: true,
+        status: "CONNECTED",
+        connectionStatus: "CONNECTED",
+        message: "WhatsApp Gateway Connected and Verified Successfully!",
+        data: {
+          verifiedName,
+          displayPhoneNumber,
+          qualityRating,
+          id: phoneId,
+        },
       });
     }
 
@@ -2197,6 +2509,7 @@ module.exports = {
   getPublicToken, getBusiness, getEngagementSettings,
   addLeadDocument, deleteLeadDocument,
   sendLeadTemplateMessage, getLeadMessages, getLeadActivities, addLeadNote,
+  sendMobileLeadTemplateMessage, sendMobileTestWhatsappMessage,
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
   sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,

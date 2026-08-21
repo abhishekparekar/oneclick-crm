@@ -27,7 +27,7 @@ const GeneratePayroll = () => {
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
-  
+
   // Per-employee bonus/advance overrides: { empId: { bonus, incentive, advanceDeduction } }
   const [overrides, setOverrides] = useState({});
   const [activeOverrideEmp, setActiveOverrideEmp] = useState(null);
@@ -87,20 +87,20 @@ const GeneratePayroll = () => {
     setError("");
     const [y, m] = month.split("-");
     const activeEmpIds = employees.filter(e => e.status === "active").map(e => e._id);
-    if (activeEmpIds.length === 0) { 
-      setError("No active employees found in the organization."); 
+    if (activeEmpIds.length === 0) {
+      setError("No active employees found in the organization.");
       toast.error("No active employees found.");
-      return; 
+      return;
     }
     previewMutation.mutate({ month: parseInt(m, 10), year: parseInt(y, 10), employeeIds: activeEmpIds, overrides });
   };
 
   const handleGenerate = () => {
     setError("");
-    if (selectedEmpIds.length === 0) { 
-      setError("Please select at least one employee."); 
+    if (selectedEmpIds.length === 0) {
+      setError("Please select at least one employee.");
       toast.error("Select at least 1 employee.");
-      return; 
+      return;
     }
     const [y, m] = month.split("-");
     generateMutation.mutate({ month: parseInt(m, 10), year: parseInt(y, 10), employeeIds: selectedEmpIds, overrides });
@@ -182,7 +182,7 @@ const GeneratePayroll = () => {
 
   return (
     <div className="space-y-3 max-w-7xl mx-auto pb-8 flex flex-col font-sans text-slate-900 dark:text-slate-100">
-      
+
       {/* ── Executive Header Banner ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
@@ -217,13 +217,12 @@ const GeneratePayroll = () => {
           ].map((s) => (
             <span
               key={s.id}
-              className={`text-[10.5px] font-bold px-2.5 py-1 rounded-lg transition-all ${
-                step === s.id
+              className={`text-[10.5px] font-bold px-2.5 py-1 rounded-lg transition-all ${step === s.id
                   ? "bg-slate-900 text-white dark:bg-amber-500 dark:text-slate-950 shadow-2xs"
                   : step > s.id
-                  ? "text-emerald-600 dark:text-emerald-400 font-extrabold"
-                  : "text-slate-400"
-              }`}
+                    ? "text-emerald-600 dark:text-emerald-400 font-extrabold"
+                    : "text-slate-400"
+                }`}
             >
               {s.label}
             </span>
@@ -301,7 +300,7 @@ const GeneratePayroll = () => {
       {/* ── STEP 2: Review Calculations, Overrides & Confirmation ────── */}
       {step === 2 && (
         <div className="space-y-3">
-          
+
           {/* Top KPI Deck & Actions */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
@@ -342,7 +341,7 @@ const GeneratePayroll = () => {
 
           {/* Table Container */}
           <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs overflow-hidden flex flex-col">
-            
+
             {/* Toolbar */}
             <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <div className="flex items-center gap-2">
@@ -413,9 +412,8 @@ const GeneratePayroll = () => {
                     return (
                       <tr
                         key={`${p.employeeId || "prev"}-${idx}`}
-                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors ${
-                          isSelected ? "bg-amber-50/30 dark:bg-amber-950/20" : ""
-                        }`}
+                        className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/60 transition-colors ${isSelected ? "bg-amber-50/30 dark:bg-amber-950/20" : ""
+                          }`}
                       >
                         <td className="px-4 py-3 text-center">
                           {p.success && (
@@ -464,11 +462,10 @@ const GeneratePayroll = () => {
                         </td>
                         <td className="px-3 py-3 text-center font-bold text-slate-600 dark:text-slate-400">
                           {p.success ? (
-                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${
-                              monthLeavesCount > 0 
-                                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60" 
+                            <span className={`px-2 py-0.5 rounded-md text-[11px] font-bold ${monthLeavesCount > 0
+                                ? "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60"
                                 : "text-slate-400"
-                            }`}>
+                              }`}>
                               {fmtDays(monthLeavesCount)} Leaves
                             </span>
                           ) : "—"}
@@ -486,11 +483,10 @@ const GeneratePayroll = () => {
                           <button
                             onClick={() => setActiveOverrideEmp(p)}
                             disabled={!p.success}
-                            className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer flex items-center gap-1 mx-auto disabled:opacity-40 ${
-                              hasOverrides
+                            className={`px-2 py-1 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer flex items-center gap-1 mx-auto disabled:opacity-40 ${hasOverrides
                                 ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-400"
                                 : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-amber-500"
-                            }`}
+                              }`}
                           >
                             <Gift size={12} className="text-amber-500" />
                             <span>{hasOverrides ? "Adjusted" : "+ Adjust"}</span>
@@ -625,8 +621,8 @@ const GeneratePayroll = () => {
                         {activeOverrideEmp.deductions?.advanceRecoveryDetails?.[0]?.repaymentType === "percentage_of_salary"
                           ? "Percentage of Salary Deduction"
                           : activeOverrideEmp.deductions?.advanceRecoveryDetails?.[0]?.repaymentType === "fixed_monthly_amount"
-                          ? "Fixed EMI Deduction"
-                          : "Payroll Recovery"}
+                            ? "Fixed EMI Deduction"
+                            : "Payroll Recovery"}
                       </span>
                     </div>
                   )}
@@ -708,7 +704,7 @@ const GeneratePayroll = () => {
           <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 flex items-center justify-center mx-auto animate-bounce">
             <CheckCircle2 size={36} strokeWidth={2.4} />
           </div>
-          
+
           <div className="space-y-1">
             <h2 className="text-lg font-bold text-slate-900 dark:text-white">Payroll Successfully Generated!</h2>
             <p className="text-xs text-slate-500 dark:text-slate-400">

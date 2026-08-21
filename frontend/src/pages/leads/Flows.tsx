@@ -13,7 +13,7 @@ import {
   CheckSquare, Filter, Layers, SlidersHorizontal, RefreshCw
 } from 'lucide-react';
 
-// ── Top KPI Stat Card (Matching Dashboard KPI Style) ──────────────────────────
+// ── Top KPI Stat Card (Ultra-Compact SaaS Style) ──────────────────────────
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }: {
   label: string; value: string | number; trend: string; isUp: boolean; period: string; strokeColor: string; Icon: any; iconBg: string; iconColor: string;
 }) => {
@@ -22,32 +22,32 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
   ], []);
 
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 px-4 py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group">
-      <div className="flex-1 min-w-0 pr-2">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
-            <Icon size={13} style={{ color: iconColor }} strokeWidth={2.4} />
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:p-3 flex items-center justify-between shadow-2xs hover:shadow-md transition-all duration-200 group">
+      <div className="flex-1 min-w-0 pr-1.5">
+        <div className="flex items-center gap-1.5 mb-1">
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} shrink-0`}>
+            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.4} />
           </div>
-          <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</span>
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</span>
         </div>
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-white tracking-tight leading-tight mb-1 truncate">{value}</h3>
-        <div className="flex items-center gap-1 text-[11px]">
-          <span className={`inline-flex items-center font-medium ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={10} strokeWidth={2.5}/> : <ArrowDown size={10} strokeWidth={2.5}/>}
+        <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-0.5 truncate">{value}</h3>
+        <div className="flex items-center gap-1 text-[10px]">
+          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
             {trend}
           </span>
-          <span className="text-slate-400 text-[9.5px] truncate">vs {period}</span>
+          <span className="text-slate-400 text-[9px] truncate">vs {period}</span>
         </div>
       </div>
-      <div className="hidden sm:block h-10 w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0">
-        <AreaChart width={64} height={40} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+      <div className="hidden sm:block h-8 w-12 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
+        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id={`sk-flow-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
               <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-flow-${label.replace(/\s+/g, '')})`}/>
+          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-flow-${label.replace(/\s+/g, '')})`}/>
         </AreaChart>
       </div>
     </div>
@@ -341,34 +341,34 @@ export default function Flows() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filteredFlows.map((flow) => {
             const isEditingThis = loadingFlowId === flow.id;
             return (
               <div
                 key={flow.id}
-                className={`bg-white dark:bg-[#111C24] rounded-2xl border transition-all duration-300 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] flex flex-col justify-between overflow-hidden ${
+                className={`bg-white dark:bg-[#111C24] rounded-xl border transition-all duration-200 shadow-2xs hover:shadow-md flex flex-col justify-between overflow-hidden ${
                   flow.isActive ? "border-slate-200/80 dark:border-slate-800" : "border-slate-200/50 dark:border-slate-800/60 opacity-80"
                 }`}
               >
                 {/* Flow Header */}
-                <div className="p-4 border-b border-slate-100 dark:border-slate-800/80 flex items-start justify-between gap-3 bg-slate-50/50 dark:bg-slate-900/40">
+                <div className="p-3 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/40">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${flow.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
-                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white truncate">{flow.name}</h3>
+                    <div className="flex items-center gap-1.5 mb-0.5 flex-wrap">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${flow.isActive ? "bg-emerald-500 animate-pulse" : "bg-slate-400"}`} />
+                      <h3 className="text-[13px] font-extrabold text-slate-900 dark:text-white truncate">{flow.name}</h3>
                       {flow.triggerStatus ? (
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                          ⚡ Status: {flow.triggerStatus.name}
+                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          ⚡ {flow.triggerStatus.name}
                         </span>
                       ) : flow.triggerTag ? (
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
-                          🏷️ Tag: {flow.triggerTag.name}
+                        <span className="text-[9.5px] font-extrabold px-1.5 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20">
+                          🏷️ {flow.triggerTag.name}
                         </span>
                       ) : null}
                     </div>
                     {flow.description && (
-                      <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 font-medium">{flow.description}</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 font-medium">{flow.description}</p>
                     )}
                   </div>
 
@@ -376,42 +376,42 @@ export default function Flows() {
                   <button
                     onClick={() => handleToggleActive(flow.id, flow.isActive)}
                     disabled={isLoading(`toggle-${flow.id}`)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                       flow.isActive ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-700'
                     }`}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        flow.isActive ? 'translate-x-5' : 'translate-x-0'
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        flow.isActive ? 'translate-x-4' : 'translate-x-0'
                       }`}
                     />
                   </button>
                 </div>
 
                 {/* Flow Sequence Nodes */}
-                <div className="p-4 space-y-2.5 flex-1 bg-white dark:bg-[#111C24]">
-                  <div className="flex items-center justify-between text-[11px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
-                    <span>Drip Sequence Pipeline ({flow.steps?.length || 0} Steps)</span>
-                    {flow.isLooping && <span className="text-amber-500 font-bold">🔁 Infinite Loop</span>}
+                <div className="p-2.5 space-y-1.5 flex-1 bg-white dark:bg-[#111C24]">
+                  <div className="flex items-center justify-between text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">
+                    <span>Sequence ({flow.steps?.length || 0} Steps)</span>
+                    {flow.isLooping && <span className="text-amber-500 font-bold">🔁 Loop</span>}
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     {flow.steps?.map((step: any, sIdx: number) => {
                       const tpl = templates.find(t => t.id === step.templateId);
                       return (
-                        <div key={sIdx} className="flex items-center gap-2.5 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-xs font-semibold">
-                          <span className="w-6 h-6 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black text-[10px] flex items-center justify-center flex-shrink-0 border border-amber-500/20">
+                        <div key={sIdx} className="flex items-center gap-2 p-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 text-[11px] font-semibold">
+                          <span className="w-5 h-5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black text-[9px] flex items-center justify-center shrink-0 border border-amber-500/20">
                             #{sIdx + 1}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-slate-800 dark:text-slate-200 font-bold truncate">
                               {tpl?.name || `Template ID: ${step.templateId.slice(0, 8)}...`}
                             </p>
-                            <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-medium mt-0.5">
-                              <Clock size={10} className="text-slate-400" />
+                            <div className="flex items-center gap-1 text-[9.5px] text-slate-400 font-medium mt-0.2">
+                              <Clock size={9} className="text-slate-400" />
                               <span>After {step.delayValue} {step.delayUnit?.toLowerCase()} {step.sendTime ? `at ${step.sendTime}` : ''}</span>
                             </div>
                           </div>
-                          <span className="text-[9.5px] font-extrabold px-2 py-0.5 rounded bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 flex-shrink-0">
+                          <span className="text-[8.5px] font-black px-1.5 py-0.2 rounded bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400 shrink-0">
                             WhatsApp
                           </span>
                         </div>
@@ -421,34 +421,34 @@ export default function Flows() {
                 </div>
 
                 {/* Flow Footer Action Toolbar */}
-                <div className="px-4 py-3 bg-slate-50/60 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    Created {new Date(flow.createdAt || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
+                <div className="px-3 py-2 bg-slate-50/60 dark:bg-slate-900/50 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between">
+                  <span className="text-[10px] font-semibold text-slate-400">
+                    {new Date(flow.createdAt || Date.now()).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}
                   </span>
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => handleEditFlowClick(flow.id)}
                       disabled={isEditingThis}
-                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                      className="p-1 rounded-md text-slate-600 dark:text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
                       title="Edit Flow"
                     >
-                      {isEditingThis ? <Loader2 size={14} className="animate-spin text-amber-500" /> : <Edit2 size={14} />}
+                      {isEditingThis ? <Loader2 size={13} className="animate-spin text-amber-500" /> : <Edit2 size={13} />}
                     </button>
                     <button
                       onClick={() => handleDuplicateFlow(flow.id)}
                       disabled={isLoading(`dup-${flow.id}`)}
-                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                      className="p-1 rounded-md text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
                       title="Duplicate Flow"
                     >
-                      <Copy size={14} />
+                      <Copy size={13} />
                     </button>
                     <button
                       onClick={() => handleDeleteFlow(flow.id)}
                       disabled={isLoading(`del-${flow.id}`)}
-                      className="p-1.5 rounded-lg text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
+                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-slate-200/60 dark:hover:bg-slate-800 transition-colors"
                       title="Delete Flow"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={13} />
                     </button>
                   </div>
                 </div>

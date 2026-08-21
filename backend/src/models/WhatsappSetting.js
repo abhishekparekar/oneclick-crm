@@ -36,6 +36,18 @@ const whatsappSettingSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    thirdPartyToken: {
+      type: String,
+      default: "",
+    },
+    thirdPartyEndpoint: {
+      type: String,
+      default: "https://crm.click2api.in/api/meta",
+    },
+    thirdPartyInstanceId: {
+      type: String,
+      default: "",
+    },
     metaApiBaseUrl: {
       type: String,
       default: "https://graph.facebook.com",

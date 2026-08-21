@@ -43,6 +43,9 @@ import {
   ShieldAlert,
   CalendarDays,
   UserCheck,
+  UserX,
+  UserMinus,
+  CalendarOff,
   AlertCircle,
   FileSpreadsheet,
   ArrowLeft,
@@ -99,6 +102,76 @@ const formatDate = (isoString) => {
     return new Date(isoString).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
   } catch (e) {
     return "—";
+  }
+};
+
+const getCalendarDayStyle = (status) => {
+  switch (status) {
+    case "present":
+    case "late":
+      return { 
+        bg: "bg-[#E8F8F0] dark:bg-emerald-950/25", 
+        border: "border-2 border-[#22C55E] dark:border-emerald-500", 
+        dot: "bg-[#16A34A]", 
+        num: "text-slate-900 dark:text-white", 
+        label: "PRESENT", 
+        labelColor: "text-[#15803D] dark:text-emerald-400 font-extrabold",
+        hasDot: true
+      };
+    case "half_day":
+      return { 
+        bg: "bg-[#FFF7ED] dark:bg-amber-950/25", 
+        border: "border-2 border-[#F59E0B] dark:border-amber-500", 
+        dot: "bg-[#F59E0B]", 
+        num: "text-slate-900 dark:text-white", 
+        label: "HALF DAY", 
+        labelColor: "text-[#B45309] dark:text-amber-400 font-extrabold",
+        hasDot: true
+      };
+    case "paid_leave":
+    case "unpaid_leave":
+    case "leave":
+      return { 
+        bg: "bg-[#EFF6FF] dark:bg-blue-950/25", 
+        border: "border-2 border-[#3B82F6] dark:border-blue-500", 
+        dot: "bg-[#3B82F6]", 
+        num: "text-slate-900 dark:text-white", 
+        label: "LEAVE", 
+        labelColor: "text-[#1D4ED8] dark:text-blue-400 font-extrabold",
+        hasDot: true
+      };
+    case "absent":
+      return { 
+        bg: "bg-[#FEECEF] dark:bg-rose-950/25", 
+        border: "border-2 border-[#F43F5E] dark:border-rose-500", 
+        dot: "bg-[#E11D48]", 
+        num: "text-slate-900 dark:text-white", 
+        label: "ABSENT", 
+        labelColor: "text-[#BE123C] dark:text-rose-400 font-extrabold",
+        hasDot: true
+      };
+    case "weekly_off":
+    case "weekend":
+    case "holiday":
+      return { 
+        bg: "bg-slate-50/70 dark:bg-slate-900/40", 
+        border: "border border-slate-200/80 dark:border-slate-800", 
+        dot: "bg-slate-300 dark:bg-slate-600", 
+        num: "text-slate-900 dark:text-white", 
+        label: "OFF", 
+        labelColor: "text-slate-500 dark:text-slate-400 font-bold",
+        hasDot: true
+      };
+    default:
+      return { 
+        bg: "bg-white dark:bg-[#111C24]", 
+        border: "border border-slate-200/70 dark:border-slate-800/80", 
+        dot: "", 
+        num: "text-slate-400 dark:text-slate-500", 
+        label: "", 
+        labelColor: "text-slate-400",
+        hasDot: false
+      };
   }
 };
 
@@ -696,306 +769,434 @@ const CompanyAttendance = () => {
     const present = monthlyGrid.filter(d => d.status === "present" || d.status === "late").length;
     const absent = monthlyGrid.filter(d => d.status === "absent").length;
     const halfDays = monthlyGrid.filter(d => d.status === "half_day").length;
-    const leaves = monthlyGrid.filter(d => d.status === "paid_leave" || d.status === "unpaid_leave").length;
-    return { present, absent, halfDays, leaves };
+    const leaves = monthlyGrid.filter(d => d.status === "paid_leave" || d.status === "unpaid_leave" || d.status === "leave").length;
+    const weeklyOff = monthlyGrid.filter(d => d.status === "weekly_off" || d.status === "weekend" || d.status === "holiday").length;
+    return { present, absent, halfDays, leaves, weeklyOff };
   }, [monthlyGrid]);
+
+  const totalTrackedDays = monthlyStats.present + monthlyStats.absent + monthlyStats.halfDays + monthlyStats.leaves;
+  const attendanceRate = totalTrackedDays > 0 ? Math.round(((monthlyStats.present + (monthlyStats.halfDays * 0.5)) / totalTrackedDays) * 100) : 0;
+
+  const handleExportEmployeeTimesheet = () => {
+    if (!selectedEmployee || monthlyGrid.length === 0) return;
+    const headers = ["Date", "Day", "Status", "Punch In", "Punch Out", "Total Hours", "In Location", "Out Location"];
+    const rows = monthlyGrid.map((d) => {
+      const dayName = new Date(d.date).toLocaleDateString("en-US", { weekday: "short" });
+      const inTime = d.record?.punchInTime ? new Date(d.record.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+      const outTime = d.record?.punchOutTime ? new Date(d.record.punchOutTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—";
+      const hours = d.record?.totalHours || 0;
+      const inLoc = (d.record?.punchInLocation?.address || "").replace(/,/g, " ");
+      const outLoc = (d.record?.punchOutLocation?.address || "").replace(/,/g, " ");
+      return [d.date, dayName, d.status || "—", inTime, outTime, `${hours}h`, inLoc, outLoc].join(",");
+    });
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${selectedEmployee.firstName || "Employee"}_${selectedEmployee.lastName || ""}_Attendance_${calendarMonth}_${calendarYear}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    triggerToast("Employee timesheet exported successfully");
+  };
 
   if (selectedEmployee) {
     const selectedEmpPhoto = selectedEmployee?.photo || selectedEmployee?.documents?.photo || selectedEmployee?.userId?.profileImage;
     const selectedEmpPhotoUrl = getSafeUrl(selectedEmpPhoto);
     const selectedEmpName = `${selectedEmployee.firstName || ""} ${selectedEmployee.lastName || ""}`.trim();
+    const deptName = selectedEmployee.departmentId?.name || selectedEmployee.department?.name || "";
+    const designationName = selectedEmployee.designation || selectedEmployee.designationId?.name || "";
+
+    const isCurrentMonthView = calendarMonth === (new Date().getMonth() + 1) && calendarYear === new Date().getFullYear();
 
     return (
-      <div className="space-y-4 animate-fadeIn pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
-        {/* Premium Profile Header */}
-        <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-2xs flex-shrink-0">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-            <div className="flex items-center gap-3.5">
+      <div className="space-y-3 animate-fadeIn pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
+        {/* Sleek Compact Profile Header Bar */}
+        <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-3.5 py-2.5 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => setSelectedEmployee(null)}
-                className="w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-xl transition-all shadow-2xs cursor-pointer shrink-0"
+                className="w-8 h-8 flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg transition-all shadow-2xs cursor-pointer shrink-0"
+                title="Back to attendance overview"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={15} />
               </button>
 
               {selectedEmpPhotoUrl ? (
                 <img
                   src={selectedEmpPhotoUrl}
                   alt={selectedEmpName}
-                  className="w-11 h-11 rounded-2xl object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
+                  className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shadow-2xs shrink-0"
                 />
               ) : (
-                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm text-amber-500 bg-amber-500/10 border border-amber-500/20 shadow-2xs shrink-0`}>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 shadow-2xs shrink-0">
                   {selectedEmpName.charAt(0).toUpperCase()}
                 </div>
               )}
               
-              <div>
-                <div className="flex items-center space-x-2 text-[10px] font-black text-amber-500 uppercase tracking-widest mb-0.5">
-                  <span>Employee Attendance Profile</span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <h1 className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base tracking-tight leading-tight truncate">
+                    {selectedEmpName}
+                  </h1>
+                  <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[10px] font-mono font-bold">
+                    {selectedEmployee.employeeCode}
+                  </span>
                 </div>
-                <h1 className="font-extrabold text-slate-900 dark:text-white text-lg sm:text-xl tracking-tight leading-tight">
-                  {selectedEmpName}
-                </h1>
+                <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  {designationName && <span>{designationName}</span>}
+                  {designationName && deptName && <span>•</span>}
+                  {deptName && <span>{deptName}</span>}
+                </div>
               </div>
             </div>
             
-            <div className="flex items-center gap-2">
-              <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-[11px] font-mono font-black tracking-widest">
-                {selectedEmployee.employeeCode}
-              </span>
+            <div className="flex items-center gap-2 shrink-0">
+              {/* Attendance Rate Pill */}
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs font-bold">
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>{attendanceRate}% Rate</span>
+              </div>
+
+              {/* Export Timesheet button */}
+              <button
+                onClick={handleExportEmployeeTimesheet}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 text-slate-700 dark:text-slate-200 text-xs font-bold shadow-2xs transition-all cursor-pointer"
+              >
+                <Download size={12} className="text-amber-500" />
+                <span>Export</span>
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          <div className="lg:col-span-8 space-y-4">
-            
-            {/* Daily timeline */}
-            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
-              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-3">
-                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <Clock size={14} className="text-amber-500" />
-                  Log Timeline — {formatDate(selectedModalDate || date)}
-                </h4>
+        {/* Compact KPI Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+          {[
+            { 
+              label: "PRESENT", 
+              value: monthlyStats.present, 
+              sub: `${totalTrackedDays > 0 ? Math.round((monthlyStats.present / totalTrackedDays) * 100) : 0}%`, 
+              icon: UserCheck, 
+              iconBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20",
+              subColor: "text-emerald-600 dark:text-emerald-400"
+            },
+            { 
+              label: "LEAVE", 
+              value: monthlyStats.leaves, 
+              sub: `${totalTrackedDays > 0 ? Math.round((monthlyStats.leaves / totalTrackedDays) * 100) : 0}%`, 
+              icon: CalendarOff, 
+              iconBg: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+              subColor: "text-blue-600 dark:text-blue-400"
+            },
+            { 
+              label: "ABSENT", 
+              value: monthlyStats.absent, 
+              sub: `${totalTrackedDays > 0 ? Math.round((monthlyStats.absent / totalTrackedDays) * 100) : 0}%`, 
+              icon: UserX, 
+              iconBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+              subColor: "text-rose-600 dark:text-rose-400"
+            },
+            { 
+              label: "HALF DAY", 
+              value: monthlyStats.halfDays, 
+              sub: `${totalTrackedDays > 0 ? Math.round((monthlyStats.halfDays / totalTrackedDays) * 100) : 0}%`, 
+              icon: UserMinus, 
+              iconBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+              subColor: "text-amber-600 dark:text-amber-400"
+            },
+            { 
+              label: "OFF / HOLIDAY", 
+              value: monthlyStats.weeklyOff, 
+              sub: "Total Days", 
+              icon: CalendarDays, 
+              iconBg: "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20",
+              subColor: "text-purple-600 dark:text-purple-400"
+            },
+          ].map(({ label, value, sub, icon: Icon, iconBg, subColor }) => (
+            <div
+              key={label}
+              className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:p-3 shadow-2xs flex items-center gap-2.5"
+            >
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border ${iconBg}`}>
+                <Icon size={15} strokeWidth={2} />
               </div>
-              {activeRecord ? (
-                <div className="space-y-4">
-                  <div className="relative pl-8 border-l-2 border-amber-500 dark:border-amber-500 space-y-3 text-base ml-3">
-                    {/* Check-in */}
-                    <div className="relative">
-                      <div className="absolute -left-[41px] top-0.5 w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center ring-4 ring-white dark:ring-[#111C24]">
-                        <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                      </div>
-                      <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Punch In</p>
-                            <p className="text-slate-900 dark:text-white font-extrabold text-base">Check-in Recorded</p>
-                          </div>
-                          <span className="text-sm font-black text-slate-900 dark:text-white bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 px-3 py-1 rounded-lg shadow-2xs">{formatTime(activeRecord.punchInTime)}</span>
-                        </div>
-                        {activeRecord.punchInLocation?.latitude && (
-                          <div className="mt-3 inline-flex items-center px-2.5 py-1 bg-white dark:bg-[#111C24] rounded-lg border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <MapPin size={12} className="mr-1.5 text-amber-500" />
-                            {activeRecord.punchInLocation.address || "Location Validated"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    {/* Check-out */}
-                    <div className="relative">
-                      <div className={`absolute -left-[41px] top-0.5 w-5 h-5 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-[#111C24] ${
-                        activeRecord.punchOutTime ? "bg-emerald-500/20" : "bg-slate-100 dark:bg-slate-800"
-                      }`}>
-                        <div className={`w-2.5 h-2.5 rounded-full ${
-                          activeRecord.punchOutTime ? "bg-emerald-500" : "bg-slate-400"
-                        }`} />
-                      </div>
-                      <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-xl border border-slate-200/80 dark:border-slate-800">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <p className="text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1">Punch Out</p>
-                            <p className="text-slate-900 dark:text-white font-extrabold text-base">Check-out Recorded</p>
-                          </div>
-                          {activeRecord.punchOutTime ? (
-                            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 px-3 py-1 rounded-lg shadow-2xs">{formatTime(activeRecord.punchOutTime)}</span>
-                          ) : (
-                            <span className="text-[10px] font-black text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 px-2 py-1 rounded-lg flex items-center">
-                              <div className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5 animate-pulse" /> Active Session
-                            </span>
-                          )}
-                        </div>
-                        {activeRecord.punchOutLocation?.latitude && (
-                          <div className="mt-3 inline-flex items-center px-2.5 py-1 bg-white dark:bg-[#111C24] rounded-lg border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-slate-600 dark:text-slate-400">
-                            <MapPin size={12} className="mr-1.5 text-emerald-500" />
-                            {activeRecord.punchOutLocation.address || "Location Validated"}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+              <div className="min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
                 </div>
-              ) : (
-                <div className="py-10 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-xl bg-slate-50/50 dark:bg-slate-900/40">
-                  <MapPinOff className="mx-auto text-slate-300 dark:text-slate-600 mb-2" size={28} />
-                  <p className="text-sm font-extrabold text-slate-700 dark:text-slate-300">No punch activity recorded today</p>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    System status: <span className="font-bold capitalize">{activeCalculatedStatus.replace("_", " ")}</span>
-                  </p>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white leading-tight">{value}</span>
+                  <span className={`text-[10px] font-extrabold leading-none ${subColor}`}>{sub}</span>
                 </div>
-              )}
+              </div>
             </div>
+          ))}
+        </div>
 
-            {/* Monthly Calendar Preview */}
-            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-2xs space-y-4">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800/80 pb-3">
-                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                  <Calendar size={14} className="text-amber-500" />
-                  Monthly Attendance
-                </h4>
-                
-                <div className="flex items-center space-x-1">
-                  <button 
-                    onClick={handlePrevMonth}
-                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
-                  <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300 min-w-[90px] text-center capitalize">
-                    {new Date(calendarYear, calendarMonth - 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
-                  </span>
-                  <button 
-                    onClick={handleNextMonth}
-                    className="p-1 text-slate-400 hover:text-slate-700 dark:hover:text-white rounded-lg transition-colors cursor-pointer"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+          {/* Left Column: Monthly Calendar (Matching Reference Design) */}
+          <div className="lg:col-span-7 space-y-2.5">
+            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs overflow-hidden">
+              {/* Terracotta Top Header Banner */}
+              <div className="bg-[#9E3616] dark:bg-[#8B2D12] px-4 py-2 flex items-center justify-between text-white">
+                <button 
+                  onClick={handlePrevMonth}
+                  className="w-6 h-6 rounded-lg bg-black/20 hover:bg-black/35 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                  title="Previous Month"
+                >
+                  <ChevronLeft size={14} strokeWidth={2.5} />
+                </button>
+                <span className="text-sm sm:text-base font-extrabold text-white tracking-wide capitalize">
+                  {new Date(calendarYear, calendarMonth - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
+                </span>
+                <button 
+                  onClick={handleNextMonth}
+                  className="w-6 h-6 rounded-lg bg-black/20 hover:bg-black/35 text-white flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+                  title="Next Month"
+                >
+                  <ChevronRight size={14} strokeWidth={2.5} />
+                </button>
               </div>
 
               {isFetchingMonthly ? (
-                <div className="py-8 text-center text-xs text-slate-400 font-semibold animate-pulse">
-                  Refreshing grid stats...
+                <div className="py-14 text-center text-xs text-slate-400 font-semibold animate-pulse">
+                  Refreshing attendance grid...
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="p-2.5 space-y-1.5">
+                  {/* Day Headers: Individual Pill Cards */}
                   <div className="grid grid-cols-7 gap-1.5">
-                    {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map(d => (
-                      <div key={d} className="text-center text-[10px] font-black text-slate-400 uppercase py-1">{d}</div>
+                    {["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].map((d, i) => (
+                      <div
+                        key={d}
+                        className={`text-center text-[9.5px] font-black uppercase tracking-wider py-1 rounded-xl border ${
+                          i === 0 || i === 6
+                            ? "text-rose-600 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/30"
+                            : "text-slate-700 dark:text-slate-300 bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/70 dark:border-slate-800"
+                        }`}
+                      >
+                        {d}
+                      </div>
                     ))}
-                    
+                  </div>
+
+                  {/* Days Grid */}
+                  <div className="grid grid-cols-7 gap-1.5">
                     {Array.from({ length: new Date(calendarYear, calendarMonth - 1, 1).getDay() }).map((_, i) => (
-                      <div key={`blank-${i}`} className="w-full aspect-square" />
+                      <div key={`blank-${i}`} className="aspect-[16/11] min-h-[46px] rounded-xl border border-dashed border-slate-200/50 dark:border-slate-800/50 bg-transparent" />
                     ))}
 
                     {monthlyGrid.map((dayItem) => {
-                      let statusColor = "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400";
-                      if (dayItem.status === "present" || dayItem.status === "late") statusColor = "bg-emerald-500 text-white font-black";
-                      else if (dayItem.status === "absent") statusColor = "bg-rose-500 text-white font-black";
-                      else if (dayItem.status === "half_day") statusColor = "bg-amber-500 text-slate-950 font-black";
-                      else if (dayItem.status === "paid_leave" || dayItem.status === "unpaid_leave") statusColor = "bg-indigo-500 text-white font-black";
-                      else if (dayItem.status === "weekly_off") statusColor = "bg-slate-100 dark:bg-slate-800/40 text-slate-400 opacity-60";
+                      const isSelected = (selectedModalDate || date) === dayItem.date;
+                      const style = getCalendarDayStyle(dayItem.status);
 
                       return (
                         <div 
                           key={dayItem.day} 
-                          title={`${dayItem.date}: ${dayItem.status || "no log"}`}
+                          title={`${dayItem.date}: ${dayItem.status ? dayItem.status.replace("_", " ") : "no record"}`}
                           onClick={() => setSelectedModalDate(dayItem.date)}
-                          className={`w-full aspect-square rounded-xl flex items-center justify-center font-bold text-xs border border-transparent transition-all cursor-pointer shadow-2xs ${statusColor} ${selectedModalDate === dayItem.date ? 'ring-2 ring-amber-400 scale-105 z-10' : 'hover:scale-105 z-0'}`}
+                          className={`relative rounded-xl sm:rounded-2xl flex flex-col justify-between p-1.5 sm:p-2 aspect-[16/11] min-h-[46px] sm:min-h-[50px] transition-all cursor-pointer ${
+                            isSelected 
+                              ? 'border-2 border-[#9E3616] dark:border-amber-400 ring-2 ring-[#9E3616]/20 shadow-xs scale-[1.02] z-10 ' + style.bg
+                              : `${style.border} ${style.bg} hover:scale-[1.02] hover:shadow-2xs`
+                          }`}
                         >
-                          {dayItem.day}
+                          {/* Top Row: Number on left, Status Dot on right */}
+                          <div className="flex items-center justify-between w-full leading-none">
+                            <span className={`text-xs sm:text-[13px] font-black ${style.num}`}>
+                              {dayItem.day}
+                            </span>
+                            {style.hasDot && (
+                              <div className={`w-1.5 h-1.5 rounded-full ${style.dot}`} />
+                            )}
+                          </div>
+
+                          {/* Bottom Row: Status Text */}
+                          <div className="w-full leading-none">
+                            {style.label ? (
+                              <span className={`text-[8px] sm:text-[8.5px] font-black uppercase tracking-wider ${style.labelColor} leading-none truncate block`}>
+                                {style.label}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}
                   </div>
 
-                  {/* Monthly grid stats */}
-                  <div className="grid grid-cols-4 gap-2 pt-3 border-t border-slate-100 dark:border-slate-800/80 text-center">
-                    <div className="space-y-0.5">
-                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">{monthlyStats.present}</p>
-                      <p className="text-[9.5px] font-black text-slate-400 uppercase">Present</p>
-                    </div>
-                    <div className="space-y-0.5 border-l border-slate-100 dark:border-slate-800/80">
-                      <p className="text-xl font-black text-rose-500 dark:text-rose-400">{monthlyStats.absent}</p>
-                      <p className="text-[9.5px] font-black text-slate-400 uppercase">Absent</p>
-                    </div>
-                    <div className="space-y-0.5 border-l border-slate-100 dark:border-slate-800/80">
-                      <p className="text-xl font-black text-amber-500">{monthlyStats.halfDays}</p>
-                      <p className="text-[9.5px] font-black text-slate-400 uppercase">Half Day</p>
-                    </div>
-                    <div className="space-y-0.5 border-l border-slate-100 dark:border-slate-800/80">
-                      <p className="text-xl font-black text-indigo-500">{monthlyStats.leaves}</p>
-                      <p className="text-[9.5px] font-black text-slate-400 uppercase">Leave</p>
-                    </div>
+                  {/* Bottom Legend */}
+                  <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 flex flex-wrap items-center justify-center gap-x-4 gap-y-1">
+                    {[
+                      { label: "PRESENT", color: "bg-[#22C55E]" },
+                      { label: "HALF DAY", color: "bg-[#F59E0B]" },
+                      { label: "LEAVE", color: "bg-[#3B82F6]" },
+                      { label: "ABSENT", color: "bg-[#F43F5E]" },
+                      { label: "OFF / HOLIDAY", color: "bg-slate-300 dark:bg-slate-600" },
+                    ].map((item) => (
+                      <div key={item.label} className="flex items-center gap-1.5">
+                        <div className={`w-2.5 h-2.5 rounded-xs ${item.color}`} />
+                        <span className="text-[9.5px] font-black text-slate-700 dark:text-slate-300 tracking-wider">
+                          {item.label}
+                        </span>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
           </div>
 
-          <div className="lg:col-span-4 space-y-4">
-            {/* GPS validation details */}
-            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-3 relative overflow-hidden shadow-2xs">
-              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
-                <Map size={14} className="text-amber-500" />
-                Live Radar Validation
+          {/* Right Column: Compact Activity Log & Manual Override */}
+          <div className="lg:col-span-5 space-y-3">
+            
+            {/* Daily activity log */}
+            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-3.5 shadow-2xs space-y-2.5">
+              <div className="flex justify-between items-center border-b border-slate-100 dark:border-slate-800/80 pb-2">
+                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock size={13} className="text-amber-500" />
+                  Activity — {new Date((selectedModalDate || date).replace(/-/g, '/')).toLocaleDateString("en-GB", { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase()}
+                </h4>
+                
+                <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider ${
+                  activeCalculatedStatus === "present" || activeCalculatedStatus === "late"
+                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800"
+                    : activeCalculatedStatus === "half_day"
+                    ? "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
+                    : activeCalculatedStatus.includes("leave")
+                    ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400 border border-blue-200 dark:border-blue-800"
+                    : activeCalculatedStatus === "weekly_off"
+                    ? "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                    : "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200 dark:border-rose-800"
+                }`}>
+                  {activeCalculatedStatus.replace("_", " ")}
+                </span>
+              </div>
+
+              {activeRecord ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {/* Check In */}
+                    <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Punch In</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">{formatTime(activeRecord.punchInTime)}</p>
+                      {activeRecord.punchInLocation?.latitude && (
+                        <p className="mt-1 text-[9.5px] font-medium text-slate-500 truncate flex items-center gap-1">
+                          <MapPin size={10} className="text-amber-500 shrink-0" />
+                          {activeRecord.punchInLocation.address || "Office Area"}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Check Out */}
+                    <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Punch Out</p>
+                      {activeRecord.punchOutTime ? (
+                        <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{formatTime(activeRecord.punchOutTime)}</p>
+                      ) : (
+                        <span className="text-[9.5px] font-extrabold text-amber-600 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 px-1.5 py-0.5 rounded inline-flex items-center gap-1 mt-1">
+                          <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" /> Active
+                        </span>
+                      )}
+                      {activeRecord.punchOutLocation?.latitude && (
+                        <p className="mt-1 text-[9.5px] font-medium text-slate-500 truncate flex items-center gap-1">
+                          <MapPin size={10} className="text-emerald-500 shrink-0" />
+                          {activeRecord.punchOutLocation.address || "Validated"}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Geofence verification tag */}
+                  <div className="flex items-center justify-between px-2.5 py-1.5 bg-amber-50/50 dark:bg-amber-950/20 rounded-lg border border-amber-200/60 dark:border-amber-900/30 text-[10px] text-amber-800 dark:text-amber-300">
+                    <span className="flex items-center gap-1 font-bold">
+                      <ShieldCheck size={12} className="text-amber-600 dark:text-amber-400" />
+                      Radar Validation
+                    </span>
+                    <span className="font-extrabold text-[9.5px] bg-white dark:bg-slate-900 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                      {settingsForm.allowedRadiusMeters}m Radius
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="py-4 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-lg bg-slate-50/50 dark:bg-slate-900/40">
+                  <MapPinOff className="mx-auto text-slate-300 dark:text-slate-600 mb-1" size={20} />
+                  <p className="text-xs font-black text-slate-800 dark:text-slate-200">No punch activity recorded</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Calculated status: <span className="font-bold text-rose-500 capitalize">{activeCalculatedStatus.replace("_", " ")}</span>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Compact Manual Correction Form */}
+            <form onSubmit={handleSaveManualUpdate} className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
+              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center border-b border-slate-100 dark:border-slate-800/80 pb-2 gap-1.5">
+                <Settings2 size={13} className="text-[#004D40] dark:text-[#00695C]" />
+                Manual Correction
               </h4>
               
-              <div className="h-36 flex items-center justify-center relative z-10">
-                <div className="absolute w-28 h-28 rounded-full border border-amber-500/20 animate-ping opacity-60 pointer-events-none" />
-                <div className="absolute w-20 h-20 rounded-full border border-amber-500/30 animate-pulse pointer-events-none" />
-                <div className="absolute w-10 h-10 rounded-full bg-amber-500/20 backdrop-blur-sm pointer-events-none" />
-                
-                <div className="relative text-center flex flex-col items-center">
-                  <MapPin className="text-amber-500 animate-bounce mb-2" size={22} />
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 px-3 py-1 rounded-lg shadow-2xs">
-                    <p className="text-[9.5px] text-slate-400 uppercase tracking-widest font-black">Fence Active</p>
-                    <p className="text-xs text-amber-600 dark:text-amber-400 font-black mt-0.5">{settingsForm.allowedRadiusMeters}m Radius</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400">Punch In</label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={manualInTime}
+                      onChange={(e) => setManualInTime(e.target.value)}
+                      className="w-full px-2.5 py-1 border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all pr-6"
+                    />
+                    <Clock size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                  </div>
+                </div>
+                <div className="space-y-0.5">
+                  <label className="text-[9px] font-black uppercase text-slate-400">Punch Out</label>
+                  <div className="relative">
+                    <input
+                      type="time"
+                      value={manualOutTime}
+                      onChange={(e) => setManualOutTime(e.target.value)}
+                      className="w-full px-2.5 py-1 border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all pr-6"
+                    />
+                    <Clock size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   </div>
                 </div>
               </div>
-            </div>
-            
-            {/* Manual Override Form */}
-            <form onSubmit={handleSaveManualUpdate} className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 space-y-4 shadow-2xs">
-              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center border-b border-slate-100 dark:border-slate-800/80 pb-2.5 gap-2">
-                <Settings2 size={14} className="text-amber-500" />
-                Manual Override
-              </h4>
-              
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Punch In</label>
-                  <input
-                    type="time"
-                    value={manualInTime}
-                    onChange={(e) => setManualInTime(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400">Punch Out</label>
-                  <input
-                    type="time"
-                    value={manualOutTime}
-                    onChange={(e) => setManualOutTime(e.target.value)}
-                    className="w-full px-3 py-1.5 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all"
-                  />
-                </div>
-              </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Correction Status</label>
+              <div className="space-y-0.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Status</label>
                 <select
                   value={manualStatus}
                   onChange={(e) => setManualStatus(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all"
+                  className="w-full px-2.5 py-1 border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all cursor-pointer"
                 >
                   <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="half_day">Half Day</option>
                   <option value="late">Late Arrival</option>
+                  <option value="half_day">Half Day</option>
+                  <option value="paid_leave">Paid Leave</option>
+                  <option value="unpaid_leave">Unpaid Leave</option>
+                  <option value="absent">Absent</option>
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400">Reason / Note</label>
+              <div className="space-y-0.5">
+                <label className="text-[9px] font-black uppercase text-slate-400">Reason / Note</label>
                 <textarea
                   value={manualReasonText}
                   onChange={(e) => setManualReasonText(e.target.value)}
-                  placeholder="e.g. Forgot to punch in..."
-                  className="w-full px-3 py-2 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all min-h-[70px]"
+                  placeholder="Reason for manual adjustment..."
+                  rows={2}
+                  className="w-full px-2.5 py-1 border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 transition-all resize-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSavingManual}
-                className="w-full bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white py-2.5 rounded-xl font-extrabold transition-all flex items-center justify-center disabled:opacity-50 shadow-xs cursor-pointer text-xs"
+                className="w-full bg-[#004D40] hover:bg-[#00382E] dark:bg-[#00695C] dark:hover:bg-[#004D40] text-white py-2 rounded-lg font-bold transition-all flex items-center justify-center disabled:opacity-50 shadow-xs cursor-pointer text-xs"
               >
-                {isSavingManual ? <RefreshCw size={16} className="animate-spin" /> : "Save Changes"}
+                {isSavingManual ? <RefreshCw size={13} className="animate-spin" /> : "Save Changes"}
               </button>
             </form>
           </div>

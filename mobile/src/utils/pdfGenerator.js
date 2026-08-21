@@ -21,7 +21,7 @@ export const generateAndSharePDF = async (title, htmlContent) => {
         <body>
           <h1>${title}</h1>
           ${htmlContent}
-          <div class="footer">Generated on ${new Date().toLocaleString()} by Nextact</div>
+          <div class="footer">Generated on ${new Date().toLocaleString()} by One Click Business</div>
         </body>
       </html>
     `;
