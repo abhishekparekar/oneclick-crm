@@ -1,666 +1,904 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { 
-  getEmployeeTaskDetailsApi, 
-  updateEmployeeTaskStatusApi, 
-  startEmployeeTaskTimerApi, 
-  stopEmployeeTaskTimerApi, 
+import {
+  getTaskDetailsApi,
+  updateEmployeeTaskStatusApi,
   addEmployeeTaskCommentApi,
-  uploadTaskMediaApi
+  uploadTaskMediaApi,
+  updateEmployeeTaskChecklistApi
 } from "../../api/employeeApi";
-import { 
-  ChevronRight, MoreVertical, Flame, Key, User as UserIcon, Building2, Calendar, 
-  Clock, CalendarDays, Paperclip, Mic, Send, Play, CheckCircle2, AlertCircle, MessageSquare, X, Square, Loader2, Trash2, ListTodo, ArrowLeft, Eye, Download
+import {
+  ArrowLeft, CheckSquare, Clock, Calendar as CalendarIcon, Send, FileText,
+  User, Building, ShieldCheck, CheckCircle2, AlertCircle, MessageSquare,
+  RefreshCw, Paperclip, X, ExternalLink, Image as ImageIcon,
+  Play, CalendarDays, CheckCircle, Check, Flag, Sparkles, Layers, CheckCheck
 } from "lucide-react";
-import toast from "react-hot-toast";
-import { useAuth } from "../../context/AuthContext";
-import PageHeader from "../../components/common/PageHeader";
-import { downloadAttachment } from "../../utils/attachmentUtils";
-import AttachmentViewerModal from "../../components/common/AttachmentViewerModal";
 
-const getNormalizedStatus = (task) => {
-  if (!task) return "pending";
-  const rawStatus = task.statusKey || task.status || task.statusLabelSnapshot || "pending";
-  const s = String(rawStatus).toLowerCase().trim();
-  if (["todo", "pending", "open"].includes(s)) return "pending";
-  if (["in-progress", "inprogress", "in_process", "in progress", "working"].includes(s)) return "in_process";
-  if (["completed", "complete", "done", "finished"].includes(s)) return "complete";
-  if (["overdue"].includes(s)) return "overdue";
+const formatTaskId = (task) => {
+  if (!task) return "T-001";
+  if (task.taskId && task.taskId.startsWith("T-") && task.taskId.length < 12) return task.taskId;
+  if (task.taskSequenceNumber) return `T-${String(task.taskSequenceNumber).padStart(4, "0")}`;
+  const idStr = String(task._id || task.id || "").trim();
+  if (idStr.length >= 8) return `T-${idStr.slice(-5).toUpperCase()}`;
+  return `T-001`;
+};
+
+const safeDecode = (str) => {
+  try {
+    return decodeURIComponent(str || "");
+  } catch {
+    return str || "Attachment";
+  }
+};
+
+const normalizeStatus = (val) => {
+  if (!val) return "pending";
+  let s = val.toLowerCase().replace(/-/g, "_");
+  if (s === "todo" || s === "pending" || s === "re_pending") return "pending";
+  if (s === "in_progress" || s === "in_process" || s === "re_in_process") return "in_process";
+  if (s === "completed" || s === "done" || s === "complete" || s === "re_complete") return "complete";
+  if (s === "late_completed" || s === "late_complete" || s === "re_late_complete") return "late_complete";
   return s;
 };
 
-const getStatusStyles = (status) => {
-  switch (status) {
-    case "pending": return "bg-amber-100 text-amber-600 border-amber-200";
-    case "in_process": return "bg-blue-100 text-blue-600 border-blue-200";
-    case "complete": return "bg-emerald-100 text-emerald-600 border-emerald-200";
-    case "overdue": return "bg-rose-100 text-rose-600 border-rose-200";
-    default: return "bg-slate-100 text-slate-600 border-slate-200";
-  }
-};
-
-const getStatusLabel = (status) => {
-  switch (status) {
-    case "pending": return "Pending";
-    case "in_process": return "In Progress";
-    case "complete": return "Completed";
-    case "overdue": return "Overdue";
-    default: return status.charAt(0).toUpperCase() + status.slice(1);
-  }
-};
-
-const EmployeeTaskDetails = () => {
-  const { id } = useParams();
-  const navigate = useNavigate();
+// ── POPUP ACTION MODAL ───────────────────────────────────────────────────────
+function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess }) {
   const queryClient = useQueryClient();
-  const { user } = useAuth();
-  
-  const [commentText, setCommentText] = useState("");
-  const chatEndRef = useRef(null);
-
-  // Start Progress Modal State
-  const [showStartProgressModal, setShowStartProgressModal] = useState(false);
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
-  const [remark, setRemark] = useState("");
-  const [attachments, setAttachments] = useState([]);
-  const [selectedFileForPreview, setSelectedFileForPreview] = useState(null);
-  
-  const [isUploading, setIsUploading] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const mediaRecorderRef = useRef(null);
-  const audioChunksRef = useRef([]);
-  const fileInputRef = useRef(null);
+  const [remarks, setRemarks] = useState("");
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
 
-  const { data: taskRes, isLoading } = useQuery({
-    queryKey: ["employeeTask", id],
-    queryFn: () => getEmployeeTaskDetailsApi(id).then(res => res.data),
-    enabled: !!id,
-  });
+  useEffect(() => {
+    if (isOpen) {
+      setRemarks("");
+      setAttachedFile(null);
+      setErrorMsg("");
 
-  const updateStatusMutation = useMutation({
-    mutationFn: (data) => {
-      if (typeof data === 'string') return updateEmployeeTaskStatusApi(id, data);
-      const { status, ...extraData } = data;
-      return updateEmployeeTaskStatusApi(id, status, extraData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employeeTask", id] });
-      toast.success("Task status updated!");
-      setShowStartProgressModal(false);
-      setRemark("");
-      setNextFollowUpDate("");
-      setAttachments([]);
-    },
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to update status")
-  });
-
-  const startTimerMutation = useMutation({
-    mutationFn: () => startEmployeeTaskTimerApi(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employeeTask", id] });
-      toast.success("Timer started");
-    },
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to start timer")
-  });
-
-  const stopTimerMutation = useMutation({
-    mutationFn: () => stopEmployeeTaskTimerApi(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employeeTask", id] });
-      toast.success("Timer stopped");
-    },
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to stop timer")
-  });
-
-  const addCommentMutation = useMutation({
-    mutationFn: (text) => addEmployeeTaskCommentApi(id, text),
-    onSuccess: () => {
-      setCommentText("");
-      queryClient.invalidateQueries({ queryKey: ["employeeTask", id] });
-      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
-    },
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to post comment")
-  });
-
-  const task = taskRes?.task;
-
-  if (isLoading) {
-    return <div className="flex items-center justify-center h-full"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500"></div></div>;
-  }
-
-  if (!task) {
-    return <div className="p-6 text-center text-slate-500">Task not found.</div>;
-  }
-
-  const normalizedStatus = getNormalizedStatus(task);
-  const isTimerActive = taskRes?.activeTimer;
-
-  const handleStatusChange = (newStatus) => {
-    updateStatusMutation.mutate(newStatus);
-  };
-
-  const handleSendComment = () => {
-    if (!commentText.trim()) return;
-    addCommentMutation.mutate(commentText);
-  };
-
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      setIsUploading(true);
-      const res = await uploadTaskMediaApi(file);
-      const fileData = {
-        fileUrl: res.data.fileUrl || res.data.url,
-        fileName: file.name,
-        fileType: file.type
-      };
-      setAttachments(prev => [...prev, fileData]);
-    } catch (error) {
-      toast.error("Failed to upload file");
-    } finally {
-      setIsUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (task?.nextFollowUpDate) {
+        setNextFollowUpDate(new Date(task.nextFollowUpDate).toISOString().split("T")[0]);
+      } else if (task?.isTemplate && task?.repeatType?.toLowerCase() === "daily") {
+        setNextFollowUpDate(new Date().toISOString().split("T")[0]);
+      } else {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setNextFollowUpDate(tomorrow.toISOString().split("T")[0]);
+      }
     }
-  };
+  }, [isOpen, actionType, task]);
 
-  const toggleRecording = async () => {
-    if (isRecording) {
-      mediaRecorderRef.current?.stop();
-      setIsRecording(false);
+  const submitMut = useMutation({
+    mutationFn: async () => {
+      let attachmentsList = [];
+      if (attachedFile) {
+        const uploadRes = await uploadTaskMediaApi(attachedFile);
+        const uData = uploadRes.data || uploadRes;
+        if (uData.success) {
+          attachmentsList.push({
+            fileUrl: uData.fileUrl,
+            fileName: uData.fileName || attachedFile.name,
+            fileType: uData.fileType || attachedFile.type,
+          });
+        }
+      }
+
+      let targetStatus = task.status || "pending";
+      let payloadFollowUp = nextFollowUpDate;
+
+      if (actionType === "in_process") {
+        targetStatus = "in_process";
+      } else if (actionType === "follow_up") {
+        targetStatus = "in_process";
+      } else if (actionType === "complete") {
+        targetStatus = "complete";
+        payloadFollowUp = null;
+      } else if (actionType === "late_complete") {
+        targetStatus = "late_complete";
+        payloadFollowUp = null;
+      }
+
+      await updateEmployeeTaskStatusApi(task._id, targetStatus, {
+        nextFollowUpDate: payloadFollowUp,
+        remark: remarks,
+        attachments: attachmentsList
+      });
+
+      if (remarks?.trim() || attachmentsList.length > 0) {
+        await addEmployeeTaskCommentApi(task._id, remarks.trim(), attachmentsList).catch(() => { });
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["employeeTaskDetails", task._id]);
+      queryClient.invalidateQueries(["employeeMyTasksPage"]);
+      queryClient.invalidateQueries(["employeeDashboardSummary"]);
+      onActionSuccess?.();
+      onClose();
+    },
+    onError: (err) => {
+      setErrorMsg(err.response?.data?.message || "Failed to update task.");
+    }
+  });
+
+  if (!isOpen) return null;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setErrorMsg("");
+
+    if (!remarks.trim() && !attachedFile) {
+      setErrorMsg("Please provide Notes (Remarks) OR upload an Attachment before continuing.");
       return;
     }
 
+    if (actionType === "in_process" || actionType === "follow_up") {
+      if (!nextFollowUpDate) {
+        setErrorMsg("Please select a Next Follow-up Date.");
+        return;
+      }
+
+      const selectedDate = new Date(nextFollowUpDate);
+      selectedDate.setHours(0, 0, 0, 0);
+
+      const taskStartDate = task?.startDate || task?.startDateTime;
+      if (taskStartDate) {
+        const startDate = new Date(taskStartDate);
+        startDate.setHours(0, 0, 0, 0);
+        if (selectedDate < startDate) {
+          const startStr = startDate.toLocaleDateString("en-GB");
+          setErrorMsg(`Follow-up date cannot be before the task's start date (${startStr}).`);
+          return;
+        }
+      }
+    }
+
+    submitMut.mutate();
+  };
+
+  const isCompleteAction = actionType === "complete" || actionType === "late_complete";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+      <div className="bg-ca-surface border border-ca-border rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-scaleUp">
+
+        {/* Modal Header */}
+        <div className={`px-6 py-4.5 border-b border-ca-border flex items-center justify-between ${actionType === "in_process" ? "bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-200" :
+          actionType === "follow_up" ? "bg-teal-50/80 dark:bg-teal-950/40 text-teal-950 dark:text-teal-200" :
+            actionType === "complete" ? "bg-emerald-50/80 dark:bg-emerald-950/40 text-emerald-950 dark:text-emerald-200" :
+              "bg-orange-50/80 dark:bg-orange-950/40 text-orange-950 dark:text-orange-200"
+          }`}>
+          <div className="flex items-center gap-2.5 font-black text-sm uppercase tracking-wider">
+            {actionType === "in_process" && <Play size={18} className="text-blue-600 fill-blue-600" />}
+            {actionType === "follow_up" && <CalendarDays size={18} className="text-teal-600" />}
+            {actionType === "complete" && <CheckCircle2 size={18} className="text-emerald-600" />}
+            {actionType === "late_complete" && <AlertCircle size={18} className="text-orange-600" />}
+            <span>
+              {actionType === "in_process" ? "Start Task (In Process)" :
+                actionType === "follow_up" ? "Schedule Next Follow-Up Date" :
+                  actionType === "complete" ? "Mark Task Completed" : "Mark Late Complete"}
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-1.5 text-ca-text-secondary hover:text-ca-text hover:bg-black/5 rounded-xl transition-colors cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Modal Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
+
+          {errorMsg && (
+            <div className="p-3.5 rounded-xl text-xs font-bold border flex items-center gap-2 bg-rose-50 text-rose-800 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800">
+              <AlertCircle size={16} className="shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
+          {/* Next Follow-Up Date Input */}
+          {!isCompleteAction && (
+            <div>
+              <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <CalendarDays size={14} className="text-teal-600" />
+                  Next Follow-Up Date <span className="text-teal-600 font-black">*</span>
+                </span>
+                <span className="text-[10px] font-normal text-ca-text-secondary lowercase">
+                  (When to check progress next)
+                </span>
+              </label>
+              <input
+                type="date"
+                required
+                value={nextFollowUpDate}
+                min={task?.startDateTime ? new Date(task.startDateTime).toISOString().split("T")[0] : (task?.startDate || new Date().toISOString().split("T")[0])}
+                onChange={(e) => setNextFollowUpDate(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500 shadow-2xs"
+              />
+            </div>
+          )}
+
+          {/* Remarks / Work Notes */}
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
+              <span>
+                {isCompleteAction
+                  ? "Final Remarks & Deliverables Note"
+                  : actionType === "follow_up"
+                    ? "Follow-Up Progress Remarks"
+                    : "Initial Remarks / Work Plan"} <span className="text-orange-600 font-black">*</span>
+              </span>
+              <span className="text-[10px] text-ca-text-secondary">(or attach a file below)</span>
+            </label>
+            <textarea
+              rows={4}
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+              placeholder={
+                isCompleteAction
+                  ? "Provide summary of finished deliverables, results, links..."
+                  : actionType === "follow_up"
+                    ? "What progress was made today and what is scheduled for the next follow-up date..."
+                    : "Describe initial plan, starting notes, or any comments..."
+              }
+              className="w-full p-3 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500 shadow-2xs"
+            />
+          </div>
+
+          {/* File Attachment Field */}
+          <div>
+            <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center gap-1">
+              <Paperclip size={14} className="text-orange-600" /> Work Document / Attachment (Optional)
+            </label>
+            {attachedFile ? (
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 overflow-hidden">
+                  <FileText size={16} className="text-orange-700 shrink-0" />
+                  <div className="truncate">
+                    <p className="font-black text-orange-950 dark:text-orange-200 truncate">{attachedFile.name}</p>
+                    <p className="text-[10px] text-orange-700 dark:text-orange-300 font-mono">{(attachedFile.size / 1024).toFixed(1)} KB</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttachedFile(null)}
+                  className="p-1 text-rose-600 hover:text-rose-800 cursor-pointer shrink-0"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <label className="flex items-center justify-center gap-2 p-3 bg-ca-bg hover:bg-ca-surface rounded-xl border border-dashed border-ca-border cursor-pointer transition-colors text-ca-text-secondary hover:text-ca-text font-bold">
+                <Paperclip size={16} />
+                <span>Attach Work Document / File</span>
+                <input
+                  type="file"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) setAttachedFile(e.target.files[0]);
+                  }}
+                  className="hidden"
+                />
+              </label>
+            )}
+          </div>
+
+          {/* Modal Footer Buttons */}
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-ca-border">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2.5 rounded-xl border border-ca-border font-bold text-xs hover:bg-ca-bg text-ca-text transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={submitMut.isPending}
+              className={`px-6 py-2.5 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 ${actionType === "in_process" ? "bg-blue-600 hover:bg-blue-700 shadow-blue-500/20" :
+                actionType === "follow_up" ? "bg-teal-700 hover:bg-teal-800 shadow-teal-700/20" :
+                  actionType === "complete" ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/20" :
+                    "bg-orange-600 hover:bg-orange-700 shadow-orange-500/20"
+                }`}
+            >
+              {submitMut.isPending ? (
+                <RefreshCw size={14} className="animate-spin" />
+              ) : actionType === "in_process" ? (
+                <Play size={14} className="fill-white" />
+              ) : actionType === "follow_up" ? (
+                <CalendarDays size={14} />
+              ) : (
+                <CheckCircle2 size={14} />
+              )}
+              <span>
+                {submitMut.isPending
+                  ? "Updating..."
+                  : actionType === "in_process"
+                    ? "Start Task (In Process)"
+                    : actionType === "follow_up"
+                      ? "Save Follow-Up"
+                      : actionType === "complete"
+                        ? "Complete Task"
+                        : "Confirm"}
+              </span>
+            </button>
+          </div>
+
+        </form>
+
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN EMPLOYEE TASK DETAILS COMPONENT ────────────────────────────────────
+export default function EmployeeTaskDetails() {
+  const { id: taskId } = useParams();
+  const navigate = useNavigate();
+
+  const [modalActionType, setModalActionType] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+
+  // Standalone comment state
+  const [standaloneComment, setStandaloneComment] = useState("");
+  const [standaloneFile, setStandaloneFile] = useState(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+
+  // Fetch Task Details
+  const { data: taskRes, isLoading, refetch } = useQuery({
+    queryKey: ["employeeTaskDetails", taskId],
+    queryFn: async () => {
+      const res = await getTaskDetailsApi(taskId).catch(() => ({ data: {} }));
+      const p = res.data?.data || res.data || {};
+      return p.task ? p.task : p;
+    },
+    enabled: Boolean(taskId)
+  });
+
+  const task = taskRes || {};
+  const currentRawStatus = (task.myStatus || task.statusKey || task.status || "pending").toLowerCase();
+  const normalizedSt = normalizeStatus(currentRawStatus);
+  const isCompleted = normalizedSt === "complete" || normalizedSt === "late_complete";
+
+  const isOverdueTime = !isCompleted && Boolean(task.dueDate || task.endDateTime) && new Date(task.dueDate || task.endDateTime) < new Date();
+  const isOverdue = !isCompleted && (normalizedSt === "overdue" || isOverdueTime);
+  const isInProgress = normalizedSt === "in_process";
+  const isPending = normalizedSt === "pending";
+
+  const priorityTheme = (() => {
+    const p = (task.priority || "medium").toLowerCase();
+    if (p === "urgent" || p === "high") return { bg: "bg-rose-500/20 text-rose-300 border-rose-500/40", label: "HIGH" };
+    if (p === "low") return { bg: "bg-emerald-500/20 text-emerald-300 border-emerald-500/40", label: "LOW" };
+    return { bg: "bg-amber-500/20 text-amber-300 border-amber-500/40", label: "MEDIUM" };
+  })();
+
+  const openActionModal = (type) => {
+    setModalActionType(type);
+    setIsModalOpen(true);
+  };
+
+  const handleModalSuccess = (actionType) => {
+    refetch();
+    const msg = actionType === "in_process" ? "Task successfully moved to In-Progress!" :
+      actionType === "follow_up" ? "Follow-up schedule and progress notes updated!" :
+        actionType === "complete" ? "Task successfully marked as Completed!" :
+          "Task status updated successfully!";
+    setToastMessage({ type: "success", text: msg });
+    setTimeout(() => setToastMessage(null), 5000);
+  };
+
+  // Add Standalone Comment
+  const handleAddComment = async (e) => {
+    e.preventDefault();
+    if (!standaloneComment.trim() && !standaloneFile) return;
+
+    setIsSubmittingComment(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          audioChunksRef.current.push(event.data);
+      let attachmentsList = [];
+      if (standaloneFile) {
+        const uploadRes = await uploadTaskMediaApi(standaloneFile);
+        const uData = uploadRes.data || uploadRes;
+        if (uData.success) {
+          attachmentsList.push({
+            fileUrl: uData.fileUrl,
+            fileName: uData.fileName || standaloneFile.name,
+            fileType: uData.fileType || standaloneFile.type,
+          });
         }
-      };
+      }
 
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], `VoiceNote_${Date.now()}.webm`, { type: 'audio/webm' });
-        
-        try {
-          setIsUploading(true);
-          const res = await uploadTaskMediaApi(audioFile);
-          const fileData = {
-            fileUrl: res.data.fileUrl || res.data.url,
-            fileName: audioFile.name,
-            fileType: audioFile.type
-          };
-          setAttachments(prev => [...prev, fileData]);
-        } catch (error) {
-          toast.error("Failed to upload voice note");
-        } finally {
-          setIsUploading(false);
-        }
-        
-        stream.getTracks().forEach(track => track.stop());
-      };
-
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch (error) {
-      toast.error("Microphone access denied. Please allow microphone permissions.");
+      await addEmployeeTaskCommentApi(taskId, standaloneComment.trim(), attachmentsList);
+      setStandaloneComment("");
+      setStandaloneFile(null);
+      refetch();
+      setToastMessage({ type: "success", text: "Comment posted to task discussion." });
+      setTimeout(() => setToastMessage(null), 4000);
+    } catch (err) {
+      alert(err.response?.data?.message || "Failed to post comment");
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return "N/A";
-    return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  };
-
   return (
-    <div className="space-y-6 pb-24 font-sans w-full max-w-full">
-      {/* Top Bar - Standard PageHeader */}
-      <PageHeader 
-        title="Task Details" 
-        icon={ListTodo} 
-      >
-        <button 
-          onClick={() => navigate("/employee/my-tasks")}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors border border-white/5"
-        >
-          <ArrowLeft size={14} /> Back
-        </button>
-      </PageHeader>
+    <div className="p-6 space-y-6 font-sans bg-ca-bg min-h-screen text-ca-text pb-20">
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-6">
-          
-          {/* Hero Header */}
-          <div className="bg-white dark:bg-[#111C24] rounded-[1.25rem] border border-slate-200 dark:border-slate-800 shadow-sm p-6 md:p-8">
-            <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
-              <div className="space-y-4 flex-1">
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className={`px-2.5 py-1 text-[11px] font-black uppercase tracking-widest rounded-md border
-                    ${task.priority?.toLowerCase() === "high" ? "bg-red-50 text-red-600 border-red-200/60 dark:bg-red-500/10 dark:border-red-500/20" : 
-                      task.priority?.toLowerCase() === "medium" ? "bg-amber-50 text-amber-600 border-amber-200/60 dark:bg-amber-500/10 dark:border-amber-500/20" : 
-                      "bg-orange-50 text-orange-600 border-orange-200/60 dark:bg-orange-500/10 dark:border-orange-500/20"}
-                  `}>
-                    {task.priority || "Low"} Priority
-                  </span>
-                  <span className={`px-2.5 py-1 text-[11px] font-black uppercase tracking-widest rounded-md border bg-slate-50 dark:bg-[#0C1520] border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300`}>
-                    {getStatusLabel(normalizedStatus)}
-                  </span>
-                </div>
-                
-                <div>
-                  <h2 className="text-2xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight">
-                    <span className="text-slate-400 font-medium mr-2">{task.taskCode || "TASK"}</span>
-                    {task.title || task.name}
-                  </h2>
-                </div>
-              </div>
-            </div>
+      {/* ── ACTION POPUP MODAL ─────────────────────────────────────────────────── */}
+      <TaskActionModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        actionType={modalActionType}
+        task={task}
+        onActionSuccess={() => handleModalSuccess(modalActionType)}
+      />
 
-            <div className="prose prose-sm dark:prose-invert max-w-none text-slate-600 dark:text-slate-300 leading-relaxed">
-              {task.description ? (
-                <p>{task.description}</p>
-              ) : (
-                <p className="italic text-slate-400">No detailed description provided.</p>
-              )}
-            </div>
+      {/* ── SUCCESS TOAST NOTIFICATION ────────────────────────────────────────── */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-between shadow-md animate-fadeIn">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={18} className="text-emerald-600" />
+            <span>{toastMessage.text}</span>
           </div>
-          
-          {/* Task Information Panel */}
-          <div className="bg-white dark:bg-[#111C24] rounded-[1.25rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111C24]/30">
-              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Task Information
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-y-8 gap-x-4">
-                {/* Task ID */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <Key size={13} /> Task ID
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{task.taskCode || "N/A"}</p>
-                </div>
-
-                {/* Assigned By */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <UserIcon size={13} /> Assigned By
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{task.assignedBy?.name || task.assignedBy?.firstName || "System"}</p>
-                </div>
-
-                {/* Department */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <Building2 size={13} /> Department
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{task.departmentId?.name || "N/A"}</p>
-                </div>
-
-                {/* Due Date */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <Clock size={13} /> Due Date
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatDate(task.dueDate)}</p>
-                </div>
-
-                {/* Start Date */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <Calendar size={13} /> Start Date
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatDate(task.startDate || task.createdAt)}</p>
-                </div>
-
-                {/* Next Follow Up */}
-                <div>
-                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
-                    <CalendarDays size={13} /> Next Follow-up
-                  </div>
-                  <p className="text-sm font-semibold text-slate-800 dark:text-slate-200">{formatDate(task.nextFollowUpDate)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Assigned Staff */}
-          <div className="bg-white dark:bg-[#111C24] rounded-[1.25rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111C24]/30">
-              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Assigned Staff
-              </h3>
-            </div>
-            <div className="p-6">
-              <div className="flex flex-wrap gap-4">
-                {(task.assignees || []).map((emp, idx) => (
-                  <div key={idx} className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs font-bold shadow-sm">
-                      {emp.firstName?.charAt(0)}{emp.lastName?.charAt(0)}
-                    </div>
-                    <div>
-                      <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                        {emp.firstName} {emp.lastName}
-                      </span>
-                      <span className="block text-[11px] font-medium text-slate-400">Assignee</span>
-                    </div>
-                  </div>
-                ))}
-                {(!task.assignees || task.assignees.length === 0) && (
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center text-xs font-bold shadow-sm">
-                      {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
-                    </div>
-                    <div>
-                      <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 leading-tight">
-                        {user?.firstName} {user?.lastName}
-                      </span>
-                      <span className="block text-[11px] font-medium text-slate-400">Assignee</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
+          <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-emerald-500/20 rounded-lg cursor-pointer">
+            <X size={14} />
+          </button>
         </div>
+      )}
 
-        {/* Right Column */}
-        <div className="space-y-6 flex flex-col">
-          
-          {/* Workflow Actions */}
-          <div className="bg-white dark:bg-[#111C24] rounded-[1.25rem] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111C24]/30">
-              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Action Center
-              </h3>
-            </div>
-            <div className="p-5 space-y-3">
-              {normalizedStatus === "pending" && (
-                <button 
-                  onClick={() => setShowStartProgressModal(true)}
-                  className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white py-2.5 px-4 rounded-lg text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
-                >
-                  <Play size={16} />
-                  Start Progress
-                </button>
-              )}
-              
-              {normalizedStatus === "in_process" && (
-                <>
-                  {!isTimerActive ? (
-                    <button 
-                      onClick={() => startTimerMutation.mutate()}
-                      className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-white py-2.5 px-4 rounded-lg text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
-                    >
-                      <Play size={16} />
-                      Start Timer
-                    </button>
-                  ) : (
-                    <button 
-                      onClick={() => stopTimerMutation.mutate()}
-                      className="w-full flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white py-2.5 px-4 rounded-lg text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
-                    >
-                      <Clock size={16} />
-                      Stop Timer
-                    </button>
-                  )}
-                  <button 
-                    onClick={() => handleStatusChange("complete")}
-                    className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white py-2.5 px-4 rounded-lg text-sm font-bold transition-all shadow-sm active:scale-[0.98]"
-                  >
-                    <CheckCircle2 size={16} />
-                    Mark as Complete
-                  </button>
-                </>
-              )}
+      {/* ── TOP NAVIGATION BAR ─────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between">
+        <button
+          onClick={() => navigate(-1)}
+          className="px-4 py-2 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
+        >
+          <ArrowLeft size={16} /> Back to My Tasks
+        </button>
 
-              {normalizedStatus === "complete" && (
-                <div className="flex items-center justify-center gap-2 py-3 px-4 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 border border-emerald-200/60 dark:border-emerald-500/20 rounded-lg font-bold text-sm">
-                  <CheckCircle2 size={16} /> Task Completed
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Activity Logs / Chat */}
-          <div className="bg-white dark:bg-[#111C24] rounded-[1.25rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col flex-1 h-[400px] overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#111C24]/30">
-              <h3 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                Activity & Notes
-              </h3>
-            </div>
-            
-            {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-5 bg-white dark:bg-[#111C24]/50">
-              {(!task.comments || task.comments.length === 0) ? (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3">
-                  <div className="w-12 h-12 bg-slate-50 dark:bg-[#111C24] rounded-full flex items-center justify-center">
-                    <MessageSquare size={20} className="text-slate-300 dark:text-slate-600" />
-                  </div>
-                  <p className="text-xs font-semibold text-slate-400">No notes or updates yet.</p>
-                </div>
-              ) : (
-                task.comments.map((comment, idx) => (
-                  <div key={idx} className="flex gap-3">
-                    <div className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center text-[10px] font-bold shrink-0 shadow-sm">
-                      {comment.senderName?.charAt(0) || "U"}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <span className="font-bold text-xs text-slate-800 dark:text-white">
-                          {comment.senderName || "User"}
-                        </span>
-                        <span className="text-[10px] font-medium text-slate-400">
-                          {formatTime(comment.createdAt)}
-                        </span>
-                      </div>
-                      <div className="text-[13px] text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-[#0C1520]/50 p-3 rounded-2xl rounded-tl-none border border-slate-100 dark:border-slate-800 shadow-sm">
-                        {comment.comment || comment.text}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-              <div ref={chatEndRef} />
-            </div>
-
-            {/* Input Area */}
-            <div className="p-3 border-t border-slate-100 dark:border-slate-800/80 bg-white dark:bg-[#111C24]">
-              <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-[#0C1520]/50 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 focus-within:border-slate-400 dark:focus-within:border-slate-500 focus-within:ring-2 focus-within:ring-slate-100 dark:focus-within:ring-slate-800 transition-all">
-                <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors shrink-0">
-                  <Paperclip size={16} />
-                </button>
-                <input 
-                  type="text" 
-                  value={commentText}
-                  onChange={(e) => setCommentText(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSendComment()}
-                  placeholder="Type a note..."
-                  className="flex-1 bg-transparent border-none px-2 text-[13px] text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0"
-                />
-                <button className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors shrink-0">
-                  <Mic size={16} />
-                </button>
-                <button 
-                  onClick={handleSendComment}
-                  disabled={!commentText.trim()}
-                  className="p-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-lg transition-colors shrink-0 disabled:opacity-50 disabled:bg-slate-200 disabled:text-slate-400 shadow-sm"
-                >
-                  <Send size={14} className={commentText.trim() ? "ml-0.5" : ""} />
-                </button>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-mono font-bold text-ca-text-secondary uppercase tracking-wider">
+            TASK ID:
+          </span>
+          <span className="px-2.5 py-1 bg-ca-surface border border-ca-border rounded-lg text-xs font-mono font-black text-ca-text shadow-2xs">
+            {formatTaskId(task)}
+          </span>
         </div>
       </div>
 
-      {/* Start Progress Modal */}
-      {showStartProgressModal && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-[#0C1520] rounded-2xl w-full max-w-md overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800 animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <h3 className="font-extrabold text-slate-800 dark:text-white text-sm uppercase tracking-wider">Start Progress (Mark In-Process)</h3>
-              <button onClick={() => setShowStartProgressModal(false)} className="p-1 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
-                <X size={18} />
+      {/* ── HERO BANNER (CLEAN & MODERN) ──────────────────────────────────────── */}
+      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-orange-500/30">
+
+        {/* Left Side: Icon & Title */}
+        <div className="flex items-start md:items-center gap-4.5 min-w-0">
+          <div className="w-13 h-13 rounded-2xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-2xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
+            <CheckSquare size={26} />
+          </div>
+
+          <div className="space-y-1.5 min-w-0">
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white truncate max-w-xl">
+                {task.title || task.name || "Task Details"}
+              </h1>
+
+              {/* Status Badge */}
+              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isCompleted ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40" :
+                isInProgress ? "bg-blue-500/30 text-blue-200 border border-blue-400/40" :
+                  isOverdue ? "bg-rose-500/30 text-rose-200 border border-rose-400/40" :
+                    "bg-amber-500/30 text-amber-200 border border-amber-400/40"
+                }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${isCompleted ? "bg-emerald-400" :
+                  isInProgress ? "bg-blue-400 animate-pulse" :
+                    isOverdue ? "bg-rose-400" : "bg-amber-400"
+                  }`} />
+                <span>{isOverdue && !isCompleted ? "OVERDUE" : normalizedSt.replace("_", " ")}</span>
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3 text-xs text-orange-200/80 font-medium">
+              <span>Priority:</span>
+              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${priorityTheme.bg}`}>
+                {priorityTheme.label}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Primary Workflow Action Button */}
+        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2.5">
+          {isPending && !isOverdue && (
+            <button
+              onClick={() => openActionModal("in_process")}
+              className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all cursor-pointer border border-blue-400/40 hover:scale-105 active:scale-95"
+            >
+              <Play size={15} className="fill-white" />
+              <span>Start Task (In Process)</span>
+            </button>
+          )}
+
+          {isInProgress && (
+            <div className="flex items-center gap-2.5 w-full md:w-auto">
+              <button
+                onClick={() => openActionModal("follow_up")}
+                className="flex-1 md:flex-none px-5 py-3 bg-teal-700 hover:bg-teal-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 transition-all cursor-pointer border border-teal-500/40 hover:scale-105 active:scale-95"
+              >
+                <CalendarDays size={15} />
+                <span>Next Follow-Up</span>
+              </button>
+
+              <button
+                onClick={() => openActionModal("complete")}
+                className="flex-1 md:flex-none px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-400/40 hover:scale-105 active:scale-95"
+              >
+                <CheckCircle2 size={15} />
+                <span>Mark Completed</span>
               </button>
             </div>
-            
-            <form 
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!nextFollowUpDate || !remark.trim()) {
-                  toast.error("Please fill in all required fields.");
-                  return;
-                }
-                updateStatusMutation.mutate({
-                  status: "in_process",
-                  nextFollowUpDate,
-                  remark,
-                  attachments
-                });
-              }}
-              className="p-5 space-y-5"
+          )}
+
+          {isOverdue && !isCompleted && (
+            <button
+              onClick={() => openActionModal("late_complete")}
+              className="w-full md:w-auto px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40 hover:scale-105 active:scale-95"
             >
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Next Follow-Up Date <span className="text-red-500">*</span></label>
-                <input 
-                  required
-                  type="date"
-                  value={nextFollowUpDate}
-                  onChange={e => setNextFollowUpDate(e.target.value)}
-                  min={new Date().toISOString().split("T")[0]}
-                  className="w-full bg-slate-50 dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-                />
+              <AlertCircle size={15} />
+              <span>Mark Late Complete</span>
+            </button>
+          )}
+
+          {isCompleted && (
+            <div className="px-5 py-2.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-2xl text-xs font-black flex items-center gap-2">
+              <CheckCircle size={16} />
+              <span>Task Completed &amp; Verified</span>
+            </div>
+          )}
+        </div>
+
+      </div>
+
+      {/* ── 2-COLUMN MAIN WORKSPACE ────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        {/* ── LEFT COLUMN (7 / 12 width): TASK DETAILS & DISCUSSION ───────────── */}
+        <div className="lg:col-span-7 space-y-6">
+
+          {/* Task Info Specification Card */}
+          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-5">
+            <div className="border-b border-ca-border pb-3 flex items-center justify-between">
+              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
+                <FileText size={18} className="text-orange-600" /> Task Specification &amp; Details
+              </h2>
+            </div>
+
+            {/* Description & Instructions Box */}
+            <div className="space-y-1.5">
+              <p className="text-[10px] font-black text-ca-text-secondary uppercase tracking-wider">
+                Description &amp; Instructions
+              </p>
+              <div className="p-4 bg-ca-bg rounded-2xl border border-ca-border text-xs text-ca-text font-medium leading-relaxed">
+                {task.description || "No specific detailed description provided for this task."}
+              </div>
+            </div>
+
+            {/* Date Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Start Date */}
+              <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-center space-y-1">
+                <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Start Date</p>
+                <p className="text-sm font-black text-ca-text font-mono">
+                  {task.startDate || task.startDateTime ? new Date(task.startDate || task.startDateTime).toLocaleDateString("en-GB") : "—"}
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider">Remarks / Progress <span className="text-red-500">*</span></label>
-                <textarea 
-                  required
-                  value={remark}
-                  onChange={e => setRemark(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 min-h-[100px] resize-none transition-all"
-                  placeholder="Describe the work started, current progress, or initial notes..."
-                />
+              {/* Due Date */}
+              <div className={`p-3.5 rounded-2xl border text-center space-y-1 ${isOverdueTime ? "bg-rose-50/70 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900 text-rose-700" : "bg-ca-bg border-ca-border"
+                }`}>
+                <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Due Date</p>
+                <p className="text-sm font-black font-mono">
+                  {task.dueDate || task.endDateTime || task.finishDate ? new Date(task.dueDate || task.endDateTime || task.finishDate).toLocaleDateString("en-GB") : "—"}
+                </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2 block">Attachments</label>
-                
-                {attachments.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {attachments.map((att, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 dark:bg-[#111C24] rounded-lg border border-slate-200 dark:border-slate-800">
-                        <span 
-                          onClick={() => setSelectedFileForPreview(att)}
-                          className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate mr-2 flex-1 cursor-pointer hover:text-amber-500 transition-colors"
-                        >
-                          {att.fileName || "Attachment"}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => setSelectedFileForPreview(att)}
-                            className="text-slate-400 hover:text-amber-500 p-1 rounded transition-colors cursor-pointer"
-                            title="Preview File"
-                          >
-                            <Eye size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => downloadAttachment(att)}
-                            className="text-slate-400 hover:text-amber-500 p-1 rounded transition-colors cursor-pointer"
-                            title="Download File"
-                          >
-                            <Download size={14} />
-                          </button>
-                          <button 
-                            type="button" 
-                            onClick={() => setAttachments(prev => prev.filter((_, i) => i !== idx))}
-                            className="text-rose-400 hover:text-rose-600 p-1 rounded transition-colors cursor-pointer"
-                            title="Remove Attachment"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
+              {/* Next Follow-Up Date */}
+              <div className="p-3.5 bg-teal-50/70 dark:bg-teal-950/20 rounded-2xl border border-teal-200 dark:border-teal-900 text-center space-y-1">
+                <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                  <Clock size={12} /> Next Follow-Up
+                </p>
+                <p className="text-sm font-black text-teal-900 dark:text-teal-200 font-mono">
+                  {task.nextFollowUpDate ? new Date(task.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Set"}
+                </p>
+              </div>
+            </div>
+
+            {/* Department */}
+            <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border flex items-center justify-between text-xs">
+              <span className="text-ca-text-secondary font-bold flex items-center gap-2">
+                <Building size={16} className="text-orange-600" /> Assigned Department:
+              </span>
+              <span className="font-black text-ca-text">
+                {task.departmentId?.name || task.departmentName || "General Team"}
+              </span>
+            </div>
+          </div>
+
+          {/* Task Attachments Card (If any) */}
+          {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
+              <div className="border-b border-ca-border pb-3">
+                <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
+                  <Paperclip size={18} className="text-orange-600" /> Attached Documents ({task.attachments.length})
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {task.attachments.map((att, idx) => {
+                  const fileName = safeDecode(att.fileName);
+                  const isImage = (att.fileType || "").startsWith("image/");
+                  return (
+                    <a
+                      key={idx}
+                      href={att.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 bg-ca-bg hover:bg-orange-50/50 border border-ca-border hover:border-orange-500 rounded-2xl transition-all group shadow-2xs"
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                        {isImage ? <ImageIcon size={20} /> : <FileText size={20} />}
                       </div>
-                    ))}
-                  </div>
-                )}
-                
-                <div className="flex items-center gap-3">
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    onChange={handleFileUpload} 
-                  />
-                  <button 
-                    type="button" 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading || isRecording}
-                    className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-[#111C24] hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
-                  >
-                    {isUploading && !isRecording ? <Loader2 size={14} className="animate-spin" /> : <Paperclip size={14} />} 
-                    Attach File
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={toggleRecording}
-                    disabled={isUploading && !isRecording}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-colors disabled:opacity-50 ${isRecording ? 'bg-red-100 text-red-600 hover:bg-red-200' : 'bg-slate-100 dark:bg-[#111C24] hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300'}`}
-                  >
-                    {isUploading && isRecording ? <Loader2 size={14} className="animate-spin" /> : (isRecording ? <Square size={14} /> : <Mic size={14} />)} 
-                    {isRecording ? "Stop Recording" : "Voice Note"}
-                  </button>
-                </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-ca-text truncate group-hover:text-orange-800 transition-colors">
+                          {fileName}
+                        </p>
+                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1 mt-0.5">
+                          <span>Open File</span>
+                          <ExternalLink size={10} />
+                        </p>
+                      </div>
+                    </a>
+                  );
+                })}
               </div>
+            </div>
+          )}
 
-              <div className="pt-4 mt-2 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowStartProgressModal(false)}
-                  className="px-5 py-2.5 rounded-xl font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-sm"
-                >
-                  Cancel
-                </button>
+          {/* Comments & Discussion Timeline */}
+          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
+            <div className="border-b border-ca-border pb-3 flex items-center justify-between">
+              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
+                <MessageSquare size={18} className="text-orange-600" /> Comments &amp; Discussion Timeline
+              </h2>
+              <span className="text-xs font-bold text-ca-text-secondary">
+                {task.comments?.length || 0} Comments
+              </span>
+            </div>
+
+            {Array.isArray(task.comments) && task.comments.length > 0 ? (
+              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+                {task.comments.map((c, idx) => (
+                  <div key={idx} className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-xs space-y-2">
+                    <div className="flex items-center justify-between text-[10px] font-black text-ca-text-secondary">
+                      <span>{c.senderName || "Team Member"} ({c.senderRole || "Member"})</span>
+                      <span className="font-mono">{new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}</span>
+                    </div>
+                    {c.comment && <p className="text-ca-text font-medium leading-relaxed">{c.comment}</p>}
+
+                    {Array.isArray(c.attachments) && c.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-2 pt-1 border-t border-ca-border/40">
+                        {c.attachments.map((att, aIdx) => (
+                          <a
+                            key={aIdx}
+                            href={att.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-ca-surface border border-ca-border hover:border-orange-500 rounded-lg text-[11px] font-bold text-orange-900 transition-colors"
+                          >
+                            <Paperclip size={12} className="text-orange-600" />
+                            <span className="max-w-[150px] truncate">{safeDecode(att.fileName)}</span>
+                            <ExternalLink size={10} />
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="py-6 text-center text-ca-text-secondary text-xs italic">
+                No discussion comments yet. Be the first to comment below!
+              </div>
+            )}
+
+            {/* Quick Comment Input */}
+            <form onSubmit={handleAddComment} className="pt-3 border-t border-ca-border space-y-2">
+              <textarea
+                rows={2}
+                value={standaloneComment}
+                onChange={(e) => setStandaloneComment(e.target.value)}
+                placeholder="Post a question or comment to the task thread..."
+                className="w-full p-3 rounded-2xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500 shadow-2xs"
+              />
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-bold text-ca-text-secondary hover:text-orange-600 cursor-pointer flex items-center gap-1.5">
+                  <Paperclip size={14} />
+                  <span>{standaloneFile ? standaloneFile.name : "Attach file"}</span>
+                  <input
+                    type="file"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files[0]) setStandaloneFile(e.target.files[0]);
+                    }}
+                  />
+                </label>
                 <button
                   type="submit"
-                  disabled={updateStatusMutation.isPending}
-                  className="px-5 py-2.5 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-colors text-sm disabled:opacity-50"
+                  disabled={isSubmittingComment || (!standaloneComment.trim() && !standaloneFile)}
+                  className="px-4.5 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
-                  {updateStatusMutation.isPending ? "Starting..." : "Start Task"}
+                  <Send size={13} />
+                  <span>{isSubmittingComment ? "Posting..." : "Post Comment"}</span>
                 </button>
               </div>
             </form>
           </div>
+
         </div>
-      )}
-      {selectedFileForPreview && (
-        <AttachmentViewerModal
-          file={selectedFileForPreview}
-          onClose={() => setSelectedFileForPreview(null)}
-        />
-      )}
+
+        {/* ── RIGHT COLUMN (5 / 12 width): WORKFLOW ACTIONS & STATUS ────────── */}
+        <div className="lg:col-span-5 space-y-6">
+
+          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-6">
+
+            {/* Panel Header */}
+            <div className="border-b border-ca-border pb-3">
+              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
+                <Send size={18} className="text-orange-600" /> Task Workflow &amp; Progress
+              </h2>
+              <p className="text-xs text-ca-text-secondary font-medium mt-0.5">
+                Current stage &amp; next follow-up milestone.
+              </p>
+            </div>
+
+            {/* ── CLEAN CONNECTED STEPPER (MOBILE PARITY) ── */}
+            <div className="bg-ca-bg rounded-2xl p-4 border border-ca-border">
+              <div className="flex items-center justify-between relative">
+
+                {/* Step 1: Pending */}
+                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${(isInProgress || isCompleted)
+                    ? "bg-emerald-600 text-white"
+                    : isPending
+                      ? "bg-amber-500 text-white ring-4 ring-amber-500/20"
+                      : "bg-ca-surface border border-ca-border text-ca-text-secondary"
+                    }`}>
+                    {(isInProgress || isCompleted) ? <Check size={16} strokeWidth={3} /> : <span>1</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isPending ? "text-amber-600 font-black" : (isInProgress || isCompleted) ? "text-emerald-700" : "text-ca-text-secondary"
+                    }`}>
+                    Pending
+                  </span>
+                </div>
+
+                {/* Connecting Line 1 */}
+                <div className="flex-1 h-0.5 -mx-3 bg-ca-border relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${(isInProgress || isCompleted) ? "bg-emerald-600 w-full" : "w-0"
+                    }`} />
+                </div>
+
+                {/* Step 2: In Progress */}
+                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
+                    ? "bg-emerald-600 text-white"
+                    : isInProgress
+                      ? "bg-blue-600 text-white ring-4 ring-blue-600/20"
+                      : "bg-ca-surface border border-ca-border text-ca-text-secondary"
+                    }`}>
+                    {isCompleted ? <Check size={16} strokeWidth={3} /> : <span>2</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-600 font-black" : isCompleted ? "text-emerald-700" : "text-ca-text-secondary"
+                    }`}>
+                    In Progress
+                  </span>
+                </div>
+
+                {/* Connecting Line 2 */}
+                <div className="flex-1 h-0.5 -mx-3 bg-ca-border relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-600 w-full" : "w-0"
+                    }`} />
+                </div>
+
+                {/* Step 3: Complete */}
+                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
+                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
+                    ? "bg-emerald-600 text-white ring-4 ring-emerald-600/20"
+                    : "bg-ca-surface border border-ca-border text-ca-text-secondary"
+                    }`}>
+                    {isCompleted ? <Check size={16} strokeWidth={3} /> : <span>3</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-600 font-black" : "text-ca-text-secondary"
+                    }`}>
+                    {normalizedSt === "late_complete" ? "Late Done" : "Complete"}
+                  </span>
+                </div>
+
+              </div>
+            </div>
+
+            {/* ── CONTEXTUAL ACTION BUTTONS (CLEAN POPUP TRIGGER) ── */}
+            <div className="space-y-3 pt-1">
+
+              {/* OVERDUE: LATE COMPLETE */}
+              {isOverdue && !isCompleted && (
+                <button
+                  type="button"
+                  onClick={() => openActionModal("late_complete")}
+                  className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-orange-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <AlertCircle size={17} />
+                  <span>Mark Late Complete</span>
+                </button>
+              )}
+
+              {/* PENDING: START TASK (IN PROCESS) */}
+              {!isOverdue && isPending && (
+                <button
+                  type="button"
+                  onClick={() => openActionModal("in_process")}
+                  className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Play size={17} className="fill-current" />
+                  <span>Start Task (In Process)</span>
+                </button>
+              )}
+
+              {/* IN PROGRESS: NEXT FOLLOW-UP & MARK COMPLETED */}
+              {isInProgress && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => openActionModal("follow_up")}
+                    className="py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <CalendarDays size={16} />
+                    <span>Next Follow-Up</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => openActionModal("complete")}
+                    className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 hover:scale-[1.01] active:scale-[0.99]"
+                  >
+                    <CheckCircle2 size={16} />
+                    <span>Mark Completed</span>
+                  </button>
+                </div>
+              )}
+
+              {/* COMPLETED BANNER */}
+              {isCompleted && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-center gap-2.5 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-2xs">
+                  <CheckCircle size={18} />
+                  <span>Task is Fully Completed &amp; Verified</span>
+                </div>
+              )}
+            </div>
+
+            {/* Helper Hint Box */}
+            <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-[11px] text-ca-text-secondary flex items-start gap-2.5">
+              <Clock size={15} className="mt-0.5 text-orange-600 shrink-0" />
+              <span className="leading-relaxed">
+                {isPending ? "Click 'Start Task (In Process)' to schedule follow-up date and start work." :
+                  isInProgress ? "Use 'Next Follow-Up' to update the review schedule or 'Mark Completed' when work is done." :
+                    isCompleted ? "This task has been closed and verified." :
+                      "This task is overdue. Please submit progress or mark late complete."}
+              </span>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
     </div>
   );
-};
-
-// Helper function
-const formatTime = (dateStr) => {
-  if (!dateStr) return "";
-  return new Date(dateStr).toLocaleTimeString("en-US", { hour: '2-digit', minute: '2-digit' });
-};
-
-export default EmployeeTaskDetails;
-
-
-
+}

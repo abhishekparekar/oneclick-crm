@@ -354,32 +354,30 @@ export default function MyTasksScreen({ route, navigation }) {
   const employee = employeeDashboard?.employee || {};
 
   const departmentsList = useMemo(() => {
-    const hasMultiple = employee.departmentIds?.length > 0 || employee.accessibleDepartments?.length > 0;
-    if (!employee.departmentId && !hasMultiple) {
-      return [];
-    }
     const list = [];
-    if (employee.departmentId) {
-      list.push({
-        _id: employee.departmentId._id || employee.departmentId,
-        name: employee.departmentId.name || "My Department"
-      });
+    if (employee?.departmentId) {
+      const dId = typeof employee.departmentId === "object" ? employee.departmentId?._id : employee.departmentId;
+      const dName = typeof employee.departmentId === "object" ? (employee.departmentId?.name || "My Department") : "My Department";
+      if (dId) {
+        list.push({ _id: dId, name: dName });
+      }
     }
     
     const addDepts = (deptArray) => {
-      if (deptArray && deptArray.length > 0) {
+      if (Array.isArray(deptArray) && deptArray.length > 0) {
         deptArray.forEach(d => {
-          const id = typeof d === "object" ? d._id : d;
-          const name = typeof d === "object" ? (d.name || "Accessible Dept") : "Accessible Dept";
-          if (id && !list.some(x => x._id.toString() === id.toString())) {
+          if (!d) return;
+          const id = typeof d === "object" ? d?._id : d;
+          const name = typeof d === "object" ? (d?.name || "Accessible Dept") : "Accessible Dept";
+          if (id && !list.some(x => String(x?._id) === String(id))) {
             list.push({ _id: id, name });
           }
         });
       }
     };
 
-    addDepts(employee.departmentIds);
-    addDepts(employee.accessibleDepartments);
+    addDepts(employee?.departmentIds);
+    addDepts(employee?.accessibleDepartments);
 
     return list;
   }, [employee]);

@@ -6,6 +6,7 @@ const {
   getStatuses, createStatus, updateStatus, deleteStatus,
   getSources, createSource,
   getTags, createTag, deleteTag,
+  getProducts, createProduct, deleteProduct,
   getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
@@ -59,6 +60,11 @@ router.delete("/statuses/:id", deleteStatus);
 // Sources
 router.get("/sources", getSources);
 router.post("/sources", createSource);
+
+// Products & Services
+router.get("/products", getProducts);
+router.post("/products", createProduct);
+router.delete("/products/:id", deleteProduct);
 
 // Tags
 router.get("/tags", getTags);

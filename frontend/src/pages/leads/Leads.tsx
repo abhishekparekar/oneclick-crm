@@ -14,8 +14,8 @@ import {
   Upload, Download, AlertCircle, Trash2, Share2, Copy, ExternalLink, Link as LinkIcon, Tag,
   ArrowUp, ArrowDown, UserCheck, Sparkles, Filter, SlidersHorizontal, RefreshCw, CheckCircle,
   Kanban, LayoutGrid, List, MessageSquare, Phone, Mail, MoreVertical, Layers, Calendar, ChevronUp, Clock, Globe,
-  Layers3, Flame, CheckSquare,
-  Zap
+  Layers3, Flame, CheckSquare, Package, FileText, User,
+  Zap, Eye
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -378,7 +378,7 @@ export default function Leads() {
 
   // Timeframe & View State
   const [activeTab, setActiveTab] = useState<'All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month'>('All Time');
-  const [viewMode, setViewMode] = useState<'cards' | 'kanban' | 'list'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'kanban' | 'list'>('list');
   const [showStatusCards, setShowStatusCards] = useState(false);
 
   const [search, setSearch] = useState('');
@@ -427,11 +427,19 @@ export default function Leads() {
   const [showQuickAddStatus, setShowQuickAddStatus] = useState(false);
   const [quickStatusName, setQuickStatusName] = useState('');
   const [quickStatusColor, setQuickStatusColor] = useState('#6366f1');
-  const [savingQuickStatus, setSavingQuickStatus] = useState(false);
-
   const [showQuickAddSource, setShowQuickAddSource] = useState(false);
   const [quickSourceName, setQuickSourceName] = useState('');
   const [savingQuickSource, setSavingQuickSource] = useState(false);
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [showQuickAddProduct, setShowQuickAddProduct] = useState(false);
+  const [showManageProductsModal, setShowManageProductsModal] = useState(false);
+  const [quickProductName, setQuickProductName] = useState('');
+  const [quickProductPrice, setQuickProductPrice] = useState('');
+  const [newProductDesc, setNewProductDesc] = useState('');
+  const [savingQuickProduct, setSavingQuickProduct] = useState(false);
+  const [isCustomProduct, setIsCustomProduct] = useState(false);
+  const [customProductText, setCustomProductText] = useState('');
 
   // Public Form Share states
   const [showShareModal, setShowShareModal] = useState(false);
@@ -616,6 +624,69 @@ export default function Leads() {
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      const res = await api.get('/api/products');
+      const list = Array.isArray(res) ? res : (res?.products || res?.data || []);
+      setProducts(list);
+    } catch (_) { }
+  };
+
+  const handleQuickCreateProduct = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickProductName.trim()) return;
+    setSavingQuickProduct(true);
+    try {
+      const res = await api.post('/api/products', {
+        name: quickProductName.trim(),
+        price: quickProductPrice ? Number(quickProductPrice) : 0,
+      });
+      await fetchProducts();
+      const createdName = res?.name || quickProductName.trim();
+      setNewLead(prev => ({ ...prev, productService: createdName }));
+      setQuickProductName('');
+      setQuickProductPrice('');
+      setShowQuickAddProduct(false);
+      success('Product/Service created and selected!');
+    } catch (err: any) {
+      error('Failed to create product', err.message);
+    } finally {
+      setSavingQuickProduct(false);
+    }
+  };
+
+  const handleCreateProductCatalog = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickProductName.trim()) return;
+    setSavingQuickProduct(true);
+    try {
+      await api.post('/api/products', {
+        name: quickProductName.trim(),
+        price: quickProductPrice ? Number(quickProductPrice) : 0,
+        description: newProductDesc.trim(),
+      });
+      await fetchProducts();
+      setQuickProductName('');
+      setQuickProductPrice('');
+      setNewProductDesc('');
+      success('Product/Service added to catalog!');
+    } catch (err: any) {
+      error('Failed to create product', err.message);
+    } finally {
+      setSavingQuickProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      await api.delete(`/api/products/${id}`);
+      await fetchProducts();
+      success('Product/Service removed from catalog');
+    } catch (err: any) {
+      error('Failed to delete product', err.message);
+    }
+  };
+
   const fetchTags = async () => {
     try {
       const res = await api.get('/api/tags');
@@ -706,7 +777,7 @@ export default function Leads() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchEmployees(); fetchStats(); }, []);
+  useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchProducts(); fetchEmployees(); fetchStats(); }, []);
   useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, activeTab]);
 
   // Checkbox helpers
@@ -1016,10 +1087,10 @@ export default function Leads() {
   const dateTabs: ('All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month')[] = ["All Time", "Today", "Yesterday", "This Week", "This Month"];
 
   return (
-    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pb-24 font-sans text-slate-900 dark:text-slate-100">
+    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pt-2 pb-24 font-sans text-slate-900 dark:text-slate-100">
       
       {/* ── Page Header (Matching Dashboard & Task Management Header Exactly) ────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 sm:pt-2">
         <div>
           <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
             Contacts & Leads Pipeline
@@ -1031,6 +1102,15 @@ export default function Leads() {
 
         <div className="flex flex-wrap items-center gap-2 relative z-30">
           <button 
+            type="button"
+            onClick={() => setShowManageProductsModal(true)} 
+            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+          >
+            <Package size={13} className="text-amber-500" /> Products & Services ({products.length})
+          </button>
+
+          <button 
+            type="button"
             onClick={() => { setImportStep(1); setShowImportModal(true); }} 
             className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
@@ -1038,6 +1118,7 @@ export default function Leads() {
           </button>
           
           <button 
+            type="button"
             onClick={() => setShowAddModal(true)} 
             className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
           >
@@ -1418,30 +1499,30 @@ export default function Leads() {
             </div>
           ) : (
             /* ── ENTERPRISE TABLE LIST VIEW ── */
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="overflow-x-auto custom-scrollbar">
+              <table className="w-full text-left border-collapse text-xs min-w-[1000px]">
                 <thead>
-                  <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
                     <th className="px-4 py-3 w-10">
                       <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded accent-amber-500 cursor-pointer" />
                     </th>
-                    <th className="px-4 py-3 font-semibold">Contact Name</th>
-                    <th className="px-4 py-3 font-semibold">WhatsApp Number</th>
-                    <th className="px-4 py-3 font-semibold">Assigned Rep</th>
-                    <th className="px-4 py-3 font-semibold">Pipeline Stage</th>
-                    <th className="px-4 py-3 font-semibold">Product Interest</th>
-                    <th className="px-4 py-3 font-semibold">Source</th>
-                    <th className="px-4 py-3 font-semibold">Date Added</th>
-                    <th className="px-4 py-3 font-semibold text-right">Action</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Contact Name</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">WhatsApp Number</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Assigned Rep</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Pipeline Stage</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Product Interest</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Source</th>
+                    <th className="px-4 py-3 font-bold whitespace-nowrap">Date Added</th>
+                    <th className="px-4 py-3 font-bold text-right whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                   {leads.map(lead => (
                     <tr 
                       key={lead.id} 
-                      onClick={() => setSelectedLeadId(lead.id)}
-                      className={`hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/80 ${
-                        checkedIds.has(lead.id) ? "bg-slate-50 dark:bg-slate-800/50" : ""
+                      onClick={() => setSelectedLeadId(lead.id)} 
+                      className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/80 ${
+                        checkedIds.has(lead.id) ? "bg-amber-500/5 dark:bg-amber-500/10" : ""
                       }`}
                     >
                       <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
@@ -1481,18 +1562,18 @@ export default function Leads() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+                      <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
                         {lead.whatsappPhone}
                       </td>
 
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-800">
                           <UserCheck size={11} className="text-indigo-500 shrink-0" />
-                          <span className="truncate max-w-[110px]">{lead.assignedTo?.name || "Unassigned"}</span>
+                          <span className="truncate max-w-[120px]">{lead.assignedTo?.name || "Unassigned"}</span>
                         </span>
                       </td>
 
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="inline-block">
                           <button
                             onClick={(e) => {
@@ -1521,27 +1602,27 @@ export default function Leads() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400">
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
                         {lead.productService || <span className="text-slate-300 dark:text-slate-600">—</span>}
                       </td>
 
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span className="inline-flex items-center text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
                           {lead.source}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 text-xs text-slate-400 font-medium">
-                        {new Date(lead.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                        {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "—"}
                       </td>
 
-                      <td className="px-4 py-3 text-right" onClick={e => e.stopPropagation()}>
+                      <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           <button 
                             onClick={() => setSelectedLeadId(lead.id)} 
-                            className="px-2.5 py-1 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer inline-flex items-center gap-1"
                           >
-                            Open
+                            <Eye size={12} /> Open
                           </button>
                           <button
                             onClick={() => handleDeleteOne(lead.id, lead.name)}
@@ -1593,117 +1674,305 @@ export default function Leads() {
         document.body
       )}
 
-      {/* Add Contact Modal */}
+      {/* ── ADD CONTACT MODAL (EXECUTIVE REDESIGN) ─────────────────────────── */}
       {showAddModal && createPortal(
-        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-lg overflow-hidden animate-slideUp">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
-                  <UserPlus size={16} />
+        <div className="fixed inset-0 z-50 bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0A0F18] rounded-3xl border border-slate-200 dark:border-slate-800/90 shadow-2xl w-full max-w-2xl overflow-hidden animate-scaleUp max-h-[92vh] flex flex-col text-xs">
+            {/* Modal Luxury Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-md">
+                  <UserPlus size={20} className="stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Add New Contact</h3>
-                  <p className="text-[11px] text-slate-400">Create a customer profile in lead database</p>
+                  <h3 className="text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
+                    Add New Contact / Lead
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Register customer profile, product requirement & assign sales rep
+                  </p>
                 </div>
               </div>
-              <button onClick={() => { setShowAddModal(false); setAddLeadError(null); }} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
-                <X size={18} />
+              <button 
+                type="button"
+                onClick={() => { setShowAddModal(false); setAddLeadError(null); }} 
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateLead} className="p-5 space-y-3.5 max-h-[80vh] overflow-y-auto">
+            <form onSubmit={handleCreateLead} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               {addLeadError && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center justify-between">
+                <div className="p-3 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs font-bold flex items-center justify-between">
                   <span>{addLeadError}</span>
-                  <button type="button" onClick={() => setAddLeadError(null)}><X size={14} /></button>
+                  <button type="button" onClick={() => setAddLeadError(null)} className="cursor-pointer"><X size={14} /></button>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Full Name *</label>
-                  <input type="text" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Enter Your Name" value={newLead.name} onChange={e => setNewLead({ ...newLead, name: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">WhatsApp Number *</label>
-                  <input type="tel" required className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Enter Your WhatsApp Number" value={newLead.whatsappPhone} onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })} />
-                </div>
-              </div>
+              {/* Section 1: Customer Contact Details */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <User size={13} className="text-amber-500" />
+                  Customer Contact Information
+                </p>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Secondary Phone</label>
-                  <input type="tel" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="Optional" value={newLead.phone} onChange={e => setNewLead({ ...newLead, phone: e.target.value })} />
-                </div>
-                <div>
-                  <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Email Address</label>
-                  <input type="email" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="email@example.com" value={newLead.email} onChange={e => setNewLead({ ...newLead, email: e.target.value })} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Pipeline Status</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowQuickAddStatus(true)}
-                      className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
-                    >
-                      <Plus size={11} strokeWidth={3} /> Add Status
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="text" 
+                        required 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30" 
+                        placeholder="e.g. Rameshwar Shinde" 
+                        value={newLead.name} 
+                        onChange={e => setNewLead({ ...newLead, name: e.target.value })} 
+                      />
+                    </div>
                   </div>
-                  <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" value={newLead.statusId} onChange={e => setNewLead({ ...newLead, statusId: e.target.value })}>
-                    {(Array.isArray(statuses) ? statuses : []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-[10px] font-black uppercase text-slate-400">Lead Source</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowQuickAddSource(true)}
-                      className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
-                    >
-                      <Plus size={11} strokeWidth={3} /> Add Source
-                    </button>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      WhatsApp Number <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="tel" 
+                        required 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono" 
+                        placeholder="e.g. 9689119006" 
+                        value={newLead.whatsappPhone} 
+                        onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })} 
+                      />
+                    </div>
                   </div>
-                  <select className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" value={newLead.source} onChange={e => setNewLead({ ...newLead, source: e.target.value })}>
-                    {(Array.isArray(sources) ? sources : []).map(src => <option key={src.name} value={src.name}>{src.name}</option>)}
-                  </select>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Secondary Phone (Optional)
+                    </label>
+                    <div className="relative">
+                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="tel" 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono" 
+                        placeholder="e.g. 9822001122" 
+                        value={newLead.phone} 
+                        onChange={e => setNewLead({ ...newLead, phone: e.target.value })} 
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Email Address (Optional)
+                    </label>
+                    <div className="relative">
+                      <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input 
+                        type="email" 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30" 
+                        placeholder="client@gmail.com" 
+                        value={newLead.email} 
+                        onChange={e => setNewLead({ ...newLead, email: e.target.value })} 
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Assign to Employee / Sales Rep */}
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Assign to Employee / Sales Rep</label>
-                <select 
-                  className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500"
-                  value={newLead.assignedTo}
-                  onChange={e => setNewLead({ ...newLead, assignedTo: e.target.value })}
+              {/* Section 2: Requirement & Product Interest */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Package size={13} className="text-amber-500" />
+                  Product Requirement & Lead Source
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Product / Service Required
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickAddProduct(true)}
+                        className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                      >
+                        <Plus size={11} strokeWidth={2.5} /> Add New
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Package size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                        value={isCustomProduct ? '__CUSTOM__' : newLead.productService}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === '__ADD_NEW__') {
+                            setShowQuickAddProduct(true);
+                          } else if (val === '__CUSTOM__') {
+                            setIsCustomProduct(true);
+                            setNewLead({ ...newLead, productService: customProductText });
+                          } else {
+                            setIsCustomProduct(false);
+                            setNewLead({ ...newLead, productService: val });
+                          }
+                        }}
+                      >
+                        <option value="">-- Select Product / Service --</option>
+                        {(Array.isArray(products) ? products : []).map(prod => (
+                          <option key={prod.id || prod._id} value={prod.name}>
+                            {prod.name} {prod.price ? `(₹${Number(prod.price).toLocaleString()})` : ''}
+                          </option>
+                        ))}
+                        <option value="__CUSTOM__" className="text-blue-600 font-bold">
+                          ✍️ Other / Custom Requirement (Type manually)...
+                        </option>
+                        <option value="__ADD_NEW__" className="text-amber-600 font-bold">
+                          + Add New to Catalog...
+                        </option>
+                      </select>
+                    </div>
+
+                    {isCustomProduct && (
+                      <div className="mt-2 animate-fadeIn">
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          placeholder="Type custom product or service requirement..."
+                          value={customProductText}
+                          onChange={e => {
+                            setCustomProductText(e.target.value);
+                            setNewLead({ ...newLead, productService: e.target.value });
+                          }}
+                          className="w-full px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-400 dark:border-amber-600 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none ring-1 ring-amber-500/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Lead Source
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickAddSource(true)}
+                        className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                      >
+                        <Plus size={11} strokeWidth={3} /> Add Source
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer" 
+                        value={newLead.source} 
+                        onChange={e => setNewLead({ ...newLead, source: e.target.value })}
+                      >
+                        {(Array.isArray(sources) ? sources : []).map(src => <option key={src.name} value={src.name}>{src.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Stage, Assign & Notes */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Layers size={13} className="text-amber-500" />
+                  Pipeline Stage & Assignment
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                        Pipeline Status
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowQuickAddStatus(true)}
+                        className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                      >
+                        <Plus size={11} strokeWidth={3} /> Add Status
+                      </button>
+                    </div>
+                    <div className="relative">
+                      <Layers size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer" 
+                        value={newLead.statusId} 
+                        onChange={e => setNewLead({ ...newLead, statusId: e.target.value })}
+                      >
+                        {(Array.isArray(statuses) ? statuses : []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Assign to Sales Rep / Employee
+                    </label>
+                    <div className="relative">
+                      <Users size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select 
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                        value={newLead.assignedTo}
+                        onChange={e => setNewLead({ ...newLead, assignedTo: e.target.value })}
+                      >
+                        <option value="">-- Leave Unassigned (Or Auto) --</option>
+                        {employees.map(emp => (
+                          <option key={emp.id || emp._id} value={emp.id || emp._id}>
+                            {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Initial Inquiry Notes (Optional)
+                  </label>
+                  <div className="relative">
+                    <FileText size={13} className="absolute left-3 top-2.5 text-slate-400" />
+                    <textarea
+                      rows={2}
+                      value={newLead.notes}
+                      onChange={e => setNewLead({ ...newLead, notes: e.target.value })}
+                      placeholder="Enter client background, specific expectations or requirement notes..."
+                      className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button 
+                  type="button" 
+                  onClick={() => { setShowAddModal(false); setAddLeadError(null); }} 
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
-                  <option value="">-- Leave Unassigned (Or Auto) --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                      {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">Product / Service Interest</label>
-                <input type="text" className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500" placeholder="e.g. Enterprise License" value={newLead.productService} onChange={e => setNewLead({ ...newLead, productService: e.target.value })} />
-              </div>
-
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => { setShowAddModal(false); setAddLeadError(null); }} className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer">
                   Cancel
                 </button>
-                <button type="submit" disabled={savingLead} className="flex-1 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md flex items-center justify-center gap-1.5 cursor-pointer">
-                  {savingLead ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
-                  {savingLead ? 'Saving...' : 'Add Contact'}
+                <button 
+                  type="submit" 
+                  disabled={savingLead} 
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                >
+                  {savingLead ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                  <span>{savingLead ? 'Saving...' : 'Save & Add Contact'}</span>
                 </button>
               </div>
             </form>
@@ -1931,6 +2200,244 @@ export default function Leads() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Quick Add Product Modal */}
+      {showQuickAddProduct && createPortal(
+        <div className="fixed inset-0 z-[60] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden animate-slideUp">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
+                <Tag size={16} className="text-amber-500" /> Add Product / Service
+              </h3>
+              <button onClick={() => setShowQuickAddProduct(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
+                <X size={16} />
+              </button>
+            </div>
+            <form onSubmit={handleQuickCreateProduct} className="p-5 space-y-4">
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Product / Service Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Mobile App, ERP Solution"
+                  className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                  value={quickProductName}
+                  onChange={e => setQuickProductName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black uppercase text-slate-400 block mb-1.5">Default Price / Value (₹) (Optional)</label>
+                <input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  className="w-full px-3.5 py-2 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 focus:outline-none focus:border-amber-500 shadow-2xs"
+                  value={quickProductPrice}
+                  onChange={e => setQuickProductPrice(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickAddProduct(false)}
+                  className="flex-1 py-2 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingQuickProduct || !quickProductName.trim()}
+                  className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-sm flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {savingQuickProduct ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} strokeWidth={2.5} />}
+                  <span>{savingQuickProduct ? 'Saving...' : 'Create Product'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── MANAGE PRODUCTS & SERVICES CATALOG MODAL (ULTRA-PROFESSIONAL REDESIGN) ── */}
+      {showManageProductsModal && createPortal(
+        <div className="fixed inset-0 z-[60] bg-black/65 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
+          <div className="bg-white dark:bg-[#0A0F18] rounded-3xl border border-slate-200 dark:border-slate-800/90 shadow-2xl w-full max-w-xl overflow-hidden animate-scaleUp max-h-[92vh] flex flex-col text-xs">
+            {/* Executive Header Banner */}
+            <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-md">
+                  <Package size={20} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
+                    Products & Services Catalog
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Configure company catalog, valuations & dynamic lead offerings
+                  </p>
+                </div>
+              </div>
+              <button 
+                type="button"
+                onClick={() => setShowManageProductsModal(false)} 
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
+              {/* Add New Product Card */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10.5px] font-black uppercase text-amber-600 dark:text-amber-400 tracking-wider flex items-center gap-1.5">
+                    <Plus size={13} strokeWidth={3} /> Add Product or Service
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium">Real-time sync to all lead forms</span>
+                </div>
+
+                <form onSubmit={handleCreateProductCatalog} className="space-y-2.5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Product / Service Name <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Package size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. ERP Automation Solution"
+                          className="w-full pl-8 pr-3 py-2 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white bg-white dark:bg-[#080D14] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                          value={quickProductName}
+                          onChange={e => setQuickProductName(e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Default Valuation / Price (₹)
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₹</span>
+                        <input
+                          type="number"
+                          placeholder="e.g. 50000"
+                          className="w-full pl-7 pr-3 py-2 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white bg-white dark:bg-[#080D14] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                          value={quickProductPrice}
+                          onChange={e => setQuickProductPrice(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                      Deliverables / Short Description (Optional)
+                    </label>
+                    <div className="relative">
+                      <FileText size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="e.g. Custom corporate portal with WhatsApp automated workflow"
+                        className="w-full pl-8 pr-3 py-2 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white bg-white dark:bg-[#080D14] focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                        value={newProductDesc}
+                        onChange={e => setNewProductDesc(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="submit"
+                      disabled={savingQuickProduct || !quickProductName.trim()}
+                      className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md shadow-amber-600/20 flex items-center gap-1.5 cursor-pointer disabled:opacity-50 transition-all"
+                    >
+                      {savingQuickProduct ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} strokeWidth={2.5} />}
+                      <span>{savingQuickProduct ? 'Adding...' : 'Save to Catalog'}</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+
+              {/* Active Products Catalog List */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 px-1">
+                  <span className="uppercase tracking-wider text-[10px] text-slate-400 font-extrabold">
+                    Active Catalog Items ({products.length})
+                  </span>
+                  <span className="text-[10px] text-emerald-600 font-bold">● Available Live</span>
+                </div>
+
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
+                  {products.length > 0 ? (
+                    products.map((prod) => (
+                      <div
+                        key={prod.id || prod._id}
+                        className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-50/70 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/80 hover:border-amber-500/40 hover:bg-slate-50 dark:hover:bg-[#111927] transition-all text-xs group"
+                      >
+                        <div className="min-w-0 pr-3">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-slate-900 dark:text-white text-xs truncate">
+                              {prod.name}
+                            </span>
+                            {prod.price ? (
+                              <span className="px-2.5 py-0.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-mono font-extrabold text-[11px] border border-emerald-200/80 dark:border-emerald-800 shrink-0">
+                                ₹{Number(prod.price).toLocaleString()}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 font-mono italic">Custom Quote</span>
+                            )}
+                          </div>
+                          {prod.description && (
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5">
+                              {prod.description}
+                            </p>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(prod.id || prod._id)}
+                          className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-all cursor-pointer shrink-0 border border-transparent hover:border-rose-200 dark:hover:border-rose-800/60"
+                          title="Delete from catalog"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="p-8 text-center text-xs text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl space-y-1">
+                      <Package size={24} className="mx-auto text-slate-300 dark:text-slate-600 mb-1" />
+                      <p className="font-bold">No products or services in catalog yet.</p>
+                      <p className="text-[11px] text-slate-400">Add your first offering above to enable dynamic selection.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-3.5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/50 dark:bg-[#070B12] flex items-center justify-between shrink-0">
+              <span className="text-[10.5px] text-slate-400 font-medium">
+                Changes take effect across all employee & HR forms instantly
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowManageProductsModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white rounded-xl text-xs font-extrabold cursor-pointer transition-colors shadow-xs"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>,
         document.body

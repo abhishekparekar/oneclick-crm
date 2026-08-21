@@ -3,6 +3,7 @@ const Lead = require("../models/Lead");
 const LeadStatus = require("../models/LeadStatus");
 const LeadSource = require("../models/LeadSource");
 const LeadTag = require("../models/LeadTag");
+const LeadProduct = require("../models/LeadProduct");
 const LeadTemplate = require("../models/LeadTemplate");
 const LeadCampaign = require("../models/LeadCampaign");
 const WhatsappSetting = require("../models/WhatsappSetting");
@@ -108,6 +109,79 @@ const seedDefaultsForCompany = async (companyId) => {
     await LeadSource.insertMany(
       defaultSources.map((name) => ({ name, companyId }))
     );
+  }
+
+  const productCount = await LeadProduct.countDocuments();
+  if (productCount === 0) {
+    const defaultProducts = [
+      { name: "Website Development", description: "Custom Corporate & Ecommerce Web Development", price: 25000 },
+      { name: "HRMS & Payroll System", description: "Automated Staff, Attendance & Payroll Management", price: 45000 },
+      { name: "CRM & WhatsApp Marketing", description: "Lead Management & Automated Meta Cloud WhatsApp Integration", price: 30000 },
+      { name: "Mobile App Development", description: "Android & iOS Native/Cross-platform Apps", price: 50000 },
+      { name: "Digital Marketing & SEO", description: "Search Engine & Social Media Performance Marketing", price: 15000 },
+      { name: "Cloud & ERP Solutions", description: "Custom Business ERP & Cloud Infrastructure", price: 60000 },
+    ];
+    await LeadProduct.insertMany(
+      defaultProducts.map((p) => ({ ...p, companyId }))
+    );
+  }
+};
+
+// ── PRODUCTS & SERVICES ──
+const getProducts = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    await seedDefaultsForCompany(companyId);
+
+    const query = buildCompanyQuery(req, { isActive: { $ne: false } });
+    const products = await LeadProduct.find(query).sort({ name: 1 });
+    const formatted = products.map((p) => ({
+      id: p._id.toString(),
+      _id: p._id.toString(),
+      name: p.name,
+      description: p.description || "",
+      price: p.price || 0,
+      isActive: p.isActive,
+    }));
+    return res.json(formatted);
+  } catch (err) {
+    return res.status(500).json({ message: err.message, data: [] });
+  }
+};
+
+const createProduct = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const { name, description, price } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Product/Service name is required" });
+    }
+    const product = await LeadProduct.create({
+      companyId,
+      name: name.trim(),
+      description: description || "",
+      price: price ? Number(price) : 0,
+    });
+    return res.status(201).json({
+      id: product._id.toString(),
+      _id: product._id.toString(),
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      isActive: product.isActive,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+const deleteProduct = async (req, res) => {
+  try {
+    const { id } = req.params;
+    await LeadProduct.findByIdAndDelete(id);
+    return res.json({ message: "Product/Service deleted" });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
   }
 };
 
@@ -2499,6 +2573,7 @@ module.exports = {
   getStatuses, createStatus, updateStatus, deleteStatus,
   getSources, createSource,
   getTags, createTag, deleteTag,
+  getProducts, createProduct, deleteProduct,
   getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,

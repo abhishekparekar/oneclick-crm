@@ -7,12 +7,18 @@ export const getEmployeeActivitiesApi = (params = {}) => api.get("/employee/acti
 
 // ── Employee Tasks ──────────────────────────────────────────────────────
 export const getEmployeeTasksApi = (params = {}) => api.get("/employee/tasks", { params });
+export const getMyTasksApi = getEmployeeTasksApi;
+export const getTasksApi = getEmployeeTasksApi;
 export const createEmployeeTaskApi = (data) => api.post("/employee/tasks", data);
 export const getEmployeeTaskDetailsApi = (id) => api.get(`/employee/tasks/${id}`);
+export const getTaskDetailsApi = getEmployeeTaskDetailsApi;
 export const updateEmployeeTaskStatusApi = (id, status, extraData = {}) =>
   api.patch(`/employee/tasks/${id}/status`, { status, ...extraData });
-export const addEmployeeTaskCommentApi = (id, text) =>
-  api.post(`/employee/tasks/${id}/comments`, { comment: text });
+export const updateTaskStatusApi = updateEmployeeTaskStatusApi;
+export const submitTaskProgressApi = (id, data = {}) =>
+  api.post(`/employee/tasks/${id}/comments`, { comment: data.comment, attachments: data.attachments, nextFollowUpDate: data.nextFollowUpDate });
+export const addEmployeeTaskCommentApi = (id, text, attachments = []) =>
+  api.post(`/employee/tasks/${id}/comments`, { comment: text, attachments });
 export const updateEmployeeTaskChecklistApi = (id, checklist) =>
   api.post(`/employee/tasks/${id}/checklist`, { checklist });
 export const startEmployeeTaskTimerApi = (id) => api.post(`/employee/tasks/${id}/time/start`, {});

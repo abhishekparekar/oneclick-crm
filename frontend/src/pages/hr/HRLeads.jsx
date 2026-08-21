@@ -8,7 +8,7 @@ import {
   Calendar, Building2, Tag, DollarSign, Filter, RefreshCw,
   ChevronRight, CheckCircle2, AlertCircle, LayoutGrid, List,
   Clock, X, ArrowUpDown, UserPlus, Sparkles, Users, Mail,
-  User, Briefcase, FileText, Globe, Check
+  User, Briefcase, FileText, Globe, Check, Eye
 } from "lucide-react";
 
 export default function HRLeads() {
@@ -17,7 +17,7 @@ export default function HRLeads() {
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
-  const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'list'
+  const [viewMode, setViewMode] = useState("list"); // 'cards' | 'list'
   const [showAddModal, setShowAddModal] = useState(false);
   const [savingLead, setSavingLead] = useState(false);
   const [statusMenuLeadId, setStatusMenuLeadId] = useState(null);
@@ -25,6 +25,8 @@ export default function HRLeads() {
   // Multi-select & Bulk Assign states
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [bulkAssignEmpId, setBulkAssignEmpId] = useState("");
+  const [isCustomProduct, setIsCustomProduct] = useState(false);
+  const [customProductText, setCustomProductText] = useState("");
 
   const [form, setForm] = useState({
     name: "",
@@ -86,6 +88,21 @@ export default function HRLeads() {
     },
     staleTime: 60000,
   });
+
+  // Fetch Products & Services
+  const { data: productsData } = useQuery({
+    queryKey: ["leadsEngineProducts"],
+    queryFn: async () => {
+      try {
+        const res = await api.get("/leads-engine/products");
+        return res?.data?.data || res?.data || [];
+      } catch (_) {
+        return [];
+      }
+    },
+    staleTime: 60000,
+  });
+  const productsList = Array.isArray(productsData) ? productsData : [];
 
   const leadsList = Array.isArray(leadsData) ? leadsData : [];
   const statuses = (Array.isArray(statusesData) ? statusesData : []).filter(
@@ -422,35 +439,80 @@ export default function HRLeads() {
           })}
         </div>
       ) : (
-        <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs">
+        <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
+          <div className="overflow-x-auto custom-scrollbar">
+            <table className="w-full text-left border-collapse text-xs min-w-[950px]">
               <thead>
-                <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400 bg-slate-50/50">
-                  <th className="py-2.5 px-3 w-10">
+                <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-3 px-4 w-10">
                     <input type="checkbox" checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0} onChange={toggleSelectAll} className="rounded accent-amber-500 cursor-pointer" />
                   </th>
-                  <th className="py-2.5 px-3">Candidate / Lead Name</th>
-                  <th className="py-2.5 px-3">Phone</th>
-                  <th className="py-2.5 px-3">Company</th>
-                  <th className="py-2.5 px-3">Assigned Rep</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Value</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Candidate / Lead Name</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Phone / WhatsApp</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Company / Product</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Assigned Rep</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Status</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap">Est. Value</th>
+                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {filteredLeads.map((lead) => {
                   const leadId = lead.id || lead._id;
                   const isSelected = selectedLeadIds.includes(leadId);
+                  const rawPhone = lead.whatsappPhone || lead.phone || "";
                   return (
-                    <tr key={leadId} className={`hover:bg-slate-50/60 transition-colors ${isSelected ? "bg-amber-50/30" : ""}`}>
-                      <td className="py-2.5 px-3"><input type="checkbox" checked={isSelected} onChange={() => toggleSelectLead(leadId)} className="rounded accent-amber-500 cursor-pointer" /></td>
-                      <td className="py-2.5 px-3 font-bold text-slate-800">{lead.name}</td>
-                      <td className="py-2.5 px-3 text-slate-500 font-mono">{lead.whatsappPhone || lead.phone || "--"}</td>
-                      <td className="py-2.5 px-3">{lead.company || "--"}</td>
-                      <td className="py-2.5 px-3 font-bold text-indigo-700">{lead.assignedTo?.name || "Unassigned"}</td>
-                      <td className="py-2.5 px-3 text-[10px] font-bold">{lead.status?.name || "New"}</td>
-                      <td className="py-2.5 px-3 text-emerald-600 font-bold">{lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString("en-IN")}` : "--"}</td>
+                    <tr key={leadId} className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer ${isSelected ? "bg-amber-500/10" : ""}`}>
+                      <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
+                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectLead(leadId)} className="rounded accent-amber-500 cursor-pointer" />
+                      </td>
+                      <td className="py-3 px-4">
+                        <p className="font-extrabold text-slate-900 dark:text-white text-xs">{lead.name}</p>
+                        {lead.email && <p className="text-[10px] text-slate-400">{lead.email}</p>}
+                      </td>
+                      <td className="py-3 px-4 text-slate-700 dark:text-slate-300 font-mono font-bold whitespace-nowrap">
+                        {rawPhone || "—"}
+                      </td>
+                      <td className="py-3 px-4 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                        {lead.company || lead.productService || "—"}
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200/60">
+                          <Users size={11} className="text-indigo-500" />
+                          <span>{lead.assignedTo?.name || "Unassigned"}</span>
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold border bg-amber-500/10 text-amber-600 border-amber-500/20">
+                          {lead.status?.name || "New"}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-emerald-600 dark:text-emerald-400 font-bold whitespace-nowrap font-mono">
+                        {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString("en-IN")}` : "—"}
+                      </td>
+                      <td className="py-3 px-4 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {rawPhone && (
+                            <a
+                              href={`https://wa.me/${rawPhone.replace(/[^0-9]/g, "")}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 transition-colors inline-block"
+                              title="Open WhatsApp"
+                            >
+                              <Phone size={12} />
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => deleteMutation.mutate(leadId)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Lead"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   );
                 })}
@@ -488,202 +550,277 @@ export default function HRLeads() {
         </div>
       )}
 
+      {/* ── ADD CANDIDATE / LEAD MODAL (EXECUTIVE REDESIGN) ──────────────────── */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs font-sans animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden animate-scaleUp">
-            
-            {/* ── Modal Header Bar ─────────────────────────────────────── */}
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/60 dark:bg-slate-900/50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md font-sans animate-fadeIn">
+          <div className="bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-800/90 rounded-3xl shadow-2xl max-w-2xl w-full overflow-hidden animate-scaleUp max-h-[92vh] flex flex-col text-xs">
+            {/* Modal Luxury Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 text-slate-950 flex items-center justify-center font-black shadow-2xs">
-                  <UserPlus size={18} strokeWidth={2.4} />
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-md">
+                  <UserPlus size={20} className="stroke-[2.5]" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                  <h3 className="text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
                     Add New Candidate / Lead
                   </h3>
-                  <p className="text-[11px] text-slate-400 font-medium">
-                    Register and assign candidate lead in pipeline
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Register and assign candidate lead in HR pipeline
                   </p>
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowAddModal(false)}
-                className="w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 flex items-center justify-center transition-all cursor-pointer"
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
-                <X size={15} />
+                <X size={16} />
               </button>
             </div>
 
-            {/* ── Modal Form Body ──────────────────────────────────────── */}
-            <form onSubmit={handleSaveLead} className="p-5 space-y-3.5 max-h-[80vh] overflow-y-auto">
+            {/* Modal Form Body */}
+            <form onSubmit={handleSaveLead} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
               
-              {/* Row 1: Name & Phone */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    Candidate / Name <span className="text-rose-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Enter candidate full name"
-                      required
-                      value={form.name}
-                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
+              {/* Section 1: Candidate & Contact Details */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <User size={13} className="text-amber-500" />
+                  Candidate & Contact Details
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Candidate Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="e.g. Rameshwar Shinde"
+                        required
+                        value={form.name}
+                        onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      WhatsApp / Phone <span className="text-rose-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="tel"
+                        placeholder="e.g. 9689119006"
+                        required
+                        value={form.phone}
+                        onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Email Address (Optional)
+                    </label>
+                    <div className="relative">
+                      <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="email"
+                        placeholder="candidate@gmail.com"
+                        value={form.email}
+                        onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Company / College / Institute
+                    </label>
+                    <div className="relative">
+                      <Building2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        placeholder="e.g. Pune University / Tech Corp"
+                        value={form.company}
+                        onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2: Requirement & Valuation */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Tag size={13} className="text-amber-500" />
+                  Course / Service Requirement & Valuation
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Product / Course Required
+                    </label>
+                    <div className="relative">
+                      <Tag size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={isCustomProduct ? "__CUSTOM__" : form.productService}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__CUSTOM__") {
+                            setIsCustomProduct(true);
+                            setForm((p) => ({ ...p, productService: customProductText }));
+                          } else {
+                            setIsCustomProduct(false);
+                            const chosen = productsList.find(p => p.name === val);
+                            setForm((p) => ({
+                              ...p,
+                              productService: val,
+                              estimatedValue: chosen?.price ? String(chosen.price) : p.estimatedValue,
+                            }));
+                          }
+                        }}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                      >
+                        <option value="">-- Select Product / Service --</option>
+                        {productsList.map((prod) => (
+                          <option key={prod._id || prod.id} value={prod.name}>
+                            {prod.name} {prod.price ? `(₹${Number(prod.price).toLocaleString()})` : ""}
+                          </option>
+                        ))}
+                        <option value="__CUSTOM__" className="text-blue-600 font-bold">
+                          ✍️ Other / Custom Requirement (Type manually)...
+                        </option>
+                      </select>
+                    </div>
+
+                    {isCustomProduct && (
+                      <div className="mt-2 animate-fadeIn">
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          placeholder="Type custom product or service requirement..."
+                          value={customProductText}
+                          onChange={(e) => {
+                            setCustomProductText(e.target.value);
+                            setForm((p) => ({ ...p, productService: e.target.value }));
+                          }}
+                          className="w-full px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-400 dark:border-amber-600 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none ring-1 ring-amber-500/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Expected Deal Value / CTC (₹)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₹</span>
+                      <input
+                        type="number"
+                        placeholder="e.g. 50000"
+                        value={form.estimatedValue}
+                        onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
+                        className="w-full pl-7 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 3: Recruiter Assignment, Source & Notes */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Users size={13} className="text-amber-500" />
+                  Assignment, Source & Initial Notes
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Assign to Recruiter / Staff
+                    </label>
+                    <div className="relative">
+                      <Users size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={form.assignedTo}
+                        onChange={(e) => setForm((p) => ({ ...p, assignedTo: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                      >
+                        <option value="">-- Leave Unassigned (HR Pool) --</option>
+                        {employees.map((emp) => (
+                          <option key={emp.id || emp._id} value={emp.id || emp._id}>
+                            {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Lead Source
+                    </label>
+                    <div className="relative">
+                      <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <select
+                        value={form.source}
+                        onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                      >
+                        <option value="Walk-in">Walk-in / Office</option>
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="Job Portal">Job Portal (Naukri/Indeed)</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="Referral">Employee Referral</option>
+                        <option value="Website">Website Form</option>
+                        <option value="Campus">Campus Drive</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
 
                 <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    WhatsApp / Phone <span className="text-rose-500">*</span>
+                  <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Initial Notes / Key Requirements
                   </label>
                   <div className="relative">
-                    <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="tel"
-                      placeholder="Enter mobile / WhatsApp phone number"
-                      required
-                      value={form.phone}
-                      onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
+                    <FileText size={13} className="absolute left-3 top-3 text-slate-400" />
+                    <textarea
+                      rows={2}
+                      placeholder="Enter candidate profile summary, skills, or key requirements..."
+                      value={form.notes}
+                      onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
+                      className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 resize-none"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Row 2: Email & Company */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="email"
-                      placeholder="Enter email address (optional)"
-                      value={form.email}
-                      onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    Company / College
-                  </label>
-                  <div className="relative">
-                    <Building2 size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Enter company, institute or college name"
-                      value={form.company}
-                      onChange={(e) => setForm((p) => ({ ...p, company: e.target.value }))}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 3: Deal Value & Lead Source */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    Deal Value / Expected CTC (₹)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-xs">₹</span>
-                    <input
-                      type="number"
-                      placeholder="Enter deal value or expected CTC"
-                      value={form.estimatedValue}
-                      onChange={(e) => setForm((p) => ({ ...p, estimatedValue: e.target.value }))}
-                      className="w-full pl-7 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                    Lead Source
-                  </label>
-                  <div className="relative">
-                    <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <select
-                      value={form.source}
-                      onChange={(e) => setForm((p) => ({ ...p, source: e.target.value }))}
-                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-                    >
-                      <option value="Walk-in">Walk-in / Office</option>
-                      <option value="LinkedIn">LinkedIn</option>
-                      <option value="Job Portal">Job Portal (Naukri/Indeed)</option>
-                      <option value="WhatsApp">WhatsApp</option>
-                      <option value="Referral">Employee Referral</option>
-                      <option value="Website">Website Form</option>
-                      <option value="Campus">Campus Drive</option>
-                      <option value="Other">Other</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Row 4: Assign to Team Member */}
-              <div>
-                <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  Assign to Recruiter / Staff
-                </label>
-                <div className="relative">
-                  <Users size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <select
-                    value={form.assignedTo}
-                    onChange={(e) => setForm((p) => ({ ...p, assignedTo: e.target.value }))}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer"
-                  >
-                    <option value="">-- Leave Unassigned (HR Pool) --</option>
-                    {employees.map((emp) => (
-                      <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                        {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Row 5: Notes */}
-              <div>
-                <label className="text-[10.5px] font-extrabold text-slate-600 dark:text-slate-400 uppercase tracking-wider block mb-1">
-                  Initial Notes / Key Requirements
-                </label>
-                <div className="relative">
-                  <FileText size={13} className="absolute left-3 top-3 text-slate-400" />
-                  <textarea
-                    rows={2}
-                    placeholder="Enter candidate profile summary, skills, or key requirements..."
-                    value={form.notes}
-                    onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
-                    className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-amber-500 resize-none"
-                  />
-                </div>
-              </div>
-
-              {/* ── Footer Actions ─────────────────────────────────────── */}
-              <div className="flex items-center gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
+              {/* Footer Actions */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={savingLead}
-                  className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
                 >
                   {savingLead ? (
                     <>
@@ -692,13 +829,12 @@ export default function HRLeads() {
                     </>
                   ) : (
                     <>
-                      <Check size={14} strokeWidth={2.5} />
-                      <span>Save &amp; Add Lead</span>
+                      <Sparkles size={14} />
+                      <span>Save & Add Candidate</span>
                     </>
                   )}
                 </button>
               </div>
-
             </form>
           </div>
         </div>

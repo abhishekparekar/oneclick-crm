@@ -182,7 +182,7 @@ const adminHr = [requireCompany, authorize("CompanyAdmin", "HR")];
 const adminHrManager = [requireCompany, authorize("CompanyAdmin", "HR", "Manager")];
 const readOrgStructure = [
     requireCompany,
-    authorize("CompanyAdmin", "HR", "Manager"),
+    authorize("CompanyAdmin", "HR", "Manager", "Employee"),
 ];
 const anyRole = [
     requireCompany,

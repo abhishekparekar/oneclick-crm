@@ -1,15 +1,34 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getManagerTeamTasksApi, getManagerTeamApi, getManagerDashboardApi } from "../../api/managerApi";
+import { getDepartmentsApi, getEmployeesApi } from "../../api/companyAdminApi";
 import {
   Search, Plus, CheckCircle2, Clock, AlertCircle,
   ChevronRight, X, Download, Tag, User, Users, RefreshCw,
   CalendarClock, LayoutGrid, List, Kanban, ArrowUp, ArrowDown,
   CheckSquare, Sparkles, AlertTriangle, ChevronDown, Calendar,
-  FolderKanban, Check, Filter,
+  FolderKanban, Check, Filter, Building2, Eye, Paperclip, Repeat
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
+
+const getTaskFormattedDueDate = (t) => {
+  const raw = t.dueDate || t.endDate || t.endDateTime || t.finishDate || t.startDate;
+  if (!raw) return { text: "No Due Date", isOverdue: false };
+  const d = new Date(raw);
+  if (isNaN(d.getTime())) return { text: "No Due Date", isOverdue: false };
+  const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const isOverdue = !["complete", "completed", "done", "late_complete", "re_complete", "cancelled"].includes((t.status || "").toLowerCase()) && d < new Date();
+  return { text: formatted, isOverdue };
+};
+
+const getTaskDeptName = (t) => {
+  if (t.departmentId?.name) return t.departmentId.name;
+  if (t.department?.name) return t.department.name;
+  if (typeof t.department === "string") return t.department;
+  if (typeof t.departmentId === "string" && t.departmentId.length < 20) return t.departmentId;
+  return t.departmentName || "";
+};
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", hex: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800/60", dot: "bg-blue-500" },
@@ -78,7 +97,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
 export default function ManagerTeamTasks() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [viewMode, setViewMode] = useState("cards"); // 'cards' | 'kanban' | 'list'
+  const [viewMode, setViewMode] = useState("list"); // 'cards' | 'kanban' | 'list'
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("All Time");
   const navigate = useNavigate();
@@ -483,38 +502,144 @@ export default function ManagerTeamTasks() {
         </div>
       ) : viewMode === "list" ? (
         /* ── TABLE VIEW ── */
-        <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
+        <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <thead className="bg-slate-50/80 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
                 <tr>
-                  <th className="px-3 py-2.5">Task ID</th>
-                  <th className="px-3 py-2.5">Title</th>
-                  <th className="px-3 py-2.5">Priority</th>
-                  <th className="px-3 py-2.5">Assignee</th>
-                  <th className="px-3 py-2.5">Due Date</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-3 py-2.5 text-right">Action</th>
+                  <th className="px-4 py-3">Task ID</th>
+                  <th className="px-4 py-3">Task & Scope</th>
+                  <th className="px-4 py-3">Department</th>
+                  <th className="px-4 py-3">Priority</th>
+                  <th className="px-4 py-3">Assigned Staff</th>
+                  <th className="px-4 py-3">Timeline / Due Date</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {filteredTasks.map(t => (
-                  <tr
-                    key={t._id}
-                    onClick={() => navigate(`/manager/tasks/${t._id}`)}
-                    className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
-                  >
-                    <td className="px-3 py-2 font-mono font-bold text-amber-600">{t.taskId || "TSK"}</td>
-                    <td className="px-3 py-2 font-bold text-slate-900 dark:text-white max-w-xs truncate">{t.title}</td>
-                    <td className="px-3 py-2"><PriorityBadge priority={t.priority} /></td>
-                    <td className="px-3 py-2 text-slate-600 dark:text-slate-300">{t.assignedTo?.name || t.assignedTo?.fullName || "Unassigned"}</td>
-                    <td className="px-3 py-2 font-mono text-slate-500">{t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : "—"}</td>
-                    <td className="px-3 py-2"><StatusBadge status={t.status} /></td>
-                    <td className="px-3 py-2 text-right">
-                      <ChevronRight size={14} className="inline text-slate-400" />
-                    </td>
-                  </tr>
-                ))}
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                {filteredTasks.map(t => {
+                  const deadlineInfo = getTaskFormattedDueDate(t);
+                  const deptName = getTaskDeptName(t);
+                  const checklistTotal = Array.isArray(t.checklist) ? t.checklist.length : 0;
+                  const checklistDone = Array.isArray(t.checklist) ? t.checklist.filter(c => c.isCompleted).length : 0;
+
+                  // Resolve Assigned Employee name
+                  const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
+                  const firstAssignee = assignees[0];
+                  const assigneeName = typeof firstAssignee === "object" 
+                    ? (firstAssignee?.fullName || `${firstAssignee?.firstName || ""} ${firstAssignee?.lastName || ""}`.trim() || firstAssignee?.name || "Team Member")
+                    : (firstAssignee || "Unassigned");
+
+                  return (
+                    <tr
+                      key={t._id}
+                      onClick={() => navigate(`/manager/tasks/${t._id}`)}
+                      className="hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group"
+                    >
+                      {/* Task ID */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-[11px]">
+                          {t.taskId || "TSK"}
+                        </span>
+                      </td>
+
+                      {/* Title & Scope */}
+                      <td className="px-4 py-3 max-w-sm">
+                        <div className="space-y-0.5">
+                          <p className="font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-1">
+                            {t.title}
+                          </p>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-medium">
+                            {checklistTotal > 0 && (
+                              <span className="flex items-center gap-1">
+                                <CheckSquare size={10} className="text-amber-500" />
+                                <span>{checklistDone}/{checklistTotal} steps</span>
+                              </span>
+                            )}
+                            {Array.isArray(t.attachments) && t.attachments.length > 0 && (
+                              <span className="flex items-center gap-1">
+                                <Paperclip size={10} className="text-slate-400" />
+                                <span>{t.attachments.length} files</span>
+                              </span>
+                            )}
+                            {t.repeatEnabled && (
+                              <span className="px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-600 font-bold text-[9.5px]">
+                                🔁 {t.repeatType || "Routine"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Department */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {deptName ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-[10.5px]">
+                            <Building2 size={11} className="text-slate-400" />
+                            <span>{deptName}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[11px]">—</span>
+                        )}
+                      </td>
+
+                      {/* Priority */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <PriorityBadge priority={t.priority} />
+                      </td>
+
+                      {/* Assigned Staff */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-600 font-black text-[9px] flex items-center justify-center border border-amber-500/30 shrink-0">
+                            {assigneeName.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate max-w-[120px]">
+                            {assigneeName}
+                          </span>
+                          {assignees.length > 1 && (
+                            <span className="px-1.5 py-0.2 rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 font-bold text-[9.5px]">
+                              +{assignees.length - 1}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Timeline / Due Date */}
+                      <td className="px-4 py-3 whitespace-nowrap font-mono text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <Calendar size={12} className={deadlineInfo.isOverdue ? "text-rose-500" : "text-slate-400"} />
+                          <span className={deadlineInfo.isOverdue ? "text-rose-600 dark:text-rose-400 font-bold" : "text-slate-700 dark:text-slate-300 font-medium"}>
+                            {deadlineInfo.text}
+                          </span>
+                        </div>
+                        {t.nextFollowUpDate && (
+                          <p className="text-[10px] text-slate-400 mt-0.5">
+                            Follow-up: {new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                          </p>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <StatusBadge status={t.status} />
+                      </td>
+
+                      {/* Action */}
+                      <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/manager/tasks/${t._id}`)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                        >
+                          <Eye size={12} />
+                          <span>View Details</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

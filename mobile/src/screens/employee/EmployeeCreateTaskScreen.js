@@ -73,27 +73,30 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
           const list = [];
 
           if (emp.departmentId) {
-            list.push({
-              _id: emp.departmentId._id || emp.departmentId,
-              name: emp.departmentId.name || "My Department"
-            });
+            const dId = typeof emp.departmentId === "object" ? emp.departmentId?._id : emp.departmentId;
+            const dName = typeof emp.departmentId === "object" ? (emp.departmentId?.name || "My Department") : "My Department";
+            if (dId) {
+              list.push({ _id: dId, name: dName });
+            }
           }
 
-          if (emp.departmentIds && emp.departmentIds.length > 0) {
+          if (Array.isArray(emp.departmentIds) && emp.departmentIds.length > 0) {
             emp.departmentIds.forEach(d => {
-              const id = d._id || d;
-              const name = d.name || "Department";
-              if (id && !list.some(x => x._id.toString() === id.toString())) {
+              if (!d) return;
+              const id = typeof d === "object" ? d?._id : d;
+              const name = typeof d === "object" ? (d?.name || "Department") : "Department";
+              if (id && !list.some(x => String(x?._id) === String(id))) {
                 list.push({ _id: id, name });
               }
             });
           }
 
-          if (emp.accessibleDepartments && emp.accessibleDepartments.length > 0) {
+          if (Array.isArray(emp.accessibleDepartments) && emp.accessibleDepartments.length > 0) {
             emp.accessibleDepartments.forEach(d => {
-              const id = d._id || d;
-              const name = d.name || "Department";
-              if (id && !list.some(x => x._id.toString() === id.toString())) {
+              if (!d) return;
+              const id = typeof d === "object" ? d?._id : d;
+              const name = typeof d === "object" ? (d?.name || "Department") : "Department";
+              if (id && !list.some(x => String(x?._id) === String(id))) {
                 list.push({ _id: id, name });
               }
             });

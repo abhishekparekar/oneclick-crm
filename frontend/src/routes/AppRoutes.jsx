@@ -28,6 +28,7 @@ import ManagerSettings from "../pages/manager/ManagerSettings";
 // Employee
 import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
 import EmployeeLeads from "../pages/employee/EmployeeLeads";
+import EmployeeLeadDetails from "../pages/employee/EmployeeLeadDetails";
 import EmployeeMyTasks from "../pages/employee/EmployeeMyTasks";
 import EmployeeAttendance from "../pages/employee/EmployeeAttendance";
 import EmployeeAttendanceDetail from "../pages/employee/EmployeeAttendanceDetail";
@@ -330,6 +331,7 @@ const AppRoutes = () => {
 
             {/* Lead CRM */}
             <Route path="leads" element={<EmployeeLeads />} />
+            <Route path="leads/:id" element={<EmployeeLeadDetails />} />
           </Route>
         </Route>
       </Route>

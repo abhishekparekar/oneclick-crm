@@ -243,9 +243,25 @@ const updateOwnTaskStatus = async (req, res, next) => {
     if (!statusDoc) {
       statusDoc = await TaskStatus.findOne({ companyId: req.companyId, _id: status }).catch(() => null);
     }
-    
     if (!statusDoc) {
-      return res.status(400).json({ success: false, message: "Invalid task status provided" });
+      const normalizedKey = String(status).toLowerCase().replace(/_/g, "-");
+      statusDoc = await TaskStatus.findOne({
+        companyId: req.companyId,
+        $or: [
+          { statusKey: new RegExp(`^${status}$`, "i") },
+          { statusKey: normalizedKey },
+          { label: new RegExp(`^${status}$`, "i") }
+        ]
+      }).catch(() => null);
+    }
+    if (!statusDoc) {
+      statusDoc = {
+        _id: null,
+        statusKey: String(status).toLowerCase(),
+        label: String(status).charAt(0).toUpperCase() + String(status).slice(1),
+        color: "#10B981",
+        order: 99
+      };
     }
 
     const oldStatusLabel = task.statusLabelSnapshot || task.status;
@@ -255,8 +271,12 @@ const updateOwnTaskStatus = async (req, res, next) => {
     let isCompletedGlobally = true;
     
     // Seed assigneeProgress if older task doesn't have it
-    if (!task.assigneeProgress || task.assigneeProgress.length === 0) {
-      task.assigneeProgress = task.assignees.map(empId => ({
+    const assigneesList = Array.isArray(task.assignees) && task.assignees.length > 0
+      ? task.assignees
+      : (task.assignedTo ? [task.assignedTo] : [employee._id]);
+
+    if (!Array.isArray(task.assigneeProgress) || task.assigneeProgress.length === 0) {
+      task.assigneeProgress = assigneesList.map(empId => ({
         employeeId: empId,
         statusKey: "pending",
         statusLabelSnapshot: "Pending",
@@ -270,42 +290,63 @@ const updateOwnTaskStatus = async (req, res, next) => {
       task.assigneeProgress[empProgressIndex].statusKey = statusDoc.statusKey;
       task.assigneeProgress[empProgressIndex].statusLabelSnapshot = statusDoc.label;
       task.assigneeProgress[empProgressIndex].updatedAt = new Date();
+    } else {
+      task.assigneeProgress.push({
+        employeeId: employee._id,
+        statusKey: statusDoc.statusKey,
+        statusLabelSnapshot: statusDoc.label,
+        updatedAt: new Date()
+      });
     }
 
     // Check global completion criteria
-    const COMPLETED_KEYS = ["completed", "done", "finished"];
+    const COMPLETED_KEYS = ["completed", "complete", "done", "finished", "late_complete", "late_completed"];
     task.assigneeProgress.forEach(p => {
-      if (!COMPLETED_KEYS.includes(p.statusKey.toLowerCase())) {
+      if (!COMPLETED_KEYS.includes(String(p.statusKey || "").toLowerCase())) {
         isCompletedGlobally = false;
       }
     });
 
     // Determine what happens to global status
-    if (task.assignees.length === 1 || isCompletedGlobally) {
-      // Single assignee OR everyone is done -> global update
+    if (assigneesList.length === 1 || isCompletedGlobally) {
       task.status = statusDoc.statusKey;
-      task.statusId = statusDoc._id;
+      if (statusDoc._id) task.statusId = statusDoc._id;
       task.statusKey = statusDoc.statusKey;
       task.statusLabelSnapshot = statusDoc.label;
       task.statusColorSnapshot = statusDoc.color;
       task.statusOrderSnapshot = statusDoc.order;
     } else {
-      // Not everyone is done. Ensure global status is 'in-progress' if it was pending
       if (task.statusKey === 'pending' || task.statusKey === 'todo') {
         task.status = "in-progress";
         task.statusKey = "in-progress";
         task.statusLabelSnapshot = "In Progress";
-        // Optional: you could query the DB for the exact in-progress ID if needed, 
-        // but updating the key/label is usually enough for frontend rendering.
       }
     }
 
-    const userName = `${employee.firstName} ${employee.lastName}`;
+    // Handle remarks and attachments if passed from complete modal
+    const { remark, attachments: passedAttachments } = req.body;
+    if (Array.isArray(passedAttachments) && passedAttachments.length > 0) {
+      task.attachments = task.attachments || [];
+      passedAttachments.forEach(att => {
+        task.attachments.push({
+          fileName: att.fileName || "attachment",
+          fileUrl: att.fileUrl || att.url,
+          fileType: att.fileType || "application/octet-stream",
+          uploadedAt: new Date(),
+          uploadedBy: employee._id
+        });
+      });
+    }
+
+    const userName = `${employee.firstName || ""} ${employee.lastName || ""}`.trim() || "Employee";
+    task.activityLog = task.activityLog || [];
     task.activityLog.push({
       action: "Status updated",
       performedBy: userName,
       oldStatus: oldStatusLabel,
       newStatus: newStatusLabel,
+      remark: remark || undefined,
+      timestamp: new Date()
     });
 
     await task.save();
@@ -316,7 +357,7 @@ const updateOwnTaskStatus = async (req, res, next) => {
       const allTasks = await Task.find({ projectId: task.projectId });
       const completedTasks = allTasks.filter(t => t.statusKey === "completed" || t.statusKey === "done" || t.statusKey === "finished" || t.status === "done" || t.status === "completed").length;
       const progress = allTasks.length > 0 ? Math.round((completedTasks / allTasks.length) * 100) : 0;
-      await Project.findByIdAndUpdate(task.projectId, { progress });
+      await Project.findByIdAndUpdate(task.projectId, { progress }).catch(() => null);
     }
 
     // Notify the employee's reporting manager
@@ -327,10 +368,10 @@ const updateOwnTaskStatus = async (req, res, next) => {
           manager.userId,
           req.companyId,
           "Task Status Updated",
-          `${employee.firstName} updated the status of "${task.title}" to ${dbStatus}`,
+          `${employee.firstName || "Employee"} updated the status of "${task.title}" to ${newStatusLabel}`,
           "task",
           { taskId: task._id.toString() }
-        );
+        ).catch(() => null);
       }
     }
 

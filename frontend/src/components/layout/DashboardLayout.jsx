@@ -53,19 +53,33 @@ const DashboardLayout = ({ children }) => {
   // Fetch departments and employees for TaskCreateModal
   const { data: deptRes } = useQuery({
     queryKey: ["departments"],
-    queryFn: getDepartmentsApi,
-    enabled: !!user && !isSuperAdmin && !isManager && !isEmployee,
+    queryFn: async () => {
+      try {
+        const res = await getDepartmentsApi();
+        return res.data?.departments || res.data || [];
+      } catch (err) {
+        return [];
+      }
+    },
+    enabled: !!user && !isSuperAdmin,
     staleTime: 5 * 60 * 1000,
   });
   const { data: empRes } = useQuery({
     queryKey: ["employees"],
-    queryFn: () => getEmployeesApi({ limit: 1000 }),
-    enabled: !!user && !isSuperAdmin && !isManager && !isEmployee,
+    queryFn: async () => {
+      try {
+        const res = await getEmployeesApi({ limit: 1000 });
+        return res.data?.employees || res.data || [];
+      } catch (err) {
+        return [];
+      }
+    },
+    enabled: !!user && !isSuperAdmin,
     staleTime: 5 * 60 * 1000,
   });
 
-  const departments = deptRes?.data?.departments || [];
-  const employees = empRes?.data?.employees || [];
+  const departments = Array.isArray(deptRes) ? deptRes : (deptRes?.departments || []);
+  const employees = Array.isArray(empRes) ? empRes : (empRes?.employees || []);
 
   const footerName =
     user?.role === "CompanyAdmin" || user?.role === "HR"

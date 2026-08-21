@@ -1,8 +1,8 @@
-const WRITER_ROLES = ["CompanyAdmin", "HR"];
-const LIST_ROLES = ["CompanyAdmin", "HR", "Manager"];
+const WRITER_ROLES = ["CompanyAdmin", "HR", "companyadmin", "hr"];
+const LIST_ROLES = ["CompanyAdmin", "HR", "Manager", "Employee", "employee", "manager", "hr", "companyadmin"];
 
 const canListEmployees = (req, res, next) => {
-  if (!LIST_ROLES.includes(req.user.role)) {
+  if (!LIST_ROLES.some(r => r.toLowerCase() === (req.user?.role || "").toLowerCase())) {
     return res.status(403).json({ message: "Not authorized to list employees" });
   }
   next();

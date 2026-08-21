@@ -1,6 +1,7 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
+import api from "../../api/api";
 import {
   getInternalRequestsApi,
   createInternalRequestApi,
@@ -34,8 +35,20 @@ import {
   AlertCircle,
   Tag,
   Check,
+  UserCheck,
+  Eye,
+  Calendar
 } from "lucide-react";
 import toast from "react-hot-toast";
+
+const MiniAvatar = ({ name, size = "w-7 h-7", textSize = "text-[10px]" }) => {
+  const char = (name || "?").charAt(0).toUpperCase();
+  return (
+    <div className={`${size} rounded-full bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900 flex items-center justify-center font-black ${textSize} shrink-0 ring-2 ring-white dark:ring-[#111C24] shadow-2xs`}>
+      {char}
+    </div>
+  );
+};
 
 const CATEGORIES = [
   "Data Request",
@@ -43,17 +56,16 @@ const CATEGORIES = [
   "General Query",
   "IT Support",
   "HR Assistance",
-  "Feedback & Survey",
-  "Approval Request",
-  "Accounts & Finance",
-  "Other",
+  "Policy Clarification",
+  "Expense & Reimbursement",
+  "Project Coordination",
 ];
 
 const PRIORITIES = [
-  { label: "Low", badge: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700" },
-  { label: "Medium", badge: "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800" },
-  { label: "High", badge: "bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
-  { label: "Urgent", badge: "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800" },
+  { label: "Low", badge: "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700", dot: "bg-slate-400" },
+  { label: "Medium", badge: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800", dot: "bg-blue-500" },
+  { label: "High", badge: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800", dot: "bg-amber-500" },
+  { label: "Urgent", badge: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border-rose-200 dark:border-rose-800", dot: "bg-rose-500" },
 ];
 
 const STATUS_BADGES = {
@@ -119,11 +131,60 @@ export default function CompanyRequestsPage({ role = "hr" }) {
         const res = await getEmployeesApi({ limit: 1000 });
         return res.data?.employees || res.data?.data || res.data || [];
       } catch (_) {
-        return [];
+        try {
+          const res2 = await api.get("/tasks/assignable-users");
+          return res2.data?.users || res2.data?.data || res2.data || [];
+        } catch (_) {
+          return [];
+        }
       }
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const allEmployeesList = useMemo(() => {
+    if (Array.isArray(employeesData)) return employeesData;
+    if (Array.isArray(employeesData?.employees)) return employeesData.employees;
+    if (Array.isArray(employeesData?.data)) return employeesData.data;
+    return [];
+  }, [employeesData]);
+
+  const filteredEmployees = useMemo(() => {
+    if (!empSearch.trim()) return allEmployeesList;
+    const q = empSearch.toLowerCase().trim();
+    return allEmployeesList.filter((emp) => {
+      const name = (emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}` || emp.name || emp.userId?.name || "").toLowerCase();
+      const code = (emp.employeeCode || "").toLowerCase();
+      const email = (emp.email || emp.userId?.email || "").toLowerCase();
+      const dept = (emp.departmentId?.name || "").toLowerCase();
+      return name.includes(q) || code.includes(q) || email.includes(q) || dept.includes(q);
+    });
+  }, [allEmployeesList, empSearch]);
+
+  const toggleEmployeeSelection = (empId) => {
+    setForm((prev) => {
+      const exists = prev.targetEmployeeIds.includes(empId);
+      return {
+        ...prev,
+        targetEmployeeIds: exists
+          ? prev.targetEmployeeIds.filter((id) => id !== empId)
+          : [...prev.targetEmployeeIds, empId],
+      };
+    });
+  };
+
+  const toggleSelectAllEmployees = () => {
+    setForm((prev) => {
+      const allIds = filteredEmployees.map((e) => e.userId?._id || e._id);
+      const isAllSelected = allIds.length > 0 && allIds.every((id) => prev.targetEmployeeIds.includes(id));
+      return {
+        ...prev,
+        targetEmployeeIds: isAllSelected
+          ? prev.targetEmployeeIds.filter((id) => !allIds.includes(id))
+          : Array.from(new Set([...prev.targetEmployeeIds, ...allIds])),
+      };
+    });
+  };
 
   const { data: requestsData, isLoading, refetch, isFetching } = useQuery({
     queryKey: ["internalRequests", tab, selectedCategory, selectedPriority, selectedDepartment, search],
@@ -275,24 +336,6 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     });
   };
 
-  const toggleEmployeeSelection = (empId) => {
-    setForm((prev) => {
-      const exists = prev.targetEmployeeIds.includes(empId);
-      return {
-        ...prev,
-        targetEmployeeIds: exists
-          ? prev.targetEmployeeIds.filter((id) => id !== empId)
-          : [...prev.targetEmployeeIds, empId],
-      };
-    });
-  };
-
-  const filteredEmployees = (employeesData || []).filter((emp) => {
-    const name = (emp.fullName || emp.name || emp.firstName || "").toLowerCase();
-    const dept = (emp.departmentId?.name || "").toLowerCase();
-    const q = empSearch.toLowerCase();
-    return name.includes(q) || dept.includes(q);
-  });
 
   return (
     <div className="space-y-3 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
@@ -488,82 +531,116 @@ export default function CompanyRequestsPage({ role = "hr" }) {
           </button>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           {requestsList.map((reqItem) => {
-            const priorityBadge =
-              PRIORITIES.find((p) => p.label === reqItem.priority)?.badge || PRIORITIES[1].badge;
+            const priorityObj = PRIORITIES.find((p) => p.label === reqItem.priority) || PRIORITIES[1];
             const statusBadge = STATUS_BADGES[reqItem.status] || STATUS_BADGES.Open;
             const responsesCount = reqItem.responses?.length || 0;
+            const requesterName = reqItem.requesterId?.name || (reqItem.requesterId?.firstName ? `${reqItem.requesterId.firstName} ${reqItem.requesterId.lastName || ""}` : "Team Member");
+            const formattedDate = reqItem.createdAt ? new Date(reqItem.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
             return (
               <div
                 key={reqItem._id}
                 onClick={() => setActiveRequest(reqItem)}
-                className="group p-3 rounded-xl bg-white dark:bg-[#111C24] hover:bg-slate-50/80 dark:hover:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/40 shadow-2xs transition-all cursor-pointer"
+                className="group p-4 rounded-2xl bg-white dark:bg-[#111C24] hover:bg-amber-500/[0.02] dark:hover:bg-amber-500/[0.03] border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/50 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer"
               >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      <span className="text-[10px] font-mono font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
-                        {reqItem.requestCode}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
+                  {/* Left Main Content */}
+                  <div className="flex-1 min-w-0 space-y-1.5">
+                    {/* Top Badges Strip */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-[11px]">
+                        {reqItem.requestCode || "REQ"}
                       </span>
-                      <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${priorityBadge}`}>
-                        {reqItem.priority}
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${priorityObj.badge}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${priorityObj.dot || "bg-amber-500"}`} />
+                        {reqItem.priority} Priority
                       </span>
-                      <span className={`text-[9.5px] font-bold px-1.5 py-0.2 rounded border ${statusBadge}`}>
+                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${statusBadge}`}>
                         {reqItem.status}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-semibold">• {reqItem.category}</span>
+                      <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700/80">
+                        {reqItem.category}
+                      </span>
                     </div>
 
-                    <h3 className="text-xs font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
-                      {reqItem.title}
-                    </h3>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                      {reqItem.description}
-                    </p>
+                    {/* Title & Description */}
+                    <div>
+                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors leading-snug">
+                        {reqItem.title}
+                      </h3>
+                      {reqItem.description && (
+                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 leading-relaxed">
+                          {reqItem.description}
+                        </p>
+                      )}
+                    </div>
 
-                    <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-slate-500 dark:text-slate-400">
-                      <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700 font-semibold">
+                    {/* Meta Chips */}
+                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[10.5px]">
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
                         {reqItem.targetType === "ALL_EMPLOYEES" ? (
                           <>
-                            <Building2 size={11} className="text-amber-500" />
-                            <span>All Company</span>
+                            <Building2 size={12} className="text-amber-500" />
+                            <span>Target: Entire Organization</span>
                           </>
                         ) : reqItem.targetType === "DEPARTMENT" ? (
                           <>
-                            <Users size={11} className="text-cyan-500" />
-                            <span>Dept: {reqItem.targetDepartmentName || "Department"}</span>
+                            <Users size={12} className="text-cyan-500" />
+                            <span>Target: {reqItem.targetDepartmentName || "Department"}</span>
                           </>
                         ) : (
                           <>
-                            <User size={11} className="text-indigo-500" />
-                            <span>{reqItem.targetEmployeeIds?.length || 0} Staff</span>
+                            <User size={12} className="text-indigo-500" />
+                            <span>Target: {reqItem.targetEmployeeIds?.length || 0} Staff Members</span>
                           </>
                         )}
                       </div>
 
                       {reqItem.attachments?.length > 0 && (
-                        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-700">
-                          <Paperclip size={10} className="text-amber-500" />
-                          <span>{reqItem.attachments.length} files</span>
+                        <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-2 py-1 rounded-lg font-bold">
+                          <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
+                          <span>{reqItem.attachments.length} attachment{reqItem.attachments.length > 1 ? "s" : ""}</span>
                         </div>
                       )}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between lg:justify-end gap-3 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800/80">
-                    <div className="text-right">
-                      <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200">{reqItem.requesterId?.name || "Requester"}</p>
-                      <p className="text-[9.5px] text-slate-400 font-mono">{new Date(reqItem.createdAt).toLocaleDateString()}</p>
+                  {/* Right Requester & Action Strip */}
+                  <div className="flex items-center justify-between lg:justify-end gap-3.5 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800/80 shrink-0">
+                    <div className="flex items-center gap-2.5">
+                      <MiniAvatar name={requesterName} size="w-8 h-8" textSize="text-xs" />
+                      <div className="text-left">
+                        <p className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight">{requesterName}</p>
+                        <p className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
+                          <Calendar size={10} className="text-slate-400" />
+                          {formattedDate}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5">
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10.5px] font-bold">
-                        <MessageSquare size={11} />
-                        <span>{responsesCount}</span>
+                    <div className="flex items-center gap-2">
+                      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold border ${
+                        responsesCount > 0
+                          ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30 shadow-2xs"
+                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
+                      }`}>
+                        <MessageSquare size={13} className={responsesCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"} />
+                        <span>{responsesCount} {responsesCount === 1 ? "reply" : "replies"}</span>
                       </div>
-                      <ChevronRight size={14} className="text-slate-400 group-hover:text-amber-500 transition-colors" />
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveRequest(reqItem);
+                        }}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-amber-500 dark:hover:text-slate-950 text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
+                      >
+                        <Eye size={13} />
+                        <span>View</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -573,64 +650,93 @@ export default function CompanyRequestsPage({ role = "hr" }) {
         </div>
       )}
 
-      {/* ── 5. MODAL: CREATE REQUEST ───────────────────────────────────────── */}
+      {/* ── 5. MODAL: CREATE REQUEST (EXECUTIVE REDESIGN) ──────────────────── */}
       {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-xl bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 shadow-2xl overflow-hidden animate-scaleUp">
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
-              <div className="flex items-center gap-2">
-                <Sparkles size={14} className="text-amber-500" />
-                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Create Company Request</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/65 backdrop-blur-md animate-fadeIn font-sans">
+          <div className="w-full max-w-2xl max-h-[92vh] flex flex-col rounded-3xl bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-800/90 shadow-2xl overflow-hidden animate-scaleUp text-xs">
+            {/* Modal Luxury Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-6 py-4 flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-md">
+                  <Sparkles size={20} className="stroke-[2.5]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white tracking-wide uppercase flex items-center gap-2">
+                    Create Company Request
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    Broadcast requirements, query team members, and gather reports
+                  </p>
+                </div>
               </div>
-              <button onClick={() => setCreateModalOpen(false)} className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer">
-                <X size={15} />
+              <button 
+                type="button"
+                onClick={() => setCreateModalOpen(false)} 
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+              >
+                <X size={16} />
               </button>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar text-xs">
-              <div>
-                <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Request Title *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Q3 Sales Data & Expense Receipts Submission"
-                  value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })}
-                  required
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 font-semibold"
-                />
+            <form onSubmit={handleCreateSubmit} className="flex-1 overflow-y-auto p-5 sm:p-6 space-y-4 custom-scrollbar text-xs">
+              {/* Section 1: Request Title & Priority */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <FileText size={13} className="text-amber-500" />
+                  Request Details & Category
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Request Title <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Q3 Sales Data & Expense Receipts Submission"
+                      value={form.title}
+                      onChange={(e) => setForm({ ...form, title: e.target.value })}
+                      required
+                      className="w-full px-3.5 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">Priority</label>
+                    <select
+                      value={form.priority}
+                      onChange={(e) => setForm({ ...form, priority: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      {PRIORITIES.map((p) => (
+                        <option key={p.label} value={p.label}>{p.label} Priority</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">Category</label>
+                    <select
+                      value={form.category}
+                      onChange={(e) => setForm({ ...form, category: e.target.value })}
+                      className="w-full px-3.5 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
+                    >
+                      {CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Category</label>
-                  <select
-                    value={form.category}
-                    onChange={(e) => setForm({ ...form, category: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 font-semibold"
-                  >
-                    {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
+              {/* Section 2: Target Audience */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <Users size={13} className="text-amber-500" />
+                  Target Broadcast Audience
+                </p>
 
-                <div>
-                  <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Priority</label>
-                  <select
-                    value={form.priority}
-                    onChange={(e) => setForm({ ...form, priority: e.target.value })}
-                    className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-800 dark:text-slate-200 focus:outline-none focus:border-amber-500 font-semibold"
-                  >
-                    {PRIORITIES.map((p) => (
-                      <option key={p.label} value={p.label}>{p.label} Priority</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Target Audience</label>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-2">
                   {[
                     { id: "ALL_EMPLOYEES", label: "All Company", icon: Building2 },
                     { id: "DEPARTMENT", label: "Department", icon: Users },
@@ -643,13 +749,13 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                         key={t.id}
                         type="button"
                         onClick={() => setForm({ ...form, targetType: t.id })}
-                        className={`p-2 rounded-lg border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        className={`p-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           isSel
-                            ? "bg-amber-500/10 border-amber-500 text-amber-700 dark:text-amber-400"
-                            : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400"
+                            ? "bg-amber-500/15 border-amber-500 text-amber-900 dark:text-amber-300 shadow-xs"
+                            : "bg-white dark:bg-[#080D14] border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
                         }`}
                       >
-                        <Icon size={13} />
+                        <Icon size={14} className={isSel ? "text-amber-500" : "text-slate-400"} />
                         <span>{t.label}</span>
                       </button>
                     );
@@ -662,7 +768,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                       value={form.targetDepartmentId}
                       onChange={(e) => setForm({ ...form, targetDepartmentId: e.target.value })}
                       required
-                      className="w-full px-2.5 py-1.5 text-xs bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-800 dark:text-slate-200 font-semibold"
+                      className="w-full px-3 py-2 text-xs bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-slate-800 dark:text-slate-200 font-semibold"
                     >
                       <option value="">-- Choose Department --</option>
                       {deptData?.map((d) => (
@@ -673,86 +779,195 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                 )}
 
                 {form.targetType === "SPECIFIC_EMPLOYEES" && (
-                  <div className="mt-2 space-y-1.5">
-                    <input
-                      type="text"
-                      placeholder="Search member..."
-                      value={empSearch}
-                      onChange={(e) => setEmpSearch(e.target.value)}
-                      className="w-full px-2.5 py-1 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded text-xs"
-                    />
-                    <div className="max-h-32 overflow-y-auto bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 rounded-lg p-1.5 space-y-0.5">
-                      {filteredEmployees.map((emp) => {
-                        const empId = emp.userId?._id || emp._id;
-                        const isSelected = form.targetEmployeeIds.includes(empId);
-                        return (
-                          <div
-                            key={empId}
-                            onClick={() => toggleEmployeeSelection(empId)}
-                            className={`flex items-center justify-between px-2 py-1 rounded text-xs cursor-pointer ${
-                              isSelected ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 font-bold" : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60"
-                            }`}
+                  <div className="mt-2.5 space-y-2 p-3 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-800 rounded-2xl">
+                    {/* Header bar: Search input + Select All */}
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search staff by name, code, email, department..."
+                          value={empSearch}
+                          onChange={(e) => setEmpSearch(e.target.value)}
+                          className="w-full pl-8 pr-7 py-1.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 font-medium"
+                        />
+                        {empSearch && (
+                          <button
+                            type="button"
+                            onClick={() => setEmpSearch("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer p-0.5"
                           >
-                            <span>{emp.fullName || emp.name}</span>
-                            {isSelected && <Check size={12} className="text-amber-600" />}
-                          </div>
-                        );
-                      })}
+                            <X size={12} />
+                          </button>
+                        )}
+                      </div>
+
+                      {filteredEmployees.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={toggleSelectAllEmployees}
+                          className="px-2.5 py-1.5 text-[11px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-xl hover:bg-amber-100 transition-colors cursor-pointer shrink-0 flex items-center gap-1"
+                        >
+                          <UserCheck size={12} />
+                          <span>
+                            {filteredEmployees.every(e => form.targetEmployeeIds.includes(e.userId?._id || e._id))
+                              ? "Deselect All"
+                              : "Select All"}
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Selected Count */}
+                    <div className="flex items-center justify-between text-[11px] font-bold text-slate-500 pt-0.5 px-0.5">
+                      <span>Available Staff ({filteredEmployees.length})</span>
+                      <span className="text-amber-700 dark:text-amber-400 font-extrabold">
+                        {form.targetEmployeeIds.length} Selected
+                      </span>
+                    </div>
+
+                    {/* Selected Members Chips */}
+                    {form.targetEmployeeIds.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto p-1.5 bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 rounded-xl">
+                        {form.targetEmployeeIds.map((id) => {
+                          const emp = allEmployeesList.find(e => (e.userId?._id || e._id) === id);
+                          const name = emp ? (emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}` || emp.name || emp.userId?.name || "Staff") : "Staff";
+                          return (
+                            <span
+                              key={id}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 text-[10.5px] font-bold border border-amber-300 dark:border-amber-700"
+                            >
+                              <span>{name}</span>
+                              <button
+                                type="button"
+                                onClick={() => toggleEmployeeSelection(id)}
+                                className="text-amber-700 hover:text-rose-600 cursor-pointer ml-0.5"
+                              >
+                                <X size={11} />
+                              </button>
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* Staff List */}
+                    <div className="max-h-44 overflow-y-auto bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-1.5 space-y-1 divide-y divide-slate-100 dark:divide-slate-800/60 shadow-2xs">
+                      {filteredEmployees.length > 0 ? (
+                        filteredEmployees.map((emp) => {
+                          const empId = emp.userId?._id || emp._id;
+                          const isSelected = form.targetEmployeeIds.includes(empId);
+                          const name = emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}` || emp.name || emp.userId?.name || "Employee";
+                          const initial = (name.charAt(0) || "E").toUpperCase();
+                          const deptName = emp.departmentId?.name || emp.department || "";
+                          const empCode = emp.employeeCode || "";
+
+                          return (
+                            <div
+                              key={empId}
+                              onClick={() => toggleEmployeeSelection(empId)}
+                              className={`flex items-center justify-between p-2 rounded-xl text-xs cursor-pointer transition-all ${
+                                isSelected
+                                  ? "bg-amber-500/15 text-amber-950 dark:text-amber-200 font-bold border border-amber-500/30"
+                                  : "text-slate-700 dark:text-slate-300 hover:bg-white dark:hover:bg-slate-800/50 border border-transparent"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0 ${
+                                  isSelected
+                                    ? "bg-amber-500 text-white shadow-2xs"
+                                    : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                                }`}>
+                                  {initial}
+                                </div>
+                                <div className="truncate">
+                                  <p className="font-extrabold text-xs truncate leading-tight">{name}</p>
+                                  <div className="flex items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                                    {empCode && <span className="font-mono">{empCode}</span>}
+                                    {empCode && deptName && <span>•</span>}
+                                    {deptName && <span>{deptName}</span>}
+                                    {emp.email && !deptName && <span className="truncate">{emp.email}</span>}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all ${
+                                isSelected
+                                  ? "bg-amber-500 border-amber-500 text-white shadow-2xs"
+                                  : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800"
+                              }`}>
+                                {isSelected && <Check size={13} className="stroke-[3]" />}
+                              </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="p-4 text-center text-xs text-slate-400">
+                          {empSearch ? `No staff found matching "${empSearch}"` : "No staff members available."}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
               </div>
 
-              <div>
-                <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Instructions *</label>
-                <textarea
-                  rows={3}
-                  placeholder="Explain exactly what information or feedback is required..."
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  required
-                  className="w-full px-3 py-1.5 text-xs bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 font-semibold"
-                />
-              </div>
+              {/* Section 3: Instructions & Attachments */}
+              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
+                <div>
+                  <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                    Instructions & Details <span className="text-rose-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Explain exactly what information, submission or feedback is required..."
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    required
+                    className="w-full px-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 resize-none"
+                  />
+                </div>
 
-              <div>
-                <input type="file" ref={createFileInputRef} onChange={handleCreateFileUpload} multiple className="hidden" />
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => createFileInputRef.current?.click()}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-[#0B101B] hover:bg-slate-100 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer"
-                  >
-                    <UploadCloud size={12} />
-                    <span>Attach Files</span>
-                  </button>
+                <div>
+                  <input type="file" ref={createFileInputRef} onChange={handleCreateFileUpload} multiple className="hidden" />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => createFileInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#080D14] hover:bg-slate-100 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                    >
+                      <UploadCloud size={13} />
+                      <span>Attach Documents / Files</span>
+                    </button>
 
-                  {form.attachments.map((att, i) => (
-                    <div key={i} className="flex items-center gap-1 px-2 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10.5px] font-bold">
-                      <Paperclip size={10} />
-                      <span className="truncate max-w-[120px]">{att.name}</span>
-                      <button type="button" onClick={() => setForm(p => ({ ...p, attachments: p.attachments.filter((_, idx) => idx !== i) }))}>
-                        <X size={11} className="text-slate-400 hover:text-rose-500" />
-                      </button>
-                    </div>
-                  ))}
+                    {form.attachments.map((att, i) => (
+                      <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10.5px] font-bold border border-amber-500/20">
+                        <Paperclip size={11} />
+                        <span className="truncate max-w-[140px]">{att.name}</span>
+                        <button type="button" onClick={() => setForm(p => ({ ...p, attachments: p.attachments.filter((_, idx) => idx !== i) }))}>
+                          <X size={11} className="text-slate-400 hover:text-rose-500 ml-1 cursor-pointer" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
+              {/* Footer Action Buttons */}
+              <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={() => setCreateModalOpen(false)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold text-slate-500 hover:text-slate-800 cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={createMutation.isLoading}
-                  className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-2xs disabled:opacity-50 cursor-pointer"
+                  className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
                 >
-                  {createMutation.isLoading ? "Broadcasting..." : "Broadcast Request"}
+                  <Sparkles size={14} />
+                  <span>{createMutation.isLoading ? "Broadcasting..." : "Broadcast Request"}</span>
                 </button>
               </div>
             </form>
@@ -762,36 +977,40 @@ export default function CompanyRequestsPage({ role = "hr" }) {
 
       {/* ── 6. SLIDE-OVER DRAWER: REQUEST DETAILS & THREAD ─────────────────── */}
       {activeRequest && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="w-full max-w-xl h-full bg-white dark:bg-[#111C24] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-slideLeft">
-            {/* Drawer Header */}
-            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn font-sans">
+          <div className="w-full max-w-xl h-full bg-white dark:bg-[#0A0F18] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-slideLeft">
+            {/* Drawer Luxury Header */}
+            <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-5 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
               <div className="min-w-0 flex-1 pr-3">
-                <div className="flex items-center gap-1.5 mb-0.5">
-                  <span className="text-[10px] font-mono font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded border border-amber-500/20">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-mono font-black text-amber-400 bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30">
                     {activeRequest.requestCode}
                   </span>
-                  <span className="text-[10px] text-slate-400 font-semibold">• {activeRequest.category}</span>
+                  <span className="text-[10.5px] text-slate-400 font-semibold">• {activeRequest.category}</span>
                 </div>
-                <h2 className="text-xs font-black text-slate-900 dark:text-white truncate">
+                <h2 className="text-sm font-black text-white truncate">
                   {activeRequest.title}
                 </h2>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
                 <select
                   value={activeRequest.status}
                   onChange={(e) => statusMutation.mutate({ id: activeRequest._id, status: e.target.value })}
-                  className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg px-2 py-1 text-xs font-black text-amber-600 dark:text-amber-400 focus:outline-none cursor-pointer"
+                  className="bg-white/10 border border-white/20 rounded-xl px-2.5 py-1 text-xs font-black text-amber-400 focus:outline-none cursor-pointer"
                 >
-                  <option value="Open">Open</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Resolved">Resolved</option>
-                  <option value="Closed">Closed</option>
+                  <option value="Open" className="text-slate-900 bg-white">Open</option>
+                  <option value="In Progress" className="text-slate-900 bg-white">In Progress</option>
+                  <option value="Resolved" className="text-slate-900 bg-white">Resolved</option>
+                  <option value="Closed" className="text-slate-900 bg-white">Closed</option>
                 </select>
 
-                <button onClick={() => setActiveRequest(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-700 cursor-pointer">
-                  <X size={15} />
+                <button 
+                  type="button"
+                  onClick={() => setActiveRequest(null)} 
+                  className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                >
+                  <X size={16} />
                 </button>
               </div>
             </div>

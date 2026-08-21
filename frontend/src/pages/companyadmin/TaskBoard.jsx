@@ -14,7 +14,8 @@ import {
   ChevronRight, X, Download, Tag, User, Users,
   CalendarClock, Repeat, LayoutGrid, List, ChevronDown, ChevronUp, Kanban,
   ArrowUp, ArrowDown, CheckSquare, Sparkles, AlertTriangle, Layers,
-  Calendar, RotateCcw, SlidersHorizontal, RefreshCw, Layers3, Flame
+  Calendar, RotateCcw, SlidersHorizontal, RefreshCw, Layers3, Flame,
+  Eye, Building2, Paperclip
 } from "lucide-react";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 
@@ -233,36 +234,49 @@ const TaskCard = ({ task, onClick, activeTab }) => {
 const TableRow = ({ task, onClick, activeTab }) => {
   const status = task.status || "pending";
   const assignedNames = (task.assignedTo || []).filter(a => a && (a.firstName || a.name));
-  const deadline = task.endDateTime
-    ? new Date(task.endDateTime)
-    : task.isTemplate && (task.finishDate || task.endDate) ? new Date(task.finishDate || task.endDate) : null;
+  const rawDate = task.dueDate || task.endDate || task.endDateTime || task.finishDate || task.startDate;
+  const deadline = rawDate ? new Date(rawDate) : null;
   const assignedByName = task.assignedBy?.name || (task.assignedBy?.firstName ? `${task.assignedBy.firstName} ${task.assignedBy.lastName || ""}` : "System");
+  const deptName = task.departmentId?.name || (typeof task.department === "string" ? task.department : "") || task.departmentName;
 
   return (
-    <tr onClick={onClick} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors cursor-pointer group">
-      <td className="px-4 py-3 font-mono text-[11px] font-bold text-slate-500 dark:text-slate-400">{task.taskId || "—"}</td>
-      <td className="px-4 py-3 max-w-[240px]">
-        <div className="flex items-center gap-2">
-          <p className="font-bold text-slate-900 dark:text-white text-[13px] truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{task.title}</p>
-          {task.isTemplate ? (
-            <span className="inline-flex items-center text-[9px] font-black text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 px-1.5 py-0.5 rounded border border-violet-200 dark:border-violet-800 uppercase tracking-wider">
-              Template
-            </span>
-          ) : (task.isRecurring || task.isGeneratedFromTemplate || task.parentTemplateId) ? (
-            <span className="inline-flex items-center text-[9px] font-black text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
-              Recurring
-            </span>
-          ) : null}
-        </div>
-        {task.departmentId?.name && <p className="text-[10px] font-medium text-slate-400 mt-0.5">{task.departmentId.name}</p>}
+    <tr onClick={onClick} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group">
+      <td className="px-4 py-3 whitespace-nowrap">
+        <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-[11px]">
+          {task.taskId || "TSK"}
+        </span>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 max-w-sm">
+        <div className="space-y-0.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <p className="font-bold text-slate-900 dark:text-white text-xs truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+              {task.title}
+            </p>
+            {task.isTemplate ? (
+              <span className="inline-flex items-center text-[9px] font-black text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-950/50 px-1.5 py-0.2 rounded border border-violet-200 dark:border-violet-800 uppercase tracking-wider">
+                Template
+              </span>
+            ) : (task.isRecurring || task.isGeneratedFromTemplate || task.parentTemplateId) ? (
+              <span className="inline-flex items-center text-[9px] font-black text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-1.5 py-0.2 rounded border border-amber-200 dark:border-amber-800 uppercase tracking-wider">
+                Recurring
+              </span>
+            ) : null}
+          </div>
+          {deptName && (
+            <p className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+              <Building2 size={11} className="text-slate-400" />
+              <span>{deptName}</span>
+            </p>
+          )}
+        </div>
+      </td>
+      <td className="px-4 py-3 whitespace-nowrap">
         <div className="flex items-center gap-1.5">
           <MiniAvatar name={assignedByName} size="w-5 h-5" textSize="text-[9px]" />
-          <span className="text-[12px] text-slate-700 dark:text-slate-300 font-medium truncate max-w-[110px]">{assignedByName}</span>
+          <span className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate max-w-[110px]">{assignedByName}</span>
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 whitespace-nowrap">
         <div className="flex -space-x-1.5">
           {assignedNames.slice(0, 3).map((a, i) => {
             const name = a.firstName ? `${a.firstName} ${a.lastName || ""}` : (a.name || "");
@@ -274,7 +288,7 @@ const TableRow = ({ task, onClick, activeTab }) => {
           {assignedNames.length === 0 && <span className="text-[11px] text-slate-400">—</span>}
         </div>
       </td>
-      <td className="px-4 py-3 text-[12px] text-slate-700 dark:text-slate-300 font-medium">
+      <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap font-mono">
         {deadline && activeTab !== "Recurring" ? (
           deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
         ) : task.isTemplate ? (
@@ -283,10 +297,17 @@ const TableRow = ({ task, onClick, activeTab }) => {
           "—"
         )}
       </td>
-      <td className="px-4 py-3"><PriorityBadge priority={task.priority} /></td>
-      <td className="px-4 py-3"><StatusBadge status={status} isTemplate={task.isTemplate} isActive={task.isActive} /></td>
-      <td className="px-4 py-3 text-right">
-        <ChevronRight size={15} className="text-slate-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 inline-block transition-colors" />
+      <td className="px-4 py-3 whitespace-nowrap"><PriorityBadge priority={task.priority} /></td>
+      <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={status} isTemplate={task.isTemplate} isActive={task.isActive} /></td>
+      <td className="px-4 py-3 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+        <button
+          type="button"
+          onClick={onClick}
+          className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 text-[11px] font-bold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+        >
+          <Eye size={12} />
+          <span>View</span>
+        </button>
       </td>
     </tr>
   );
@@ -324,7 +345,7 @@ export default function TaskBoard() {
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("tb_activeTab") || "All Time");
   const [statusFilter, setStatusFilter] = useState(() => sessionStorage.getItem("tb_statusFilter") || "");
   const [searchQ, setSearchQ] = useState(() => sessionStorage.getItem("tb_searchQ") || "");
-  const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "cards");
+  const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "list");
   const [showStatusCards, setShowStatusCards] = useState(false);
 
   const [filters, setFilters] = useState(() => {

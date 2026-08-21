@@ -41,6 +41,9 @@ export default function LeadDrawer({ leadId, onClose, onUpdate, statuses, source
   const [messages, setMessages] = useState<any[]>([]);
   const [newNote, setNewNote] = useState('');
   const [templates, setTemplates] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [isCustomProduct, setIsCustomProduct] = useState(false);
+  const [customProductText, setCustomProductText] = useState('');
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [varMapping, setVarMapping] = useState<Record<string, string>>({});
   const [sendSuccess, setSendSuccess] = useState<string | null>(null);
@@ -55,7 +58,12 @@ export default function LeadDrawer({ leadId, onClose, onUpdate, statuses, source
   const fetchLeadDetails = async () => {
     setLoading(true);
     try {
-      const res = await api.get(`/api/leads/${leadId}`);
+      const [res, prodRes] = await Promise.all([
+        api.get(`/api/leads/${leadId}`),
+        api.get('/api/products').catch(() => []),
+      ]);
+      if (Array.isArray(prodRes)) setProducts(prodRes);
+      else if (Array.isArray(prodRes?.data)) setProducts(prodRes.data);
       if (res) {
         setLead(res);
         setFormData({
@@ -256,80 +264,83 @@ export default function LeadDrawer({ leadId, onClose, onUpdate, statuses, source
     : [];
 
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 50, background: 'rgba(0,0,0,0.4)', display: 'flex', justifyContent: 'flex-end' }}>
-      <div style={{ position: 'absolute', inset: 0 }} onClick={onClose} />
+    <div className="fixed inset-0 z-50 flex justify-end bg-black/65 backdrop-blur-md animate-fadeIn font-sans">
+      <div className="absolute inset-0" onClick={onClose} />
 
       <div
-        className="animate-slide-in"
-        style={{
-          position: 'relative', zIndex: 51, width: '100%', maxWidth: 560,
-          background: '#FFFFFF', height: '100vh', display: 'flex', flexDirection: 'column',
-          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)', borderLeft: '1px solid #E5E7EB',
-        }}
+        className="relative z-51 w-full max-w-xl bg-white dark:bg-[#0A0F18] h-screen flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 animate-slideLeft text-xs"
       >
-        {/* Header */}
-        <div style={{ padding: '14px 20px', borderBottom: '1px solid #F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: '50%', background: '#ECFDF5',
-              color: '#0E6B50', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontWeight: 600, fontSize: 13, flexShrink: 0,
-            }}>
+        {/* Luxury Obsidian Header */}
+        <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-5 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 min-w-0 pr-2">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center font-extrabold text-sm shadow-md shrink-0">
               {initials(lead?.name)}
             </div>
-            <div>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.3 }}>{lead?.name}</p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 3, flexWrap: 'wrap' }}>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-white truncate leading-tight">{lead?.name}</p>
+              <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                 <StatusBadge name={lead?.status?.name} color={lead?.status?.color} />
                 {lead?.tags?.map((tag: any, idx: number) => (
-                  <span key={tag.id || tag._id || tag.name || `tag-${idx}`} style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 3.5,
-                    padding: '2px 7px', borderRadius: 12, fontSize: 11, fontWeight: 600,
-                    background: `${tag.color || '#6366F1'}15`, color: tag.color || '#6366F1',
-                    border: `1px solid ${tag.color || '#6366F1'}30`,
-                  }}>
-                    <Tag style={{ width: 9, height: 9 }} />
+                  <span 
+                    key={tag.id || tag._id || tag.name || `tag-${idx}`} 
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border"
+                    style={{
+                      backgroundColor: `${tag.color || '#f59e0b'}20`,
+                      color: tag.color || '#f59e0b',
+                      borderColor: `${tag.color || '#f59e0b'}40`,
+                    }}
+                  >
+                    <Tag className="w-2.5 h-2.5" />
                     {tag.name}
                   </span>
                 ))}
                 {!lead?.whatsappOptIn && (
-                  <span style={{ fontSize: 11, fontWeight: 600, color: '#EF4444', background: '#FEF2F2', padding: '2px 6px', borderRadius: 4, border: '1px solid #FECACA' }}>
+                  <span className="text-[10px] font-bold text-rose-400 bg-rose-950/40 px-2 py-0.5 rounded-md border border-rose-800/60">
                     Opted Out
                   </span>
                 )}
               </div>
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <button onClick={handleDeleteLead} disabled={isLoading('delete')} className="btn btn-ghost btn-sm" style={{ padding: '0 7px', color: '#EF4444' }} title="Delete contact">
-              {isLoading('delete') ? <Loader2 className="animate-spin" style={{ width: 14, height: 14 }} /> : <Trash2 style={{ width: 14, height: 14 }} />}
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button 
+              type="button"
+              onClick={handleDeleteLead} 
+              disabled={isLoading('delete')} 
+              className="w-8 h-8 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center transition-all cursor-pointer" 
+              title="Delete contact"
+            >
+              {isLoading('delete') ? <Loader2 className="animate-spin w-3.5 h-3.5" /> : <Trash2 className="w-3.5 h-3.5" />}
             </button>
-            <button onClick={onClose} className="btn btn-ghost btn-sm" style={{ padding: '0 7px' }}>
-              <X style={{ width: 16, height: 16 }} />
+            <button 
+              type="button"
+              onClick={onClose} 
+              className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
-        {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #F3F4F6', flexShrink: 0 }}>
+        {/* Tab Navigation Strip */}
+        <div className="flex bg-slate-50 dark:bg-[#0E1522] border-b border-slate-200 dark:border-slate-800 shrink-0">
           {TABS.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
-                style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5,
-                  padding: '10px 4px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
-                  background: 'transparent', border: 'none',
-                  color: isActive ? '#0E6B50' : '#9CA3AF',
-                  borderBottom: `2px solid ${isActive ? '#0E6B50' : 'transparent'}`,
-                  marginBottom: -1, transition: 'all 150ms ease',
-                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all cursor-pointer border-b-2 ${
+                  isActive
+                    ? "text-amber-700 dark:text-amber-400 border-amber-600 dark:border-amber-500 bg-white dark:bg-[#0A0F18]"
+                    : "text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
               >
-                <Icon style={{ width: 13, height: 13 }} />
-                <span className="hidden sm:inline">{tab.label}</span>
+                <Icon className="w-3.5 h-3.5" />
+                <span>{tab.label}</span>
               </button>
             );
           })}
@@ -391,8 +402,48 @@ export default function LeadDrawer({ leadId, onClose, onUpdate, statuses, source
                   </div>
                   <div>
                     <label className="form-label">Product / Service Interest</label>
-                    <input type="text" className="input-base" value={formData.productService}
-                      onChange={(e) => setFormData({ ...formData, productService: e.target.value })} />
+                    <select
+                      className="select-base"
+                      value={isCustomProduct ? '__CUSTOM__' : formData.productService}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === '__CUSTOM__') {
+                          setIsCustomProduct(true);
+                          setFormData({ ...formData, productService: customProductText });
+                        } else {
+                          setIsCustomProduct(false);
+                          setFormData({ ...formData, productService: val });
+                        }
+                      }}
+                    >
+                      <option value="">-- Select Product / Service (Admin Added) --</option>
+                      {products.map((p) => (
+                        <option key={p.id || p._id} value={p.name}>
+                          {p.name} {p.price ? `(₹${Number(p.price).toLocaleString()})` : ''}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__" style={{ color: '#3B82F6', fontWeight: 'bold' }}>
+                        ✍️ Other / Custom Requirement (Type manually)...
+                      </option>
+                    </select>
+
+                    {isCustomProduct && (
+                      <div style={{ marginTop: 6 }}>
+                        <input
+                          type="text"
+                          autoFocus
+                          required
+                          className="input-base"
+                          placeholder="Type custom product or service requirement..."
+                          value={customProductText}
+                          onChange={(e) => {
+                            setCustomProductText(e.target.value);
+                            setFormData({ ...formData, productService: e.target.value });
+                          }}
+                          style={{ borderColor: '#F59E0B' }}
+                        />
+                      </div>
+                    )}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                     <div>

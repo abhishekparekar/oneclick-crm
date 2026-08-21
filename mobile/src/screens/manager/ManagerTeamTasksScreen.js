@@ -440,20 +440,21 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
   const manager = dashboardData?.manager || {};
   const departmentsList = useMemo(() => {
-    if (!manager.departmentId && (!manager.accessibleDepartments || manager.accessibleDepartments.length === 0)) {
-      return [];
-    }
     const list = [];
-    if (manager.departmentId) {
-      list.push({
-        _id: manager.departmentId._id || manager.departmentId,
-        name: manager.departmentId.name || "My Department"
-      });
+    if (manager?.departmentId) {
+      const dId = typeof manager.departmentId === "object" ? manager.departmentId?._id : manager.departmentId;
+      const dName = typeof manager.departmentId === "object" ? (manager.departmentId?.name || "My Department") : "My Department";
+      if (dId) {
+        list.push({ _id: dId, name: dName });
+      }
     }
-    if (manager.accessibleDepartments) {
+    if (Array.isArray(manager?.accessibleDepartments)) {
       manager.accessibleDepartments.forEach(dept => {
-        if (dept && dept._id && !list.find(x => x._id === dept._id)) {
-          list.push(dept);
+        if (!dept) return;
+        const id = typeof dept === "object" ? dept?._id : dept;
+        const name = typeof dept === "object" ? (dept?.name || "Accessible Dept") : "Accessible Dept";
+        if (id && !list.some(x => String(x?._id) === String(id))) {
+          list.push({ _id: id, name });
         }
       });
     }
