@@ -327,185 +327,163 @@ export default function TaskDetailsPage() {
   const totalChecklistCount = (task.checklist || []).length;
 
   return (
-    <div className="space-y-3 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
-      
-      {/* ── 1. SLIM EXECUTIVE ACTION HEADER (FLOATING ADMIN STYLE) ─────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
-        <div className="flex items-center gap-3 min-w-0">
-          <button
-            onClick={() => navigate(getBackUrl())}
-            className="px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer shadow-2xs flex items-center gap-1"
-            title="Back to Tasks"
+    <div className="space-y-2.5 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl px-3 py-2 shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <button 
+            onClick={() => navigate(-1)} 
+            className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
           >
-            <ChevronLeft size={14} /> Back
+            <ChevronLeft size={13} /> Back
           </button>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-0.5">
-              <span className="text-[11px] font-mono font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/20">
-                {task.taskId || "TSK"}
+          <div className="min-w-0 flex items-center gap-2 flex-wrap">
+            <span className="text-[10.5px] font-mono font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+              {task.taskId || "TSK"}
+            </span>
+            <h1 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+              {task.title}
+            </h1>
+            <span className={`text-[9.5px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-2xs ${theme.bg}`}>
+              {theme.label}
+            </span>
+            {task.isTemplate && (
+              <span className="text-[9.5px] font-black px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20">
+                Recurring
               </span>
-              <h1 className="text-base font-black text-slate-900 dark:text-white truncate">
-                {task.title}
-              </h1>
-              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border shadow-2xs ${theme.bg}`}>
-                {theme.label}
-              </span>
-              {task.isTemplate && (
-                <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-600 border border-purple-500/20">
-                  Recurring
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Action Buttons Group */}
-        <div className="flex items-center gap-2 flex-wrap shrink-0">
-          {/* Edit Button */}
+        <div className="flex items-center gap-1.5 flex-wrap shrink-0 self-start sm:self-auto">
           {(task.status === "pending" || task.status === "re_pending") && (
             <button 
               onClick={() => setShowEdit(true)} 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
             >
-              <Edit3 size={12} className="text-slate-400" />
+              <Edit3 size={11} className="text-slate-400" />
               <span>Edit</span>
             </button>
           )}
 
-          {/* Schedule Follow-up */}
           {!task.isTemplate && (task.status !== "complete" && task.status !== "late_complete" && task.status !== "cancelled") && (
             <button 
               onClick={() => setShowFollowUp(true)} 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
             >
-              <CalendarDays size={12} className="text-slate-400" />
+              <CalendarDays size={11} className="text-slate-400" />
               <span>Follow-up</span>
             </button>
           )}
 
-          {/* Mark In-Process */}
           {!task.isTemplate && (task.status === "pending" || task.status === "re_pending" || task.status === "overdue") && (
             <button 
               onClick={() => setShowInProcess(true)} 
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
             >
-              <Play size={12} />
+              <Play size={11} />
               <span>In-Process</span>
             </button>
           )}
           
-          {/* Mark Complete */}
           {(task.status === "in_process" || task.status === "re_in_process") && (
             <button 
               onClick={() => setShowComplete(true)} 
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
             >
-              <CheckCircle2 size={12} />
+              <CheckCircle2 size={11} />
               <span>Complete</span>
             </button>
           )}
 
-          {/* Late Complete */}
           {task.status === "overdue" && (
             <button 
               onClick={() => setShowComplete(true)} 
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black shadow-md transition-all cursor-pointer"
+              className="flex items-center gap-1 px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
             >
-              <AlertCircle size={12} />
+              <AlertCircle size={11} />
               <span>Late Complete</span>
             </button>
           )}
 
-          {/* Shift Task */}
           {!task.isTemplate && (task.status === "pending" || task.status === "in_process" || task.status === "overdue" || task.status === "re_pending" || task.status === "re_in_process") && 
            (user.role === "Admin" || user.role === "CompanyAdmin" || user.role === "Manager") && (
             <button 
               onClick={() => setShowShift(true)} 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
             >
-              <Share2 size={12} className="text-slate-400" />
+              <Share2 size={11} className="text-slate-400" />
               <span>Shift</span>
             </button>
           )}
 
-          {/* Re-open Task */}
           {!task.isTemplate && (task.status === "complete" || task.status === "late_complete") && (user.role === "Admin" || user.role === "CompanyAdmin" || user.role === "Manager") && (
             <button 
               onClick={() => setShowReopen(true)} 
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
             >
-              <RotateCcw size={12} className="text-slate-400" />
+              <RotateCcw size={11} className="text-slate-400" />
               <span>Re-open</span>
             </button>
           )}
 
-          {/* Delete Task */}
           {(user.role === "Admin" || user.role === "CompanyAdmin" || user.role === "Manager") && task.status !== "cancelled" && (
             <button 
               onClick={handleDelete} 
               disabled={deleteMutation.isLoading}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 rounded-xl text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+              className="flex items-center gap-1 px-2.5 py-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 border border-rose-500/20 rounded-lg text-xs font-bold transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
             >
-              <Trash2 size={12} />
+              <Trash2 size={11} />
               <span>Delete</span>
             </button>
           )}
         </div>
       </div>
 
-      {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CONTAINER ─────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+      <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/90 dark:border-slate-800 shadow-2xs overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-800">
-          
-          {/* ── LEFT SECTION (5 / 12 width): TASK SPECIFICATIONS & DETAILS ── */}
-          <div className="lg:col-span-5 p-4 sm:p-5 space-y-4 bg-white dark:bg-[#111C24]">
+          <div className="lg:col-span-5 p-3 sm:p-3.5 space-y-2.5 bg-white dark:bg-[#111C24]">
             
-            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
-              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                <FileText size={15} className="text-amber-600 dark:text-amber-400" /> Task Specifications &amp; Details
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <FileText size={13} className="text-amber-600 dark:text-amber-400" /> Task Description
               </h2>
             </div>
 
-            {/* Description & Instructions */}
-            <div className="space-y-1">
-              <p className="text-[10.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Description &amp; Instructions
-              </p>
-              <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap shadow-2xs">
-                {task.description || "No specific detailed description provided for this task."}
-              </div>
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap shadow-2xs">
+              {task.description || "No specific detailed description provided for this task."}
             </div>
 
-            {/* Key Dates & Meta Specs Grid */}
-            <div className="space-y-2 pt-1">
-              <p className="text-[10.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Specifications
-              </p>
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Assigned To</span>
-                  <span className="font-black text-slate-950 dark:text-white truncate block">
+            <div className="space-y-1.5 pt-1">
+              <div className="border-b border-slate-100 dark:border-slate-800 pb-1 flex items-center justify-between">
+                <h2 className="font-black text-slate-900 dark:text-white text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                  <Tag size={13} className="text-amber-600 dark:text-amber-400" /> Task Specifications
+                </h2>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 text-xs">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Assigned To</span>
+                  <span className="font-black text-slate-900 dark:text-white truncate block text-xs">
                     {task.assignedTo?.filter(Boolean).map(a => `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name).join(", ") || "Unassigned"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Assigned By</span>
-                  <span className="font-black text-slate-950 dark:text-white truncate block">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Assigned By</span>
+                  <span className="font-black text-slate-900 dark:text-white truncate block text-xs">
                     {task.assignedBy ? `${task.assignedBy.firstName || ""} ${task.assignedBy.lastName || ""}`.trim() || task.assignedBy.name : "System"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Department</span>
-                  <span className="font-black text-slate-950 dark:text-white truncate block">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Department</span>
+                  <span className="font-black text-slate-900 dark:text-white truncate block text-xs">
                     {task.departmentId?.name || "General"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Priority</span>
-                  <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Priority</span>
+                  <span className={`inline-block px-2 py-0.2 rounded text-[9.5px] font-black uppercase tracking-wider border shadow-2xs ${
                     task.priority === 'high' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700' :
                     task.priority === 'low' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' :
                     'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
@@ -514,24 +492,24 @@ export default function TaskDetailsPage() {
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Start Date</span>
-                  <span className="font-mono font-black text-slate-950 dark:text-white block text-xs">
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Start Date</span>
+                  <span className="font-mono font-black text-slate-900 dark:text-white block text-xs">
                     {formatDate(task.startDateTime || task.startDate)}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Deadline</span>
+                <div className="p-2 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
+                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Deadline</span>
                   <span className="font-mono font-black text-rose-700 dark:text-rose-400 block text-xs">
                     {formatDate(task.endDateTime || task.endDate || task.finishDate)}
                   </span>
                 </div>
 
                 {task.nextFollowUpDate && (
-                  <div className="col-span-2 p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-700 shadow-2xs">
-                    <span className="text-[10px] font-black uppercase tracking-wider text-teal-950 dark:text-teal-200 block mb-0.5 flex items-center gap-1">
-                      <Clock size={11} className="text-teal-700 dark:text-teal-400" /> Next Follow-Up
+                  <div className="col-span-2 p-2 rounded-lg bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-700 shadow-2xs">
+                    <span className="text-[9.5px] font-black uppercase tracking-wider text-teal-900 dark:text-teal-200 block mb-0.5 flex items-center gap-1">
+                      <Clock size={10} className="text-teal-700 dark:text-teal-400" /> Next Follow-Up
                     </span>
                     <span className="font-mono font-black text-teal-950 dark:text-teal-100 block text-xs">
                       {formatDateTime(task.nextFollowUpDate)}
@@ -541,58 +519,51 @@ export default function TaskDetailsPage() {
               </div>
             </div>
 
-            {/* Workflow Progress Stepper */}
-            <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-2.5 shadow-2xs">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Workflow Progress</span>
-              <div className="flex items-center justify-between relative pt-1">
-                {/* Step 1: Pending */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "pending" || task.status === "re_pending") ? "bg-amber-500 text-white ring-2 ring-amber-500/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
-                    {(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>1</span>}
+            <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 space-y-1.5 shadow-2xs">
+              <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Workflow Progress</span>
+              <div className="flex items-center justify-between relative pt-0.5">
+                <div className="flex flex-col items-center gap-0.5 z-10 flex-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] transition-all shadow-2xs ${(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "pending" || task.status === "re_pending") ? "bg-amber-500 text-white ring-2 ring-amber-500/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={12} strokeWidth={3} /> : <span>1</span>}
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "pending" || task.status === "re_pending") ? "text-amber-700 dark:text-amber-400 font-black" : (task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${(task.status === "pending" || task.status === "re_pending") ? "text-amber-700 dark:text-amber-400" : (task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300" : "text-slate-400"}`}>
                     Pending
                   </span>
                 </div>
 
-                {/* Line 1 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-1.5 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 w-full" : "w-0"}`} />
                 </div>
 
-                {/* Step 2: In Process */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "in_process" || task.status === "re_in_process") ? "bg-blue-600 text-white ring-2 ring-blue-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
-                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>2</span>}
+                <div className="flex flex-col items-center gap-0.5 z-10 flex-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "in_process" || task.status === "re_in_process") ? "bg-blue-600 text-white ring-2 ring-blue-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={12} strokeWidth={3} /> : <span>2</span>}
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "in_process" || task.status === "re_in_process") ? "text-blue-700 dark:text-blue-400 font-black" : (task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${(task.status === "in_process" || task.status === "re_in_process") ? "text-blue-700 dark:text-blue-400" : (task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300" : "text-slate-400"}`}>
                     In Process
                   </span>
                 </div>
 
-                {/* Line 2 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-1.5 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 w-full" : "w-0"}`} />
                 </div>
 
-                {/* Step 3: Complete */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white ring-2 ring-emerald-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
-                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>3</span>}
+                <div className="flex flex-col items-center gap-0.5 z-10 flex-1">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white ring-2 ring-emerald-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={12} strokeWidth={3} /> : <span>3</span>}
                   </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "complete" || task.status === "late_complete") ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-slate-500 font-bold"}`}>
+                  <span className={`text-[9px] font-black uppercase tracking-wider ${(task.status === "complete" || task.status === "late_complete") ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
                     {task.status === "late_complete" ? "Late Done" : "Complete"}
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Checklist / Subtasks */}
             {task.checklist && task.checklist.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckSquare size={13} className="text-teal-600 dark:text-teal-400" />
+              <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between text-[10.5px]">
+                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                    <CheckSquare size={12} className="text-teal-600 dark:text-teal-400" />
                     <span>Subtasks ({completedChecklistCount}/{totalChecklistCount})</span>
                   </span>
                   <span className="font-mono font-black text-teal-700 dark:text-teal-400">
@@ -600,21 +571,21 @@ export default function TaskDetailsPage() {
                   </span>
                 </div>
 
-                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-teal-500 rounded-full transition-all duration-300"
                     style={{ width: `${(completedChecklistCount / totalChecklistCount) * 100}%` }}
                   />
                 </div>
 
-                <div className="space-y-1.5 pt-1">
+                <div className="space-y-1 pt-0.5">
                   {task.checklist.map((item, idx) => (
                     <label 
                       key={idx} 
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer text-xs shadow-2xs ${
+                      className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer text-xs shadow-2xs ${
                         item.isCompleted 
                           ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
-                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-300 dark:border-slate-700 text-slate-950 dark:text-white font-bold"
+                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold"
                       }`}
                     >
                       <input
@@ -630,39 +601,38 @@ export default function TaskDetailsPage() {
               </div>
             )}
 
-            {/* Task Attachments */}
             {task.attachments && task.attachments.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <h4 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                  <Paperclip size={12} className="text-amber-600 dark:text-amber-400" />
+              <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">
+                <h4 className="text-[9.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
                   <span>Attachments ({task.attachments.length})</span>
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                   {task.attachments.map((att, idx) => (
                     <div 
                       key={idx} 
-                      className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-950 dark:text-white shadow-2xs hover:border-amber-500 transition-all"
+                      className="flex items-center justify-between gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-xs font-bold text-slate-900 dark:text-white shadow-2xs hover:border-amber-500 transition-all"
                     >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Paperclip size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span className="truncate max-w-[130px]">{safeDecodeURIComponent(att.fileName)}</span>
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Paperclip size={11} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="truncate max-w-[120px] text-[11px]">{safeDecodeURIComponent(att.fileName)}</span>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <button
                           type="button"
                           onClick={() => setSelectedFileForPreview(att)}
-                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          className="text-slate-400 hover:text-amber-600 p-0.5 cursor-pointer"
                           title="Preview"
                         >
-                          <Eye size={13} />
+                          <Eye size={12} />
                         </button>
                         <button
                           type="button"
                           onClick={() => downloadAttachment(att)}
-                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          className="text-slate-400 hover:text-amber-600 p-0.5 cursor-pointer"
                           title="Download"
                         >
-                          <Download size={13} />
+                          <Download size={12} />
                         </button>
                       </div>
                     </div>
@@ -670,82 +640,74 @@ export default function TaskDetailsPage() {
                 </div>
               </div>
             )}
-
           </div>
 
-          {/* ── RIGHT SECTION (7 / 12 width): NOTES, REMARKS & TIMELINE ── */}
-          <div className="lg:col-span-7 p-4 sm:p-5 space-y-4 bg-white dark:bg-[#111C24]">
+          <div className="lg:col-span-7 p-3 sm:p-3.5 space-y-2.5 bg-white dark:bg-[#111C24]">
             
-            {/* Notes & Remarks Header */}
-            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
-              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                <MessageSquare size={15} className="text-amber-600 dark:text-amber-400" /> Notes &amp; Remarks Timeline
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-1.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                <MessageSquare size={13} className="text-amber-600 dark:text-amber-400" /> Notes &amp; Remarks ({task.comments?.length || 0})
               </h2>
-              <span className="text-[10.5px] font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                {task.comments?.length || 0} Notes
-              </span>
             </div>
 
-            {/* Note Composer */}
-            <form onSubmit={handleAddComment} className="space-y-2">
-              <div className="bg-slate-50 dark:bg-[#0B101B] border-2 border-slate-300 dark:border-slate-700 rounded-xl p-3 focus-within:border-amber-500 transition-colors shadow-2xs">
+            <form onSubmit={handleAddComment} className="space-y-1.5">
+              <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-xl p-2.5 focus-within:border-amber-500 transition-colors shadow-2xs">
                 <textarea 
                   required
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
-                  className="w-full bg-transparent text-xs text-slate-950 dark:text-white placeholder-slate-500 focus:outline-none min-h-[50px] resize-none font-semibold"
+                  className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none min-h-[42px] resize-none font-semibold"
                   placeholder="Write a follow-up remark or note..."
                 />
                 
-                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 flex-wrap gap-2">
+                <div className="flex items-center justify-between pt-1.5 border-t border-slate-200/70 dark:border-slate-800/80 flex-wrap gap-1.5">
                   <TaskAttachmentField attachments={commentAttachments} onChange={setCommentAttachments} compact={true} />
                   
                   <button 
                     type="submit" 
                     disabled={commentMutating || (!commentText.trim() && commentAttachments.length === 0)}
-                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer ml-auto transition-all"
+                    className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1 shadow-2xs disabled:opacity-50 cursor-pointer ml-auto transition-all"
                   >
-                    <Send size={11} strokeWidth={2.5} />
+                    <Send size={10} strokeWidth={2.5} />
                     <span>{commentMutating ? "Saving..." : "Add Note"}</span>
                   </button>
                 </div>
               </div>
             </form>
 
-            {/* Comment Feed */}
             {(!task.comments || task.comments.length === 0) ? (
-              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-6 italic">No remarks or notes added yet.</p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center py-4 italic">No remarks or notes added yet.</p>
             ) : (
-              <div className="space-y-2.5 max-h-[380px] overflow-y-auto custom-scrollbar pr-0.5">
+              <div className="space-y-2 max-h-[320px] overflow-y-auto custom-scrollbar pr-0.5">
                 {Array.isArray(task.comments) && [...task.comments].reverse().map((c, idx) => (
-                  <div key={c._id || idx} className="p-3.5 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 space-y-2 shadow-2xs hover:border-amber-500 transition-all">
+                  <div key={c._id || idx} className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/90 dark:border-slate-700/80 space-y-1.5 shadow-2xs hover:border-amber-500 transition-all">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <MiniAvatar name={c.senderName} />
-                        <span className="font-black text-xs text-slate-950 dark:text-white">{c.senderName}</span>
-                        <span className="text-[9px] uppercase font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700">
+                      <div className="flex items-center gap-1.5">
+                        <MiniAvatar name={c.senderName} size="w-5 h-5" textSize="text-[8.5px]" />
+                        <span className="font-black text-xs text-slate-900 dark:text-white">{c.senderName}</span>
+                        <span className="text-[8.5px] uppercase font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1 py-0.2 rounded border border-amber-300/80 dark:border-amber-700/80">
                           {c.senderRole}
                         </span>
                       </div>
-                      <span className="text-[10.5px] font-mono font-black text-slate-900 dark:text-slate-200">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
+                      <span className="text-[10px] font-mono font-bold text-slate-500 dark:text-slate-400">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
                     </div>
 
-                    <p className="text-xs text-slate-950 dark:text-slate-100 whitespace-pre-wrap leading-relaxed font-semibold bg-slate-50/60 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800/80">
+                    <p className="text-xs text-slate-900 dark:text-slate-100 whitespace-pre-wrap leading-relaxed font-semibold bg-white dark:bg-slate-900/50 p-2 rounded border border-slate-200/80 dark:border-slate-800/80">
                       {c.comment}
                     </p>
 
                     {c.attachments && c.attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5 pt-1">
+                      <div className="flex flex-wrap gap-1 pt-0.5">
                         {c.attachments.map((att, attIdx) => (
                           <a 
                             key={attIdx} 
                             href={att.fileUrl || att.fileData || "#"} 
                             target="_blank" 
                             rel="noreferrer" 
-                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-[10.5px] font-black text-slate-950 dark:text-white hover:border-amber-500 transition-colors shadow-2xs"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded text-[10px] font-black text-slate-800 dark:text-white hover:border-amber-500 transition-colors shadow-2xs"
                           >
-                            <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
-                            <span className="truncate max-w-[140px]">{safeDecodeURIComponent(att.fileName)}</span>
+                            <Paperclip size={10} className="text-amber-600 dark:text-amber-400" />
+                            <span className="truncate max-w-[130px]">{safeDecodeURIComponent(att.fileName)}</span>
                           </a>
                         ))}
                       </div>
@@ -755,45 +717,44 @@ export default function TaskDetailsPage() {
               </div>
             )}
 
-            {/* Workflow Activity Timeline */}
-            <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
-                <History size={14} className="text-amber-600 dark:text-amber-400" />
-                <span>Workflow Activity Timeline</span>
+            <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <h3 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-wider pb-1 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5">
+                <History size={12} className="text-amber-600 dark:text-amber-400" />
+                <span>Activity History</span>
               </h3>
 
               {(!timeline || timeline.length === 0) ? (
-                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-4 italic">No workflow history logged yet.</p>
+                <p className="text-slate-400 dark:text-slate-500 text-xs font-bold text-center py-2 italic">No history logged yet.</p>
               ) : (
-                <div className="relative pl-6 space-y-3 before:absolute before:inset-y-1 before:left-[11px] before:w-0.5 before:bg-slate-300 dark:before:bg-slate-700">
+                <div className="relative pl-5 space-y-2 before:absolute before:inset-y-0.5 before:left-[9px] before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
                   {Array.isArray(timeline) && timeline.map((act) => {
                     const actType = act.action || "";
                     const cfg = getTimelineConfig(actType) || TIMELINE_CONFIG.comment_added;
                     const Icon = cfg.icon;
 
                     return (
-                      <div key={act._id} className="relative group">
-                        <span className={`absolute -left-[24px] top-0.5 w-6 h-6 rounded-full bg-white dark:bg-[#111C24] border border-slate-300 dark:border-slate-700 flex items-center justify-center shadow-2xs ${cfg.border}`}>
-                          {Icon && <Icon size={10} className={cfg.iconColor} />}
+                      <div key={act._id} className="relative group text-xs">
+                        <span className={`absolute -left-[21px] top-0.5 w-5 h-5 rounded-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 flex items-center justify-center shadow-2xs ${cfg.border}`}>
+                          {Icon && <Icon size={9} className={cfg.iconColor} />}
                         </span>
 
-                        <div className="space-y-1">
+                        <div className="space-y-0.5">
                           <div className="flex items-center justify-between gap-1 flex-wrap">
-                            <div className="flex items-center gap-1.5">
-                              <span className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider border ${cfg.bg}`}>
+                            <div className="flex items-center gap-1">
+                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-black uppercase tracking-wider border ${cfg.bg}`}>
                                 {cfg.label}
                               </span>
-                              <span className="text-xs font-black text-slate-950 dark:text-white">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
                                 {act.performedBy?.name || "System"}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-slate-200">
+                            <span className="text-[9.5px] font-mono font-bold text-slate-400 dark:text-slate-500">
                               {formatDate(act.createdAt)} {formatTime(act.createdAt)}
                             </span>
                           </div>
 
                           {act.remarks && (
-                            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 font-semibold shadow-2xs">
+                            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 font-semibold shadow-2xs">
                               {act.remarks}
                             </div>
                           )}
@@ -810,7 +771,6 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* Action Popups */}
       {task && <InProcessModal isOpen={showInProcess} onClose={() => setShowInProcess(false)} task={task} />}
       {task && <CompleteModal isOpen={showComplete} onClose={() => setShowComplete(false)} task={task} isLate={task.status === "overdue"} />}
       {task && <ReopenModal isOpen={showReopen} onClose={() => setShowReopen(false)} task={task} />}
