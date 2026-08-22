@@ -59,8 +59,9 @@ export default function EmployeeLeadDetails() {
   const { data: templatesData } = useQuery({
     queryKey: ["leadsWhatsAppTemplates"],
     queryFn: async () => {
-      const res = await api.get("/leads-engine/mobile/whatsapp/templates").catch(() => ({ data: { templates: [] } }));
-      return res?.data?.templates || [];
+      const res = await api.get("/leads-engine/templates").catch(() => ({ data: [] }));
+      const list = res?.data?.templates || res?.data?.data || (Array.isArray(res?.data) ? res.data : []);
+      return list;
     },
   });
 
@@ -69,28 +70,28 @@ export default function EmployeeLeadDetails() {
   const templates = Array.isArray(templatesData) ? templatesData : [];
 
   useEffect(() => {
-    if (lead) {
-      setSelectedStatusId(lead.statusId || lead.status?._id || lead.status?.id || "");
-      if (lead.nextFollowUpDate) {
-        setNextFollowUpDate(new Date(lead.nextFollowUpDate).toISOString().split("T")[0]);
+    if (leadData) {
+      setSelectedStatusId(leadData.statusId || leadData.status?._id || leadData.status?.id || "");
+      if (leadData.nextFollowUpDate) {
+        setNextFollowUpDate(new Date(leadData.nextFollowUpDate).toISOString().split("T")[0]);
       }
-      const rawPhone = lead.whatsappPhone || lead.phone || "";
+      const rawPhone = leadData.whatsappPhone || leadData.phone || "";
       setVarValues({
-        1: lead.name || "Client",
-        2: lead.company || lead.productService || "Business Services",
+        1: leadData.name || "Client",
+        2: leadData.company || leadData.productService || "Business Services",
         3: rawPhone.startsWith("+") ? rawPhone : `+91 ${rawPhone}`,
         4: "ORD-" + Math.floor(100000 + Math.random() * 900000),
-        5: lead.status?.name || "Active",
+        5: leadData.status?.name || "Active",
         6: "https://oneclick.in",
       });
     }
-  }, [lead]);
+  }, [leadData]);
 
   useEffect(() => {
     if (templates.length > 0 && !selectedTemplate) {
       setSelectedTemplate(templates[0]);
     }
-  }, [templates, selectedTemplate]);
+  }, [templatesData]);
 
   const [statusAttachedFile, setStatusAttachedFile] = useState(null);
   const [directUploadingDoc, setDirectUploadingDoc] = useState(false);
