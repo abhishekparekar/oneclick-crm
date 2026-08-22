@@ -382,7 +382,7 @@ export default function EmployeeLeads() {
   };
 
   return (
-    <div className="p-4 sm:p-5 space-y-4 font-sans bg-ca-bg min-h-screen text-ca-text pb-16">
+    <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
       
       {/* ── TOP HEADER BANNER (MATCHING TASKS TOP BANNER) ────────────────────── */}
       <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 text-white shadow-md border border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
