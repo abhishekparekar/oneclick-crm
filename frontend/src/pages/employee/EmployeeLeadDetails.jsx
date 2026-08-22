@@ -333,387 +333,200 @@ export default function EmployeeLeadDetails() {
         </div>
       </div>
 
-      {/* ── TABS NAVIGATION BAR ────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 border-b border-ca-border pb-2">
-        {[
-          { id: "overview", label: "Lead Specification & Contact", icon: FileText },
-          { id: "whatsapp", label: "WhatsApp Cloud Messenger", icon: Smartphone },
-          { id: "timeline", label: "Notes & Timeline History", icon: Clock },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                active
-                  ? "bg-teal-800 text-white shadow-sm"
-                  : "bg-ca-surface text-ca-text-secondary hover:text-ca-text hover:bg-ca-bg"
-              }`}
-            >
-              <Icon size={14} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* ── 2-COLUMN UNIFIED WORKSPACE ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        
+        {/* ── LEFT COLUMN (7 / 12 width): LEAD SPECIFICATION & CONTACT ─────────── */}
+        <div className="lg:col-span-7 space-y-4">
+          
+          {/* Contact & Business Profile */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
+            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <User size={15} className="text-amber-500" /> Contact &amp; Business Profile
+            </h2>
 
-      {/* ── TAB 1: OVERVIEW & LEAD SPECIFICATION ──────────────────────────────── */}
-      {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-          {/* Left Column (6/12): Contact Info & Documents */}
-          <div className="lg:col-span-6 space-y-4">
-            
-            {/* Contact Details Card */}
-            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
-                <User size={16} className="text-orange-600" /> Contact &amp; Business Profile
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Phone size={11} className="text-emerald-600" /> Primary Phone
-                  </p>
-                  <p className="text-xs font-black text-ca-text font-mono">
-                    {lead.phone || lead.whatsappPhone || "—"}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Smartphone size={11} className="text-emerald-600" /> WhatsApp Number
-                  </p>
-                  <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 font-mono">
-                    {lead.whatsappPhone || lead.phone || "—"}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Mail size={11} className="text-blue-600" /> Email Address
-                  </p>
-                  <p className="text-xs font-bold text-ca-text truncate">
-                    {lead.email || "No email provided"}
-                  </p>
-                </div>
-
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Building size={11} className="text-orange-600" /> Company / Organization
-                  </p>
-                  <p className="text-xs font-bold text-ca-text truncate">
-                    {lead.company || "Individual"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Attached Documents & Quotations Card */}
-            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-              <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
-                <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
-                  <Paperclip size={16} className="text-orange-600" /> Documents &amp; Files ({lead.documents?.length || 0})
-                </h2>
-
-                <label className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs">
-                  <Plus size={13} />
-                  <span>{directUploadingDoc ? "Uploading..." : "+ Attach File"}</span>
-                  <input
-                    type="file"
-                    disabled={directUploadingDoc}
-                    onChange={handleDirectDocUpload}
-                    className="hidden"
-                  />
-                </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                  <Phone size={11} className="text-emerald-600" /> Primary Phone
+                </p>
+                <p className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                  {lead.phone || lead.whatsappPhone || "—"}
+                </p>
               </div>
 
-              {Array.isArray(lead.documents) && lead.documents.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {lead.documents.map((doc, idx) => (
-                    <a
-                      key={idx}
-                      href={doc.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 p-2.5 bg-ca-bg hover:bg-orange-50/50 dark:hover:bg-orange-950/20 border border-ca-border hover:border-orange-500 rounded-xl transition-all group shadow-2xs"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 flex items-center justify-center shrink-0">
-                        <FileText size={16} />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-ca-text truncate group-hover:text-orange-800 transition-colors">
-                          {doc.name || "Attachment"}
-                        </p>
-                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1">
-                          <span>Open File</span>
-                          <ExternalLink size={9} />
-                        </p>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-4 text-center text-ca-text-secondary text-xs bg-ca-bg rounded-xl border border-dashed border-ca-border">
-                  No documents attached yet. Click "+ Attach File" above to upload.
-                </div>
-              )}
-            </div>
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                  <Smartphone size={11} className="text-emerald-600" /> WhatsApp Number
+                </p>
+                <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  {lead.whatsappPhone || lead.phone || "—"}
+                </p>
+              </div>
 
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                  <Mail size={11} className="text-blue-600" /> Email Address
+                </p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  {lead.email || "No email provided"}
+                </p>
+              </div>
+
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                  <Building size={11} className="text-amber-600" /> Company / Organization
+                </p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                  {lead.company || "Individual Client"}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Right Column (6/12): Deal Details & Follow-up Note */}
-          <div className="lg:col-span-6 space-y-4">
-            
-            {/* Pipeline Stage & Deal Value Card */}
-            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
-                <DollarSign size={16} className="text-emerald-600" /> Deal &amp; Pipeline Details
-              </h2>
+          {/* Deal & Pipeline Details */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
+            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <DollarSign size={15} className="text-emerald-600" /> Deal &amp; Pipeline Details
+            </h2>
 
-              <div className="grid grid-cols-3 gap-2.5 text-center">
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-0.5">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Est. Deal Value</p>
-                  <p className="text-sm font-black text-emerald-600 truncate">
-                    {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Est. Deal Value</p>
+                <p className="text-sm font-black text-emerald-600 truncate">
+                  {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
+                </p>
+              </div>
 
-                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-0.5">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Lead Source</p>
-                  <p className="text-xs font-black text-ca-text truncate">
-                    {lead.source || "Direct"}
-                  </p>
-                </div>
+              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Lead Source</p>
+                <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                  {lead.source || "Website Form"}
+                </p>
+              </div>
 
-                <div className="p-3 bg-teal-50 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
-                  <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider">Next Follow-Up</p>
-                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
-                    {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
-                  </p>
-                </div>
+              <div className="p-3 bg-teal-50/80 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
+                <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                  <Clock size={11} /> Next Follow-Up
+                </p>
+                <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
+                  {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
+                </p>
               </div>
             </div>
+          </div>
 
-            {/* Quick Follow-up Note Card */}
-            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
-                <Clock size={16} className="text-orange-600" /> Log Call / Follow-up Note
+          {/* Documents & Attachments */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <Paperclip size={15} className="text-amber-500" /> Documents &amp; Files ({lead.documents?.length || 0})
               </h2>
 
-              <div className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
-                    Next Follow-up Date
-                  </label>
+              <label className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-2xs">
+                <Plus size={13} />
+                <span>{directUploadingDoc ? "Uploading..." : "+ Attach File"}</span>
+                <input
+                  type="file"
+                  disabled={directUploadingDoc}
+                  onChange={handleDirectDocUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {Array.isArray(lead.documents) && lead.documents.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {lead.documents.map((doc, idx) => (
+                  <a
+                    key={idx}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-amber-50/50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200/80 hover:border-amber-500 rounded-xl transition-all group shadow-2xs"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                      <FileText size={15} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
+                        {doc.name || "Attachment"}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
+                        <span>Open Document</span>
+                        <ExternalLink size={9} />
+                      </p>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                No documents attached yet. Click "+ Attach File" above to upload.
+              </div>
+            )}
+          </div>
+
+        </div>
+
+        {/* ── RIGHT COLUMN (5 / 12 width): NOTES & TIMELINE HISTORY ─────────────── */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
+            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+              <Clock size={15} className="text-amber-500" /> Notes &amp; Timeline History
+            </h2>
+
+            {/* Clean Add Note Input Box */}
+            <div className="space-y-2.5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <textarea
+                rows={3}
+                value={newNote}
+                onChange={(e) => setNewNote(e.target.value)}
+                placeholder="Write a client discussion note, feedback, or update..."
+                className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-amber-500 transition-all"
+              />
+
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">Follow-Up:</span>
                   <input
                     type="date"
                     value={nextFollowUpDate}
                     onChange={(e) => setNextFollowUpDate(e.target.value)}
-                    className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
-                    Discussion Summary / Notes
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={newNote}
-                    onChange={(e) => setNewNote(e.target.value)}
-                    placeholder="Enter key conversation points, requirements, or objections discussed with the client..."
-                    className="w-full p-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500"
+                    className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none"
+                    title="Next Follow-Up Date"
                   />
                 </div>
 
                 <button
                   onClick={() => addNoteMut.mutate({ noteText: newNote, followUp: nextFollowUpDate })}
                   disabled={!newNote.trim() || addNoteMut.isPending}
-                  className="w-full py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
                 >
-                  <Send size={13} />
-                  <span>{addNoteMut.isPending ? "Saving..." : "Save Note to Timeline"}</span>
+                  <Send size={12} />
+                  <span>{addNoteMut.isPending ? "Saving..." : "Post Note"}</span>
                 </button>
               </div>
             </div>
 
-          </div>
-        </div>
-      )}
-
-      {/* ── TAB 2: WHATSAPP CLOUD MESSENGER ───────────────────────────────────── */}
-      {activeTab === "whatsapp" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          
-          {/* Left Column (5/12): Template Selector & Dynamic Variables */}
-          <div className="lg:col-span-5 space-y-4">
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-                <Sparkles size={18} className="text-emerald-600" /> Meta Approved Templates
-              </h2>
-
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {templates.map((tpl) => {
-                  const isSel = selectedTemplate?.name === tpl.name;
-                  return (
-                    <button
-                      key={tpl.name}
-                      onClick={() => {
-                        setSelectedTemplate(tpl);
-                        setMediaUrl(tpl.headerContent || "");
-                      }}
-                      className={`w-full text-left p-3 rounded-2xl border transition-all flex items-center justify-between text-xs cursor-pointer ${
-                        isSel
-                          ? "bg-emerald-500/10 border-emerald-500 text-emerald-800 dark:text-emerald-300 font-bold shadow-2xs"
-                          : "bg-ca-bg border-ca-border text-ca-text hover:bg-ca-surface"
-                      }`}
-                    >
-                      <div>
-                        <p className="font-black text-xs">{tpl.name}</p>
-                        <p className="text-[10px] text-ca-text-secondary mt-0.5">
-                          {tpl.language === "mr" ? "Marathi (mr)" : tpl.language || "English"} • {tpl.category || "UTILITY"}
-                        </p>
-                      </div>
-                      {isSel && <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Dynamic Variables Box */}
-              {selectedTemplate && (
-                <div className="space-y-3 pt-3 border-t border-ca-border text-xs">
-                  <p className="font-black text-ca-text text-[11px] uppercase tracking-wider">
-                    Customize Template Variables
-                  </p>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="block text-[10px] font-bold text-ca-text-secondary mb-1">{"{{1}}"} Customer Name</label>
-                      <input
-                        value={varValues[1] || ""}
-                        onChange={(e) => setVarValues((p) => ({ ...p, 1: e.target.value }))}
-                        className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-xs font-semibold text-ca-text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-ca-text-secondary mb-1">{"{{2}}"} Service / Offer</label>
-                      <input
-                        value={varValues[2] || ""}
-                        onChange={(e) => setVarValues((p) => ({ ...p, 2: e.target.value }))}
-                        className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-xs font-semibold text-ca-text"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-ca-text-secondary mb-1">{"{{3}}"} Contact Phone</label>
-                      <input
-                        value={varValues[3] || ""}
-                        onChange={(e) => setVarValues((p) => ({ ...p, 3: e.target.value }))}
-                        className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-xs font-semibold text-ca-text"
-                      />
-                    </div>
+            {/* Timeline Stream */}
+            <div className="space-y-2 pt-1 max-h-[460px] overflow-y-auto custom-scrollbar">
+              {lead.notes ? (
+                lead.notes.split("\n").filter(Boolean).map((line, idx) => (
+                  <div key={idx} className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
+                    {line}
                   </div>
-
-                  {/* Header Media URL if applicable */}
-                  {selectedTemplate.headerType === "IMAGE" && (
-                    <div>
-                      <label className="block text-[10px] font-bold text-ca-text-secondary mb-1">📸 Header Image URL (Optional)</label>
-                      <input
-                        value={mediaUrl}
-                        onChange={(e) => setMediaUrl(e.target.value)}
-                        placeholder="https://yourdomain.com/banner.jpg"
-                        className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-xs font-semibold text-ca-text"
-                      />
-                    </div>
-                  )}
+                ))
+              ) : (
+                <div className="p-6 text-center text-slate-400 text-xs">
+                  No discussion notes logged yet. Use the box above to add notes.
                 </div>
               )}
             </div>
           </div>
-
-          {/* Right Column (7/12): Authentic WhatsApp Bubble Preview & Cloud Send */}
-          <div className="lg:col-span-7 space-y-4">
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-                <MessageSquare size={18} className="text-emerald-600" /> WhatsApp Live Chat Preview
-              </h2>
-
-              {/* Realistic WhatsApp Chat Wallpaper */}
-              <div className="bg-[#EFEAE2] dark:bg-[#111C24] p-6 rounded-3xl border border-[#E2D9CE] dark:border-slate-800 space-y-3">
-                <div className="bg-[#E7FFDB] dark:bg-emerald-950/60 p-4 rounded-2xl rounded-tl-xs shadow-sm border border-[#D2F4BE] dark:border-emerald-800/50 max-w-lg space-y-2">
-                  {/* Header Image Preview */}
-                  {selectedTemplate?.headerType === "IMAGE" && mediaUrl && (
-                    <div className="rounded-xl overflow-hidden mb-2 max-h-48">
-                      <img src={mediaUrl} alt="Header" className="w-full h-full object-cover" />
-                    </div>
-                  )}
-
-                  <p className="text-xs text-slate-900 dark:text-slate-100 whitespace-pre-wrap leading-relaxed font-medium">
-                    {(() => {
-                      let text = selectedTemplate?.bodyText || selectedTemplate?.message || "Hello {{1}}, thank you for contacting us regarding {{2}}!";
-                      text = text.replace(/\{\{1\}\}/g, varValues[1] || lead.name || "Client");
-                      text = text.replace(/\{\{2\}\}/g, varValues[2] || "Services");
-                      text = text.replace(/\{\{3\}\}/g, varValues[3] || "+91 96891 19006");
-                      return text;
-                    })()}
-                  </p>
-
-                  <div className="flex items-center justify-end gap-1 text-[10px] text-slate-500 dark:text-slate-400 font-mono">
-                    <span>{new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                    <CheckCheck size={14} className="text-emerald-500" />
-                  </div>
-                </div>
-              </div>
-
-              {/* Dispatch Action */}
-              <div className="flex items-center gap-3 pt-2">
-                <button
-                  onClick={() => handleSendCloudWhatsApp(selectedTemplate)}
-                  disabled={sendingCloudMsg}
-                  className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-black text-xs rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <Send size={15} />
-                  <span>{sendingCloudMsg ? "Sending Cloud API..." : "Send Cloud API WhatsApp ⚡"}</span>
-                </button>
-
-                <a
-                  href={`https://wa.me/${(lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "")}?text=${encodeURIComponent(
-                    (selectedTemplate?.bodyText || "").replace(/\{\{1\}\}/g, varValues[1] || lead.name || "Client")
-                  )}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="px-5 py-3 bg-ca-bg hover:bg-ca-surface border border-ca-border text-ca-text font-black text-xs rounded-2xl transition-colors flex items-center gap-2"
-                >
-                  <ExternalLink size={15} />
-                  <span>Open WhatsApp App</span>
-                </a>
-              </div>
-            </div>
-          </div>
-
         </div>
-      )}
 
-      {/* ── TAB 3: TIMELINE & NOTES ───────────────────────────────────────────── */}
-      {activeTab === "timeline" && (
-        <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-          <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-            <Clock size={18} className="text-orange-600" /> Lead History &amp; Timeline Remarks
-          </h2>
-
-          {lead.notes ? (
-            <div className="p-4 bg-ca-bg rounded-2xl border border-ca-border text-xs text-ca-text whitespace-pre-wrap leading-relaxed font-mono">
-              {lead.notes}
-            </div>
-          ) : (
-            <div className="p-8 text-center text-ca-text-secondary text-xs">
-              No notes logged on this lead yet. Use the note logger to record follow-up calls.
-            </div>
-          )}
-        </div>
-      )}
+      </div>
 
       {/* ── STATUS CHANGE MODAL ──────────────────────────────────────────────── */}
       {showStatusModal && (
