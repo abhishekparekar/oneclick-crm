@@ -96,6 +96,14 @@ const PRIORITY_COLORS = {
   high: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60",
 };
 
+const KANBAN_COLUMNS = {
+  todo: { title: "To Do", text: "text-blue-600 dark:text-blue-400" },
+  working: { title: "In Progress", text: "text-amber-600 dark:text-amber-400" },
+  review: { title: "In Review", text: "text-teal-600 dark:text-teal-400" },
+  done: { title: "Done", text: "text-emerald-600 dark:text-emerald-400" },
+};
+const kanbanColumns = KANBAN_COLUMNS;
+
 const StatusBadge = ({ status }) => {
   const cfg = STATUS_CONFIG[status?.toLowerCase()] || STATUS_CONFIG.planning;
   return (
@@ -170,7 +178,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="h-8 sm:h-10 w-12 sm:w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0 hidden md:block">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+        <ResponsiveContainer width={64} height={36} minWidth={48} minHeight={32}>
           <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={`sk-pr-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
@@ -1369,7 +1377,7 @@ const Projects = () => {
                   <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B101B]/50 rounded-2xl p-4 space-y-3">
                     <span className="font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px] block">Task Status Distribution</span>
                     <div className="h-48 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height={180} minWidth={100}>
                         <BarChart data={[
                           { name: "To Do", count: workspaceTasks.filter(t => t.status === "todo").length || 4 },
                           { name: "In Progress", count: workspaceTasks.filter(t => t.status === "working").length || 3 },
@@ -1394,7 +1402,7 @@ const Projects = () => {
                   <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B101B]/50 rounded-2xl p-4 space-y-3">
                     <span className="font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px] block">Priority Load Breakdown</span>
                     <div className="h-48 w-full">
-                      <ResponsiveContainer width="100%" height="100%">
+                      <ResponsiveContainer width="100%" height={180} minWidth={100}>
                         <BarChart data={[
                           { name: "Low", count: workspaceTasks.filter(t => t.priority === "low").length || 2 },
                           { name: "Medium", count: workspaceTasks.filter(t => t.priority === "medium").length || 8 },
