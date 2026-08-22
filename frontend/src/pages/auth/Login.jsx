@@ -13,8 +13,6 @@ import {
   BarChart3,
   ChevronDown,
   ChevronUp,
-  CheckCircle2,
-  Building2,
   Sparkles,
 } from "lucide-react";
 import OneClickLogo from "../../components/common/OneClickLogo";
@@ -92,23 +90,23 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0F1D] text-slate-100 font-sans flex flex-col justify-between p-4 sm:p-8 lg:p-12 relative overflow-hidden selection:bg-blue-600 selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex flex-col justify-between p-4 sm:p-8 lg:p-12 relative overflow-hidden selection:bg-blue-600 selection:text-white">
       
-      {/* ── Ambient Blue & Slate Lighting ── */}
-      <div className="fixed -top-36 -left-36 w-[550px] h-[550px] bg-gradient-to-br from-blue-600/20 via-indigo-600/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed top-1/4 -right-36 w-[500px] h-[500px] bg-gradient-to-bl from-sky-500/15 via-blue-700/10 to-transparent rounded-full blur-3xl pointer-events-none" />
-      <div className="fixed -bottom-36 left-1/3 w-[600px] h-[600px] bg-gradient-to-tr from-blue-900/20 via-slate-800/15 to-transparent rounded-full blur-3xl pointer-events-none" />
+      {/* ── Soft Ambient Background Blurs (Clean White & Soft Blue) ── */}
+      <div className="fixed -top-36 -left-36 w-[550px] h-[550px] bg-blue-100/60 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed top-1/4 -right-36 w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-3xl pointer-events-none" />
+      <div className="fixed -bottom-36 left-1/3 w-[600px] h-[600px] bg-indigo-100/40 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Background Subtle Grid */}
-      <div className="fixed inset-0 bg-[linear-gradient(to_right,#1E293B0A_1px,transparent_1px),linear-gradient(to_bottom,#1E293B0A_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none" />
+      {/* Background Grid Pattern */}
+      <div className="fixed inset-0 bg-[linear-gradient(to_right,#E2E8F066_1px,transparent_1px),linear-gradient(to_bottom,#E2E8F066_1px,transparent_1px)] bg-[size:3rem_3rem] pointer-events-none" />
 
-      {/* ── 2-Column Split Executive Layout ── */}
+      {/* ── 2-Column Split Executive White & Blue Layout ── */}
       <div className="w-full max-w-6xl mx-auto my-auto relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
 
         {/* ═══════════════════════════════════════════════════════════════
             LEFT COLUMN: Corporate Brand & Platform Capabilities
         ════════════════════════════════════════════════════════════════ */}
-        <div className="lg:col-span-6 flex flex-col justify-between space-y-8">
+        <div className="lg:col-span-6 flex flex-col justify-between space-y-7">
           
           {/* Top Logo */}
           <div className="flex items-center gap-3">
@@ -117,62 +115,62 @@ const Login = () => {
 
           {/* Heading */}
           <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-black uppercase tracking-wider">
-              <Sparkles size={13} className="text-blue-400" />
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200/80 text-blue-700 text-xs font-black uppercase tracking-wider shadow-2xs">
+              <Sparkles size={13} className="text-blue-600" />
               <span>Enterprise HRMS &amp; CRM Platform</span>
             </div>
 
-            <h1 className="text-4xl sm:text-5xl font-black text-white tracking-tight leading-tight">
+            <h1 className="text-4xl sm:text-5xl font-black text-slate-900 tracking-tight leading-tight">
               Welcome back to <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-sky-300 to-white">
+              <span className="text-blue-600">
                 One Click Business
               </span>
             </h1>
 
-            {/* Blue Accent Rule */}
-            <div className="w-16 h-1 rounded-full bg-gradient-to-r from-blue-600 to-sky-400" />
+            {/* Blue Accent Line */}
+            <div className="w-16 h-1 rounded-full bg-gradient-to-r from-blue-600 to-sky-500" />
 
-            <p className="text-slate-300 text-sm sm:text-base font-medium pt-1 max-w-md leading-relaxed">
-              Unified workspace for attendance, automated payroll, lead CRM, task workflows, and team operations.
+            <p className="text-slate-600 text-sm sm:text-base font-medium pt-1 max-w-md leading-relaxed">
+              Unified operating system for attendance, automated payroll, lead CRM, task workflows, and team operations.
             </p>
           </div>
 
-          {/* 3 Core Value Items */}
-          <div className="space-y-4 pt-1">
+          {/* 3 Core Value Items (Clean White Cards) */}
+          <div className="space-y-3.5 pt-1">
             {/* Feature 1: Enterprise Security */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-[#0F172A]/70 border border-slate-800/80 hover:border-blue-500/40 transition-colors shadow-2xs">
-              <div className="w-10 h-10 rounded-xl bg-blue-600/15 border border-blue-500/30 flex items-center justify-center text-blue-400 shrink-0 shadow-xs">
-                <Shield size={18} strokeWidth={2.2} />
+            <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:shadow-md hover:border-blue-300 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 shrink-0 shadow-2xs">
+                <Shield size={18} strokeWidth={2.4} />
               </div>
               <div>
-                <h4 className="text-sm font-black text-white">Enterprise Security &amp; GPS Geofencing</h4>
-                <p className="text-xs text-slate-400 font-medium mt-0.5 leading-relaxed">
+                <h4 className="text-sm font-black text-slate-900">Enterprise Security &amp; GPS Geofencing</h4>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
                   SOC-2 compliant access controls with biometric and GPS selfie clock-in validation.
                 </p>
               </div>
             </div>
 
-            {/* Feature 2: Lead CRM & Follow-Up Automations */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-[#0F172A]/70 border border-slate-800/80 hover:border-blue-500/40 transition-colors shadow-2xs">
-              <div className="w-10 h-10 rounded-xl bg-sky-500/15 border border-sky-500/30 flex items-center justify-center text-sky-400 shrink-0 shadow-xs">
-                <Zap size={18} strokeWidth={2.2} />
+            {/* Feature 2: Lead CRM */}
+            <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:shadow-md hover:border-blue-300 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-sky-50 border border-sky-200 flex items-center justify-center text-sky-600 shrink-0 shadow-2xs">
+                <Zap size={18} strokeWidth={2.4} />
               </div>
               <div>
-                <h4 className="text-sm font-black text-white">Lead Pipeline &amp; Follow-Up Reminders</h4>
-                <p className="text-xs text-slate-400 font-medium mt-0.5 leading-relaxed">
+                <h4 className="text-sm font-black text-slate-900">Lead Pipeline &amp; Follow-Up Reminders</h4>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
                   Real-time inquiry capture, WhatsApp campaigns, and automated follow-up notifications.
                 </p>
               </div>
             </div>
 
-            {/* Feature 3: Smart Payroll & Real-Time Analytics */}
-            <div className="flex items-start gap-3.5 p-3 rounded-2xl bg-[#0F172A]/70 border border-slate-800/80 hover:border-blue-500/40 transition-colors shadow-2xs">
-              <div className="w-10 h-10 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0 shadow-xs">
-                <BarChart3 size={18} strokeWidth={2.2} />
+            {/* Feature 3: Smart Payroll */}
+            <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-white border border-slate-200/90 shadow-xs hover:shadow-md hover:border-blue-300 transition-all">
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shrink-0 shadow-2xs">
+                <BarChart3 size={18} strokeWidth={2.4} />
               </div>
               <div>
-                <h4 className="text-sm font-black text-white">1-Click Payroll &amp; Workforce Insights</h4>
-                <p className="text-xs text-slate-400 font-medium mt-0.5 leading-relaxed">
+                <h4 className="text-sm font-black text-slate-900">1-Click Payroll &amp; Workforce Insights</h4>
+                <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
                   Automated salary calculations, tax deductions, PDF payslips, and productivity telemetry.
                 </p>
               </div>
@@ -182,28 +180,28 @@ const Login = () => {
         </div>
 
         {/* ═══════════════════════════════════════════════════════════════
-            RIGHT COLUMN: Executive Login Card
+            RIGHT COLUMN: Executive Pure White Login Card
         ════════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-6 w-full max-w-md mx-auto">
           
-          <div className="bg-[#0F172A]/90 backdrop-blur-xl border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl shadow-blue-950/20 relative overflow-hidden">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 relative overflow-hidden">
             
-            {/* Top Glow Accent Bar */}
-            <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-600 via-sky-400 to-blue-600" />
+            {/* Top Blue Gradient Accent Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600" />
 
             {/* Form Header */}
-            <div className="mb-6">
-              <h2 className="text-2xl font-black text-white tracking-tight">
+            <div className="mb-6 pt-1">
+              <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                 Sign In to Workspace
               </h2>
-              <p className="text-slate-400 text-xs font-semibold mt-1">
+              <p className="text-slate-500 text-xs font-semibold mt-1">
                 Enter your authorized credentials to continue
               </p>
             </div>
 
             {/* Error Message */}
             {error && (
-              <div className="w-full mb-4 bg-rose-950/50 border border-rose-500/40 text-rose-200 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+              <div className="w-full mb-4 bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
                 <span className="text-sm">⚠️</span>
                 <span>{error}</span>
               </div>
@@ -214,11 +212,11 @@ const Login = () => {
               
               {/* EMAIL ADDRESS */}
               <div className="space-y-1.5">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
                   Email Address
                 </label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-400 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                     <Mail size={16} strokeWidth={2.2} />
                   </div>
                   <input
@@ -230,18 +228,18 @@ const Login = () => {
                       if (error) setError("");
                     }}
                     placeholder="you@company.com"
-                    className="w-full pl-10 pr-4 py-2.5 bg-[#0B101D] border border-slate-700/80 focus:border-blue-500 focus:bg-[#0E1528] focus:ring-2 focus:ring-blue-500/20 rounded-xl text-xs font-bold text-white placeholder-slate-500 outline-none transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/20 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 outline-none transition-all"
                   />
                 </div>
               </div>
 
               {/* PASSWORD */}
               <div className="space-y-1.5">
-                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-300">
+                <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
                   Password
                 </label>
                 <div className="relative group">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-400 transition-colors">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 group-focus-within:text-blue-600 transition-colors">
                     <Lock size={16} strokeWidth={2.2} />
                   </div>
                   <input
@@ -253,12 +251,12 @@ const Login = () => {
                       if (error) setError("");
                     }}
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-2.5 bg-[#0B101D] border border-slate-700/80 focus:border-blue-500 focus:bg-[#0E1528] focus:ring-2 focus:ring-blue-500/20 rounded-xl text-xs font-bold text-white placeholder-slate-500 outline-none transition-all"
+                    className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 focus:border-blue-600 focus:bg-white focus:ring-2 focus:ring-blue-600/20 rounded-xl text-xs font-bold text-slate-900 placeholder-slate-400 outline-none transition-all"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
                   >
                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
@@ -270,7 +268,7 @@ const Login = () => {
                 <button
                   type="button"
                   onClick={handleForgotPassword}
-                  className="text-xs font-bold text-blue-400 hover:text-blue-300 hover:underline transition-colors cursor-pointer"
+                  className="text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline transition-colors cursor-pointer"
                 >
                   Forgot Password?
                 </button>
@@ -280,7 +278,7 @@ const Login = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-3 px-6 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-500 active:bg-blue-700 shadow-lg shadow-blue-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                className="w-full py-3 px-6 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-blue-600 hover:bg-blue-700 active:bg-blue-800 shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
               >
                 {loading ? (
                   <>
@@ -299,18 +297,18 @@ const Login = () => {
 
             {/* OR Divider */}
             <div className="w-full flex items-center my-4">
-              <div className="flex-1 h-px bg-slate-800" />
-              <span className="px-3 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+              <div className="flex-1 h-px bg-slate-200" />
+              <span className="px-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">
                 OR
               </span>
-              <div className="flex-1 h-px bg-slate-800" />
+              <div className="flex-1 h-px bg-slate-200" />
             </div>
 
             {/* Google Sign In Button */}
             <button
               type="button"
               onClick={handleGoogleSignIn}
-              className="w-full py-2.5 px-4 rounded-xl border border-slate-700 hover:border-slate-600 bg-[#0B101D] hover:bg-[#11182B] text-xs font-bold text-slate-300 flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-xs"
+              className="w-full py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 bg-white text-xs font-bold text-slate-700 flex items-center justify-center gap-2.5 transition-all cursor-pointer shadow-2xs"
             >
               <svg width="16" height="16" viewBox="0 0 24 24">
                 <path
@@ -335,11 +333,11 @@ const Login = () => {
 
             {/* Register Link */}
             <div className="text-center mt-4">
-              <p className="text-xs font-semibold text-slate-400">
+              <p className="text-xs font-semibold text-slate-500">
                 New company or enterprise?{" "}
                 <Link
                   to="/register"
-                  className="font-black text-blue-400 hover:text-blue-300 transition-colors"
+                  className="font-black text-blue-600 hover:text-blue-700 transition-colors"
                 >
                   Register Workspace →
                 </Link>
@@ -347,11 +345,11 @@ const Login = () => {
             </div>
 
             {/* Collapsible Quick Test Accounts */}
-            <div className="w-full mt-4 pt-3 border-t border-slate-800">
+            <div className="w-full mt-4 pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setShowQuickFill(!showQuickFill)}
-                className="w-full flex items-center justify-between text-[10.5px] font-black uppercase tracking-wider text-slate-400 hover:text-slate-200 transition-colors cursor-pointer py-1"
+                className="w-full flex items-center justify-between text-[10.5px] font-black uppercase tracking-wider text-slate-500 hover:text-slate-800 transition-colors cursor-pointer py-1"
               >
                 <span>⚡ Quick Test Accounts</span>
                 {showQuickFill ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
@@ -362,35 +360,35 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => fillCredentials("admin@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 text-[11px] font-bold border border-blue-500/30 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-bold border border-blue-200 transition-all cursor-pointer"
                   >
                     🏢 Company Admin
                   </button>
                   <button
                     type="button"
                     onClick={() => fillCredentials("anita@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-[11px] font-bold border border-indigo-500/30 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-bold border border-indigo-200 transition-all cursor-pointer"
                   >
                     👥 HR
                   </button>
                   <button
                     type="button"
                     onClick={() => fillCredentials("abhiparekar58@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-sky-500/10 hover:bg-sky-500/20 text-sky-300 text-[11px] font-bold border border-sky-500/30 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 text-[11px] font-bold border border-sky-200 transition-all cursor-pointer"
                   >
                     📊 Manager
                   </button>
                   <button
                     type="button"
                     onClick={() => fillCredentials("omkar@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 text-[11px] font-bold border border-emerald-500/30 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold border border-emerald-200 transition-all cursor-pointer"
                   >
                     👷 Employee
                   </button>
                   <button
                     type="button"
                     onClick={() => fillCredentials("icoded@gmail.com", "Admin@123")}
-                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-bold border border-slate-700 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold border border-slate-200 transition-all cursor-pointer"
                   >
                     👑 SuperAdmin
                   </button>
@@ -406,7 +404,7 @@ const Login = () => {
 
       {/* ── Watermark Footer ── */}
       <footer className="relative z-10 text-center text-xs font-semibold text-slate-500 py-3 mt-4">
-        © One Click Business HRMS • Powered by <span className="text-blue-400 font-bold">icoded</span>
+        © One Click Business HRMS • Powered by <span className="text-blue-600 font-bold">icoded</span>
       </footer>
 
     </div>
