@@ -30,7 +30,7 @@ import {
   Download,
   Eye,
   Sliders,
-  Filter,
+  Plus,
   PlusCircle,
   ArrowLeft,
   Send,
@@ -40,11 +40,21 @@ import {
   User,
   CheckSquare,
   Bell,
+  ArrowUp,
+  ArrowDown,
   ArrowUpRight,
+  Sparkles,
+  AlertTriangle,
+  SlidersHorizontal,
+  CalendarClock,
+  RefreshCw,
+  Tag,
   Calendar as CalendarIcon
 } from "lucide-react";
 import {
   ResponsiveContainer,
+  AreaChart,
+  Area,
   BarChart,
   Bar,
   XAxis,
@@ -55,19 +65,56 @@ import {
 } from "recharts";
 
 // ── Helpers & Configs ────────────────────────────────────────────────────────
+const STATUS_CONFIG = {
+  planning: { label: "Planning", hex: "#6366f1", bg: "bg-indigo-50 dark:bg-indigo-950/40", text: "text-indigo-700 dark:text-indigo-300", border: "border-indigo-200 dark:border-indigo-800/60", dot: "bg-indigo-500" },
+  active: { label: "Active", hex: "#10b981", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/60", dot: "bg-emerald-500" },
+  working: { label: "In Progress", hex: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800/60", dot: "bg-amber-500" },
+  review: { label: "Review", hex: "#0891b2", bg: "bg-cyan-50 dark:bg-cyan-950/40", text: "text-cyan-700 dark:text-cyan-300", border: "border-cyan-200 dark:border-cyan-800/60", dot: "bg-cyan-500" },
+  deployment: { label: "Deployment", hex: "#8b5cf6", bg: "bg-purple-50 dark:bg-purple-950/40", text: "text-purple-700 dark:text-purple-300", border: "border-purple-200 dark:border-purple-800/60", dot: "bg-purple-500" },
+  completed: { label: "Completed", hex: "#059669", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-300", border: "border-emerald-200 dark:border-emerald-800/60", dot: "bg-emerald-500" },
+  "on-hold": { label: "On Hold", hex: "#f59e0b", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-300", border: "border-amber-200 dark:border-amber-800/60", dot: "bg-amber-500" },
+};
+
 const STATUS_COLORS = {
-  planning: "bg-ca-bg dark:bg-slate-800 text-ca-text-secondary dark:text-slate-300 border-ca-border dark:border-slate-700",
-  active: "bg-theme-3-light dark:bg-theme-3/20 text-theme-1 dark:text-theme-3 border-theme-3-light dark:border-theme-3/30",
-  working: "bg-blue-100 dark:bg-blue-500/20 text-blue-800 dark:text-blue-400 border-blue-300 dark:border-blue-500/30",
-  review: "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-400 border-amber-300 dark:border-amber-500/30",
-  deployment: "bg-primary-100 dark:bg-primary-500/20 text-primary-800 dark:text-primary-300 border-primary-300 dark:border-primary-500/30",
-  completed: "bg-theme-3-light dark:bg-theme-3/20 text-theme-1 dark:text-theme-3 border-theme-3-light dark:border-theme-3/30",
+  planning: "bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border-indigo-200 dark:border-indigo-800/60",
+  active: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
+  working: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-800/60",
+  review: "bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 border-cyan-200 dark:border-cyan-800/60",
+  deployment: "bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-800/60",
+  completed: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60",
+};
+
+const PRIORITY_CONFIG = {
+  high: { label: "High", bg: "bg-rose-50 dark:bg-rose-950/40", text: "text-rose-700 dark:text-rose-400", dot: "bg-rose-500", border: "border-rose-200 dark:border-rose-800/60" },
+  medium: { label: "Medium", bg: "bg-amber-50 dark:bg-amber-950/40", text: "text-amber-800 dark:text-amber-400", dot: "bg-amber-500", border: "border-amber-200 dark:border-amber-800/60" },
+  low: { label: "Low", bg: "bg-emerald-50 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400", dot: "bg-emerald-500", border: "border-emerald-200 dark:border-emerald-800/60" },
 };
 
 const PRIORITY_COLORS = {
-  low: "bg-ca-bg dark:bg-slate-800 text-ca-text-secondary dark:text-slate-300 border-ca-border dark:border-slate-700",
-  medium: "bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-400 border-amber-300 dark:border-amber-500/30",
-  high: "bg-ca-primary-light dark:bg-red-500/20 text-red-800 dark:text-red-400 border-red-300 dark:border-red-500/30",
+  low: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/60",
+  medium: "bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400 border-amber-200 dark:border-amber-800/60",
+  high: "bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400 border-rose-200 dark:border-rose-800/60",
+};
+
+const StatusBadge = ({ status }) => {
+  const cfg = STATUS_CONFIG[status?.toLowerCase()] || STATUS_CONFIG.planning;
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label || status}
+    </span>
+  );
+};
+
+const PriorityBadge = ({ priority }) => {
+  if (!priority) return null;
+  const cfg = PRIORITY_CONFIG[priority?.toLowerCase()] || PRIORITY_CONFIG.medium;
+  return (
+    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider ${cfg.text} ${cfg.bg} border ${cfg.border}`}>
+      <div className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      {cfg.label}
+    </div>
+  );
 };
 
 const formatDate = (isoString) => {
@@ -91,13 +138,53 @@ const toDateStr = (dateVal) => {
 };
 
 const AVATAR_BG = [
-  "bg-theme-3-light text-theme-2",
-  "bg-amber-100 text-amber-700",
-  "bg-olive-100 text-olive-700",
-  "bg-teal-100 text-teal-700",
-  "bg-primary-100 text-primary-700",
+  "bg-slate-800 text-white dark:bg-slate-100 dark:text-slate-900",
+  "bg-slate-700 text-white dark:bg-slate-200 dark:text-slate-900",
+  "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900",
+  "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900",
 ];
 const avatarClass = (name) => AVATAR_BG[(name?.charCodeAt(0) || 0) % AVATAR_BG.length];
+
+// ── Top KPI Stat Card (Matching Dashboard / TaskBoard Header Cards) ──────────
+const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, extraClass = "" }) => {
+  const sparkData = useMemo(() => [
+    { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
+  ], []);
+
+  return (
+    <div className={`bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group ${extraClass}`}>
+      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
+        <div className="flex items-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
+          <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
+            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.4} />
+          </div>
+          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{label}</span>
+        </div>
+        <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1 sm:mb-1.5">{value}</h3>
+        <div className="flex items-center gap-1 text-[9px] sm:text-[10.5px]">
+          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
+            {trend}
+          </span>
+          <span className="text-slate-400 text-[8.5px] sm:text-[9.5px] truncate hidden sm:inline">vs {period}</span>
+        </div>
+      </div>
+      <div className="h-8 sm:h-10 w-12 sm:w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0 hidden md:block">
+        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id={`sk-pr-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
+                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+              </linearGradient>
+            </defs>
+            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-pr-${label.replace(/\s+/g, '')})`}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
 
 const Projects = () => {
   const queryClient = useQueryClient();
@@ -146,7 +233,7 @@ const Projects = () => {
 
   // ── API Queries ────────────────────────────────────────────────────────────
   // 1. Projects List
-  const { data: projectsRes, isLoading: isProjectsLoading } = useQuery({
+  const { data: projectsRes, isLoading: isProjectsLoading, refetch: refetchProjects, isFetching } = useQuery({
     queryKey: ["companyProjects"],
     queryFn: getProjectsApi,
   });
@@ -455,24 +542,16 @@ const Projects = () => {
     triggerToast("Export completed successfully");
   };
 
-  // Kanban columns mapping
-  const kanbanColumns = {
-    todo: { title: "To Do", bg: "bg-ca-bg border-ca-border", text: "text-ca-text-secondary" },
-    working: { title: "In Progress", bg: "bg-blue-50/20 border-blue-100", text: "text-blue-700" },
-    review: { title: "In Review", bg: "bg-amber-50/20 border-amber-100", text: "text-amber-700" },
-    done: { title: "Completed", bg: "bg-theme-3-light/20 border-theme-3-light", text: "text-theme-2" },
-  };
+  const activeFiltersCount = [statusFilter, priorityFilter, managerFilter, dateRangeFilter].filter(Boolean).length;
 
   return (
-    <div className="p-6 max-w-[1400px] mx-auto space-y-3 relative z-0 min-h-screen">
-      {/* Premium Background Gradient */}
-      <div className="absolute inset-0 bg-slate-50/50 dark:bg-transparent pointer-events-none -z-10" />
+    <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
 
       {/* ── Toast Feedback Notification ────────────────────────────────────── */}
       {toast && (
         <div className={`fixed top-5 right-5 z-50 flex items-center px-4 py-3 rounded-xl shadow-lg border text-base transition-all duration-300 transform translate-y-0 ${toast.type === "error"
-          ? "bg-ca-primary-light text-red-700 border-ca-border"
-          : "bg-theme-3-light text-theme-2 border-theme-3-light"
+          ? "bg-rose-50 text-rose-700 border-rose-200"
+          : "bg-emerald-50 text-emerald-700 border-emerald-200"
           }`}>
           <AlertCircle size={18} className="mr-2 flex-shrink-0" />
           <span className="font-semibold">{toast.message}</span>
@@ -481,290 +560,370 @@ const Projects = () => {
 
       {/* ── MODE 1: PRIMARY PROJECTS LISTING DASHBOARD ────────────────────────── */}
       {!viewingProject && (
-        <div className="space-y-3">
-        {/* ── Page Header — matches Task Management style ── */}
-          <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="space-y-4">
+          {/* ── Page Header & Fixed Height Action Toolbar (Matching TaskBoard) ── */}
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1">
             <div>
-              <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">Project Management</h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Track project status, deadlines, team assignments, and milestones</p>
+              <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+                Project Management
+              </h1>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                Track project status, deadlines, team assignments, and project deliverables
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              {/* View Mode Toggle */}
-              <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
-                <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="Grid View"><LayoutGrid size={13}/></button>
-                <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="List View"><ListIcon size={13}/></button>
-                <button onClick={() => setViewMode("timeline")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "timeline" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="Timeline View"><Calendar size={13}/></button>
-              </div>
-              <button onClick={handleExportCSV} className="flex items-center gap-1.5 h-8 px-3 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold shadow-2xs hover:bg-slate-50 transition-all cursor-pointer">
-                <Download size={13}/> Export
-              </button>
-              <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-1.5 h-8 px-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer">
-                <PlusCircle size={13}/> Create Project
-              </button>
-            </div>
-          </div>
 
-          {/* ── KPI Stat Cards — Dashboard/Tasks style ── */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            {[
-              { label:"Total Projects",  value:stats.total,       sparkPath:"M0,14 L10,10 L20,12 L30,7 L40,9 L50,4 L64,6",   sparkClr:"#64748b", accent:"border-t-slate-400",   num:"text-slate-900 dark:text-white"        },
-              { label:"Active Work",     value:stats.active,      sparkPath:"M0,18 L10,12 L20,8  L30,6  L40,4  L50,3  L64,2",  sparkClr:"#10b981", accent:"border-t-emerald-500",num:"text-emerald-700 dark:text-emerald-400" },
-              { label:"Completed",       value:stats.completed,   sparkPath:"M0,16 L10,12 L20,14 L30,9  L40,11 L50,6  L64,8",  sparkClr:"#3b82f6", accent:"border-t-blue-500",   num:"text-blue-700   dark:text-blue-400"    },
-              { label:"On Hold",         value:stats.onHold,      sparkPath:"M0,12 L10,14 L20,10 L30,13 L40,11 L50,14 L64,12", sparkClr:"#f59e0b", accent:"border-t-amber-500",  num:"text-amber-700  dark:text-amber-400"   },
-              { label:"Overdue",         value:stats.overdue,     sparkPath:"M0,8  L10,14 L20,11 L30,17 L40,13 L50,18 L64,16", sparkClr:"#f43f5e", accent:"border-t-rose-500",   num:"text-rose-700   dark:text-rose-400"    },
-              { label:"Avg Progress",    value:`${stats.avgProgress}%`, sparkPath:"M0,18 L10,14 L20,12 L30,9 L40,7 L50,5 L64,4",  sparkClr:"#8b5cf6", accent:"border-t-violet-500",num:"text-violet-700  dark:text-violet-400"  },
-            ].map(({ label, value, sparkPath, sparkClr, accent, num }) => (
-              <div key={label} className={`bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 border-t-2 ${accent} p-3.5 shadow-2xs`}>
-                <p className="text-[9.5px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</p>
-                <p className={`text-2xl font-black mt-0.5 leading-none ${num}`}>{isProjectsLoading ? "—" : value}</p>
-                <div className="flex items-end justify-between mt-2">
-                  <span className="text-[9.5px] font-semibold text-slate-400">vs last month</span>
-                  <svg width="56" height="20" viewBox="0 0 64 24" fill="none">
-                    <polyline points={sparkPath} stroke={sparkClr} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                  </svg>
+            {/* ── Action Toolbar ── */}
+            <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
+              {/* Search Box */}
+              <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search projects..."
+                  className="pl-9 pr-8 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all w-full sm:w-52 shadow-2xs"
+                />
+                {search && (
+                  <button onClick={() => setSearch("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+
+              {/* Grouped View Switcher & Action Container */}
+              <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#1E293B] p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs h-9 overflow-x-auto hide-scrollbar max-w-full">
+                {/* View Switcher Pills */}
+                <div className="flex items-center bg-white dark:bg-[#111C24] p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-800 shadow-2xs gap-0.5 h-7">
+                  <button
+                    onClick={() => setViewMode("grid")}
+                    title="Grid Cards View"
+                    className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === "grid"
+                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <LayoutGrid size={13} /> <span className="hidden sm:inline">Grid</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("list")}
+                    title="Table List View"
+                    className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === "list"
+                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <ListIcon size={13} /> <span className="hidden sm:inline">List</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("timeline")}
+                    title="Timeline View"
+                    className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      viewMode === "timeline"
+                        ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                        : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    <Calendar size={13} /> <span className="hidden sm:inline">Timeline</span>
+                  </button>
                 </div>
+
+                {/* Export CSV Button */}
+                <button
+                  onClick={handleExportCSV}
+                  className="flex items-center gap-1 px-2.5 h-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+                  title="Export projects to CSV"
+                >
+                  <Download size={13} className="text-slate-400" /> <span className="hidden xs:inline">Export</span>
+                </button>
+
+                {/* Advanced Filters Trigger */}
+                <div className="relative z-20 shrink-0">
+                  <button
+                    onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
+                    className={`flex items-center gap-1 px-2.5 h-7 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${
+                      showFiltersDropdown || activeFiltersCount > 0
+                        ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40"
+                        : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    <SlidersHorizontal size={13} className="text-amber-600 dark:text-amber-400" />
+                    <span className="hidden xs:inline">Filters</span>
+                    {activeFiltersCount > 0 && (
+                      <span className="flex items-center justify-center min-w-[15px] h-[15px] px-1 bg-slate-900 text-white dark:bg-amber-600 dark:text-white text-[9px] rounded-full font-black ml-0.5">
+                        {activeFiltersCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {/* Filters Dropdown Card */}
+                  {showFiltersDropdown && (
+                    <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-30 space-y-4 shadow-2xl rounded-2xl animate-fadeIn">
+                      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                        <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
+                        <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={14}/></button>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Status</label>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl"
+                        >
+                          <option value="">All Statuses</option>
+                          <option value="planning">Planning</option>
+                          <option value="active">Active</option>
+                          <option value="working">In Progress</option>
+                          <option value="review">Review</option>
+                          <option value="deployment">Deployment</option>
+                          <option value="completed">Completed</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
+                        <select
+                          value={priorityFilter}
+                          onChange={(e) => setPriorityFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl"
+                        >
+                          <option value="">All Priorities</option>
+                          <option value="low">Low Priority</option>
+                          <option value="medium">Medium Priority</option>
+                          <option value="high">High Priority</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Project Manager</label>
+                        <select
+                          value={managerFilter}
+                          onChange={(e) => setManagerFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl"
+                        >
+                          <option value="">All Managers</option>
+                          {employees.map((emp) => (
+                            <option key={emp._id} value={emp._id}>
+                              {emp.firstName} {emp.lastName}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Due Date Before</label>
+                        <input
+                          type="date"
+                          value={dateRangeFilter}
+                          onChange={(e) => setDateRangeFilter(e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs py-2 px-2 outline-none rounded-xl"
+                        />
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+                        <button onClick={() => { setStatusFilter(""); setPriorityFilter(""); setManagerFilter(""); setDateRangeFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl transition-colors cursor-pointer">Clear</button>
+                        <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-xs px-3 py-2 rounded-xl transition-colors cursor-pointer">Apply</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Refresh Data */}
+                <button onClick={() => refetchProjects()} disabled={isFetching} className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs shrink-0 cursor-pointer" title="Refresh Projects">
+                  <RefreshCw size={13} className={isFetching ? "animate-spin" : ""}/>
+                </button>
+
+                {/* Primary Action Button (+ Create Project) */}
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="flex items-center gap-1.5 px-3.5 h-7 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+                >
+                  <Plus size={14} strokeWidth={3} /> Create Project
+                </button>
               </div>
-            ))}
+            </div>
           </div>
 
-          {/* Filtering & Listing segment */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+          {/* ── Top 5 KPI Summary Stat Cards (Exact Matching TaskBoard / Dashboard) ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 pt-1">
+            <KPICard label="Total Projects" value={stats.total} trend="14.2%" isUp period="last month" strokeColor="#EAB308" Icon={Folder} iconBg="bg-amber-500/10" iconColor="#D97706"/>
+            <KPICard label="Active Work" value={stats.active} trend="8.1%" isUp period="last month" strokeColor="#06B6D4" Icon={Clock} iconBg="bg-cyan-500/10" iconColor="#0891B2"/>
+            <KPICard label="Completed" value={stats.completed} trend="19.4%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669"/>
+            <KPICard label="On Hold" value={stats.onHold} trend="2.5%" isUp={false} period="last month" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
+            <KPICard label="Overdue" value={stats.overdue} trend="4.2%" isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={AlertTriangle} iconBg="bg-rose-500/10" iconColor="#E11D48" extraClass="col-span-2 sm:col-span-1"/>
+          </div>
+
+          {/* ── Filter Tab Bar (Matching TaskBoard) ── */}
+          <div className="bg-white dark:bg-[#111C24] px-3 py-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3 min-h-[44px]">
+            <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+              {[
+                { id: "", label: "All Projects", count: projects.length },
+                { id: "active", label: "Active", count: projects.filter(p => p.status === "active").length },
+                { id: "working", label: "In Progress", count: projects.filter(p => p.status === "working").length },
+                { id: "review", label: "Review", count: projects.filter(p => p.status === "review").length },
+                { id: "planning", label: "Planning", count: projects.filter(p => p.status === "planning").length },
+                { id: "completed", label: "Completed", count: projects.filter(p => p.status === "completed").length },
+                { id: "on-hold", label: "On Hold", count: projects.filter(p => p.status === "on-hold").length },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                    statusFilter === tab.id
+                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                    statusFilter === tab.id
+                      ? "bg-white/20 text-white"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Main Content Area ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
 
             {/* Left/Main Column */}
-            <div className={`${selectedProject ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300 space-y-3`}>
-              <div className="bg-ca-surface border border-ca-border dark:border-theme-3/50 rounded-2xl p-5 shadow-sm space-y-4">
-
-                {/* Advanced filter row */}
-                <div className="flex flex-col sm:flex-row items-center gap-3">
-                  <div className="relative flex-1 group w-full">
-                    <Search size={16} className="absolute left-3.5 top-2.5 text-ca-text-secondary group-focus-within:text-primary transition-colors" />
-                    <input
-                      type="text"
-                      placeholder="Search projects..."
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 border border-ca-border dark:border-theme-3/50 rounded-xl text-base focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 bg-ca-bg dark:bg-theme-3/30 hover:bg-white dark:hover:bg-theme-3/50  transition-all shadow-sm placeholder:text-slate-400"
-                    />
-                  </div>
-
-                  <div className="relative w-full sm:w-auto">
-                    <button
-                      onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
-                      className={`w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-ca-surface dark:bg-theme-3/30 border border-ca-border dark:border-theme-3/50 rounded-xl text-base font-medium shadow-sm transition-all ${showFiltersDropdown ? 'ring-2 ring-slate-100 dark:ring-theme-4/50 bg-ca-bg dark:bg-theme-3/50 text-ca-text ' : 'hover:bg-ca-hover dark:hover:bg-theme-3/50 text-ca-text-secondary dark:text-slate-200'}`}
-                    >
-                      <Filter size={16} className="text-ca-text-secondary dark:text-slate-400" />
-                      <span className="text-ca-text-secondary dark:text-slate-200">Filters</span>
-                      {(statusFilter || priorityFilter || managerFilter || dateRangeFilter) && (
-                        <span className="flex items-center justify-center min-w-[20px] h-5 px-1 bg-theme-3 text-white text-[12px] rounded-full font-bold">
-                          {[statusFilter, priorityFilter, managerFilter, dateRangeFilter].filter(Boolean).length}
-                        </span>
-                      )}
-                    </button>
-
-                    {showFiltersDropdown && (
-                      <div className="absolute top-full right-0 mt-2 w-[280px] bg-ca-surface rounded-2xl shadow-xl border border-ca-border p-4 z-30 space-y-4 origin-top-right">
-
-                        <div>
-                          <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">Status</label>
-                          <select
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                            className="w-full bg-ca-bg border border-ca-border focus:ring-2 focus:ring-slate-100 text-ca-text-secondary text-base font-medium py-2 px-3 outline-none rounded-lg transition-colors"
-                          >
-                            <option value="">All Statuses</option>
-                            <option value="planning">Planning</option>
-                            <option value="active">Active</option>
-                            <option value="working">In Progress</option>
-                            <option value="review">Review</option>
-                            <option value="deployment">Deployment</option>
-                            <option value="completed">Completed</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">Priority</label>
-                          <select
-                            value={priorityFilter}
-                            onChange={(e) => setPriorityFilter(e.target.value)}
-                            className="w-full bg-ca-bg border border-ca-border focus:ring-2 focus:ring-slate-100 text-ca-text-secondary text-base font-medium py-2 px-3 outline-none rounded-lg transition-colors"
-                          >
-                            <option value="">All Priorities</option>
-                            <option value="low">Low Priority</option>
-                            <option value="medium">Medium Priority</option>
-                            <option value="high">High Priority</option>
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">Manager</label>
-                          <select
-                            value={managerFilter}
-                            onChange={(e) => setManagerFilter(e.target.value)}
-                            className="w-full bg-ca-bg border border-ca-border focus:ring-2 focus:ring-slate-100 text-ca-text-secondary text-base font-medium py-2 px-3 outline-none rounded-lg transition-colors"
-                          >
-                            <option value="">All Managers</option>
-                            {employees.map((emp) => (
-                              <option key={emp._id} value={emp._id}>
-                                {emp.firstName} {emp.lastName}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-
-                        <div>
-                          <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">Due Date Before</label>
-                          <input
-                            type="date"
-                            value={dateRangeFilter}
-                            onChange={(e) => setDateRangeFilter(e.target.value)}
-                            className="w-full bg-ca-bg border border-ca-border focus:ring-2 focus:ring-slate-100 text-ca-text-secondary text-base font-medium py-2 px-3 outline-none rounded-lg transition-colors"
-                          />
-                        </div>
-
-                        <div className="pt-3 border-t border-ca-border flex justify-end gap-2">
-                          <button onClick={() => { setStatusFilter(""); setPriorityFilter(""); setManagerFilter(""); setDateRangeFilter(""); setShowFiltersDropdown(false); }} className="text-sm font-bold text-ca-text-secondary hover:text-slate-800 hover:bg-slate-200 px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-center bg-ca-bg">
-                            Clear
-                          </button>
-                          <button onClick={() => setShowFiltersDropdown(false)} className="text-sm font-bold text-white bg-theme-3 hover:bg-theme-4 px-4 py-2 rounded-lg transition-colors cursor-pointer flex-1 text-center">
-                            Apply
-                          </button>
-                        </div>
-                      </div>
-                    )}
+            <div className={`${selectedProject ? "lg:col-span-2" : "lg:col-span-3"} transition-all duration-300 space-y-4`}>
+              
+              {isProjectsLoading ? (
+                <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-2 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800">
+                  <Folder size={24} className="animate-spin text-amber-500" />
+                  <p className="text-sm font-medium">Loading projects list...</p>
+                </div>
+              ) : filteredProjects.length === 0 ? (
+                <div className="text-center py-20 text-slate-400 space-y-3 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                  <Briefcase size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+                  <div>
+                    <p className="text-base font-bold text-slate-700 dark:text-slate-300">No projects match criteria</p>
+                    <p className="text-xs text-slate-400 mt-0.5">Try altering the search filters or create a new project</p>
                   </div>
                 </div>
+              ) : (
+                <>
+                  {/* ViewMode: GRID */}
+                  {viewMode === "grid" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      {filteredProjects.map((p) => {
+                        const managerName = resolveEmpName(p.projectManager);
+                        const progress = getProjectProgress(p._id, p.status);
+                        const statusCfg = STATUS_CONFIG[p.status] || STATUS_CONFIG.planning;
+                        const isOverdue = p.status !== "completed" && p.endDate && new Date(p.endDate) < new Date();
 
-                {/* Listing rendering based on ViewMode */}
-                {isProjectsLoading ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-ca-text-secondary space-y-2">
-                    <Folder size={24} className="animate-spin text-primary" />
-                    <p className="text-base font-medium">Loading projects list...</p>
-                  </div>
-                ) : filteredProjects.length === 0 ? (
-                  <div className="text-center py-20 text-ca-text-secondary space-y-3">
-                    <Briefcase size={40} className="mx-auto text-slate-200" />
-                    <div>
-                      <p className="text-base font-bold text-ca-text-secondary">No projects match criteria</p>
-                      <p className="text-sm text-ca-text-secondary mt-0.5">Try altering the search filters or create a new project</p>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    {/* ViewMode: GRID */}
-                    {viewMode === "grid" && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {filteredProjects.map((p) => {
-                          const managerName = resolveEmpName(p.projectManager);
-                          // calculate real progress
-                          const progress = getProjectProgress(p._id, p.status);
+                        return (
+                          <div
+                            key={p._id}
+                            onClick={() => setSelectedProjectId(p._id)}
+                            className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden p-4 isolate ${
+                              selectedProjectId === p._id ? "ring-2 ring-amber-500 border-amber-500" : ""
+                            }`}
+                          >
+                            <div 
+                              className="absolute top-0 left-0 bottom-0 w-[3.5px] group-hover:w-[4.5px] transition-all duration-300 z-20"
+                              style={{ backgroundColor: statusCfg.hex }}
+                            />
 
-                          return (
-                            <div
-                              key={p._id}
-                              onClick={() => setSelectedProjectId(p._id)}
-                              className={`card !p-5 group cursor-pointer flex flex-col justify-between min-h-[190px] ${selectedProjectId === p._id ? "ring-2 ring-primary-500 border-primary-500 bg-ca-bg shadow-inner" : ""
-                                }`}
-                            >
-                              <div>
-                                <div className="flex items-start justify-between mb-3.5">
-                                  <div className="w-8 h-8 rounded-xl bg-ca-bg flex items-center justify-center border border-ca-border flex-shrink-0 text-ca-text-secondary group-hover:text-primary transition-colors">
-                                    <Folder size={16} />
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-ca-bg border border-ca-border text-[12px] font-bold text-ca-text-secondary capitalize">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-theme-3' : p.status === 'active' ? 'bg-primary' : 'bg-slate-400'}`}></span>
-                                      <span>{p.status}</span>
-                                    </span>
-                                    <span className="flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-ca-bg border border-ca-border text-[12px] font-bold text-ca-text-secondary capitalize">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${p.priority === 'high' ? 'bg-ca-primary' : p.priority === 'medium' ? 'bg-ca-primary' : 'bg-slate-400'}`}></span>
-                                      <span>{p.priority}</span>
-                                    </span>
-                                  </div>
-                                </div>
-
-                                <h3 className="font-bold text-ca-text text-base tracking-tight mb-1 group-hover:text-primary transition-colors leading-snug">{p.name}</h3>
-                                {p.clientName && <p className="text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-2">Client: {p.clientName}</p>}
-                                <p className="text-sm text-ca-text-secondary line-clamp-2 leading-relaxed mb-4">{p.description || "No description provided."}</p>
+                            <div className="flex items-center justify-between mb-2 z-10 relative">
+                              <div className="flex items-center gap-1.5">
+                                <StatusBadge status={p.status} />
                               </div>
-
-                              <div className="space-y-3.5">
-                                {/* Progress bar */}
-                                <div className="space-y-1.5">
-                                  <div className="flex justify-between items-center text-[12px] font-bold text-ca-text-secondary">
-                                    <span>Progress</span>
-                                    <span className="text-ca-text-secondary">{progress}%</span>
-                                  </div>
-                                  <div className="w-full bg-ca-bg h-1 rounded-full overflow-hidden">
-                                    <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
-                                  </div>
-                                </div>
-
-                                {/* Avatars & dates */}
-                                <div className="flex items-center justify-between pt-3 border-t border-slate-50 text-[12px] font-semibold text-ca-text-secondary">
-                                  <div className="flex items-center -space-x-2">
-                                    {/* Manager avatar */}
-                                    {p.projectManager && (
-                                      <div
-                                        title={`PM: ${managerName}`}
-                                        className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[11px] font-black shadow-sm ${avatarClass(managerName)}`}
-                                      >
-                                        {managerName.charAt(0)}
-                                      </div>
-                                    )}
-                                    {/* Staff members avatars (limit 3) */}
-                                    {p.members?.slice(0, 3).map((m) => {
-                                      const name = resolveEmpName(m);
-                                      return (
-                                        <div
-                                          key={m._id || m}
-                                          title={`Member: ${name}`}
-                                          className={`w-6 h-6 rounded-full border-2 border-white flex items-center justify-center text-[11px] font-bold shadow-sm ${avatarClass(name)}`}
-                                        >
-                                          {name.charAt(0)}
-                                        </div>
-                                      );
-                                    })}
-                                    {p.members?.length > 3 && (
-                                      <div className="w-6 h-6 rounded-full border-2 border-white bg-ca-bg flex items-center justify-center text-[10px] font-bold text-ca-text-secondary shadow-sm">
-                                        +{p.members.length - 3}
-                                      </div>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center space-x-1.5 text-ca-text-secondary font-medium">
-                                    <Clock size={12} />
-                                    <span>Due {formatDate(p.endDate)}</span>
-                                  </div>
-                                </div>
+                              <div className="flex-shrink-0">
+                                <PriorityBadge priority={p.priority} />
                               </div>
-
-                              {/* Overdue alert banner if date passed */}
-                              {p.status !== "completed" && p.endDate && new Date(p.endDate) < new Date() && (
-                                <div className="absolute top-0 left-0 w-1 h-full bg-red-400" title="Project delivery is past due date!" />
-                              )}
                             </div>
-                          );
-                        })}
-                      </div>
-                    )}
 
-                    {/* ViewMode: LIST */}
-                    {viewMode === "list" && (
-                      <div className="overflow-x-auto rounded-xl border border-ca-border dark:border-theme-3/50 bg-ca-surface shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)]">
+                            <h3 className="font-extrabold text-[14px] text-slate-900 dark:text-white leading-snug mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors line-clamp-1 pr-1 z-10 relative">
+                              {p.name}
+                            </h3>
+
+                            {p.clientName && (
+                              <p className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-2 z-10 relative">
+                                Client: {p.clientName}
+                              </p>
+                            )}
+
+                            <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed mb-3 z-10 relative">
+                              {p.description || "No description provided."}
+                            </p>
+
+                            {/* Progress bar */}
+                            <div className="mb-3 z-10 relative">
+                              <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                                <span>Progress</span>
+                                <span>{progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="h-full bg-emerald-500 rounded-full transition-all duration-300" style={{ width: `${progress}%` }} />
+                              </div>
+                            </div>
+
+                            {/* Footer row */}
+                            <div className="mt-auto flex items-end justify-between z-10 relative pt-2 border-t border-slate-100 dark:border-slate-800/80">
+                              <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-500 dark:text-slate-400">
+                                <CalendarClock size={11} strokeWidth={2.2} />
+                                <span>Due {formatDate(p.endDate)}</span>
+                                {isOverdue && (
+                                  <span className="text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200 ml-1">Overdue</span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {p.projectManager && (
+                                  <div
+                                    title={`PM: ${managerName}`}
+                                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black shadow-xs ring-2 ring-white dark:ring-[#111C24] ${avatarClass(managerName)}`}
+                                  >
+                                    {managerName.charAt(0)}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* ViewMode: LIST */}
+                  {viewMode === "list" && (
+                    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+                      {/* Card Header matching TaskBoard */}
+                      <div className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0C1520]/40 px-4 py-3 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Folder size={14} className="text-amber-500" />
+                          <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                            PROJECTS PIPELINE LOG
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200/60 dark:border-slate-700">
+                          {filteredProjects.length} projects
+                        </span>
+                      </div>
+
+                      <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                           <thead>
-                            <tr className="bg-slate-50 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-                              <th className="px-5 py-4 rounded-tl-xl">Project</th>
-                              <th className="px-5 py-4">Client</th>
-                              <th className="px-5 py-4">Manager</th>
-                              <th className="px-5 py-4">Start Date</th>
-                              <th className="px-5 py-4">Due Date</th>
-                              <th className="px-5 py-4 text-center">Priority</th>
-                              <th className="px-5 py-4">Status</th>
-                              <th className="px-5 py-4 text-center rounded-tr-xl">Milestones</th>
+                            <tr className="bg-slate-50/60 dark:bg-[#0D1321] text-[10px] sm:text-[10.5px] uppercase tracking-wider text-slate-400 font-extrabold border-b border-slate-200/80 dark:border-slate-800">
+                              <th className="px-4 py-3">PROJECT</th>
+                              <th className="px-4 py-3">CLIENT</th>
+                              <th className="px-4 py-3">MANAGER</th>
+                              <th className="px-4 py-3">TIMELINE</th>
+                              <th className="px-4 py-3 text-center">PRIORITY</th>
+                              <th className="px-4 py-3">STATUS</th>
+                              <th className="px-4 py-3 text-center">MILESTONES</th>
+                              <th className="px-4 py-3 text-center">ACTION</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-theme-3/50 text-base">
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80 text-xs">
                             {filteredProjects.map((p) => {
                               const managerName = resolveEmpName(p.projectManager);
                               const compM = p.milestones?.filter(m => m.status === "completed").length || 0;
@@ -772,42 +931,53 @@ const Projects = () => {
                                 <tr
                                   key={p._id}
                                   onClick={() => setSelectedProjectId(p._id)}
-                                  className={`hover:bg-slate-50/80 dark:hover:bg-theme-3/30 transition-all cursor-pointer group border-b border-slate-50 dark:border-theme-3/50 ${selectedProjectId === p._id ? "bg-ca-bg dark:bg-theme-3/50 shadow-inner" : "bg-ca-surface dark:bg-transparent"
-                                    }`}
+                                  className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group ${
+                                    selectedProjectId === p._id ? "bg-amber-500/[0.06]" : ""
+                                  }`}
                                 >
-                                  <td className="px-5 py-4">
-                                    <div className="flex items-center space-x-2">
-                                      <Folder size={14} className="text-ca-text-secondary group-hover:text-primary transition-colors" />
-                                      <span className="font-semibold text-ca-text dark:text-slate-200 group-hover:text-primary transition-colors">{p.name}</span>
+                                  <td className="px-4 py-3.5">
+                                    <div className="flex items-center gap-2">
+                                      <Folder size={14} className="text-amber-500 flex-shrink-0" />
+                                      <span className="font-bold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                        {p.name}
+                                      </span>
                                     </div>
                                   </td>
-                                  <td className="px-5 py-4 text-ca-text-secondary dark:text-slate-400 font-medium text-sm">{p.clientName || "—"}</td>
-                                  <td className="px-5 py-4">
-                                    <div className="flex items-center space-x-2">
+                                  <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 font-medium">
+                                    {p.clientName || "—"}
+                                  </td>
+                                  <td className="px-4 py-3.5">
+                                    <div className="flex items-center gap-2">
                                       {p.projectManager && (
-                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border border-white dark:border-theme-2/50 ${avatarClass(managerName)}`}>
+                                        <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[9.5px] font-black shadow-xs ${avatarClass(managerName)}`}>
                                           {managerName.charAt(0)}
                                         </div>
                                       )}
-                                      <span className="font-medium text-ca-text-secondary dark:text-slate-300 text-sm">{managerName}</span>
+                                      <span className="font-semibold text-slate-700 dark:text-slate-300">{managerName}</span>
                                     </div>
                                   </td>
-                                  <td className="px-5 py-4 text-ca-text-secondary dark:text-slate-400 text-sm">{formatDate(p.startDate)}</td>
-                                  <td className="px-5 py-4 text-ca-text-secondary dark:text-slate-400 text-sm">{formatDate(p.endDate)}</td>
-                                  <td className="px-5 py-4 text-center">
-                                    <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-ca-bg dark:bg-theme-3/50 border border-ca-border dark:border-theme-4/50 text-[12px] font-bold text-ca-text-secondary dark:text-slate-200 capitalize">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${p.priority === 'high' ? 'bg-ca-primary' : p.priority === 'medium' ? 'bg-ca-primary' : 'bg-slate-400'}`}></span>
-                                      <span>{p.priority}</span>
-                                    </span>
+                                  <td className="px-4 py-3.5 text-slate-600 dark:text-slate-400 font-medium text-[11px]">
+                                    {formatDate(p.startDate)} &rarr; {formatDate(p.endDate)}
                                   </td>
-                                  <td className="px-5 py-4">
-                                    <span className="inline-flex items-center space-x-1.5 px-2 py-0.5 rounded-md bg-ca-bg dark:bg-theme-3/50 border border-ca-border dark:border-theme-4/50 text-[12px] font-bold text-ca-text-secondary dark:text-slate-200 capitalize">
-                                      <span className={`w-1.5 h-1.5 rounded-full ${p.status === 'completed' ? 'bg-theme-3' : p.status === 'active' ? 'bg-primary' : 'bg-slate-400'}`}></span>
-                                      <span>{p.status}</span>
-                                    </span>
+                                  <td className="px-4 py-3.5 text-center">
+                                    <PriorityBadge priority={p.priority} />
                                   </td>
-                                  <td className="px-5 py-4 text-center font-bold text-ca-text-secondary dark:text-slate-300 text-sm">
-                                    {compM} / {p.milestones?.length || 0}
+                                  <td className="px-4 py-3.5">
+                                    <StatusBadge status={p.status} />
+                                  </td>
+                                  <td className="px-4 py-3.5 text-center font-bold text-slate-600 dark:text-slate-400">
+                                    <span className="text-amber-600 dark:text-amber-400">{compM}</span> / {p.milestones?.length || 0}
+                                  </td>
+                                  <td className="px-4 py-3.5 text-center">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setViewingProject(p);
+                                      }}
+                                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-200 bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 hover:bg-slate-100 shadow-2xs transition-all cursor-pointer"
+                                    >
+                                      <Eye size={12} /> View
+                                    </button>
                                   </td>
                                 </tr>
                               );
@@ -815,109 +985,87 @@ const Projects = () => {
                           </tbody>
                         </table>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    {/* ViewMode: TIMELINE */}
-                    {viewMode === "timeline" && (
-                      <div className="space-y-4">
-                        <span className="text-[12px] font-bold text-ca-text-secondary uppercase tracking-widest block px-1">Project Deadlines Timeline</span>
-                        <div className="space-y-3.5 border-l-2 border-ca-border pl-4 py-1.5 ml-3">
-                          {filteredProjects.map((p) => {
-                            const startStr = formatDate(p.startDate);
-                            const endStr = formatDate(p.endDate);
-                            const percent = p.status === "completed" ? 100 : (p.status === "review" ? 85 : (p.status === "active" ? 50 : 20));
+                  {/* ViewMode: TIMELINE */}
+                  {viewMode === "timeline" && (
+                    <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                        <CalendarClock size={14} className="text-amber-500" /> Project Deadlines Roadmap
+                      </span>
+                      <div className="space-y-3.5 border-l-2 border-slate-200 dark:border-slate-800 pl-4 py-1.5 ml-3">
+                        {filteredProjects.map((p) => {
+                          const startStr = formatDate(p.startDate);
+                          const endStr = formatDate(p.endDate);
+                          const percent = p.status === "completed" ? 100 : (p.status === "review" ? 85 : (p.status === "active" ? 50 : 20));
 
-                            return (
-                              <div key={p._id} className="relative group/timeline cursor-pointer" onClick={() => setSelectedProjectId(p._id)}>
-                                {/* Bullet */}
-                                <span className={`absolute -left-[23px] top-1 w-2.5 h-2.5 rounded-full ring-4 ring-slate-50 transition-colors ${p.status === "completed" ? "bg-theme-3" : (p.status === "active" ? "bg-primary" : "bg-slate-300")
-                                  }`} />
+                          return (
+                            <div key={p._id} className="relative group/timeline cursor-pointer" onClick={() => setSelectedProjectId(p._id)}>
+                              <span className={`absolute -left-[23px] top-1.5 w-2.5 h-2.5 rounded-full ring-4 ring-white dark:ring-[#111C24] transition-colors ${
+                                p.status === "completed" ? "bg-emerald-500" : (p.status === "active" ? "bg-cyan-500" : "bg-amber-500")
+                              }`} />
 
-                                <div className="bg-ca-surface shadow-sm border border-ca-border hover:border-primary/25 rounded-xl p-3.5 hover:shadow-md transition-all space-y-2">
-                                  <div className="flex justify-between items-start">
-                                    <div>
-                                      <h4 className="font-bold text-ca-text group-hover/timeline:text-primary transition-colors text-base">{p.name}</h4>
-                                      <p className="text-[12px] text-ca-text-secondary font-bold mt-0.5 uppercase tracking-wide">Client: {p.clientName || "—"}</p>
-                                    </div>
-                                    <span className="text-[12px] font-bold text-ca-text-secondary bg-ca-bg px-2 py-1 rounded-md">{startStr} to {endStr}</span>
+                              <div className="bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/40 rounded-xl p-3.5 hover:shadow-md transition-all space-y-2">
+                                <div className="flex justify-between items-start">
+                                  <div>
+                                    <h4 className="font-bold text-slate-900 dark:text-white group-hover/timeline:text-amber-600 transition-colors text-sm">{p.name}</h4>
+                                    <p className="text-[11px] text-slate-400 font-bold mt-0.5 uppercase tracking-wide">Client: {p.clientName || "—"}</p>
                                   </div>
+                                  <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-2 py-1 rounded-md border border-slate-200/80 dark:border-slate-700 shadow-2xs">{startStr} to {endStr}</span>
+                                </div>
 
-                                  <div className="flex items-center space-x-2">
-                                    <div className="w-full bg-ca-bg h-1 rounded-full overflow-hidden">
-                                      <div className="bg-primary h-full rounded-full" style={{ width: `${percent}%` }} />
-                                    </div>
-                                    <span className="text-[12px] font-bold text-ca-text-secondary">{percent}%</span>
+                                <div className="flex items-center space-x-2">
+                                  <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                                    <div className="bg-amber-500 h-full rounded-full" style={{ width: `${percent}%` }} />
                                   </div>
+                                  <span className="text-[11px] font-bold text-slate-500">{percent}%</span>
                                 </div>
                               </div>
-                            );
-                          })}
-                        </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    )}
-                  </>
-                )}
+                    </div>
+                  )}
+                </>
+              )}
 
-              </div>
             </div>
 
             {/* Right Column: Selected Details Panel */}
             {selectedProject && (
               <div className="lg:col-span-1 animate-slideLeft">
-                <div className="bg-ca-surface rounded-3xl shadow-xl border border-ca-border overflow-hidden relative flex flex-col h-full max-h-[85vh]">
+                <div className="bg-white dark:bg-[#111C24] rounded-2xl shadow-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden relative flex flex-col h-full max-h-[85vh]">
 
                   {/* Top Accent Header */}
-                  <div className="bg-theme-3 p-6 pb-8 relative overflow-hidden border-b border-theme-4">
-                    <div className="absolute inset-0 bg-[radial-gradient(#475569_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+                  <div className="bg-slate-900 dark:bg-[#0B101B] p-5 pb-6 relative overflow-hidden border-b border-slate-800 text-white">
                     <button
                       onClick={() => setSelectedProjectId(null)}
-                      className="absolute top-4 right-4 p-1.5 rounded-full text-ca-text-secondary hover:bg-white/10 hover:text-white transition-colors cursor-pointer z-10"
+                      className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:bg-white/10 hover:text-white transition-colors cursor-pointer z-10"
                     >
                       <X size={16} />
                     </button>
 
                     <div className="relative z-10">
-                      <h3 className="text-[12px] font-extrabold uppercase tracking-widest text-theme-5 mb-4">Project Overview</h3>
+                      <h3 className="text-[10.5px] font-black uppercase tracking-widest text-amber-400 mb-3">Project Overview</h3>
 
                       {(() => {
                         const progress = getProjectProgress(selectedProject._id, selectedProject.status);
-                        const strokeDash = 2 * Math.PI * 26; // Radius 26
-                        const strokeOffset = strokeDash - (progress / 100) * strokeDash;
-
                         return (
-                          <div className="flex items-center space-x-4">
-                            {/* SVG Progress Ring */}
-                            <div className="relative w-16 h-16 flex-shrink-0 flex items-center justify-center bg-theme-1 rounded-full border-2 border-theme-3 shadow-inner">
-                              <svg className="w-14 h-14 transform -rotate-90">
-                                <circle cx="28" cy="28" r="26" stroke="rgba(255,255,255,0.1)" strokeWidth="3" fill="transparent" />
-                                <circle
-                                  cx="28"
-                                  cy="28"
-                                  r="26"
-                                  stroke="var(--color-theme-5)"
-                                  strokeWidth="3.5"
-                                  fill="transparent"
-                                  strokeDasharray={strokeDash}
-                                  strokeDashoffset={strokeOffset}
-                                  strokeLinecap="round"
-                                  className="transition-all duration-1000 ease-out"
-                                />
-                              </svg>
-                              <span className="absolute text-sm font-black text-white">{progress}%</span>
+                          <div>
+                            <h4 className="font-black text-white text-lg leading-tight mb-2 truncate pr-4">{selectedProject.name}</h4>
+                            <div className="flex items-center gap-2 mb-3">
+                              <StatusBadge status={selectedProject.status} />
+                              <PriorityBadge priority={selectedProject.priority} />
                             </div>
-
-                            <div className="flex-1">
-                              <h4 className="font-black text-white text-xl leading-tight mb-1 truncate pr-4">{selectedProject.name}</h4>
-                              <div className="flex items-center space-x-2">
-                                <span className={`px-2 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider ${selectedProject.status === "completed" ? "bg-theme-3/40 text-theme-6" :
-                                  selectedProject.status === "active" ? "bg-theme-5/20 text-theme-6" :
-                                    "bg-theme-2/50 text-theme-5"
-                                  }`}>
-                                  {selectedProject.status}
-                                </span>
-                                <span className="text-[12px] text-ca-text-secondary font-bold uppercase truncate max-w-[100px]">
-                                  {selectedProject.clientName || "Internal"}
-                                </span>
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10.5px] font-bold text-slate-300">
+                                <span>Progress</span>
+                                <span>{progress}%</span>
+                              </div>
+                              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-amber-400 h-full rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
                               </div>
                             </div>
                           </div>
@@ -927,68 +1075,43 @@ const Projects = () => {
                   </div>
 
                   {/* Body Content */}
-                  <div className="flex-1 p-6 space-y-3 overflow-y-auto bg-ca-surface -mt-3 rounded-t-3xl relative z-10">
+                  <div className="flex-1 p-5 space-y-4 overflow-y-auto bg-white dark:bg-[#111C24] text-xs">
 
-                    {/* Team Members Allocation */}
-                    <div className="space-y-3">
-                      <span className="text-[12px] font-extrabold text-ca-text-secondary uppercase tracking-widest flex items-center">
-                        <Users size={12} className="mr-1.5" /> Team & Targets
+                    {/* Team & Targets */}
+                    <div className="space-y-2">
+                      <span className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-widest flex items-center">
+                        <Users size={12} className="mr-1.5 text-amber-500" /> Team & Targets
                       </span>
 
-                      <div className="bg-ca-surface border border-ca-border rounded-2xl p-2 space-y-1 shadow-sm text-sm font-medium text-ca-text-secondary">
-                        {/* Project Manager */}
-                        <div className="flex justify-between items-center p-2.5 rounded-xl hover:bg-ca-hover transition-colors">
-                          <span className="text-ca-text-secondary flex items-center"><User size={14} className="mr-2 text-slate-300" /> Manager</span>
-                          <span className="text-ca-text font-bold">{resolveEmpName(selectedProject.projectManager)}</span>
+                      <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2 space-y-1 font-medium">
+                        <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800/50 transition-colors">
+                          <span className="text-slate-500 flex items-center"><User size={13} className="mr-1.5 text-slate-400" /> Manager</span>
+                          <span className="text-slate-900 dark:text-white font-bold">{resolveEmpName(selectedProject.projectManager)}</span>
                         </div>
 
-                        {/* Members Count */}
-                        <div className="flex justify-between items-center p-2.5 rounded-xl hover:bg-ca-hover transition-colors">
-                          <span className="text-ca-text-secondary flex items-center"><Users size={14} className="mr-2 text-slate-300" /> Team Size</span>
-                          <span className="text-ca-text font-bold bg-ca-bg px-2 py-0.5 rounded-md">{selectedProject.members?.length || 0} Members</span>
+                        <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800/50 transition-colors">
+                          <span className="text-slate-500 flex items-center"><Users size={13} className="mr-1.5 text-slate-400" /> Team Size</span>
+                          <span className="text-slate-900 dark:text-white font-bold bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">{selectedProject.members?.length || 0} Members</span>
                         </div>
 
-                        {/* Milestones count */}
-                        <div className="flex justify-between items-center p-2.5 rounded-xl hover:bg-ca-hover transition-colors">
-                          <span className="text-ca-text-secondary flex items-center"><CheckSquare size={14} className="mr-2 text-slate-300" /> Milestones</span>
-                          <span className="text-ca-text font-bold">
-                            <span className="text-theme-3">{selectedProject.milestones?.filter(m => m.status === "completed").length || 0}</span>
-                            <span className="text-slate-300 mx-1">/</span>
+                        <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800/50 transition-colors">
+                          <span className="text-slate-500 flex items-center"><CheckSquare size={13} className="mr-1.5 text-slate-400" /> Milestones</span>
+                          <span className="text-slate-900 dark:text-white font-bold">
+                            <span className="text-emerald-600">{selectedProject.milestones?.filter(m => m.status === "completed").length || 0}</span>
+                            <span className="text-slate-400 mx-1">/</span>
                             {selectedProject.milestones?.length || 0}
                           </span>
                         </div>
 
-                        {/* Timeline */}
-                        <div className="flex justify-between items-center p-2.5 rounded-xl hover:bg-ca-hover transition-colors">
-                          <span className="text-ca-text-secondary flex items-center"><CalendarIcon size={14} className="mr-2 text-slate-300" /> Timeline</span>
-                          <span className="text-ca-text-secondary font-bold text-[12px] uppercase tracking-wide">
+                        <div className="flex justify-between items-center p-2 rounded-lg hover:bg-white dark:hover:bg-slate-800/50 transition-colors">
+                          <span className="text-slate-500 flex items-center"><CalendarIcon size={13} className="mr-1.5 text-slate-400" /> Timeline</span>
+                          <span className="text-slate-600 dark:text-slate-300 font-bold text-[11px]">
                             {formatDate(selectedProject.startDate)} - {formatDate(selectedProject.endDate)}
                           </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Notices segment */}
-                    <div className="space-y-3">
-                      <span className="text-[12px] font-extrabold text-ca-text-secondary uppercase tracking-widest flex items-center">
-                        <Bell size={12} className="mr-1.5" /> Recent Bulletins
-                      </span>
-                      <div className="space-y-2 max-h-[140px] overflow-y-auto pr-1">
-                        {(selectedProject.notices || []).length === 0 ? (
-                          <div className="bg-ca-surface border border-dashed border-ca-border rounded-2xl p-6 flex flex-col items-center justify-center text-center space-y-2">
-                            <Bell className="text-slate-200" size={20} />
-                            <p className="text-ca-text-secondary text-[12px] font-bold uppercase tracking-wide">No active notices</p>
-                          </div>
-                        ) : (
-                          (selectedProject.notices || []).map((notice, idx) => (
-                            <div key={idx} className="bg-ca-surface border-l-2 border-l-primary border border-ca-border p-3.5 rounded-xl shadow-sm space-y-2">
-                              <p className="text-ca-text-secondary leading-snug font-semibold text-sm">"{notice.message}"</p>
-                              <div className="flex justify-between items-center">
-                                <span className="text-[11px] font-bold text-primary uppercase tracking-wider">{notice.senderName || "Manager"}</span>
-                                <span className="text-[11px] text-ca-text-secondary font-bold">{formatDate(notice.createdAt)}</span>
-                              </div>
-                            </div>
-                          ))
                         )}
                       </div>
                     </div>
