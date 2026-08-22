@@ -755,37 +755,96 @@ const Projects = () => {
             <KPICard label="Overdue" value={stats.overdue} trend="4.2%" isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={AlertTriangle} iconBg="bg-rose-500/10" iconColor="#E11D48" extraClass="col-span-2 sm:col-span-1"/>
           </div>
 
-          {/* ── Filter Tab Bar (Matching TaskBoard) ── */}
+          {/* ── Filter Tab Bar (Matching TaskBoard & Leads) ── */}
           <div className="bg-white dark:bg-[#111C24] px-3 py-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3 min-h-[44px]">
             <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
               {[
-                { id: "", label: "All Projects", count: projects.length },
-                { id: "active", label: "Active", count: projects.filter(p => p.status === "active").length },
-                { id: "working", label: "In Progress", count: projects.filter(p => p.status === "working").length },
-                { id: "review", label: "Review", count: projects.filter(p => p.status === "review").length },
-                { id: "planning", label: "Planning", count: projects.filter(p => p.status === "planning").length },
-                { id: "completed", label: "Completed", count: projects.filter(p => p.status === "completed").length },
-                { id: "on-hold", label: "On Hold", count: projects.filter(p => p.status === "on-hold").length },
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setStatusFilter(tab.id)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
-                    statusFilter === tab.id
-                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-                  }`}
-                >
-                  <span>{tab.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                    statusFilter === tab.id
-                      ? "bg-white/20 text-white"
-                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                  }`}>
-                    {tab.count}
-                  </span>
-                </button>
-              ))}
+                {
+                  id: "",
+                  label: "All Projects",
+                  count: projects.length,
+                  pillInactive: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-[#0B101B] dark:text-slate-200 dark:border-slate-700/80 hover:border-slate-300 shadow-2xs",
+                  pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
+                  badgeInactive: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "active",
+                  label: "Active",
+                  count: projects.filter(p => p.status === "active").length,
+                  pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
+                  pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+                  badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "working",
+                  label: "In Progress",
+                  count: projects.filter(p => p.status === "working").length,
+                  pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
+                  pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
+                  badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "review",
+                  label: "Review",
+                  count: projects.filter(p => p.status === "review").length,
+                  pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
+                  pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30",
+                  badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "planning",
+                  label: "Planning",
+                  count: projects.filter(p => p.status === "planning").length,
+                  pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
+                  pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
+                  badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "completed",
+                  label: "Completed",
+                  count: projects.filter(p => p.status === "completed").length,
+                  pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
+                  pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+                  badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+                {
+                  id: "on-hold",
+                  label: "On Hold",
+                  count: projects.filter(p => p.status === "on-hold").length,
+                  pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
+                  pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
+                  badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
+                  badgeActive: "bg-white/20 text-white"
+                },
+              ].map(tab => {
+                const isSelected = statusFilter === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setStatusFilter(tab.id)}
+                    className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                      isSelected
+                        ? tab.pillActive
+                        : tab.pillInactive
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                      isSelected
+                        ? tab.badgeActive
+                        : tab.badgeInactive
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -1147,48 +1206,44 @@ const Projects = () => {
 
       {/* ── MODE 2: ACTIVE PROJECT DETAILS WORKSPACE SCREEN (8 SECTIONS) ────────── */}
       {viewingProject && (
-        <div className="space-y-3 animate-fadeIn">
+        <div className="space-y-4 animate-fadeIn">
 
           {/* Header Workspace details */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 sm:p-5 shadow-2xs">
             <div className="flex items-center space-x-3.5">
               <button
                 onClick={() => { setViewingProject(null); setSelectedProjectId(null); }}
-                className="p-2 border border-ca-border hover:border-slate-300 text-ca-text-secondary hover:text-ca-text rounded-xl bg-ca-surface shadow-sm transition-all"
+                className="w-8 h-8 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-colors shadow-2xs cursor-pointer"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={15} />
               </button>
               <div>
-                <div className="flex items-center space-x-2 text-sm font-semibold text-ca-text-secondary uppercase tracking-wider mb-1">
+                <div className="flex items-center space-x-1.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
                   <span>Projects</span>
-                  <ChevronRight size={12} />
-                  <span className="text-ca-text-secondary">{viewingProject.name}</span>
+                  <ChevronRight size={11} />
+                  <span className="text-slate-600 dark:text-slate-300">{viewingProject.name}</span>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <h2 className="text-2xl font-extrabold text-ca-text leading-tight">{viewingProject.name}</h2>
-                  <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${STATUS_COLORS[viewingProject.status] || STATUS_COLORS.planning}`}>
-                    {viewingProject.status}
-                  </span>
-                  <span className={`px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${PRIORITY_COLORS[viewingProject.priority] || PRIORITY_COLORS.medium}`}>
-                    {viewingProject.priority}
-                  </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-[20px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">{viewingProject.name}</h2>
+                  <StatusBadge status={viewingProject.status} />
+                  <PriorityBadge priority={viewingProject.priority} />
                 </div>
                 {viewingProject.clientName && (
-                  <p className="text-sm font-bold text-ca-text-secondary mt-1 uppercase tracking-wider">Client: {viewingProject.clientName}</p>
+                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-0.5">Client: {viewingProject.clientName}</p>
                 )}
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
               <div className="text-right">
-                <span className="text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider block">Due Timeline</span>
-                <span className="text-sm font-extrabold text-ca-text-secondary">{formatDate(viewingProject.startDate)} to {formatDate(viewingProject.endDate)}</span>
+                <span className="text-[10.5px] font-extrabold text-slate-400 uppercase tracking-wider block">Due Timeline</span>
+                <span className="text-xs font-extrabold text-slate-700 dark:text-slate-300">{formatDate(viewingProject.startDate)} to {formatDate(viewingProject.endDate)}</span>
               </div>
 
               <button
                 onClick={() => { setViewingProject(null); setSelectedProjectId(null); }}
-                className="px-3 py-1.5 border border-ca-border text-ca-text-secondary rounded-lg text-[11px] font-bold hover:bg-ca-hover cursor-pointer shadow-sm bg-ca-surface"
+                className="h-8 inline-flex items-center gap-1.5 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-extrabold text-xs hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer transition-colors shadow-2xs"
               >
                 Exit Workspace
               </button>
@@ -1196,7 +1251,7 @@ const Projects = () => {
           </div>
 
           {/* Sub-tab navigation */}
-          <div className="flex overflow-x-auto bg-white/60 backdrop-blur-lg border border-white/80 p-2 rounded-2xl shadow-sm text-sm font-bold text-ca-text-secondary flex-shrink-0 gap-1">
+          <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar bg-white dark:bg-[#111C24] p-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
             {[
               { id: "overview", label: "Overview & Notices" },
               { id: "analytics", label: "Progress Analytics" },
@@ -1209,10 +1264,11 @@ const Projects = () => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4.5 py-2.5 rounded-xl transition-all flex-shrink-0 cursor-pointer ${activeTab === tab.id
-                  ? "bg-primary text-white shadow-sm"
-                  : "hover:text-ca-text hover:bg-ca-hover"
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all shrink-0 cursor-pointer ${
+                  activeTab === tab.id
+                    ? "bg-slate-900 text-white dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                }`}
               >
                 {tab.label}
               </button>
@@ -1220,43 +1276,43 @@ const Projects = () => {
           </div>
 
           {/* Tab Content Display */}
-          <div className="bg-white/70 backdrop-blur-xl border border-white/80 rounded-3xl p-6 md:p-8 shadow-sm min-h-[350px]">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 sm:p-6 shadow-2xs min-h-[350px]">
 
-            {/* Section 1 & 7: Overview & Notices */}
+            {/* Section 1: Overview & Notices */}
             {activeTab === "overview" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm font-semibold">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 text-xs font-semibold">
                 {/* Overview Info */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-bold text-ca-text border-b border-slate-50 pb-2">Project Brief</h3>
-                  <p className="text-ca-text-secondary font-medium leading-relaxed bg-slate-50/50 p-3.5 rounded-xl border border-ca-border">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Project Brief</h3>
+                  <p className="text-slate-600 dark:text-slate-300 font-medium leading-relaxed bg-slate-50 dark:bg-[#0B101B] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800">
                     {viewingProject.description || "No project description logged."}
                   </p>
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50/30 border border-ca-border p-3.5 rounded-xl">
-                      <span className="text-ca-text-secondary block font-bold text-[12px] uppercase">Project Manager</span>
-                      <span className="font-extrabold text-ca-text text-base mt-1 block">{resolveEmpName(viewingProject.projectManager)}</span>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 p-3 rounded-xl">
+                      <span className="text-slate-400 block font-bold text-[10.5px] uppercase">Project Manager</span>
+                      <span className="font-extrabold text-slate-900 dark:text-white text-sm mt-0.5 block">{resolveEmpName(viewingProject.projectManager)}</span>
                     </div>
-                    <div className="bg-slate-50/30 border border-ca-border p-3.5 rounded-xl">
-                      <span className="text-ca-text-secondary block font-bold text-[12px] uppercase">Estimated Working Days</span>
-                      <span className="font-extrabold text-ca-text text-base mt-1 block">{viewingProject.estimatedWorkingDays || 0} Days</span>
+                    <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 p-3 rounded-xl">
+                      <span className="text-slate-400 block font-bold text-[10.5px] uppercase">Estimated Working Days</span>
+                      <span className="font-extrabold text-slate-900 dark:text-white text-sm mt-0.5 block">{viewingProject.estimatedWorkingDays || 0} Days</span>
                     </div>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-ca-text-secondary block font-bold text-[12px] uppercase">Project Team Members ({viewingProject.members?.length || 0})</span>
-                    <div className="flex flex-wrap gap-2.5 pt-1.5">
+                  <div className="space-y-1.5">
+                    <span className="text-slate-400 block font-bold text-[10.5px] uppercase tracking-wider">Project Team Members ({viewingProject.members?.length || 0})</span>
+                    <div className="flex flex-wrap gap-2 pt-1">
                       {viewingProject.members?.map((m) => {
                         const name = resolveEmpName(m);
                         return (
                           <div
                             key={m._id || m}
-                            className="flex items-center px-3 py-1.5 bg-ca-bg border border-ca-border rounded-xl space-x-1.5"
+                            className="flex items-center px-2.5 py-1 bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 rounded-xl space-x-1.5"
                           >
-                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${avatarClass(name)}`}>
+                            <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9.5px] font-black ${avatarClass(name)}`}>
                               {name.charAt(0)}
                             </span>
-                            <span className="text-ca-text-secondary font-bold">{name}</span>
+                            <span className="text-slate-700 dark:text-slate-200 font-bold text-xs">{name}</span>
                           </div>
                         );
                       })}
@@ -1266,7 +1322,7 @@ const Projects = () => {
 
                 {/* Notices Bulletin */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-bold text-ca-text border-b border-slate-50 pb-2">Notices Bulletin</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Notices Bulletin</h3>
 
                   <form onSubmit={handleAddNotice} className="flex gap-2">
                     <input
@@ -1274,27 +1330,27 @@ const Projects = () => {
                       placeholder="Post a brief notification or bulletin update to the team..."
                       value={noticeText}
                       onChange={(e) => setNoticeText(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-ca-border rounded-xl text-sm bg-ca-surface focus:outline-none focus:ring-2 focus:ring-primary/40 text-ca-text-secondary"
+                      className="flex-1 px-3 py-2 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-[#0B101B] focus:outline-none focus:border-amber-500 text-slate-900 dark:text-slate-100"
                     />
                     <button
                       type="submit"
                       disabled={submittingWorkspaceAction || !noticeText.trim()}
-                      className="px-3.5 bg-primary text-white rounded-xl hover:bg-primary/95 transition-all text-sm font-bold flex items-center cursor-pointer disabled:opacity-60"
+                      className="px-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl transition-all text-xs font-extrabold flex items-center cursor-pointer disabled:opacity-60 shadow-xs"
                     >
                       <Send size={12} className="mr-1.5" /> Post Notice
                     </button>
                   </form>
 
-                  <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
+                  <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
                     {(viewingProject.notices || []).length === 0 ? (
-                      <div className="text-center py-10 text-ca-text-secondary italic">No bulletin announcements posted.</div>
+                      <div className="text-center py-10 text-slate-400 italic text-xs">No bulletin announcements posted.</div>
                     ) : (
                       [...(viewingProject.notices || [])].reverse().map((notice, idx) => (
-                        <div key={idx} className="border border-ca-border rounded-xl p-3.5 bg-slate-50/50 flex space-x-3 items-start">
-                          <MessageSquare size={16} className="text-ca-text-secondary mt-0.5 flex-shrink-0" />
-                          <div className="space-y-1">
-                            <p className="text-ca-text-secondary leading-relaxed font-semibold italic">"{notice.message}"</p>
-                            <span className="text-[11px] text-ca-text-secondary font-black block">— Posted by {notice.senderName} on {formatDate(notice.createdAt)}</span>
+                        <div key={idx} className="border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 bg-slate-50 dark:bg-[#0B101B] flex space-x-2.5 items-start">
+                          <MessageSquare size={14} className="text-amber-500 mt-0.5 shrink-0" />
+                          <div className="space-y-0.5">
+                            <p className="text-slate-700 dark:text-slate-300 leading-relaxed font-semibold italic text-xs">"{notice.message}"</p>
+                            <span className="text-[10px] text-slate-400 font-extrabold block">— Posted by {notice.senderName} on {formatDate(notice.createdAt)}</span>
                           </div>
                         </div>
                       ))
@@ -1306,12 +1362,12 @@ const Projects = () => {
 
             {/* Section 2: Progress Analytics */}
             {activeTab === "analytics" && (
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
                   {/* Chart A: Task Status Distribution */}
-                  <div className="border border-ca-border rounded-xl p-4 space-y-4">
-                    <span className="font-extrabold text-ca-text-secondary uppercase tracking-widest text-[12px] block">Task Status Distribution</span>
+                  <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B101B]/50 rounded-2xl p-4 space-y-3">
+                    <span className="font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px] block">Task Status Distribution</span>
                     <div className="h-48 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={[
@@ -1320,12 +1376,12 @@ const Projects = () => {
                           { name: "In Review", count: workspaceTasks.filter(t => t.status === "review").length || 1 },
                           { name: "Completed", count: workspaceTasks.filter(t => t.status === "done").length || 6 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" tickLine={false} axisLine={false} style={{ fontSize: 9, fontWeight: "bold", fill: "#94a3b8" }} />
-                          <YAxis tickLine={false} axisLine={false} style={{ fontSize: 9, fontWeight: "bold", fill: "#94a3b8" }} />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415520" />
+                          <XAxis dataKey="name" tickLine={false} axisLine={false} style={{ fontSize: 10, fontWeight: "bold", fill: "#94a3b8" }} />
+                          <YAxis tickLine={false} axisLine={false} style={{ fontSize: 10, fontWeight: "bold", fill: "#94a3b8" }} />
                           <Tooltip />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={30}>
-                            {["#B2CAC3", "#558D7C", "#10B981", "#047857"].map((color, index) => (
+                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={32}>
+                            {["#3B82F6", "#F59E0B", "#14B8A6", "#10B981"].map((color, index) => (
                               <Cell key={`cell-${index}`} fill={color} />
                             ))}
                           </Bar>
@@ -1335,8 +1391,8 @@ const Projects = () => {
                   </div>
 
                   {/* Chart B: Project Task Priorities */}
-                  <div className="border border-ca-border rounded-xl p-4 space-y-4">
-                    <span className="font-extrabold text-ca-text-secondary uppercase tracking-widest text-[12px] block">Priority Load Breakdown</span>
+                  <div className="border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-[#0B101B]/50 rounded-2xl p-4 space-y-3">
+                    <span className="font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider text-[11px] block">Priority Load Breakdown</span>
                     <div className="h-48 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart data={[
@@ -1344,12 +1400,12 @@ const Projects = () => {
                           { name: "Medium", count: workspaceTasks.filter(t => t.priority === "medium").length || 8 },
                           { name: "High", count: workspaceTasks.filter(t => t.priority === "high").length || 3 }
                         ]}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" tickLine={false} axisLine={false} style={{ fontSize: 9, fontWeight: "bold", fill: "#94a3b8" }} />
-                          <YAxis tickLine={false} axisLine={false} style={{ fontSize: 9, fontWeight: "bold", fill: "#94a3b8" }} />
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#33415520" />
+                          <XAxis dataKey="name" tickLine={false} axisLine={false} style={{ fontSize: 10, fontWeight: "bold", fill: "#94a3b8" }} />
+                          <YAxis tickLine={false} axisLine={false} style={{ fontSize: 10, fontWeight: "bold", fill: "#94a3b8" }} />
                           <Tooltip />
-                          <Bar dataKey="count" radius={[4, 4, 0, 0]} maxBarSize={30}>
-                            {["#B2CAC3", "#10B981", "#047857"].map((color, index) => (
+                          <Bar dataKey="count" radius={[6, 6, 0, 0]} maxBarSize={32}>
+                            {["#10B981", "#F59E0B", "#EF4444"].map((color, index) => (
                               <Cell key={`cell-${index}`} fill={color} />
                             ))}
                           </Bar>
@@ -1362,65 +1418,65 @@ const Projects = () => {
               </div>
             )}
 
-            {/* Section 3 & 7: Milestones & Workflow Timeline */}
+            {/* Section 3: Milestones & Workflow Timeline */}
             {activeTab === "timeline" && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm font-semibold">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs font-semibold">
 
                 {/* Left Columns 2: Interactive Milestone CRUD */}
                 <div className="md:col-span-2 space-y-4">
-                  <h3 className="text-base font-bold text-ca-text border-b border-slate-50 pb-2 flex items-center">
-                    <Milestone size={16} className="text-primary mr-1.5" /> Project Milestones Target
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2 flex items-center">
+                    <Milestone size={15} className="text-amber-500 mr-1.5" /> Project Milestones Target
                   </h3>
 
-                  <form onSubmit={handleAddMilestone} className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <form onSubmit={handleAddMilestone} className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     <input
                       type="text"
                       required
                       placeholder="Milestone target e.g. Design Approved..."
                       value={newMilestone.title}
                       onChange={(e) => setNewMilestone({ ...newMilestone, title: e.target.value })}
-                      className="px-3 py-2 border border-ca-border rounded-xl text-sm bg-ca-surface text-ca-text-secondary sm:col-span-2"
+                      className="px-3 py-2 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-[#0B101B] text-slate-900 dark:text-slate-100 sm:col-span-2"
                     />
                     <input
                       type="date"
                       required
                       value={newMilestone.date}
                       onChange={(e) => setNewMilestone({ ...newMilestone, date: e.target.value })}
-                      className="px-3 py-2 border border-ca-border rounded-xl text-sm bg-ca-surface text-ca-text-secondary cursor-pointer"
+                      className="px-3 py-2 border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs bg-slate-50 dark:bg-[#0B101B] text-slate-900 dark:text-slate-100 cursor-pointer"
                     />
                     <button
                       type="submit"
                       disabled={submittingWorkspaceAction}
-                      className="w-full py-2 bg-primary text-white rounded-xl hover:bg-primary/95 transition-all text-sm font-bold sm:col-span-3 cursor-pointer"
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl transition-all text-xs font-extrabold sm:col-span-3 cursor-pointer shadow-xs"
                     >
                       Add Project Milestone
                     </button>
                   </form>
 
-                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 pt-2">
+                  <div className="space-y-2 max-h-[250px] overflow-y-auto pr-1 pt-1">
                     {(viewingProject.milestones || []).length === 0 ? (
-                      <div className="text-center py-10 text-ca-text-secondary italic">No milestones configured.</div>
+                      <div className="text-center py-10 text-slate-400 italic text-xs">No milestones configured.</div>
                     ) : (
                       (viewingProject.milestones || []).map((m) => (
                         <div
                           key={m._id}
-                          className="border border-ca-border rounded-xl p-3 bg-slate-50/50 flex justify-between items-center text-sm"
+                          className="border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 bg-slate-50 dark:bg-[#0B101B] flex justify-between items-center text-xs"
                         >
-                          <div className="flex items-center space-x-2">
+                          <div className="flex items-center space-x-2.5">
                             <input
                               type="checkbox"
                               checked={m.status === "completed"}
                               onChange={() => handleToggleMilestone(m._id, m.status)}
-                              className="rounded text-primary focus:ring-primary w-4 h-4 cursor-pointer"
+                              className="rounded accent-emerald-500 w-4 h-4 cursor-pointer"
                             />
                             <div>
-                              <p className={`font-bold text-ca-text ${m.status === "completed" ? "line-through text-ca-text-secondary" : ""}`}>{m.title}</p>
-                              <p className="text-[12px] text-ca-text-secondary font-bold uppercase mt-0.5">Target: {formatDate(m.date)}</p>
+                              <p className={`font-bold text-slate-800 dark:text-slate-200 ${m.status === "completed" ? "line-through text-slate-400 dark:text-slate-500" : ""}`}>{m.title}</p>
+                              <p className="text-[10.5px] text-slate-400 font-extrabold uppercase mt-0.5">Target: {formatDate(m.date)}</p>
                             </div>
                           </div>
                           <button
                             onClick={() => handleDeleteMilestone(m._id)}
-                            className="p-1 hover:bg-white rounded border border-transparent hover:border-red-100 text-ca-primary"
+                            className="p-1 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg text-rose-500 transition-colors cursor-pointer"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1432,19 +1488,19 @@ const Projects = () => {
 
                 {/* Right Column 1: Vertical Timeline visual representation */}
                 <div className="space-y-4">
-                  <h3 className="text-base font-bold text-ca-text border-b border-slate-50 pb-2">Milestones Timeline Roadmap</h3>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-2">Milestones Roadmap</h3>
 
-                  <div className="relative pl-5 border-l border-ca-border space-y-5 text-sm">
+                  <div className="relative pl-5 border-l border-slate-200 dark:border-slate-700 space-y-4 text-xs">
                     {(viewingProject.milestones || []).length === 0 ? (
-                      <p className="text-ca-text-secondary italic text-[13px] font-bold">Timeline is empty.</p>
+                      <p className="text-slate-400 italic text-xs font-semibold">Timeline is empty.</p>
                     ) : (
                       [...(viewingProject.milestones || [])].sort((a, b) => new Date(a.date) - new Date(b.date)).map((m) => (
                         <div key={m._id} className="relative">
-                          <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ${m.status === "completed" ? "bg-theme-3 ring-theme-3-light" : "bg-slate-300 ring-slate-50"
+                          <span className={`absolute -left-[25px] top-1 w-2.5 h-2.5 rounded-full ring-4 ${m.status === "completed" ? "bg-emerald-500 ring-emerald-100 dark:ring-emerald-950" : "bg-slate-300 dark:bg-slate-600 ring-slate-100 dark:ring-slate-800"
                             }`} />
                           <div>
-                            <p className={`font-bold text-ca-text ${m.status === "completed" ? "line-through text-ca-text-secondary" : ""}`}>{m.title}</p>
-                            <p className="text-[11px] text-ca-text-secondary font-semibold mt-0.5">{formatDate(m.date)}</p>
+                            <p className={`font-bold text-slate-800 dark:text-slate-200 ${m.status === "completed" ? "line-through text-slate-400 dark:text-slate-500" : ""}`}>{m.title}</p>
+                            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">{formatDate(m.date)}</p>
                           </div>
                         </div>
                       ))
@@ -1457,16 +1513,16 @@ const Projects = () => {
 
             {/* Section 4: Kanban Task Board */}
             {activeTab === "kanban" && (
-              <div className="space-y-4 text-sm font-semibold">
-                <div className="flex justify-between items-center pb-2">
+              <div className="space-y-4 text-xs font-semibold">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800">
                   <div>
-                    <h3 className="text-base font-bold text-ca-text">Workspace Task Board</h3>
-                    <p className="text-sm text-ca-text-secondary mt-0.5">Click actions to advance task phases</p>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Workspace Task Board</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Click actions to advance task phases</p>
                   </div>
-                  <span className="text-[12px] bg-ca-bg text-ca-text-secondary font-bold px-2 py-0.5 rounded">Real-time status synced</span>
+                  <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">Real-time status synced</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
                   {Object.keys(kanbanColumns).map((colKey) => {
                     const col = kanbanColumns[colKey];
                     const colTasks = workspaceTasks.filter((t) => {
@@ -1479,38 +1535,41 @@ const Projects = () => {
                     });
 
                     return (
-                      <div key={colKey} className={`border rounded-2xl p-4 bg-slate-50/20 flex flex-col space-y-3 min-h-[300px]`}>
-                        <div className="flex justify-between items-center border-b border-slate-50 pb-2">
-                          <span className={`font-extrabold text-base ${col.text}`}>{col.title}</span>
-                          <span className="bg-ca-bg text-ca-text-secondary px-2 py-0.5 rounded font-black text-[12px]">{colTasks.length}</span>
+                      <div key={colKey} className={`border border-slate-200/80 dark:border-slate-800 rounded-2xl p-3.5 bg-slate-50/50 dark:bg-[#0B101B]/50 flex flex-col space-y-3 min-h-[300px]`}>
+                        <div className="flex justify-between items-center border-b border-slate-200/60 dark:border-slate-800 pb-2">
+                          <span className={`font-extrabold text-xs uppercase tracking-wider ${col.text}`}>{col.title}</span>
+                          <span className="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700 font-black text-[10.5px]">{colTasks.length}</span>
                         </div>
 
                         <div className="space-y-2 flex-1 overflow-y-auto max-h-[320px] pr-1">
                           {colTasks.length === 0 ? (
-                            <div className="text-center py-12 text-slate-300 font-bold text-[12px] italic border-2 border-dashed border-slate-50 rounded-xl">No tasks here</div>
+                            <div className="text-center py-12 text-slate-400 font-bold text-xs italic border-2 border-dashed border-slate-200 dark:border-slate-800 rounded-xl">No tasks here</div>
                           ) : (
                             colTasks.map((t) => (
                               <div
                                 key={t._id}
-                                className="bg-ca-surface border border-ca-border hover:border-primary/25 rounded-xl p-3.5 shadow-sm space-y-2.5 transition-all group/task"
+                                className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 rounded-xl p-3 shadow-2xs space-y-2 transition-all group/task"
                               >
-                                <h4 className="font-extrabold text-ca-text leading-snug text-sm group-hover/task:text-primary transition-colors">{t.title}</h4>
-                                {t.description && <p className="text-[13px] text-ca-text-secondary line-clamp-2 leading-relaxed">{t.description}</p>}
+                                <h4 className="font-extrabold text-slate-900 dark:text-white leading-snug text-xs group-hover/task:text-amber-500 transition-colors">{t.title}</h4>
+                                {t.description && <p className="text-[11px] text-slate-400 line-clamp-2 leading-relaxed">{t.description}</p>}
 
-                                <div className="flex justify-between items-center text-[11px] font-bold text-ca-text-secondary">
+                                <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-500">
                                   <span>Due {formatDate(t.dueDate)}</span>
-                                  <span className={`px-1.5 py-0.5 rounded capitalize ${t.priority === "high" ? "bg-ca-primary-light text-red-700" : (t.priority === "medium" ? "bg-ca-primary-light text-amber-700" : "bg-ca-bg text-ca-text-secondary")
-                                    }`}>
+                                  <span className={`px-1.5 py-0.5 rounded-md text-[9.5px] font-extrabold uppercase border capitalize ${
+                                    t.priority === "high" ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800" :
+                                    t.priority === "medium" ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800" :
+                                    "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+                                  }`}>
                                     {t.priority}
                                   </span>
                                 </div>
 
                                 {/* Flow status buttons */}
-                                <div className="flex justify-end gap-1.5 border-t border-slate-50 pt-2 text-[11px]">
+                                <div className="flex justify-end gap-1.5 border-t border-slate-100 dark:border-slate-800/80 pt-2 text-[10.5px]">
                                   {colKey !== "todo" && (
                                     <button
                                       onClick={() => updateTaskStatusMutation.mutate({ id: t._id, status: colKey === "working" ? "todo" : (colKey === "review" ? "working" : "review") })}
-                                      className="px-2 py-0.5 bg-ca-bg hover:bg-ca-hover text-ca-text-secondary rounded border border-ca-border cursor-pointer"
+                                      className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer font-bold"
                                     >
                                       ← Back
                                     </button>
@@ -1518,7 +1577,7 @@ const Projects = () => {
                                   {colKey !== "done" && (
                                     <button
                                       onClick={() => updateTaskStatusMutation.mutate({ id: t._id, status: colKey === "todo" ? "working" : (colKey === "working" ? "review" : "done") })}
-                                      className="px-2 py-0.5 bg-primary text-white rounded hover:bg-primary/95 cursor-pointer"
+                                      className="px-2 py-0.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-md cursor-pointer font-bold shadow-2xs"
                                     >
                                       Advance →
                                     </button>
@@ -1537,42 +1596,41 @@ const Projects = () => {
 
             {/* Section 5: Team Workload */}
             {activeTab === "workloads" && (
-              <div className="space-y-4 text-sm font-semibold">
-                <div className="border-b border-slate-50 pb-2">
-                  <h3 className="text-base font-bold text-ca-text">Team Workloads allocation</h3>
-                  <p className="text-sm text-ca-text-secondary mt-0.5">Task density index across assigned employees</p>
+              <div className="space-y-4 text-xs font-semibold">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Team Workloads Allocation</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Task density index across assigned employees</p>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {viewingProject.members?.map((m) => {
                     const name = resolveEmpName(m);
                     const totalT = workspaceTasks.filter(t => t.assignees?.some(a => a._id === m || a._id === m?._id)).length || 0;
                     const pendingT = workspaceTasks.filter(t => t.status !== "done" && t.assignees?.some(a => a._id === m || a._id === m?._id)).length || 0;
-                    // workload index (estimated)
                     const workloadIndex = Math.min(100, totalT * 20);
 
                     return (
                       <div
                         key={m._id || m}
-                        className="border border-ca-border rounded-2xl p-4 bg-slate-50/20 flex flex-col justify-between min-h-[120px]"
+                        className="border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 bg-slate-50 dark:bg-[#0B101B] flex flex-col justify-between min-h-[120px]"
                       >
                         <div className="flex items-center space-x-3 mb-3">
-                          <div className={`w-8 h-8 rounded-full font-bold text-sm flex items-center justify-center flex-shrink-0 border border-white shadow-sm ${avatarClass(name)}`}>
+                          <div className={`w-8 h-8 rounded-full font-bold text-xs flex items-center justify-center shrink-0 border border-white dark:border-slate-800 shadow-2xs ${avatarClass(name)}`}>
                             {name.charAt(0)}
                           </div>
                           <div>
-                            <h4 className="font-extrabold text-ca-text leading-tight text-sm">{name}</h4>
-                            <p className="text-[12px] text-ca-text-secondary font-semibold mt-0.5">Team Member</p>
+                            <h4 className="font-extrabold text-slate-900 dark:text-white leading-tight text-xs">{name}</h4>
+                            <p className="text-[10.5px] text-slate-400 font-semibold mt-0.5">Team Member</p>
                           </div>
                         </div>
 
                         <div className="space-y-2">
-                          <div className="flex justify-between items-center text-[12px] font-bold text-ca-text-secondary">
+                          <div className="flex justify-between items-center text-[10.5px] font-bold text-slate-500">
                             <span>Allocation Index</span>
-                            <span className={workloadIndex > 80 ? "text-ca-primary" : "text-ca-text-secondary"}>{workloadIndex}% ({pendingT} pending tasks)</span>
+                            <span className={workloadIndex > 80 ? "text-rose-500 font-extrabold" : "text-slate-700 dark:text-slate-300 font-bold"}>{workloadIndex}% ({pendingT} pending tasks)</span>
                           </div>
-                          <div className="w-full bg-ca-bg h-1.5 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all ${workloadIndex > 80 ? "bg-ca-primary" : (workloadIndex > 50 ? "bg-ca-primary" : "bg-primary")
+                          <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all ${workloadIndex > 80 ? "bg-rose-500" : (workloadIndex > 50 ? "bg-amber-500" : "bg-emerald-500")
                               }`} style={{ width: `${workloadIndex}%` }} />
                           </div>
                         </div>
@@ -1585,19 +1643,19 @@ const Projects = () => {
 
             {/* Section 6: Client Change Requests */}
             {activeTab === "requests" && (
-              <div className="space-y-4 text-sm font-semibold">
-                <div className="border-b border-slate-50 pb-2">
-                  <h3 className="text-base font-bold text-ca-text">Client Project Change Requests</h3>
-                  <p className="text-sm text-ca-text-secondary mt-0.5">Approve, reject, or mark status of requested modifications</p>
+              <div className="space-y-4 text-xs font-semibold">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Client Project Change Requests</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Approve, reject, or mark status of requested modifications</p>
                 </div>
 
-                <div className="overflow-x-auto rounded-xl border border-ca-border">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200/80 dark:border-slate-800">
                   {changeRequests.length === 0 ? (
-                    <div className="text-center py-20 text-ca-text-secondary font-bold italic">No client change requests recorded for this project.</div>
+                    <div className="text-center py-20 text-slate-400 font-bold italic">No client change requests recorded for this project.</div>
                   ) : (
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse text-xs">
                       <thead>
-                        <tr className="bg-ca-bg border-b border-ca-border text-ca-text-secondary font-bold text-sm uppercase tracking-wider">
+                        <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
                           <th className="px-4 py-3">Title / Description</th>
                           <th className="px-4 py-3">Requested By</th>
                           <th className="px-4 py-3 text-center">Priority</th>
@@ -1606,48 +1664,48 @@ const Projects = () => {
                           <th className="px-4 py-3 text-center">Actions</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-50">
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                         {changeRequests.map((req) => (
-                          <tr key={req._id} className="hover:bg-slate-50/50 transition-colors">
+                          <tr key={req._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                             <td className="px-4 py-3">
-                              <p className="font-bold text-ca-text">{req.title}</p>
-                              <p className="text-sm text-ca-text-secondary font-medium mt-0.5">{req.description}</p>
+                              <p className="font-bold text-slate-900 dark:text-white">{req.title}</p>
+                              <p className="text-[11px] text-slate-400 font-medium mt-0.5">{req.description}</p>
                             </td>
-                            <td className="px-4 py-3 text-ca-text-secondary font-semibold">{req.requestedBy}</td>
+                            <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-semibold">{req.requestedBy}</td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${PRIORITY_COLORS[req.priority] || PRIORITY_COLORS.medium}`}>
-                                {req.priority}
-                              </span>
+                              <PriorityBadge priority={req.priority} />
                             </td>
                             <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${PRIORITY_COLORS[req.impactLevel] || PRIORITY_COLORS.medium}`}>
-                                {req.impactLevel}
-                              </span>
+                              <PriorityBadge priority={req.impactLevel} />
                             </td>
                             <td className="px-4 py-3">
-                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[12px] font-bold border capitalize ${req.status === "approved" ? "bg-theme-3-light text-theme-2 border-theme-3-light" : (req.status === "rejected" ? "bg-ca-primary-light text-red-700 border-ca-border" : "bg-ca-primary-light text-amber-700 border-amber-200")
-                                }`}>
+                              <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase border ${
+                                req.status === "approved" ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800" :
+                                req.status === "rejected" ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800" :
+                                "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                              }`}>
+                                <span className={`w-1.5 h-1.5 rounded-full ${req.status === "approved" ? "bg-emerald-500" : req.status === "rejected" ? "bg-rose-500" : "bg-amber-500"}`} />
                                 {req.status}
                               </span>
                             </td>
                             <td className="px-4 py-3 text-center">
                               {req.status === "pending" ? (
-                                <div className="flex justify-center items-center space-x-1.5 text-[12px]">
+                                <div className="flex justify-center items-center space-x-1.5 text-[11px]">
                                   <button
                                     onClick={() => updateChangeRequestStatusMutation.mutate({ id: req._id, status: "approved" })}
-                                    className="px-2 py-1 bg-theme-3 text-white rounded hover:bg-theme-4 cursor-pointer"
+                                    className="px-2.5 py-1 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-bold cursor-pointer shadow-2xs"
                                   >
                                     Approve
                                   </button>
                                   <button
                                     onClick={() => updateChangeRequestStatusMutation.mutate({ id: req._id, status: "rejected" })}
-                                    className="px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700 cursor-pointer"
+                                    className="px-2.5 py-1 bg-rose-600 text-white rounded-lg hover:bg-rose-700 font-bold cursor-pointer shadow-2xs"
                                   >
                                     Reject
                                   </button>
                                 </div>
                               ) : (
-                                <span className="text-[12px] text-ca-text-secondary font-bold uppercase">{req.status}</span>
+                                <span className="text-[11px] text-slate-400 font-bold uppercase">{req.status}</span>
                               )}
                             </td>
                           </tr>
@@ -1659,24 +1717,24 @@ const Projects = () => {
               </div>
             )}
 
-            {/* Section 8: Activity Timeline */}
+            {/* Section 7: Activity Timeline */}
             {activeTab === "activity" && (
-              <div className="space-y-4 text-sm font-semibold">
-                <div className="border-b border-slate-50 pb-2">
-                  <h3 className="text-base font-bold text-ca-text">Project Activity logs</h3>
-                  <p className="text-sm text-ca-text-secondary mt-0.5">Chronological audit list of project operations</p>
+              <div className="space-y-4 text-xs font-semibold">
+                <div className="border-b border-slate-100 dark:border-slate-800 pb-2">
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Project Activity Logs</h3>
+                  <p className="text-xs text-slate-400 mt-0.5">Chronological audit list of project operations</p>
                 </div>
 
-                <div className="relative pl-5 border-l border-ca-border space-y-4 text-sm max-h-[350px] overflow-y-auto pr-1">
+                <div className="relative pl-5 border-l border-slate-200 dark:border-slate-700 space-y-4 text-xs max-h-[350px] overflow-y-auto pr-1">
                   {(viewingProject.activityLog || []).length === 0 ? (
-                    <div className="text-center py-10 text-ca-text-secondary italic">No activity logs recorded.</div>
+                    <div className="text-center py-10 text-slate-400 italic text-xs">No activity logs recorded.</div>
                   ) : (
                     [...(viewingProject.activityLog || [])].reverse().map((act) => (
                       <div key={act._id} className="relative">
-                        <span className="absolute -left-[25px] top-1.5 w-2 h-2 rounded-full bg-slate-300 ring-4 ring-slate-100" />
+                        <span className="absolute -left-[25px] top-1.5 w-2 h-2 rounded-full bg-slate-300 dark:bg-slate-600 ring-4 ring-slate-100 dark:ring-slate-800" />
                         <div>
-                          <p className="text-ca-text font-bold leading-tight">{act.action}</p>
-                          <span className="text-[11px] text-ca-text-secondary font-semibold block mt-0.5">By {act.performedBy} on {formatDate(act.createdAt)}</span>
+                          <p className="text-slate-800 dark:text-slate-200 font-bold leading-tight">{act.action}</p>
+                          <span className="text-[10px] text-slate-400 font-semibold block mt-0.5">By {act.performedBy} on {formatDate(act.createdAt)}</span>
                         </div>
                       </div>
                     ))
