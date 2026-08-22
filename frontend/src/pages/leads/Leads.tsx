@@ -298,11 +298,10 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
 };
 
 function StatusPopover({
-  lead, statuses, onChanged, onClose, anchorRect,
-}: { lead: any; statuses: any[]; onChanged: () => void; onClose: () => void; anchorRect: DOMRect }) {
+  lead, statuses, onChanged, onOptimisticUpdate, onClose, anchorRect,
+}: { lead: any; statuses: any[]; onChanged: () => void; onOptimisticUpdate: (statusId: string, statusObj: any) => void; onClose: () => void; anchorRect: DOMRect }) {
   const ref = useRef<HTMLDivElement>(null);
   const { success, error } = useToast();
-  const [updating, setUpdating] = useState(false);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -319,19 +318,22 @@ function StatusPopover({
 
   const handleSelect = async (statusId: string) => {
     if (statusId === lead.statusId) { onClose(); return; }
-    setUpdating(true);
+    // ── Optimistic update: reflect new status in UI immediately ──
+    const newStatus = statuses.find(s => s.id === statusId);
+    onOptimisticUpdate(statusId, newStatus);
+    onClose();
     try {
       await api.patch(`/api/leads/${lead.id}/status`, { statusId });
       success('Status updated');
       onChanged();
-    } catch (err: any) { error('Failed to update status', err.message); }
-    finally {
-      setUpdating(false);
-      onClose();
+    } catch (err: any) {
+      // Revert to original status on failure
+      onOptimisticUpdate(lead.statusId, statuses.find(s => s.id === lead.statusId));
+      error('Failed to update status', err.message);
     }
   };
 
-  const dropdownHeight = updating ? 80 : Math.min(statuses.length * 36 + 40, 320);
+  const dropdownHeight = Math.min(statuses.length * 36 + 40, 320);
   const spaceBelow = window.innerHeight - anchorRect.bottom;
   const top = spaceBelow > dropdownHeight + 8
     ? anchorRect.bottom + 4
@@ -339,29 +341,22 @@ function StatusPopover({
 
   return createPortal(
     <div ref={ref} className="fixed z-[9999] bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1.5 min-w-[180px] animate-fadeIn" style={{ top, left: anchorRect.left }}>
-      {updating ? (
-        <div className="flex flex-col items-center justify-center py-4 space-y-1.5">
-          <Loader2 className="animate-spin text-amber-500" size={16} />
-          <span className="text-[11px] text-slate-400 font-bold">Updating stage...</span>
-        </div>
-      ) : (
-        <>
-          <p className="text-[10px] font-black text-slate-400 px-3 py-1.5 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-            Change Pipeline Status
-          </p>
-          {statuses.map(s => (
-            <button key={s.id} onClick={() => handleSelect(s.id)}
-              className={`flex items-center gap-2 w-full px-3 py-2 text-xs text-left font-bold transition-colors cursor-pointer ${
-                s.id === lead.statusId ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#EAB308' }} />
-              <span className="flex-1 truncate">{s.name}</span>
-              {s.id === lead.statusId && <Check className="text-amber-500" size={13} />}
-            </button>
-          ))}
-        </>
-      )}
+      <>
+        <p className="text-[10px] font-black text-slate-400 px-3 py-1.5 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
+          Change Pipeline Status
+        </p>
+        {statuses.map(s => (
+          <button key={s.id} onClick={() => handleSelect(s.id)}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-xs text-left font-bold transition-colors cursor-pointer ${
+              s.id === lead.statusId ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+            }`}
+          >
+            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#EAB308' }} />
+            <span className="flex-1 truncate">{s.name}</span>
+            {s.id === lead.statusId && <Check className="text-amber-500" size={13} />}
+          </button>
+        ))}
+      </>
     </div>,
     document.body
   );
@@ -1595,6 +1590,13 @@ export default function Leads() {
                               lead={lead}
                               statuses={statuses}
                               anchorRect={statusPopoverRect}
+                              onOptimisticUpdate={(statusId, statusObj) => {
+                                setLeads(prev => prev.map(l =>
+                                  l.id === lead.id
+                                    ? { ...l, statusId, status: statusObj }
+                                    : l
+                                ));
+                              }}
                               onChanged={() => fetchLeads(pagination.page)}
                               onClose={() => { setStatusPopoverLeadId(null); setStatusPopoverRect(null); }}
                             />
