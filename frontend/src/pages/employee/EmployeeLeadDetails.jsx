@@ -61,13 +61,16 @@ export default function EmployeeLeadDetails() {
   const [directUploadingDoc, setDirectUploadingDoc] = useState(false);
 
   // Fetch single lead details
-  const { data: leadData, isLoading } = useQuery({
+  const { data: leadData, isLoading, refetch } = useQuery({
     queryKey: ["employeeLeadDetails", leadId],
     queryFn: async () => {
       const res = await api.get(`/leads-engine/leads/${leadId}`);
       return res?.data?.data || res?.data || null;
     },
+    enabled: Boolean(leadId),
   });
+
+  const lead = leadData || {};
 
   // Fetch pipeline statuses
   const { data: statusesData } = useQuery({
