@@ -566,113 +566,113 @@ export default function EmployeeTaskDetails() {
       </div>
 
       {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CONTAINER ─────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-slate-800">
+      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-800">
           
           {/* ── LEFT SECTION (5 / 12 width): TASK SPECIFICATIONS & PROGRESS ── */}
           <div className="lg:col-span-5 p-4 sm:p-5 space-y-4">
             
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                <FileText size={15} className="text-amber-500" /> Task Specifications &amp; Details
+                <FileText size={15} className="text-amber-600 dark:text-amber-400" /> Task Specifications &amp; Details
               </h2>
             </div>
 
             {/* Description & Instructions */}
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+              <p className="text-[10.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider">
                 Description &amp; Instructions
               </p>
-              <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
+              <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed shadow-2xs">
                 {task.description || "No specific detailed description provided for this task."}
               </div>
             </div>
 
             {/* Key Dates & Meta Specs Grid */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="grid grid-cols-2 gap-2.5 text-xs">
               {/* Start Date */}
-              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Start Date</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-white block">
+              <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Start Date</span>
+                <span className="font-mono font-black text-slate-950 dark:text-white block text-xs">
                   {task.startDate || task.startDateTime ? new Date(task.startDate || task.startDateTime).toLocaleDateString("en-GB") : "—"}
                 </span>
               </div>
 
               {/* Due Date */}
-              <div className={`p-2.5 rounded-xl border space-y-0.5 ${isOverdueTime ? "bg-rose-50/70 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900" : "bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800/80"}`}>
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Due Date</span>
-                <span className={`font-mono font-black block ${isOverdueTime ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
+              <div className={`p-2.5 rounded-xl border space-y-0.5 shadow-2xs ${isOverdueTime ? "bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800" : "bg-slate-50 dark:bg-[#0B101B] border-slate-300/90 dark:border-slate-700"}`}>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Due Date</span>
+                <span className={`font-mono font-black block text-xs ${isOverdueTime ? "text-rose-700 dark:text-rose-300" : "text-slate-950 dark:text-white"}`}>
                   {task.dueDate || task.endDateTime || task.finishDate ? new Date(task.dueDate || task.endDateTime || task.finishDate).toLocaleDateString("en-GB") : "—"}
                 </span>
               </div>
 
               {/* Next Follow-Up */}
-              <div className="col-span-2 p-2.5 bg-teal-50/80 dark:bg-teal-950/30 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-teal-800 dark:text-teal-300 flex items-center gap-1">
-                  <Clock size={11} /> Next Follow-Up
+              <div className="col-span-2 p-2.5 bg-teal-50 dark:bg-teal-950/40 rounded-xl border border-teal-300 dark:border-teal-700 space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-teal-950 dark:text-teal-200 flex items-center gap-1">
+                  <Clock size={11} className="text-teal-700 dark:text-teal-400" /> Next Follow-Up
                 </span>
-                <span className="font-mono font-black text-teal-900 dark:text-teal-200 block text-xs" title={formatFollowUpDateTime(task.nextFollowUpDate)}>
+                <span className="font-mono font-black text-teal-950 dark:text-teal-100 block text-xs" title={formatFollowUpDateTime(task.nextFollowUpDate)}>
                   {formatFollowUpDateTime(task.nextFollowUpDate)}
                 </span>
               </div>
 
               {/* Department */}
-              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Department</span>
-                <span className="font-bold text-slate-900 dark:text-white block truncate">
+              <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Department</span>
+                <span className="font-black text-slate-950 dark:text-white block truncate text-xs">
                   {task.departmentId?.name || task.departmentName || "General Team"}
                 </span>
               </div>
 
               {/* Priority */}
-              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Priority</span>
-                <span className={`inline-block px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase ${priorityTheme.bg}`}>
+              <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Priority</span>
+                <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border shadow-2xs ${priorityTheme.bg}`}>
                   {priorityTheme.label}
                 </span>
               </div>
             </div>
 
             {/* Workflow Progress Stepper */}
-            <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-2">
-              <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Workflow Progress</span>
+            <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-2.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Workflow Progress</span>
               <div className="flex items-center justify-between relative pt-1">
                 {/* Step 1: Pending */}
                 <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${(isInProgress || isCompleted) ? "bg-emerald-600 text-white" : isPending ? "bg-amber-500 text-white ring-2 ring-amber-500/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
-                    {(isInProgress || isCompleted) ? <Check size={12} strokeWidth={3} /> : <span>1</span>}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(isInProgress || isCompleted) ? "bg-emerald-600 text-white" : isPending ? "bg-amber-500 text-white ring-2 ring-amber-500/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(isInProgress || isCompleted) ? <Check size={14} strokeWidth={3} /> : <span>1</span>}
                   </div>
-                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isPending ? "text-amber-600 font-black" : (isInProgress || isCompleted) ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isPending ? "text-amber-700 dark:text-amber-400 font-black" : (isInProgress || isCompleted) ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
                     Pending
                   </span>
                 </div>
 
                 {/* Line 1 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${(isInProgress || isCompleted) ? "bg-emerald-600 w-full" : "w-0"}`} />
                 </div>
 
                 {/* Step 2: In Progress */}
                 <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white" : isInProgress ? "bg-blue-600 text-white ring-2 ring-blue-600/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
-                    {isCompleted ? <Check size={12} strokeWidth={3} /> : <span>2</span>}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white" : isInProgress ? "bg-blue-600 text-white ring-2 ring-blue-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>2</span>}
                   </div>
-                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-600 font-black" : isCompleted ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-700 dark:text-blue-400 font-black" : isCompleted ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
                     In Progress
                   </span>
                 </div>
 
                 {/* Line 2 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-600 w-full" : "w-0"}`} />
                 </div>
 
                 {/* Step 3: Complete */}
                 <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white ring-2 ring-emerald-600/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
-                    {isCompleted ? <Check size={12} strokeWidth={3} /> : <span>3</span>}
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white ring-2 ring-emerald-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>3</span>}
                   </div>
-                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-600 font-black" : "text-slate-400"}`}>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-slate-500 font-bold"}`}>
                     {normalizedSt === "late_complete" ? "Late Done" : "Complete"}
                   </span>
                 </div>
@@ -681,8 +681,8 @@ export default function EmployeeTaskDetails() {
 
             {/* Task Attachments (If any) */}
             {Array.isArray(task.attachments) && task.attachments.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">
                   Attached Documents ({task.attachments.length})
                 </span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -695,18 +695,18 @@ export default function EmployeeTaskDetails() {
                         href={att.fileUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 hover:bg-amber-50/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all group shadow-2xs"
+                        className="flex items-center gap-2.5 p-2.5 bg-slate-50 dark:bg-[#0B101B] hover:bg-amber-50/70 dark:hover:bg-slate-800 border border-slate-300 dark:border-slate-700 hover:border-amber-500 rounded-xl transition-all group shadow-2xs"
                       >
-                        <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                          {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                        <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0 border border-amber-300 dark:border-amber-700">
+                          {isImage ? <ImageIcon size={15} /> : <FileText size={15} />}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
-                            {fileName}
+                          <p className="text-xs font-black text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
+                            {fileName || "Document Attachment"}
                           </p>
-                          <p className="text-[9.5px] text-slate-400 font-mono flex items-center gap-1">
-                            <span>Open</span>
-                            <ExternalLink size={8} />
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 font-mono font-bold flex items-center gap-1">
+                            <span>Open Attachment</span>
+                            <ExternalLink size={9} />
                           </p>
                         </div>
                       </a>
@@ -718,66 +718,81 @@ export default function EmployeeTaskDetails() {
           </div>
 
           {/* ── RIGHT SECTION (7 / 12 width): COMMENTS & DISCUSSION TIMELINE ── */}
-          <div className="lg:col-span-7 p-4 sm:p-5 space-y-4 bg-slate-50/40 dark:bg-slate-900/20">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+          <div className="lg:col-span-7 p-4 sm:p-5 space-y-4 bg-slate-50/60 dark:bg-slate-900/30">
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                <MessageSquare size={15} className="text-amber-500" /> Comments &amp; Discussion Timeline
+                <MessageSquare size={15} className="text-amber-600 dark:text-amber-400" /> Comments &amp; Discussion Timeline
               </h2>
-              <span className="text-[10px] font-bold text-slate-400">
+              <span className="text-[10.5px] font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
                 {task.comments?.length || 0} Comments
               </span>
             </div>
 
             {/* Comments Stream */}
-            <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-3 max-h-[520px] overflow-y-auto custom-scrollbar pr-1">
               {Array.isArray(task.comments) && task.comments.length > 0 ? (
                 task.comments.map((c, idx) => (
-                  <div key={idx} className="p-3 bg-white dark:bg-slate-900/90 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-1.5 shadow-2xs hover:border-amber-500/30 transition-all">
-                    <div className="flex items-center justify-between text-[10px] font-black">
-                      <span className="text-slate-900 dark:text-white font-bold">{c.senderName || "Team Member"} <span className="text-slate-400 font-normal">({c.senderRole || "Member"})</span></span>
-                      <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">{new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}</span>
+                  <div key={idx} className="p-3.5 bg-white dark:bg-[#0B101B] rounded-xl border border-slate-300 dark:border-slate-700 text-xs space-y-2 shadow-2xs hover:border-amber-500 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-slate-950 dark:text-white font-black text-xs">{c.senderName || "Team Member"}</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300">
+                          {c.senderRole || "Member"}
+                        </span>
+                      </div>
+                      <span className="font-mono text-slate-900 dark:text-slate-200 font-black text-[11px]">
+                        {new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}
+                      </span>
                     </div>
-                    {c.comment && <p className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">{c.comment}</p>}
+
+                    {c.comment && (
+                      <p className="text-slate-950 dark:text-slate-100 font-semibold text-xs leading-relaxed bg-slate-50/60 dark:bg-slate-900/40 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800/60">
+                        {c.comment}
+                      </p>
+                    )}
 
                     {Array.isArray(c.attachments) && c.attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
-                        {c.attachments.map((att, aIdx) => (
-                          <a
-                            key={aIdx}
-                            href={att.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-lg text-[10px] font-bold text-slate-800 dark:text-slate-200 transition-colors shadow-2xs"
-                          >
-                            <Paperclip size={11} className="text-amber-500" />
-                            <span className="max-w-[140px] truncate">{safeDecode(att.fileName)}</span>
-                            <ExternalLink size={9} className="text-slate-400" />
-                          </a>
-                        ))}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {c.attachments.map((att, aIdx) => {
+                          const attName = safeDecode(att.fileName) || "Attachment Document";
+                          return (
+                            <a
+                              key={aIdx}
+                              href={att.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border border-slate-300 dark:border-slate-600 hover:border-amber-500 rounded-lg text-xs font-black text-slate-950 dark:text-white transition-all shadow-2xs group"
+                            >
+                              <Paperclip size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="max-w-[200px] truncate">{attName}</span>
+                              <ExternalLink size={10} className="text-slate-400 group-hover:text-amber-600 shrink-0" />
+                            </a>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 ))
               ) : (
-                <div className="py-12 text-center text-slate-400 text-xs italic flex flex-col items-center gap-2">
-                  <MessageSquare size={24} className="text-slate-300 dark:text-slate-700" />
+                <div className="py-12 text-center text-slate-500 dark:text-slate-400 text-xs font-bold italic flex flex-col items-center gap-2">
+                  <MessageSquare size={24} className="text-slate-400" />
                   <p>No discussion comments yet. Be the first to post a remark below!</p>
                 </div>
               )}
             </div>
 
             {/* Quick Comment Composer */}
-            <form onSubmit={handleAddComment} className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+            <form onSubmit={handleAddComment} className="pt-3 border-t border-slate-200 dark:border-slate-800 space-y-2.5">
               <textarea
                 rows={2}
                 value={standaloneComment}
                 onChange={(e) => setStandaloneComment(e.target.value)}
                 placeholder="Post a remark, note or progress update to the task thread..."
-                className="w-full p-2.5 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white placeholder-slate-400 font-medium focus:outline-none focus:border-amber-500 shadow-2xs resize-none"
+                className="w-full p-3 rounded-xl bg-white dark:bg-[#0B101B] border-2 border-slate-300 dark:border-slate-700 text-xs text-slate-950 dark:text-white placeholder-slate-500 font-semibold focus:outline-none focus:border-amber-500 shadow-2xs resize-none"
               />
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-amber-600 cursor-pointer flex items-center gap-1">
-                  <Paperclip size={13} className="text-amber-500" />
+                <label className="text-xs font-black text-slate-900 dark:text-white hover:text-amber-600 cursor-pointer flex items-center gap-1.5 transition-colors">
+                  <Paperclip size={14} className="text-amber-600 dark:text-amber-400" />
                   <span>{standaloneFile ? standaloneFile.name : "Attach document / file"}</span>
                   <input
                     type="file"
@@ -790,9 +805,9 @@ export default function EmployeeTaskDetails() {
                 <button
                   type="submit"
                   disabled={isSubmittingComment || (!standaloneComment.trim() && !standaloneFile)}
-                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  className="px-5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
-                  <Send size={12} />
+                  <Send size={12} strokeWidth={2.5} />
                   <span>{isSubmittingComment ? "Posting..." : "Post Comment"}</span>
                 </button>
               </div>
