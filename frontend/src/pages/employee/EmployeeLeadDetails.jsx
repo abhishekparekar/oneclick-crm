@@ -226,17 +226,31 @@ export default function EmployeeLeadDetails() {
     }
   };
 
+  const rawPhone = lead.whatsappPhone || lead.phone || lead.mobileNumber || "";
+
+  const handleDirectWhatsApp = () => {
+    const cleanNumber = String(rawPhone).replace(/[^0-9]/g, "");
+    if (!cleanNumber) return;
+    const finalNumber = cleanNumber.length === 10 ? `91${cleanNumber}` : cleanNumber;
+    window.open(`https://wa.me/${finalNumber}`, "_blank");
+  };
+
+  const handleDirectCall = () => {
+    if (!rawPhone) return;
+    window.location.href = `tel:${rawPhone}`;
+  };
+
   const getStatusColor = (statusName) => {
     const s = String(statusName || "").toLowerCase();
     if (s.includes("won") || s.includes("convert") || s.includes("close") || s.includes("deal"))
-      return "bg-emerald-500/30 text-emerald-200 border-emerald-400/50";
+      return "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700";
     if (s.includes("lost") || s.includes("drop") || s.includes("reject") || s.includes("cancel"))
-      return "bg-rose-500/30 text-rose-200 border-rose-400/50";
+      return "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700";
     if (s.includes("qualif") || s.includes("progress") || s.includes("negotiat") || s.includes("proposal"))
-      return "bg-amber-500/30 text-amber-200 border-amber-400/50";
+      return "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700";
     if (s.includes("contact") || s.includes("call") || s.includes("follow"))
-      return "bg-teal-500/30 text-teal-200 border-teal-400/50";
-    return "bg-blue-500/30 text-blue-200 border-blue-400/50";
+      return "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-700";
+    return "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-700";
   };
 
   const resolvedStatusName =
@@ -244,10 +258,13 @@ export default function EmployeeLeadDetails() {
     statuses.find((st) => String(st._id || st.id) === String(lead?.statusId || lead?.status))?.name ||
     "NEW LEAD";
 
-  if (isLoading) {
+  if (isLoading || !leadData) {
     return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
+      <div className="space-y-4 pb-12 font-sans w-full max-w-[1440px] mx-auto min-h-[500px] flex flex-col items-center justify-center">
+        <div className="p-8 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col items-center gap-3 text-center">
+          <div className="w-10 h-10 border-3 border-orange-500/20 border-t-orange-600 rounded-full animate-spin" />
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Loading lead details...</p>
+        </div>
       </div>
     );
   }
