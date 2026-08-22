@@ -164,6 +164,11 @@ const initCronJobs = () => {
           }
         }
       }
+    } catch (err) {
+      console.error("Cron Error (Birthday reminder):", err);
+    }
+  }, { timezone: "Asia/Kolkata" });
+
   // 6. Lead Scheduled Follow-up Reminder (Runs every minute)
   cron.schedule("* * * * *", async () => {
     try {
