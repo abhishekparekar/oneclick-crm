@@ -36,41 +36,29 @@ const EmployeeSidebar = ({ logout, onItemClick }) => {
 
   const sections = [
     {
-      title: "CORE DASHBOARD",
+      title: "DAILY WORKSPACE",
       items: [
         { label: "Dashboard", path: "/employee/dashboard", icon: LayoutDashboard },
-        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
-        { label: "My Profile", path: "/employee/profile", icon: User },
-        { label: "My Documents", path: "/employee/documents", icon: FileText },
-      ],
-    },
-    ...(canAccessLeads ? [
-      {
-        title: "LEAD CRM",
-        items: [
-          { label: "Leads Pipeline", path: "/employee/leads", icon: Magnet },
-        ],
-      }
-    ] : []),
-    {
-      title: "STAFF & WORK",
-      items: [
-        { label: "My Attendance", path: "/employee/attendance", icon: CalendarDays },
+        ...(canAccessLeads ? [{ label: "Leads Pipeline", path: "/employee/leads", icon: Magnet }] : []),
         { label: "My Tasks", path: "/employee/my-tasks", icon: Layers },
-        { label: "Leave", path: "/employee/leaves", icon: File },
+        { label: "My Attendance", path: "/employee/attendance", icon: CalendarDays },
+        { label: "Leaves", path: "/employee/leaves", icon: File },
+        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
         { label: "Payslips", path: "/employee/payslips", icon: Receipt },
       ],
     },
     {
-      title: "COMMUNICATION",
+      title: "COMMUNICATION & DOCS",
       items: [
-        { label: "Notifications", path: "/employee/notifications", icon: Bell },
+        { label: "My Documents", path: "/employee/documents", icon: FileText },
         { label: "Announcements", path: "/employee/announcements", icon: Megaphone },
+        { label: "Notifications", path: "/employee/notifications", icon: Bell },
       ],
     },
     {
-      title: "SYSTEM",
+      title: "ACCOUNT & SETTINGS",
       items: [
+        { label: "My Profile", path: "/employee/profile", icon: User },
         { label: "Settings", path: "/employee/settings", icon: Settings },
       ],
     },
