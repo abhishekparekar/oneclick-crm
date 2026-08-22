@@ -759,6 +759,72 @@ const updateLead = async (req, res) => {
   }
 };
 
+// ── Update Lead Status Only (PATCH /leads/:id/status) ──────────────────────────
+const updateLeadStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { statusId } = req.body;
+    if (!statusId) return res.status(400).json({ message: "statusId is required" });
+
+    const prevLead = await Lead.findById(id).populate("statusId", "name");
+    if (!prevLead) return res.status(404).json({ message: "Lead not found" });
+
+    const updated = await Lead.findByIdAndUpdate(
+      id,
+      { statusId },
+      { new: true }
+    )
+      .populate("statusId", "name color")
+      .populate("tags", "name color")
+      .populate("assignedTo", "name email phone role");
+
+    if (!updated) return res.status(404).json({ message: "Lead not found" });
+
+    // Log activity if status actually changed
+    if (prevLead.statusId?._id?.toString() !== statusId.toString()) {
+      const newStatusName = updated.statusId?.name || "Updated";
+      const companyId = getCompanyId(req);
+
+      updated.leadActivities = updated.leadActivities || [];
+      updated.leadActivities.unshift({
+        title: `Status Changed: ${newStatusName}`,
+        description: `Status updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}`,
+        type: "STATUS_CHANGE",
+        createdAt: new Date(),
+      });
+      await updated.save();
+
+      const isWon =
+        newStatusName.toLowerCase().includes("won") ||
+        newStatusName.toLowerCase().includes("closed") ||
+        newStatusName.toLowerCase().includes("confirm");
+      const title = isWon
+        ? `🎉 Lead Won: ${updated.name}`
+        : `📌 Status Changed: ${updated.name} ➔ ${newStatusName}`;
+      const body = `${req.user?.name || "Staff"} updated status of "${updated.name}" to "${newStatusName}".`;
+
+      await notifyCompanyAdmins(companyId, req.user?._id, title, body, "lead_status", {
+        leadId: updated._id, status: newStatusName,
+      });
+    }
+
+    return res.json({
+      id: updated._id.toString(),
+      _id: updated._id.toString(),
+      name: updated.name,
+      whatsappPhone: updated.whatsappPhone,
+      statusId: updated.statusId?._id?.toString() || updated.statusId,
+      status: updated.statusId
+        ? { id: updated.statusId._id.toString(), name: updated.statusId.name, color: updated.statusId.color }
+        : null,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+
+
 const getAssignableUsers = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
@@ -2574,7 +2640,7 @@ module.exports = {
   getSources, createSource,
   getTags, createTag, deleteTag,
   getProducts, createProduct, deleteProduct,
-  getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
+  getLeads, createLead, getLeadById, updateLead, updateLeadStatus, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
   getFlows, createFlow, toggleFlow,

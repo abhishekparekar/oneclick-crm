@@ -7,7 +7,7 @@ const {
   getSources, createSource,
   getTags, createTag, deleteTag,
   getProducts, createProduct, deleteProduct,
-  getLeads, createLead, getLeadById, updateLead, deleteLead, getLeadStats,
+  getLeads, createLead, getLeadById, updateLead, updateLeadStatus, deleteLead, getLeadStats,
   importLeads, bulkStatus, bulkTags, bulkDelete, bulkAssign, getOptInCounts,
   getAssignableUsers,
   getFlows, createFlow, toggleFlow,
@@ -133,6 +133,7 @@ router.post("/leads/import", importLeads);
 router.get("/leads", getLeads);
 router.post("/leads", createLead);
 router.get("/leads/:id", getLeadById);
+router.patch("/leads/:id/status", updateLeadStatus);
 router.patch("/leads/:id", updateLead);
 router.delete("/leads/:id", deleteLead);
 router.get("/leads/:id/activities", getLeadActivities);
