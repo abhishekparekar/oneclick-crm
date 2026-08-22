@@ -454,51 +454,51 @@ export default function TaskDetailsPage() {
       </div>
 
       {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CARD ─────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-slate-800">
+      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-800">
           
           {/* LEFT SECTION: Core Description, Checklist & Metadata Specs (5/12) */}
           <div className="lg:col-span-5 p-4 sm:p-5 space-y-4">
             
             {/* Task Description */}
             <div className="space-y-2">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-100 dark:border-slate-800 pb-2">
-                <ClipboardList size={13} className="text-amber-500" />
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2">
+                <ClipboardList size={14} className="text-amber-600 dark:text-amber-400" />
                 <span>Task Description</span>
               </h3>
-              <div className="bg-slate-50/80 dark:bg-slate-900/60 rounded-xl p-3 border border-slate-200/60 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 text-xs leading-relaxed whitespace-pre-wrap font-medium">
+              <div className="bg-slate-50 dark:bg-[#0B101B] rounded-xl p-3.5 border border-slate-300/90 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs leading-relaxed whitespace-pre-wrap font-bold shadow-2xs">
                 {task.description || "No description provided."}
               </div>
             </div>
 
             {/* Checklist / Subtasks */}
             {task.checklist && task.checklist.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
                 <div className="flex items-center justify-between text-[11px]">
                   <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckSquare size={12} className="text-teal-500" />
+                    <CheckSquare size={13} className="text-teal-600 dark:text-teal-400" />
                     <span>Subtasks ({completedChecklistCount}/{totalChecklistCount})</span>
                   </span>
-                  <span className="font-mono font-bold text-teal-600">
+                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
                     {Math.round((completedChecklistCount / totalChecklistCount) * 100)}%
                   </span>
                 </div>
 
-                <div className="h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-teal-500 rounded-full transition-all duration-300"
                     style={{ width: `${(completedChecklistCount / totalChecklistCount) * 100}%` }}
                   />
                 </div>
 
-                <div className="space-y-1 pt-1">
+                <div className="space-y-1.5 pt-1">
                   {task.checklist.map((item, idx) => (
                     <label 
                       key={idx} 
-                      className={`flex items-center gap-2 p-2 rounded-xl border transition-all cursor-pointer text-xs ${
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer text-xs shadow-2xs ${
                         item.isCompleted 
-                          ? "bg-slate-50/50 dark:bg-slate-900/30 border-slate-100 dark:border-slate-800 text-slate-400 line-through" 
-                          : "bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800/80 text-slate-800 dark:text-slate-200 font-semibold"
+                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
+                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-300 dark:border-slate-700 text-slate-950 dark:text-white font-bold"
                       }`}
                     >
                       <input
@@ -516,35 +516,39 @@ export default function TaskDetailsPage() {
 
             {/* Task Attachments */}
             {task.attachments && task.attachments.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                  <Paperclip size={11} className="text-amber-500" />
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <h4 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                  <Paperclip size={12} className="text-amber-600 dark:text-amber-400" />
                   <span>Attachments ({task.attachments.length})</span>
                 </h4>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {task.attachments.map((att, idx) => (
                     <div 
                       key={idx} 
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 text-xs font-bold text-amber-700 dark:text-amber-400 shadow-2xs"
+                      className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-950 dark:text-white shadow-2xs hover:border-amber-500 transition-all"
                     >
-                      <Paperclip size={11} />
-                      <span className="truncate max-w-[140px]">{safeDecodeURIComponent(att.fileName)}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedFileForPreview(att)}
-                        className="text-slate-400 hover:text-amber-600 p-0.5 cursor-pointer ml-1"
-                        title="Preview"
-                      >
-                        <Eye size={12} />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => downloadAttachment(att)}
-                        className="text-slate-400 hover:text-amber-600 p-0.5 cursor-pointer"
-                        title="Download"
-                      >
-                        <Download size={12} />
-                      </button>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Paperclip size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="truncate max-w-[130px]">{safeDecodeURIComponent(att.fileName)}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFileForPreview(att)}
+                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          title="Preview"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(att)}
+                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -552,63 +556,65 @@ export default function TaskDetailsPage() {
             )}
 
             {/* Metadata Specifications Grid */}
-            <div className="space-y-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5">
-                <Tag size={12} className="text-amber-500" />
+            <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
+                <Tag size={13} className="text-amber-600 dark:text-amber-400" />
                 <span>Task Specifications</span>
               </h3>
 
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Assigned To</span>
-                  <span className="font-bold text-slate-900 dark:text-white truncate block">
+              <div className="grid grid-cols-2 gap-2.5 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Assigned To</span>
+                  <span className="font-black text-slate-950 dark:text-white truncate block">
                     {task.assignedTo?.filter(Boolean).map(a => `${a.firstName || ""} ${a.lastName || ""}`.trim() || a.name).join(", ") || "Unassigned"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Assigned By</span>
-                  <span className="font-bold text-slate-900 dark:text-white truncate block">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Assigned By</span>
+                  <span className="font-black text-slate-950 dark:text-white truncate block">
                     {task.assignedBy ? `${task.assignedBy.firstName || ""} ${task.assignedBy.lastName || ""}`.trim() || task.assignedBy.name : "System"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Department</span>
-                  <span className="font-bold text-slate-900 dark:text-white truncate block">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Department</span>
+                  <span className="font-black text-slate-950 dark:text-white truncate block">
                     {task.departmentId?.name || "General"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Priority</span>
-                  <span className={`inline-block px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase ${
-                    task.priority === 'high' ? 'bg-rose-50 text-rose-600 dark:bg-rose-950/40 border border-rose-200' :
-                    task.priority === 'medium' ? 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 border border-amber-200' :
-                    'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 border border-emerald-200'
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Priority</span>
+                  <span className={`inline-block px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border shadow-2xs ${
+                    task.priority === 'high' ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300 dark:border-rose-700' :
+                    task.priority === 'low' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700' :
+                    'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300 dark:border-amber-700'
                   }`}>
                     {task.priority || "Medium"}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Start Date</span>
-                  <span className="font-mono font-bold text-slate-900 dark:text-white block">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Start Date</span>
+                  <span className="font-mono font-black text-slate-950 dark:text-white block text-xs">
                     {formatDate(task.startDateTime || task.startDate)}
                   </span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                  <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Deadline</span>
-                  <span className="font-mono font-black text-rose-600 dark:text-rose-400 block">
+                <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Deadline</span>
+                  <span className="font-mono font-black text-rose-700 dark:text-rose-400 block text-xs">
                     {formatDate(task.endDateTime || task.endDate || task.finishDate)}
                   </span>
                 </div>
 
                 {task.nextFollowUpDate && (
-                  <div className="col-span-2 p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60">
-                    <span className="text-[9.5px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">Next Follow-Up</span>
-                    <span className="font-mono font-black text-indigo-700 dark:text-indigo-300 block">
+                  <div className="col-span-2 p-2.5 rounded-xl bg-teal-50 dark:bg-teal-950/40 border border-teal-300 dark:border-teal-700 shadow-2xs">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-teal-950 dark:text-teal-200 block mb-0.5 flex items-center gap-1">
+                      <Clock size={11} className="text-teal-700 dark:text-teal-400" /> Next Follow-Up
+                    </span>
+                    <span className="font-mono font-black text-teal-950 dark:text-teal-100 block text-xs">
                       {formatDateTime(task.nextFollowUpDate)}
                     </span>
                   </div>
@@ -619,37 +625,37 @@ export default function TaskDetailsPage() {
           </div>
 
           {/* RIGHT SECTION: Notes, Remarks & Timeline Stream (7/12) */}
-          <div className="lg:col-span-7 p-4 sm:p-5 space-y-5 bg-slate-50/40 dark:bg-slate-900/20">
+          <div className="lg:col-span-7 p-4 sm:p-5 space-y-5 bg-slate-50/60 dark:bg-slate-900/30">
             
             {/* Notes & Remarks */}
             <div className="space-y-3">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
-                  <MessageSquare size={13} className="text-amber-500" />
+                  <MessageSquare size={14} className="text-amber-600 dark:text-amber-400" />
                   <span>Notes &amp; Remarks ({task.comments?.length || 0})</span>
                 </span>
               </h3>
 
               {/* Note Composer */}
               <form onSubmit={handleAddComment} className="space-y-2">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700/80 rounded-xl p-3 focus-within:border-amber-500 transition-colors shadow-2xs">
+                <div className="bg-white dark:bg-[#0B101B] border-2 border-slate-300 dark:border-slate-700 rounded-xl p-3 focus-within:border-amber-500 transition-colors shadow-2xs">
                   <textarea 
                     required
                     value={commentText}
                     onChange={e => setCommentText(e.target.value)}
-                    className="w-full bg-transparent text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none min-h-[50px] resize-none font-semibold"
+                    className="w-full bg-transparent text-xs text-slate-950 dark:text-white placeholder-slate-500 focus:outline-none min-h-[50px] resize-none font-semibold"
                     placeholder="Write a follow-up remark or note..."
                   />
                   
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap gap-2">
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 flex-wrap gap-2">
                     <TaskAttachmentField attachments={commentAttachments} onChange={setCommentAttachments} compact={true} />
                     
                     <button 
                       type="submit" 
                       disabled={commentMutating || (!commentText.trim() && commentAttachments.length === 0)}
-                      className="px-3.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-2xs disabled:opacity-50 cursor-pointer ml-auto"
+                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer ml-auto transition-all"
                     >
-                      <Send size={11} />
+                      <Send size={11} strokeWidth={2.5} />
                       <span>{commentMutating ? "Saving..." : "Add Note"}</span>
                     </button>
                   </div>
@@ -658,23 +664,23 @@ export default function TaskDetailsPage() {
 
               {/* Comment Feed */}
               {(!task.comments || task.comments.length === 0) ? (
-                <p className="text-slate-400 text-xs text-center py-2">No remarks or notes added yet.</p>
+                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-4 italic">No remarks or notes added yet.</p>
               ) : (
-                <div className="space-y-2 max-h-56 overflow-y-auto custom-scrollbar pr-0.5">
+                <div className="space-y-2.5 max-h-60 overflow-y-auto custom-scrollbar pr-0.5">
                   {Array.isArray(task.comments) && [...task.comments].reverse().map((c, idx) => (
-                    <div key={c._id || idx} className="p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 space-y-1 shadow-2xs">
+                    <div key={c._id || idx} className="p-3 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 space-y-1.5 shadow-2xs hover:border-amber-500 transition-all">
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <MiniAvatar name={c.senderName} />
-                          <span className="font-extrabold text-xs text-slate-900 dark:text-white">{c.senderName}</span>
-                          <span className="text-[8.5px] uppercase font-bold text-amber-600 bg-amber-500/10 px-1 rounded">
+                          <span className="font-black text-xs text-slate-950 dark:text-white">{c.senderName}</span>
+                          <span className="text-[9px] uppercase font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700">
                             {c.senderRole}
                           </span>
                         </div>
-                        <span className="text-[9.5px] font-mono text-slate-400">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
+                        <span className="text-[10.5px] font-mono font-bold text-slate-900 dark:text-slate-200">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
                       </div>
 
-                      <p className="text-xs text-slate-700 dark:text-slate-300 whitespace-pre-wrap pl-7 leading-relaxed font-medium">
+                      <p className="text-xs text-slate-950 dark:text-slate-100 whitespace-pre-wrap pl-7 leading-relaxed font-semibold bg-slate-50/60 dark:bg-slate-900/40 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800/60">
                         {c.comment}
                       </p>
 
@@ -686,10 +692,10 @@ export default function TaskDetailsPage() {
                               href={att.fileUrl || att.fileData || "#"} 
                               target="_blank" 
                               rel="noreferrer" 
-                              className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[9.5px] font-bold text-amber-600 hover:underline"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-[10.5px] font-black text-slate-950 dark:text-white hover:border-amber-500 transition-colors shadow-2xs"
                             >
-                              <Paperclip size={9} />
-                              <span className="truncate max-w-[120px]">{safeDecodeURIComponent(att.fileName)}</span>
+                              <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
+                              <span className="truncate max-w-[140px]">{safeDecodeURIComponent(att.fileName)}</span>
                             </a>
                           ))}
                         </div>
@@ -701,16 +707,16 @@ export default function TaskDetailsPage() {
             </div>
 
             {/* Workflow Activity Timeline */}
-            <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-100 dark:border-slate-800 flex items-center gap-1.5">
-                <History size={13} className="text-amber-500" />
+            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
+                <History size={14} className="text-amber-600 dark:text-amber-400" />
                 <span>Workflow Activity Timeline</span>
               </h3>
 
               {(!timeline || timeline.length === 0) ? (
-                <p className="text-slate-400 text-xs text-center py-2">No workflow history logged yet.</p>
+                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-4 italic">No workflow history logged yet.</p>
               ) : (
-                <div className="relative pl-6 space-y-3 before:absolute before:inset-y-1 before:left-[11px] before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+                <div className="relative pl-6 space-y-3 before:absolute before:inset-y-1 before:left-[11px] before:w-0.5 before:bg-slate-300 dark:before:bg-slate-700">
                   {Array.isArray(timeline) && timeline.map((act) => {
                     const actType = act.action || "";
                     const cfg = getTimelineConfig(actType) || TIMELINE_CONFIG.comment_added;
@@ -722,23 +728,23 @@ export default function TaskDetailsPage() {
                           {Icon && <Icon size={10} className={cfg.iconColor} />}
                         </span>
 
-                        <div className="space-y-0.5">
+                        <div className="space-y-1">
                           <div className="flex items-center justify-between gap-1 flex-wrap">
                             <div className="flex items-center gap-1.5">
-                              <span className={`px-1.5 py-0.2 rounded text-[8.5px] font-bold uppercase border ${cfg.bg}`}>
+                              <span className={`px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider border ${cfg.bg}`}>
                                 {cfg.label}
                               </span>
-                              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                              <span className="text-xs font-black text-slate-950 dark:text-white">
                                 {act.performedBy?.name || "System"}
                               </span>
                             </div>
-                            <span className="text-[9.5px] font-mono text-slate-400">
+                            <span className="text-[10px] font-mono font-bold text-slate-900 dark:text-slate-200">
                               {formatDate(act.createdAt)} {formatTime(act.createdAt)}
                             </span>
                           </div>
 
                           {act.remarks && (
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200/70 dark:border-slate-800 rounded-xl p-2 text-xs text-slate-700 dark:text-slate-300 font-medium shadow-2xs">
+                            <div className="bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 font-semibold shadow-2xs">
                               {act.remarks}
                             </div>
                           )}
