@@ -212,7 +212,7 @@
   --color-mg-accent: var(--mg-palette-7);
 
   /* Surfaces & Neutrals (Light Mode) */
-  --color-mg-bg: #FBFAFE;
+  --color-mg-bg: #F0F5FA;
   --color-mg-surface: #FFFFFF;
   --color-mg-card: #FFFFFF;
   --color-mg-border: rgba(0, 0, 0, 0.1);
@@ -232,7 +232,7 @@
   --color-sa-accent: #fcd34d;
 
   /* Surfaces & Neutrals — identical to Company Admin */
-  --color-sa-bg: #F8FAFC;
+  --color-sa-bg: #F0F5FA;
   --color-sa-surface: #FFFFFF;
   --color-sa-card: rgba(255, 255, 255, 0.95);
   --color-sa-border: rgba(0, 0, 0, 0.1);
