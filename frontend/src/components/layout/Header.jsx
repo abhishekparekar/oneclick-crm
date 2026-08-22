@@ -266,7 +266,7 @@ const Header = ({ onMenuClick }) => {
   const announcementsRoute = isSuperAdmin ? "/superadmin/announcements" : isHR ? "/hr/announcements" : isManager ? "/manager/announcements" : isEmployee ? "/employee/announcements" : "/company/announcements";
 
   return (
-    <header className="h-14 bg-[#F0F5FA]/90 dark:bg-[#090D16]/90 backdrop-blur-md border-b border-slate-200/80 dark:border-white/[0.06] flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-40 transition-colors">
+    <header className="h-14 bg-white dark:bg-[#090D16] border-b border-slate-200/90 dark:border-white/[0.08] shadow-2xs flex items-center justify-between px-3.5 sm:px-6 sticky top-0 z-40 transition-colors">
       <div className="flex items-center space-x-2.5 sm:space-x-4 flex-1 min-w-0">
         {/* Sidebar toggle */}
         <button
@@ -298,7 +298,7 @@ const Header = ({ onMenuClick }) => {
             onChange={(e) => { setSearchQuery(e.target.value); setSearchOpen(true); }}
             onFocus={() => setSearchOpen(true)}
             placeholder="Search anything..."
-            className="w-full pl-9 pr-14 py-1.5 bg-white dark:bg-[#131B2E] border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500/40 shadow-2xs transition-all font-medium"
+            className="w-full pl-9 pr-14 py-1.5 bg-slate-100/70 dark:bg-[#131B2E] border border-slate-200/80 dark:border-slate-800 rounded-lg text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500/40 transition-all font-medium"
           />
           {searchQuery ? (
             <button
