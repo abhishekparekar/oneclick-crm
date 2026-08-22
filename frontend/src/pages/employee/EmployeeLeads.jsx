@@ -424,88 +424,84 @@ export default function EmployeeLeads() {
       </div>
 
       {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
-      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
-        <div className="flex items-center gap-1.5 min-w-max">
-          {categoryCounts.map(tab => {
-            const active = dateTab === tab.name;
-            return (
-              <button
-                key={tab.name}
-                onClick={() => {
-                  setDateTab(tab.name);
-                  setStatusFilter("all");
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                  active
-                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                }`}
-              >
-                <span>{tab.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
+        {categoryCounts.map(tab => {
+          const active = dateTab === tab.name;
+          return (
+            <button
+              key={tab.name}
+              onClick={() => {
+                setDateTab(tab.name);
+                setStatusFilter("all");
+              }}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer border ${
+                active
+                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                  : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <span>{tab.name}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                active
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Pipeline Status Filter Pills (Like Today/Yesterday Tabs) ───────────── */}
-      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
-        <div className="flex items-center gap-1.5 min-w-max">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 flex items-center gap-1 shrink-0">
-            <Layers size={13} className="text-amber-500" /> Status:
+      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
+        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 pr-1 flex items-center gap-1 shrink-0">
+          <Layers size={13} className="text-amber-500" /> STATUS:
+        </span>
+        <button
+          onClick={() => setStatusFilter("all")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+            statusFilter === "all"
+              ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+              : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+          }`}
+        >
+          <span>All Leads</span>
+          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+            statusFilter === "all"
+              ? "bg-white/20 text-white"
+              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          }`}>
+            {baseTabLeads.length}
           </span>
-          <button
-            onClick={() => setStatusFilter("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
-              statusFilter === "all"
-                ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
-                : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-            }`}
-          >
-            <span>All Leads</span>
-            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-              statusFilter === "all"
-                ? "bg-white/20 text-white"
-                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
-            }`}>
-              {baseTabLeads.length}
-            </span>
-          </button>
+        </button>
 
-          {statuses.map(st => {
-            const sId = st._id || st.id;
-            const active = statusFilter === sId;
-            const count = statusCounts[sId] || 0;
-            const chipCfg = getLeadAccentColors(st.name, st.color);
-            return (
-              <button
-                key={sId}
-                onClick={() => setStatusFilter(sId)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  active
-                    ? chipCfg.pillActive
-                    : chipCfg.pillInactive
-                }`}
-              >
-                <span>{st.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                  active
-                    ? chipCfg.badgeActive
-                    : chipCfg.badgeInactive
-                }`}>
-                  {count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        {statuses.map(st => {
+          const sId = st._id || st.id;
+          const active = statusFilter === sId;
+          const count = statusCounts[sId] || 0;
+          const chipCfg = getLeadAccentColors(st.name, st.color);
+          return (
+            <button
+              key={sId}
+              onClick={() => setStatusFilter(sId)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                active
+                  ? chipCfg.pillActive
+                  : chipCfg.pillInactive
+              }`}
+            >
+              <span>{st.name}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                active
+                  ? chipCfg.badgeActive
+                  : chipCfg.badgeInactive
+              }`}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}

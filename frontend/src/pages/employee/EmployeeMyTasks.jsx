@@ -491,110 +491,106 @@ export default function EmployeeMyTasks() {
       </div>
 
       {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
-      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
-        <div className="flex items-center gap-1.5 min-w-max">
-          {categoryCounts.map(tab => {
-            const active = dateTab === tab.name;
-            return (
-              <button
-                key={tab.name}
-                onClick={() => handleTabChange(tab.name)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                  active
-                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
-                }`}
-              >
-                <span>{tab.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                  active
-                    ? "bg-white/20 text-white"
-                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
-                }`}>
-                  {tab.count}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
+        {categoryCounts.map(tab => {
+          const active = dateTab === tab.name;
+          return (
+            <button
+              key={tab.name}
+              onClick={() => handleTabChange(tab.name)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer border ${
+                active
+                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                  : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+              }`}
+            >
+              <span>{tab.name}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                active
+                  ? "bg-white/20 text-white"
+                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              }`}>
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Task Status Filter Pills (Only Required Workflow Statuses) ─────── */}
-      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
-        <div className="flex items-center gap-1.5 min-w-max">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 flex items-center gap-1 shrink-0">
-            <Layers size={13} className="text-amber-500" /> Status:
-          </span>
-          {[
-            {
-              id: "all",
-              label: "All Tasks",
-              count: baseTabTasks.length,
-              pillInactive: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-200 dark:border-slate-700 hover:bg-slate-200/80",
-              pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
-              badgeInactive: "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "pending",
-              label: "Pending",
-              count: statusCounts.pending,
-              pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80",
-              pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
-              badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "in_process",
-              label: "In Process",
-              count: statusCounts.in_process,
-              pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80",
-              pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
-              badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "completed",
-              label: "Completed",
-              count: statusCounts.complete,
-              pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80",
-              pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
-              badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-700",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "overdue",
-              label: "Overdue",
-              count: statusCounts.overdue,
-              pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80",
-              pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
-              badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-700",
-              badgeActive: "bg-white/20 text-white"
-            }
-          ].map(st => {
-            const active = statusFilter === st.id;
-            return (
-              <button
-                key={st.id}
-                onClick={() => setStatusFilter(st.id)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  active
-                    ? st.pillActive
-                    : st.pillInactive
-                }`}
-              >
-                <span>{st.label}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                  active
-                    ? st.badgeActive
-                    : st.badgeInactive
-                }`}>
-                  {st.count || 0}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
+        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 pr-1 flex items-center gap-1 shrink-0">
+          <Layers size={13} className="text-amber-500" /> STATUS:
+        </span>
+        {[
+          {
+            id: "all",
+            label: "All Tasks",
+            count: baseTabTasks.length,
+            pillInactive: "bg-white text-slate-700 border-slate-200/80 dark:bg-[#111C24] dark:text-slate-200 dark:border-slate-800 hover:border-slate-300 shadow-2xs",
+            pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
+            badgeInactive: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
+            badgeActive: "bg-white/20 text-white"
+          },
+          {
+            id: "pending",
+            label: "Pending",
+            count: statusCounts.pending,
+            pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
+            pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
+            badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
+            badgeActive: "bg-white/20 text-white"
+          },
+          {
+            id: "in_process",
+            label: "In Process",
+            count: statusCounts.in_process,
+            pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
+            pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
+            badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
+            badgeActive: "bg-white/20 text-white"
+          },
+          {
+            id: "completed",
+            label: "Completed",
+            count: statusCounts.complete,
+            pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
+            pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+            badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+            badgeActive: "bg-white/20 text-white"
+          },
+          {
+            id: "overdue",
+            label: "Overdue",
+            count: statusCounts.overdue,
+            pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
+            pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
+            badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
+            badgeActive: "bg-white/20 text-white"
+          }
+        ].map(st => {
+          const active = statusFilter === st.id;
+          return (
+            <button
+              key={st.id}
+              onClick={() => setStatusFilter(st.id)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                active
+                  ? st.pillActive
+                  : st.pillInactive
+              }`}
+            >
+              <span>{st.label}</span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                active
+                  ? st.badgeActive
+                  : st.badgeInactive
+              }`}>
+                {st.count || 0}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}
