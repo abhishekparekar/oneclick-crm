@@ -453,124 +453,129 @@ export default function EmployeeLeads() {
         </button>
       </div>
 
-      {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        {categoryCounts.map(tab => {
-          const active = dateTab === tab.name;
-          return (
-            <button
-              key={tab.name}
-              onClick={() => {
-                setDateTab(tab.name);
-                setStatusFilter("all");
-              }}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer border ${
-                active
-                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                  : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-              }`}
-            >
-              <span>{tab.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                active
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Pipeline Status Filter Pills (Like Today/Yesterday Tabs) ───────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1.5 flex items-center gap-1 shrink-0">
-          <Layers size={14} className="text-amber-500" /> STATUS:
-        </span>
-        <button
-          onClick={() => setStatusFilter("all")}
-          className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-            statusFilter === "all"
-              ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-              : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-          }`}
-        >
-          <span>All Leads</span>
-          <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-            statusFilter === "all"
-              ? "bg-white/20 text-white"
-              : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-          }`}>
-            {baseTabLeads.length}
-          </span>
-        </button>
-
-        {statuses.map(st => {
-          const sId = st._id || st.id;
-          const active = statusFilter === sId;
-          const count = statusCounts[sId] || 0;
-          const chipCfg = getLeadAccentColors(st.name, st.color);
-          return (
-            <button
-              key={sId}
-              onClick={() => setStatusFilter(sId)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                active
-                  ? chipCfg.pillActive
-                  : chipCfg.pillInactive
-              }`}
-            >
-              <span>{st.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                active
-                  ? chipCfg.badgeActive
-                  : chipCfg.badgeInactive
-              }`}>
-                {count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
         
-        {/* Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search leads, phone, company..."
-            className="w-full pl-9 pr-4 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X size={12} />
-            </button>
-          )}
+        {/* ── Row 1: Time Boundary Date Pill Tabs ───────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+          {categoryCounts.map(tab => {
+            const active = dateTab === tab.name;
+            return (
+              <button
+                key={tab.name}
+                onClick={() => {
+                  setDateTab(tab.name);
+                  setStatusFilter("all");
+                }}
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  active
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                }`}
+              >
+                <span>{tab.name}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* View Mode Toggle */}
-        <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
+        {/* ── Row 2: Pipeline Status Filter Pills ───────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1 flex items-center gap-1 shrink-0">
+            <Layers size={13} className="text-amber-500" /> STATUS:
+          </span>
           <button
-            onClick={() => setViewMode("grid")}
-            className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
-            title="Grid View"
+            onClick={() => setStatusFilter("all")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+              statusFilter === "all"
+                ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+            }`}
           >
-            <LayoutGrid size={14} />
+            <span>All Leads</span>
+            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+              statusFilter === "all"
+                ? "bg-white/20 text-white"
+                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            }`}>
+              {baseTabLeads.length}
+            </span>
           </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
-            title="List View"
-          >
-            <List size={14} />
-          </button>
+
+          {statuses.map(st => {
+            const sId = st._id || st.id;
+            const active = statusFilter === sId;
+            const count = statusCounts[sId] || 0;
+            const chipCfg = getLeadAccentColors(st.name, st.color);
+            return (
+              <button
+                key={sId}
+                onClick={() => setStatusFilter(sId)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  active
+                    ? chipCfg.pillActive
+                    : chipCfg.pillInactive
+                }`}
+              >
+                <span>{st.name}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                  active
+                    ? chipCfg.badgeActive
+                    : chipCfg.badgeInactive
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
+
+        {/* ── Row 3: Search Bar & View Mode Toggle ──────────────────────────── */}
+        <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+          
+          {/* Search Input */}
+          <div className="relative w-full sm:w-72">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search leads, phone, company..."
+              className="w-full pl-8 pr-4 py-1 h-7.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white shadow-2xs transition-all"
+            />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 shadow-2xs">
+            <button
+              onClick={() => setViewMode("grid")}
+              className={`p-1 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+              title="Grid View"
+            >
+              <LayoutGrid size={13} />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-1 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+              title="List View"
+            >
+              <List size={13} />
+            </button>
+          </div>
+        </div>
+
       </div>
 
       {/* ── LEADS CONTENT: GRID (CARDS) VIEW ─────────────────────────────────── */}

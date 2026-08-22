@@ -492,231 +492,193 @@ export default function EmployeeMyTasks() {
         </button>
       </div>
 
-      {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        {categoryCounts.map(tab => {
-          const active = dateTab === tab.name;
-          return (
-            <button
-              key={tab.name}
-              onClick={() => handleTabChange(tab.name)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer border ${
-                active
-                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                  : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-              }`}
-            >
-              <span>{tab.name}</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                active
-                  ? "bg-white/20 text-white"
-                  : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Task Status Filter Pills (Only Required Workflow Statuses) ─────── */}
-      <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1.5 flex items-center gap-1 shrink-0">
-          <Layers size={14} className="text-amber-500" /> STATUS:
-        </span>
-        {[
-          {
-            id: "all",
-            label: "All Tasks",
-            count: baseTabTasks.length,
-            pillInactive: "bg-white text-slate-700 border-slate-200/80 dark:bg-[#111C24] dark:text-slate-200 dark:border-slate-800 hover:border-slate-300 shadow-2xs",
-            pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
-            badgeInactive: "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
-            badgeActive: "bg-white/20 text-white"
-          },
-          {
-            id: "pending",
-            label: "Pending",
-            count: statusCounts.pending,
-            pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
-            pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
-            badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
-            badgeActive: "bg-white/20 text-white"
-          },
-          {
-            id: "in_process",
-            label: "In Process",
-            count: statusCounts.in_process,
-            pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
-            pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
-            badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
-            badgeActive: "bg-white/20 text-white"
-          },
-          {
-            id: "completed",
-            label: "Completed",
-            count: statusCounts.complete,
-            pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
-            pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
-            badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
-            badgeActive: "bg-white/20 text-white"
-          },
-          {
-            id: "overdue",
-            label: "Overdue",
-            count: statusCounts.overdue,
-            pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
-            pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
-            badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
-            badgeActive: "bg-white/20 text-white"
-          }
-        ].map(st => {
-          const active = statusFilter === st.id;
-          return (
-            <button
-              key={st.id}
-              onClick={() => setStatusFilter(st.id)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                active
-                  ? st.pillActive
-                  : st.pillInactive
-              }`}
-            >
-              <span>{st.label}</span>
-              <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
-                active
-                  ? st.badgeActive
-                  : st.badgeInactive
-              }`}>
-                {st.count || 0}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+      {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
         
-        {/* Search Input */}
-        <div className="relative w-full sm:w-72">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Search tasks, descriptions..."
-            className="w-full pl-9 pr-4 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
-          />
-          {searchTerm && (
-            <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-              <X size={12} />
-            </button>
-          )}
+        {/* ── Row 1: Time Boundary Date Pill Tabs ───────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
+          {categoryCounts.map(tab => {
+            const active = dateTab === tab.name;
+            return (
+              <button
+                key={tab.name}
+                onClick={() => handleTabChange(tab.name)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  active
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                }`}
+              >
+                <span>{tab.name}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* View Mode Toggle & Filter Button */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
+        {/* ── Row 2: Task Status Filter Pills ───────────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1 flex items-center gap-1 shrink-0">
+            <Layers size={13} className="text-amber-500" /> STATUS:
+          </span>
+          {[
+            {
+              id: "all",
+              label: "All Tasks",
+              count: baseTabTasks.length,
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-[#0B101B] dark:text-slate-200 dark:border-slate-700/80 hover:border-slate-300 shadow-2xs",
+              pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
+              badgeInactive: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "pending",
+              label: "Pending",
+              count: statusCounts.pending,
+              pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
+              pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
+              badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "in_process",
+              label: "In Process",
+              count: statusCounts.in_process,
+              pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
+              pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
+              badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "completed",
+              label: "Completed",
+              count: statusCounts.complete,
+              pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
+              pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+              badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "overdue",
+              label: "Overdue",
+              count: statusCounts.overdue,
+              pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
+              pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
+              badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
+              badgeActive: "bg-white/20 text-white"
+            }
+          ].map(st => {
+            const active = statusFilter === st.id;
+            return (
+              <button
+                key={st.id}
+                onClick={() => setStatusFilter(st.id)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  active
+                    ? st.pillActive
+                    : st.pillInactive
+                }`}
+              >
+                <span>{st.label}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                  active
+                    ? st.badgeActive
+                    : st.badgeInactive
+                }`}>
+                  {st.count || 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── Row 3: Search + Inline Filters + View Mode ────────────────────── */}
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
+
+          {/* Search Input */}
+          <div className="relative flex-1 min-w-[160px] max-w-[220px]">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search tasks..."
+              className="w-full pl-7 pr-7 py-1 h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:bg-white shadow-2xs transition-all"
+            />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm("")} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                <X size={11} />
+              </button>
+            )}
+          </div>
+
+          {/* Department Filter — inline */}
+          <select
+            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+            value={filters.departmentId}
+            onChange={e => setFilters({ ...filters, departmentId: e.target.value })}
+          >
+            <option value="">All Depts</option>
+            {filteredEmployeeDepartments.map(d => (
+              <option key={d._id} value={d._id}>{d.name || d.departmentName}</option>
+            ))}
+          </select>
+
+          {/* From Date */}
+          <input
+            type="date"
+            value={filters.startDate}
+            onChange={e => setFilters({ ...filters, startDate: e.target.value })}
+            title="From Date"
+            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+          />
+
+          {/* To Date */}
+          <input
+            type="date"
+            value={filters.endDate}
+            onChange={e => setFilters({ ...filters, endDate: e.target.value })}
+            title="To Date"
+            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+          />
+
+          {/* Reset Filters */}
+          {activeFiltersCount > 0 && (
+            <button
+              onClick={() => setFilters({ departmentId: "", startDate: "", endDate: "", status: "", overdue: false })}
+              className="h-7 px-2 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 dark:border-rose-800 dark:hover:bg-rose-950/30 transition-all cursor-pointer flex items-center gap-1"
+            >
+              <X size={11} /> Reset
+            </button>
+          )}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* View Mode Toggle */}
+          <div className="flex items-center bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-0.5 shadow-2xs shrink-0">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+              className={`p-1 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
               title="Grid View"
             >
-              <LayoutGrid size={14} />
+              <LayoutGrid size={13} />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+              className={`p-1 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
               title="List View"
             >
-              <List size={14} />
+              <List size={13} />
             </button>
           </div>
 
-          {/* Filters Dropdown Button */}
-          <div className="relative z-20 shrink-0">
-            <button
-              onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs border ${activeFiltersCount > 0
-                  ? "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs"
-                  : showFiltersDropdown
-                    ? "border-amber-500 bg-white dark:bg-[#111C24] text-amber-600"
-                    : "bg-white dark:bg-[#111C24] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
-                }`}
-            >
-              <Filter size={13} className={activeFiltersCount > 0 ? "text-white" : "text-slate-400"} />
-              <span>Filters</span>
-              {activeFiltersCount > 0 && (
-                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] rounded-full font-black">
-                  {activeFiltersCount}
-                </span>
-              )}
-            </button>
-            {showFiltersDropdown && (
-              <div className="absolute top-full right-0 mt-2 w-80 bg-ca-surface border border-ca-border rounded-2xl p-5 z-30 space-y-4 shadow-xl">
-                <div>
-                  <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">
-                    Department
-                  </label>
-                  <select
-                    className="w-full bg-ca-bg border border-ca-border text-ca-text text-xs font-medium py-2 px-3 outline-none rounded-lg"
-                    value={filters.departmentId}
-                    onChange={e => setFilters({ ...filters, departmentId: e.target.value })}
-                  >
-                    <option value="">All Departments</option>
-                    {filteredEmployeeDepartments.map(d => (
-                      <option key={d._id} value={d._id}>
-                        {d.name || d.departmentName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full bg-ca-bg border border-ca-border text-ca-text text-xs py-2 px-2 outline-none rounded-lg"
-                      value={filters.startDate}
-                      onChange={e => setFilters({ ...filters, startDate: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[12px] font-bold text-ca-text-secondary uppercase tracking-wider mb-1.5">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      className="w-full bg-ca-bg border border-ca-border text-ca-text text-xs py-2 px-2 outline-none rounded-lg"
-                      value={filters.endDate}
-                      onChange={e => setFilters({ ...filters, endDate: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div className="pt-3 border-t border-ca-border/60 flex gap-2">
-                  <button
-                    onClick={() => {
-                      setFilters({ departmentId: "", startDate: "", endDate: "", status: "", overdue: false });
-                      setStatusFilter("all");
-                      setShowFiltersDropdown(false);
-                    }}
-                    className="flex-1 text-xs font-bold text-ca-text-secondary hover:text-ca-text hover:bg-ca-border/40 px-4 py-2 rounded-lg transition-colors bg-ca-bg cursor-pointer"
-                  >
-                    Clear
-                  </button>
-                  <button
-                    onClick={() => setShowFiltersDropdown(false)}
-                    className="flex-1 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       </div>
 
