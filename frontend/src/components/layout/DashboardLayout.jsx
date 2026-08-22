@@ -91,7 +91,7 @@ const DashboardLayout = ({ children }) => {
           : "One Click Solutions";
 
   return (
-    <div className={`flex h-screen w-full overflow-hidden print:h-auto print:overflow-visible bg-[#F8FAFC] dark:bg-[#070A10] text-slate-900 dark:text-slate-100 ${isManager || isEmployee ? "manager-panel" : ""}`}>
+    <div className={`flex h-screen w-full overflow-hidden print:h-auto print:overflow-visible bg-[#F0F5FA] dark:bg-[#070A10] text-slate-900 dark:text-slate-100 ${isManager || isEmployee ? "manager-panel" : ""}`}>
 
       {/* ── Mobile Dark Overlay Backdrop ── */}
       {isMobile && sidebarOpen && (

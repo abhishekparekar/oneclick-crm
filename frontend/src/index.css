@@ -131,7 +131,7 @@
   --color-ca-accent: var(--ca-palette-10);
 
   /* Surfaces & Neutrals (Light Mode) */
-  --color-ca-bg: #FBFAFE;
+  --color-ca-bg: #F0F5FA;
   --color-ca-surface: #FFFFFF;
   --color-ca-card: #FFFFFF;
   --color-ca-border: rgba(0, 0, 0, 0.1);
