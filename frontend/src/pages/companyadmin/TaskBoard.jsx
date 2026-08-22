@@ -58,7 +58,7 @@ const MiniAvatar = ({ name, idx = 0, size = "w-6 h-6", textSize = "text-[10px]" 
 const StatusBadge = ({ status, isTemplate, isActive }) => {
   if (isTemplate) {
     return (
-      <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold border ${isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"}`}>
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shadow-2xs select-none ${isActive ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300" : "bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-400"}`}>
         <span className={`w-1.5 h-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
         {isActive ? "Active" : "Stopped"}
       </span>
@@ -66,7 +66,7 @@ const StatusBadge = ({ status, isTemplate, isActive }) => {
   }
   const cfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold uppercase tracking-wide border shadow-2xs select-none ${cfg.bg} ${cfg.text} ${cfg.border}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
       {cfg.label || status?.replace(/_/g, " ")}
     </span>
@@ -799,10 +799,42 @@ export default function TaskBoard() {
             </button>
 
             {[
-              { id: "pending", label: "Pending", count: statusCounts.pending || 0, dot: "bg-blue-500" },
-              { id: "in_process", label: "In Process", count: statusCounts.in_process || 0, dot: "bg-amber-500" },
-              { id: "complete", label: "Completed", count: statusCounts.complete || 0, dot: "bg-emerald-500" },
-              { id: "overdue", label: "Overdue", count: statusCounts.overdue || 0, dot: "bg-rose-500" },
+              {
+                id: "pending",
+                label: "Pending",
+                count: statusCounts.pending || 0,
+                pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
+                pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
+                badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
+                badgeActive: "bg-white/20 text-white"
+              },
+              {
+                id: "in_process",
+                label: "In Process",
+                count: statusCounts.in_process || 0,
+                pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
+                pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
+                badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
+                badgeActive: "bg-white/20 text-white"
+              },
+              {
+                id: "complete",
+                label: "Completed",
+                count: statusCounts.complete || 0,
+                pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
+                pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+                badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+                badgeActive: "bg-white/20 text-white"
+              },
+              {
+                id: "overdue",
+                label: "Overdue",
+                count: statusCounts.overdue || 0,
+                pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
+                pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
+                badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
+                badgeActive: "bg-white/20 text-white"
+              },
             ].map((st) => {
               const isSelected = statusFilter === st.id;
               return (
@@ -811,16 +843,15 @@ export default function TaskBoard() {
                   onClick={() => setStatusFilter(prev => prev === st.id ? "" : st.id)}
                   className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
                     isSelected
-                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                      ? st.pillActive
+                      : st.pillInactive
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${st.dot}`} />
                   <span>{st.label}</span>
                   <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
                     isSelected
-                      ? "bg-white/20 text-white"
-                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                      ? st.badgeActive
+                      : st.badgeInactive
                   }`}>
                     {st.count}
                   </span>

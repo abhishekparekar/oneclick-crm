@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { api } from '../../utils/leads/api';
-import StatusBadge from '../../components/leads/StatusBadge';
+import StatusBadge, { getLeadStatusColorStyle } from '../../components/leads/StatusBadge';
 import LeadDrawer from '../../components/leads/LeadDrawer';
 import { useToast } from '../../components/leads/Toast';
 import { useActionLoader } from '../../components/leads/ActionLoader';
@@ -1238,6 +1238,7 @@ export default function Leads() {
             const count = leadStats.statusCounts?.[st.id] !== undefined
               ? leadStats.statusCounts[st.id]
               : leads.filter(l => l.statusId === st.id || l.status?.id === st.id).length;
+            const chipCfg = getLeadStatusColorStyle(st.name, st.color);
 
             return (
               <button
@@ -1245,16 +1246,15 @@ export default function Leads() {
                 onClick={() => setSelectedStatusId(prev => prev === st.id ? "" : st.id)}
                 className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                    ? chipCfg.pillActive
+                    : chipCfg.pillInactive
                 }`}
               >
-                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color || '#EAB308' }} />
                 <span>{st.name}</span>
                 <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
                   isSelected
-                    ? "bg-white/20 text-white"
-                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                    ? chipCfg.badgeActive
+                    : chipCfg.badgeInactive
                 }`}>
                   {count}
                 </span>
