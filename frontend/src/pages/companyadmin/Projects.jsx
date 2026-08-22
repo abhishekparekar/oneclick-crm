@@ -482,110 +482,49 @@ const Projects = () => {
       {/* ── MODE 1: PRIMARY PROJECTS LISTING DASHBOARD ────────────────────────── */}
       {!viewingProject && (
         <div className="space-y-3">
-          {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between flex-wrap gap-4">
+        {/* ── Page Header — matches Task Management style ── */}
+          <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <div className="flex items-center space-x-2 text-sm font-semibold text-slate-300 uppercase tracking-wider mb-1">
-                <span>Dashboard</span>
-                <ChevronRight size={12} />
-                <span className="text-slate-300">Projects</span>
-              </div>
-              <h1 className="text-3xl font-bold text-white ">Project Management</h1>
+              <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">Project Management</h1>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Track project status, deadlines, team assignments, and milestones</p>
             </div>
-
-            <div className="flex flex-wrap items-center gap-3">
-              {/* View toggle */}
-              <div className="bg-ca-bg dark:bg-theme-2/50 p-0.5 rounded-xl border border-ca-border dark:border-theme-3/50 flex items-center shadow-inner">
-                <button
-                  onClick={() => setViewMode("grid")}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === "grid" ? "bg-ca-surface dark:bg-theme-3 text-primary dark:text-theme-5 shadow-sm" : "text-slate-300 hover:text-white dark:hover:text-white"}`}
-                  title="Grid View"
-                >
-                  <LayoutGrid size={13} />
-                </button>
-                <button
-                  onClick={() => setViewMode("list")}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === "list" ? "bg-ca-surface dark:bg-theme-3 text-primary dark:text-theme-5 shadow-sm" : "text-ca-text-secondary hover:text-ca-text dark:hover:text-white"}`}
-                  title="Spreadsheet List"
-                >
-                  <ListIcon size={13} />
-                </button>
-                <button
-                  onClick={() => setViewMode("timeline")}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === "timeline" ? "bg-ca-surface dark:bg-theme-3 text-primary dark:text-theme-5 shadow-sm" : "text-ca-text-secondary hover:text-ca-text dark:hover:text-white"}`}
-                  title="Timeline Roadmap"
-                >
-                  <Calendar size={13} />
-                </button>
+            <div className="flex items-center gap-2">
+              {/* View Mode Toggle */}
+              <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
+                <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="Grid View"><LayoutGrid size={13}/></button>
+                <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="List View"><ListIcon size={13}/></button>
+                <button onClick={() => setViewMode("timeline")} className={`p-1.5 rounded-lg transition-all cursor-pointer ${viewMode === "timeline" ? "bg-slate-900 text-white dark:bg-blue-600 shadow-2xs" : "text-slate-400 hover:text-slate-600"}`} title="Timeline View"><Calendar size={13}/></button>
               </div>
-
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="flex items-center px-3 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-semibold shadow-sm transition-all cursor-pointer"
-              >
-                <PlusCircle size={14} className="mr-1.5" /> Create Project
+              <button onClick={handleExportCSV} className="flex items-center gap-1.5 h-8 px-3 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold shadow-2xs hover:bg-slate-50 transition-all cursor-pointer">
+                <Download size={13}/> Export
               </button>
-
-              <button
-                onClick={handleExportCSV}
-                className="flex items-center px-3 py-1.5 bg-ca-surface border border-ca-border dark:border-theme-3/50 hover:border-slate-300 dark:hover:bg-theme-3/50 text-ca-text-secondary dark:text-slate-200 hover:text-slate-900 dark:hover:text-white rounded-lg text-sm font-semibold shadow-sm transition-all cursor-pointer"
-              >
-                <Download size={14} className="mr-1.5 text-ca-text-secondary" /> Export List
+              <button onClick={() => setIsCreateModalOpen(true)} className="flex items-center gap-1.5 h-8 px-3.5 bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all cursor-pointer">
+                <PlusCircle size={13}/> Create Project
               </button>
             </div>
           </div>
 
-          {/* Stats KPIs widgets row */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-ca-border dark:border-theme-3/50 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Total Projects</span>
-                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+          {/* ── KPI Stat Cards — Dashboard/Tasks style ── */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {[
+              { label:"Total Projects",  value:stats.total,       sparkPath:"M0,14 L10,10 L20,12 L30,7 L40,9 L50,4 L64,6",   sparkClr:"#64748b", accent:"border-t-slate-400",   num:"text-slate-900 dark:text-white"        },
+              { label:"Active Work",     value:stats.active,      sparkPath:"M0,18 L10,12 L20,8  L30,6  L40,4  L50,3  L64,2",  sparkClr:"#10b981", accent:"border-t-emerald-500",num:"text-emerald-700 dark:text-emerald-400" },
+              { label:"Completed",       value:stats.completed,   sparkPath:"M0,16 L10,12 L20,14 L30,9  L40,11 L50,6  L64,8",  sparkClr:"#3b82f6", accent:"border-t-blue-500",   num:"text-blue-700   dark:text-blue-400"    },
+              { label:"On Hold",         value:stats.onHold,      sparkPath:"M0,12 L10,14 L20,10 L30,13 L40,11 L50,14 L64,12", sparkClr:"#f59e0b", accent:"border-t-amber-500",  num:"text-amber-700  dark:text-amber-400"   },
+              { label:"Overdue",         value:stats.overdue,     sparkPath:"M0,8  L10,14 L20,11 L30,17 L40,13 L50,18 L64,16", sparkClr:"#f43f5e", accent:"border-t-rose-500",   num:"text-rose-700   dark:text-rose-400"    },
+              { label:"Avg Progress",    value:`${stats.avgProgress}%`, sparkPath:"M0,18 L10,14 L20,12 L30,9 L40,7 L50,5 L64,4",  sparkClr:"#8b5cf6", accent:"border-t-violet-500",num:"text-violet-700  dark:text-violet-400"  },
+            ].map(({ label, value, sparkPath, sparkClr, accent, num }) => (
+              <div key={label} className={`bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 border-t-2 ${accent} p-3.5 shadow-2xs`}>
+                <p className="text-[9.5px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{label}</p>
+                <p className={`text-2xl font-black mt-0.5 leading-none ${num}`}>{isProjectsLoading ? "—" : value}</p>
+                <div className="flex items-end justify-between mt-2">
+                  <span className="text-[9.5px] font-semibold text-slate-400">vs last month</span>
+                  <svg width="56" height="20" viewBox="0 0 64 24" fill="none">
+                    <polyline points={sparkPath} stroke={sparkClr} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+                  </svg>
+                </div>
               </div>
-              <h3 className="text-3xl font-black text-ca-text  tracking-tight">{stats.total}</h3>
-            </div>
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-ca-border dark:border-theme-3/50 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Active Work</span>
-                <div className="w-2 h-2 rounded-full bg-theme-4 shadow-[0_0_8px_rgba(52,211,153,0.8)]"></div>
-              </div>
-              <h3 className="text-3xl font-black text-ca-text  tracking-tight">{stats.active}</h3>
-            </div>
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-ca-border dark:border-theme-3/50 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Completed</span>
-                <div className="w-2 h-2 rounded-full bg-blue-400"></div>
-              </div>
-              <h3 className="text-3xl font-black text-ca-text  tracking-tight">{stats.completed}</h3>
-            </div>
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-ca-border dark:border-theme-3/50 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">On Hold</span>
-                <div className="w-2 h-2 rounded-full bg-amber-400"></div>
-              </div>
-              <h3 className="text-3xl font-black text-ca-text  tracking-tight">{stats.onHold}</h3>
-            </div>
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-red-100/50 dark:border-red-500/30 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-primary">Overdue</span>
-                <AlertCircle size={10} className="text-ca-primary" />
-              </div>
-              <h3 className="text-3xl font-black text-ca-primary dark:text-red-400 tracking-tight">{stats.overdue}</h3>
-            </div>
-
-            <div className="bg-ca-surface rounded-2xl p-4 shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)] border border-ca-border dark:border-theme-3/50 flex flex-col">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Avg Progress</span>
-                <div className="w-2 h-2 rounded-full bg-primary-400"></div>
-              </div>
-              <h3 className="text-3xl font-black text-ca-text  tracking-tight">{stats.avgProgress}%</h3>
-            </div>
-
+            ))}
           </div>
 
           {/* Filtering & Listing segment */}
@@ -814,7 +753,7 @@ const Projects = () => {
                       <div className="overflow-x-auto rounded-xl border border-ca-border dark:border-theme-3/50 bg-ca-surface shadow-[0_2px_10px_-3px_rgba(6,81,237,0.05)]">
                         <table className="w-full text-left border-collapse">
                           <thead>
-                            <tr className="bg-theme-3 dark:bg-theme-2/50 border-b border-theme-4 dark:border-theme-3/50 text-[12px] font-extrabold text-white/90 dark:text-slate-300 uppercase tracking-widest">
+                            <tr className="bg-slate-50 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
                               <th className="px-5 py-4 rounded-tl-xl">Project</th>
                               <th className="px-5 py-4">Client</th>
                               <th className="px-5 py-4">Manager</th>
