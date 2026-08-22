@@ -21,10 +21,38 @@ const formatLeadId = (lead) => {
   return `L-01`;
 };
 
+const toDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatFollowUpDateTime = (dateStr) => {
+  if (!dateStr) return "Not Scheduled";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "Not Scheduled";
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 const getLeadDueDate = (lead) => {
   const d = lead.nextFollowUpDate || lead.createdAt || lead.date;
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB");
+  return new Date(d).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
 };
 
 const getLeadAccentColors = (statusName, customColor) => {
@@ -597,9 +625,9 @@ export default function EmployeeLeads() {
 
                   {/* Next Follow-Up Date Pill (if exists) */}
                   {lead.nextFollowUpDate && (
-                    <div className="py-1 px-2 bg-orange-50/80 dark:bg-orange-950/30 rounded-md border border-orange-200 dark:border-orange-800 flex items-center gap-1.5 text-[10px] font-mono font-bold text-orange-900 dark:text-orange-200">
+                    <div className="py-1 px-2 bg-orange-50/80 dark:bg-orange-950/30 rounded-md border border-orange-200 dark:border-orange-800 flex items-center gap-1.5 text-[10px] font-mono font-bold text-orange-900 dark:text-orange-200" title={formatFollowUpDateTime(lead.nextFollowUpDate)}>
                       <Clock size={11} className="text-orange-600 shrink-0" />
-                      <span>Next Follow-Up: <strong>{new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB")}</strong></span>
+                      <span>Next Follow-Up: <strong>{formatFollowUpDateTime(lead.nextFollowUpDate)}</strong></span>
                     </div>
                   )}
                 </div>
@@ -632,7 +660,7 @@ export default function EmployeeLeads() {
                         e.stopPropagation();
                         setShowStatusModalLead(lead);
                         setSelectedStatusId(lead.statusId || lead.status?._id || lead.status?.id || "");
-                        setStatusFollowUpDate(lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toISOString().split("T")[0] : "");
+                        setStatusFollowUpDate(lead.nextFollowUpDate ? toDateTimeLocal(lead.nextFollowUpDate) : "");
                       }}
                       className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 dark:bg-orange-950/40 dark:text-orange-300 border border-orange-200 dark:border-orange-800 rounded-lg text-[10px] font-extrabold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
                       title="Update Stage & Follow-Up Date"
@@ -957,12 +985,12 @@ export default function EmployeeLeads() {
 
                   <div>
                     <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Next Follow-up Date
+                      Next Follow-up Date &amp; Time
                     </label>
                     <div className="relative">
                       <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                       <input
-                        type="date"
+                        type="datetime-local"
                         value={form.nextFollowUpDate}
                         onChange={(e) => setForm((p) => ({ ...p, nextFollowUpDate: e.target.value }))}
                         className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 font-mono"
@@ -1045,12 +1073,12 @@ export default function EmployeeLeads() {
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Calendar size={13} className="text-teal-600" /> Next Follow-Up Date
+                    <Calendar size={13} className="text-teal-600" /> Next Follow-Up Date &amp; Time
                   </span>
                   <span className="text-[10px] text-ca-text-secondary lowercase">(when to contact next)</span>
                 </label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={statusFollowUpDate}
                   onChange={(e) => setStatusFollowUpDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500 shadow-2xs"

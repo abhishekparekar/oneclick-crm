@@ -213,10 +213,9 @@ export default function HRLeads() {
         productService: form.productService.trim(),
         source: form.source || "Walk-in",
         statusId: activeStatusId,
-        estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined,
-        statusId: form.statusId || (statuses[0]?.id || statuses[0]?._id),
         estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : null,
         assignedTo: form.assignedTo || null,
+        nextFollowUpDate: form.nextFollowUpDate || null,
         notes: form.notes.trim() || null,
       };
 
@@ -235,6 +234,7 @@ export default function HRLeads() {
         statusId: "",
         estimatedValue: "",
         assignedTo: "",
+        nextFollowUpDate: "",
         notes: "",
       });
     } catch (err) {
@@ -784,6 +784,21 @@ export default function HRLeads() {
                         <option value="Campus">Campus Drive</option>
                         <option value="Other">Other</option>
                       </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Next Follow-up Date &amp; Time
+                    </label>
+                    <div className="relative">
+                      <Clock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="datetime-local"
+                        value={form.nextFollowUpDate}
+                        onChange={(e) => setForm((p) => ({ ...p, nextFollowUpDate: e.target.value }))}
+                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                      />
                     </div>
                   </div>
                 </div>

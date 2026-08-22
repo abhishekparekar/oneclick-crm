@@ -81,6 +81,20 @@ const formatTime = (dateStr) => {
   return new Date(dateStr).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
 };
 
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return "N/A";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "N/A";
+  return d.toLocaleString("en-IN", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 const MiniAvatar = ({ name, size = "w-6 h-6", textSize = "text-[9.5px]" }) => {
   return (
     <div className={`${size} rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 text-white flex items-center justify-center font-black ${textSize} shrink-0 shadow-2xs`}>
@@ -134,13 +148,12 @@ function FollowUpModal({ isOpen, onClose, taskId }) {
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-3 text-xs">
           <div>
-            <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Next Follow-Up Date *</label>
+            <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Next Follow-Up Date &amp; Time *</label>
             <input 
               required
-              type="date"
+              type="datetime-local"
               value={nextFollowUpDate}
               onChange={e => setNextFollowUpDate(e.target.value)}
-              min={new Date().toISOString().split("T")[0]}
               className="w-full bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 font-semibold"
             />
           </div>
@@ -596,7 +609,7 @@ export default function TaskDetailsPage() {
                   <div className="col-span-2 p-2.5 rounded-xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/60">
                     <span className="text-[9.5px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 block mb-0.5">Next Follow-Up</span>
                     <span className="font-mono font-black text-indigo-700 dark:text-indigo-300 block">
-                      {formatDate(task.nextFollowUpDate)}
+                      {formatDateTime(task.nextFollowUpDate)}
                     </span>
                   </div>
                 )}

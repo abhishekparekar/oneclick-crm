@@ -80,6 +80,15 @@ const leadSchema = new mongoose.Schema(
       type: Number,
       default: null,
     },
+    nextFollowUpDate: {
+      type: Date,
+      default: null,
+      index: true,
+    },
+    followUpNotified: {
+      type: Boolean,
+      default: false,
+    },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

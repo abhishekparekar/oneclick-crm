@@ -164,8 +164,45 @@ const initCronJobs = () => {
           }
         }
       }
+  // 6. Lead Scheduled Follow-up Reminder (Runs every minute)
+  cron.schedule("* * * * *", async () => {
+    try {
+      const now = new Date();
+      const Lead = require("../models/Lead");
+      // Find leads whose scheduled nextFollowUpDate is <= now and has not been notified yet
+      const dueLeads = await Lead.find({
+        nextFollowUpDate: { $lte: now, $ne: null },
+        followUpNotified: { $ne: true },
+        deletedAt: null,
+      }).populate("assignedTo", "name email");
+
+      for (const lead of dueLeads) {
+        const contact = lead.phone || lead.whatsappPhone || "No phone";
+        const timeStr = new Date(lead.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
+        const dateStr = new Date(lead.nextFollowUpDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
+
+        const title = `⏰ Lead Follow-up Reminder: ${lead.name}`;
+        const message = `Follow-up scheduled at ${timeStr}, ${dateStr} with client ${lead.name} (${contact}).`;
+
+        // Notify assigned user if available, otherwise notify creator
+        const targetUserId = lead.assignedTo?._id || lead.assignedTo || lead.createdBy;
+        if (targetUserId && lead.companyId) {
+          await notifyUser(
+            targetUserId,
+            lead.companyId,
+            title,
+            message,
+            "lead_follow_up",
+            { leadId: lead._id.toString(), leadName: lead.name }
+          ).catch(() => {});
+        }
+
+        // Mark as notified so notification isn't resent every minute
+        lead.followUpNotified = true;
+        await lead.save().catch(() => {});
+      }
     } catch (err) {
-      console.error("Cron Error (Birthday reminder):", err);
+      console.error("Cron Error (Lead follow-up reminder):", err);
     }
   }, { timezone: "Asia/Kolkata" });
 };

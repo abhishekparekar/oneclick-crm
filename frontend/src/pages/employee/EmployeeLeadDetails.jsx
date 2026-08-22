@@ -18,35 +18,58 @@ const formatLeadId = (lead) => {
   return `L-01`;
 };
 
+const toDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatFollowUpDateTime = (dateStr) => {
+  if (!dateStr) return "Not Scheduled";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "Not Scheduled";
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 export default function EmployeeLeadDetails() {
   const { id: leadId } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const [activeTab, setActiveTab] = useState("overview"); // 'overview' | 'whatsapp' | 'timeline'
-  const [newNote, setNewNote] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [statusRemark, setStatusRemark] = useState("");
+  const [statusAttachedFile, setStatusAttachedFile] = useState(null);
 
-  // WhatsApp composer state
+  // Messenger / Variables state
   const [selectedTemplate, setSelectedTemplate] = useState(null);
-  const [varValues, setVarValues] = useState({ 1: "", 2: "", 3: "" });
-  const [mediaUrl, setMediaUrl] = useState("");
-  const [sendingCloudMsg, setSendingCloudMsg] = useState(false);
+  const [varValues, setVarValues] = useState({});
+  const [customMsg, setCustomMsg] = useState("");
+  const [activeMessengerTab, setActiveMessengerTab] = useState("templates");
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [attachedFile, setAttachedFile] = useState(null);
+  const [directUploadingDoc, setDirectUploadingDoc] = useState(false);
 
-  // Fetch Lead Details
-  const { data: leadData, isLoading, refetch } = useQuery({
+  // Fetch single lead details
+  const { data: leadData, isLoading } = useQuery({
     queryKey: ["employeeLeadDetails", leadId],
     queryFn: async () => {
       const res = await api.get(`/leads-engine/leads/${leadId}`);
       return res?.data?.data || res?.data || null;
     },
-    enabled: Boolean(leadId),
   });
 
-  // Fetch Statuses
+  // Fetch pipeline statuses
   const { data: statusesData } = useQuery({
     queryKey: ["leadsEngineStatuses"],
     queryFn: async () => {
@@ -54,26 +77,23 @@ export default function EmployeeLeadDetails() {
       return res?.data?.data || res?.data || [];
     },
   });
+  const statuses = Array.isArray(statusesData) ? statusesData : [];
 
-  // Fetch WhatsApp Templates
+  // Fetch approved WhatsApp templates
   const { data: templatesData } = useQuery({
-    queryKey: ["leadsWhatsAppTemplates"],
+    queryKey: ["leadsEngineTemplates"],
     queryFn: async () => {
-      const res = await api.get("/leads-engine/templates").catch(() => ({ data: [] }));
-      const list = res?.data?.templates || res?.data?.data || (Array.isArray(res?.data) ? res.data : []);
-      return list;
+      const res = await api.get("/leads-engine/templates");
+      return res?.data?.data || res?.data || [];
     },
   });
-
-  const lead = leadData || {};
-  const statuses = Array.isArray(statusesData) ? statusesData : [];
   const templates = Array.isArray(templatesData) ? templatesData : [];
 
   useEffect(() => {
     if (leadData) {
       setSelectedStatusId(leadData.statusId || leadData.status?._id || leadData.status?.id || "");
       if (leadData.nextFollowUpDate) {
-        setNextFollowUpDate(new Date(leadData.nextFollowUpDate).toISOString().split("T")[0]);
+        setNextFollowUpDate(toDateTimeLocal(leadData.nextFollowUpDate));
       }
       const rawPhone = leadData.whatsappPhone || leadData.phone || "";
       setVarValues({
@@ -92,9 +112,6 @@ export default function EmployeeLeadDetails() {
       setSelectedTemplate(templates[0]);
     }
   }, [templatesData]);
-
-  const [statusAttachedFile, setStatusAttachedFile] = useState(null);
-  const [directUploadingDoc, setDirectUploadingDoc] = useState(false);
 
   // Update Status Mutation
   const updateStatusMut = useMutation({
@@ -407,8 +424,8 @@ export default function EmployeeLeadDetails() {
                   <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
                     <Clock size={11} /> Next Follow-Up
                   </p>
-                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
-                    {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
+                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate" title={formatFollowUpDateTime(lead.nextFollowUpDate)}>
+                    {formatFollowUpDateTime(lead.nextFollowUpDate)}
                   </p>
                 </div>
               </div>
@@ -529,12 +546,12 @@ export default function EmployeeLeadDetails() {
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
                   <span className="flex items-center gap-1.5">
-                    <Calendar size={13} className="text-teal-600" /> Next Follow-Up Date
+                    <Calendar size={13} className="text-teal-600" /> Next Follow-Up Date &amp; Time
                   </span>
                   <span className="text-[10px] text-ca-text-secondary lowercase">(when to contact next)</span>
                 </label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={nextFollowUpDate}
                   onChange={(e) => setNextFollowUpDate(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500 shadow-2xs"

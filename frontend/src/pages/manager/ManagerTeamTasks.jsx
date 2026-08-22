@@ -612,8 +612,8 @@ export default function ManagerTeamTasks() {
                           </span>
                         </div>
                         {t.nextFollowUpDate && (
-                          <p className="text-[10px] text-slate-400 mt-0.5">
-                            Follow-up: {new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                            Follow-up: {new Date(t.nextFollowUpDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })}
                           </p>
                         )}
                       </td>

@@ -410,20 +410,20 @@ const getLeads = async (req, res) => {
       estimatedValue: l.estimatedValue || null,
       assignedTo: l.assignedTo
         ? {
-            id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
-            _id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
-            name: l.assignedTo.name || "Employee",
-            email: l.assignedTo.email || "",
-            role: l.assignedTo.role || "Employee",
-          }
+          id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
+          _id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
+          name: l.assignedTo.name || "Employee",
+          email: l.assignedTo.email || "",
+          role: l.assignedTo.role || "Employee",
+        }
         : null,
       assignedToId: l.assignedTo?._id?.toString() || (typeof l.assignedTo === "string" ? l.assignedTo : null),
       createdBy: l.createdBy
         ? {
-            id: l.createdBy._id ? l.createdBy._id.toString() : l.createdBy.toString(),
-            name: l.createdBy.name || "Admin",
-            email: l.createdBy.email || "",
-          }
+          id: l.createdBy._id ? l.createdBy._id.toString() : l.createdBy.toString(),
+          name: l.createdBy.name || "Admin",
+          email: l.createdBy.email || "",
+        }
         : null,
       source: l.source,
       productService: l.productService,
@@ -611,12 +611,12 @@ const getLeadById = async (req, res) => {
       anniversaryDate: lead.anniversaryDate,
       assignedTo: lead.assignedTo
         ? {
-            id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
-            _id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
-            name: lead.assignedTo.name || "Employee",
-            email: lead.assignedTo.email || "",
-            role: lead.assignedTo.role || "Employee",
-          }
+          id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
+          _id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
+          name: lead.assignedTo.name || "Employee",
+          email: lead.assignedTo.email || "",
+          role: lead.assignedTo.role || "Employee",
+        }
         : null,
       assignedToId: lead.assignedTo?._id?.toString() || (typeof lead.assignedTo === "string" ? lead.assignedTo : null),
       statusId: lead.statusId?._id?.toString() || lead.statusId,
@@ -735,12 +735,12 @@ const updateLead = async (req, res) => {
       estimatedValue: updated.estimatedValue || null,
       assignedTo: updated.assignedTo
         ? {
-            id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
-            _id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
-            name: updated.assignedTo.name || "Employee",
-            email: updated.assignedTo.email || "",
-            role: updated.assignedTo.role || "Employee",
-          }
+          id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
+          _id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
+          name: updated.assignedTo.name || "Employee",
+          email: updated.assignedTo.email || "",
+          role: updated.assignedTo.role || "Employee",
+        }
         : null,
       statusId: updated.statusId?._id?.toString() || updated.statusId,
       status: updated.statusId
@@ -1745,16 +1745,16 @@ const sendLeadTemplateMessage = async (req, res) => {
 
     const payload = template
       ? {
-          template: template.name,
-          language: template.language || "en",
-          params: paramsArray.length > 0 ? paramsArray : undefined,
-          variables: variableValues,
-          mediaUrl: variableValues.headerMediaUrl || undefined,
-          mediaType: template.headerType !== "NONE" ? template.headerType : undefined,
-        }
+        template: template.name,
+        language: template.language || "en",
+        params: paramsArray.length > 0 ? paramsArray : undefined,
+        variables: variableValues,
+        mediaUrl: variableValues.headerMediaUrl || undefined,
+        mediaType: template.headerType !== "NONE" ? template.headerType : undefined,
+      }
       : {
-          text: messageContent,
-        };
+        text: messageContent,
+      };
 
     const dispatchResult = await sendWhatsAppNotification({
       companyId,
@@ -1856,16 +1856,16 @@ const sendMobileLeadTemplateMessage = async (req, res) => {
 
     const payload = template
       ? {
-          template: template.name,
-          language: template.language || "en",
-          params: paramsArray.length > 0 ? paramsArray : (req.body.params || undefined),
-          variables: activeVars,
-          mediaUrl: req.body.mediaUrl || req.body.headerMediaUrl || activeVars.headerMediaUrl || template.headerContent,
-          mediaType: req.body.mediaType || template.headerType,
-        }
+        template: template.name,
+        language: template.language || "en",
+        params: paramsArray.length > 0 ? paramsArray : (req.body.params || undefined),
+        variables: activeVars,
+        mediaUrl: req.body.mediaUrl || req.body.headerMediaUrl || activeVars.headerMediaUrl || template.headerContent,
+        mediaType: req.body.mediaType || template.headerType,
+      }
       : {
-          text: messageContent,
-        };
+        text: messageContent,
+      };
 
     const dispatchResult = await sendWhatsAppNotification({
       companyId,
@@ -2279,7 +2279,7 @@ const testWhatsappConnection = async (req, res) => {
         status: "VERIFIED",
         payload: { verifiedName, qualityRating },
         sentAt: new Date(),
-      }).catch(() => {});
+      }).catch(() => { });
 
       return res.json({
         success: true,
@@ -2324,7 +2324,7 @@ const testWhatsappConnection = async (req, res) => {
         status: "VERIFIED",
         payload: { verifiedName, qualityRating },
         sentAt: new Date(),
-      }).catch(() => {});
+      }).catch(() => { });
 
       console.log("[testWhatsappConnection] Verification successful:", {
         verifiedName,
@@ -2370,7 +2370,7 @@ const testWhatsappConnection = async (req, res) => {
         errorCategory: analysis.errorCategory,
         resolutionHint: analysis.resolutionHint,
         sentAt: new Date(),
-      }).catch(() => {});
+      }).catch(() => { });
 
       return res.json({
         success: false,
@@ -2508,13 +2508,13 @@ const sendBroadcastWhatsAppMessage = async (req, res) => {
           messageType: "BROADCAST",
           payload: templateName
             ? {
-                template: templateName,
-                params: [lead.name || "Customer", customMessage || "Greetings from ONE CLICK CRM!"],
-                mediaUrl,
-              }
+              template: templateName,
+              params: [lead.name || "Customer", customMessage || "Greetings from ONE CLICK CRM!"],
+              mediaUrl,
+            }
             : {
-                text: customMessage || `Hello ${lead.name || "Customer"}, greetings from ONE CLICK CRM!`,
-              },
+              text: customMessage || `Hello ${lead.name || "Customer"}, greetings from ONE CLICK CRM!`,
+            },
         });
 
         if (res.success) successCount++;
