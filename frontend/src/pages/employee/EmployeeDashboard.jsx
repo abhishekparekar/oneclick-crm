@@ -52,7 +52,7 @@ import {
 import toast from "react-hot-toast";
 
 // ─── Mini Line Chart ─────────────────────────────────────────────────
-const MiniLineChart = ({ data = [], color = "#6366f1", height = 120 }) => {
+const MiniLineChart = ({ data = [], color = "#f59e0b", height = 120 }) => {
   if (!data.length) return null;
   const max = Math.max(...data, 1);
   const min = 0;
@@ -83,15 +83,15 @@ const MiniLineChart = ({ data = [], color = "#6366f1", height = 120 }) => {
         const y = h - pad - (v / 100) * (h - pad * 2);
         return (
           <g key={v}>
-            <line x1={pad} y1={y} x2={w - pad} y2={y} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="3,3" />
-            <text x={0} y={y + 4} fontSize="8" fill="#94a3b8" textAnchor="start">{v}</text>
+            <line x1={pad} y1={y} x2={w - pad} y2={y} stroke="#cbd5e1" strokeWidth="1" strokeDasharray="3,3" />
+            <text x={0} y={y + 4} fontSize="8" fill="#64748b" textAnchor="start">{v}</text>
           </g>
         );
       })}
       {/* Area fill */}
       <defs>
         <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
           <stop offset="100%" stopColor={color} stopOpacity="0.01" />
         </linearGradient>
       </defs>
@@ -119,7 +119,7 @@ const MiniLineChart = ({ data = [], color = "#6366f1", height = 120 }) => {
         const d = new Date();
         d.setDate(d.getDate() - (data.length - 1 - i));
         return (
-          <text key={i} x={p.x} y={h - 2} fontSize="7" fill="#94a3b8" textAnchor="middle">
+          <text key={i} x={p.x} y={h - 2} fontSize="7" fill="#64748b" textAnchor="middle">
             {d.toLocaleDateString("en-US", { month: "short", day: "numeric" })}
           </text>
         );
@@ -137,9 +137,9 @@ const DonutChart = ({ completed = 0, inProgress = 0, pending = 0 }) => {
   const circumference = 2 * Math.PI * r;
 
   const segments = [
-    { value: completed, color: "#22c55e", label: "Completed" },
-    { value: inProgress, color: "#6366f1", label: "In Progress" },
-    { value: pending, color: "#f97316", label: "Pending" },
+    { value: completed, color: "#10b981", label: "Completed" },
+    { value: inProgress, color: "#f59e0b", label: "In Progress" },
+    { value: pending, color: "#475569", label: "Pending" },
   ];
 
   let offset = 0;
@@ -487,17 +487,10 @@ const EmployeeDashboard = () => {
   // ── Leave balance bars — only real types from LeaveBalance model ──────
   // Model fields: casual, sick, annual, lop
   const leaveTypes = [
-    { label: "Casual Leave",  key: "casual",  color: "#f97316", limit: leaveLimits.casual  || 12 },
-    { label: "Medical Leave", key: "sick",    color: "#22c55e", limit: leaveLimits.sick    || 10 },
-    { label: "Earned Leave",  key: "annual",  color: "#6366f1", limit: leaveLimits.annual  || 15 },
+    { label: "Casual Leave",  key: "casual",  color: "#f59e0b", limit: leaveLimits.casual  || 12 },
+    { label: "Medical Leave", key: "sick",    color: "#10b981", limit: leaveLimits.sick    || 10 },
+    { label: "Earned Leave",  key: "annual",  color: "#0f172a", limit: leaveLimits.annual  || 15 },
   ];
-
-  // ── Notification type → icon color ───────────────────────────────────
-  const notifIconColor = (type) => ({
-    attendance: "#22c55e", leave: "#f97316", payroll: "#6366f1",
-    task: "#eab308", task_update: "#eab308", project: "#3b82f6",
-    announcement: "#ec4899", system: "#64748b",
-  }[type] || "#64748b");
 
   // ── Score label & colour ──────────────────────────────────────────────
   const scoreLabel =
@@ -507,10 +500,10 @@ const EmployeeDashboard = () => {
     "Needs Focus";
 
   const scoreColor =
-    productivityScore >= 80 ? "#22c55e" :
-    productivityScore >= 60 ? "#6366f1" :
-    productivityScore >= 40 ? "#f97316" :
-    "#ef4444";
+    productivityScore >= 80 ? "#10b981" :
+    productivityScore >= 60 ? "#f59e0b" :
+    productivityScore >= 40 ? "#64748b" :
+    "#e11d48";
 
   // Leaves remaining (leaveBalance already represents the remaining available leaves)
   const leavesRemaining = Math.max(0,
@@ -548,62 +541,62 @@ const EmployeeDashboard = () => {
           </div>
 
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs text-xs">
-            <Clock size={15} className="text-indigo-500" />
+            <Clock size={15} className="text-amber-500" />
             <span className="font-bold font-mono text-slate-700 dark:text-slate-200">
               {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </span>
           </div>
 
           <div className="hidden md:flex items-center gap-1 pl-1">
-            <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-orange-300 flex items-center justify-center text-slate-600 hover:text-[#f97316] shadow-2xs transition-all" title="Tasks">
+            <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Tasks">
               <ListTodo size={14} />
             </Link>
-            <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-green-300 flex items-center justify-center text-slate-600 hover:text-green-600 shadow-2xs transition-all" title="Attendance">
+            <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Attendance">
               <CalendarCheck size={14} />
             </Link>
-            <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-purple-300 flex items-center justify-center text-slate-600 hover:text-purple-600 shadow-2xs transition-all" title="Leaves">
+            <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Leaves">
               <Calendar size={14} />
             </Link>
           </div>
         </div>
       </div>
 
-      {/* ── Top Hero: Productivity & Punch Bar (Compact SaaS Style) ────────── */}
+      {/* ── Top Hero: Productivity & Punch Bar (Executive CRM Style) ────────── */}
       <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800 relative overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Left: Productivity Score & Work Summary */}
           <div className="flex items-center gap-4 flex-1">
             <div className="relative flex items-center justify-center">
-              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center border shadow-inner" style={{ backgroundColor: `${scoreColor}10`, borderColor: `${scoreColor}30` }}>
-                <span className="text-lg font-black leading-none" style={{ color: scoreColor }}>{productivityScore}%</span>
-                <span className="text-[8.5px] font-extrabold uppercase tracking-wider mt-0.5 text-slate-400">Score</span>
+              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center border shadow-inner bg-amber-500/10 border-amber-500/30">
+                <span className="text-lg font-black leading-none text-amber-600 dark:text-amber-400">{productivityScore}%</span>
+                <span className="text-[8.5px] font-extrabold uppercase tracking-wider mt-0.5 text-slate-500">Score</span>
               </div>
             </div>
 
             <div className="space-y-1 flex-1 min-w-0">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-800 dark:text-white truncate">Business &amp; Productivity</span>
-                <span className="px-1.5 py-0.2 rounded text-[9.5px] font-black uppercase tracking-wider border" style={{ backgroundColor: `${scoreColor}15`, color: scoreColor, borderColor: `${scoreColor}25` }}>
+                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">Business &amp; Productivity</span>
+                <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30">
                   {scoreLabel}
                 </span>
               </div>
 
-              <div className="w-full max-w-md h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+              <div className="w-full max-w-md h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                 <div
-                  className="h-full rounded-full transition-all duration-1000"
-                  style={{ width: `${productivityScore}%`, backgroundColor: scoreColor }}
+                  className="h-full rounded-full transition-all duration-1000 bg-amber-500"
+                  style={{ width: `${productivityScore}%` }}
                 />
               </div>
 
               <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
                 {punchInTimeRaw ? (
-                  <span>In: <strong className="text-slate-800 dark:text-white font-bold">{formatTime(punchInTimeRaw)}</strong></span>
+                  <span>In: <strong className="text-slate-900 dark:text-white font-bold">{formatTime(punchInTimeRaw)}</strong></span>
                 ) : (
                   <span>Status: <strong className="text-slate-500 font-bold">Not Punched In</strong></span>
                 )}
                 {punchOutTimeRaw && (
-                  <span>Out: <strong className="text-slate-800 dark:text-white font-bold">{formatTime(punchOutTimeRaw)}</strong></span>
+                  <span>Out: <strong className="text-slate-900 dark:text-white font-bold">{formatTime(punchOutTimeRaw)}</strong></span>
                 )}
                 {totalHoursToday > 0 && (
                   <span>Worked: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{totalHoursToday}h</strong></span>
@@ -612,12 +605,12 @@ const EmployeeDashboard = () => {
             </div>
           </div>
 
-          {/* Right: Shift & Attendance Times Display (No Punch Button on Web) */}
-          <div className="flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-800">
+          {/* Right: Shift & Attendance Times Display */}
+          <div className="flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
             <div className="flex items-center gap-3">
               <div className="text-center px-2">
-                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Punch In</span>
-                <span className="text-xs font-black text-slate-800 dark:text-white font-mono">
+                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Punch In</span>
+                <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
                   {punchInTimeRaw ? formatTime(punchInTimeRaw) : "--:--"}
                 </span>
               </div>
@@ -625,8 +618,8 @@ const EmployeeDashboard = () => {
               <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
 
               <div className="text-center px-2">
-                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Punch Out</span>
-                <span className="text-xs font-black text-slate-800 dark:text-white font-mono">
+                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Punch Out</span>
+                <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
                   {punchOutTimeRaw ? formatTime(punchOutTimeRaw) : "--:--"}
                 </span>
               </div>
@@ -634,17 +627,17 @@ const EmployeeDashboard = () => {
               <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
 
               <div className="text-center px-2">
-                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider block">Shift Status</span>
+                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Shift Status</span>
                 {isPunchedIn ? (
                   <span className="inline-flex items-center gap-1 text-[10.5px] font-extrabold text-emerald-600 dark:text-emerald-400">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
                   </span>
                 ) : isPunchedOut ? (
-                  <span className="text-[10.5px] font-extrabold text-blue-600 dark:text-blue-400">
+                  <span className="text-[10.5px] font-extrabold text-slate-700 dark:text-slate-300">
                     Completed
                   </span>
                 ) : (
-                  <span className="text-[10.5px] font-bold text-slate-400">
+                  <span className="text-[10.5px] font-bold text-slate-500">
                     Pending
                   </span>
                 )}
@@ -654,57 +647,61 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      {/* ── 4 Top KPI Mini-Tiles ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+      {/* ── 4 Top KPI Mini-Tiles (Executive Clean Style) ────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {/* Card 1: Tasks */}
+        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
           <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <ListTodo size={12} className="text-blue-500" /> Tasks
+            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+              <ListTodo size={13} className="text-amber-600 dark:text-amber-400" /> Tasks
             </div>
-            <div className="text-lg font-black text-slate-800 dark:text-white leading-tight">{taskSummary.assignedTasks || 0}</div>
-            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">{taskSummary.pending || 0} pending</span>
+            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{taskSummary.assignedTasks || 0}</div>
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{taskSummary.pending || 0} pending</span>
           </div>
-          <Link to="/employee/my-tasks" className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 hover:bg-blue-600 hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
+          <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+            <ChevronRight size={14} />
           </Link>
         </div>
 
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+        {/* Card 2: Lead CRM */}
+        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
           <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <Magnet size={12} className="text-[#f97316]" /> Lead CRM
+            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+              <Magnet size={13} className="text-amber-600 dark:text-amber-400" /> Lead CRM
             </div>
-            <div className="text-lg font-black text-[#ea580c] leading-tight">{leadStats.total}</div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">{leadStats.won} deals won</span>
+            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{leadStats.won} deals won</span>
           </div>
-          <Link to="/employee/leads" className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-950/40 text-[#f97316] hover:bg-[#f97316] hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
+          <Link to="/employee/leads" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+            <ChevronRight size={14} />
           </Link>
         </div>
 
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+        {/* Card 3: Attendance */}
+        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
           <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <CalendarCheck size={12} className="text-emerald-500" /> Attendance
+            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+              <CalendarCheck size={13} className="text-emerald-600 dark:text-emerald-400" /> Attendance
             </div>
-            <div className="text-lg font-black text-slate-800 dark:text-white leading-tight">{attSummary.present || 0}</div>
-            <span className="text-[10px] text-slate-400 font-semibold">{attSummary.absent || 0} absent</span>
+            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{attSummary.present || 0}</div>
+            <span className="text-[10px] text-slate-500 font-bold">{attSummary.absent || 0} absent</span>
           </div>
-          <Link to="/employee/attendance" className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 hover:bg-emerald-600 hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
+          <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-emerald-600 hover:text-white dark:bg-slate-800 dark:hover:bg-emerald-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+            <ChevronRight size={14} />
           </Link>
         </div>
 
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+        {/* Card 4: Leaves */}
+        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
           <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <Calendar size={12} className="text-purple-500" /> Leaves
+            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+              <Calendar size={13} className="text-amber-600 dark:text-amber-400" /> Leaves
             </div>
-            <div className="text-lg font-black text-slate-800 dark:text-white leading-tight">{leavesRemaining}</div>
-            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">{pendingLeaveRequests} pending</span>
+            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leavesRemaining}</div>
+            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{pendingLeaveRequests} pending</span>
           </div>
-          <Link to="/employee/leaves" className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 hover:bg-purple-600 hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
+          <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+            <ChevronRight size={14} />
           </Link>
         </div>
       </div>
@@ -715,112 +712,107 @@ const EmployeeDashboard = () => {
         {/* ───────── LEFT WORKSPACE (2 COLS) ───────── */}
         <div className="lg:col-span-2 space-y-3.5">
           
-          {/* ── Lead Management CRM (Primary Interactive Section) ── */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-[#f97316]">
-                  <Magnet size={14} />
+          {/* ── Lead Management CRM (Clean Professional Card) ── */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  <Magnet size={16} />
                 </div>
                 <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Sales Opportunities &amp; Pipeline</p>
+                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
+                  <p className="text-[10.5px] text-slate-500 font-semibold mt-0.5">Sales Opportunities &amp; Pipeline</p>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowAddLeadModal(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
                 >
-                  <Plus size={12} /> Add Lead
+                  <Plus size={13} /> Add Lead
                 </button>
                 <Link
                   to="/employee/leads"
-                  className="text-[11px] font-bold text-[#f97316] hover:text-[#ea580c] flex items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
+                  className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 px-2 py-1.5"
                 >
-                  View All <ChevronRight size={12} />
+                  View All <ChevronRight size={13} />
                 </Link>
               </div>
             </div>
 
-            {/* 4 KPI Grid Cards */}
+            {/* 4 Neutral KPI Grid Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div className="bg-orange-50/60 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg p-2.5">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Total</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Total</span>
+                  <div className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-300" />
                 </div>
-                <div className="text-lg font-black text-[#ea580c] leading-tight">{leadStats.total}</div>
-                <span className="text-[9px] text-orange-600/80 font-medium">All Leads</span>
+                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
+                <span className="text-[9.5px] text-slate-500 font-bold">All Leads</span>
               </div>
 
-              <div className="bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-lg p-2.5">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 uppercase">Contacted</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Contacted</span>
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
                 </div>
-                <div className="text-lg font-black text-[#7c3aed] leading-tight">{leadStats.contacted}</div>
-                <span className="text-[9px] text-purple-600/80 font-medium">Follow-ups</span>
+                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.contacted}</div>
+                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold">Follow-ups</span>
               </div>
 
-              <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg p-2.5">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase">In Progress</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">In Progress</span>
+                  <div className="w-2 h-2 rounded-full bg-amber-600" />
                 </div>
-                <div className="text-lg font-black text-[#d97706] leading-tight">{leadStats.inProgress}</div>
-                <span className="text-[9px] text-amber-600/80 font-medium">Active</span>
+                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.inProgress}</div>
+                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold">Active</span>
               </div>
 
-              <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-2.5">
+              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
                 <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Won</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Won</span>
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
                 </div>
-                <div className="text-lg font-black text-[#059669] leading-tight">{leadStats.won}</div>
-                <span className="text-[9px] text-emerald-600/80 font-medium">Deals Closed</span>
+                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">{leadStats.won}</div>
+                <span className="text-[9.5px] text-emerald-700 dark:text-emerald-400 font-bold">Deals Closed</span>
               </div>
             </div>
 
             {/* Recent Prospects List */}
             {leadsList.length > 0 ? (
-              <div className="space-y-1.5">
-                <div className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
                   <span>Recent Prospects</span>
                   <span>1-Click Contact</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {leadsList.slice(0, 4).map((lead) => {
-                    const sName = lead.status?.name || "New";
-                    const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10b981" : sName.toLowerCase().includes("contact") ? "#8b5cf6" : "#06b6d4");
                     const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
 
                     return (
                       <div
                         key={lead.id || lead._id || Math.random().toString()}
-                        className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-orange-200 dark:hover:border-orange-500/30 transition-all"
+                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101B] hover:border-amber-500 transition-all shadow-2xs"
                       >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border"
-                            style={{ backgroundColor: `${sColor}15`, borderColor: `${sColor}30`, color: sColor }}
-                          >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
                             {(lead.name || "LD").slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                            <div className="text-xs font-black text-slate-900 dark:text-white truncate">
                               {lead.name}
                             </div>
-                            <div className="text-[10px] text-slate-400 truncate">
+                            <div className="text-[10.5px] text-slate-500 font-medium truncate">
                               {lead.company || lead.productService || "Prospect"}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                        <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
                           {lead.estimatedValue && (
-                            <span className="text-[9.5px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded">
+                            <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
                               ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
                             </span>
                           )}
@@ -829,19 +821,19 @@ const EmployeeDashboard = () => {
                               href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.name || ""}, connecting from One Click regarding your inquiry.`)}`}
                               target="_blank"
                               rel="noreferrer"
-                              className="w-6 h-6 rounded-md bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all"
+                              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center justify-center transition-all border border-emerald-200 dark:border-emerald-800"
                               title="Chat on WhatsApp"
                             >
-                              <MessageSquare size={11} />
+                              <MessageSquare size={13} />
                             </a>
                           )}
                           {cleanPhone && (
                             <a
                               href={`tel:${cleanPhone}`}
-                              className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all"
+                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-800 text-slate-700 hover:text-white dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center transition-all border border-slate-200 dark:border-slate-700"
                               title="Call"
                             >
-                              <Phone size={11} />
+                              <Phone size={13} />
                             </a>
                           )}
                         </div>
@@ -857,17 +849,17 @@ const EmployeeDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             
             {/* Col 1: Tasks Summary */}
-            <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                  <ListTodo size={14} className="text-blue-500" /> Tasks Progress
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  <ListTodo size={14} className="text-amber-600 dark:text-amber-400" /> Tasks Progress
                 </div>
-                <Link to="/employee/my-tasks" className="text-[10px] font-bold text-blue-600 hover:underline">
+                <Link to="/employee/my-tasks" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
                   View Tasks
                 </Link>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-4">
                 <div className="w-20 shrink-0">
                   <DonutChart
                     completed={taskSummary.completed || 0}
@@ -875,82 +867,82 @@ const EmployeeDashboard = () => {
                     pending={taskSummary.pending || 0}
                   />
                 </div>
-                <div className="space-y-1.5 flex-1 text-xs">
+                <div className="space-y-2 flex-1 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500" /> Completed
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Completed
                     </span>
-                    <strong className="font-black text-slate-800 dark:text-white">{taskSummary.completed || 0}</strong>
+                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.completed || 0}</strong>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                      <span className="w-2 h-2 rounded-full bg-indigo-500" /> In Progress
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress
                     </span>
-                    <strong className="font-black text-slate-800 dark:text-white">{taskSummary.inProgress || 0}</strong>
+                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.inProgress || 0}</strong>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" /> Pending
+                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-slate-500" /> Pending
                     </span>
-                    <strong className="font-black text-slate-800 dark:text-white">{taskSummary.pending || 0}</strong>
+                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.pending || 0}</strong>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Col 2: Quick Actions (5 Clean Non-Clipped Buttons) */}
-            <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white mb-2.5">
-                <LayoutGrid size={14} className="text-[#f97316]" /> Quick Actions
+            {/* Col 2: Quick Actions (Clean Monochromatic Suite) */}
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2.5 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <LayoutGrid size={14} className="text-amber-600 dark:text-amber-400" /> Quick Actions
               </div>
 
               <div className="grid grid-cols-3 gap-2">
                 <Link
                   to="/employee/leads"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-orange-50/70 hover:bg-orange-100 dark:bg-orange-950/30 text-[#f97316] transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <Magnet size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Lead CRM</span>
+                  <Magnet size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Lead CRM</span>
                 </Link>
 
                 <Link
                   to="/employee/my-tasks"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-blue-50/70 hover:bg-blue-100 dark:bg-blue-950/30 text-blue-600 transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <Briefcase size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Add Task</span>
+                  <Briefcase size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Add Task</span>
                 </Link>
 
                 <Link
                   to="/employee/attendance"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/30 text-emerald-600 transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <CalendarCheck size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Attendance</span>
+                  <CalendarCheck size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Attendance</span>
                 </Link>
 
                 <Link
                   to="/employee/payslips"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-indigo-50/70 hover:bg-indigo-100 dark:bg-indigo-950/30 text-indigo-600 transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <Receipt size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Payslips</span>
+                  <Receipt size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Payslips</span>
                 </Link>
 
                 <Link
                   to="/employee/leaves"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-purple-50/70 hover:bg-purple-100 dark:bg-purple-950/30 text-purple-600 transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <Calendar size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Apply Leave</span>
+                  <Calendar size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Apply Leave</span>
                 </Link>
 
                 <Link
                   to="/employee/documents"
-                  className="flex flex-col items-center justify-center p-2 rounded-lg bg-slate-50 hover:bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 transition-all group text-center"
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
                 >
-                  <FileText size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-extrabold truncate w-full">Documents</span>
+                  <FileText size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-black truncate w-full">Documents</span>
                 </Link>
               </div>
             </div>
@@ -958,14 +950,14 @@ const EmployeeDashboard = () => {
           </div>
 
           {/* ── Weekly Productivity Overview ─────────────────────────────────── */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                <Activity size={14} className="text-indigo-500" /> Weekly Activity Trend
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                <Activity size={14} className="text-amber-600 dark:text-amber-400" /> Weekly Activity Trend
               </div>
-              <span className="text-[10px] font-bold text-slate-400">Last 7 Days</span>
+              <span className="text-[10px] font-bold text-slate-500">Last 7 Days</span>
             </div>
-            <MiniLineChart data={weeklyData} color="#6366f1" height={90} />
+            <MiniLineChart data={weeklyData} color="#f59e0b" height={90} />
           </div>
 
         </div>
@@ -974,12 +966,12 @@ const EmployeeDashboard = () => {
         <div className="space-y-3.5">
           
           {/* Time Off Balance */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                <CalendarDays size={14} className="text-pink-500" /> Time Off Balance
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                <CalendarDays size={14} className="text-amber-600 dark:text-amber-400" /> Time Off Balance
               </div>
-              <Link to="/employee/leaves" className="text-[10px] font-bold text-pink-600 hover:underline">
+              <Link to="/employee/leaves" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
                 Apply Leave
               </Link>
             </div>
@@ -991,15 +983,15 @@ const EmployeeDashboard = () => {
                 const pct = lt.limit > 0 ? Math.min(100, (remaining / lt.limit) * 100) : 0;
 
                 return (
-                  <div key={lt.key} className="p-2 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                  <div key={lt.key} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
                     <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-slate-700 dark:text-slate-200">{lt.label}</span>
+                      <span className="font-bold text-slate-800 dark:text-slate-200">{lt.label}</span>
                       <span className="font-black text-slate-900 dark:text-white">{remaining} left</span>
                     </div>
-                    <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
+                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: lt.color }} />
                     </div>
-                    <div className="flex items-center justify-between text-[9.5px] text-slate-400">
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
                       <span>Used: {used}</span>
                       <span>Total: {lt.limit}</span>
                     </div>
@@ -1010,12 +1002,12 @@ const EmployeeDashboard = () => {
           </div>
 
           {/* Announcements */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                <Megaphone size={14} className="text-amber-500" /> Announcements
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                <Megaphone size={14} className="text-amber-600 dark:text-amber-400" /> Announcements
               </div>
-              <Link to="/employee/announcements" className="text-[10px] font-bold text-amber-600 hover:underline">
+              <Link to="/employee/announcements" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
                 View All
               </Link>
             </div>
@@ -1023,56 +1015,56 @@ const EmployeeDashboard = () => {
             <div className="space-y-2">
               {announcements.length > 0 ? (
                 announcements.slice(0, 3).map((ann, i) => (
-                  <div key={i} className="p-2 rounded-lg bg-slate-50/60 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800">
-                    <div className="flex items-start gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mt-1 shrink-0" />
+                  <div key={i} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                    <div className="flex items-start gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 mt-1 shrink-0" />
                       <div className="min-w-0 flex-1">
-                        <h5 className="text-[11.5px] font-bold text-slate-800 dark:text-white truncate">{ann.title}</h5>
-                        {ann.message && <p className="text-[10.5px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">{ann.message}</p>}
-                        <span className="text-[9px] text-slate-400 block mt-1">{ann.createdAt ? formatRelativeTime(ann.createdAt) : "Recent"}</span>
+                        <h5 className="text-xs font-black text-slate-900 dark:text-white truncate">{ann.title}</h5>
+                        {ann.message && <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-1 mt-0.5">{ann.message}</p>}
+                        <span className="text-[10px] text-slate-400 font-mono block mt-1">{ann.createdAt ? formatRelativeTime(ann.createdAt) : "Recent"}</span>
                       </div>
                     </div>
                   </div>
                 ))
               ) : (
-                <p className="text-center py-4 text-xs text-slate-400">No new announcements</p>
+                <p className="text-center py-4 text-xs text-slate-400 font-medium italic">No new announcements</p>
               )}
             </div>
           </div>
 
           {/* Recent Activity Feed */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-white">
-                <Clock size={14} className="text-emerald-500" /> Recent Activities
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                <Clock size={14} className="text-amber-600 dark:text-amber-400" /> Recent Activities
               </div>
             </div>
 
             <div className="space-y-2 text-xs">
               {recentActivities.length > 0 ? (
                 recentActivities.slice(0, 4).map((act, i) => (
-                  <div key={i} className="flex items-center gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800 last:border-0">
-                    <div className="w-6 h-6 rounded-md bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-indigo-500">
-                      <Activity size={11} />
+                  <div key={i} className="flex items-center gap-2.5 pb-2 border-b border-slate-100 dark:border-slate-800 last:border-0">
+                    <div className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center shrink-0 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-slate-700">
+                      <Activity size={12} />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">{act.action || "Activity"}</p>
-                      <span className="text-[9px] text-slate-400">{act.createdAt ? formatRelativeTime(act.createdAt) : "Today"}</span>
+                      <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{act.action || "Activity"}</p>
+                      <span className="text-[10px] text-slate-400 font-mono">{act.createdAt ? formatRelativeTime(act.createdAt) : "Today"}</span>
                     </div>
                   </div>
                 ))
               ) : punchInTimeRaw ? (
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-md bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                    <CheckCircle2 size={11} />
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+                    <CheckCircle2 size={13} />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">Punched in at {formatTime(punchInTimeRaw)}</p>
-                    <span className="text-[9px] text-slate-400">Today</span>
+                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Punched in at {formatTime(punchInTimeRaw)}</p>
+                    <span className="text-[10px] text-slate-400 font-mono">Today</span>
                   </div>
                 </div>
               ) : (
-                <p className="text-center py-3 text-xs text-slate-400">No recent activity</p>
+                <p className="text-center py-4 text-xs text-slate-400 font-medium italic">No recent activity</p>
               )}
             </div>
           </div>
