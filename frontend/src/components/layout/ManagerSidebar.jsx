@@ -27,49 +27,44 @@ import {
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MANAGER NAV SECTIONS — Matches Reference Design Exactly
+// MANAGER NAV SECTIONS — Prioritizes Daily Regular Options On Top
 // ─────────────────────────────────────────────────────────────────────────────
 const MANAGER_SECTIONS = [
   {
-    title: "CORE DASHBOARD",
+    title: "DAILY WORKSPACE",
     items: [
       { label: "Dashboard", path: "/manager/dashboard", icon: LayoutDashboard },
-      { label: "Company Requests", path: "/manager/requests", icon: MessageSquare },
-    ],
-  },
-  {
-    title: "LEAD CRM",
-    items: [
       { label: "Leads Pipeline", path: "/manager/leads", icon: Magnet },
-      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: MessageSquare },
-      { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock },
-      { label: "Lead Settings", path: "/manager/leads/settings", icon: Settings },
-    ],
-  },
-  {
-    title: "MY WORK",
-    items: [
       { label: "My Tasks", path: "/manager/my-tasks", icon: ListTodo },
+      { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare },
       { label: "My Attendance", path: "/manager/attendance", icon: CalendarCheck },
       { label: "My Leaves", path: "/manager/my-leave", icon: FileText },
+      { label: "Company Requests", path: "/manager/requests", icon: MessageSquare },
       { label: "My Payslips", path: "/manager/payslips", icon: Receipt },
     ],
   },
   {
-    title: "TEAM",
+    title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
-      { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays },
     ],
   },
   {
-    title: "WORK & INSIGHTS",
+    title: "LEAD CRM & PROJECTS",
     items: [
+      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: MessageSquare },
+      { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock },
       { label: "Projects", path: "/manager/projects", icon: FolderKanban },
-      { label: "Announcements", path: "/manager/announcements", icon: Megaphone },
+    ],
+  },
+  {
+    title: "INSIGHTS & SETTINGS",
+    items: [
       { label: "Reports Hub", path: "/manager/reports", icon: BarChart2 },
+      { label: "Announcements", path: "/manager/announcements", icon: Megaphone },
+      { label: "Lead Settings", path: "/manager/leads/settings", icon: Settings },
     ],
   },
 ];
