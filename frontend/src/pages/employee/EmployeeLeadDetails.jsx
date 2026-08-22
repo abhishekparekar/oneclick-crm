@@ -255,78 +255,65 @@ export default function EmployeeLeadDetails() {
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
       
-      {/* ── TOP NAVIGATION BAR ─────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between">
-        <button
-          onClick={() => navigate("/employee/leads")}
-          className="px-3.5 py-1.5 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
-        >
-          <ArrowLeft size={15} /> Back to My Leads
-        </button>
+      {/* ── TOP NAVIGATION BAR & ACTION TOOLBAR ───────────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => navigate("/employee/leads")}
+            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+          >
+            <ArrowLeft size={14} /> Back
+          </button>
 
-        <div className="flex items-center gap-2">
-          <span className="text-[11px] font-mono font-bold text-ca-text-secondary uppercase tracking-wider">
-            LEAD ID:
-          </span>
-          <span className="px-2.5 py-1 bg-ca-surface border border-ca-border rounded-lg text-xs font-mono font-black text-ca-text shadow-2xs">
-            {formatLeadId(lead)}
-          </span>
-        </div>
-      </div>
-
-      {/* ── HERO LUXURY BANNER ───────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 sm:p-5 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-orange-500/30">
-        
-        {/* Left Side: Icon, Name & Status */}
-        <div className="flex items-start md:items-center gap-3.5 min-w-0">
-          <div className="w-11 h-11 rounded-xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
-            <Magnet size={22} />
-          </div>
-
-          <div className="space-y-1 min-w-0">
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-lg md:text-xl font-black tracking-tight text-white truncate max-w-xl">
-                {lead.name || "Prospective Client"}
+              <span className="px-2 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded-md text-[11px] font-mono font-black shrink-0">
+                {formatLeadId(lead)}
+              </span>
+              <h1 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight truncate">
+                {lead.name || "Client Details"}
               </h1>
-
-              {/* Status Badge */}
               <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs ${getStatusColor(resolvedStatusName)}`}>
                 {resolvedStatusName.toUpperCase()}
               </span>
-            </div>
-
-            <div className="flex items-center gap-2 text-xs text-orange-200/80 font-medium flex-wrap">
-              <span>Company / Service:</span>
-              <span className="font-black text-white">{lead.company || lead.productService || "General Services"}</span>
-              {lead.estimatedValue && (
-                <>
-                  <span>•</span>
-                  <span className="text-emerald-400 font-black">₹{Number(lead.estimatedValue).toLocaleString()}</span>
-                </>
+              {lead.company && (
+                <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">
+                  ({lead.company})
+                </span>
               )}
             </div>
           </div>
         </div>
 
-        {/* Right Side: Quick Actions */}
-        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2 flex-wrap">
+        {/* Quick Action Buttons */}
+        <div className="shrink-0 flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {rawPhone && (
+            <>
+              <button
+                onClick={handleDirectWhatsApp}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-emerald-600/20 transition-all cursor-pointer"
+              >
+                <MessageSquare size={13} />
+                <span>WhatsApp</span>
+              </button>
+
+              <button
+                onClick={handleDirectCall}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <Phone size={13} />
+                <span>Call</span>
+              </button>
+            </>
+          )}
           <button
             onClick={() => setShowStatusModal(true)}
-            className="flex-1 md:flex-none px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40"
+            className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
           >
-            <Layers size={14} />
-            <span>Update Stage / Status</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("whatsapp")}
-            className="flex-1 md:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 transition-all cursor-pointer border border-emerald-400/40"
-          >
-            <Smartphone size={14} />
-            <span>Send WhatsApp ⚡</span>
+            <Layers size={13} />
+            <span>Update Stage</span>
           </button>
         </div>
-
       </div>
 
       {/* ── TABS NAVIGATION BAR ────────────────────────────────────────────────── */}
