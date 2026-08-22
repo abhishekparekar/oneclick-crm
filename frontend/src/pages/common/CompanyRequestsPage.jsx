@@ -513,140 +513,173 @@ export default function CompanyRequestsPage({ role = "hr" }) {
         </div>
       </div>
 
-      {/* ── 4. REQUESTS FEED ───────────────────────────────────────────────── */}
+      {/* ── 4. REQUESTS UNIFIED CRM TABLE CONTAINER ──────────────────────── */}
       {isLoading ? (
-        <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading requests...</div>
+        <div className="py-20 text-center text-slate-400 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs">
+          <RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />
+          <span className="font-bold text-xs">Loading company requests...</span>
+        </div>
       ) : requestsList.length === 0 ? (
-        <div className="py-14 text-center rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-          <Inbox size={28} className="mx-auto mb-2 opacity-40 text-amber-500" />
-          <h3 className="text-xs font-bold text-slate-800 dark:text-white">No Requests Found</h3>
-          <p className="text-[10.5px] text-slate-400 mt-0.5">
+        <div className="py-16 text-center rounded-2xl bg-white dark:bg-[#111C24] border border-slate-300/80 dark:border-slate-800 shadow-2xs">
+          <Inbox size={32} className="mx-auto mb-2 opacity-40 text-amber-500" />
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">No Requests Found</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
             {search ? "No requests matching your active filters." : "Create your first broadcast request to begin collaborating."}
           </p>
           <button
             onClick={() => setCreateModalOpen(true)}
-            className="mt-3 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs cursor-pointer"
+            className="mt-4 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs cursor-pointer shadow-xs"
           >
             Create Request
           </button>
         </div>
       ) : (
-        <div className="space-y-2.5">
-          {requestsList.map((reqItem) => {
-            const priorityObj = PRIORITIES.find((p) => p.label === reqItem.priority) || PRIORITIES[1];
-            const statusBadge = STATUS_BADGES[reqItem.status] || STATUS_BADGES.Open;
-            const responsesCount = reqItem.responses?.length || 0;
-            const requesterName = reqItem.requesterId?.name || (reqItem.requesterId?.firstName ? `${reqItem.requesterId.firstName} ${reqItem.requesterId.lastName || ""}` : "Team Member");
-            const formattedDate = reqItem.createdAt ? new Date(reqItem.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+        <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-white dark:bg-[#111C24] border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <th className="py-3 px-4 w-44">Request Code</th>
+                  <th className="py-3 px-4 min-w-[280px]">Subject &amp; Details</th>
+                  <th className="py-3 px-4 min-w-[180px]">Target Audience</th>
+                  <th className="py-3 px-4 w-48">Requester &amp; Date</th>
+                  <th className="py-3 px-4 w-36">Status &amp; Replies</th>
+                  <th className="py-3 px-4 w-24 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-xs">
+                {requestsList.map((reqItem) => {
+                  const priorityObj = PRIORITIES.find((p) => p.label === reqItem.priority) || PRIORITIES[1];
+                  const statusBadge = STATUS_BADGES[reqItem.status] || STATUS_BADGES.Open;
+                  const responsesCount = reqItem.responses?.length || 0;
+                  const requesterName = reqItem.requesterId?.name || (reqItem.requesterId?.firstName ? `${reqItem.requesterId.firstName} ${reqItem.requesterId.lastName || ""}` : "Team Member");
+                  const formattedDate = reqItem.createdAt ? new Date(reqItem.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+                  const formattedTime = reqItem.createdAt ? new Date(reqItem.createdAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : "";
 
-            return (
-              <div
-                key={reqItem._id}
-                onClick={() => setActiveRequest(reqItem)}
-                className="group p-4 rounded-2xl bg-white dark:bg-[#111C24] hover:bg-amber-500/[0.02] dark:hover:bg-amber-500/[0.03] border border-slate-200/80 dark:border-slate-800 hover:border-amber-500/50 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer"
-              >
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3.5">
-                  {/* Left Main Content */}
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    {/* Top Badges Strip */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-[11px]">
-                        {reqItem.requestCode || "REQ"}
-                      </span>
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md border ${priorityObj.badge}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${priorityObj.dot || "bg-amber-500"}`} />
-                        {reqItem.priority} Priority
-                      </span>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${statusBadge}`}>
-                        {reqItem.status}
-                      </span>
-                      <span className="text-[10.5px] text-slate-500 dark:text-slate-400 font-semibold bg-slate-100 dark:bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700/80">
-                        {reqItem.category}
-                      </span>
-                    </div>
-
-                    {/* Title & Description */}
-                    <div>
-                      <h3 className="text-sm font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors leading-snug">
-                        {reqItem.title}
-                      </h3>
-                      {reqItem.description && (
-                        <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5 leading-relaxed">
-                          {reqItem.description}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Meta Chips */}
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[10.5px]">
-                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-900/80 px-2.5 py-1 rounded-lg border border-slate-200/80 dark:border-slate-800 font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
-                        {reqItem.targetType === "ALL_EMPLOYEES" ? (
-                          <>
-                            <Building2 size={12} className="text-amber-500" />
-                            <span>Target: Entire Organization</span>
-                          </>
-                        ) : reqItem.targetType === "DEPARTMENT" ? (
-                          <>
-                            <Users size={12} className="text-cyan-500" />
-                            <span>Target: {reqItem.targetDepartmentName || "Department"}</span>
-                          </>
-                        ) : (
-                          <>
-                            <User size={12} className="text-indigo-500" />
-                            <span>Target: {reqItem.targetEmployeeIds?.length || 0} Staff Members</span>
-                          </>
-                        )}
-                      </div>
-
-                      {reqItem.attachments?.length > 0 && (
-                        <div className="flex items-center gap-1 bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30 px-2 py-1 rounded-lg font-bold">
-                          <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
-                          <span>{reqItem.attachments.length} attachment{reqItem.attachments.length > 1 ? "s" : ""}</span>
+                  return (
+                    <tr
+                      key={reqItem._id}
+                      onClick={() => setActiveRequest(reqItem)}
+                      className="hover:bg-slate-50 dark:hover:bg-slate-900/60 transition-colors cursor-pointer group"
+                    >
+                      {/* 1. Code & Priority */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="space-y-1.5">
+                          <span className="inline-block font-mono font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-md text-xs shadow-2xs">
+                            {reqItem.requestCode || "REQ"}
+                          </span>
+                          <div>
+                            <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shadow-2xs ${priorityObj.badge}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${priorityObj.dot || "bg-amber-500"}`} />
+                              {reqItem.priority}
+                            </span>
+                          </div>
                         </div>
-                      )}
-                    </div>
-                  </div>
+                      </td>
 
-                  {/* Right Requester & Action Strip */}
-                  <div className="flex items-center justify-between lg:justify-end gap-3.5 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-100 dark:border-slate-800/80 shrink-0">
-                    <div className="flex items-center gap-2.5">
-                      <MiniAvatar name={requesterName} size="w-8 h-8" textSize="text-xs" />
-                      <div className="text-left">
-                        <p className="text-xs font-extrabold text-slate-900 dark:text-white leading-tight">{requesterName}</p>
-                        <p className="text-[10px] text-slate-400 font-mono mt-0.5 flex items-center gap-1">
-                          <Calendar size={10} className="text-slate-400" />
-                          {formattedDate}
-                        </p>
-                      </div>
-                    </div>
+                      {/* 2. Title, Description, Category & Attachments */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-black text-slate-950 dark:text-white text-xs group-hover:text-amber-600 transition-colors leading-snug">
+                              {reqItem.title}
+                            </h4>
+                            <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-300 dark:border-slate-700">
+                              {reqItem.category}
+                            </span>
+                          </div>
 
-                    <div className="flex items-center gap-2">
-                      <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-extrabold border ${
-                        responsesCount > 0
-                          ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/30 shadow-2xs"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700"
-                      }`}>
-                        <MessageSquare size={13} className={responsesCount > 0 ? "text-amber-600 dark:text-amber-400" : "text-slate-400"} />
-                        <span>{responsesCount} {responsesCount === 1 ? "reply" : "replies"}</span>
-                      </div>
+                          {reqItem.description && (
+                            <p className="text-[11px] text-slate-600 dark:text-slate-400 line-clamp-2 leading-relaxed font-medium">
+                              {reqItem.description}
+                            </p>
+                          )}
 
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveRequest(reqItem);
-                        }}
-                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-amber-500 dark:hover:text-slate-950 text-white text-xs font-bold transition-all shadow-2xs flex items-center gap-1 cursor-pointer"
-                      >
-                        <Eye size={13} />
-                        <span>View</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
+                          {reqItem.attachments?.length > 0 && (
+                            <div className="pt-0.5">
+                              <span className="inline-flex items-center gap-1 bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-700 px-2 py-0.5 rounded-md text-[10px] font-black">
+                                <Paperclip size={10} className="text-amber-600" />
+                                <span>{reqItem.attachments.length} attachment{reqItem.attachments.length > 1 ? "s" : ""}</span>
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 3. Target Audience */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="inline-flex items-center gap-1.5 bg-slate-50 dark:bg-[#0B101B] px-2.5 py-1 rounded-xl border border-slate-300 dark:border-slate-700 font-bold text-slate-900 dark:text-slate-200 text-xs shadow-2xs">
+                          {reqItem.targetType === "ALL_EMPLOYEES" ? (
+                            <>
+                              <Building2 size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="truncate">Entire Organization</span>
+                            </>
+                          ) : reqItem.targetType === "DEPARTMENT" ? (
+                            <>
+                              <Users size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="truncate">{reqItem.targetDepartmentName || "Department"}</span>
+                            </>
+                          ) : (
+                            <>
+                              <User size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="truncate">{reqItem.targetEmployeeIds?.length || 0} Staff Members</span>
+                            </>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* 4. Requester & Date */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="flex items-center gap-2">
+                          <MiniAvatar name={requesterName} size="w-7 h-7" textSize="text-[10px]" />
+                          <div className="min-w-0">
+                            <p className="font-black text-xs text-slate-950 dark:text-white truncate">{requesterName}</p>
+                            <p className="text-[10.5px] font-mono text-slate-600 dark:text-slate-400 mt-0.5">
+                              {formattedDate} {formattedTime}
+                            </p>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 5. Status & Replies */}
+                      <td className="py-3.5 px-4 align-top">
+                        <div className="space-y-1.5">
+                          <span className={`inline-block text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border shadow-2xs ${statusBadge}`}>
+                            {reqItem.status}
+                          </span>
+                          <div>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-black border ${
+                              responsesCount > 0
+                                ? "bg-amber-100 dark:bg-amber-950/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700"
+                                : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700"
+                            }`}>
+                              <MessageSquare size={11} className={responsesCount > 0 ? "text-amber-600" : "text-slate-400"} />
+                              <span>{responsesCount} {responsesCount === 1 ? "reply" : "replies"}</span>
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 6. Action */}
+                      <td className="py-3.5 px-4 align-top text-right">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setActiveRequest(reqItem);
+                          }}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black transition-all shadow-xs inline-flex items-center gap-1 cursor-pointer"
+                        >
+                          <Eye size={12} strokeWidth={2.5} />
+                          <span>View</span>
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
