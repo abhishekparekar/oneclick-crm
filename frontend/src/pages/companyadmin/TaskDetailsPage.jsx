@@ -453,115 +453,34 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CARD ─────────────────────────── */}
+      {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CONTAINER ─────────────────────── */}
       <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-2xs overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-200 dark:divide-slate-800">
           
-          {/* LEFT SECTION: Core Description, Checklist & Metadata Specs (5/12) */}
-          <div className="lg:col-span-5 p-4 sm:p-5 space-y-4">
+          {/* ── LEFT SECTION (5 / 12 width): TASK SPECIFICATIONS & DETAILS ── */}
+          <div className="lg:col-span-5 p-4 sm:p-5 space-y-4 bg-white dark:bg-[#111C24]">
             
-            {/* Task Description */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5 border-b border-slate-200 dark:border-slate-800 pb-2">
-                <ClipboardList size={14} className="text-amber-600 dark:text-amber-400" />
-                <span>Task Description</span>
-              </h3>
-              <div className="bg-slate-50 dark:bg-[#0B101B] rounded-xl p-3.5 border border-slate-300/90 dark:border-slate-700 text-slate-900 dark:text-slate-100 text-xs leading-relaxed whitespace-pre-wrap font-bold shadow-2xs">
-                {task.description || "No description provided."}
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <FileText size={15} className="text-amber-600 dark:text-amber-400" /> Task Specifications &amp; Details
+              </h2>
+            </div>
+
+            {/* Description & Instructions */}
+            <div className="space-y-1">
+              <p className="text-[10.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Description &amp; Instructions
+              </p>
+              <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap shadow-2xs">
+                {task.description || "No specific detailed description provided for this task."}
               </div>
             </div>
 
-            {/* Checklist / Subtasks */}
-            {task.checklist && task.checklist.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
-                    <CheckSquare size={13} className="text-teal-600 dark:text-teal-400" />
-                    <span>Subtasks ({completedChecklistCount}/{totalChecklistCount})</span>
-                  </span>
-                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
-                    {Math.round((completedChecklistCount / totalChecklistCount) * 100)}%
-                  </span>
-                </div>
-
-                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(completedChecklistCount / totalChecklistCount) * 100}%` }}
-                  />
-                </div>
-
-                <div className="space-y-1.5 pt-1">
-                  {task.checklist.map((item, idx) => (
-                    <label 
-                      key={idx} 
-                      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer text-xs shadow-2xs ${
-                        item.isCompleted 
-                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
-                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-300 dark:border-slate-700 text-slate-950 dark:text-white font-bold"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.isCompleted || false}
-                        onChange={() => toggleChecklistItem(idx)}
-                        className="rounded text-amber-500 focus:ring-0 cursor-pointer"
-                      />
-                      <span className="truncate">{item.title}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Task Attachments */}
-            {task.attachments && task.attachments.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                <h4 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                  <Paperclip size={12} className="text-amber-600 dark:text-amber-400" />
-                  <span>Attachments ({task.attachments.length})</span>
-                </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {task.attachments.map((att, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-950 dark:text-white shadow-2xs hover:border-amber-500 transition-all"
-                    >
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Paperclip size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                        <span className="truncate max-w-[130px]">{safeDecodeURIComponent(att.fileName)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedFileForPreview(att)}
-                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
-                          title="Preview"
-                        >
-                          <Eye size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => downloadAttachment(att)}
-                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
-                          title="Download"
-                        >
-                          <Download size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Metadata Specifications Grid */}
-            <div className="space-y-2.5 pt-2 border-t border-slate-200 dark:border-slate-800">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
-                <Tag size={13} className="text-amber-600 dark:text-amber-400" />
-                <span>Task Specifications</span>
-              </h3>
-
+            {/* Key Dates & Meta Specs Grid */}
+            <div className="space-y-2 pt-1">
+              <p className="text-[10.5px] font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                Specifications
+              </p>
               <div className="grid grid-cols-2 gap-2.5 text-xs">
                 <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300/90 dark:border-slate-700 space-y-0.5 shadow-2xs">
                   <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Assigned To</span>
@@ -668,92 +587,176 @@ export default function TaskDetailsPage() {
               </div>
             </div>
 
-          </div>
-
-          {/* RIGHT SECTION: Notes, Remarks & Timeline Stream (7/12) */}
-          <div className="lg:col-span-7 p-4 sm:p-5 space-y-5 bg-slate-50/60 dark:bg-slate-900/30">
-            
-            {/* Notes & Remarks */}
-            <div className="space-y-3">
-              <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <MessageSquare size={14} className="text-amber-600 dark:text-amber-400" />
-                  <span>Notes &amp; Remarks ({task.comments?.length || 0})</span>
-                </span>
-              </h3>
-
-              {/* Note Composer */}
-              <form onSubmit={handleAddComment} className="space-y-2">
-                <div className="bg-white dark:bg-[#0B101B] border-2 border-slate-300 dark:border-slate-700 rounded-xl p-3 focus-within:border-amber-500 transition-colors shadow-2xs">
-                  <textarea 
-                    required
-                    value={commentText}
-                    onChange={e => setCommentText(e.target.value)}
-                    className="w-full bg-transparent text-xs text-slate-950 dark:text-white placeholder-slate-500 focus:outline-none min-h-[50px] resize-none font-semibold"
-                    placeholder="Write a follow-up remark or note..."
-                  />
-                  
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 flex-wrap gap-2">
-                    <TaskAttachmentField attachments={commentAttachments} onChange={setCommentAttachments} compact={true} />
-                    
-                    <button 
-                      type="submit" 
-                      disabled={commentMutating || (!commentText.trim() && commentAttachments.length === 0)}
-                      className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer ml-auto transition-all"
-                    >
-                      <Send size={11} strokeWidth={2.5} />
-                      <span>{commentMutating ? "Saving..." : "Add Note"}</span>
-                    </button>
-                  </div>
+            {/* Checklist / Subtasks */}
+            {task.checklist && task.checklist.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <CheckSquare size={13} className="text-teal-600 dark:text-teal-400" />
+                    <span>Subtasks ({completedChecklistCount}/{totalChecklistCount})</span>
+                  </span>
+                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
+                    {Math.round((completedChecklistCount / totalChecklistCount) * 100)}%
+                  </span>
                 </div>
-              </form>
 
-              {/* Comment Feed */}
-              {(!task.comments || task.comments.length === 0) ? (
-                <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-4 italic">No remarks or notes added yet.</p>
-              ) : (
-                <div className="space-y-2.5 max-h-60 overflow-y-auto custom-scrollbar pr-0.5">
-                  {Array.isArray(task.comments) && [...task.comments].reverse().map((c, idx) => (
-                    <div key={c._id || idx} className="p-3 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 space-y-1.5 shadow-2xs hover:border-amber-500 transition-all">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MiniAvatar name={c.senderName} />
-                          <span className="font-black text-xs text-slate-950 dark:text-white">{c.senderName}</span>
-                          <span className="text-[9px] uppercase font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700">
-                            {c.senderRole}
-                          </span>
-                        </div>
-                        <span className="text-[10.5px] font-mono font-bold text-slate-900 dark:text-slate-200">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
+                <div className="h-2 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
+                    style={{ width: `${(completedChecklistCount / totalChecklistCount) * 100}%` }}
+                  />
+                </div>
+
+                <div className="space-y-1.5 pt-1">
+                  {task.checklist.map((item, idx) => (
+                    <label 
+                      key={idx} 
+                      className={`flex items-center gap-2 p-2.5 rounded-xl border transition-all cursor-pointer text-xs shadow-2xs ${
+                        item.isCompleted 
+                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
+                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-300 dark:border-slate-700 text-slate-950 dark:text-white font-bold"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.isCompleted || false}
+                        onChange={() => toggleChecklistItem(idx)}
+                        className="rounded text-amber-500 focus:ring-0 cursor-pointer"
+                      />
+                      <span className="truncate">{item.title}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Task Attachments */}
+            {task.attachments && task.attachments.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                <h4 className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                  <Paperclip size={12} className="text-amber-600 dark:text-amber-400" />
+                  <span>Attachments ({task.attachments.length})</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {task.attachments.map((att, idx) => (
+                    <div 
+                      key={idx} 
+                      className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 text-xs font-black text-slate-950 dark:text-white shadow-2xs hover:border-amber-500 transition-all"
+                    >
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Paperclip size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="truncate max-w-[130px]">{safeDecodeURIComponent(att.fileName)}</span>
                       </div>
-
-                      <p className="text-xs text-slate-950 dark:text-slate-100 whitespace-pre-wrap pl-7 leading-relaxed font-semibold bg-slate-50/60 dark:bg-slate-900/40 p-2 rounded-lg border border-slate-200/60 dark:border-slate-800/60">
-                        {c.comment}
-                      </p>
-
-                      {c.attachments && c.attachments.length > 0 && (
-                        <div className="flex flex-wrap gap-1 pl-7 pt-1">
-                          {c.attachments.map((att, attIdx) => (
-                            <a 
-                              key={attIdx} 
-                              href={att.fileUrl || att.fileData || "#"} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-[10.5px] font-black text-slate-950 dark:text-white hover:border-amber-500 transition-colors shadow-2xs"
-                            >
-                              <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
-                              <span className="truncate max-w-[140px]">{safeDecodeURIComponent(att.fileName)}</span>
-                            </a>
-                          ))}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedFileForPreview(att)}
+                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          title="Preview"
+                        >
+                          <Eye size={13} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(att)}
+                          className="text-slate-500 hover:text-amber-600 p-1 cursor-pointer"
+                          title="Download"
+                        >
+                          <Download size={13} />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
-              )}
+              </div>
+            )}
+
+          </div>
+
+          {/* ── RIGHT SECTION (7 / 12 width): NOTES, REMARKS & TIMELINE ── */}
+          <div className="lg:col-span-7 p-4 sm:p-5 space-y-4 bg-white dark:bg-[#111C24]">
+            
+            {/* Notes & Remarks Header */}
+            <div className="border-b border-slate-200 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <MessageSquare size={15} className="text-amber-600 dark:text-amber-400" /> Notes &amp; Remarks Timeline
+              </h2>
+              <span className="text-[10.5px] font-black text-slate-900 dark:text-white bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                {task.comments?.length || 0} Notes
+              </span>
             </div>
 
+            {/* Note Composer */}
+            <form onSubmit={handleAddComment} className="space-y-2">
+              <div className="bg-slate-50 dark:bg-[#0B101B] border-2 border-slate-300 dark:border-slate-700 rounded-xl p-3 focus-within:border-amber-500 transition-colors shadow-2xs">
+                <textarea 
+                  required
+                  value={commentText}
+                  onChange={e => setCommentText(e.target.value)}
+                  className="w-full bg-transparent text-xs text-slate-950 dark:text-white placeholder-slate-500 focus:outline-none min-h-[50px] resize-none font-semibold"
+                  placeholder="Write a follow-up remark or note..."
+                />
+                
+                <div className="flex items-center justify-between pt-2 border-t border-slate-200 dark:border-slate-800 flex-wrap gap-2">
+                  <TaskAttachmentField attachments={commentAttachments} onChange={setCommentAttachments} compact={true} />
+                  
+                  <button 
+                    type="submit" 
+                    disabled={commentMutating || (!commentText.trim() && commentAttachments.length === 0)}
+                    className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs flex items-center gap-1.5 shadow-xs disabled:opacity-50 cursor-pointer ml-auto transition-all"
+                  >
+                    <Send size={11} strokeWidth={2.5} />
+                    <span>{commentMutating ? "Saving..." : "Add Note"}</span>
+                  </button>
+                </div>
+              </div>
+            </form>
+
+            {/* Comment Feed */}
+            {(!task.comments || task.comments.length === 0) ? (
+              <p className="text-slate-500 dark:text-slate-400 text-xs font-bold text-center py-6 italic">No remarks or notes added yet.</p>
+            ) : (
+              <div className="space-y-2.5 max-h-[380px] overflow-y-auto custom-scrollbar pr-0.5">
+                {Array.isArray(task.comments) && [...task.comments].reverse().map((c, idx) => (
+                  <div key={c._id || idx} className="p-3.5 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 space-y-2 shadow-2xs hover:border-amber-500 transition-all">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MiniAvatar name={c.senderName} />
+                        <span className="font-black text-xs text-slate-950 dark:text-white">{c.senderName}</span>
+                        <span className="text-[9px] uppercase font-bold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-300 dark:border-amber-700">
+                          {c.senderRole}
+                        </span>
+                      </div>
+                      <span className="text-[10.5px] font-mono font-black text-slate-900 dark:text-slate-200">{formatDate(c.createdAt)} {formatTime(c.createdAt)}</span>
+                    </div>
+
+                    <p className="text-xs text-slate-950 dark:text-slate-100 whitespace-pre-wrap leading-relaxed font-semibold bg-slate-50/60 dark:bg-slate-900/40 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800/80">
+                      {c.comment}
+                    </p>
+
+                    {c.attachments && c.attachments.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        {c.attachments.map((att, attIdx) => (
+                          <a 
+                            key={attIdx} 
+                            href={att.fileUrl || att.fileData || "#"} 
+                            target="_blank" 
+                            rel="noreferrer" 
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg text-[10.5px] font-black text-slate-950 dark:text-white hover:border-amber-500 transition-colors shadow-2xs"
+                          >
+                            <Paperclip size={11} className="text-amber-600 dark:text-amber-400" />
+                            <span className="truncate max-w-[140px]">{safeDecodeURIComponent(att.fileName)}</span>
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Workflow Activity Timeline */}
-            <div className="space-y-3 pt-2 border-t border-slate-200 dark:border-slate-800">
+            <div className="space-y-3 pt-3 border-t border-slate-200 dark:border-slate-800">
               <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider pb-2 border-b border-slate-200 dark:border-slate-800 flex items-center gap-1.5">
                 <History size={14} className="text-amber-600 dark:text-amber-400" />
                 <span>Workflow Activity Timeline</span>
@@ -790,7 +793,7 @@ export default function TaskDetailsPage() {
                           </div>
 
                           {act.remarks && (
-                            <div className="bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 font-semibold shadow-2xs">
+                            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl p-2.5 text-xs text-slate-900 dark:text-slate-100 font-semibold shadow-2xs">
                               {act.remarks}
                             </div>
                           )}
