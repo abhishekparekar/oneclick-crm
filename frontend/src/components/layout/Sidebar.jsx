@@ -16,17 +16,16 @@ import {
   ListTodo, UsersRound, FolderKanban, UserCog, Bell, MessageSquare
 } from "lucide-react";
 
-// ─── Company Admin nav sections (matches image structure) ───────────────────
+// ─── Company Admin nav sections — ordered by usage frequency ────────────────
 const COMPANY_SECTIONS = [
   {
     title: null,
     items: [
       { label: "Dashboard", path: "/company/dashboard", icon: LayoutDashboard },
-      { label: "Company Requests", path: "/company/requests", icon: MessageSquare },
     ],
   },
   {
-    title: "Task",
+    title: "TASK",
     items: [
       { label: "Tasks", path: "/company/tasks", icon: CheckSquare, module: "tasks" },
     ],
@@ -48,31 +47,25 @@ const COMPANY_SECTIONS = [
     ],
   },
   {
-    title: "ORGANIZATION",
+    title: "HRMS",
     items: [
-      { label: "Company Profile", path: "/company/profile", icon: UserCircle },
       { label: "Employees", path: "/company/employees", icon: Users },
-      { label: "Upload Document", path: "/company/upload-document", icon: FileUp },
-      { label: "Announcements", path: "/company/announcements", icon: Megaphone },
-      { label: "Departments", path: "/company/departments", icon: GitBranch },
-      // { label: "Designations", path: "/company/designations", icon: Tags },
-      { label: "Branches", path: "/company/branches", icon: MapPin },
-    ],
-  },
-  {
-    title: "ATTENDANCE & LEAVE",
-    items: [
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: CalendarDays, module: "attendance" },
+      { label: "Payroll", path: "/company/payroll/history", icon: DollarSign, module: "payroll" },
+      { label: "Salary Advances", path: "/company/payroll/advances", icon: Receipt, module: "payroll" },
+      { label: "Departments", path: "/company/departments", icon: GitBranch },
+      { label: "Branches", path: "/company/branches", icon: MapPin },
     ],
   },
   {
-    title: "WORKFORCE",
+    title: "ORGANIZATION",
     items: [
-      { label: "Payroll", path: "/company/payroll/history", icon: DollarSign, module: "payroll" },
-      { label: "Salary Advances", path: "/company/payroll/advances", icon: Receipt, module: "payroll" },
+      { label: "Company Profile", path: "/company/profile", icon: UserCircle },
+      { label: "Upload Document", path: "/company/upload-document", icon: FileUp },
+      { label: "Announcements", path: "/company/announcements", icon: Megaphone },
     ],
   },
   {
@@ -89,6 +82,12 @@ const COMPANY_SECTIONS = [
       { label: "Access & Control", path: "/company/access-control", icon: ShieldAlert },
       { label: "Payroll Settings", path: "/company/payroll/settings", icon: Receipt, module: "payroll" },
       { label: "Subscription", path: "/company/subscription", icon: Sparkles },
+    ],
+  },
+  {
+    title: "OTHER",
+    items: [
+      { label: "Company Requests", path: "/company/requests", icon: MessageSquare },
     ],
   },
 ];

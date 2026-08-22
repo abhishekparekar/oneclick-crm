@@ -36,14 +36,28 @@ const EmployeeSidebar = ({ logout, onItemClick }) => {
 
   const sections = [
     {
-      title: "DAILY WORKSPACE",
+      title: null,
       items: [
         { label: "Dashboard", path: "/employee/dashboard", icon: LayoutDashboard },
-        ...(canAccessLeads ? [{ label: "Leads Pipeline", path: "/employee/leads", icon: Magnet }] : []),
+      ],
+    },
+    {
+      title: "TASK",
+      items: [
         { label: "My Tasks", path: "/employee/my-tasks", icon: Layers },
+      ],
+    },
+    ...(canAccessLeads ? [{
+      title: "LEAD ENGINE",
+      items: [
+        { label: "Leads Pipeline", path: "/employee/leads", icon: Magnet },
+      ],
+    }] : []),
+    {
+      title: "HRMS",
+      items: [
         { label: "My Attendance", path: "/employee/attendance", icon: CalendarDays },
         { label: "Leaves", path: "/employee/leaves", icon: File },
-        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
         { label: "Payslips", path: "/employee/payslips", icon: Receipt },
       ],
     },
@@ -60,6 +74,12 @@ const EmployeeSidebar = ({ logout, onItemClick }) => {
       items: [
         { label: "My Profile", path: "/employee/profile", icon: User },
         { label: "Settings", path: "/employee/settings", icon: Settings },
+      ],
+    },
+    {
+      title: "OTHER",
+      items: [
+        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
       ],
     },
   ];
