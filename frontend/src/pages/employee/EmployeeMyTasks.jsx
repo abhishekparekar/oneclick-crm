@@ -355,29 +355,26 @@ export default function EmployeeMyTasks() {
       all: baseTabTasks.length,
       pending: 0,
       in_process: 0,
-      re_pending: 0,
-      re_in_process: 0,
       complete: 0,
-      re_complete: 0,
-      late_complete: 0,
-      re_late_complete: 0,
       overdue: 0,
-      recurring: tasks.filter(t => t.isRecurring || t.isTemplate || t.isGeneratedFromTemplate || t.parentTemplateId).length
     };
 
     baseTabTasks.forEach(t => {
       const s = (t.status || "pending").toLowerCase();
-      if (s === "pending" || s === "todo" || s === "open") map.pending += 1;
-      else if (s === "in_process" || s === "in_progress" || s === "working" || s.includes("process") || s.includes("progress")) map.in_process += 1;
-      else if (s === "re_pending") map.re_pending += 1;
-      else if (s === "re_in_process") map.re_in_process += 1;
-      else if (s === "complete" || s === "completed" || s === "done") map.complete += 1;
-      else if (s === "re_complete") map.re_complete += 1;
-      else if (s === "late_complete" || s === "late-complete") map.late_complete += 1;
-      else if (s === "re_late_complete") map.re_late_complete += 1;
-
       if (checkIsOverdue(t) && s !== "overdue") {
         map.overdue += 1;
+      }
+
+      if (["pending", "todo", "open", "re_pending"].includes(s)) {
+        map.pending += 1;
+      } else if (s.includes("process") || s.includes("progress") || s === "working" || s === "re_in_process") {
+        map.in_process += 1;
+      } else if (["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes(s)) {
+        map.complete += 1;
+      } else if (s === "overdue") {
+        map.overdue += 1;
+      } else {
+        map.pending += 1;
       }
     });
 
@@ -396,13 +393,7 @@ export default function EmployeeMyTasks() {
 
   // Filtered Tasks
   const filteredTasks = useMemo(() => {
-    let candidates = baseTabTasks;
-
-    if (statusFilter === "recurring") {
-      candidates = tasks.filter(t => t.isRecurring || t.isTemplate || t.isGeneratedFromTemplate || t.parentTemplateId);
-    }
-
-    return candidates.filter(t => {
+    return baseTabTasks.filter(t => {
       // Department Filter from dropdown
       if (filters.departmentId) {
         const tDeptId = typeof t.departmentId === "object" ? (t.departmentId._id || t.departmentId.id) : t.departmentId;
@@ -417,18 +408,11 @@ export default function EmployeeMyTasks() {
       }
 
       // Status Filter
-      if (statusFilter !== "all" && statusFilter !== "recurring") {
+      if (statusFilter !== "all") {
         const s = (t.status || "pending").toLowerCase();
-        if (statusFilter === "pending" && !["pending", "todo", "open"].includes(s)) return false;
-        if (statusFilter === "in_progress" && !(s.includes("progress") || s.includes("process"))) return false;
-        if (statusFilter === "in_process" && !(s.includes("progress") || s.includes("process"))) return false;
-        if (statusFilter === "re_pending" && s !== "re_pending") return false;
-        if (statusFilter === "re_in_process" && s !== "re_in_process") return false;
-        if (statusFilter === "completed" && !["complete", "completed", "done"].includes(s)) return false;
-        if (statusFilter === "complete" && !["complete", "completed", "done"].includes(s)) return false;
-        if (statusFilter === "re_complete" && s !== "re_complete") return false;
-        if (statusFilter === "late_complete" && !["late_complete", "late-complete"].includes(s)) return false;
-        if (statusFilter === "re_late_complete" && s !== "re_late_complete") return false;
+        if (statusFilter === "pending" && !["pending", "todo", "open", "re_pending"].includes(s)) return false;
+        if (statusFilter === "in_process" && !(s.includes("progress") || s.includes("process") || s === "working" || s === "re_in_process")) return false;
+        if (statusFilter === "completed" && !["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes(s)) return false;
         if (statusFilter === "overdue" && !checkIsOverdue(t)) return false;
       }
 
@@ -535,24 +519,18 @@ export default function EmployeeMyTasks() {
         </div>
       </div>
 
-      {/* ── Task Status Filter Pills (Like Today/Yesterday Tabs) ─────────────── */}
+      {/* ── Task Status Filter Pills (Only Required Workflow Statuses) ─────── */}
       <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
         <div className="flex items-center gap-1.5 min-w-max">
           <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 flex items-center gap-1 shrink-0">
             <Layers size={13} className="text-amber-500" /> Status:
           </span>
           {[
-            { id: "all", label: "All Tasks", count: baseTabTasks.length },
-            { id: "pending", label: "Pending", count: statusCounts.pending },
-            { id: "in_process", label: "In Process", count: statusCounts.in_process },
-            { id: "re_pending", label: "Re-Pending", count: statusCounts.re_pending },
-            { id: "re_in_process", label: "Re-In Process", count: statusCounts.re_in_process },
-            { id: "completed", label: "Completed", count: statusCounts.complete },
-            { id: "re_complete", label: "Re-Completed", count: statusCounts.re_complete },
-            { id: "late_complete", label: "Late Done", count: statusCounts.late_complete },
-            { id: "re_late_complete", label: "Re-Late Done", count: statusCounts.re_late_complete },
-            { id: "overdue", label: "Overdue", count: statusCounts.overdue },
-            { id: "recurring", label: "Recurring", count: statusCounts.recurring }
+            { id: "all", label: "All Tasks", count: baseTabTasks.length, dot: "bg-amber-500" },
+            { id: "pending", label: "Pending", count: statusCounts.pending, dot: "bg-blue-500" },
+            { id: "in_process", label: "In Process", count: statusCounts.in_process, dot: "bg-amber-500" },
+            { id: "completed", label: "Completed", count: statusCounts.complete, dot: "bg-emerald-500" },
+            { id: "overdue", label: "Overdue", count: statusCounts.overdue, dot: "bg-rose-500" }
           ].map(st => {
             const active = statusFilter === st.id;
             return (
@@ -565,6 +543,7 @@ export default function EmployeeMyTasks() {
                     : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
+                <span className={`w-2 h-2 rounded-full ${st.dot}`} />
                 <span>{st.label}</span>
                 <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
                   active
