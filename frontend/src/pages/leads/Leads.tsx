@@ -1,4 +1,5 @@
-  import React, { useEffect, useState, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { api } from '../../utils/leads/api';
 import StatusBadge from '../../components/leads/StatusBadge';
@@ -402,10 +403,18 @@ export default function Leads() {
   const [employees, setEmployees] = useState<any[]>([]);
 
   // Inline status popover
+  const [searchParams] = useSearchParams();
   const [statusPopoverLeadId, setStatusPopoverLeadId] = useState<string | null>(null);
   const [statusPopoverRect, setStatusPopoverRect] = useState<DOMRect | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
+      setShowAddModal(true);
+    }
+  }, [searchParams]);
+
   const [savingLead, setSavingLead] = useState(false);
   const [addLeadError, setAddLeadError] = useState<string | null>(null);
   const [newLead, setNewLead] = useState({

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
@@ -13,12 +14,19 @@ import {
 
 export default function HRLeads() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [viewMode, setViewMode] = useState("list"); // 'cards' | 'list'
   const [showAddModal, setShowAddModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
+      setShowAddModal(true);
+    }
+  }, [searchParams]);
   const [savingLead, setSavingLead] = useState(false);
   const [statusMenuLeadId, setStatusMenuLeadId] = useState(null);
 
