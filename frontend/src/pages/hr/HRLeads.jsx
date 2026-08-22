@@ -252,9 +252,6 @@ export default function HRLeads() {
             <Magnet className="text-[#f97316]" size={24} />
             HR Candidate &amp; Leads Pipeline
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage incoming candidates, sales prospects, assign team members and track deals
-          </p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -443,7 +440,7 @@ export default function HRLeads() {
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left border-collapse text-xs min-w-[950px]">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+                <tr className="bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                   <th className="py-3 px-4 w-10">
                     <input type="checkbox" checked={selectedLeadIds.length === filteredLeads.length && filteredLeads.length > 0} onChange={toggleSelectAll} className="rounded accent-amber-500 cursor-pointer" />
                   </th>

@@ -270,12 +270,9 @@ export default function ManagerMyTasks() {
               <CheckSquare size={16} strokeWidth={2.5} />
             </div>
             <div>
-              <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+              <h1 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
                 My Assigned Tasks
               </h1>
-              <p className="text-[11px] text-slate-400 font-medium">
-                Manage your personal work queue and deliverables
-              </p>
             </div>
           </div>
 
@@ -379,7 +376,7 @@ export default function ManagerMyTasks() {
 
         {/* Status Chips with Proper Dedicated Colors */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs pt-0.5">
-          <span className="text-[10px] font-black uppercase tracking-wider text-slate-400 mr-1">Status:</span>
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white mr-1">Status:</span>
           
           {/* All Status Pill */}
           <button
@@ -502,7 +499,7 @@ export default function ManagerMyTasks() {
         <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-2xs">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/80 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+              <thead className="bg-white dark:bg-[#111C24] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 <tr>
                   <th className="px-4 py-3">Task ID</th>
                   <th className="px-4 py-3">Task & Scope</th>
