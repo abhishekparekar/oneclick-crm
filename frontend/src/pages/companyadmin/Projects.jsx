@@ -1112,35 +1112,31 @@ const Projects = () => {
                       </div>
                     </div>
 
-                        )}
-                      </div>
+                    {/* View Full Workspace Button */}
+                    <div className="pt-2 space-y-2">
+                      <button
+                        onClick={() => {
+                          setViewingProject(selectedProject);
+                          setActiveTab("overview");
+                        }}
+                        className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Eye size={13} /> Open Project Workspace
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (window.confirm("Are you sure you want to delete this project?")) {
+                            deleteMutation.mutate(selectedProject._id);
+                          }
+                        }}
+                        className="w-full py-2 text-center text-[11px] uppercase tracking-wider font-extrabold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl transition-colors cursor-pointer"
+                      >
+                        Delete Project
+                      </button>
                     </div>
+
                   </div>
-
-                  {/* Actions buttons */}
-                  <div className="p-5 bg-ca-surface border-t border-ca-border space-y-2.5">
-                    <button
-                      onClick={() => {
-                        setViewingProject(selectedProject);
-                        setActiveTab("overview");
-                      }}
-                      className="w-full py-3.5 bg-gradient-to-r from-theme-1 to-theme-2 hover:from-theme-2 hover:to-theme-3 text-white rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-md shadow-theme-1/20 flex items-center justify-center cursor-pointer hover:-translate-y-0.5"
-                    >
-                      <ArrowUpRight size={16} className="mr-2" /> Open Workspace
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        if (window.confirm("Are you sure you want to delete this project?")) {
-                          deleteMutation.mutate(selectedProject._id);
-                        }
-                      }}
-                      className="w-full py-2.5 text-center text-[12px] uppercase tracking-widest font-extrabold text-red-500/70 hover:text-ca-primary hover:bg-ca-primary-light rounded-xl transition-colors cursor-pointer"
-                    >
-                      Delete Project
-                    </button>
-                  </div>
-
                 </div>
               </div>
             )}
