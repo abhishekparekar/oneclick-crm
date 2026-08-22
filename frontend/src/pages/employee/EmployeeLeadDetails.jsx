@@ -330,13 +330,12 @@ export default function EmployeeLeadDetails() {
         </div>
       </div>
 
-      {/* ── 2-COLUMN UNIFIED WORKSPACE ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        
-        {/* ── LEFT COLUMN (7 / 12 width): SINGLE UNIFIED LEAD SPECIFICATION CARD ─ */}
-        <div className="lg:col-span-7 space-y-4">
+      {/* ── SINGLE UNIFIED CRM CARD (SPECIFICATION + TIMELINE) ──────────────── */}
+      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-slate-800">
           
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
+          {/* ── LEFT SECTION (7 / 12 width): LEAD SPECIFICATION & CONTACT ───────── */}
+          <div className="lg:col-span-7 p-4 sm:p-6 space-y-5">
             
             {/* Section 1: Contact & Business Profile */}
             <div className="space-y-3">
@@ -384,7 +383,7 @@ export default function EmployeeLeadDetails() {
             </div>
 
             {/* Section 2: Deal & Pipeline Metrics */}
-            <div className="space-y-3 pt-2">
+            <div className="space-y-3 pt-1">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
                 <DollarSign size={15} className="text-emerald-600" /> Deal &amp; Pipeline Details
               </h2>
@@ -417,11 +416,8 @@ export default function EmployeeLeadDetails() {
 
           </div>
 
-        </div>
-
-        {/* ── RIGHT COLUMN (5 / 12 width): TIMELINE & ACTIVITY HISTORY ─────────── */}
-        <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
+          {/* ── RIGHT SECTION (5 / 12 width): TIMELINE & ACTIVITY HISTORY ───────── */}
+          <div className="lg:col-span-5 p-4 sm:p-6 space-y-4 bg-slate-50/40 dark:bg-slate-900/20">
             <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
                 <Clock size={15} className="text-amber-500" /> Timeline &amp; Activity History
@@ -459,7 +455,7 @@ export default function EmployeeLeadDetails() {
                         </div>
 
                         {/* Content Card */}
-                        <div className="p-3 bg-slate-50/80 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800/80 transition-all space-y-1.5">
+                        <div className="p-3 bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 transition-all space-y-1.5 shadow-2xs">
                           {timestamp && (
                             <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
                               <Clock size={10} />
@@ -476,7 +472,7 @@ export default function EmployeeLeadDetails() {
                               href={docUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
+                              className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
                             >
                               <FileText size={13} className="text-amber-500 shrink-0" />
                               <span className="truncate max-w-[200px]">{docName || "Attached Document"}</span>
@@ -497,7 +493,6 @@ export default function EmployeeLeadDetails() {
             </div>
           </div>
         </div>
-
       </div>
 
       {/* ── STATUS CHANGE MODAL ──────────────────────────────────────────────── */}
