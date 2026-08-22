@@ -1148,36 +1148,39 @@ export default function Leads() {
         <KPICard label="Active Tags" value={leadStats.activeTagsCount || (Array.isArray(tags) ? tags.length : 0)} trend="Labels" isUp period="registry" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
       </div>
 
-      {/* ── PERFECT SINGLE-LINE BASELINE ALIGNED TIMEFRAME TAB BAR + VIEW SWITCHER + STATUS FILTER ── */}
-      <div className="bg-white dark:bg-[#111C24] p-2 sm:px-3 sm:py-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 min-h-[44px]">
-        {/* Clean Date Filter Chips Container */}
-        <div className="flex items-center overflow-x-auto gap-1 hide-scrollbar flex-1 min-w-0">
-          {dateTabs.map((tabName) => {
-            const isActive = activeTab === tabName;
-            return (
-              <button
-                key={tabName}
-                onClick={() => setActiveTab(tabName)}
-                className={`h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl text-xs font-bold transition-colors duration-150 whitespace-nowrap shrink-0 ${
-                  isActive
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-extrabold"
-                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-                }`}
-              >
-                <span>{tabName}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER ─────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
+        
+        {/* ── Row 1: Time Boundary Date Pill Tabs + View Switcher ───────────── */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 min-w-0">
+            {dateTabs.map((tabName) => {
+              const isActive = activeTab === tabName;
+              return (
+                <button
+                  key={tabName}
+                  onClick={() => {
+                    setActiveTab(tabName);
+                    setSelectedStatusId("");
+                  }}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                    isActive
+                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                  }`}
+                >
+                  <span>{tabName}</span>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* View Mode Switcher Pills & Status Drawer Toggle Button */}
-        <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 w-full sm:w-auto">
           {/* View Switcher Pills */}
-          <div className="flex items-center bg-slate-100 dark:bg-[#1E293B] p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/80 shadow-2xs gap-0.5 h-8 flex-1 sm:flex-initial">
+          <div className="flex items-center bg-slate-100 dark:bg-[#1E293B] p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/80 shadow-2xs gap-0.5 h-8 shrink-0 self-end sm:self-auto">
             <button
               onClick={() => setViewMode("cards")}
               title="Grid Cards View"
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "cards"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -1188,7 +1191,7 @@ export default function Leads() {
             <button
               onClick={() => setViewMode("kanban")}
               title="Kanban Board View"
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "kanban"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -1199,7 +1202,7 @@ export default function Leads() {
             <button
               onClick={() => setViewMode("list")}
               title="Table List View"
-              className={`flex-1 sm:flex-initial flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all ${
+              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "list"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -1208,104 +1211,58 @@ export default function Leads() {
               <List size={13} /> <span>List</span>
             </button>
           </div>
+        </div>
 
-          {/* Status Drawer Toggle Button */}
+        {/* ── Row 2: Pipeline Status Filter Pills ───────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
-            onClick={() => setShowStatusCards(!showStatusCards)}
-            className={`h-8 inline-flex items-center justify-center gap-1.5 px-3 rounded-xl border text-xs font-extrabold transition-colors shadow-2xs cursor-pointer shrink-0 ${
-              showStatusCards || selectedStatusId
-                ? "bg-slate-900 text-white dark:bg-amber-500/20 dark:text-amber-300 border-slate-800 shadow-xs"
-                : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
+            onClick={() => setSelectedStatusId("")}
+            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+              !selectedStatusId
+                ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
             }`}
           >
-            <Filter size={13} className="text-amber-500" />
-            <span>Filter</span>
-            {selectedStatusId && (
-              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-            )}
-            {showStatusCards ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+            <span>All Contacts</span>
+            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+              !selectedStatusId
+                ? "bg-white/20 text-white"
+                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+            }`}>
+              {totalLeadsCount}
+            </span>
           </button>
+
+          {statuses.map((st) => {
+            const isSelected = selectedStatusId === st.id;
+            const count = leadStats.statusCounts?.[st.id] !== undefined
+              ? leadStats.statusCounts[st.id]
+              : leads.filter(l => l.statusId === st.id || l.status?.id === st.id).length;
+
+            return (
+              <button
+                key={st.id}
+                onClick={() => setSelectedStatusId(prev => prev === st.id ? "" : st.id)}
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                  isSelected
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color || '#EAB308' }} />
+                <span>{st.name}</span>
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                  isSelected
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </div>
-
-      {/* ── PREMIUM COLLAPSIBLE STATUS FILTER DRAWER (HIDDEN BY DEFAULT) ───────── */}
-      {showStatusCards && (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white p-4 rounded-2xl border border-slate-800 shadow-2xl space-y-3 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-                <Layers3 size={14} />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-100">Status Quick Filters</h4>
-                <p className="text-[10px] text-slate-400">Select a status chip to filter the contact pipeline</p>
-              </div>
-            </div>
-            {selectedStatusId ? (
-              <button
-                onClick={() => setSelectedStatusId("")}
-                className="text-xs font-extrabold text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
-              >
-                <X size={13} /> Reset Filter
-              </button>
-            ) : (
-              <button onClick={() => setShowStatusCards(false)} className="text-slate-400 hover:text-white cursor-pointer">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-2">
-            {/* All Contacts Card */}
-            <button
-              onClick={() => setSelectedStatusId("")}
-              className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
-                !selectedStatusId
-                  ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
-                  : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-200 font-bold"
-              }`}
-            >
-              <div className="text-[9px] uppercase tracking-wider opacity-80">Show All</div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs font-extrabold">All Contacts</span>
-                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${!selectedStatusId ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700 text-slate-300"}`}>
-                  {totalLeadsCount}
-                </span>
-              </div>
-            </button>
-
-            {/* Status Chips */}
-            {statuses.map(st => {
-              const isSelected = selectedStatusId === st.id;
-              const count = leadStats.statusCounts?.[st.id] !== undefined
-                ? leadStats.statusCounts[st.id]
-                : leads.filter(l => l.statusId === st.id || l.status?.id === st.id).length;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => setSelectedStatusId(prev => prev === st.id ? "" : st.id)}
-                  className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
-                    isSelected
-                      ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
-                      : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-300 font-semibold"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: st.color || '#EAB308' }} />
-                    <span className={`text-[9px] uppercase tracking-wider truncate ${isSelected ? "text-amber-400 font-bold" : "text-slate-400"}`}>{st.name}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs truncate ${isSelected ? "font-black text-amber-300" : "font-bold text-slate-200"}`}>{st.name}</span>
-                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${isSelected ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700/80 text-slate-300"}`}>
-                      {count}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── MAIN WORKSPACE CONTAINER (UNIFIED SAAS CARD FOR TOOLBAR & CONTENT) ── */}
       <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col overflow-hidden">

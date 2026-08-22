@@ -745,26 +745,29 @@ export default function TaskBoard() {
         <KPICard label="Overdue Tasks"   value={overdueCount}   trend="4.2%"  isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={AlertTriangle} iconBg="bg-rose-500/10" iconColor="#E11D48" extraClass="col-span-2 sm:col-span-1"/>
       </div>
 
-      {/* ── PERFECT SINGLE-LINE BASELINE ALIGNED TIMEFRAME TAB BAR + STATUS FILTER ── */}
-      <div className="bg-white dark:bg-[#111C24] px-3 py-1.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between gap-3 min-h-[44px]">
-        {/* Clean Date Filter Chips Container */}
-        <div className="flex items-center overflow-x-auto gap-1 hide-scrollbar flex-1 min-w-0">
+      {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER ─────────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
+        
+        {/* ── Row 1: Time Boundary Date Pill Tabs ───────────────────────────── */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
           {categoryCounts.map((cat) => {
             const isActive = activeTab === cat.name;
             return (
               <button
                 key={cat.name}
                 onClick={() => handleTabChange(cat.name)}
-                className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-xl text-xs font-bold transition-colors duration-150 whitespace-nowrap shrink-0 ${
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
                   isActive
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs font-extrabold"
-                    : "text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
                 }`}
               >
                 <span>{cat.name}</span>
                 {cat.count > 0 && (
-                  <span className={`px-1.5 py-[1px] rounded-md text-[10px] font-black ${
-                    isActive ? "bg-white/20 text-white dark:bg-slate-900/20 dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
+                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                    isActive
+                      ? "bg-white/20 text-white"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
                   }`}>
                     {cat.count}
                   </span>
@@ -774,103 +777,59 @@ export default function TaskBoard() {
           })}
         </div>
 
-        {/* Status Drawer Toggle Button on Perfect Baseline Alignment */}
+        {/* ── Row 2: Task Status Filter Pills (Directly below date pills) ────── */}
         {activeTab !== "Recurring" && (
-          <div className="flex items-center shrink-0">
-            <button
-              onClick={() => setShowStatusCards(!showStatusCards)}
-              className={`h-8 inline-flex items-center gap-1.5 px-3 rounded-xl border text-xs font-extrabold transition-colors shadow-2xs cursor-pointer shrink-0 ${
-                showStatusCards || statusFilter
-                  ? "bg-slate-900 text-white dark:bg-amber-500/20 dark:text-amber-300 border-slate-800 shadow-xs"
-                  : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-100"
-              }`}
-            >
-              <Filter size={13} className="text-amber-500" />
-              <span>Status Filter</span>
-              {statusFilter && (
-                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 animate-pulse" />
-              )}
-              {showStatusCards ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ── PREMIUM COLLAPSIBLE STATUS FILTER DRAWER (HIDDEN BY DEFAULT) ───────── */}
-      {showStatusCards && activeTab !== "Recurring" && (
-        <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-[#0F172A] text-white p-4 rounded-2xl border border-slate-800 shadow-2xl space-y-3 animate-fadeIn">
-          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
-                <Layers3 size={14} />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-100">Status Quick Filters</h4>
-                <p className="text-[10px] text-slate-400">Select a status chip to filter the task pipeline</p>
-              </div>
-            </div>
-            {statusFilter ? (
-              <button
-                onClick={() => setStatusFilter("")}
-                className="text-xs font-extrabold text-amber-400 hover:text-amber-300 underline flex items-center gap-1 cursor-pointer"
-              >
-                <X size={13} /> Reset Filter
-              </button>
-            ) : (
-              <button onClick={() => setShowStatusCards(false)} className="text-slate-400 hover:text-white cursor-pointer">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-9 gap-2">
-            {/* All Tasks Card */}
+          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
             <button
               onClick={() => setStatusFilter("")}
-              className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+              className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
                 !statusFilter
-                  ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
-                  : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-200 font-bold"
+                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                  : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
               }`}
             >
-              <div className="text-[9px] uppercase tracking-wider opacity-80">Show All</div>
-              <div className="flex items-center justify-between mt-1">
-                <span className="text-xs font-extrabold">All Tasks</span>
-                <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${!statusFilter ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700 text-slate-300"}`}>
-                  {tabFilteredTasks.length}
-                </span>
-              </div>
+              <span>All Tasks</span>
+              <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                !statusFilter
+                  ? "bg-white/20 text-white"
+                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              }`}>
+                {tabFilteredTasks.length}
+              </span>
             </button>
 
-            {/* Status Chips */}
-            {STATUS_CHIPS.map(chip => {
-              const isSelected = statusFilter === chip.key;
+            {[
+              { id: "pending", label: "Pending", count: statusCounts.pending || 0, dot: "bg-blue-500" },
+              { id: "in_process", label: "In Process", count: statusCounts.in_process || 0, dot: "bg-amber-500" },
+              { id: "complete", label: "Completed", count: statusCounts.complete || 0, dot: "bg-emerald-500" },
+              { id: "overdue", label: "Overdue", count: statusCounts.overdue || 0, dot: "bg-rose-500" },
+            ].map((st) => {
+              const isSelected = statusFilter === st.id;
               return (
                 <button
-                  key={chip.key}
-                  onClick={() => setStatusFilter(prev => prev === chip.key ? "" : chip.key)}
-                  className={`p-2.5 rounded-xl border text-left transition-all duration-200 cursor-pointer ${
+                  key={st.id}
+                  onClick={() => setStatusFilter(prev => prev === st.id ? "" : st.id)}
+                  className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
                     isSelected
-                      ? "bg-slate-800 border-2 border-amber-400 text-amber-300 font-extrabold shadow-[0_0_16px_rgba(245,158,11,0.25)] scale-[1.02]"
-                      : "bg-slate-800/60 border-slate-700/80 hover:bg-slate-800 text-slate-300 font-semibold"
+                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
                   }`}
                 >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`w-2 h-2 rounded-full ${chip.dot}`} />
-                    <span className={`text-[9px] uppercase tracking-wider truncate ${isSelected ? "text-amber-400 font-bold" : "text-slate-400"}`}>{chip.key.replace(/_/g, " ")}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-xs truncate ${isSelected ? "font-black text-amber-300" : "font-bold text-slate-200"}`}>{chip.label}</span>
-                    <span className={`text-[10px] font-black px-1.5 py-0.2 rounded-md ${isSelected ? "bg-amber-500/20 text-amber-300 border border-amber-400/40" : "bg-slate-700/80 text-slate-300"}`}>
-                      {chip.count}
-                    </span>
-                  </div>
+                  <span className={`w-2 h-2 rounded-full ${st.dot}`} />
+                  <span>{st.label}</span>
+                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                    isSelected
+                      ? "bg-white/20 text-white"
+                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                  }`}>
+                    {st.count}
+                  </span>
                 </button>
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* ── Main Task View Content ───────────────────────────────────────────── */}
       {tasksLoading ? (
