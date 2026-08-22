@@ -1082,7 +1082,7 @@ export default function Leads() {
   const dateTabs: ('All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month')[] = ["All Time", "Today", "Yesterday", "This Week", "This Month"];
 
   return (
-    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pt-2 pb-24 font-sans text-slate-900 dark:text-slate-100">
+    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pt-1 pb-10 font-sans text-slate-900 dark:text-slate-100">
       
       {/* ── Page Header (Matching Dashboard & Task Management Header Exactly) ────────── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 sm:pt-2">

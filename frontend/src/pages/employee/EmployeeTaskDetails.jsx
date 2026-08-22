@@ -425,7 +425,7 @@ export default function EmployeeTaskDetails() {
   };
 
   return (
-    <div className="p-6 space-y-6 font-sans bg-ca-bg min-h-screen text-ca-text pb-20">
+    <div className="p-4 sm:p-5 space-y-4 font-sans bg-ca-bg min-h-screen text-ca-text pb-12">
 
       {/* ── ACTION POPUP MODAL ─────────────────────────────────────────────────── */}
       <TaskActionModal
@@ -438,9 +438,9 @@ export default function EmployeeTaskDetails() {
 
       {/* ── SUCCESS TOAST NOTIFICATION ────────────────────────────────────────── */}
       {toastMessage && (
-        <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-between shadow-md animate-fadeIn">
-          <div className="flex items-center gap-2.5">
-            <CheckCircle2 size={18} className="text-emerald-600" />
+        <div className="p-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center justify-between shadow-md animate-fadeIn">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-emerald-600" />
             <span>{toastMessage.text}</span>
           </div>
           <button onClick={() => setToastMessage(null)} className="p-1 hover:bg-emerald-500/20 rounded-lg cursor-pointer">
@@ -453,9 +453,9 @@ export default function EmployeeTaskDetails() {
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="px-4 py-2 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
+          className="px-3.5 py-1.5 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
         >
-          <ArrowLeft size={16} /> Back to My Tasks
+          <ArrowLeft size={15} /> Back to My Tasks
         </button>
 
         <div className="flex items-center gap-2">
@@ -469,22 +469,22 @@ export default function EmployeeTaskDetails() {
       </div>
 
       {/* ── HERO BANNER (CLEAN & MODERN) ──────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-orange-500/30">
+      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 sm:p-5 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-orange-500/30">
 
         {/* Left Side: Icon & Title */}
-        <div className="flex items-start md:items-center gap-4.5 min-w-0">
-          <div className="w-13 h-13 rounded-2xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-2xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
-            <CheckSquare size={26} />
+        <div className="flex items-start md:items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
+            <CheckSquare size={22} />
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white truncate max-w-xl">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg md:text-xl font-black tracking-tight text-white truncate max-w-xl">
                 {task.title || task.name || "Task Details"}
               </h1>
 
               {/* Status Badge */}
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isCompleted ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40" :
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${isCompleted ? "bg-emerald-500/30 text-emerald-200 border border-emerald-400/40" :
                 isInProgress ? "bg-blue-500/30 text-blue-200 border border-blue-400/40" :
                   isOverdue ? "bg-rose-500/30 text-rose-200 border border-rose-400/40" :
                     "bg-amber-500/30 text-amber-200 border border-amber-400/40"
@@ -497,9 +497,9 @@ export default function EmployeeTaskDetails() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-orange-200/80 font-medium">
+            <div className="flex items-center gap-2 text-xs text-orange-200/80 font-medium flex-wrap">
               <span>Priority:</span>
-              <span className={`px-2.5 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${priorityTheme.bg}`}>
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-wider border ${priorityTheme.bg}`}>
                 {priorityTheme.label}
               </span>
             </div>
@@ -507,32 +507,32 @@ export default function EmployeeTaskDetails() {
         </div>
 
         {/* Right Side: Primary Workflow Action Button */}
-        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2.5">
+        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2">
           {isPending && !isOverdue && (
             <button
               onClick={() => openActionModal("in_process")}
-              className="w-full md:w-auto px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all cursor-pointer border border-blue-400/40 hover:scale-105 active:scale-95"
+              className="w-full md:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-blue-500/25 transition-all cursor-pointer border border-blue-400/40"
             >
-              <Play size={15} className="fill-white" />
+              <Play size={14} className="fill-white" />
               <span>Start Task (In Process)</span>
             </button>
           )}
 
           {isInProgress && (
-            <div className="flex items-center gap-2.5 w-full md:w-auto">
+            <div className="flex items-center gap-2 w-full md:w-auto flex-wrap">
               <button
                 onClick={() => openActionModal("follow_up")}
-                className="flex-1 md:flex-none px-5 py-3 bg-teal-700 hover:bg-teal-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 transition-all cursor-pointer border border-teal-500/40 hover:scale-105 active:scale-95"
+                className="flex-1 md:flex-none px-4 py-2.5 bg-teal-700 hover:bg-teal-600 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 transition-all cursor-pointer border border-teal-500/40"
               >
-                <CalendarDays size={15} />
+                <CalendarDays size={14} />
                 <span>Next Follow-Up</span>
               </button>
 
               <button
                 onClick={() => openActionModal("complete")}
-                className="flex-1 md:flex-none px-5 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-400/40 hover:scale-105 active:scale-95"
+                className="flex-1 md:flex-none px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 transition-all cursor-pointer border border-emerald-400/40"
               >
-                <CheckCircle2 size={15} />
+                <CheckCircle2 size={14} />
                 <span>Mark Completed</span>
               </button>
             </div>
@@ -541,16 +541,16 @@ export default function EmployeeTaskDetails() {
           {isOverdue && !isCompleted && (
             <button
               onClick={() => openActionModal("late_complete")}
-              className="w-full md:w-auto px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-lg shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40 hover:scale-105 active:scale-95"
+              className="w-full md:w-auto px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40"
             >
-              <AlertCircle size={15} />
+              <AlertCircle size={14} />
               <span>Mark Late Complete</span>
             </button>
           )}
 
           {isCompleted && (
-            <div className="px-5 py-2.5 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-2xl text-xs font-black flex items-center gap-2">
-              <CheckCircle size={16} />
+            <div className="px-4 py-2 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-black flex items-center gap-2">
+              <CheckCircle size={15} />
               <span>Task Completed &amp; Verified</span>
             </div>
           )}
@@ -559,25 +559,25 @@ export default function EmployeeTaskDetails() {
       </div>
 
       {/* ── 2-COLUMN MAIN WORKSPACE ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
         {/* ── LEFT COLUMN (7 / 12 width): TASK DETAILS & DISCUSSION ───────────── */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-7 space-y-4">
 
           {/* Task Info Specification Card */}
-          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-5">
-            <div className="border-b border-ca-border pb-3 flex items-center justify-between">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
-                <FileText size={18} className="text-orange-600" /> Task Specification &amp; Details
+          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
+                <FileText size={16} className="text-orange-600" /> Task Specification &amp; Details
               </h2>
             </div>
 
             {/* Description & Instructions Box */}
-            <div className="space-y-1.5">
+            <div className="space-y-1">
               <p className="text-[10px] font-black text-ca-text-secondary uppercase tracking-wider">
                 Description &amp; Instructions
               </p>
-              <div className="p-4 bg-ca-bg rounded-2xl border border-ca-border text-xs text-ca-text font-medium leading-relaxed">
+              <div className="p-3.5 bg-ca-bg rounded-xl border border-ca-border text-xs text-ca-text font-medium leading-relaxed">
                 {task.description || "No specific detailed description provided for this task."}
               </div>
             </div>
@@ -602,20 +602,20 @@ export default function EmployeeTaskDetails() {
               </div>
 
               {/* Next Follow-Up Date */}
-              <div className="p-3.5 bg-teal-50/70 dark:bg-teal-950/20 rounded-2xl border border-teal-200 dark:border-teal-900 text-center space-y-1">
+              <div className="p-3 bg-teal-50/70 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 text-center space-y-0.5">
                 <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
-                  <Clock size={12} /> Next Follow-Up
+                  <Clock size={11} /> Next Follow-Up
                 </p>
-                <p className="text-sm font-black text-teal-900 dark:text-teal-200 font-mono">
+                <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono">
                   {task.nextFollowUpDate ? new Date(task.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Set"}
                 </p>
               </div>
             </div>
 
             {/* Department */}
-            <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border flex items-center justify-between text-xs">
+            <div className="p-3 bg-ca-bg rounded-xl border border-ca-border flex items-center justify-between text-xs">
               <span className="text-ca-text-secondary font-bold flex items-center gap-2">
-                <Building size={16} className="text-orange-600" /> Assigned Department:
+                <Building size={15} className="text-orange-600" /> Assigned Department:
               </span>
               <span className="font-black text-ca-text">
                 {task.departmentId?.name || task.departmentName || "General Team"}
@@ -625,13 +625,13 @@ export default function EmployeeTaskDetails() {
 
           {/* Task Attachments Card (If any) */}
           {Array.isArray(task.attachments) && task.attachments.length > 0 && (
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <div className="border-b border-ca-border pb-3">
-                <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
-                  <Paperclip size={18} className="text-orange-600" /> Attached Documents ({task.attachments.length})
+            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="border-b border-ca-border pb-2.5">
+                <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
+                  <Paperclip size={16} className="text-orange-600" /> Attached Documents ({task.attachments.length})
                 </h2>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {task.attachments.map((att, idx) => {
                   const fileName = safeDecode(att.fileName);
                   const isImage = (att.fileType || "").startsWith("image/");
@@ -641,18 +641,18 @@ export default function EmployeeTaskDetails() {
                       href={att.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 bg-ca-bg hover:bg-orange-50/50 border border-ca-border hover:border-orange-500 rounded-2xl transition-all group shadow-2xs"
+                      className="flex items-center gap-2.5 p-2.5 bg-ca-bg hover:bg-orange-50/50 border border-ca-border hover:border-orange-500 rounded-xl transition-all group shadow-2xs"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
-                        {isImage ? <ImageIcon size={20} /> : <FileText size={20} />}
+                      <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                        {isImage ? <ImageIcon size={16} /> : <FileText size={16} />}
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-ca-text truncate group-hover:text-orange-800 transition-colors">
                           {fileName}
                         </p>
-                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1 mt-0.5">
+                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1">
                           <span>Open File</span>
-                          <ExternalLink size={10} />
+                          <ExternalLink size={9} />
                         </p>
                       </div>
                     </a>
@@ -663,10 +663,10 @@ export default function EmployeeTaskDetails() {
           )}
 
           {/* Comments & Discussion Timeline */}
-          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-            <div className="border-b border-ca-border pb-3 flex items-center justify-between">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
-                <MessageSquare size={18} className="text-orange-600" /> Comments &amp; Discussion Timeline
+          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+            <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
+                <MessageSquare size={16} className="text-orange-600" /> Comments &amp; Discussion Timeline
               </h2>
               <span className="text-xs font-bold text-ca-text-secondary">
                 {task.comments?.length || 0} Comments
@@ -674,9 +674,9 @@ export default function EmployeeTaskDetails() {
             </div>
 
             {Array.isArray(task.comments) && task.comments.length > 0 ? (
-              <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
                 {task.comments.map((c, idx) => (
-                  <div key={idx} className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-xs space-y-2">
+                  <div key={idx} className="p-3 bg-ca-bg rounded-xl border border-ca-border text-xs space-y-1.5">
                     <div className="flex items-center justify-between text-[10px] font-black text-ca-text-secondary">
                       <span>{c.senderName || "Team Member"} ({c.senderRole || "Member"})</span>
                       <span className="font-mono">{new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}</span>
@@ -691,11 +691,11 @@ export default function EmployeeTaskDetails() {
                             href={att.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-ca-surface border border-ca-border hover:border-orange-500 rounded-lg text-[11px] font-bold text-orange-900 transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-ca-surface border border-ca-border hover:border-orange-500 rounded-lg text-[10px] font-bold text-orange-900 transition-colors"
                           >
-                            <Paperclip size={12} className="text-orange-600" />
-                            <span className="max-w-[150px] truncate">{safeDecode(att.fileName)}</span>
-                            <ExternalLink size={10} />
+                            <Paperclip size={11} className="text-orange-600" />
+                            <span className="max-w-[130px] truncate">{safeDecode(att.fileName)}</span>
+                            <ExternalLink size={9} />
                           </a>
                         ))}
                       </div>
@@ -704,23 +704,23 @@ export default function EmployeeTaskDetails() {
                 ))}
               </div>
             ) : (
-              <div className="py-6 text-center text-ca-text-secondary text-xs italic">
+              <div className="py-4 text-center text-ca-text-secondary text-xs italic">
                 No discussion comments yet. Be the first to comment below!
               </div>
             )}
 
             {/* Quick Comment Input */}
-            <form onSubmit={handleAddComment} className="pt-3 border-t border-ca-border space-y-2">
+            <form onSubmit={handleAddComment} className="pt-2 border-t border-ca-border space-y-2">
               <textarea
                 rows={2}
                 value={standaloneComment}
                 onChange={(e) => setStandaloneComment(e.target.value)}
                 placeholder="Post a question or comment to the task thread..."
-                className="w-full p-3 rounded-2xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500 shadow-2xs"
+                className="w-full p-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500 shadow-2xs"
               />
               <div className="flex items-center justify-between">
-                <label className="text-[11px] font-bold text-ca-text-secondary hover:text-orange-600 cursor-pointer flex items-center gap-1.5">
-                  <Paperclip size={14} />
+                <label className="text-[10px] font-bold text-ca-text-secondary hover:text-orange-600 cursor-pointer flex items-center gap-1">
+                  <Paperclip size={13} />
                   <span>{standaloneFile ? standaloneFile.name : "Attach file"}</span>
                   <input
                     type="file"
@@ -733,9 +733,9 @@ export default function EmployeeTaskDetails() {
                 <button
                   type="submit"
                   disabled={isSubmittingComment || (!standaloneComment.trim() && !standaloneFile)}
-                  className="px-4.5 py-2 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
                 >
-                  <Send size={13} />
+                  <Send size={12} />
                   <span>{isSubmittingComment ? "Posting..." : "Post Comment"}</span>
                 </button>
               </div>
@@ -745,33 +745,33 @@ export default function EmployeeTaskDetails() {
         </div>
 
         {/* ── RIGHT COLUMN (5 / 12 width): WORKFLOW ACTIONS & STATUS ────────── */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-5 space-y-4">
 
-          <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-6">
+          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-4">
 
             {/* Panel Header */}
-            <div className="border-b border-ca-border pb-3">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
-                <Send size={18} className="text-orange-600" /> Task Workflow &amp; Progress
+            <div className="border-b border-ca-border pb-2.5">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
+                <Send size={16} className="text-orange-600" /> Task Workflow &amp; Progress
               </h2>
-              <p className="text-xs text-ca-text-secondary font-medium mt-0.5">
+              <p className="text-[11px] text-ca-text-secondary font-medium mt-0.5">
                 Current stage &amp; next follow-up milestone.
               </p>
             </div>
 
             {/* ── CLEAN CONNECTED STEPPER (MOBILE PARITY) ── */}
-            <div className="bg-ca-bg rounded-2xl p-4 border border-ca-border">
+            <div className="bg-ca-bg rounded-xl p-3 border border-ca-border">
               <div className="flex items-center justify-between relative">
 
                 {/* Step 1: Pending */}
-                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${(isInProgress || isCompleted)
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${(isInProgress || isCompleted)
                     ? "bg-emerald-600 text-white"
                     : isPending
-                      ? "bg-amber-500 text-white ring-4 ring-amber-500/20"
+                      ? "bg-amber-500 text-white ring-2 ring-amber-500/20"
                       : "bg-ca-surface border border-ca-border text-ca-text-secondary"
                     }`}>
-                    {(isInProgress || isCompleted) ? <Check size={16} strokeWidth={3} /> : <span>1</span>}
+                    {(isInProgress || isCompleted) ? <Check size={14} strokeWidth={3} /> : <span>1</span>}
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-wider ${isPending ? "text-amber-600 font-black" : (isInProgress || isCompleted) ? "text-emerald-700" : "text-ca-text-secondary"
                     }`}>
@@ -780,20 +780,20 @@ export default function EmployeeTaskDetails() {
                 </div>
 
                 {/* Connecting Line 1 */}
-                <div className="flex-1 h-0.5 -mx-3 bg-ca-border relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-2 bg-ca-border relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${(isInProgress || isCompleted) ? "bg-emerald-600 w-full" : "w-0"
                     }`} />
                 </div>
 
                 {/* Step 2: In Progress */}
-                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
                     ? "bg-emerald-600 text-white"
                     : isInProgress
-                      ? "bg-blue-600 text-white ring-4 ring-blue-600/20"
+                      ? "bg-blue-600 text-white ring-2 ring-blue-600/20"
                       : "bg-ca-surface border border-ca-border text-ca-text-secondary"
                     }`}>
-                    {isCompleted ? <Check size={16} strokeWidth={3} /> : <span>2</span>}
+                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>2</span>}
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-600 font-black" : isCompleted ? "text-emerald-700" : "text-ca-text-secondary"
                     }`}>
@@ -802,18 +802,18 @@ export default function EmployeeTaskDetails() {
                 </div>
 
                 {/* Connecting Line 2 */}
-                <div className="flex-1 h-0.5 -mx-3 bg-ca-border relative overflow-hidden">
+                <div className="flex-1 h-0.5 -mx-2 bg-ca-border relative overflow-hidden">
                   <div className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-600 w-full" : "w-0"
                     }`} />
                 </div>
 
                 {/* Step 3: Complete */}
-                <div className="flex flex-col items-center gap-1.5 z-10 flex-1">
-                  <div className={`w-9 h-9 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
-                    ? "bg-emerald-600 text-white ring-4 ring-emerald-600/20"
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
+                    ? "bg-emerald-600 text-white ring-2 ring-emerald-600/20"
                     : "bg-ca-surface border border-ca-border text-ca-text-secondary"
                     }`}>
-                    {isCompleted ? <Check size={16} strokeWidth={3} /> : <span>3</span>}
+                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>3</span>}
                   </div>
                   <span className={`text-[10px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-600 font-black" : "text-ca-text-secondary"
                     }`}>
@@ -825,16 +825,16 @@ export default function EmployeeTaskDetails() {
             </div>
 
             {/* ── CONTEXTUAL ACTION BUTTONS (CLEAN POPUP TRIGGER) ── */}
-            <div className="space-y-3 pt-1">
+            <div className="space-y-2 pt-1">
 
               {/* OVERDUE: LATE COMPLETE */}
               {isOverdue && !isCompleted && (
                 <button
                   type="button"
                   onClick={() => openActionModal("late_complete")}
-                  className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-orange-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                  className="w-full py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
                 >
-                  <AlertCircle size={17} />
+                  <AlertCircle size={15} />
                   <span>Mark Late Complete</span>
                 </button>
               )}
@@ -844,32 +844,32 @@ export default function EmployeeTaskDetails() {
                 <button
                   type="button"
                   onClick={() => openActionModal("in_process")}
-                  className="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2.5 shadow-lg shadow-blue-500/20 hover:scale-[1.01] active:scale-[0.99]"
+                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-blue-500/20"
                 >
-                  <Play size={17} className="fill-current" />
+                  <Play size={15} className="fill-current" />
                   <span>Start Task (In Process)</span>
                 </button>
               )}
 
               {/* IN PROGRESS: NEXT FOLLOW-UP & MARK COMPLETED */}
               {isInProgress && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => openActionModal("follow_up")}
-                    className="py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-teal-700/20 hover:scale-[1.01] active:scale-[0.99]"
+                    className="py-2.5 px-3 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm shadow-teal-700/20"
                   >
-                    <CalendarDays size={16} />
+                    <CalendarDays size={14} />
                     <span>Next Follow-Up</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => openActionModal("complete")}
-                    className="py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 hover:scale-[1.01] active:scale-[0.99]"
+                    className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20"
                   >
-                    <CheckCircle2 size={16} />
-                    <span>Mark Completed</span>
+                    <CheckCircle2 size={14} />
+                    <span>Mark Complete</span>
                   </button>
                 </div>
               )}

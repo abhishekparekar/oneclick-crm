@@ -252,15 +252,15 @@ export default function EmployeeLeadDetails() {
   }
 
   return (
-    <div className="p-6 space-y-6 font-sans bg-ca-bg min-h-screen text-ca-text pb-20">
+    <div className="p-4 sm:p-5 space-y-4 font-sans bg-ca-bg min-h-screen text-ca-text pb-12">
       
       {/* ── TOP NAVIGATION BAR ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate("/employee/leads")}
-          className="px-4 py-2 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
+          className="px-3.5 py-1.5 bg-ca-surface hover:bg-ca-bg text-ca-text border border-ca-border rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-2 shadow-2xs"
         >
-          <ArrowLeft size={16} /> Back to My Leads
+          <ArrowLeft size={15} /> Back to My Leads
         </button>
 
         <div className="flex items-center gap-2">
@@ -274,27 +274,27 @@ export default function EmployeeLeadDetails() {
       </div>
 
       {/* ── HERO LUXURY BANNER ───────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-3xl p-6 md:p-8 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-orange-500/30">
+      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 sm:p-5 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border border-orange-500/30">
         
         {/* Left Side: Icon, Name & Status */}
-        <div className="flex items-start md:items-center gap-4.5 min-w-0">
-          <div className="w-13 h-13 rounded-2xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-2xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
-            <Magnet size={26} />
+        <div className="flex items-start md:items-center gap-3.5 min-w-0">
+          <div className="w-11 h-11 rounded-xl bg-orange-500/20 text-orange-400 backdrop-blur-md flex items-center justify-center font-black text-xl border border-orange-500/30 shadow-md shrink-0 mt-0.5 md:mt-0">
+            <Magnet size={22} />
           </div>
 
-          <div className="space-y-1.5 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className="text-xl md:text-2xl font-black tracking-tight text-white truncate max-w-xl">
+          <div className="space-y-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-lg md:text-xl font-black tracking-tight text-white truncate max-w-xl">
                 {lead.name || "Prospective Client"}
               </h1>
 
               {/* Status Badge */}
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs ${getStatusColor(resolvedStatusName)}`}>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border shadow-xs ${getStatusColor(resolvedStatusName)}`}>
                 {resolvedStatusName.toUpperCase()}
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-orange-200/80 font-medium">
+            <div className="flex items-center gap-2 text-xs text-orange-200/80 font-medium flex-wrap">
               <span>Company / Service:</span>
               <span className="font-black text-white">{lead.company || lead.productService || "General Services"}</span>
               {lead.estimatedValue && (
@@ -308,20 +308,20 @@ export default function EmployeeLeadDetails() {
         </div>
 
         {/* Right Side: Quick Actions */}
-        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2.5 flex-wrap">
+        <div className="shrink-0 self-stretch md:self-auto flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowStatusModal(true)}
-            className="flex-1 md:flex-none px-5 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40"
+            className="flex-1 md:flex-none px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-orange-500/25 transition-all cursor-pointer border border-orange-400/40"
           >
-            <Layers size={15} />
+            <Layers size={14} />
             <span>Update Stage / Status</span>
           </button>
 
           <button
             onClick={() => setActiveTab("whatsapp")}
-            className="flex-1 md:flex-none px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 transition-all cursor-pointer border border-emerald-400/40"
+            className="flex-1 md:flex-none px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black flex items-center justify-center gap-2 shadow-md shadow-emerald-500/25 transition-all cursor-pointer border border-emerald-400/40"
           >
-            <Smartphone size={15} />
+            <Smartphone size={14} />
             <span>Send WhatsApp ⚡</span>
           </button>
         </div>
@@ -341,13 +341,13 @@ export default function EmployeeLeadDetails() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                 active
                   ? "bg-teal-800 text-white shadow-sm"
                   : "bg-ca-surface text-ca-text-secondary hover:text-ca-text hover:bg-ca-bg"
               }`}
             >
-              <Icon size={15} />
+              <Icon size={14} />
               <span>{tab.label}</span>
             </button>
           );
@@ -356,95 +356,65 @@ export default function EmployeeLeadDetails() {
 
       {/* ── TAB 1: OVERVIEW & LEAD SPECIFICATION ──────────────────────────────── */}
       {activeTab === "overview" && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Column (7/12): Core Info */}
-          <div className="lg:col-span-7 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          {/* Left Column (6/12): Contact Info & Documents */}
+          <div className="lg:col-span-6 space-y-4">
             
             {/* Contact Details Card */}
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-                <User size={18} className="text-orange-600" /> Contact &amp; Business Profile
+            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
+                <User size={16} className="text-orange-600" /> Contact &amp; Business Profile
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
                   <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Phone size={12} className="text-emerald-600" /> Primary Phone
+                    <Phone size={11} className="text-emerald-600" /> Primary Phone
                   </p>
-                  <p className="text-sm font-black text-ca-text font-mono">
+                  <p className="text-xs font-black text-ca-text font-mono">
                     {lead.phone || lead.whatsappPhone || "—"}
                   </p>
                 </div>
 
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
                   <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Smartphone size={12} className="text-emerald-600" /> WhatsApp Number
+                    <Smartphone size={11} className="text-emerald-600" /> WhatsApp Number
                   </p>
-                  <p className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono">
+                  <p className="text-xs font-black text-emerald-700 dark:text-emerald-400 font-mono">
                     {lead.whatsappPhone || lead.phone || "—"}
                   </p>
                 </div>
 
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
                   <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Mail size={12} className="text-blue-600" /> Email Address
+                    <Mail size={11} className="text-blue-600" /> Email Address
                   </p>
                   <p className="text-xs font-bold text-ca-text truncate">
                     {lead.email || "No email provided"}
                   </p>
                 </div>
 
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-1">
                   <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider flex items-center gap-1">
-                    <Building size={12} className="text-orange-600" /> Company / Organization
+                    <Building size={11} className="text-orange-600" /> Company / Organization
                   </p>
-                  <p className="text-xs font-bold text-ca-text">
+                  <p className="text-xs font-bold text-ca-text truncate">
                     {lead.company || "Individual"}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Pipeline Stage & Deal Value Card */}
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-                <DollarSign size={18} className="text-emerald-600" /> Deal &amp; Pipeline Details
-              </h2>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Est. Deal Value</p>
-                  <p className="text-base font-black text-emerald-600">
-                    {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border space-y-1">
-                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Lead Source</p>
-                  <p className="text-xs font-black text-ca-text">
-                    {lead.source || "Direct"}
-                  </p>
-                </div>
-
-                <div className="p-3.5 bg-teal-50 dark:bg-teal-950/20 rounded-2xl border border-teal-200 dark:border-teal-900 space-y-1">
-                  <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider">Next Follow-Up</p>
-                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono">
-                    {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Attached Documents & Quotations Card */}
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <div className="border-b border-ca-border pb-3 flex items-center justify-between">
-                <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2">
-                  <Paperclip size={18} className="text-orange-600" /> Documents, Quotations &amp; Files ({lead.documents?.length || 0})
+            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
+                <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
+                  <Paperclip size={16} className="text-orange-600" /> Documents &amp; Files ({lead.documents?.length || 0})
                 </h2>
 
-                <label className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs">
-                  <Plus size={14} />
-                  <span>{directUploadingDoc ? "Uploading..." : "+ Attach Document"}</span>
+                <label className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded-lg text-[11px] font-black transition-all cursor-pointer flex items-center gap-1 shadow-2xs">
+                  <Plus size={13} />
+                  <span>{directUploadingDoc ? "Uploading..." : "+ Attach File"}</span>
                   <input
                     type="file"
                     disabled={directUploadingDoc}
@@ -455,80 +425,110 @@ export default function EmployeeLeadDetails() {
               </div>
 
               {Array.isArray(lead.documents) && lead.documents.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {lead.documents.map((doc, idx) => (
                     <a
                       key={idx}
                       href={doc.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center gap-3 p-3 bg-ca-bg hover:bg-orange-50/50 dark:hover:bg-orange-950/20 border border-ca-border hover:border-orange-500 rounded-2xl transition-all group shadow-2xs"
+                      className="flex items-center gap-2.5 p-2.5 bg-ca-bg hover:bg-orange-50/50 dark:hover:bg-orange-950/20 border border-ca-border hover:border-orange-500 rounded-xl transition-all group shadow-2xs"
                     >
-                      <div className="w-10 h-10 rounded-xl bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 flex items-center justify-center shrink-0">
-                        <FileText size={20} />
+                      <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-950/60 text-orange-700 dark:text-orange-300 flex items-center justify-center shrink-0">
+                        <FileText size={16} />
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="text-xs font-bold text-ca-text truncate group-hover:text-orange-800 transition-colors">
                           {doc.name || "Attachment"}
                         </p>
-                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1 mt-0.5">
+                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1">
                           <span>Open File</span>
-                          <ExternalLink size={10} />
+                          <ExternalLink size={9} />
                         </p>
                       </div>
                     </a>
                   ))}
                 </div>
               ) : (
-                <div className="p-6 text-center text-ca-text-secondary text-xs bg-ca-bg rounded-2xl border border-dashed border-ca-border">
-                  No documents or quotations attached to this lead yet. Click "+ Attach Document" above to upload.
+                <div className="p-4 text-center text-ca-text-secondary text-xs bg-ca-bg rounded-xl border border-dashed border-ca-border">
+                  No documents attached yet. Click "+ Attach File" above to upload.
                 </div>
               )}
             </div>
 
           </div>
 
-          {/* Right Column (5/12): Fast Action & Note Composer */}
-          <div className="lg:col-span-5 space-y-6">
+          {/* Right Column (6/12): Deal Details & Follow-up Note */}
+          <div className="lg:col-span-6 space-y-4">
             
+            {/* Pipeline Stage & Deal Value Card */}
+            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
+                <DollarSign size={16} className="text-emerald-600" /> Deal &amp; Pipeline Details
+              </h2>
+
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-0.5">
+                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Est. Deal Value</p>
+                  <p className="text-sm font-black text-emerald-600 truncate">
+                    {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-ca-bg rounded-xl border border-ca-border space-y-0.5">
+                  <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Lead Source</p>
+                  <p className="text-xs font-black text-ca-text truncate">
+                    {lead.source || "Direct"}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-teal-50 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
+                  <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider">Next Follow-Up</p>
+                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
+                    {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
             {/* Quick Follow-up Note Card */}
-            <div className="bg-ca-surface rounded-3xl border border-ca-border p-6 shadow-2xs space-y-4">
-              <h2 className="font-black text-ca-text text-sm uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-3">
-                <Clock size={18} className="text-orange-600" /> Log Call / Follow-up Note
+            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
+              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2 border-b border-ca-border pb-2.5">
+                <Clock size={16} className="text-orange-600" /> Log Call / Follow-up Note
               </h2>
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
                     Next Follow-up Date
                   </label>
                   <input
                     type="date"
                     value={nextFollowUpDate}
                     onChange={(e) => setNextFollowUpDate(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500"
+                    className="w-full px-3 py-1.5 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
                     Discussion Summary / Notes
                   </label>
                   <textarea
-                    rows={4}
+                    rows={3}
                     value={newNote}
                     onChange={(e) => setNewNote(e.target.value)}
                     placeholder="Enter key conversation points, requirements, or objections discussed with the client..."
-                    className="w-full p-3 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500"
+                    className="w-full p-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500"
                   />
                 </div>
 
                 <button
                   onClick={() => addNoteMut.mutate({ noteText: newNote, followUp: nextFollowUpDate })}
                   disabled={!newNote.trim() || addNoteMut.isPending}
-                  className="w-full py-2.5 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  className="w-full py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <Send size={14} />
+                  <Send size={13} />
                   <span>{addNoteMut.isPending ? "Saving..." : "Save Note to Timeline"}</span>
                 </button>
               </div>
