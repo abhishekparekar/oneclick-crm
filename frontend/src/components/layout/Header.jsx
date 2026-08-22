@@ -5,7 +5,7 @@ import {
   Search, Bell, ChevronDown, Menu, Settings, LogOut,
   User, Moon, Sun, Megaphone, X, Users, LayoutDashboard,
   CalendarOff, Folder, BarChart2, CheckSquare, Building2,
-  Calendar, DollarSign, Clock, Magnet, MessageSquare,
+  Calendar, DollarSign, Clock, Magnet, MessageSquare, Plus,
 } from "lucide-react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -75,15 +75,17 @@ const Header = ({ onMenuClick }) => {
   const location = useLocation();
   const queryClient = useQueryClient();
 
-  const [profileOpen, setProfileOpen]   = useState(false);
-  const [notifOpen,   setNotifOpen]     = useState(false);
-  const [searchQuery, setSearchQuery]   = useState("");
-  const [searchOpen,  setSearchOpen]    = useState(false);
-  const [darkMode,    setDarkMode]      = useState(() => localStorage.getItem("darkMode") === "true");
+  const [profileOpen, setProfileOpen]       = useState(false);
+  const [notifOpen,   setNotifOpen]         = useState(false);
+  const [quickCreateOpen, setQuickCreateOpen] = useState(false);
+  const [searchQuery, setSearchQuery]       = useState("");
+  const [searchOpen,  setSearchOpen]        = useState(false);
+  const [darkMode,    setDarkMode]          = useState(() => localStorage.getItem("darkMode") === "true");
 
-  const dropdownRef = useRef(null);
-  const notifRef    = useRef(null);
-  const searchRef   = useRef(null);
+  const dropdownRef    = useRef(null);
+  const notifRef       = useRef(null);
+  const searchRef      = useRef(null);
+  const quickCreateRef = useRef(null);
 
   // ── Dark mode effect ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -97,6 +99,7 @@ const Header = ({ onMenuClick }) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) setProfileOpen(false);
       if (notifRef.current   && !notifRef.current.contains(e.target))     setNotifOpen(false);
       if (searchRef.current  && !searchRef.current.contains(e.target))    setSearchOpen(false);
+      if (quickCreateRef.current && !quickCreateRef.current.contains(e.target)) setQuickCreateOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -355,16 +358,138 @@ const Header = ({ onMenuClick }) => {
 
       <div className="flex items-center space-x-2">
 
-      {/* ── Dark Mode Toggle ──────────────────────────────────────────────── */}
-      <button
-        onClick={() => setDarkMode((d) => !d)}
-        title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
-        className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${
-          isSuperAdmin ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text" : "hover:bg-slate-800 text-slate-400 hover:text-white"
-        }`}
-      >
-        {darkMode ? <Sun size={18} /> : <Moon size={18} />}
-      </button>
+        {/* ── Quick Create Dropdown Button (+ Add Lead & + Add Task) ────── */}
+        <div className="relative" ref={quickCreateRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setQuickCreateOpen((prev) => !prev);
+              setProfileOpen(false);
+              setNotifOpen(false);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs shadow-sm hover:shadow-md transition-all cursor-pointer"
+            title="Quick Create Lead or Task"
+          >
+            <Plus size={14} strokeWidth={3} />
+            <span className="hidden sm:inline">Create</span>
+            <ChevronDown size={12} className={`transition-transform duration-200 ${quickCreateOpen ? "rotate-180" : ""}`} />
+          </button>
+
+          {quickCreateOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150 p-1.5 space-y-1">
+              <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Quick Actions</p>
+              </div>
+
+              {/* Add Lead */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickCreateOpen(false);
+                  const path =
+                    user?.role === "SuperAdmin"
+                      ? "/superadmin/dashboard"
+                      : user?.role === "HR"
+                      ? "/hr/leads?create=true"
+                      : user?.role === "Manager"
+                      ? "/manager/leads?create=true"
+                      : user?.role === "Employee"
+                      ? "/employee/leads?create=true"
+                      : "/company/leads?create=true";
+                  navigate(path);
+                }}
+                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                  <Magnet size={16} strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                    Add New Lead
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium truncate">
+                    Capture inquiry &amp; schedule follow-up
+                  </p>
+                </div>
+              </button>
+
+              {/* Add Task */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickCreateOpen(false);
+                  const path =
+                    user?.role === "SuperAdmin"
+                      ? "/superadmin/dashboard"
+                      : user?.role === "HR"
+                      ? "/hr/tasks?create=true"
+                      : user?.role === "Manager"
+                      ? "/manager/my-tasks?create=true"
+                      : user?.role === "Employee"
+                      ? "/employee/my-tasks?create=true"
+                      : "/company/tasks?create=true";
+                  navigate(path);
+                }}
+                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-blue-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                  <CheckSquare size={16} strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    Create Work Task
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium truncate">
+                    Assign task, checklist &amp; deadline
+                  </p>
+                </div>
+              </button>
+
+              {/* Company Request */}
+              <button
+                type="button"
+                onClick={() => {
+                  setQuickCreateOpen(false);
+                  const path =
+                    user?.role === "SuperAdmin"
+                      ? "/superadmin/company-requests?create=true"
+                      : user?.role === "HR"
+                      ? "/hr/requests?create=true"
+                      : user?.role === "Manager"
+                      ? "/manager/requests?create=true"
+                      : user?.role === "Employee"
+                      ? "/employee/requests?create=true"
+                      : "/company/requests?create=true";
+                  navigate(path);
+                }}
+                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-emerald-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+              >
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                  <MessageSquare size={16} strokeWidth={2.2} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    Company Request
+                  </p>
+                  <p className="text-[10px] text-slate-400 font-medium truncate">
+                    Broadcast requirements or queries
+                  </p>
+                </div>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Dark Mode Toggle ──────────────────────────────────────────────── */}
+        <button
+          onClick={() => setDarkMode((d) => !d)}
+          title={darkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          className={`w-9 h-9 flex items-center justify-center rounded-xl transition-colors ${
+            isSuperAdmin ? "hover:bg-sa-hover text-sa-text-secondary hover:text-sa-text" : "hover:bg-slate-800 text-slate-400 hover:text-white"
+          }`}
+        >
+          {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+        </button>
 
       {/* ── Notification Bell ─────────────────────────────────────────────── */}
       <div className="relative" ref={notifRef}>

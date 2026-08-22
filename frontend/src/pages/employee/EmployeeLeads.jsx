@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
@@ -134,6 +134,7 @@ const resolveLeadStatusName = (lead, statusesList = []) => {
 
 export default function EmployeeLeads() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -143,6 +144,12 @@ export default function EmployeeLeads() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list"); // 'grid' | 'list'
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
+      setShowCreateModal(true);
+    }
+  }, [searchParams]);
   const [showStatusModalLead, setShowStatusModalLead] = useState(null);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [statusFollowUpDate, setStatusFollowUpDate] = useState("");

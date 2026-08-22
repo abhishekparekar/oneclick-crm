@@ -1,4 +1,5 @@
-import React, { useState, useRef, useMemo } from "react";
+import React, { useState, useRef, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
@@ -77,6 +78,7 @@ const STATUS_BADGES = {
 
 export default function CompanyRequestsPage({ role = "hr" }) {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   // Filter States
@@ -89,6 +91,12 @@ export default function CompanyRequestsPage({ role = "hr" }) {
   // Modals & Drawers
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [activeRequest, setActiveRequest] = useState(null);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true") {
+      setCreateModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Reply State
   const [replyMessage, setReplyMessage] = useState("");

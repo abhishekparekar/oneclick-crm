@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMyTasksApi, updateTaskStatusApi, submitTaskProgressApi } from "../../api/employeeApi";
 import { getDepartmentsApi, getEmployeesApi, createTaskApi } from "../../api/companyAdminApi";
@@ -211,9 +211,16 @@ export default function EmployeeMyTasks() {
   };
 
   // Modals state
+  const [searchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState(null);
   const [selectedTaskForReport, setSelectedTaskForReport] = useState(null);
+
+  useEffect(() => {
+    if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
+      setIsCreateModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Form state for report & update
   const [reportStatus, setReportStatus] = useState("in_progress");

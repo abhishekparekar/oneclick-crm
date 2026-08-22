@@ -370,6 +370,9 @@ export default function TaskBoard() {
     if (statusParam !== null || overdueParam !== null) {
       setFilters(prev => ({ ...prev, status: statusParam || "", overdue: overdueParam === "true" }));
     }
+    if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
+      setIsCreateOpen(true);
+    }
   }, [searchParams]);
 
   const handleTabChange = (tabName) => {
