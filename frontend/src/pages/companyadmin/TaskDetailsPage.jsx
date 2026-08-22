@@ -622,6 +622,52 @@ export default function TaskDetailsPage() {
               </div>
             </div>
 
+            {/* Workflow Progress Stepper */}
+            <div className="p-3.5 bg-slate-50 dark:bg-[#0B101B] rounded-xl border border-slate-300/90 dark:border-slate-700 space-y-2.5 shadow-2xs">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-900 dark:text-white block">Workflow Progress</span>
+              <div className="flex items-center justify-between relative pt-1">
+                {/* Step 1: Pending */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "pending" || task.status === "re_pending") ? "bg-amber-500 text-white ring-2 ring-amber-500/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>1</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "pending" || task.status === "re_pending") ? "text-amber-700 dark:text-amber-400 font-black" : (task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
+                    Pending
+                  </span>
+                </div>
+
+                {/* Line 1 */}
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${(task.status === "in_process" || task.status === "re_in_process" || task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 w-full" : "w-0"}`} />
+                </div>
+
+                {/* Step 2: In Process */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white" : (task.status === "in_process" || task.status === "re_in_process") ? "bg-blue-600 text-white ring-2 ring-blue-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>2</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "in_process" || task.status === "re_in_process") ? "text-blue-700 dark:text-blue-400 font-black" : (task.status === "complete" || task.status === "late_complete") ? "text-emerald-800 dark:text-emerald-300 font-bold" : "text-slate-500 font-bold"}`}>
+                    In Process
+                  </span>
+                </div>
+
+                {/* Line 2 */}
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-300 dark:bg-slate-700 relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 w-full" : "w-0"}`} />
+                </div>
+
+                {/* Step 3: Complete */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-2xs ${(task.status === "complete" || task.status === "late_complete") ? "bg-emerald-600 text-white ring-2 ring-emerald-600/30" : "bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-700 text-slate-500"}`}>
+                    {(task.status === "complete" || task.status === "late_complete") ? <CheckCircle2 size={14} strokeWidth={3} /> : <span>3</span>}
+                  </div>
+                  <span className={`text-[10px] font-black uppercase tracking-wider ${(task.status === "complete" || task.status === "late_complete") ? "text-emerald-700 dark:text-emerald-400 font-black" : "text-slate-500 font-bold"}`}>
+                    {task.status === "late_complete" ? "Late Done" : "Complete"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* RIGHT SECTION: Notes, Remarks & Timeline Stream (7/12) */}
