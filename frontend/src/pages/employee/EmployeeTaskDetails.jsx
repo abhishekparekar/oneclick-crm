@@ -42,6 +42,28 @@ const normalizeStatus = (val) => {
   return s;
 };
 
+const toDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const formatFollowUpDateTime = (dateStr) => {
+  if (!dateStr) return "Not Set";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "Not Set";
+  return d.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  });
+};
+
 // ── POPUP ACTION MODAL ───────────────────────────────────────────────────────
 function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess }) {
   const queryClient = useQueryClient();
@@ -57,13 +79,13 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
       setErrorMsg("");
 
       if (task?.nextFollowUpDate) {
-        setNextFollowUpDate(new Date(task.nextFollowUpDate).toISOString().split("T")[0]);
+        setNextFollowUpDate(toDateTimeLocal(task.nextFollowUpDate));
       } else if (task?.isTemplate && task?.repeatType?.toLowerCase() === "daily") {
-        setNextFollowUpDate(new Date().toISOString().split("T")[0]);
+        setNextFollowUpDate(toDateTimeLocal(new Date()));
       } else {
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
-        setNextFollowUpDate(tomorrow.toISOString().split("T")[0]);
+        setNextFollowUpDate(toDateTimeLocal(tomorrow));
       }
     }
   }, [isOpen, actionType, task]);
@@ -204,17 +226,16 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
               <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1.5">
                   <CalendarDays size={14} className="text-teal-600" />
-                  Next Follow-Up Date <span className="text-teal-600 font-black">*</span>
+                  Next Follow-Up Date &amp; Time <span className="text-teal-600 font-black">*</span>
                 </span>
                 <span className="text-[10px] font-normal text-ca-text-secondary lowercase">
                   (When to check progress next)
                 </span>
               </label>
               <input
-                type="date"
+                type="datetime-local"
                 required
                 value={nextFollowUpDate}
-                min={task?.startDateTime ? new Date(task.startDateTime).toISOString().split("T")[0] : (task?.startDate || new Date().toISOString().split("T")[0])}
                 onChange={(e) => setNextFollowUpDate(e.target.value)}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-ca-bg border border-ca-border text-ca-text font-bold text-xs focus:outline-hidden focus:border-teal-500 shadow-2xs"
               />
@@ -544,170 +565,220 @@ export default function EmployeeTaskDetails() {
         </div>
       </div>
 
-      {/* ── 2-COLUMN MAIN WORKSPACE ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-        {/* ── LEFT COLUMN (7 / 12 width): TASK DETAILS & DISCUSSION ───────────── */}
-        <div className="lg:col-span-7 space-y-4">
-
-          {/* Task Info Specification Card */}
-          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-4">
-            <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
-                <FileText size={16} className="text-orange-600" /> Task Specification &amp; Details
+      {/* ── 2. SINGLE UNIFIED 2-COLUMN WORKSPACE CONTAINER ─────────────────────── */}
+      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-slate-800">
+          
+          {/* ── LEFT SECTION (5 / 12 width): TASK SPECIFICATIONS & PROGRESS ── */}
+          <div className="lg:col-span-5 p-4 sm:p-5 space-y-4">
+            
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <FileText size={15} className="text-amber-500" /> Task Specifications &amp; Details
               </h2>
             </div>
 
-            {/* Description & Instructions Box */}
+            {/* Description & Instructions */}
             <div className="space-y-1">
-              <p className="text-[10px] font-black text-ca-text-secondary uppercase tracking-wider">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
                 Description &amp; Instructions
               </p>
-              <div className="p-3.5 bg-ca-bg rounded-xl border border-ca-border text-xs text-ca-text font-medium leading-relaxed">
+              <div className="p-3.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
                 {task.description || "No specific detailed description provided for this task."}
               </div>
             </div>
 
-            {/* Date Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* Key Dates & Meta Specs Grid */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
               {/* Start Date */}
-              <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-center space-y-1">
-                <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Start Date</p>
-                <p className="text-sm font-black text-ca-text font-mono">
+              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Start Date</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white block">
                   {task.startDate || task.startDateTime ? new Date(task.startDate || task.startDateTime).toLocaleDateString("en-GB") : "—"}
-                </p>
+                </span>
               </div>
 
               {/* Due Date */}
-              <div className={`p-3.5 rounded-2xl border text-center space-y-1 ${isOverdueTime ? "bg-rose-50/70 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900 text-rose-700" : "bg-ca-bg border-ca-border"
-                }`}>
-                <p className="text-[10px] text-ca-text-secondary font-black uppercase tracking-wider">Due Date</p>
-                <p className="text-sm font-black font-mono">
+              <div className={`p-2.5 rounded-xl border space-y-0.5 ${isOverdueTime ? "bg-rose-50/70 border-rose-300 dark:bg-rose-950/20 dark:border-rose-900" : "bg-slate-50/80 dark:bg-slate-900/60 border-slate-200/60 dark:border-slate-800/80"}`}>
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Due Date</span>
+                <span className={`font-mono font-black block ${isOverdueTime ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"}`}>
                   {task.dueDate || task.endDateTime || task.finishDate ? new Date(task.dueDate || task.endDateTime || task.finishDate).toLocaleDateString("en-GB") : "—"}
-                </p>
+                </span>
               </div>
 
-              {/* Next Follow-Up Date */}
-              <div className="p-3 bg-teal-50/70 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 text-center space-y-0.5">
-                <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
+              {/* Next Follow-Up */}
+              <div className="col-span-2 p-2.5 bg-teal-50/80 dark:bg-teal-950/30 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-teal-800 dark:text-teal-300 flex items-center gap-1">
                   <Clock size={11} /> Next Follow-Up
-                </p>
-                <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono">
-                  {task.nextFollowUpDate ? new Date(task.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Set"}
-                </p>
+                </span>
+                <span className="font-mono font-black text-teal-900 dark:text-teal-200 block text-xs" title={formatFollowUpDateTime(task.nextFollowUpDate)}>
+                  {formatFollowUpDateTime(task.nextFollowUpDate)}
+                </span>
+              </div>
+
+              {/* Department */}
+              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Department</span>
+                <span className="font-bold text-slate-900 dark:text-white block truncate">
+                  {task.departmentId?.name || task.departmentName || "General Team"}
+                </span>
+              </div>
+
+              {/* Priority */}
+              <div className="p-2.5 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Priority</span>
+                <span className={`inline-block px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase ${priorityTheme.bg}`}>
+                  {priorityTheme.label}
+                </span>
               </div>
             </div>
 
-            {/* Department */}
-            <div className="p-3 bg-ca-bg rounded-xl border border-ca-border flex items-center justify-between text-xs">
-              <span className="text-ca-text-secondary font-bold flex items-center gap-2">
-                <Building size={15} className="text-orange-600" /> Assigned Department:
-              </span>
-              <span className="font-black text-ca-text">
-                {task.departmentId?.name || task.departmentName || "General Team"}
-              </span>
+            {/* Workflow Progress Stepper */}
+            <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-2">
+              <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">Workflow Progress</span>
+              <div className="flex items-center justify-between relative pt-1">
+                {/* Step 1: Pending */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${(isInProgress || isCompleted) ? "bg-emerald-600 text-white" : isPending ? "bg-amber-500 text-white ring-2 ring-amber-500/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
+                    {(isInProgress || isCompleted) ? <Check size={12} strokeWidth={3} /> : <span>1</span>}
+                  </div>
+                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isPending ? "text-amber-600 font-black" : (isInProgress || isCompleted) ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
+                    Pending
+                  </span>
+                </div>
+
+                {/* Line 1 */}
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${(isInProgress || isCompleted) ? "bg-emerald-600 w-full" : "w-0"}`} />
+                </div>
+
+                {/* Step 2: In Progress */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white" : isInProgress ? "bg-blue-600 text-white ring-2 ring-blue-600/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
+                    {isCompleted ? <Check size={12} strokeWidth={3} /> : <span>2</span>}
+                  </div>
+                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-600 font-black" : isCompleted ? "text-emerald-700 dark:text-emerald-400" : "text-slate-400"}`}>
+                    In Progress
+                  </span>
+                </div>
+
+                {/* Line 2 */}
+                <div className="flex-1 h-0.5 -mx-2 bg-slate-200 dark:bg-slate-700 relative overflow-hidden">
+                  <div className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-600 w-full" : "w-0"}`} />
+                </div>
+
+                {/* Step 3: Complete */}
+                <div className="flex flex-col items-center gap-1 z-10 flex-1">
+                  <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-[11px] transition-all shadow-2xs ${isCompleted ? "bg-emerald-600 text-white ring-2 ring-emerald-600/20" : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400"}`}>
+                    {isCompleted ? <Check size={12} strokeWidth={3} /> : <span>3</span>}
+                  </div>
+                  <span className={`text-[9.5px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-600 font-black" : "text-slate-400"}`}>
+                    {normalizedSt === "late_complete" ? "Late Done" : "Complete"}
+                  </span>
+                </div>
+              </div>
             </div>
+
+            {/* Task Attachments (If any) */}
+            {Array.isArray(task.attachments) && task.attachments.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-400 block">
+                  Attached Documents ({task.attachments.length})
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {task.attachments.map((att, idx) => {
+                    const fileName = safeDecode(att.fileName);
+                    const isImage = (att.fileType || "").startsWith("image/");
+                    return (
+                      <a
+                        key={idx}
+                        href={att.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-2 bg-slate-50 dark:bg-slate-900 hover:bg-amber-50/50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl transition-all group shadow-2xs"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
+                          {isImage ? <ImageIcon size={14} /> : <FileText size={14} />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-bold text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
+                            {fileName}
+                          </p>
+                          <p className="text-[9.5px] text-slate-400 font-mono flex items-center gap-1">
+                            <span>Open</span>
+                            <ExternalLink size={8} />
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Task Attachments Card (If any) */}
-          {Array.isArray(task.attachments) && task.attachments.length > 0 && (
-            <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-              <div className="border-b border-ca-border pb-2.5">
-                <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
-                  <Paperclip size={16} className="text-orange-600" /> Attached Documents ({task.attachments.length})
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {task.attachments.map((att, idx) => {
-                  const fileName = safeDecode(att.fileName);
-                  const isImage = (att.fileType || "").startsWith("image/");
-                  return (
-                    <a
-                      key={idx}
-                      href={att.fileUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-2.5 p-2.5 bg-ca-bg hover:bg-orange-50/50 border border-ca-border hover:border-orange-500 rounded-xl transition-all group shadow-2xs"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
-                        {isImage ? <ImageIcon size={16} /> : <FileText size={16} />}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="text-xs font-bold text-ca-text truncate group-hover:text-orange-800 transition-colors">
-                          {fileName}
-                        </p>
-                        <p className="text-[10px] text-ca-text-secondary font-mono flex items-center gap-1">
-                          <span>Open File</span>
-                          <ExternalLink size={9} />
-                        </p>
-                      </div>
-                    </a>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Comments & Discussion Timeline */}
-          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-3">
-            <div className="border-b border-ca-border pb-2.5 flex items-center justify-between">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
-                <MessageSquare size={16} className="text-orange-600" /> Comments &amp; Discussion Timeline
+          {/* ── RIGHT SECTION (7 / 12 width): COMMENTS & DISCUSSION TIMELINE ── */}
+          <div className="lg:col-span-7 p-4 sm:p-5 space-y-4 bg-slate-50/40 dark:bg-slate-900/20">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <MessageSquare size={15} className="text-amber-500" /> Comments &amp; Discussion Timeline
               </h2>
-              <span className="text-xs font-bold text-ca-text-secondary">
+              <span className="text-[10px] font-bold text-slate-400">
                 {task.comments?.length || 0} Comments
               </span>
             </div>
 
-            {Array.isArray(task.comments) && task.comments.length > 0 ? (
-              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
-                {task.comments.map((c, idx) => (
-                  <div key={idx} className="p-3 bg-ca-bg rounded-xl border border-ca-border text-xs space-y-1.5">
-                    <div className="flex items-center justify-between text-[10px] font-black text-ca-text-secondary">
-                      <span>{c.senderName || "Team Member"} ({c.senderRole || "Member"})</span>
-                      <span className="font-mono">{new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}</span>
+            {/* Comments Stream */}
+            <div className="space-y-3 max-h-[500px] overflow-y-auto custom-scrollbar pr-1">
+              {Array.isArray(task.comments) && task.comments.length > 0 ? (
+                task.comments.map((c, idx) => (
+                  <div key={idx} className="p-3 bg-white dark:bg-slate-900/90 rounded-xl border border-slate-200/80 dark:border-slate-800 text-xs space-y-1.5 shadow-2xs hover:border-amber-500/30 transition-all">
+                    <div className="flex items-center justify-between text-[10px] font-black">
+                      <span className="text-slate-900 dark:text-white font-bold">{c.senderName || "Team Member"} <span className="text-slate-400 font-normal">({c.senderRole || "Member"})</span></span>
+                      <span className="font-mono text-amber-600 dark:text-amber-400 font-bold">{new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}</span>
                     </div>
-                    {c.comment && <p className="text-ca-text font-medium leading-relaxed">{c.comment}</p>}
+                    {c.comment && <p className="text-slate-800 dark:text-slate-200 font-medium leading-relaxed">{c.comment}</p>}
 
                     {Array.isArray(c.attachments) && c.attachments.length > 0 && (
-                      <div className="flex flex-wrap gap-2 pt-1 border-t border-ca-border/40">
+                      <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
                         {c.attachments.map((att, aIdx) => (
                           <a
                             key={aIdx}
                             href={att.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-ca-surface border border-ca-border hover:border-orange-500 rounded-lg text-[10px] font-bold text-orange-900 transition-colors"
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 hover:border-amber-500 rounded-lg text-[10px] font-bold text-slate-800 dark:text-slate-200 transition-colors shadow-2xs"
                           >
-                            <Paperclip size={11} className="text-orange-600" />
-                            <span className="max-w-[130px] truncate">{safeDecode(att.fileName)}</span>
-                            <ExternalLink size={9} />
+                            <Paperclip size={11} className="text-amber-500" />
+                            <span className="max-w-[140px] truncate">{safeDecode(att.fileName)}</span>
+                            <ExternalLink size={9} className="text-slate-400" />
                           </a>
                         ))}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="py-4 text-center text-ca-text-secondary text-xs italic">
-                No discussion comments yet. Be the first to comment below!
-              </div>
-            )}
+                ))
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs italic flex flex-col items-center gap-2">
+                  <MessageSquare size={24} className="text-slate-300 dark:text-slate-700" />
+                  <p>No discussion comments yet. Be the first to post a remark below!</p>
+                </div>
+              )}
+            </div>
 
-            {/* Quick Comment Input */}
-            <form onSubmit={handleAddComment} className="pt-2 border-t border-ca-border space-y-2">
+            {/* Quick Comment Composer */}
+            <form onSubmit={handleAddComment} className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
               <textarea
                 rows={2}
                 value={standaloneComment}
                 onChange={(e) => setStandaloneComment(e.target.value)}
-                placeholder="Post a question or comment to the task thread..."
-                className="w-full p-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-medium focus:outline-hidden focus:border-orange-500 shadow-2xs"
+                placeholder="Post a remark, note or progress update to the task thread..."
+                className="w-full p-2.5 rounded-xl bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-white placeholder-slate-400 font-medium focus:outline-none focus:border-amber-500 shadow-2xs resize-none"
               />
               <div className="flex items-center justify-between">
-                <label className="text-[10px] font-bold text-ca-text-secondary hover:text-orange-600 cursor-pointer flex items-center gap-1">
-                  <Paperclip size={13} />
-                  <span>{standaloneFile ? standaloneFile.name : "Attach file"}</span>
+                <label className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-amber-600 cursor-pointer flex items-center gap-1">
+                  <Paperclip size={13} className="text-amber-500" />
+                  <span>{standaloneFile ? standaloneFile.name : "Attach document / file"}</span>
                   <input
                     type="file"
                     className="hidden"
@@ -719,7 +790,7 @@ export default function EmployeeTaskDetails() {
                 <button
                   type="submit"
                   disabled={isSubmittingComment || (!standaloneComment.trim() && !standaloneFile)}
-                  className="px-3.5 py-1.5 bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
                 >
                   <Send size={12} />
                   <span>{isSubmittingComment ? "Posting..." : "Post Comment"}</span>
@@ -729,161 +800,6 @@ export default function EmployeeTaskDetails() {
           </div>
 
         </div>
-
-        {/* ── RIGHT COLUMN (5 / 12 width): WORKFLOW ACTIONS & STATUS ────────── */}
-        <div className="lg:col-span-5 space-y-4">
-
-          <div className="bg-ca-surface rounded-2xl border border-ca-border p-4 sm:p-5 shadow-2xs space-y-4">
-
-            {/* Panel Header */}
-            <div className="border-b border-ca-border pb-2.5">
-              <h2 className="font-black text-ca-text text-xs uppercase tracking-wider flex items-center gap-2">
-                <Send size={16} className="text-orange-600" /> Task Workflow &amp; Progress
-              </h2>
-              <p className="text-[11px] text-ca-text-secondary font-medium mt-0.5">
-                Current stage &amp; next follow-up milestone.
-              </p>
-            </div>
-
-            {/* ── CLEAN CONNECTED STEPPER (MOBILE PARITY) ── */}
-            <div className="bg-ca-bg rounded-xl p-3 border border-ca-border">
-              <div className="flex items-center justify-between relative">
-
-                {/* Step 1: Pending */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${(isInProgress || isCompleted)
-                    ? "bg-emerald-600 text-white"
-                    : isPending
-                      ? "bg-amber-500 text-white ring-2 ring-amber-500/20"
-                      : "bg-ca-surface border border-ca-border text-ca-text-secondary"
-                    }`}>
-                    {(isInProgress || isCompleted) ? <Check size={14} strokeWidth={3} /> : <span>1</span>}
-                  </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${isPending ? "text-amber-600 font-black" : (isInProgress || isCompleted) ? "text-emerald-700" : "text-ca-text-secondary"
-                    }`}>
-                    Pending
-                  </span>
-                </div>
-
-                {/* Connecting Line 1 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-ca-border relative overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${(isInProgress || isCompleted) ? "bg-emerald-600 w-full" : "w-0"
-                    }`} />
-                </div>
-
-                {/* Step 2: In Progress */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
-                    ? "bg-emerald-600 text-white"
-                    : isInProgress
-                      ? "bg-blue-600 text-white ring-2 ring-blue-600/20"
-                      : "bg-ca-surface border border-ca-border text-ca-text-secondary"
-                    }`}>
-                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>2</span>}
-                  </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${isInProgress ? "text-blue-600 font-black" : isCompleted ? "text-emerald-700" : "text-ca-text-secondary"
-                    }`}>
-                    In Progress
-                  </span>
-                </div>
-
-                {/* Connecting Line 2 */}
-                <div className="flex-1 h-0.5 -mx-2 bg-ca-border relative overflow-hidden">
-                  <div className={`h-full transition-all duration-500 ${isCompleted ? "bg-emerald-600 w-full" : "w-0"
-                    }`} />
-                </div>
-
-                {/* Step 3: Complete */}
-                <div className="flex flex-col items-center gap-1 z-10 flex-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs transition-all shadow-sm ${isCompleted
-                    ? "bg-emerald-600 text-white ring-2 ring-emerald-600/20"
-                    : "bg-ca-surface border border-ca-border text-ca-text-secondary"
-                    }`}>
-                    {isCompleted ? <Check size={14} strokeWidth={3} /> : <span>3</span>}
-                  </div>
-                  <span className={`text-[10px] font-black uppercase tracking-wider ${isCompleted ? "text-emerald-600 font-black" : "text-ca-text-secondary"
-                    }`}>
-                    {normalizedSt === "late_complete" ? "Late Done" : "Complete"}
-                  </span>
-                </div>
-
-              </div>
-            </div>
-
-            {/* ── CONTEXTUAL ACTION BUTTONS (CLEAN POPUP TRIGGER) ── */}
-            <div className="space-y-2 pt-1">
-
-              {/* OVERDUE: LATE COMPLETE */}
-              {isOverdue && !isCompleted && (
-                <button
-                  type="button"
-                  onClick={() => openActionModal("late_complete")}
-                  className="w-full py-2.5 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-orange-500/20"
-                >
-                  <AlertCircle size={15} />
-                  <span>Mark Late Complete</span>
-                </button>
-              )}
-
-              {/* PENDING: START TASK (IN PROCESS) */}
-              {!isOverdue && isPending && (
-                <button
-                  type="button"
-                  onClick={() => openActionModal("in_process")}
-                  className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-blue-500/20"
-                >
-                  <Play size={15} className="fill-current" />
-                  <span>Start Task (In Process)</span>
-                </button>
-              )}
-
-              {/* IN PROGRESS: NEXT FOLLOW-UP & MARK COMPLETED */}
-              {isInProgress && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => openActionModal("follow_up")}
-                    className="py-2.5 px-3 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm shadow-teal-700/20"
-                  >
-                    <CalendarDays size={14} />
-                    <span>Next Follow-Up</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => openActionModal("complete")}
-                    className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm shadow-emerald-600/20"
-                  >
-                    <CheckCircle2 size={14} />
-                    <span>Mark Complete</span>
-                  </button>
-                </div>
-              )}
-
-              {/* COMPLETED BANNER */}
-              {isCompleted && (
-                <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-2xl flex items-center justify-center gap-2.5 text-emerald-800 dark:text-emerald-300 text-xs font-black shadow-2xs">
-                  <CheckCircle size={18} />
-                  <span>Task is Fully Completed &amp; Verified</span>
-                </div>
-              )}
-            </div>
-
-            {/* Helper Hint Box */}
-            <div className="p-3.5 bg-ca-bg rounded-2xl border border-ca-border text-[11px] text-ca-text-secondary flex items-start gap-2.5">
-              <Clock size={15} className="mt-0.5 text-orange-600 shrink-0" />
-              <span className="leading-relaxed">
-                {isPending ? "Click 'Start Task (In Process)' to schedule follow-up date and start work." :
-                  isInProgress ? "Use 'Next Follow-Up' to update the review schedule or 'Mark Completed' when work is done." :
-                    isCompleted ? "This task has been closed and verified." :
-                      "This task is overdue. Please submit progress or mark late complete."}
-              </span>
-            </div>
-
-          </div>
-
-        </div>
-
       </div>
     </div>
   );
