@@ -473,14 +473,9 @@ export default function EmployeeMyTasks() {
 
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            My Work Tasks &amp; Deliverables
-          </h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage daily tasks, set next follow-up dates, update status, and submit progress reports
-          </p>
-        </div>
+        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+          My Work Tasks &amp; Deliverables
+        </h1>
 
         <button
           onClick={() => setIsCreateModalOpen(true)}

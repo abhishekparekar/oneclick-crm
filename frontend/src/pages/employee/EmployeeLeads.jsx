@@ -406,14 +406,9 @@ export default function EmployeeLeads() {
       
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            My Leads &amp; Sales Pipeline
-          </h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Manage prospective clients, schedule follow-ups, and send direct WhatsApp messages
-          </p>
-        </div>
+        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+          My Leads &amp; Sales Pipeline
+        </h1>
 
         <button
           onClick={() => setShowCreateModal(true)}
