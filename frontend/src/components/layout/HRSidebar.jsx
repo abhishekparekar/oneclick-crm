@@ -30,59 +30,54 @@ import {
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HR NAV SECTIONS (Clean, focused, matching Employee & Manager layout)
+// HR NAV SECTIONS — Prioritizes Daily Regular Operations On Top
 // ─────────────────────────────────────────────────────────────────────────────
 const HR_NAV_SECTIONS = [
   {
-    title: "CORE DASHBOARD",
+    title: "DAILY WORKSPACE",
     items: [
       { label: "Dashboard", path: "/hr/dashboard", icon: LayoutDashboard },
       { label: "Leads Pipeline", path: "/hr/leads", icon: Magnet },
-      { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
-      { label: "My Profile", path: "/hr/profile", icon: UserCircle },
-    ],
-  },
-  {
-    title: "PEOPLE & ONBOARDING",
-    items: [
-      { label: "Employee Roster", path: "/hr/employees", icon: UsersRound },
-      { label: "Add Employee", path: "/hr/employees/add", icon: UserPlus },
-      { label: "Document Management", path: "/hr/upload-document", icon: FileUp },
-      { label: "Departments", path: "/hr/departments", icon: GitBranch },
-    ],
-  },
-  {
-    title: "ATTENDANCE & TIME-OFF",
-    items: [
+      { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare },
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck },
-      { label: "Regularization", path: "/hr/regularization", icon: UserCheck },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText },
-      { label: "Leave Balances", path: "/hr/leave-balance", icon: Clock },
-      { label: "Holidays Calendar", path: "/hr/holidays", icon: CalendarDays },
+      { label: "Regularization", path: "/hr/regularization", icon: UserCheck },
+      { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
+      { label: "Employee Roster", path: "/hr/employees", icon: UsersRound },
     ],
   },
   {
     title: "PAYROLL & COMPENSATION",
     items: [
-      { label: "Salary Structures", path: "/hr/payroll/salary", icon: DollarSign },
       { label: "Generate Payroll", path: "/hr/payroll/generate", icon: Receipt },
       { label: "Payroll History", path: "/hr/payroll/history", icon: FileText },
+      { label: "Salary Structures", path: "/hr/payroll/salary", icon: DollarSign },
       { label: "Salary Advances", path: "/hr/payroll/advances", icon: Award },
       { label: "My Payslips", path: "/hr/payslips", icon: Receipt },
     ],
   },
   {
-    title: "WORK & ENGAGEMENT",
+    title: "PEOPLE & ONBOARDING",
     items: [
-      { label: "Announcements", path: "/hr/announcements", icon: Megaphone },
-      { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare },
-      { label: "HR Analytics", path: "/hr/reports", icon: BarChart2 },
-      { label: "Performance", path: "/hr/performance", icon: Award },
+      { label: "Add Employee", path: "/hr/employees/add", icon: UserPlus },
+      { label: "Document Management", path: "/hr/upload-document", icon: FileUp },
+      { label: "Leave Balances", path: "/hr/leave-balance", icon: Clock },
+      { label: "Holidays Calendar", path: "/hr/holidays", icon: CalendarDays },
+      { label: "Departments", path: "/hr/departments", icon: GitBranch },
     ],
   },
   {
-    title: "SYSTEM",
+    title: "ANALYTICS & ENGAGEMENT",
     items: [
+      { label: "HR Analytics", path: "/hr/reports", icon: BarChart2 },
+      { label: "Performance", path: "/hr/performance", icon: Award },
+      { label: "Announcements", path: "/hr/announcements", icon: Megaphone },
+    ],
+  },
+  {
+    title: "ACCOUNT & SETTINGS",
+    items: [
+      { label: "My Profile", path: "/hr/profile", icon: UserCircle },
       { label: "Settings", path: "/hr/settings", icon: Settings },
     ],
   },
