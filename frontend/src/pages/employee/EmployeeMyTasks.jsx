@@ -624,29 +624,33 @@ export default function EmployeeMyTasks() {
             value={filters.departmentId}
             onChange={e => setFilters({ ...filters, departmentId: e.target.value })}
           >
-            <option value="">All Depts</option>
+            <option value="">All Departments</option>
             {filteredEmployeeDepartments.map(d => (
               <option key={d._id} value={d._id}>{d.name || d.departmentName}</option>
             ))}
           </select>
 
-          {/* From Date */}
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={e => setFilters({ ...filters, startDate: e.target.value })}
-            title="From Date"
-            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-          />
+          {/* From Date with label */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">From</span>
+            <input
+              type="date"
+              value={filters.startDate}
+              onChange={e => setFilters({ ...filters, startDate: e.target.value })}
+              className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+            />
+          </div>
 
-          {/* To Date */}
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={e => setFilters({ ...filters, endDate: e.target.value })}
-            title="To Date"
-            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-          />
+          {/* To Date with label */}
+          <div className="flex items-center gap-1">
+            <span className="text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">To</span>
+            <input
+              type="date"
+              value={filters.endDate}
+              onChange={e => setFilters({ ...filters, endDate: e.target.value })}
+              className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+            />
+          </div>
 
           {/* Reset Filters */}
           {activeFiltersCount > 0 && (
