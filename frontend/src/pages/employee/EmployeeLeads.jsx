@@ -384,30 +384,27 @@ export default function EmployeeLeads() {
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
       
-      {/* ── TOP HEADER BANNER (MATCHING TASKS TOP BANNER) ────────────────────── */}
-      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 text-white shadow-md border border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center font-black text-xl shrink-0">
-            <Magnet size={22} />
-          </div>
-          <div>
-            <h1 className="text-base font-black tracking-wide">My Leads &amp; Sales Pipeline</h1>
-            <p className="text-[11px] text-orange-200/80 font-medium mt-0.5">
-              Manage prospective clients, schedule follow-ups, and send direct WhatsApp messages.
-            </p>
-          </div>
+      {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+            My Leads &amp; Sales Pipeline
+          </h1>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage prospective clients, schedule follow-ups, and send direct WhatsApp messages
+          </p>
         </div>
 
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 shrink-0"
+          className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
         >
-          <Plus size={16} /> Create Lead
+          <Plus size={14} strokeWidth={2.5} /> Create Lead
         </button>
       </div>
 
-      {/* ── Time Boundary Date Pill Tabs (MATCHING TASKS DATE TABS) ─────────── */}
-      <div className="bg-ca-surface p-2 rounded-2xl border border-ca-border shadow-2xs overflow-x-auto">
+      {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
         <div className="flex items-center gap-1.5 min-w-max">
           {categoryCounts.map(tab => {
             const active = dateTab === tab.name;
@@ -418,12 +415,18 @@ export default function EmployeeLeads() {
                   setDateTab(tab.name);
                   setStatusFilter("all");
                 }}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
-                  active ? "bg-ca-text text-ca-surface shadow-sm" : "bg-ca-bg hover:bg-ca-border/40 text-ca-text-secondary"
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  active
+                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
                 }`}
               >
                 <span>{tab.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${active ? "bg-ca-surface text-ca-text" : "bg-ca-surface border border-ca-border/60 text-ca-text"}`}>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                }`}>
                   {tab.count}
                 </span>
               </button>
@@ -432,128 +435,97 @@ export default function EmployeeLeads() {
         </div>
       </div>
 
-      {/* ── Status Dropdown, Search Bar & View Mode Toggle ───────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        
-        {/* Status Dropdown */}
-        <div className="relative inline-block">
+      {/* ── Pipeline Status Filter Pills (Like Today/Yesterday Tabs) ───────────── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1.5 min-w-max">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 flex items-center gap-1 shrink-0">
+            <Layers size={13} className="text-amber-500" /> Status:
+          </span>
           <button
-            onClick={() => setIsStatusDropdownOpen(prev => !prev)}
-            className="inline-flex items-center gap-2.5 px-4 py-2 bg-ca-surface border border-ca-border rounded-xl text-xs font-extrabold text-ca-text shadow-2xs hover:border-orange-500 transition-colors cursor-pointer"
+            onClick={() => setStatusFilter("all")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+              statusFilter === "all"
+                ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
+                : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+            }`}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-ca-text-secondary uppercase tracking-wider font-bold text-[10.5px]">STATUS:</span>
-              {statusFilter === "all" ? (
-                <span className="font-black text-ca-text uppercase">
-                  All Leads ({baseTabLeads.length})
-                </span>
-              ) : (
-                (() => {
-                  const selName = statuses.find(s => String(s._id || s.id) === String(statusFilter))?.name || statusFilter;
-                  const selCfg = getLeadAccentColors(selName);
-                  return (
-                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md border text-[11px] font-black ${selCfg.statusStyle}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${selCfg.dot}`} />
-                      <span>{selName.toUpperCase()} ({statusCounts[statusFilter] || 0})</span>
-                    </span>
-                  );
-                })()
-              )}
-            </div>
-            {isStatusDropdownOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+            <span>All Leads</span>
+            <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+              statusFilter === "all"
+                ? "bg-white/20 text-white"
+                : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+            }`}>
+              {baseTabLeads.length}
+            </span>
           </button>
 
-          {/* Status Chips Popup Dropdown */}
-          {isStatusDropdownOpen && (
-            <>
-              <div className="fixed inset-0 z-20" onClick={() => setIsStatusDropdownOpen(false)} />
-              <div className="absolute left-0 mt-2 z-30 w-[600px] max-w-[90vw] bg-ca-surface rounded-2xl border border-ca-border shadow-xl p-3.5 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-fadeIn">
-                <button
-                  onClick={() => {
-                    setStatusFilter("all");
-                    setIsStatusDropdownOpen(false);
-                  }}
-                  className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                    statusFilter === "all"
-                      ? "bg-teal-800 text-white border-teal-900 shadow-md ring-2 ring-teal-500/30"
-                      : "bg-orange-50 text-orange-800 border-orange-200 dark:bg-orange-950/40 dark:text-orange-300 dark:border-orange-800 hover:opacity-90 shadow-2xs"
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-orange-500" />
-                    <span>All Leads</span>
-                  </div>
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${statusFilter === "all" ? "bg-white/20 text-white" : "bg-white/80 dark:bg-black/30 text-orange-950 dark:text-orange-200"}`}>
-                    {baseTabLeads.length}
-                  </span>
-                </button>
+          {statuses.map(st => {
+            const sId = st._id || st.id;
+            const active = statusFilter === sId;
+            const count = statusCounts[sId] || 0;
+            const chipCfg = getLeadAccentColors(st.name, st.color);
+            return (
+              <button
+                key={sId}
+                onClick={() => setStatusFilter(sId)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  active
+                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                <span className={`w-2 h-2 rounded-full ${chipCfg.dot}`} />
+                <span>{st.name}</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                }`}>
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-                {statuses.map(st => {
-                  const sId = st._id || st.id;
-                  const active = statusFilter === sId;
-                  const count = statusCounts[sId] || 0;
-                  const chipCfg = getLeadAccentColors(st.name, st.color);
-                  return (
-                    <button
-                      key={sId}
-                      onClick={() => {
-                        setStatusFilter(sId);
-                        setIsStatusDropdownOpen(false);
-                      }}
-                      className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                        active
-                          ? "bg-teal-800 text-white border-teal-900 shadow-md ring-2 ring-teal-500/30"
-                          : `${chipCfg.chipBg} hover:opacity-90 shadow-2xs`
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 truncate mr-1">
-                        <span className={`w-2 h-2 rounded-full ${chipCfg.dot}`} />
-                        <span className="truncate">{st.name}</span>
-                      </div>
-                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${active ? "bg-white/20 text-white" : "bg-white/80 dark:bg-black/30 text-slate-800 dark:text-slate-100"}`}>
-                        {count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+      {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        
+        {/* Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search leads, phone, company..."
+            className="w-full pl-9 pr-4 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <X size={12} />
+            </button>
           )}
         </div>
 
-        {/* Right side: Search & View Mode */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Search Input */}
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ca-text-secondary" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search leads, phone, company..."
-              className="pl-9 pr-4 py-2 bg-ca-surface border border-ca-border rounded-xl text-xs font-semibold text-ca-text placeholder-ca-text-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/30 w-56 shadow-2xs"
-            />
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-ca-surface border border-ca-border rounded-xl p-0.5 shadow-2xs">
-            <button
-              onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-ca-bg text-teal-700 font-bold shadow-2xs" : "text-ca-text-secondary"}`}
-              title="Grid View"
-            >
-              <LayoutGrid size={15} />
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-ca-bg text-teal-700 font-bold shadow-2xs" : "text-ca-text-secondary"}`}
-              title="List View"
-            >
-              <List size={15} />
-            </button>
-          </div>
+        {/* View Mode Toggle */}
+        <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
+          <button
+            onClick={() => setViewMode("grid")}
+            className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+            title="Grid View"
+          >
+            <LayoutGrid size={14} />
+          </button>
+          <button
+            onClick={() => setViewMode("list")}
+            className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
+            title="List View"
+          >
+            <List size={14} />
+          </button>
         </div>
-
       </div>
 
       {/* ── LEADS CONTENT: GRID (CARDS) VIEW ─────────────────────────────────── */}

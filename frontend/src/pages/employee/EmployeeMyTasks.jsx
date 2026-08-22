@@ -487,30 +487,27 @@ export default function EmployeeMyTasks() {
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
 
-      {/* ── TOP HEADER BANNER ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-r from-[#171115] via-[#241c22] to-[#171115] rounded-2xl p-4 text-white shadow-md border border-orange-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center font-black text-xl shrink-0">
-            <CheckSquare size={22} />
-          </div>
-          <div>
-            <h1 className="text-base font-black tracking-wide">My Work Tasks &amp; Deliverables</h1>
-            <p className="text-[11px] text-orange-200/80 font-medium mt-0.5">
-              Manage daily tasks, set next follow-up dates, update status, and submit progress reports.
-            </p>
-          </div>
+      {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+            My Work Tasks &amp; Deliverables
+          </h1>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage daily tasks, set next follow-up dates, update status, and submit progress reports
+          </p>
         </div>
 
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-2 shrink-0"
+          className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
         >
-          <Plus size={16} /> Create Task
+          <Plus size={14} strokeWidth={2.5} /> Create Task
         </button>
       </div>
 
-      {/* ── Time Boundary Date Pill Tabs ─────────────────────────────────────── */}
-      <div className="bg-ca-surface p-2 rounded-2xl border border-ca-border shadow-2xs overflow-x-auto">
+      {/* ── Time Boundary Date Pill Tabs (Today, Yesterday, This Week...) ─────────── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
         <div className="flex items-center gap-1.5 min-w-max">
           {categoryCounts.map(tab => {
             const active = dateTab === tab.name;
@@ -518,11 +515,18 @@ export default function EmployeeMyTasks() {
               <button
                 key={tab.name}
                 onClick={() => handleTabChange(tab.name)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${active ? "bg-ca-text text-ca-surface shadow-sm" : "bg-ca-bg hover:bg-ca-border/40 text-ca-text-secondary"
-                  }`}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-2 cursor-pointer ${
+                  active
+                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
               >
                 <span>{tab.name}</span>
-                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${active ? "bg-ca-surface text-ca-text" : "bg-ca-surface border border-ca-border/60 text-ca-text"}`}>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                }`}>
                   {tab.count}
                 </span>
               </button>
@@ -531,93 +535,86 @@ export default function EmployeeMyTasks() {
         </div>
       </div>
 
-      {/* ── Expandable Status Filter Dropdown, Search Bar & Filters ───────────────────────── */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        {/* Status Dropdown */}
-        <div className="relative inline-block">
-          <button
-            onClick={() => setIsStatusDropdownOpen(prev => !prev)}
-            className="inline-flex items-center gap-2.5 px-4 py-2 bg-ca-surface border border-ca-border rounded-xl text-xs font-extrabold text-ca-text shadow-2xs hover:border-orange-500 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-ca-text-secondary uppercase tracking-wider font-bold">STATUS:</span>
-              <span className="font-black text-ca-text uppercase">
-                {statusFilter === "all" ? `All Tasks (${baseTabTasks.length})` : `${statusFilter.replace(/_/g, " ")} (${statusCounts[statusFilter] || 0})`}
-              </span>
-            </div>
-            {isStatusDropdownOpen ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-          </button>
+      {/* ── Task Status Filter Pills (Like Today/Yesterday Tabs) ─────────────── */}
+      <div className="bg-white dark:bg-[#111C24] p-1.5 sm:p-2 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto hide-scrollbar">
+        <div className="flex items-center gap-1.5 min-w-max">
+          <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 px-2 flex items-center gap-1 shrink-0">
+            <Layers size={13} className="text-amber-500" /> Status:
+          </span>
+          {[
+            { id: "all", label: "All Tasks", count: baseTabTasks.length },
+            { id: "pending", label: "Pending", count: statusCounts.pending },
+            { id: "in_process", label: "In Process", count: statusCounts.in_process },
+            { id: "re_pending", label: "Re-Pending", count: statusCounts.re_pending },
+            { id: "re_in_process", label: "Re-In Process", count: statusCounts.re_in_process },
+            { id: "completed", label: "Completed", count: statusCounts.complete },
+            { id: "re_complete", label: "Re-Completed", count: statusCounts.re_complete },
+            { id: "late_complete", label: "Late Done", count: statusCounts.late_complete },
+            { id: "re_late_complete", label: "Re-Late Done", count: statusCounts.re_late_complete },
+            { id: "overdue", label: "Overdue", count: statusCounts.overdue },
+            { id: "recurring", label: "Recurring", count: statusCounts.recurring }
+          ].map(st => {
+            const active = statusFilter === st.id;
+            return (
+              <button
+                key={st.id}
+                onClick={() => setStatusFilter(st.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  active
+                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
+                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                }`}
+              >
+                <span>{st.label}</span>
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                  active
+                    ? "bg-white/20 text-white"
+                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                }`}>
+                  {st.count || 0}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-          {/* Status Chips Popup Dropdown */}
-          {isStatusDropdownOpen && (
-            <>
-              <div className="fixed inset-0 z-20" onClick={() => setIsStatusDropdownOpen(false)} />
-              <div className="absolute left-0 mt-2 z-30 w-[640px] max-w-[90vw] bg-ca-surface rounded-2xl border border-ca-border shadow-xl p-3.5 grid grid-cols-2 sm:grid-cols-3 gap-2 animate-fadeIn">
-                {[
-                  { id: "all", label: "All Tasks", count: baseTabTasks.length, bg: "bg-orange-600 text-white" },
-                  { id: "pending", label: "Pending", count: statusCounts.pending, bg: "bg-blue-50 text-blue-700 border-blue-200" },
-                  { id: "in_process", label: "In Process", count: statusCounts.in_process, bg: "bg-amber-50 text-amber-700 border-amber-200" },
-                  { id: "re_pending", label: "Re-Pending", count: statusCounts.re_pending, bg: "bg-indigo-50 text-indigo-700 border-indigo-200" },
-                  { id: "re_in_process", label: "Re-In Process", count: statusCounts.re_in_process, bg: "bg-cyan-50 text-cyan-700 border-cyan-200" },
-                  { id: "completed", label: "Completed", count: statusCounts.complete, bg: "bg-emerald-50 text-emerald-700 border-emerald-200" },
-                  { id: "re_complete", label: "Re-Completed", count: statusCounts.re_complete, bg: "bg-teal-50 text-teal-700 border-teal-200" },
-                  { id: "late_complete", label: "Late Completed", count: statusCounts.late_complete, bg: "bg-teal-50 text-teal-700 border-teal-200" },
-                  { id: "re_late_complete", label: "Re-Late Completed", count: statusCounts.re_late_complete, bg: "bg-teal-50 text-teal-700 border-teal-200" },
-                  { id: "overdue", label: "Overdue", count: statusCounts.overdue, bg: "bg-red-50 text-red-700 border-red-200" },
-                  { id: "recurring", label: "Recurring", count: statusCounts.recurring, bg: "bg-violet-50 text-violet-700 border-violet-200" }
-                ].map(st => {
-                  const active = statusFilter === st.id;
-                  return (
-                    <button
-                      key={st.id}
-                      onClick={() => {
-                        setStatusFilter(st.id);
-                        setIsStatusDropdownOpen(false);
-                      }}
-                      className={`flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold border transition-all cursor-pointer ${active ? "bg-teal-800 text-white border-teal-900 shadow-sm" : `${st.bg} border-ca-border/60 hover:opacity-90`
-                        }`}
-                    >
-                      <span>{st.label}</span>
-                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-black ${active ? "bg-white/20 text-white" : "bg-white/80 dark:bg-black/20"}`}>
-                        {st.count}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
+      {/* ── Search Bar & View Mode Toggle ────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        
+        {/* Search Input */}
+        <div className="relative w-full sm:w-72">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search tasks, descriptions..."
+            className="w-full pl-9 pr-4 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 shadow-2xs transition-all"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+              <X size={12} />
+            </button>
           )}
         </div>
 
-        {/* Right side: Search, View Mode, Filters Dropdown */}
+        {/* View Mode Toggle & Filter Button */}
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Search Input */}
-          <div className="relative">
-            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ca-text-secondary" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search tasks..."
-              className="pl-9 pr-4 py-2 bg-ca-surface border border-ca-border rounded-xl text-xs font-semibold text-ca-text placeholder-ca-text-secondary focus:outline-none focus:ring-2 focus:ring-teal-500/30 w-52 shadow-2xs"
-            />
-          </div>
-
-          {/* View Mode Toggle */}
-          <div className="flex items-center bg-ca-surface border border-ca-border rounded-xl p-0.5 shadow-2xs">
+          <div className="flex items-center bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-0.5 shadow-2xs">
             <button
               onClick={() => setViewMode("grid")}
-              className={`p-2 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-ca-bg text-teal-700 font-bold shadow-2xs" : "text-ca-text-secondary"}`}
+              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "grid" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
               title="Grid View"
             >
-              <LayoutGrid size={15} />
+              <LayoutGrid size={14} />
             </button>
             <button
               onClick={() => setViewMode("list")}
-              className={`p-2 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-ca-bg text-teal-700 font-bold shadow-2xs" : "text-ca-text-secondary"}`}
+              className={`p-1.5 rounded-lg text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-slate-900 text-white dark:bg-amber-600 shadow-2xs" : "text-slate-400 hover:text-slate-700 dark:hover:text-slate-200"}`}
               title="List View"
             >
-              <List size={15} />
+              <List size={14} />
             </button>
           </div>
 
@@ -625,17 +622,17 @@ export default function EmployeeMyTasks() {
           <div className="relative z-20 shrink-0">
             <button
               onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer shadow-2xs ${activeFiltersCount > 0
-                  ? "bg-teal-800 text-white border border-teal-900 ring-2 ring-teal-500/40 shadow-md"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs border ${activeFiltersCount > 0
+                  ? "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs"
                   : showFiltersDropdown
-                    ? "ring-2 ring-teal-500/30 bg-ca-bg text-ca-text border border-ca-border"
-                    : "bg-ca-surface text-ca-text border border-ca-border hover:bg-ca-bg"
+                    ? "border-amber-500 bg-white dark:bg-[#111C24] text-amber-600"
+                    : "bg-white dark:bg-[#111C24] text-slate-700 dark:text-slate-300 border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
             >
-              <Filter size={15} className={activeFiltersCount > 0 ? "text-white" : "text-ca-text-secondary"} />
+              <Filter size={13} className={activeFiltersCount > 0 ? "text-white" : "text-slate-400"} />
               <span>Filters</span>
               {activeFiltersCount > 0 && (
-                <span className="flex items-center justify-center min-w-[20px] h-[20px] px-1.5 bg-white text-teal-800 text-[10px] rounded-full font-black shadow-2xs">
+                <span className="flex items-center justify-center min-w-[18px] h-[18px] px-1 bg-amber-500 text-white text-[10px] rounded-full font-black">
                   {activeFiltersCount}
                 </span>
               )}
