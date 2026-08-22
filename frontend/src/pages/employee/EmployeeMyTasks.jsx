@@ -808,9 +808,9 @@ export default function EmployeeMyTasks() {
 
                     {/* Next Follow-Up Date Pill */}
                     {t.nextFollowUpDate && (
-                      <div className="py-1 px-2 bg-orange-50/80 rounded-md border border-orange-200 flex items-center gap-1.5 text-[10px] font-mono font-bold text-orange-900">
-                        <Clock size={11} className="text-orange-600 shrink-0" />
-                        <span>Next Follow-Up: <strong>{new Date(t.nextFollowUpDate).toLocaleDateString("en-GB")}</strong></span>
+                      <div className="py-1 px-2 bg-amber-50 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-950 dark:text-amber-200">
+                        <Clock size={11} className="text-amber-600 shrink-0" />
+                        <span>Next Follow-Up: <strong>{new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</strong></span>
                       </div>
                     )}
                   </div>
@@ -949,8 +949,8 @@ export default function EmployeeMyTasks() {
                             </span>
                           </div>
                           {t.nextFollowUpDate && (
-                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold mt-0.5">
-                              Follow-up: {new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
+                              Follow-up: {new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                             </p>
                           )}
                         </td>

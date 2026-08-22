@@ -943,15 +943,15 @@ export default function TaskBoard() {
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
-                  <th className="px-4 py-3 font-semibold">ID</th>
-                  <th className="px-4 py-3 font-semibold">Task Title</th>
-                  <th className="px-4 py-3 font-semibold">Assigned By</th>
-                  <th className="px-4 py-3 font-semibold">Assignees</th>
-                  <th className="px-4 py-3 font-semibold">Deadline</th>
-                  <th className="px-4 py-3 font-semibold">Priority</th>
-                  <th className="px-4 py-3 font-semibold">Status</th>
-                  <th className="px-4 py-3 font-semibold text-right">Action</th>
+                <tr className="bg-white dark:bg-[#111C24] border-b border-slate-200/90 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <th className="px-4 py-3 font-black">ID</th>
+                  <th className="px-4 py-3 font-black">Task Title</th>
+                  <th className="px-4 py-3 font-black">Assigned By</th>
+                  <th className="px-4 py-3 font-black">Assignees</th>
+                  <th className="px-4 py-3 font-black">Deadline</th>
+                  <th className="px-4 py-3 font-black">Priority</th>
+                  <th className="px-4 py-3 font-black">Status</th>
+                  <th className="px-4 py-3 font-black text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
