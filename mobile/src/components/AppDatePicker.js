@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,18 +7,39 @@ import {
   Modal,
   StyleSheet,
   FlatList,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const AppDatePicker = ({ label, value, onChangeText, placeholder = "DD/MM/YYYY", error, compact = false }) => {
+const MONTHS = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
+
+const SHORT_MONTHS = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+const AppDatePicker = ({
+  label,
+  value,
+  onChangeText,
+  placeholder = "DD/MM/YYYY",
+  error,
+  compact = false,
+  containerStyle,
+}) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); // 0-11
-  const [showYearPicker, setShowYearPicker] = useState(false);
+  const [viewMode, setViewMode] = useState("calendar"); // 'calendar' | 'month' | 'year'
 
-  // Set the current view of calendar based on initial value
+  // Parse initial value into selected date state
   useEffect(() => {
-    if (value && value.includes("/")) {
+    if (value && typeof value === "string" && value.includes("/")) {
       const parts = value.split("/");
       if (parts.length === 3) {
         const day = parseInt(parts[0], 10);
@@ -32,209 +53,310 @@ const AppDatePicker = ({ label, value, onChangeText, placeholder = "DD/MM/YYYY",
     }
   }, [value, modalVisible]);
 
-  // Months lists
-  const months = [
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December"
-  ];
+  // Today helpers
+  const today = useMemo(() => new Date(), []);
+  const todayDay = today.getDate();
+  const todayMonth = today.getMonth();
+  const todayYear = today.getFullYear();
 
-  // Weekdays lists
-  const weekdays = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+  // Selected date components
+  const selectedDateComponents = useMemo(() => {
+    if (!value || typeof value !== "string" || !value.includes("/")) return null;
+    const parts = value.split("/");
+    if (parts.length !== 3) return null;
+    return {
+      day: parseInt(parts[0], 10),
+      month: parseInt(parts[1], 10) - 1,
+      year: parseInt(parts[2], 10),
+    };
+  }, [value]);
 
-  // Helper: Get days in month
-  const getDaysInMonth = (year, month) => {
-    return new Date(year, month + 1, 0).getDate();
-  };
-
-  // Helper: Get first day of month (0 = Sunday, etc.)
-  const getFirstDayOfMonth = (year, month) => {
-    return new Date(year, month, 1).getDay();
-  };
-
-  // Handle previous month
+  // Month navigation
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
-      setCurrentYear(currentYear - 1);
+      setCurrentYear((y) => y - 1);
     } else {
-      setCurrentMonth(currentMonth - 1);
+      setCurrentMonth((m) => m - 1);
     }
   };
 
-  // Handle next month
   const handleNextMonth = () => {
     if (currentMonth === 11) {
       setCurrentMonth(0);
-      setCurrentYear(currentYear + 1);
+      setCurrentYear((y) => y + 1);
     } else {
-      setCurrentMonth(currentMonth + 1);
+      setCurrentMonth((m) => m + 1);
     }
   };
 
-  // Generate days array
-  const daysInMonth = getDaysInMonth(currentYear, currentMonth);
-  const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-  const daysArray = [];
+  // Days in month calculation
+  const daysArray = useMemo(() => {
+    const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+    const firstDayIndex = new Date(currentYear, currentMonth, 1).getDay(); // 0 = Sun
+    const totalSlots = [];
 
-  // Add leading empty days
-  for (let i = 0; i < firstDay; i++) {
-    daysArray.push({ type: "empty", value: "" });
-  }
+    // Leading empty slots for alignment
+    for (let i = 0; i < firstDayIndex; i++) {
+      totalSlots.push({ type: "empty", key: `empty-${i}` });
+    }
 
-  // Add month days
-  for (let i = 1; i <= daysInMonth; i++) {
-    daysArray.push({ type: "day", value: i });
-  }
+    // Actual days
+    for (let d = 1; d <= daysInMonth; d++) {
+      totalSlots.push({ type: "day", value: d, key: `day-${d}` });
+    }
+
+    return totalSlots;
+  }, [currentYear, currentMonth]);
 
   // Select day handler
-  const handleDaySelect = (day) => {
+  const handleSelectDay = (day) => {
     const dStr = String(day).padStart(2, "0");
     const mStr = String(currentMonth + 1).padStart(2, "0");
     onChangeText(`${dStr}/${mStr}/${currentYear}`);
     setModalVisible(false);
+    setViewMode("calendar");
   };
 
-  // Year Picker Years Generation (e.g., from 1950 to 2035)
-  const startYear = 1950;
-  const yearsList = [];
-  for (let y = new Date().getFullYear() + 10; y >= startYear; y--) {
-    yearsList.push(y);
-  }
+  // Select Today handler
+  const handleSelectToday = () => {
+    const dStr = String(todayDay).padStart(2, "0");
+    const mStr = String(todayMonth + 1).padStart(2, "0");
+    onChangeText(`${dStr}/${mStr}/${todayYear}`);
+    setCurrentYear(todayYear);
+    setCurrentMonth(todayMonth);
+    setModalVisible(false);
+    setViewMode("calendar");
+  };
+
+  // Year list generation
+  const yearsList = useMemo(() => {
+    const startYear = 1970;
+    const endYear = new Date().getFullYear() + 15;
+    const list = [];
+    for (let y = endYear; y >= startYear; y--) {
+      list.push(y);
+    }
+    return list;
+  }, []);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
-      
-      <View style={[styles.inputWrapper, error ? styles.inputError : null]}>
+
+      <TouchableOpacity
+        style={[styles.inputWrapper, error && styles.inputError]}
+        onPress={() => setModalVisible(true)}
+        activeOpacity={0.7}
+      >
         <TextInput
           style={[styles.input, compact && styles.inputCompact]}
           placeholder={placeholder}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor="#94A3B8"
           value={value}
           onChangeText={onChangeText}
           keyboardType="numeric"
+          maxLength={10}
         />
-        <TouchableOpacity 
-          style={styles.calendarIcon} 
+        <TouchableOpacity
+          style={styles.calendarIconBtn}
           onPress={() => setModalVisible(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+          <Ionicons name="calendar" size={18} color="#F97316" />
         </TouchableOpacity>
-      </View>
+      </TouchableOpacity>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {/* Calendar Modal */}
-      <Modal visible={modalVisible} transparent animationType="fade">
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.calendarCard}>
             
-            {/* Calendar Header */}
-            <View style={styles.header}>
-              <TouchableOpacity onPress={handlePrevMonth} style={styles.navBtn}>
-                <Ionicons name="chevron-back" size={20} color="#4b5563" />
+            {/* Header / Month-Year Title & Navigation */}
+            <View style={styles.cardHeader}>
+              <TouchableOpacity
+                onPress={handlePrevMonth}
+                style={styles.navArrowBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-back" size={20} color="#334155" />
               </TouchableOpacity>
-              
-              <View style={styles.headerTitleContainer}>
-                <TouchableOpacity 
-                  onPress={() => setShowYearPicker(!showYearPicker)}
-                  style={styles.headerTitleBtn}
+
+              <View style={styles.headerSelectorWrap}>
+                <TouchableOpacity
+                  style={[styles.selectorPill, viewMode === "month" && styles.selectorPillActive]}
+                  onPress={() => setViewMode(viewMode === "month" ? "calendar" : "month")}
                 >
-                  <Text style={styles.headerTitle}>
-                    {months[currentMonth]} {currentYear}
+                  <Text style={[styles.selectorPillText, viewMode === "month" && styles.selectorPillTextActive]}>
+                    {MONTHS[currentMonth]}
                   </Text>
-                  <Ionicons 
-                    name={showYearPicker ? "chevron-up" : "chevron-down"} 
-                    size={14} 
-                    color="#4b5563" 
-                    style={{ marginLeft: 4 }} 
+                  <Ionicons
+                    name={viewMode === "month" ? "chevron-up" : "chevron-down"}
+                    size={12}
+                    color={viewMode === "month" ? "#F97316" : "#64748B"}
+                    style={{ marginLeft: 4 }}
+                  />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.selectorPill, viewMode === "year" && styles.selectorPillActive]}
+                  onPress={() => setViewMode(viewMode === "year" ? "calendar" : "year")}
+                >
+                  <Text style={[styles.selectorPillText, viewMode === "year" && styles.selectorPillTextActive]}>
+                    {currentYear}
+                  </Text>
+                  <Ionicons
+                    name={viewMode === "year" ? "chevron-up" : "chevron-down"}
+                    size={12}
+                    color={viewMode === "year" ? "#F97316" : "#64748B"}
+                    style={{ marginLeft: 4 }}
                   />
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity onPress={handleNextMonth} style={styles.navBtn}>
-                <Ionicons name="chevron-forward" size={20} color="#4b5563" />
+              <TouchableOpacity
+                onPress={handleNextMonth}
+                style={styles.navArrowBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#334155" />
               </TouchableOpacity>
             </View>
 
-            {showYearPicker ? (
-              /* Year List Selection */
+            {/* View Mode: Month Grid */}
+            {viewMode === "month" && (
+              <View style={styles.monthsGrid}>
+                {SHORT_MONTHS.map((mName, idx) => {
+                  const isCurMonth = idx === currentMonth;
+                  return (
+                    <TouchableOpacity
+                      key={mName}
+                      style={[styles.monthItem, isCurMonth && styles.monthItemActive]}
+                      onPress={() => {
+                        setCurrentMonth(idx);
+                        setViewMode("calendar");
+                      }}
+                    >
+                      <Text style={[styles.monthItemText, isCurMonth && styles.monthItemTextActive]}>
+                        {mName}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+
+            {/* View Mode: Year List */}
+            {viewMode === "year" && (
               <View style={styles.yearPickerListContainer}>
                 <FlatList
                   data={yearsList}
                   keyExtractor={(item) => String(item)}
-                  initialScrollIndex={yearsList.indexOf(currentYear) !== -1 ? Math.max(0, yearsList.indexOf(currentYear) - 4) : 0}
+                  initialScrollIndex={
+                    yearsList.indexOf(currentYear) !== -1
+                      ? Math.max(0, yearsList.indexOf(currentYear) - 3)
+                      : 0
+                  }
                   getItemLayout={(data, index) => ({ length: 44, offset: 44 * index, index })}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity
-                      style={[
-                        styles.yearItem,
-                        item === currentYear ? styles.yearItemActive : null,
-                      ]}
-                      onPress={() => {
-                        setCurrentYear(item);
-                        setShowYearPicker(false);
-                      }}
-                    >
-                      <Text style={[
-                        styles.yearItemText,
-                        item === currentYear ? styles.yearItemTextActive : null
-                      ]}>
-                        {item}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                  renderItem={({ item }) => {
+                    const isCurYear = item === currentYear;
+                    return (
+                      <TouchableOpacity
+                        style={[styles.yearItem, isCurYear && styles.yearItemActive]}
+                        onPress={() => {
+                          setCurrentYear(item);
+                          setViewMode("calendar");
+                        }}
+                      >
+                        <Text style={[styles.yearItemText, isCurYear && styles.yearItemTextActive]}>
+                          {item}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  }}
                 />
               </View>
-            ) : (
-              /* Grid Calendar days */
-              <View style={styles.calendarGrid}>
-                {/* Weekdays Row */}
+            )}
+
+            {/* View Mode: Standard Calendar Grid */}
+            {viewMode === "calendar" && (
+              <View style={styles.calendarContainer}>
+                {/* Weekdays Row (Fixed 7 columns) */}
                 <View style={styles.weekdaysRow}>
-                  {weekdays.map((w, idx) => (
-                    <Text key={idx} style={styles.weekdayText}>{w}</Text>
+                  {WEEKDAYS.map((w, idx) => (
+                    <View key={idx} style={styles.weekdayCol}>
+                      <Text style={[styles.weekdayText, (idx === 0 || idx === 6) && styles.weekendText]}>
+                        {w}
+                      </Text>
+                    </View>
                   ))}
                 </View>
 
-                {/* Days Grid */}
-                <View style={styles.daysGrid}>
-                  {daysArray.map((d, index) => {
-                    const isSelected = value === `${String(d.value).padStart(2, "0")}/${String(currentMonth + 1).padStart(2, "0")}/${currentYear}`;
-                    return d.type === "empty" ? (
-                      <View key={index} style={styles.dayCellEmpty} />
-                    ) : (
-                      <TouchableOpacity
-                        key={index}
-                        style={[
-                          styles.dayCell,
-                          isSelected ? styles.dayCellSelected : null
-                        ]}
-                        onPress={() => handleDaySelect(d.value)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[
-                          styles.dayText,
-                          isSelected ? styles.dayTextSelected : null
-                        ]}>
-                          {d.value}
-                        </Text>
-                      </TouchableOpacity>
+                {/* Days Matrix (Fixed 7 columns) */}
+                <View style={styles.daysMatrix}>
+                  {daysArray.map((slot) => {
+                    if (slot.type === "empty") {
+                      return <View key={slot.key} style={styles.dayCol} />;
+                    }
+
+                    const dayNum = slot.value;
+                    const isSelected =
+                      selectedDateComponents &&
+                      selectedDateComponents.day === dayNum &&
+                      selectedDateComponents.month === currentMonth &&
+                      selectedDateComponents.year === currentYear;
+
+                    const isToday =
+                      todayDay === dayNum &&
+                      todayMonth === currentMonth &&
+                      todayYear === currentYear;
+
+                    return (
+                      <View key={slot.key} style={styles.dayCol}>
+                        <TouchableOpacity
+                          style={[
+                            styles.dayCell,
+                            isToday && styles.dayCellToday,
+                            isSelected && styles.dayCellSelected,
+                          ]}
+                          onPress={() => handleSelectDay(dayNum)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.dayText,
+                              isToday && styles.dayTextToday,
+                              isSelected && styles.dayTextSelected,
+                            ]}
+                          >
+                            {dayNum}
+                          </Text>
+                          {isToday && !isSelected && <View style={styles.todayDot} />}
+                        </TouchableOpacity>
+                      </View>
                     );
                   })}
                 </View>
               </View>
             )}
 
-            <View style={styles.footer}>
-              <TouchableOpacity 
-                style={styles.closeBtn} 
+            {/* Footer Actions */}
+            <View style={styles.cardFooter}>
+              <TouchableOpacity style={styles.todayShortcutBtn} onPress={handleSelectToday}>
+                <Ionicons name="today-outline" size={15} color="#F97316" style={{ marginRight: 5 }} />
+                <Text style={styles.todayShortcutText}>Today</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.closeActionBtn}
                 onPress={() => {
                   setModalVisible(false);
-                  setShowYearPicker(false);
+                  setViewMode("calendar");
                 }}
               >
-                <Text style={styles.closeBtnText}>Close</Text>
+                <Text style={styles.closeActionText}>Close</Text>
               </TouchableOpacity>
             </View>
 
@@ -247,177 +369,280 @@ const AppDatePicker = ({ label, value, onChangeText, placeholder = "DD/MM/YYYY",
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: 0,
   },
   label: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#374151",
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
     marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#d1d5db",
-    borderRadius: 8,
-    backgroundColor: "#fff",
-    paddingRight: 8,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    paddingRight: 6,
   },
   input: {
     flex: 1,
-    fontSize: 16,
-    color: "#111827",
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    fontSize: 14,
+    color: "#0F172A",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontWeight: "600",
   },
   inputCompact: {
     fontSize: 13,
-    paddingHorizontal: 8,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
   },
-  calendarIcon: {
-    padding: 6,
+  calendarIconBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#FFF7ED",
   },
   inputError: {
-    borderColor: "#ef4444",
+    borderColor: "#EF4444",
   },
   errorText: {
-    color: "#ef4444",
+    color: "#EF4444",
     fontSize: 12,
     marginTop: 4,
   },
+
+  // Modal & Card Layout
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
+    padding: 16,
   },
   calendarCard: {
-    backgroundColor: "#fff",
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
     width: "100%",
-    maxWidth: 340,
+    maxWidth: 350,
     padding: 16,
-    elevation: 8,
+    elevation: 12,
     shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
   },
-  header: {
+  cardHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 12,
-  },
-  navBtn: {
-    padding: 8,
-  },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: "center",
-  },
-  headerTitleBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: "#f3f4f6",
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#111827",
-  },
-  calendarGrid: {
-    marginTop: 8,
-  },
-  weekdaysRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 8,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#f3f4f6",
-    paddingBottom: 6,
+    borderBottomColor: "#F1F5F9",
   },
-  weekdayText: {
-    width: 38,
-    textAlign: "center",
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#9ca3af",
+  navArrowBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  daysGrid: {
+  headerSelectorWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  selectorPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  selectorPillActive: {
+    backgroundColor: "#FFF7ED",
+    borderColor: "#FDBA74",
+  },
+  selectorPillText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  selectorPillTextActive: {
+    color: "#F97316",
+  },
+
+  // Months Grid Mode
+  monthsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
+    paddingVertical: 8,
   },
-  dayCell: {
-    width: 38,
-    height: 38,
-    justifyContent: "center",
+  monthItem: {
+    width: "30%",
+    paddingVertical: 12,
+    marginVertical: 4,
     alignItems: "center",
-    borderRadius: 19,
-    marginVertical: 2,
-    marginHorizontal: 2,
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  dayCellEmpty: {
-    width: 38,
-    height: 38,
-    marginVertical: 2,
-    marginHorizontal: 2,
+  monthItemActive: {
+    backgroundColor: "#F97316",
+    borderColor: "#EA580C",
   },
-  dayCellSelected: {
-    backgroundColor: "#C2410C",
+  monthItemText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#334155",
   },
-  dayText: {
-    fontSize: 14,
-    color: "#374151",
-    fontWeight: "500",
-  },
-  dayTextSelected: {
-    color: "#fff",
+  monthItemTextActive: {
+    color: "#FFFFFF",
     fontWeight: "700",
   },
+
+  // Year List Mode
   yearPickerListContainer: {
-    height: 250,
+    height: 240,
     borderTopWidth: 1,
     borderBottomWidth: 1,
-    borderColor: "#f3f4f6",
+    borderColor: "#F1F5F9",
   },
   yearItem: {
     paddingVertical: 12,
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#f9fafb",
+    borderBottomColor: "#F8FAFC",
   },
   yearItemActive: {
-    backgroundColor: "rgba(15, 118, 110, 0.1)",
+    backgroundColor: "#FFF7ED",
   },
   yearItemText: {
     fontSize: 15,
-    color: "#374151",
+    color: "#475569",
+    fontWeight: "600",
   },
   yearItemTextActive: {
-    color: "#C2410C",
-    fontWeight: "700",
+    color: "#F97316",
+    fontWeight: "800",
+    fontSize: 16,
   },
-  footer: {
-    marginTop: 16,
+
+  // Calendar Day Grid
+  calendarContainer: {
+    paddingVertical: 4,
+  },
+  weekdaysRow: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    width: "100%",
+    marginBottom: 6,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
-  closeBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+  weekdayCol: {
+    width: "14.285%",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  closeBtnText: {
-    fontSize: 14,
-    color: "#4b5563",
+  weekdayText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#94A3B8",
+    textAlign: "center",
+  },
+  weekendText: {
+    color: "#CBD5E1",
+  },
+  daysMatrix: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: "100%",
+  },
+  dayCol: {
+    width: "14.285%",
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginVertical: 1,
+  },
+  dayCell: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayCellToday: {
+    borderWidth: 1.5,
+    borderColor: "#F97316",
+    backgroundColor: "#FFF7ED",
+  },
+  dayCellSelected: {
+    backgroundColor: "#F97316",
+    borderColor: "#EA580C",
+  },
+  dayText: {
+    fontSize: 13.5,
     fontWeight: "600",
+    color: "#1E293B",
+  },
+  dayTextToday: {
+    color: "#F97316",
+    fontWeight: "800",
+  },
+  dayTextSelected: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  todayDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#F97316",
+    position: "absolute",
+    bottom: 2,
+  },
+
+  // Footer Actions
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  todayShortcutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#FFF7ED",
+  },
+  todayShortcutText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#F97316",
+  },
+  closeActionBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  closeActionText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748B",
   },
 });
 

@@ -13,7 +13,7 @@ export const getLeadsBaseUrl = (): string => {
       return `${window.location.protocol}//${host}:5000`;
     }
   }
-  return 'https://nextact-backend.vercel.app';
+  return 'https://oneclick-crm-black.vercel.app';
 };
 
 interface RequestOptions extends RequestInit {

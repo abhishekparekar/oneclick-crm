@@ -9,7 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", error }) => {
+const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", error, containerStyle }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedHour, setSelectedHour] = useState("17");
   const [selectedMinute, setSelectedMinute] = useState("00");
@@ -31,7 +31,7 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
   const minutes = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, "0"));
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, containerStyle]}>
       {label && <Text style={styles.label}>{label}</Text>}
       
       <TouchableOpacity 
@@ -39,25 +39,25 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
         onPress={() => setModalVisible(true)}
         activeOpacity={0.7}
       >
-        <Text style={[styles.inputText, !value && { color: "#9ca3af" }]}>
+        <Text style={[styles.inputText, !value && { color: "#94A3B8" }]}>
           {value || placeholder}
         </Text>
-        <View style={styles.clockIcon}>
-          <Ionicons name="time-outline" size={20} color="#6b7280" />
+        <View style={styles.clockIconBtn}>
+          <Ionicons name="time" size={18} color="#F97316" />
         </View>
       </TouchableOpacity>
 
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
+      <Modal visible={modalVisible} transparent animationType="fade" onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.pickerContainer}>
             <View style={styles.header}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.headerBtn}>
                 <Text style={styles.cancelBtn}>Cancel</Text>
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Select Time</Text>
-              <TouchableOpacity onPress={handleDone}>
+              <TouchableOpacity onPress={handleDone} style={styles.headerBtn}>
                 <Text style={styles.doneBtn}>Done</Text>
               </TouchableOpacity>
             </View>
@@ -94,9 +94,11 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
 };
 
 const styles = StyleSheet.create({
-  container: {},
+  container: {
+    marginBottom: 0,
+  },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
     color: "#334155",
     marginBottom: 6,
@@ -105,58 +107,80 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 8,
-    backgroundColor: "#f8fafc",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    width: "100%",
-    justifyContent: 'space-between'
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    backgroundColor: "#F8FAFC",
+    paddingLeft: 12,
+    paddingRight: 6,
+    paddingVertical: 5,
+    justifyContent: "space-between",
+    minHeight: 44,
   },
   inputText: {
     fontSize: 14,
-    color: "#0f172a",
-    fontWeight: "700",
+    color: "#0F172A",
+    fontWeight: "600",
+  },
+  clockIconBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: "#FFF7ED",
   },
   inputError: {
-    borderColor: "#ef4444",
+    borderColor: "#EF4444",
   },
   errorText: {
-    color: "#ef4444",
+    color: "#EF4444",
     fontSize: 12,
     marginTop: 4,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(15, 23, 42, 0.65)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
   pickerContainer: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 24,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    width: "100%",
+    maxWidth: 340,
+    paddingBottom: 16,
+    elevation: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    overflow: "hidden",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#F1F5F9",
+    backgroundColor: "#F8FAFC",
+  },
+  headerBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
   headerTitle: {
     fontSize: 16,
     fontWeight: "700",
-    color: "#0f172a",
+    color: "#0F172A",
   },
   cancelBtn: {
-    fontSize: 16,
-    color: "#64748b",
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "600",
   },
   doneBtn: {
-    fontSize: 16,
-    color: "#C2410C",
+    fontSize: 14,
+    color: "#F97316",
     fontWeight: "700",
   },
   pickerRow: {
@@ -166,14 +190,14 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
   },
   pickerWrapper: {
-    width: 100,
+    width: 110,
   },
   colon: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0f172a",
-    marginHorizontal: 8,
-  }
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginHorizontal: 4,
+  },
 });
 
 export default AppTimePicker;

@@ -1299,11 +1299,12 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    marginHorizontal: -4,
   },
   half: {
     flex: 1,
-    marginHorizontal: 2,
+    marginHorizontal: 4,
   },
   recurringInfoBanner: {
     flexDirection: 'row',

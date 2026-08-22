@@ -8,7 +8,7 @@ export const getApiBaseUrl = () => {
       return `${window.location.protocol}//${host}:5000/api`;
     }
   }
-  return "https://nextact-backend.vercel.app/api";
+  return "https://oneclick-crm-black.vercel.app/api";
 };
 
 const api = axios.create({

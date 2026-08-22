@@ -9,7 +9,7 @@ let _cachedHost = null;
 
 export const getBackendHost = () => {
   if (FORCE_LIVE) {
-    return "nextact-backend.vercel.app";
+    return "oneclick-crm-black.vercel.app";
   }
 
   if (_cachedHost) {
@@ -59,7 +59,7 @@ export const getBackendHost = () => {
     return _cachedHost;
   }
 
-  return "nextact-backend.vercel.app";
+  return "oneclick-crm-black.vercel.app";
 };
 
 export const getApiBaseUrl = () => {
