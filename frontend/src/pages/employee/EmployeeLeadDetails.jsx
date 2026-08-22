@@ -469,57 +469,55 @@ export default function EmployeeLeadDetails() {
 
         </div>
 
-        {/* ── RIGHT COLUMN (5 / 12 width): NOTES & TIMELINE HISTORY ─────────────── */}
+        {/* ── RIGHT COLUMN (5 / 12 width): TIMELINE & ACTIVITY HISTORY ─────────── */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
-            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-              <Clock size={15} className="text-amber-500" /> Notes &amp; Timeline History
-            </h2>
-
-            {/* Clean Add Note Input Box */}
-            <div className="space-y-2.5 bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
-              <textarea
-                rows={3}
-                value={newNote}
-                onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Write a client discussion note, feedback, or update..."
-                className="w-full p-2.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-900 dark:text-white font-medium focus:outline-none focus:border-amber-500 transition-all"
-              />
-
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold">Follow-Up:</span>
-                  <input
-                    type="date"
-                    value={nextFollowUpDate}
-                    onChange={(e) => setNextFollowUpDate(e.target.value)}
-                    className="px-2 py-1 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-bold focus:outline-none"
-                    title="Next Follow-Up Date"
-                  />
-                </div>
-
-                <button
-                  onClick={() => addNoteMut.mutate({ noteText: newNote, followUp: nextFollowUpDate })}
-                  disabled={!newNote.trim() || addNoteMut.isPending}
-                  className="px-4 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 disabled:opacity-50 text-white font-extrabold text-xs rounded-lg shadow-sm transition-all flex items-center gap-1.5 cursor-pointer ml-auto"
-                >
-                  <Send size={12} />
-                  <span>{addNoteMut.isPending ? "Saving..." : "Post Note"}</span>
-                </button>
-              </div>
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
+            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                <Clock size={15} className="text-amber-500" /> Timeline &amp; Activity History
+              </h2>
+              <span className="text-[10px] font-bold text-slate-400">
+                {lead.notes ? lead.notes.split("\n").filter(Boolean).length : 0} logs
+              </span>
             </div>
 
             {/* Timeline Stream */}
-            <div className="space-y-2 pt-1 max-h-[460px] overflow-y-auto custom-scrollbar">
-              {lead.notes ? (
-                lead.notes.split("\n").filter(Boolean).map((line, idx) => (
-                  <div key={idx} className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 text-xs text-slate-800 dark:text-slate-200 font-medium leading-relaxed">
-                    {line}
-                  </div>
-                ))
+            <div className="space-y-4 pt-1 max-h-[580px] overflow-y-auto custom-scrollbar pr-1">
+              {lead.notes && lead.notes.split("\n").filter(Boolean).length > 0 ? (
+                <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
+                  {lead.notes.split("\n").filter(Boolean).map((rawLine, idx) => {
+                    const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
+                    const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
+                    const timestamp = bracketMatch ? bracketMatch[1] : null;
+                    const text = bracketMatch ? bracketMatch[2] : line;
+
+                    return (
+                      <div key={idx} className="relative group">
+                        {/* Dot on connector line */}
+                        <div className="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-500 flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        </div>
+
+                        {/* Content Card */}
+                        <div className="p-3 bg-slate-50/80 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800/80 transition-all space-y-1">
+                          {timestamp && (
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                              <Clock size={10} />
+                              <span>{timestamp}</span>
+                            </div>
+                          )}
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed">
+                            {text}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               ) : (
-                <div className="p-6 text-center text-slate-400 text-xs">
-                  No discussion notes logged yet. Use the box above to add notes.
+                <div className="p-8 text-center text-slate-400 text-xs flex flex-col items-center gap-2">
+                  <Clock size={24} className="text-slate-300 dark:text-slate-700" />
+                  <p>No activity or timeline history recorded yet.</p>
                 </div>
               )}
             </div>
