@@ -514,8 +514,8 @@ export default function EmployeeMyTasks() {
 
       {/* ── Task Status Filter Pills (Only Required Workflow Statuses) ─────── */}
       <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 pr-1 flex items-center gap-1 shrink-0">
-          <Layers size={13} className="text-amber-500" /> STATUS:
+        <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1.5 flex items-center gap-1 shrink-0">
+          <Layers size={14} className="text-amber-500" /> STATUS:
         </span>
         {[
           {
@@ -861,14 +861,14 @@ export default function EmployeeMyTasks() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50/80 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="py-3 px-4">Task ID</th>
-                    <th className="py-3 px-4">Task & Scope</th>
-                    <th className="py-3 px-4">Department</th>
-                    <th className="py-3 px-4">Priority</th>
-                    <th className="py-3 px-4">Timeline / Due Date</th>
-                    <th className="py-3 px-4">Status</th>
-                    <th className="py-3 px-4 text-right">Actions</th>
+                  <tr className="bg-slate-100/90 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                    <th className="py-3.5 px-4 font-black">Task ID</th>
+                    <th className="py-3.5 px-4 font-black">Task &amp; Scope</th>
+                    <th className="py-3.5 px-4 font-black">Department</th>
+                    <th className="py-3.5 px-4 font-black">Priority</th>
+                    <th className="py-3.5 px-4 font-black">Timeline / Due Date</th>
+                    <th className="py-3.5 px-4 font-black">Status</th>
+                    <th className="py-3.5 px-4 text-right font-black">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">

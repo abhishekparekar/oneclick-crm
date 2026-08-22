@@ -450,8 +450,8 @@ export default function EmployeeLeads() {
 
       {/* ── Pipeline Status Filter Pills (Like Today/Yesterday Tabs) ───────────── */}
       <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-0.5">
-        <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 pr-1 flex items-center gap-1 shrink-0">
-          <Layers size={13} className="text-amber-500" /> STATUS:
+        <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1.5 flex items-center gap-1 shrink-0">
+          <Layers size={14} className="text-amber-500" /> STATUS:
         </span>
         <button
           onClick={() => setStatusFilter("all")}
@@ -653,15 +653,15 @@ export default function EmployeeLeads() {
         <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs min-w-[950px]">
-              <thead className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
+              <thead className="bg-slate-100/90 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 <tr>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Lead ID</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Customer / Company</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Contact Number</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Pipeline Status</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Est. Value</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">Follow-Up Date</th>
-                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap">Actions</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Lead ID</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Customer / Company</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Contact Number</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Pipeline Status</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Est. Value</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Follow-Up Date</th>
+                  <th className="py-3.5 px-4 font-black text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ca-border">
