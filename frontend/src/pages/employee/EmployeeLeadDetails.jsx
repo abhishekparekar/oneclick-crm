@@ -269,12 +269,12 @@ export default function EmployeeLeadDetails() {
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
       
-      {/* ── TOP NAVIGATION BAR & ACTION TOOLBAR ───────────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      {/* ── TOP NAVIGATION BAR & ACTION TOOLBAR (CLEAN FLOATING ADMIN STYLE) ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate("/employee/leads")}
-            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
+            className="px-3 py-1.5 bg-white hover:bg-slate-100 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0 shadow-2xs"
           >
             <ArrowLeft size={14} /> Back
           </button>
@@ -313,7 +313,7 @@ export default function EmployeeLeadDetails() {
 
               <button
                 onClick={handleDirectCall}
-                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer"
+                className="px-3.5 py-2 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs"
               >
                 <Phone size={13} />
                 <span>Call</span>
@@ -333,84 +333,88 @@ export default function EmployeeLeadDetails() {
       {/* ── 2-COLUMN UNIFIED WORKSPACE ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         
-        {/* ── LEFT COLUMN (7 / 12 width): LEAD SPECIFICATION & CONTACT ─────────── */}
+        {/* ── LEFT COLUMN (7 / 12 width): SINGLE UNIFIED LEAD SPECIFICATION CARD ─ */}
         <div className="lg:col-span-7 space-y-4">
           
-          {/* Contact & Business Profile */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
-            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-              <User size={15} className="text-amber-500" /> Contact &amp; Business Profile
-            </h2>
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-4">
+            
+            {/* Section 1: Contact & Business Profile */}
+            <div className="space-y-3">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <User size={15} className="text-amber-500" /> Contact &amp; Business Profile
+              </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
-                  <Phone size={11} className="text-emerald-600" /> Primary Phone
-                </p>
-                <p className="text-xs font-black text-slate-900 dark:text-white font-mono">
-                  {lead.phone || lead.whatsappPhone || "—"}
-                </p>
-              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                    <Phone size={11} className="text-emerald-600" /> Primary Phone
+                  </p>
+                  <p className="text-xs font-black text-slate-900 dark:text-white font-mono">
+                    {lead.phone || lead.whatsappPhone || "—"}
+                  </p>
+                </div>
 
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
-                  <Smartphone size={11} className="text-emerald-600" /> WhatsApp Number
-                </p>
-                <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                  {lead.whatsappPhone || lead.phone || "—"}
-                </p>
-              </div>
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                    <Smartphone size={11} className="text-emerald-600" /> WhatsApp Number
+                  </p>
+                  <p className="text-xs font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                    {lead.whatsappPhone || lead.phone || "—"}
+                  </p>
+                </div>
 
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
-                  <Mail size={11} className="text-blue-600" /> Email Address
-                </p>
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {lead.email || "No email provided"}
-                </p>
-              </div>
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                    <Mail size={11} className="text-blue-600" /> Email Address
+                  </p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {lead.email || "No email provided"}
+                  </p>
+                </div>
 
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
-                  <Building size={11} className="text-amber-600" /> Company / Organization
-                </p>
-                <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
-                  {lead.company || "Individual Client"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Deal & Pipeline Details */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
-            <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-              <DollarSign size={15} className="text-emerald-600" /> Deal &amp; Pipeline Details
-            </h2>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Est. Deal Value</p>
-                <p className="text-sm font-black text-emerald-600 truncate">
-                  {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
-                </p>
-              </div>
-
-              <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Lead Source</p>
-                <p className="text-xs font-black text-slate-900 dark:text-white truncate">
-                  {lead.source || "Website Form"}
-                </p>
-              </div>
-
-              <div className="p-3 bg-teal-50/80 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
-                <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
-                  <Clock size={11} /> Next Follow-Up
-                </p>
-                <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
-                  {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
-                </p>
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider flex items-center gap-1">
+                    <Building size={11} className="text-amber-600" /> Company / Organization
+                  </p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
+                    {lead.company || "Individual Client"}
+                  </p>
+                </div>
               </div>
             </div>
+
+            {/* Section 2: Deal & Pipeline Metrics */}
+            <div className="space-y-3 pt-2">
+              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <DollarSign size={15} className="text-emerald-600" /> Deal &amp; Pipeline Details
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Est. Deal Value</p>
+                  <p className="text-sm font-black text-emerald-600 truncate">
+                    {lead.estimatedValue ? `₹${Number(lead.estimatedValue).toLocaleString()}` : "Not Set"}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/60 dark:border-slate-800/80 space-y-0.5">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-black uppercase tracking-wider">Lead Source</p>
+                  <p className="text-xs font-black text-slate-900 dark:text-white truncate">
+                    {lead.source || "Website Form"}
+                  </p>
+                </div>
+
+                <div className="p-3 bg-teal-50/80 dark:bg-teal-950/20 rounded-xl border border-teal-200 dark:border-teal-900 space-y-0.5">
+                  <p className="text-[10px] text-teal-800 dark:text-teal-300 font-black uppercase tracking-wider flex items-center justify-center gap-1">
+                    <Clock size={11} /> Next Follow-Up
+                  </p>
+                  <p className="text-xs font-black text-teal-900 dark:text-teal-200 font-mono truncate">
+                    {lead.nextFollowUpDate ? new Date(lead.nextFollowUpDate).toLocaleDateString("en-GB") : "Not Scheduled"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
           </div>
 
         </div>
