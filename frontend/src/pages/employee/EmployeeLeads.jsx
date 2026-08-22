@@ -36,7 +36,11 @@ const getLeadAccentColors = (statusName, customColor) => {
       statusStyle: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700",
       statusLabel: statusName ? statusName.toUpperCase() : "WON",
       dot: "bg-emerald-500",
-      chipBg: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800"
+      chipBg: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800",
+      pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80",
+      pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
+      badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-200 dark:border-emerald-700",
+      badgeActive: "bg-white/20 text-white",
     };
   }
   if (s.includes("lost") || s.includes("drop") || s.includes("reject") || s.includes("cancel") || s.includes("fail")) {
@@ -45,7 +49,11 @@ const getLeadAccentColors = (statusName, customColor) => {
       statusStyle: "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-700",
       statusLabel: statusName ? statusName.toUpperCase() : "LOST",
       dot: "bg-rose-500",
-      chipBg: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800"
+      chipBg: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800",
+      pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80",
+      pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
+      badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-700",
+      badgeActive: "bg-white/20 text-white",
     };
   }
   if (s.includes("qualif") || s.includes("proposal") || s.includes("negotiat") || s.includes("progress") || s.includes("process") || s.includes("follow")) {
@@ -54,7 +62,11 @@ const getLeadAccentColors = (statusName, customColor) => {
       statusStyle: "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-700",
       statusLabel: statusName ? statusName.toUpperCase() : "IN PROGRESS",
       dot: "bg-amber-500",
-      chipBg: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+      chipBg: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800",
+      pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80",
+      pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
+      badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-700",
+      badgeActive: "bg-white/20 text-white",
     };
   }
   if (s.includes("contact") || s.includes("call") || s.includes("reach") || s.includes("touch")) {
@@ -63,7 +75,11 @@ const getLeadAccentColors = (statusName, customColor) => {
       statusStyle: "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-700",
       statusLabel: statusName ? statusName.toUpperCase() : "CONTACTED",
       dot: "bg-teal-500",
-      chipBg: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800"
+      chipBg: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800",
+      pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80",
+      pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30",
+      badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200 border border-teal-200 dark:border-teal-700",
+      badgeActive: "bg-white/20 text-white",
     };
   }
   return {
@@ -71,7 +87,11 @@ const getLeadAccentColors = (statusName, customColor) => {
     statusStyle: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-700",
     statusLabel: statusName ? statusName.toUpperCase() : "NEW LEAD",
     dot: "bg-blue-500",
-    chipBg: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800"
+    chipBg: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800",
+    pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80",
+    pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
+    badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700",
+    badgeActive: "bg-white/20 text-white",
   };
 };
 
@@ -468,18 +488,17 @@ export default function EmployeeLeads() {
               <button
                 key={sId}
                 onClick={() => setStatusFilter(sId)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
                   active
-                    ? "bg-slate-900 text-white dark:bg-amber-600 shadow-xs"
-                    : "bg-slate-100 dark:bg-slate-800/60 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                    ? chipCfg.pillActive
+                    : chipCfg.pillInactive
                 }`}
               >
-                <span className={`w-2 h-2 rounded-full ${chipCfg.dot}`} />
                 <span>{st.name}</span>
                 <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
                   active
-                    ? "bg-white/20 text-white"
-                    : "bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700"
+                    ? chipCfg.badgeActive
+                    : chipCfg.badgeInactive
                 }`}>
                   {count}
                 </span>
