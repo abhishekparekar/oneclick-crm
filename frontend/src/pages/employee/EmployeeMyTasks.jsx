@@ -524,9 +524,6 @@ export default function EmployeeMyTasks() {
 
         {/* ── Row 2: Task Status Filter Pills ───────────────────────────────── */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
-          <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white pr-1 flex items-center gap-1 shrink-0">
-            <Layers size={13} className="text-amber-500" /> STATUS:
-          </span>
           {[
             {
               id: "all",
