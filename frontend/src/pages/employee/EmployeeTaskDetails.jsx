@@ -349,7 +349,7 @@ export default function EmployeeTaskDetails() {
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
 
   // Fetch Task Details
-  const { data: taskRes, isLoading, refetch } = useQuery({
+  const { data: taskRes, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["employeeTaskDetails", taskId],
     queryFn: async () => {
       const res = await getTaskDetailsApi(taskId).catch(() => ({ data: {} }));
@@ -358,6 +358,17 @@ export default function EmployeeTaskDetails() {
     },
     enabled: Boolean(taskId)
   });
+
+  if (isLoading || !taskRes) {
+    return (
+      <div className="space-y-4 pb-12 font-sans w-full max-w-[1440px] mx-auto min-h-[500px] flex flex-col items-center justify-center">
+        <div className="p-8 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col items-center gap-3 text-center">
+          <div className="w-10 h-10 border-3 border-orange-500/20 border-t-orange-600 rounded-full animate-spin" />
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-200">Loading task details...</p>
+        </div>
+      </div>
+    );
+  }
 
   const task = taskRes || {};
   const currentRawStatus = (task.myStatus || task.statusKey || task.status || "pending").toLowerCase();

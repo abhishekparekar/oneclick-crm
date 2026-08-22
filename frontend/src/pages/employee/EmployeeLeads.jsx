@@ -653,7 +653,7 @@ export default function EmployeeLeads() {
         <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs min-w-[950px]">
-              <thead className="bg-slate-100/90 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+              <thead className="bg-white dark:bg-[#111C24] border-b border-slate-200/90 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                 <tr>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Lead ID</th>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Customer / Company</th>

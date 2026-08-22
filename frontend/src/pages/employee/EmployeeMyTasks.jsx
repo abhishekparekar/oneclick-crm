@@ -861,7 +861,7 @@ export default function EmployeeMyTasks() {
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-100/90 dark:bg-[#0B101B] border-b border-slate-200 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <tr className="bg-white dark:bg-[#111C24] border-b border-slate-200/90 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
                     <th className="py-3.5 px-4 font-black">Task ID</th>
                     <th className="py-3.5 px-4 font-black">Task &amp; Scope</th>
                     <th className="py-3.5 px-4 font-black">Department</th>
