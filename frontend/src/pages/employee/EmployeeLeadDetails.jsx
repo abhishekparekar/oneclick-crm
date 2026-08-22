@@ -119,12 +119,9 @@ export default function EmployeeLeadDetails() {
       }
 
       const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString();
-      let noteWithDoc = note;
-      if (docObj) {
-        noteWithDoc = note ? `• [${timeStr}] (Stage Updated & Doc Attached: ${docObj.name}) ${note}` : `• [${timeStr}] Attached document: ${docObj.name}`;
-      } else if (note) {
-        noteWithDoc = `• [${timeStr}] (Stage Updated) ${note}`;
-      }
+      const statusName = statuses.find(s => String(s._id || s.id) === String(statusId))?.name || "Stage Updated";
+      const docTag = docObj ? ` [Doc: ${docObj.name} | ${docObj.url}]` : "";
+      const noteWithDoc = `• [${timeStr}] Status changed to ${statusName}${note ? `: ${note}` : ""}${docTag}`;
 
       return api.patch(`/leads-engine/leads/${leadId}`, {
         statusId,
@@ -416,57 +413,6 @@ export default function EmployeeLeadDetails() {
             </div>
           </div>
 
-          {/* Documents & Attachments */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 sm:p-5 shadow-2xs space-y-3">
-            <div className="border-b border-slate-100 dark:border-slate-800 pb-2.5 flex items-center justify-between">
-              <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
-                <Paperclip size={15} className="text-amber-500" /> Documents &amp; Files ({lead.documents?.length || 0})
-              </h2>
-
-              <label className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-[11px] font-extrabold transition-all cursor-pointer flex items-center gap-1 shadow-2xs">
-                <Plus size={13} />
-                <span>{directUploadingDoc ? "Uploading..." : "+ Attach File"}</span>
-                <input
-                  type="file"
-                  disabled={directUploadingDoc}
-                  onChange={handleDirectDocUpload}
-                  className="hidden"
-                />
-              </label>
-            </div>
-
-            {Array.isArray(lead.documents) && lead.documents.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {lead.documents.map((doc, idx) => (
-                  <a
-                    key={idx}
-                    href={doc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2.5 p-2.5 bg-slate-50 hover:bg-amber-50/50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200/80 hover:border-amber-500 rounded-xl transition-all group shadow-2xs"
-                  >
-                    <div className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 flex items-center justify-center shrink-0">
-                      <FileText size={15} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-bold text-slate-900 dark:text-white truncate group-hover:text-amber-600 transition-colors">
-                        {doc.name || "Attachment"}
-                      </p>
-                      <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                        <span>Open Document</span>
-                        <ExternalLink size={9} />
-                      </p>
-                    </div>
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <div className="p-4 text-center text-slate-400 text-xs bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
-                No documents attached yet. Click "+ Attach File" above to upload.
-              </div>
-            )}
-          </div>
-
         </div>
 
         {/* ── RIGHT COLUMN (5 / 12 width): TIMELINE & ACTIVITY HISTORY ─────────── */}
@@ -489,7 +435,17 @@ export default function EmployeeLeadDetails() {
                     const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
                     const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
                     const timestamp = bracketMatch ? bracketMatch[1] : null;
-                    const text = bracketMatch ? bracketMatch[2] : line;
+                    let text = bracketMatch ? bracketMatch[2] : line;
+
+                    // Extract attached document tag [Doc: name | url]
+                    const docTagMatch = text.match(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/);
+                    let docName = null;
+                    let docUrl = null;
+                    if (docTagMatch) {
+                      docName = docTagMatch[1];
+                      docUrl = docTagMatch[2];
+                      text = text.replace(/\[Doc:.*?\]/, "").trim();
+                    }
 
                     return (
                       <div key={idx} className="relative group">
@@ -499,7 +455,7 @@ export default function EmployeeLeadDetails() {
                         </div>
 
                         {/* Content Card */}
-                        <div className="p-3 bg-slate-50/80 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800/80 transition-all space-y-1">
+                        <div className="p-3 bg-slate-50/80 hover:bg-slate-100/80 dark:bg-slate-900/60 dark:hover:bg-slate-900 rounded-xl border border-slate-200/60 dark:border-slate-800/80 transition-all space-y-1.5">
                           {timestamp && (
                             <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
                               <Clock size={10} />
@@ -509,6 +465,20 @@ export default function EmployeeLeadDetails() {
                           <p className="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed">
                             {text}
                           </p>
+
+                          {/* Inline Attached Document Pill */}
+                          {docUrl && (
+                            <a
+                              href={docUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
+                            >
+                              <FileText size={13} className="text-amber-500 shrink-0" />
+                              <span className="truncate max-w-[200px]">{docName || "Attached Document"}</span>
+                              <ExternalLink size={10} className="text-slate-400 group-hover:text-amber-500 shrink-0" />
+                            </a>
+                          )}
                         </div>
                       </div>
                     );
