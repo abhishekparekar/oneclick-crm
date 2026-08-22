@@ -26,11 +26,9 @@ const COMPANY_SECTIONS = [
     ],
   },
   {
-    title: "QUICK ACTIONS",
+    title: "Task",
     items: [
       { label: "Tasks", path: "/company/tasks", icon: CheckSquare, module: "tasks" },
-      // { label: "Projects", path: "/company/projects", icon: Briefcase, module: "projects" },
-      { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
     ],
   },
   {
@@ -41,6 +39,12 @@ const COMPANY_SECTIONS = [
       { label: "WhatsApp Campaigns", path: "/company/leads/campaigns", icon: Megaphone },
       { label: "Reminders", path: "/company/leads/reminders", icon: CalendarDays },
       { label: "Lead Settings", path: "/company/leads/settings", icon: Settings },
+    ],
+  },
+  {
+    title: "PROJECTS",
+    items: [
+      { label: "Projects", path: "/company/projects", icon: Briefcase, module: "projects" },
     ],
   },
   {
@@ -58,6 +62,7 @@ const COMPANY_SECTIONS = [
   {
     title: "ATTENDANCE & LEAVE",
     items: [
+      { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: CalendarDays, module: "attendance" },
