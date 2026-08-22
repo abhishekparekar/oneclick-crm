@@ -1111,6 +1111,14 @@ export default function Leads() {
           >
             <Upload size={13} className="text-slate-400" /> Import Leads
           </button>
+
+          <button
+            type="button"
+            onClick={fetchPublicToken}
+            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+          >
+            <Share2 size={13} className="text-amber-500" /> Share Form Link
+          </button>
           
           <button 
             type="button"
