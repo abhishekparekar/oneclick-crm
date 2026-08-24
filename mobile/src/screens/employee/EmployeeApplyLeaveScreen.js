@@ -136,11 +136,11 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
           {/* Quick Balance Preview Card */}
           <View style={styles.balanceInfoCard}>
             <View style={styles.balanceHeader}>
-              <Ionicons name="shield-checkmark" size={18} color="#F97316" />
+              <Ionicons name="shield-checkmark" size={18} color="#1268D9" />
               <Text style={styles.balanceTitle}>Available {leaveType} Balance</Text>
             </View>
             {loadingBalance ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#1268D9" />
             ) : (
               <Text style={styles.balanceCountText}>
                 {activeLimit} {(leaveType !== "LOP" && leaveType !== "Unpaid Leave") ? "Days Left" : "Allowed"}
@@ -226,7 +226,7 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
               disabled={submitting}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.submitBtnGradient}>
+              <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.submitBtnGradient}>
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -273,8 +273,8 @@ const styles = StyleSheet.create({
   balanceInfoCard: {
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "#FFF7ED",
-    borderColor: "#FFEDD5",
+    backgroundColor: "#EFF6FF",
+    borderColor: "#DBEAFE",
     borderWidth: 1,
     marginBottom: 16,
     alignItems: "center",
@@ -282,58 +282,52 @@ const styles = StyleSheet.create({
   balanceHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 4,
+    marginBottom: 6,
   },
   balanceTitle: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#F97316",
+    color: "#1268D9",
     marginLeft: 6,
   },
   balanceCountText: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#EA580C",
+    color: "#1D4ED8",
     marginTop: 2,
   },
   formCard: {
-    padding: 16,
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    elevation: 2,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    marginBottom: 24,
+    borderColor: "#E2E8F0",
   },
   fieldLabel: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#64748B",
-    marginBottom: 10,
-    marginTop: 8,
-    letterSpacing: 0.4,
+    color: "#475569",
+    marginBottom: 8,
+    marginTop: 12,
+    letterSpacing: 0.5,
   },
   typesRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   typePill: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: "#E2E8F0",
     backgroundColor: "#F8FAFC",
   },
   typePillActive: {
-    backgroundColor: "#F97316",
-    borderColor: "#F97316",
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
   typeText: {
     fontSize: 12.5,
@@ -348,14 +342,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 16,
-    paddingVertical: 10,
-    borderTopWidth: 1,
+    marginVertical: 10,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderColor: "#F1F5F9",
+    borderBottomColor: "#F1F5F9",
   },
   switchLabel: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "700",
     color: "#1E293B",
   },
@@ -363,11 +356,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 24,
     borderRadius: 12,
-    backgroundColor: "#CBD5E1",
+    backgroundColor: "#E2E8F0",
     padding: 2,
   },
   toggleSwitchActive: {
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
   },
   toggleThumb: {
     width: 20,

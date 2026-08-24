@@ -134,11 +134,11 @@ const ManagerApplyLeaveScreen = ({ navigation }) => {
           {/* Quick Balance Preview Card */}
           <View style={styles.balanceInfoCard}>
             <View style={styles.balanceHeader}>
-              <Ionicons name="shield-checkmark" size={18} color="#F97316" />
+              <Ionicons name="shield-checkmark" size={18} color="#1268D9" />
               <Text style={styles.balanceTitle}>Available {leaveType} Balance</Text>
             </View>
             {loadingBalance ? (
-              <ActivityIndicator size="small" color="#F97316" />
+              <ActivityIndicator size="small" color="#1268D9" />
             ) : (
               <Text style={styles.balanceCountText}>
                 {activeLimit} {(leaveType !== "LOP" && leaveType !== "Unpaid Leave") ? "Days Left" : "Allowed"}
@@ -155,11 +155,11 @@ const ManagerApplyLeaveScreen = ({ navigation }) => {
                 return (
                   <TouchableOpacity
                     key={type}
-                    style={[styles.typePill, isActive && styles.typePillActive]}
+                    style={[styles.typePill, isActive && styles.selectedLeaveTypePill]}
                     onPress={() => setLeaveType(type)}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.typeText, isActive && styles.typeTextActive]}>
+                    <Text style={[styles.leaveTypePillText, isActive && styles.selectedLeaveTypePillText]}>
                       {type}
                     </Text>
                   </TouchableOpacity>
@@ -224,7 +224,7 @@ const ManagerApplyLeaveScreen = ({ navigation }) => {
               disabled={submitting}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.submitBtnGradient}>
+              <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.submitBtnGradient}>
                 {submitting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
@@ -271,8 +271,8 @@ const styles = StyleSheet.create({
   balanceInfoCard: {
     padding: 16,
     borderRadius: 16,
-    backgroundColor: "#FFF7ED",
-    borderColor: "#FFEDD5",
+    backgroundColor: "#EFF6FF",
+    borderColor: "#DBEAFE",
     borderWidth: 1,
     marginBottom: 16,
     alignItems: "center",
@@ -285,13 +285,13 @@ const styles = StyleSheet.create({
   balanceTitle: {
     fontSize: 12,
     fontWeight: "800",
-    color: "#F97316",
+    color: "#1268D9",
     marginLeft: 6,
   },
   balanceCountText: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#EA580C",
+    color: "#1D4ED8",
     marginTop: 2,
   },
   formCard: {
@@ -329,16 +329,16 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
     backgroundColor: "#F8FAFC",
   },
-  typePillActive: {
-    backgroundColor: "#F97316",
-    borderColor: "#F97316",
+  selectedLeaveTypePill: {
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
-  typeText: {
+  leaveTypePillText: {
     fontSize: 12.5,
     fontWeight: "600",
     color: "#64748B",
   },
-  typeTextActive: {
+  selectedLeaveTypePillText: {
     color: "#FFFFFF",
     fontWeight: "800",
   },
@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
     padding: 2,
   },
   toggleSwitchActive: {
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
   },
   toggleThumb: {
     width: 20,

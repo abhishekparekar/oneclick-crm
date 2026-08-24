@@ -263,7 +263,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
         {repeatEnabled ? (
           <View style={styles.headerRecurringBadge}>
-            <Ionicons name="repeat" size={14} color="#F97316" />
+            <Ionicons name="repeat" size={14} color="#1268D9" />
           </View>
         ) : (
           <View style={{ width: 36 }} />
@@ -475,7 +475,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
               activeOpacity={0.8}
             >
               <View style={styles.actionTriggerLeft}>
-                <View style={styles.iconBoxOrange}><Feather name="layers" size={16} color={COLORS.primary} /></View>
+                <View style={styles.iconBoxBlue}><Feather name="layers" size={16} color="#1268D9" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionTriggerLabel}>Department *</Text>
                   <Text style={styles.actionTriggerValue} numberOfLines={1}>
@@ -493,7 +493,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
               activeOpacity={0.8}
             >
               <View style={styles.actionTriggerLeft}>
-                <View style={styles.iconBoxOrange}><Feather name="users" size={16} color={COLORS.primary} /></View>
+                <View style={styles.iconBoxBlue}><Feather name="users" size={16} color="#1268D9" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionTriggerLabel}>Team Members</Text>
                   <Text style={styles.actionTriggerValue} numberOfLines={1}>
@@ -512,7 +512,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
             activeOpacity={0.8}
           >
             <View style={styles.actionTriggerLeft}>
-              <View style={styles.iconBoxOrange}><Feather name="layers" size={18} color={COLORS.primary} /></View>
+              <View style={styles.iconBoxBlue}><Feather name="layers" size={18} color="#1268D9" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.actionTriggerLabel}>Department *</Text>
                 <Text style={styles.actionTriggerValue}>
@@ -713,7 +713,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
           activeOpacity={0.9}
         >
           <LinearGradient
-            colors={['#F97316', '#EA580C']}
+            colors={['#1268D9', '#0D50B8']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.submitBtnGradient}
@@ -1173,11 +1173,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  iconBoxOrange: {
+  iconBoxBlue: {
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: COLORS.primaryPale,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1185,13 +1187,13 @@ const styles = StyleSheet.create({
   actionTriggerLabel: {
     fontFamily: FONTS.bodyMedium,
     fontSize: 10,
-    color: COLORS.text.muted,
+    color: '#64748B',
     textTransform: 'uppercase',
   },
   actionTriggerValue: {
     fontFamily: FONTS.bodyBold,
     fontSize: 13,
-    color: COLORS.darkNavy,
+    color: '#0F172A',
     marginTop: 1,
   },
   chipsRow: {
@@ -1204,9 +1206,9 @@ const styles = StyleSheet.create({
   deptChipPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primaryPale,
+    backgroundColor: '#EFF6FF',
     borderWidth: 1,
-    borderColor: COLORS.primarySoft,
+    borderColor: '#BFDBFE',
     borderRadius: 20,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1214,7 +1216,7 @@ const styles = StyleSheet.create({
   deptChipPillText: {
     fontSize: 11.5,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primaryDark,
+    color: '#1268D9',
   },
   memberChipPill: {
     flexDirection: 'row',
@@ -1345,11 +1347,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
+    backgroundColor: '#1268D9',
   },
   submitBtnText: {
     fontFamily: FONTS.bodyBold,
     fontSize: 15,
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,

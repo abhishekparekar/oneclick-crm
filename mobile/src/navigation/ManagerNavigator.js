@@ -61,8 +61,8 @@ const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TEAL = "#C2410C";
-const TEAL_INACTIVE = "#94a3b8";
+const TEAL = "#1268D9";
+const TEAL_INACTIVE = "#64748B";
 
 // ── 1. Bottom Tab Navigator ────────────────────────────────
 const ManagerBottomTabs = () => {
@@ -178,6 +178,8 @@ const ManagerStackScreen = () => {
 
       {/* Projects */}
       <Stack.Screen name="ManagerProjects" component={ManagerProjectsScreen} />
+      <Stack.Screen name="Projects" component={ManagerProjectsScreen} />
+      <Stack.Screen name="MyProjects" component={ManagerProjectsScreen} />
       <Stack.Screen name="ManagerProjectDetails" component={ManagerProjectDetailsScreen} />
       <Stack.Screen name="ManagerCreateProject" component={ManagerCreateProjectScreen} />
 

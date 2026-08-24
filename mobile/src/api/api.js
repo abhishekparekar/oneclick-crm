@@ -17,8 +17,8 @@ export const getBackendHost = () => {
   }
 
   if (__DEV__) {
-    // 127.0.0.1 works seamlessly over USB with adb reverse (tcp:5000), and LAN IP 192.168.1.12 works over Wi-Fi
-    let ip = "127.0.0.1";
+    // Current machine LAN IP for Wi-Fi Expo Go & USB ADB reverse
+    let ip = "10.244.239.50";
 
     const hostUri =
       Constants.expoConfig?.hostUri ||
@@ -91,10 +91,20 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config;
     const status = error.response?.status;
-    const url = error.config?.url || "";
+    const url = originalRequest?.url || "";
     const message = error.response?.data?.message || error.message;
+
+    // Automatic failover: If local endpoint encounters Network Error and hasn't retried yet, switch to live cloud backend
+    if (!error.response && !originalRequest._retry && !originalRequest.baseURL?.includes("vercel.app")) {
+      console.log("[API] Local network unreachable, automatically failing over to cloud backend...");
+      originalRequest._retry = true;
+      _cachedHost = "oneclick-crm-black.vercel.app";
+      originalRequest.baseURL = "https://oneclick-crm-black.vercel.app/api";
+      return api(originalRequest);
+    }
 
     // Suppress verbose WARN for known gateway 400s — these are handled silently by the app
     const isKnownGateway400 = status === 400 && (url.includes("whatsapp/send") || url.includes("send-template"));

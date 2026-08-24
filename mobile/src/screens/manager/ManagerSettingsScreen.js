@@ -292,7 +292,7 @@ const ManagerSettingsScreen = ({ navigation }) => {
               activeOpacity={0.85}
             >
               <LinearGradient
-                colors={['#F97316', '#EA580C']}
+                colors={['#1268D9', '#0D50B8']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.actionBtnGradient}
@@ -425,7 +425,7 @@ const ManagerSettingsScreen = ({ navigation }) => {
 
                 <TouchableOpacity style={styles.submitBtn} onPress={handleSaveProfile} disabled={updating} activeOpacity={0.85}>
                   <LinearGradient
-                    colors={['#F97316', '#EA580C']}
+                    colors={['#1268D9', '#0D50B8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.submitBtnGradient}
@@ -476,7 +476,7 @@ const ManagerSettingsScreen = ({ navigation }) => {
 
                 <TouchableOpacity style={styles.submitBtn} onPress={handleChangePasswordSubmit} disabled={changingPassword} activeOpacity={0.85}>
                   <LinearGradient
-                    colors={['#F97316', '#EA580C']}
+                    colors={['#1268D9', '#0D50B8']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
                     style={styles.submitBtnGradient}

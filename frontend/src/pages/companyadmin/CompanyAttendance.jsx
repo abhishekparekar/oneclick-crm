@@ -1221,7 +1221,7 @@ const CompanyAttendance = () => {
 
           <button 
             onClick={handleExportCSV}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1 px-3 h-8 bg-white dark:bg-[#0D1B2E] border border-slate-200/80 dark:border-[#1C3554] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
           >
             <Download size={13} className="text-slate-400" /> Export CSV
           </button>
@@ -1229,7 +1229,7 @@ const CompanyAttendance = () => {
           {/* Clean Executive Button with Crisp White Text */}
           <button 
             onClick={handleExportTotalMonthlySummary}
-            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer"
           >
             <FileSpreadsheet size={13} strokeWidth={2.5} /> Monthly Report
           </button>
@@ -1506,7 +1506,7 @@ const CompanyAttendance = () => {
                   <CheckCircle2 size={32} strokeWidth={2.2} />
                 </div>
                 <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 flex items-center justify-center shadow-xs">
-                  <Sparkles size={12} className="text-amber-500" />
+                  <Sparkles size={12} className="text-[#1268D9]" />
                 </div>
               </div>
               <div>
@@ -1519,7 +1519,7 @@ const CompanyAttendance = () => {
               </div>
               <div className="pt-2 flex items-center justify-center gap-2">
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-slate-800/80 rounded-full text-[11px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-slate-700">
-                  <Zap size={12} className="text-amber-500" />
+                  <Zap size={12} className="text-[#1268D9]" />
                   Real-time sync active
                 </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 dark:bg-emerald-950/40 rounded-full text-[11px] font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60">
@@ -1539,14 +1539,14 @@ const CompanyAttendance = () => {
                 return (
                   <div
                     key={req._id}
-                    className="bg-slate-50/70 dark:bg-[#0D1321] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3.5 hover:border-amber-500/50 hover:shadow-md transition-all group"
+                    className="bg-slate-50/70 dark:bg-[#0D1321] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-4 flex flex-col justify-between space-y-3.5 hover:border-[#1268D9]/50 hover:shadow-md transition-all group"
                   >
                     {/* Header: Employee info + Date */}
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center space-x-3 min-w-0">
                         <MiniAvatar name={name} size="w-9 h-9" textSize="text-xs" />
                         <div className="min-w-0">
-                          <p className="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm leading-tight truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                          <p className="font-extrabold text-slate-900 dark:text-white text-xs sm:text-sm leading-tight truncate group-hover:text-[#1268D9] transition-colors">
                             {name}
                           </p>
                           <div className="flex items-center gap-1.5 mt-0.5">
@@ -1557,7 +1557,7 @@ const CompanyAttendance = () => {
                         </div>
                       </div>
                       <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 text-[10.5px] font-bold text-slate-700 dark:text-slate-300 shrink-0 shadow-2xs">
-                        <Calendar size={11} className="text-amber-500" />
+                        <Calendar size={11} className="text-[#1268D9]" />
                         {formatDate(req.date)}
                       </span>
                     </div>
@@ -1566,7 +1566,7 @@ const CompanyAttendance = () => {
                     <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 border border-slate-200/80 dark:border-slate-800/80 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                          <Clock size={11} className="text-amber-500" />
+                          <Clock size={11} className="text-[#1268D9]" />
                           Requested Shift Punch
                         </span>
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-extrabold border ${targetStatus.bg} ${targetStatus.text} ${targetStatus.border}`}>
@@ -1588,8 +1588,8 @@ const CompanyAttendance = () => {
                     </div>
 
                     {/* Reason Callout */}
-                    <div className="bg-amber-500/5 dark:bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/15 text-xs text-slate-700 dark:text-slate-300">
-                      <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">
+                    <div className="bg-[#1268D9]/5 dark:bg-[#1268D9]/10 rounded-xl p-2.5 border border-[#1268D9]/15 text-xs text-slate-700 dark:text-slate-300">
+                      <div className="flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wider text-[#1268D9] dark:text-[#2F8BFF] mb-1">
                         <MessageSquareQuote size={12} />
                         <span>Employee Note</span>
                       </div>
@@ -1610,7 +1610,7 @@ const CompanyAttendance = () => {
                       <button
                         onClick={() => approveRegularizationMutation.mutate(req._id)}
                         disabled={approveRegularizationMutation.isPending}
-                        className="flex-1 flex justify-center items-center gap-1 py-2 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                        className="flex-1 flex justify-center items-center gap-1 py-2 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer disabled:opacity-50"
                       >
                         {approveRegularizationMutation.isPending ? (
                           <RefreshCw size={13} className="animate-spin" />
@@ -1633,8 +1633,8 @@ const CompanyAttendance = () => {
       {/* ── REJECTION MODAL FOR REGULARIZATION ───────────────────────────────── */}
       {rejectModalId && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-slate-800 animate-slideUp">
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="bg-white dark:bg-[#0D1B2E] rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-200 dark:border-[#1C3554] animate-slideUp">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F]">
               <h2 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
                 <ShieldAlert size={16} className="text-rose-500" />
                 Reject Regularization Request
@@ -1656,14 +1656,14 @@ const CompanyAttendance = () => {
                   placeholder="Explain the reason for rejection to notify the employee..."
                   required
                   rows={3}
-                  className="w-full border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0D1321] rounded-xl p-3 text-xs text-slate-900 dark:text-white resize-none focus:outline-none focus:border-amber-500 placeholder-slate-400 shadow-2xs"
+                  className="w-full border border-slate-200 dark:border-[#1C3554] bg-slate-50 dark:bg-[#050F1F] rounded-xl p-3 text-xs text-slate-900 dark:text-white resize-none focus:outline-none focus:border-[#1268D9] placeholder-slate-400 shadow-2xs"
                 />
               </div>
 
               <div className="flex gap-3 pt-2">
                 <button
                   onClick={() => setRejectModalId(null)}
-                  className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                  className="flex-1 py-2.5 border border-slate-200 dark:border-[#1C3554] text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-all hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
                 >
                   Cancel
                 </button>

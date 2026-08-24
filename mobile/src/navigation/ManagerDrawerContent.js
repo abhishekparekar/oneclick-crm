@@ -10,13 +10,14 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { useLayout } from "../context/LayoutContext";
 import { FONTS } from "../theme/tokens";
 
-const TEAL = "#C2410C";
-const TEAL_LIGHT = "#f0fdfa";
-const TEAL_BORDER = "#ccfbf1";
+const TEAL = "#1268D9";
+const TEAL_LIGHT = "rgba(18, 104, 217, 0.08)";
+const TEAL_BORDER = "rgba(18, 104, 217, 0.3)";
 
 // ── Drawer Section Definitions (permission-aware, computed inside component) ──
 const buildManagerSections = (hasPermission) => [
@@ -24,6 +25,7 @@ const buildManagerSections = (hasPermission) => [
     title: "Core",
     items: [
       { label: "Dashboard", screen: "ManagerDashboard", icon: "grid-outline", isTab: true },
+      { label: "Projects", screen: "ManagerProjects", icon: "folder-open-outline" },
       { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline" },
       { label: "Lead Engine CRM", screen: "LeadsEngine", targetScreen: "LeadsDashboard", icon: "magnet-outline" },
       { label: "My Tasks", screen: "ManagerTasks", icon: "albums-outline", isTab: true, module: "tasks" },
@@ -58,8 +60,10 @@ const buildManagerSections = (hasPermission) => [
     ],
   },
   {
-    title: "Work",
+    title: "Work & Projects",
     items: [
+      { label: "All Projects", screen: "ManagerProjects", icon: "folder-open-outline" },
+      { label: "Create Project", screen: "ManagerCreateProject", icon: "add-circle-outline" },
       // Only show Team Tasks if the manager has tasks create/edit/shift permission
       ...(hasPermission("tasks", "create") || hasPermission("tasks", "edit") || hasPermission("tasks", "shift")
         ? [{ label: "Team Tasks", screen: "ManagerTeamTasks", icon: "list-outline", module: "tasks" }]
@@ -251,7 +255,12 @@ const ManagerDrawerContent = (props) => {
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       {/* Profile Header Card */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
+      <LinearGradient
+        colors={["#071A2F", "#082B52", "#101827"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 16 }]}
+      >
         <View style={styles.avatar}>
           {user?.photo || user?.avatar || user?.profilePicture ? (
             <Image
@@ -273,7 +282,7 @@ const ManagerDrawerContent = (props) => {
             <Text style={styles.roleText}>MANAGER</Text>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* ── Menu ────────────────────────────────────────── */}
       <ScrollView
@@ -414,14 +423,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingBottom: 16,
     paddingHorizontal: 16,
-    backgroundColor: TEAL,
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
-    shadowColor: TEAL,
+    shadowColor: "#071A2F",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
-    elevation: 6,
+    elevation: 8,
     marginBottom: 16,
   },
   avatar: {

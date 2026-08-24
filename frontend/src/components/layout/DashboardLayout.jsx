@@ -124,12 +124,12 @@ const DashboardLayout = ({ children }) => {
         </div>
       )}
 
-      {/* ── Desktop Sidebar (lg:block side-by-side flex layout) ── */}
+      {/* ── Desktop Sidebar (lg:block side-by-side flex layout with mini rail mode) ── */}
       <div
-        className="hidden lg:block flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out print:hidden"
-        style={{ width: sidebarOpen ? "228px" : "0px" }}
+        className="hidden lg:block flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out print:hidden h-full"
+        style={{ width: sidebarOpen ? "228px" : "68px" }}
       >
-        <Sidebar />
+        <Sidebar isCollapsed={!sidebarOpen} />
       </div>
 
       {/* ── Main content area ── */}

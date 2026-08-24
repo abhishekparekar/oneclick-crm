@@ -367,7 +367,7 @@ const Header = ({ onMenuClick }) => {
               setProfileOpen(false);
               setNotifOpen(false);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white font-black text-xs shadow-sm hover:shadow-md transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1268D9] hover:bg-[#0D50B8] text-white font-black text-xs shadow-sm shadow-[#1268D9]/25 hover:shadow-md transition-all cursor-pointer"
             title="Quick Create Lead or Task"
           >
             <Plus size={14} strokeWidth={3} />
@@ -398,13 +398,13 @@ const Header = ({ onMenuClick }) => {
                       : "/company/leads?create=true";
                   navigate(path);
                 }}
-                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-[#1268D9]/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
               >
-                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                <div className="w-8 h-8 rounded-lg bg-[#1268D9]/15 border border-[#1268D9]/30 text-[#1268D9] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
                   <Magnet size={16} strokeWidth={2.2} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-[#1268D9] transition-colors">
                     Add New Lead
                   </p>
                   <p className="text-[10px] text-slate-400 font-medium truncate">
@@ -690,10 +690,10 @@ const Header = ({ onMenuClick }) => {
                     <img
                       src={avatarUrl}
                       alt={userName}
-                      className="w-8 h-8 rounded-full object-cover shadow-2xs border border-slate-200 dark:border-slate-700 group-hover:border-amber-500 transition-colors"
+                      className="w-8 h-8 rounded-full object-cover shadow-2xs border border-slate-200 dark:border-slate-700 group-hover:border-[#1268D9] transition-colors"
                     />
                   ) : (
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-950 font-extrabold text-xs bg-amber-500 shadow-2xs">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white font-extrabold text-xs bg-[#1268D9] shadow-2xs">
                       {getInitials(userName)}
                     </div>
                   )}
@@ -701,7 +701,7 @@ const Header = ({ onMenuClick }) => {
                 </div>
 
                 <div className="text-left hidden sm:block">
-                  <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[130px] group-hover:text-amber-500 transition-colors">
+                  <p className="text-xs font-bold leading-tight text-slate-900 dark:text-white truncate max-w-[130px] group-hover:text-[#1268D9] transition-colors">
                     {userName}
                   </p>
                   <p className="text-[10px] font-medium leading-tight text-slate-500 dark:text-slate-400 mt-0.5">
@@ -723,7 +723,7 @@ const Header = ({ onMenuClick }) => {
                           className="w-10 h-10 rounded-full object-cover shadow-sm border border-slate-200 dark:border-slate-700"
                         />
                       ) : (
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-slate-950 font-black text-sm bg-amber-500 shadow-sm">
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-black text-sm bg-[#1268D9] shadow-sm">
                           {getInitials(userName)}
                         </div>
                       )}
@@ -732,7 +732,7 @@ const Header = ({ onMenuClick }) => {
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-extrabold text-slate-900 dark:text-white truncate leading-tight">{userName}</p>
                       <p className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5">{userEmail}</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 mt-1">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#1268D9]/10 text-[#1268D9] border border-[#1268D9]/20 mt-1">
                         {roleLabel}
                       </span>
                     </div>
@@ -745,7 +745,7 @@ const Header = ({ onMenuClick }) => {
                       onClick={() => setProfileOpen(false)}
                       className="flex items-center gap-2.5 w-full px-3 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/80 rounded-xl transition-colors"
                     >
-                      <User size={15} className="text-amber-500" />
+                      <User size={15} className="text-[#1268D9]" />
                       <span>User Profile</span>
                     </Link>
                     <Link

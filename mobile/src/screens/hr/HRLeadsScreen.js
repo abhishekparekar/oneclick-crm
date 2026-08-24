@@ -82,6 +82,9 @@ export default function HRLeadsScreen({ navigation, route }) {
   const currentUserId = user?._id || user?.id || "";
 
   // New Lead Form State
+  const [products, setProducts] = useState([]);
+  const [isCustomProduct, setIsCustomProduct] = useState(false);
+  const [customProductText, setCustomProductText] = useState("");
   const [form, setForm] = useState({
     name: "",
     whatsappPhone: "",
@@ -89,10 +92,11 @@ export default function HRLeadsScreen({ navigation, route }) {
     email: "",
     company: "",
     productService: "",
-    source: "Walk-in",
+    source: "Direct / Walk-in",
     statusId: "",
     assignedTo: user?._id || user?.id || "",
     estimatedValue: "",
+    nextFollowUpDate: "",
     notes: "",
   });
 
@@ -105,11 +109,12 @@ export default function HRLeadsScreen({ navigation, route }) {
   const loadData = useCallback(async () => {
     try {
       setLoading(true);
-      const [leadsRes, statusesRes, assignableUsersRes, sourcesRes] = await Promise.all([
+      const [leadsRes, statusesRes, assignableUsersRes, sourcesRes, prodsRes] = await Promise.all([
         leadsService.getLeads({ limit: 250 }),
         leadsService.getStatuses(),
         leadsService.getAssignableUsers(),
         leadsService.getSources().catch(() => DEFAULT_SOURCES),
+        leadsService.getProducts(),
       ]);
 
       const leadList = Array.isArray(leadsRes?.data) ? leadsRes.data : Array.isArray(leadsRes) ? leadsRes : [];
@@ -123,6 +128,9 @@ export default function HRLeadsScreen({ navigation, route }) {
 
       if (Array.isArray(sourcesRes) && sourcesRes.length > 0) {
         setSources(sourcesRes.map((s) => (typeof s === "string" ? s : s.name)));
+      }
+      if (Array.isArray(prodsRes) && prodsRes.length > 0) {
+        setProducts(prodsRes);
       }
     } catch (err) {
       console.warn("[HRLeadsScreen] Fetch error:", err?.message || err);
@@ -189,14 +197,18 @@ export default function HRLeadsScreen({ navigation, route }) {
       setSavingLead(true);
       const payload = {
         ...form,
+        productService: isCustomProduct ? customProductText : (form.productService || "").trim(),
+        source: form.source || "Direct / Walk-in",
         statusId: form.statusId || (statuses[0]?.id || statuses[0]?._id || undefined),
         assignedTo: form.assignedTo || undefined,
         estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined,
       };
 
       await leadsService.createLead(payload);
-      Alert.alert("Success", "Lead added to CRM successfully!");
+      Alert.alert("Success", "Lead registered in CRM successfully!");
       setAddModalVisible(false);
+      setIsCustomProduct(false);
+      setCustomProductText("");
       setForm({
         name: "",
         whatsappPhone: "",
@@ -204,10 +216,11 @@ export default function HRLeadsScreen({ navigation, route }) {
         email: "",
         company: "",
         productService: "",
-        source: "Walk-in",
+        source: "Direct / Walk-in",
         statusId: "",
         assignedTo: currentUserId,
         estimatedValue: "",
+        nextFollowUpDate: "",
         notes: "",
       });
       loadData();
@@ -496,155 +509,317 @@ export default function HRLeadsScreen({ navigation, route }) {
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
 
-      {/* ══════════ MODAL: ADD NEW LEAD ══════════ */}
+      {/* ══════════ MODAL: ADD NEW LEAD (Exact Match to Web Design) ══════════ */}
       <Modal visible={addModalVisible} animationType="slide" transparent onRequestClose={() => setAddModalVisible(false)}>
-        <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <View style={styles.modalBackdrop}>
           <View style={styles.modalSheetContainer}>
-            {/* Sheet Handle */}
-            <View style={styles.sheetHandle} />
-
-            <View style={styles.modalHeaderRow}>
-              <View>
-                <Text style={styles.modalTitleText}>Add New Lead</Text>
-                <Text style={styles.modalSubtitleText}>Register prospect to sales pipeline</Text>
+            {/* Dark Top Banner */}
+            <View style={styles.modalHeaderBanner}>
+              <View style={styles.modalIconBadge}>
+                <Ionicons name="magnet" size={20} color="#FF5E00" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.modalHeadingText}>NEW PROSPECTIVE CLIENT / LEAD</Text>
+                <Text style={styles.modalSubheadingText}>Record client inquiry, assigned product and next follow-up date</Text>
               </View>
               <TouchableOpacity onPress={() => setAddModalVisible(false)} style={styles.modalCloseBtn}>
-                <Ionicons name="close" size={22} color="#64748B" />
+                <Ionicons name="close" size={16} color="#94A3B8" />
               </TouchableOpacity>
             </View>
 
+            {/* Scrollable Form Body */}
             <ScrollView style={styles.modalBodyScroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldLabel}>Contact Name *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="Enter Your Name"
-                placeholderTextColor="#94A3B8"
-                value={form.name}
-                onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-              />
+              {/* ── Section 1: Client & Contact Information ── */}
+              <View style={styles.formSectionBox}>
+                <View style={styles.sectionHeaderRow}>
+                  <Ionicons name="person-outline" size={13} color="#1268D9" />
+                  <Text style={styles.sectionHeaderText}>CLIENT & CONTACT INFORMATION</Text>
+                </View>
 
-              <Text style={styles.fieldLabel}>WhatsApp / Mobile Phone *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="Enter Your WhatsApp Number"
-                placeholderTextColor="#94A3B8"
-                keyboardType="phone-pad"
-                value={form.whatsappPhone}
-                onChangeText={(v) => setForm((p) => ({ ...p, whatsappPhone: v }))}
-              />
+                <Text style={styles.fieldLabel}>
+                  CLIENT FULL NAME <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="person-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="e.g. Rameshwar Shinde"
+                    placeholderTextColor="#94A3B8"
+                    value={form.name}
+                    onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+                  />
+                </View>
 
-              <Text style={styles.fieldLabel}>Company Name</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. TechCorp Solutions"
-                placeholderTextColor="#94A3B8"
-                value={form.company}
-                onChangeText={(v) => setForm((p) => ({ ...p, company: v }))}
-              />
+                <Text style={styles.fieldLabel}>
+                  PHONE / WHATSAPP <Text style={{ color: "#EF4444" }}>*</Text>
+                </Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="call-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="e.g. 9689119006"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="phone-pad"
+                    value={form.whatsappPhone}
+                    onChangeText={(v) => setForm((p) => ({ ...p, whatsappPhone: v, phone: v }))}
+                  />
+                </View>
 
-              <Text style={styles.fieldLabel}>Assign Representative (Default: Myself)</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                {currentUserId ? (
-                  <TouchableOpacity
-                    style={[styles.repChoiceChip, form.assignedTo === currentUserId && styles.repChoiceChipActive]}
-                    onPress={() => setForm((p) => ({ ...p, assignedTo: currentUserId }))}
-                  >
-                    <Ionicons
-                      name="person-circle"
-                      size={13}
-                      color={form.assignedTo === currentUserId ? "#FFF" : THEME.primary}
-                      style={{ marginRight: 4 }}
-                    />
-                    <Text style={[styles.repChoiceText, form.assignedTo === currentUserId && styles.repChoiceTextActive]}>
-                      ⭐ Assign to Myself ({user?.name || "HR"})
-                    </Text>
-                  </TouchableOpacity>
-                ) : null}
+                <Text style={styles.fieldLabel}>EMAIL ADDRESS (OPTIONAL)</Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="mail-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="client@gmail.com"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    value={form.email}
+                    onChangeText={(v) => setForm((p) => ({ ...p, email: v }))}
+                  />
+                </View>
 
-                <TouchableOpacity
-                  style={[styles.repChoiceChip, !form.assignedTo && styles.repChoiceChipActive]}
-                  onPress={() => setForm((p) => ({ ...p, assignedTo: "" }))}
-                >
-                  <Text style={[styles.repChoiceText, !form.assignedTo && styles.repChoiceTextActive]}>
-                    Unassigned
-                  </Text>
-                </TouchableOpacity>
+                <Text style={styles.fieldLabel}>COMPANY / ORGANIZATION</Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="business-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="Easy Business Ltd / Freelance"
+                    placeholderTextColor="#94A3B8"
+                    value={form.company}
+                    onChangeText={(v) => setForm((p) => ({ ...p, company: v }))}
+                  />
+                </View>
+              </View>
 
-                {employees
-                  .filter((emp) => (emp.id || emp._id) !== currentUserId)
-                  .map((emp) => {
-                    const empId = emp.id || emp._id;
-                    const isSelected = form.assignedTo === empId;
+              {/* ── Section 2: Product Requirement & Valuation ── */}
+              <View style={styles.formSectionBox}>
+                <View style={styles.sectionHeaderRow}>
+                  <Ionicons name="pricetag-outline" size={13} color="#1268D9" />
+                  <Text style={styles.sectionHeaderText}>PRODUCT REQUIREMENT & VALUATION</Text>
+                </View>
+
+                <Text style={styles.fieldLabel}>PRODUCT / SERVICE REQUIRED</Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="pricetag-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="-- Select or type product / service --"
+                    placeholderTextColor="#94A3B8"
+                    value={isCustomProduct ? customProductText : form.productService}
+                    onChangeText={(v) => {
+                      if (isCustomProduct) setCustomProductText(v);
+                      setForm((p) => ({ ...p, productService: v }));
+                    }}
+                  />
+                </View>
+
+                {/* Horizontal Product Chips */}
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 6, marginBottom: 8 }} keyboardShouldPersistTaps="handled">
+                  {products.map((p) => {
+                    const isSel = !isCustomProduct && form.productService === p.name;
                     return (
                       <TouchableOpacity
-                        key={empId}
-                        style={[styles.repChoiceChip, isSelected && styles.repChoiceChipActive]}
-                        onPress={() => setForm((p) => ({ ...p, assignedTo: empId }))}
+                        key={p._id || p.id}
+                        style={[styles.choiceChip, isSel && styles.choiceChipActive]}
+                        onPress={() => {
+                          setIsCustomProduct(false);
+                          setForm((prev) => ({
+                            ...prev,
+                            productService: p.name,
+                            estimatedValue: p.price ? String(p.price) : prev.estimatedValue,
+                          }));
+                        }}
                       >
-                        <Ionicons name="person" size={11} color={isSelected ? "#FFF" : THEME.primary} style={{ marginRight: 4 }} />
-                        <Text style={[styles.repChoiceText, isSelected && styles.repChoiceTextActive]}>
-                          {emp.label || `${emp.name} (${emp.department || emp.role || "Staff"})`}
+                        <Text style={[styles.choiceChipText, isSel && styles.choiceChipTextActive]}>
+                          {p.name} {p.price ? `(₹${Number(p.price).toLocaleString()})` : ""}
                         </Text>
                       </TouchableOpacity>
                     );
                   })}
-              </ScrollView>
+                  <TouchableOpacity
+                    style={[styles.choiceChip, isCustomProduct && styles.choiceChipActive]}
+                    onPress={() => {
+                      setIsCustomProduct(true);
+                      setForm((prev) => ({ ...prev, productService: customProductText }));
+                    }}
+                  >
+                    <Ionicons name="create-outline" size={12} color={isCustomProduct ? "#FFF" : "#1268D9"} />
+                    <Text style={[styles.choiceChipText, isCustomProduct && styles.choiceChipTextActive]}>
+                      Custom Requirement
+                    </Text>
+                  </TouchableOpacity>
+                </ScrollView>
 
-              <Text style={styles.fieldLabel}>Initial Pipeline Stage</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-                {statuses.map((st) => {
-                  const stId = st.id || st._id;
-                  const isSelected = form.statusId === stId;
-                  const color = st.color || THEME.primary;
-                  return (
+                <Text style={styles.fieldLabel}>EST. DEAL VALUE (₹)</Text>
+                <View style={styles.inputWithIcon}>
+                  <Text style={styles.currencyPrefix}>₹</Text>
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="e.g. 50000"
+                    placeholderTextColor="#94A3B8"
+                    keyboardType="numeric"
+                    value={form.estimatedValue}
+                    onChangeText={(v) => setForm((p) => ({ ...p, estimatedValue: v }))}
+                  />
+                </View>
+
+                <Text style={styles.fieldLabel}>LEAD SOURCE CHANNEL</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 4 }} keyboardShouldPersistTaps="handled">
+                  {(sources.length > 0 ? sources : [
+                    "Direct / Walk-in",
+                    "Website Inquiry",
+                    "WhatsApp Chat",
+                    "Client Referral",
+                    "Social Media Ads",
+                  ]).map((src) => {
+                    const srcName = typeof src === "string" ? src : (src.name || String(src));
+                    const isSel = form.source === srcName;
+                    return (
+                      <TouchableOpacity
+                        key={srcName}
+                        style={[styles.choiceChip, isSel && styles.choiceChipActive]}
+                        onPress={() => setForm((p) => ({ ...p, source: srcName }))}
+                      >
+                        <Text style={[styles.choiceChipText, isSel && styles.choiceChipTextActive]}>
+                          {srcName}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* ── Section 3: Pipeline Stage & Next Follow-Up ── */}
+              <View style={styles.formSectionBox}>
+                <View style={styles.sectionHeaderRow}>
+                  <Ionicons name="layers-outline" size={13} color="#1268D9" />
+                  <Text style={styles.sectionHeaderText}>PIPELINE STAGE & NEXT FOLLOW-UP</Text>
+                </View>
+
+                <Text style={styles.fieldLabel}>PIPELINE STAGE</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 10 }} keyboardShouldPersistTaps="handled">
+                  {statuses.map((st) => {
+                    const stId = st.id || st._id;
+                    const isSel = form.statusId === stId;
+                    const color = st.color || "#1268D9";
+                    return (
+                      <TouchableOpacity
+                        key={stId}
+                        style={[styles.choiceChip, isSel && styles.choiceChipActive]}
+                        onPress={() => setForm((p) => ({ ...p, statusId: stId }))}
+                      >
+                        <View style={[styles.pillDot, { backgroundColor: color }]} />
+                        <Text style={[styles.choiceChipText, isSel && styles.choiceChipTextActive]}>
+                          {st.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+
+                <Text style={styles.fieldLabel}>NEXT FOLLOW-UP DATE & TIME</Text>
+                <View style={styles.inputWithIcon}>
+                  <Ionicons name="calendar-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
+                  <TextInput
+                    style={styles.fieldInnerInput}
+                    placeholder="mm/dd/yyyy --:-- --"
+                    placeholderTextColor="#94A3B8"
+                    value={form.nextFollowUpDate}
+                    onChangeText={(v) => setForm((p) => ({ ...p, nextFollowUpDate: v }))}
+                  />
+                  <Ionicons name="calendar" size={15} color="#94A3B8" />
+                </View>
+
+                <Text style={styles.fieldLabel}>ASSIGN TO SALES / STAFF</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 10 }} keyboardShouldPersistTaps="handled">
+                  {currentUserId ? (
                     <TouchableOpacity
-                      key={stId}
-                      style={[styles.repChoiceChip, isSelected && { backgroundColor: color, borderColor: color }]}
-                      onPress={() => setForm((p) => ({ ...p, statusId: stId }))}
+                      style={[styles.choiceChip, form.assignedTo === currentUserId && styles.choiceChipActive]}
+                      onPress={() => setForm((p) => ({ ...p, assignedTo: currentUserId }))}
                     >
-                      <View style={[styles.stageDotSmall, { backgroundColor: isSelected ? "#FFF" : color }]} />
-                      <Text style={[styles.repChoiceText, isSelected && { color: "#FFF", fontFamily: FONTS.bodyBold }]}>
-                        {st.name}
+                      <Ionicons
+                        name="person-circle"
+                        size={12}
+                        color={form.assignedTo === currentUserId ? "#FFF" : "#1268D9"}
+                        style={{ marginRight: 3 }}
+                      />
+                      <Text style={[styles.choiceChipText, form.assignedTo === currentUserId && styles.choiceChipTextActive]}>
+                        ⭐ Myself ({user?.name || "HR"})
                       </Text>
                     </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
+                  ) : null}
 
-              <Text style={styles.fieldLabel}>Requirement / Interest</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. HRMS Software, Web App"
-                placeholderTextColor="#94A3B8"
-                value={form.productService}
-                onChangeText={(v) => setForm((p) => ({ ...p, productService: v }))}
-              />
+                  <TouchableOpacity
+                    style={[styles.choiceChip, !form.assignedTo && styles.choiceChipActive]}
+                    onPress={() => setForm((p) => ({ ...p, assignedTo: "" }))}
+                  >
+                    <Text style={[styles.choiceChipText, !form.assignedTo && styles.choiceChipTextActive]}>
+                      Unassigned
+                    </Text>
+                  </TouchableOpacity>
 
-              <Text style={styles.fieldLabel}>Estimated Deal Valuation (₹)</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. 50000"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-                value={form.estimatedValue}
-                onChangeText={(v) => setForm((p) => ({ ...p, estimatedValue: v }))}
-              />
+                  {employees
+                    .filter((emp) => (emp.id || emp._id) !== currentUserId)
+                    .map((emp) => {
+                      const empId = emp.id || emp._id;
+                      const isSelected = form.assignedTo === empId;
+                      return (
+                        <TouchableOpacity
+                          key={empId}
+                          style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
+                          onPress={() => setForm((p) => ({ ...p, assignedTo: empId }))}
+                        >
+                          <Ionicons name="person" size={11} color={isSelected ? "#FFF" : "#1268D9"} style={{ marginRight: 3 }} />
+                          <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
+                            {emp.label || `${emp.name} (${emp.department || emp.role || "Staff"})`}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                </ScrollView>
 
-              <TouchableOpacity
-                style={styles.submitButton}
-                onPress={handleCreateLead}
-                disabled={savingLead}
-                activeOpacity={0.85}
-              >
-                {savingLead ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.submitButtonText}>Add Lead</Text>
-                )}
-              </TouchableOpacity>
+                <Text style={styles.fieldLabel}>INITIAL NOTES / INQUIRY DETAILS</Text>
+                <View style={[styles.inputWithIcon, { alignItems: "flex-start", paddingTop: 8, minHeight: 70 }]}>
+                  <Ionicons name="document-text-outline" size={15} color="#94A3B8" style={[styles.inputIconPrefix, { marginTop: 2 }]} />
+                  <TextInput
+                    style={[styles.fieldInnerInput, { height: 55, textAlignVertical: "top" }]}
+                    placeholder="Enter client background, specific expectations or requirement notes..."
+                    placeholderTextColor="#94A3B8"
+                    multiline
+                    numberOfLines={3}
+                    value={form.notes}
+                    onChangeText={(v) => setForm((p) => ({ ...p, notes: v }))}
+                  />
+                </View>
+              </View>
+
+              {/* Modal Footer Actions */}
+              <View style={styles.modalFooterRow}>
+                <TouchableOpacity
+                  style={styles.cancelModalBtn}
+                  onPress={() => setAddModalVisible(false)}
+                >
+                  <Text style={styles.cancelModalBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.saveModalBtn}
+                  onPress={handleCreateLead}
+                  disabled={savingLead}
+                >
+                  {savingLead ? (
+                    <ActivityIndicator color="#FFF" size="small" />
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="sparkles" size={14} color="#FFF" />
+                      <Text style={styles.saveModalBtnText}>Save & Create Lead</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </View>
   );
@@ -965,108 +1140,174 @@ const styles = StyleSheet.create({
   // Modal Sheet
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backgroundColor: "rgba(0,0,0,0.6)",
     justifyContent: "flex-end",
   },
   modalSheetContainer: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 18,
-    borderTopRightRadius: 18,
-    maxHeight: "85%",
-    paddingBottom: 20,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    maxHeight: "92%",
+    overflow: "hidden",
   },
-  sheetHandle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: "#CBD5E1",
-    alignSelf: "center",
-    marginTop: 8,
-    marginBottom: 6,
-  },
-  modalHeaderRow: {
+  modalHeaderBanner: {
+    backgroundColor: "#0F172A",
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 16,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    paddingVertical: 14,
   },
-  modalTitleText: {
-    fontSize: 15,
-    fontFamily: FONTS.displayBold,
-    color: THEME.textPrimary,
+  modalIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 94, 0, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(255, 94, 0, 0.3)",
+    alignItems: "center",
+    justifyContent: "center",
   },
-  modalSubtitleText: {
-    fontSize: 10.5,
-    color: THEME.textMuted,
-    fontFamily: FONTS.body,
+  modalHeadingText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.4,
+  },
+  modalSubheadingText: {
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 2,
   },
   modalCloseBtn: {
-    padding: 4,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalBodyScroll: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
+    padding: 14,
+    paddingBottom: 20,
+  },
+  formSectionBox: {
+    marginBottom: 16,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E2E8F0",
+  },
+  sectionHeaderText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#1268D9",
+    letterSpacing: 0.5,
   },
   fieldLabel: {
-    fontSize: 10,
-    fontFamily: FONTS.bodyBold,
-    color: "#64748B",
-    textTransform: "uppercase",
-    marginBottom: 4,
-    marginTop: 5,
-    letterSpacing: 0.2,
+    fontSize: 10.5,
+    fontWeight: "800",
+    color: "#475569",
+    marginBottom: 5,
+    marginTop: 8,
+    letterSpacing: 0.3,
   },
-  fieldInput: {
+  inputWithIcon: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 12.5,
-    fontFamily: FONTS.body,
-    color: THEME.textPrimary,
-    marginBottom: 5,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 42,
+    marginBottom: 2,
   },
-  repChoiceChip: {
+  inputIconPrefix: {
+    marginRight: 8,
+  },
+  currencyPrefix: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#94A3B8",
+    marginRight: 8,
+  },
+  fieldInnerInput: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#0F172A",
+    padding: 0,
+  },
+  choiceChip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 7,
-    backgroundColor: "#F1F5F9",
+    gap: 4,
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
     marginRight: 6,
   },
-  repChoiceChipActive: {
-    backgroundColor: THEME.primary,
-    borderColor: THEME.primary,
+  choiceChipActive: {
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
-  repChoiceText: {
-    fontSize: 10.5,
-    fontFamily: FONTS.bodyMedium,
+  choiceChipText: {
+    fontSize: 10,
+    fontWeight: "700",
     color: "#475569",
   },
-  repChoiceTextActive: {
+  choiceChipTextActive: {
     color: "#FFFFFF",
-    fontFamily: FONTS.bodyBold,
   },
-  submitButton: {
-    backgroundColor: THEME.primary,
-    paddingVertical: 11,
-    borderRadius: 10,
+  pillDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 2,
+  },
+  modalFooterRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-    marginBottom: 16,
+    justifyContent: "flex-end",
+    gap: 10,
+    paddingTop: 10,
+    paddingBottom: 24,
   },
-  submitButtonText: {
+  cancelModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#FFFFFF",
+  },
+  cancelModalBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#475569",
+  },
+  saveModalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+    backgroundColor: "#1268D9",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveModalBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
     color: "#FFFFFF",
-    fontSize: 13,
-    fontFamily: FONTS.displayBold,
   },
 });

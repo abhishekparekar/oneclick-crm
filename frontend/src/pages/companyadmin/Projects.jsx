@@ -1755,20 +1755,20 @@ const Projects = () => {
         </div>
       )}
 
-      {/* ── CREATE PROJECT DRAWER VIEW ─────────────────────────────────────────── */}
+      {/* ── CREATE PROJECT CENTERED MODAL POPUP ─────────────────────────── */}
       {isCreateModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex justify-end bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-ca-surface dark:bg-theme-2 rounded-l-3xl shadow-2xl w-full max-w-xl h-full flex flex-col overflow-hidden relative border-l border-ca-border dark:border-theme-3/50">
-            <div className="flex items-center justify-between p-5 sm:p-6 border-b border-ca-border dark:border-theme-3/50 bg-primary/30 dark:bg-primary/20 z-10 relative">
-              <h2 className="text-2xl font-black text-ca-text  flex items-center tracking-tight">
-                <Folder className="mr-3 text-primary" size={24} /> Initiate New Project
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-white dark:bg-[#0D1B2E] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative border border-slate-200 dark:border-[#1C3554] animate-scaleUp">
+            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F] z-10 relative">
+              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center tracking-tight">
+                <Folder className="mr-2.5 text-[#1268D9]" size={20} /> Initiate New Project
               </h2>
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(false)}
-                className="p-2 text-ca-text-secondary hover:text-ca-text dark:hover:text-white hover:bg-ca-hover dark:hover:bg-theme-3 rounded-xl transition-colors cursor-pointer"
+                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-xl transition-colors cursor-pointer"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <X size={18} />
               </button>
             </div>
 

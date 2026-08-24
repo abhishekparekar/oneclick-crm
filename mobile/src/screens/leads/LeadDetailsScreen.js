@@ -24,9 +24,9 @@ import { COLORS, FONTS } from "../../theme/tokens";
 const { width } = Dimensions.get("window");
 
 const THEME = {
-  primary: "#0F766E",
-  primaryLight: "#14B8A6",
-  primaryBg: "#F0FDFA",
+  primary: "#1268D9",
+  primaryLight: "#2F8BFF",
+  primaryBg: "#EFF6FF",
   accent: "#F59E0B",
   bg: "#F8FAFC",
   card: "#FFFFFF",

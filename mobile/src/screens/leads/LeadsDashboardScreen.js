@@ -13,13 +13,16 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
+import ManagerLayout from "../../components/ManagerLayout";
+import EmployeeLayout from "../../components/EmployeeLayout";
+import { useAuth } from "../../context/AuthContext";
 import leadsService from "../../api/leadsService";
 
 const { width } = Dimensions.get("window");
 
 const THEME = {
-  primary: "#F97316",
-  primaryDark: "#EA580C",
+  primary: "#1268D9",
+  primaryDark: "#082B52",
   darkNavy: "#0F172A",
   bg: "#F8FAFC",
   card: "#FFFFFF",
@@ -35,9 +38,13 @@ const THEME = {
   rose: "#EF4444", roseBg: "#FEE2E2", roseBorder: "#FECACA",
 };
 
-const AVATAR_COLORS = ["#1E293B", "#3B82F6", "#10B981", "#8B5CF6", "#F97316", "#06B6D4"];
+const AVATAR_COLORS = ["#1E293B", "#3B82F6", "#10B981", "#8B5CF6", "#1268D9", "#06B6D4"];
 
 export default function LeadsDashboardScreen({ navigation }) {
+  const { user } = useAuth();
+  const userRole = (user?.role || "").toLowerCase();
+  const isManager = userRole === "manager";
+  const isEmployee = userRole === "employee" || userRole === "team member";
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState({
@@ -145,18 +152,22 @@ export default function LeadsDashboardScreen({ navigation }) {
     Linking.openURL(`tel:${phone}`);
   };
 
+  const Layout = isManager ? ManagerLayout : (isEmployee ? EmployeeLayout : CompanyAdminLayout);
+  const layoutProps = isManager 
+    ? { navigation, title: "Lead Engine", activeTabOverride: "Leads" }
+    : (isEmployee 
+        ? { navigation, title: "Lead CRM" } 
+        : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false });
+
   return (
-    <CompanyAdminLayout
-      navigation={navigation}
-      activeTab="Leads"
-      headerTitle="Lead Engine"
-      showSearch={false}
+    <Layout
+      {...layoutProps}
       headerRightElement={
         <TouchableOpacity
           style={styles.headerSettingsBtn}
           onPress={() => navigation.navigate("LeadSettings")}
         >
-          <Ionicons name="settings-outline" size={20} color="#FFFFFF" />
+          <Ionicons name="settings-outline" size={20} color="#0F172A" />
         </TouchableOpacity>
       }
     >
@@ -173,12 +184,17 @@ export default function LeadsDashboardScreen({ navigation }) {
           >
             {/* ── 1. Compact Hero Banner ── */}
             <LinearGradient
-              colors={["#0F172A", "#1E293B"]}
+              colors={["#0F172A", "#1E293B", "#1268D9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
               style={styles.heroBanner}
             >
               <View style={styles.heroTopRow}>
                 <View>
-                  <Text style={styles.heroPreTitle}>PIPELINE VALUATION</Text>
+                  <View style={styles.heroBadge}>
+                    <Ionicons name="trending-up" size={12} color="#60A5FA" />
+                    <Text style={styles.heroPreTitle}>PIPELINE VALUATION</Text>
+                  </View>
                   <Text style={styles.heroValuationText}>
                     ₹{summary.totalPipelineValue.toLocaleString()}
                   </Text>
@@ -186,10 +202,11 @@ export default function LeadsDashboardScreen({ navigation }) {
 
                 <TouchableOpacity
                   style={styles.heroAddButton}
+                  activeOpacity={0.8}
                   onPress={() => navigation.navigate("LeadsList", { openAddModal: true })}
                 >
                   <Ionicons name="add" size={16} color="#FFF" />
-                  <Text style={styles.heroAddButtonText}>Add Lead</Text>
+                  <Text style={styles.heroAddButtonText}>+ Add Lead</Text>
                 </TouchableOpacity>
               </View>
 
@@ -205,12 +222,12 @@ export default function LeadsDashboardScreen({ navigation }) {
                 </View>
                 <View style={styles.heroStatDivider} />
                 <View style={styles.heroStatItem}>
-                  <Text style={[styles.heroStatNum, { color: THEME.emerald }]}>{summary.conversionRate}%</Text>
+                  <Text style={[styles.heroStatNum, { color: "#34D399" }]}>{summary.conversionRate}%</Text>
                   <Text style={styles.heroStatLbl}>Win Ratio</Text>
                 </View>
                 <View style={styles.heroStatDivider} />
                 <View style={styles.heroStatItem}>
-                  <Text style={[styles.heroStatNum, summary.dueReminders > 0 ? { color: THEME.rose } : {}]}>
+                  <Text style={[styles.heroStatNum, summary.dueReminders > 0 ? { color: "#F87171" } : { color: "#FFF" }]}>
                     {summary.dueReminders}
                   </Text>
                   <Text style={styles.heroStatLbl}>Due Today</Text>
@@ -225,8 +242,8 @@ export default function LeadsDashboardScreen({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate("LeadsList")}
               >
-                <View style={[styles.tileIconCircle, { backgroundColor: THEME.blueBg }]}>
-                  <Ionicons name="layers" size={18} color={THEME.blue} />
+                <View style={[styles.tileIconCircle, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="grid-outline" size={17} color="#1268D9" />
                 </View>
                 <Text style={styles.tileTitle}>CRM Board</Text>
                 <Text style={styles.tileSubtitle}>{summary.totalLeads} Leads</Text>
@@ -237,11 +254,11 @@ export default function LeadsDashboardScreen({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate("LeadReminders")}
               >
-                <View style={[styles.tileIconCircle, { backgroundColor: THEME.violetBg }]}>
-                  <Ionicons name="alarm" size={18} color={THEME.violet} />
+                <View style={[styles.tileIconCircle, { backgroundColor: "#F5F3FF" }]}>
+                  <Ionicons name="alarm-outline" size={17} color="#8B5CF6" />
                 </View>
                 <Text style={styles.tileTitle}>Reminders</Text>
-                <Text style={styles.tileSubtitle}>{summary.dueReminders} Pending</Text>
+                <Text style={styles.tileSubtitle}>{summary.dueReminders} Due</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -249,10 +266,10 @@ export default function LeadsDashboardScreen({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate("LeadCampaigns")}
               >
-                <View style={[styles.tileIconCircle, { backgroundColor: THEME.emeraldBg }]}>
-                  <Ionicons name="paper-plane" size={18} color={THEME.emerald} />
+                <View style={[styles.tileIconCircle, { backgroundColor: "#ECFDF5" }]}>
+                  <Ionicons name="paper-plane-outline" size={17} color="#10B981" />
                 </View>
-                <Text style={styles.tileTitle}>Broadcasts</Text>
+                <Text style={styles.tileTitle}>Broadcast</Text>
                 <Text style={styles.tileSubtitle}>WhatsApp</Text>
               </TouchableOpacity>
 
@@ -261,10 +278,10 @@ export default function LeadsDashboardScreen({ navigation }) {
                 activeOpacity={0.8}
                 onPress={() => navigation.navigate("LeadSettings")}
               >
-                <View style={[styles.tileIconCircle, { backgroundColor: THEME.amberBg }]}>
-                  <Ionicons name="options-outline" size={18} color={THEME.amber} />
+                <View style={[styles.tileIconCircle, { backgroundColor: "#FEF3C7" }]}>
+                  <Ionicons name="options-outline" size={17} color="#D97706" />
                 </View>
-                <Text style={styles.tileTitle}>Settings</Text>
+                <Text style={styles.tileTitle}>Pipeline</Text>
                 <Text style={styles.tileSubtitle}>Stages</Text>
               </TouchableOpacity>
             </View>
@@ -272,7 +289,10 @@ export default function LeadsDashboardScreen({ navigation }) {
             {/* ── 3. Pipeline Distribution ── */}
             <View style={styles.cardContainer}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardHeading}>Pipeline Funnel</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="funnel-outline" size={15} color="#1268D9" />
+                  <Text style={styles.cardHeading}>Pipeline Funnel</Text>
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate("LeadsList")}>
                   <Text style={styles.linkText}>View Board →</Text>
                 </TouchableOpacity>
@@ -296,6 +316,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                   <TouchableOpacity
                     key={st.id || st._id || i}
                     style={styles.stagePill}
+                    activeOpacity={0.75}
                     onPress={() => navigation.navigate("LeadsList", { initialStatus: st.id || st._id })}
                   >
                     <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
@@ -309,71 +330,81 @@ export default function LeadsDashboardScreen({ navigation }) {
             {/* ── 4. Recent Compact Prospects ── */}
             <View style={styles.cardContainer}>
               <View style={styles.cardHeaderRow}>
-                <Text style={styles.cardHeading}>Recent Inquiries</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="time-outline" size={15} color="#1268D9" />
+                  <Text style={styles.cardHeading}>Recent Inquiries</Text>
+                </View>
                 <TouchableOpacity onPress={() => navigation.navigate("LeadsList")}>
                   <Text style={styles.linkText}>View All ({summary.totalLeads})</Text>
                 </TouchableOpacity>
               </View>
 
-              {recentLeads.map((l, idx) => {
-                const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-                const statusColor = l.status?.color || THEME.primary;
-                return (
-                  <TouchableOpacity
-                    key={l.id || l._id || idx}
-                    style={styles.compactLeadCard}
-                    activeOpacity={0.85}
-                    onPress={() => navigation.navigate("LeadDetails", { leadId: l.id || l._id })}
-                  >
-                    <View style={[styles.miniAvatar, { backgroundColor: avatarColor }]}>
-                      <Text style={styles.miniAvatarText}>
-                        {(l.name || "L").charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-
-                    <View style={styles.leadInfoCol}>
-                      <View style={styles.leadTitleRow}>
-                        <Text style={styles.leadName} numberOfLines={1}>{l.name}</Text>
-                        {l.estimatedValue ? (
-                          <Text style={styles.dealPillText}>
-                            ₹{Number(l.estimatedValue).toLocaleString()}
-                          </Text>
-                        ) : null}
+              {recentLeads.length === 0 ? (
+                <View style={{ alignItems: "center", paddingVertical: 20 }}>
+                  <Text style={{ fontSize: 12, color: "#94A3B8" }}>No recent leads recorded yet.</Text>
+                </View>
+              ) : (
+                recentLeads.map((l, idx) => {
+                  const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                  const statusColor = l.status?.color || THEME.primary;
+                  return (
+                    <TouchableOpacity
+                      key={l.id || l._id || idx}
+                      style={styles.compactLeadCard}
+                      activeOpacity={0.8}
+                      onPress={() => navigation.navigate("LeadDetails", { leadId: l.id || l._id })}
+                    >
+                      <View style={[styles.miniAvatar, { backgroundColor: avatarColor }]}>
+                        <Text style={styles.miniAvatarText}>
+                          {(l.name || "L").charAt(0).toUpperCase()}
+                        </Text>
                       </View>
 
-                      <View style={styles.leadSubRow}>
-                        <Text style={styles.leadSubText} numberOfLines={1}>
-                          {l.company || l.source || "Direct"}
-                        </Text>
-                        <View style={[styles.miniStatusBadge, { backgroundColor: statusColor + "15", borderColor: statusColor }]}>
-                          <Text style={[styles.miniStatusText, { color: statusColor }]}>
-                            {l.status?.name || "New"}
+                      <View style={styles.leadInfoCol}>
+                        <View style={styles.leadTitleRow}>
+                          <Text style={styles.leadName} numberOfLines={1}>{l.name}</Text>
+                          {l.estimatedValue ? (
+                            <Text style={styles.dealPillText}>
+                              ₹{Number(l.estimatedValue).toLocaleString()}
+                            </Text>
+                          ) : null}
+                        </View>
+
+                        <View style={styles.leadSubRow}>
+                          <Text style={styles.leadSubText} numberOfLines={1}>
+                            {l.company || l.source || "Direct"}
                           </Text>
+                          <View style={[styles.miniStatusBadge, { backgroundColor: statusColor + "14", borderColor: statusColor + "40" }]}>
+                            <View style={[styles.miniStatusDot, { backgroundColor: statusColor }]} />
+                            <Text style={[styles.miniStatusText, { color: statusColor }]}>
+                              {l.status?.name || "New"}
+                            </Text>
+                          </View>
                         </View>
                       </View>
-                    </View>
 
-                    <View style={styles.actionButtonsCol}>
-                      {l.whatsappPhone ? (
-                        <TouchableOpacity
-                          style={styles.compactChatBtn}
-                          onPress={() => handleWhatsApp(l.whatsappPhone, l.name)}
-                        >
-                          <Ionicons name="logo-whatsapp" size={14} color="#10B981" />
-                        </TouchableOpacity>
-                      ) : null}
-                      {l.whatsappPhone ? (
-                        <TouchableOpacity
-                          style={styles.compactCallBtn}
-                          onPress={() => handleCall(l.whatsappPhone)}
-                        >
-                          <Ionicons name="call" size={13} color={THEME.blue} />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
+                      <View style={styles.actionButtonsCol}>
+                        {l.whatsappPhone ? (
+                          <TouchableOpacity
+                            style={styles.compactChatBtn}
+                            onPress={() => handleWhatsApp(l.whatsappPhone, l.name)}
+                          >
+                            <Ionicons name="logo-whatsapp" size={13} color="#10B981" />
+                          </TouchableOpacity>
+                        ) : null}
+                        {l.whatsappPhone ? (
+                          <TouchableOpacity
+                            style={styles.compactCallBtn}
+                            onPress={() => handleCall(l.whatsappPhone)}
+                          >
+                            <Ionicons name="call" size={12} color="#1268D9" />
+                          </TouchableOpacity>
+                        ) : null}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
             </View>
           </ScrollView>
         )}
@@ -384,32 +415,32 @@ export default function LeadsDashboardScreen({ navigation }) {
           activeOpacity={0.85}
           onPress={() => navigation.navigate("LeadsList", { openAddModal: true })}
         >
-          <Ionicons name="add" size={30} color="#FFFFFF" />
+          <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </CompanyAdminLayout>
+    </Layout>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.bg,
+    backgroundColor: "#F8FAFC",
   },
   floatingAddBtn: {
     position: "absolute",
     bottom: 22,
     right: 18,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: THEME.primary,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
-    elevation: 8,
-    shadowColor: THEME.primary,
+    elevation: 6,
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
+    shadowOpacity: 0.35,
     shadowRadius: 6,
     zIndex: 999,
   },
@@ -429,7 +460,12 @@ const styles = StyleSheet.create({
   heroBanner: {
     borderRadius: 16,
     padding: 14,
-    marginBottom: 12,
+    marginBottom: 10,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 3,
   },
   heroTopRow: {
     flexDirection: "row",
@@ -437,71 +473,97 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: "flex-start",
+  },
   heroPreTitle: {
-    fontSize: 9.5,
-    fontWeight: "800",
-    color: "#94A3B8",
-    letterSpacing: 1,
+    fontSize: 9,
+    fontWeight: "900",
+    color: "#93C5FD",
+    letterSpacing: 0.6,
   },
   heroValuationText: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "900",
     color: "#FFFFFF",
-    marginTop: 2,
+    marginTop: 4,
+    letterSpacing: 0.3,
   },
   heroAddButton: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
-    backgroundColor: THEME.primary,
+    backgroundColor: "#1268D9",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.35)",
     paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 10,
+    gap: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
   heroAddButtonText: {
     color: "#FFF",
-    fontWeight: "800",
-    fontSize: 12,
+    fontWeight: "900",
+    fontSize: 11.5,
   },
   heroStatsRow: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-around",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
     borderRadius: 12,
-    paddingVertical: 10,
+    paddingVertical: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
   },
   heroStatItem: {
     alignItems: "center",
   },
   heroStatNum: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "900",
-    color: "#FFF",
+    color: "#FFFFFF",
   },
   heroStatLbl: {
-    fontSize: 9.5,
+    fontSize: 9,
     color: "#94A3B8",
     marginTop: 1,
+    fontWeight: "700",
   },
   heroStatDivider: {
     width: 1,
-    height: 18,
-    backgroundColor: "rgba(255,255,255,0.12)",
+    height: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
   },
   tilesRow: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   navTile: {
     flex: 1,
-    backgroundColor: "#FFF",
-    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: "#E2E8F0",
     paddingVertical: 10,
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
   },
   tileIconCircle: {
     width: 32,
@@ -514,20 +576,26 @@ const styles = StyleSheet.create({
   tileTitle: {
     fontSize: 11,
     fontWeight: "800",
-    color: THEME.textPrimary,
+    color: "#0F172A",
   },
   tileSubtitle: {
-    fontSize: 9.5,
-    color: THEME.textMuted,
+    fontSize: 9,
+    color: "#64748B",
     marginTop: 1,
+    fontWeight: "600",
   },
   cardContainer: {
-    backgroundColor: "#FFF",
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: "#E2E8F0",
     padding: 12,
-    marginBottom: 12,
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.02,
+    shadowRadius: 3,
+    elevation: 1,
   },
   cardHeaderRow: {
     flexDirection: "row",
@@ -536,21 +604,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   cardHeading: {
-    fontSize: 13.5,
-    fontWeight: "800",
-    color: THEME.textPrimary,
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: 0.2,
   },
   linkText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: "800",
-    color: THEME.primary,
+    color: "#1268D9",
   },
   segmentedDistBar: {
-    height: 6,
+    height: 5,
     borderRadius: 3,
     flexDirection: "row",
     overflow: "hidden",
-    backgroundColor: THEME.border,
+    backgroundColor: "#E2E8F0",
     marginBottom: 10,
   },
   stagesGrid: {
@@ -562,12 +631,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: THEME.bg,
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: "#E2E8F0",
     paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 14,
+    borderRadius: 12,
   },
   stageDot: {
     width: 6,
@@ -575,37 +644,37 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   stageName: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: "700",
-    color: THEME.textPrimary,
+    color: "#334155",
     maxWidth: 75,
   },
   stageCount: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontWeight: "900",
   },
   compactLeadCard: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 9,
+    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: THEME.borderLight,
+    borderBottomColor: "#F1F5F9",
   },
   miniAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
   miniAvatarText: {
     color: "#FFF",
     fontWeight: "900",
-    fontSize: 12,
+    fontSize: 11.5,
   },
   leadInfoCol: {
     flex: 1,
-    marginLeft: 10,
+    marginLeft: 9,
     marginRight: 6,
   },
   leadTitleRow: {
@@ -614,14 +683,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   leadName: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "800",
-    color: THEME.textPrimary,
+    color: "#0F172A",
     flex: 1,
   },
   dealPillText: {
     fontSize: 10.5,
-    fontWeight: "800",
+    fontWeight: "900",
     color: "#B45309",
   },
   leadSubRow: {
@@ -631,16 +700,24 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   leadSubText: {
-    fontSize: 10.5,
-    color: THEME.textMuted,
+    fontSize: 10,
+    color: "#64748B",
     flex: 1,
   },
   miniStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
     paddingHorizontal: 6,
     paddingVertical: 1,
     borderRadius: 6,
     borderWidth: 1,
     marginLeft: 6,
+  },
+  miniStatusDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
   },
   miniStatusText: {
     fontSize: 9,
@@ -648,21 +725,25 @@ const styles = StyleSheet.create({
   },
   actionButtonsCol: {
     flexDirection: "row",
-    gap: 5,
+    gap: 4,
   },
   compactChatBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: THEME.emeraldBg,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: "#ECFDF5",
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
     alignItems: "center",
     justifyContent: "center",
   },
   compactCallBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: THEME.blueBg,
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
     alignItems: "center",
     justifyContent: "center",
   },

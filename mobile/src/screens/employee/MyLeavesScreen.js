@@ -97,13 +97,18 @@ const MyLeavesScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#F97316"]} tintColor="#F97316" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
         >
-          {/* ── 1. Dark Hero Card (Time Off & Leaves) ── */}
-          <LinearGradient colors={["#0B132B", "#1C2541"]} style={styles.heroCard}>
+          {/* ── 1. Active Shift Blue Hero Card (Time Off & Leaves) ── */}
+          <LinearGradient
+            colors={["#082B52", "#1268D9", "#1D7DF2"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
             <View style={styles.heroTopRow}>
               <View style={styles.heroCalendarIconWrap}>
-                <Ionicons name="calendar" size={28} color="#F97316" />
+                <Ionicons name="calendar" size={28} color="#FFFFFF" />
                 <View style={styles.heroCheckBadge}>
                   <Ionicons name="checkmark" size={10} color="#FFFFFF" />
                 </View>
@@ -120,7 +125,7 @@ const MyLeavesScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("EmployeeLeaveBalance")}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="pie-chart-outline" size={13} color="#F97316" />
+                  <Ionicons name="pie-chart-outline" size={13} color="#FFFFFF" />
                   <Text style={styles.heroPillBtnText}>Balance</Text>
                 </TouchableOpacity>
 
@@ -129,7 +134,7 @@ const MyLeavesScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("EmployeeHolidayCalendar")}
                   activeOpacity={0.8}
                 >
-                  <Ionicons name="calendar-outline" size={13} color="#F97316" />
+                  <Ionicons name="calendar-outline" size={13} color="#FFFFFF" />
                   <Text style={styles.heroPillBtnText}>Holidays</Text>
                 </TouchableOpacity>
               </View>
@@ -207,7 +212,7 @@ const MyLeavesScreen = ({ navigation }) => {
             onPress={() => navigation.navigate("EmployeeApplyLeave")}
             activeOpacity={0.85}
           >
-            <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.requestButtonGradient}>
+            <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.requestButtonGradient}>
               <Ionicons name="send" size={15} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.requestButtonText}>Request Time Off</Text>
             </LinearGradient>
@@ -218,12 +223,12 @@ const MyLeavesScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>My Leave Applications History</Text>
             <TouchableOpacity onPress={() => setActiveFilter("")} activeOpacity={0.7} style={styles.viewAllBtn}>
               <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={12} color="#F97316" />
+              <Ionicons name="chevron-forward" size={12} color="#1268D9" />
             </TouchableOpacity>
           </View>
 
           {loading ? (
-            <ActivityIndicator size="small" color="#F97316" style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color="#1268D9" style={{ marginTop: 20 }} />
           ) : displayedLeaves.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
@@ -321,7 +326,7 @@ const MyLeavesScreen = ({ navigation }) => {
           onPress={() => navigation.navigate("EmployeeApplyLeave")}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.fabGradient}>
+          <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.fabGradient}>
             <Ionicons name="add" size={26} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
@@ -435,13 +440,13 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   statusPillTabActive: {
-    backgroundColor: "#F97316",
-    borderColor: "#F97316",
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
   statusPillText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#475569",
+    color: "#64748B",
   },
   statusPillTextActive: {
     color: "#FFFFFF",
@@ -452,12 +457,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: "800",
     color: "#0F172A",
+    letterSpacing: -0.2,
   },
   asOnDateGroup: {
     flexDirection: "row",
@@ -465,26 +471,25 @@ const styles = StyleSheet.create({
   },
   asOnDateText: {
     fontSize: 11,
-    color: "#64748B",
-    fontWeight: "500",
+    color: "#94A3B8",
+    fontWeight: "600",
   },
   balanceGrid: {
     flexDirection: "row",
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 16,
   },
   balanceCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 12,
+    padding: 10,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
+    borderColor: "#E2E8F0",
     elevation: 2,
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
   },
   balanceCardTop: {
     flexDirection: "row",

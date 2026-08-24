@@ -65,19 +65,19 @@ const SplashScreen = ({ navigation }) => {
 
     const timer = setTimeout(() => {
       if (!isAuthenticated) {
-        navigation.replace("Landing");
+        navigation.replace("Login");
       }
-    }, 2200);
+    }, 1800);
 
     return () => clearTimeout(timer);
   }, [isLoading, isAuthenticated, navigation]);
 
   return (
     <LinearGradient
-      colors={["#0F172A", "#1E293B", "#0F172A"]}
+      colors={["#071A2F", "#082B52", "#050F1F"]}
       style={styles.container}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
 
       {/* Decorative ambient background glows */}
       <View style={styles.glowCircleTop} />
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#0F172A",
+    backgroundColor: "#071A2F",
   },
   glowCircleTop: {
     position: "absolute",
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     width: 260,
     height: 260,
     borderRadius: 130,
-    backgroundColor: "rgba(249, 115, 22, 0.12)",
+    backgroundColor: "rgba(18, 104, 217, 0.2)",
   },
   glowCircleBottom: {
     position: "absolute",
@@ -142,7 +142,7 @@ const styles = StyleSheet.create({
     width: 320,
     height: 320,
     borderRadius: 160,
-    backgroundColor: "rgba(59, 130, 246, 0.08)",
+    backgroundColor: "rgba(21, 151, 229, 0.15)",
   },
   logoContainer: {
     width: 250,
@@ -174,13 +174,13 @@ const styles = StyleSheet.create({
   dividerLine: {
     width: 24,
     height: 1.5,
-    backgroundColor: "#F97316",
-    opacity: 0.6,
+    backgroundColor: "#1268D9",
+    opacity: 0.8,
   },
   subtitle: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#F97316",
+    color: "#2F8BFF",
     fontFamily: "Outfit-Bold",
     letterSpacing: 2,
   },

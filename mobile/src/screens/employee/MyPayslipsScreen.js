@@ -53,7 +53,7 @@ const MyPayslipsScreen = ({ navigation }) => {
       setDownloadingId(payId);
       const filename = `payslip_${month}_${year}.pdf`;
       const fileUri = `${FileSystem.documentDirectory}${filename}`;
-      
+
       const token = api.defaults.headers.common["Authorization"];
       const downloadUrl = `${api.defaults.baseURL}/payroll/${payId}/payslip-pdf`;
 
@@ -95,11 +95,11 @@ const MyPayslipsScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#F97316"]} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} />}
         >
-          {/* ── Nextact Orange Gradient Net Salary Hero Card ── */}
+          {/* ── Oneclickorporate Blue Gradient Net Salary Hero Card ── */}
           <LinearGradient
-            colors={["#F97316", "#EA580C"]}
+            colors={["#082B52", "#1268D9", "#1D7DF2"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.netSalaryHeroCard}
@@ -179,8 +179,8 @@ const MyPayslipsScreen = ({ navigation }) => {
               >
                 <AppCard style={styles.payslipCard}>
                   <View style={styles.payslipLeft}>
-                    <View style={styles.iconCircle}>
-                      <Ionicons name="receipt" size={20} color="#F97316" />
+                    <View style={[styles.iconCircle, { backgroundColor: "#EFF6FF" }]}>
+                      <Ionicons name="receipt" size={20} color="#1268D9" />
                     </View>
                     <View style={styles.payslipInfo}>
                       <Text style={styles.payslipMonth}>
@@ -198,14 +198,14 @@ const MyPayslipsScreen = ({ navigation }) => {
                   <View style={styles.payslipRight}>
                     <Text style={styles.netPaidText}>₹{pay.netSalary?.toLocaleString()}</Text>
                     {downloadingId === pay._id ? (
-                      <ActivityIndicator size="small" color="#F97316" style={{ marginLeft: 10 }} />
+                      <ActivityIndicator size="small" color="#1268D9" style={{ marginLeft: 10 }} />
                     ) : (
                       <TouchableOpacity
                         onPress={() => handleDownload(pay._id, pay.month, pay.year)}
                         style={styles.downloadBtn}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="download-outline" size={16} color="#F97316" />
+                        <Ionicons name="download-outline" size={16} color="#1268D9" />
                       </TouchableOpacity>
                     )}
                   </View>

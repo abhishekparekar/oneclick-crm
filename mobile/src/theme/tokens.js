@@ -1,42 +1,53 @@
 export const COLORS = {
-  // ── Nextact Brand Primary: Vibrant Electric Orange ─────────────
-  primary: '#F97316',        // Electric Orange primary action / active state
-  primaryDark: '#EA580C',    // Orange Dark: hover / pressed state
-  primaryDeep: '#EA580C',    // Deepest Orange accent
-  primaryMedium: '#FF6B00',  // Medium Vibrant Orange
-  primaryLight: '#FF8C38',   // Light Accent Orange
-  primarySoft: '#FDBA74',    // Soft border / highlight
-  primaryPale: '#FFEDD5',    // Tinted highlight fill
-  primaryGhost: '#FFF7ED',   // Light background tint
+  // ── Brand Primary: Corporate Blue & Dark Palette ─────────────────
+  primary: '#1268D9',        // Primary Blue Accent
+  primaryDark: '#082B52',    // Dark Blue
+  primaryDeep: '#061225',    // Deep Navy
+  primaryMedium: '#1268D9',  // Medium Vibrant Blue
+  primaryLight: '#2F8BFF',   // Bright Blue
+  primarySoft: '#1597E5',    // Logo Light Blue
+  primaryPale: '#D3E7FA',    // Tinted highlight fill
+  primaryGhost: '#EBF4FC',   // Light background tint
 
-  // ── Nextact Dark Slate / Navy Hero Tokens ──────────────────────
-  darkNavy: '#0F172A',       // Nextact dark hero card / header navy
+  // ── Hero Gradient ──────────────────────────────────────────────
+  heroGradient: ['#082B52', '#1268D9', '#2F8BFF'],
+  heroDarkGradient: ['#061225', '#082B52', '#1268D9'],
+
+  // ── Dark Slate / Navy Tokens ───────────────────────────────────
+  mainDark: '#071A2F',       // Main Dark
+  deepNavy: '#061225',       // Deep Navy
+  darkNavy: '#071A2F',       // Dark Navy
+  charcoalNavy: '#101827',   // Charcoal Navy
+  sidebarDark: '#050F1F',    // Sidebar Dark
+  cardDark: '#0D1B2E',       // Card Dark
+  borderDark: '#1C3554',     // Border Dark
   slateHeader: '#1E293B',    // Navy slate dark surface
-  slateBorder: '#334155',    // Dark surface border
-  slateMuted: '#64748B',     // Secondary text on slate bg
+  slateBorder: '#1C3554',    // Dark surface border
+  slateMuted: '#94A3B8',     // Secondary text on slate bg
 
   // ── Neutral Surfaces & Cards ──────────────────────────────────
-  background: '#F8FAFC',     // Clean slate neutral app background
-  backgroundCool: '#F1F5F9', // Subtle card container background
+  background: '#F4F7FB',     // Clean slate neutral app background
+  backgroundCool: '#EBF4FC', // Subtle card container background
   white: '#ffffff',
+  whiteText: '#F8FAFC',      // White Text
   card: '#ffffff',
-  border: '#F1F5F9',         // Subtle card divider
+  border: '#E2E8F0',         // Subtle card divider
 
   // ── Text Color Tokens ──────────────────────────────────────────
   text: {
-    dark: '#0F172A',         // Slate dark headings
-    primary: '#1E293B',      // Dark slate body text
-    muted: '#64748B',        // Muted secondary caption text
+    dark: '#071A2F',         // Main dark headings
+    primary: '#101827',      // Charcoal navy body text
+    muted: '#94A3B8',        // Muted text
     light: '#94A3B8',        // Disabled / placeholder text
-    onDark: '#FFFFFF',       // Text on dark navy hero cards
-    onPrimary: '#FFFFFF',    // Text on primary orange buttons
+    onDark: '#F8FAFC',       // White text on dark hero cards
+    onPrimary: '#FFFFFF',    // Text on primary blue buttons
   },
 
   // ── Semantic Status Colors ───────────────────────────────────
   success: '#10B981',
   successBg: '#ECFDF5',
-  info: '#3B82F6',
-  infoBg: '#EFF6FF',
+  info: '#2875BD',
+  infoBg: '#EBF4FC',
   warning: '#F59E0B',
   warningBg: '#FEF3C7',
   danger: '#EF4444',

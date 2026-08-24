@@ -21,10 +21,10 @@ import leadsService from "../../api/leadsService";
 import { FONTS } from "../../theme/tokens";
 
 const C = {
-  primary: "#F97316",
-  primaryHover: "#EA580C",
-  primaryLight: "#FFF7ED",
-  primaryBorder: "#FFEDD5",
+  primary: "#1268D9",
+  primaryHover: "#082B52",
+  primaryLight: "#EFF6FF",
+  primaryBorder: "#DBEAFE",
   darkNavy: "#0F172A",
   slateHeader: "#1E293B",
   bg: "#F8FAFC",

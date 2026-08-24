@@ -105,25 +105,25 @@ function Hero3DGraphic() {
             <Stop offset="1" stopColor="#0F172A" stopOpacity="0.98" />
           </SvgGradient>
           <SvgGradient id="orangeGrad" x1="0" y1="1" x2="0" y2="0">
-            <Stop offset="0" stopColor="#EA580C" stopOpacity="1" />
-            <Stop offset="1" stopColor="#F97316" stopOpacity="1" />
+            <Stop offset="0" stopColor="#0D50B8" stopOpacity="1" />
+            <Stop offset="1" stopColor="#1268D9" stopOpacity="1" />
           </SvgGradient>
         </Defs>
 
         {/* Ambient Sparkle / Glow Dots */}
-        <Circle cx="8" cy="22" r="1.8" fill="#F97316" opacity="0.9" />
-        <Circle cx="128" cy="14" r="2.2" fill="#F97316" opacity="0.8" />
-        <Circle cx="68" cy="4" r="1.5" fill="#FFB703" opacity="0.7" />
-        <Circle cx="132" cy="55" r="2" fill="#F97316" opacity="0.85" />
-        <Circle cx="4" cy="68" r="2.5" fill="#FB8500" opacity="0.75" />
-        <Circle cx="120" cy="88" r="1.5" fill="#FFB703" opacity="0.9" />
-        <Circle cx="50" cy="90" r="1.2" fill="#F97316" opacity="0.6" />
+        <Circle cx="8" cy="22" r="1.8" fill="#1268D9" opacity="0.9" />
+        <Circle cx="128" cy="14" r="2.2" fill="#2F8BFF" opacity="0.8" />
+        <Circle cx="68" cy="4" r="1.5" fill="#1268D9" opacity="0.7" />
+        <Circle cx="132" cy="55" r="2" fill="#1268D9" opacity="0.85" />
+        <Circle cx="4" cy="68" r="2.5" fill="#2F8BFF" opacity="0.75" />
+        <Circle cx="120" cy="88" r="1.5" fill="#1268D9" opacity="0.9" />
+        <Circle cx="50" cy="90" r="1.2" fill="#2F8BFF" opacity="0.6" />
 
         {/* Outer Glow Line */}
         <Polygon
           points="20,13 124,3 114,89 12,79"
           fill="none"
-          stroke="#F97316"
+          stroke="#1268D9"
           strokeWidth="3.5"
           opacity="0.3"
         />
@@ -132,7 +132,7 @@ function Hero3DGraphic() {
         <Polygon
           points="20,13 124,3 114,89 12,79"
           fill="url(#cardBg)"
-          stroke="#F97316"
+          stroke="#1268D9"
           strokeWidth="1.6"
         />
 
@@ -241,7 +241,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
     return (
       <ManagerLayout navigation={navigation} title="Dashboard">
         <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#F97316" />
+          <ActivityIndicator size="large" color="#1268D9" />
           <Text style={styles.loaderText}>Loading…</Text>
         </View>
       </ManagerLayout>
@@ -309,44 +309,31 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const kpiRow2 = [
     { label: "Overdue", val: taskSummary.overdueTeamTasks ?? 13, icon: "alert-circle-outline", iBg: "#FEF2F2", c: "#EF4444", accent: "#EF4444", route: "ManagerTasks" },
     { label: "Completed", val: taskSummary.completedTeamTasks ?? 6, icon: "checkmark-circle-outline", iBg: "#ECFDF5", c: "#10B981", accent: "#10B981", route: "ManagerTasks" },
-    { label: "Team Members", val: teamSummary.teamCount ?? 3, icon: "people-outline", iBg: "#FFF7ED", c: "#F97316", accent: "#F97316", route: "ManagerTeam" },
+    { label: "Team Members", val: teamSummary.teamCount ?? 3, icon: "people-outline", iBg: "#EFF6FF", c: "#1268D9", accent: "#1268D9", route: "ManagerTeam" },
   ];
 
   return (
     <ManagerLayout navigation={navigation} title="Dashboard" unreadCount={unreadCount}>
-      {/*
-        The scroll view uses backgroundColor: "#0F172A" (same as header)
-        so the hero section flows SEAMLESSLY from the header - no gap, no border.
-      */}
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#F97316"]} tintColor="#F97316" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
       >
 
         {/* ════════════════════════════════════════════
-            TOP DARK SECTION: Hero + Punch card
-            background = #0F172A → seamlessly continues from header
+            TOP SECTION: Hero + Punch card
+            background = #F4F7FB (Clean Light)
         ════════════════════════════════════════════ */}
         <View style={styles.topDarkSection}>
 
           {/* 1. GREETING + ANALYTICS GRAPHIC */}
           <View style={styles.heroContent}>
-            {/* <View style={styles.heroLeft}>
-              <Text style={styles.heroName}>{userName} 👋</Text>
-              <View style={styles.datePill}>
-                <Ionicons name="calendar-outline" size={11} color="#94A3B8" style={{ marginRight: 4 }} />
-                <Text style={styles.datePillText}>{dateString}</Text>
-              </View>
-            </View> */}
-            {/* 3D Perspective Graphic - exact 1:1 match to reference image */}
-            {/* <Hero3DGraphic /> */}
           </View>
 
-          {/* 2. ORANGE PUNCH CARD — with dark/black semi-circle decorative background element on the right */}
-          <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.punchCardFull}>
-            {/* Large dark/black semi-circle decorative background element on the right */}
+          {/* 2. ROYAL BLUE PUNCH CARD */}
+          <LinearGradient colors={["#082B52", "#1268D9", "#1D7DF2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.punchCardFull}>
+            {/* Large dark navy semi-circle decorative background element on the right */}
             <View
               style={{
                 position: "absolute",
@@ -355,7 +342,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 width: 210,
                 height: 210,
                 borderRadius: 105,
-                backgroundColor: "rgba(11, 19, 43, 0.48)",
+                backgroundColor: "rgba(6, 18, 37, 0.48)",
                 borderWidth: 1,
                 borderColor: "rgba(255, 255, 255, 0.08)",
               }}
@@ -400,7 +387,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("CheckInCheckOut")}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name={isPunchedIn ? "log-out-outline" : "log-in-outline"} size={13} color="#EA580C" style={{ marginRight: 3 }} />
+                  <Ionicons name={isPunchedIn ? "log-out-outline" : "log-in-outline"} size={13} color="#1268D9" style={{ marginRight: 3 }} />
                   <Text style={styles.punchBtnText}>{isPunchedIn ? "Punch Out" : "Punch In"}</Text>
                 </TouchableOpacity>
               </View>
@@ -433,54 +420,46 @@ const ManagerDashboardScreen = ({ navigation }) => {
             <Text style={styles.secTitle}>Quick Actions</Text>
             <TouchableOpacity activeOpacity={0.7} style={styles.linkBtn}>
               <Text style={styles.linkTxt}>Customize</Text>
-              <Ionicons name="options-outline" size={11} color="#F97316" style={{ marginLeft: 2 }} />
+              <Ionicons name="options-outline" size={11} color="#1268D9" style={{ marginLeft: 2 }} />
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: "row", marginBottom: 16 }}>
-            {[
-              { label: "Attendance", icon: "time-outline", bg: "#FFF7ED", iBg: "#FED7AA", c: "#EA580C", r: "ManagerAttendance" },
-              { label: "My Tasks", icon: "checkbox-outline", bg: "#ECFDF5", iBg: "#A7F3D0", c: "#059669", r: "ManagerTasks" },
-              { label: "Leave", icon: "calendar-outline", bg: "#F5F3FF", iBg: "#DDD6FE", c: "#7C3AED", r: "ManagerTeamLeaves" },
-              { label: "Payslip", icon: "receipt-outline", bg: "#EFF6FF", iBg: "#BFDBFE", c: "#2563EB", r: "Payslips" },
-            ].map((q, i) => (
-              <TouchableOpacity
-                key={q.label}
-                style={[styles.quickCard, { backgroundColor: q.bg }, i > 0 && { marginLeft: 8 }]}
-                onPress={() => navigation.navigate(q.r)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.quickIconBox, { backgroundColor: q.iBg }]}>
-                  <Ionicons name={q.icon} size={18} color={q.c} />
-                </View>
-                <Text style={styles.quickLabel}>{q.label}</Text>
-                <View style={[styles.quickArrow, { backgroundColor: q.c }]}>
-                  <Ionicons name="chevron-forward" size={9} color="#fff" />
-                </View>
-              </TouchableOpacity>
-            ))}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+              {[
+                { label: "Projects", icon: "folder-open-outline", bg: "#EFF6FF", iBg: "#DBEAFE", c: "#1268D9", r: "ManagerProjects" },
+                { label: "Attendance", icon: "calendar-outline", bg: "#EFF6FF", iBg: "#DBEAFE", c: "#1268D9", r: "ManagerTeamAttendance" },
+                { label: "My Tasks", icon: "checkbox-outline", bg: "#ECFDF5", iBg: "#A7F3D0", c: "#059669", r: "ManagerTasks" },
+                { label: "Leave", icon: "calendar-outline", bg: "#F5F3FF", iBg: "#DDD6FE", c: "#7C3AED", r: "ManagerTeamLeaves" },
+                { label: "Payslip", icon: "receipt-outline", bg: "#EFF6FF", iBg: "#BFDBFE", c: "#2563EB", r: "Payslips" },
+              ].map((q, i) => (
+                <TouchableOpacity
+                  key={q.label}
+                  style={[styles.quickCard, { backgroundColor: q.bg, minWidth: 80 }]}
+                  onPress={() => navigation.navigate(q.r)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.quickIconBox, { backgroundColor: q.iBg }]}>
+                    <Ionicons name={q.icon} size={18} color={q.c} />
+                  </View>
+                  <Text style={styles.quickLabel}>{q.label}</Text>
+                  <View style={[styles.quickArrow, { backgroundColor: q.c }]}>
+                    <Ionicons name="chevron-forward" size={9} color="#fff" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
           </View>
-
-          {/* 4. OVERVIEW — 3 columns */}
-          <View style={styles.secRow}>
-            <Text style={styles.secTitle}>Overview</Text>
-            <TouchableOpacity activeOpacity={0.7} style={styles.linkBtn}>
-              <Text style={styles.linkTxt}>This Month</Text>
-              <Ionicons name="chevron-down" size={11} color="#F97316" style={{ marginLeft: 2 }} />
-            </TouchableOpacity>
-          </View>
-          <KpiRow cards={kpiRow1} navigation={navigation} />
-          <KpiRow cards={kpiRow2} navigation={navigation} />
 
           {/* 5. TEAM ATTENDANCE */}
           <View style={styles.card}>
             <View style={styles.secRow}>
               <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="pulse-outline" size={13} color="#F97316" style={{ marginRight: 4 }} />
+                <Ionicons name="pulse-outline" size={13} color="#1268D9" style={{ marginRight: 4 }} />
                 <Text style={styles.secTitle}>Team Attendance Today</Text>
               </View>
               <TouchableOpacity onPress={() => navigation.navigate("ManagerTeamAttendance")} style={styles.linkBtn} activeOpacity={0.7}>
                 <Text style={styles.linkTxt}>View All</Text>
-                <Ionicons name="chevron-forward" size={11} color="#F97316" style={{ marginLeft: 1 }} />
+                <Ionicons name="chevron-forward" size={11} color="#1268D9" style={{ marginLeft: 1 }} />
               </TouchableOpacity>
             </View>
             <View style={styles.donutRow}>
@@ -504,11 +483,11 @@ const ManagerDashboardScreen = ({ navigation }) => {
             {/* Upcoming Deadlines */}
             <View style={[styles.halfCard, { flex: 1, marginRight: 8 }]}>
               <View style={styles.halfHdr}>
-                <Ionicons name="calendar-outline" size={11} color="#F97316" style={{ marginRight: 3 }} />
+                <Ionicons name="calendar-outline" size={11} color="#1268D9" style={{ marginRight: 3 }} />
                 <Text style={styles.halfTitle}>Upcoming Deadlines</Text>
                 <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center" }} activeOpacity={0.7}>
                   <Text style={styles.linkTxt}>View All</Text>
-                  <Ionicons name="chevron-forward" size={10} color="#F97316" />
+                  <Ionicons name="chevron-forward" size={10} color="#1268D9" />
                 </TouchableOpacity>
               </View>
               {(recentTasks.length > 0 ? recentTasks.slice(0, 2) : [
@@ -532,11 +511,11 @@ const ManagerDashboardScreen = ({ navigation }) => {
             {/* Recent Activity */}
             <View style={[styles.halfCard, { flex: 1 }]}>
               <View style={styles.halfHdr}>
-                <Ionicons name="pulse-outline" size={11} color="#F97316" style={{ marginRight: 3 }} />
+                <Ionicons name="pulse-outline" size={11} color="#1268D9" style={{ marginRight: 3 }} />
                 <Text style={styles.halfTitle}>Recent Activity</Text>
                 <TouchableOpacity style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center" }} activeOpacity={0.7}>
                   <Text style={styles.linkTxt}>View All</Text>
-                  <Ionicons name="chevron-forward" size={10} color="#F97316" />
+                  <Ionicons name="chevron-forward" size={10} color="#1268D9" />
                 </TouchableOpacity>
               </View>
               {[
@@ -561,13 +540,6 @@ const ManagerDashboardScreen = ({ navigation }) => {
         </View>{/* end lightSection */}
       </ScrollView>
 
-      {/* FAB */}
-      <TouchableOpacity style={styles.fab} onPress={() => navigation.navigate("ManagerCreateTask")} activeOpacity={0.85}>
-        <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.fabGrad}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </LinearGradient>
-      </TouchableOpacity>
-
       <FollowUpPopup />
     </ManagerLayout>
   );
@@ -577,18 +549,17 @@ const ManagerDashboardScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   // scroll bg = same as header → seamless dark hero transition
   // scroll: { flex: 1, backgroundColor: "#0F172A" },
-  content: { paddingBottom: 10 },
+  content: { paddingBottom: 30 },
 
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, minHeight: 300 },
   loaderText: { marginTop: 12, fontSize: 12, color: "#64748B", fontWeight: "600" },
   errorText: { marginTop: 12, fontSize: 13, color: "#EF4444", fontWeight: "700", textAlign: "center" },
-  retryBtn: { marginTop: 2, backgroundColor: "#F97316", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  retryBtn: { marginTop: 2, backgroundColor: "#1268D9", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
   retryBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
 
-  // // ── TOP DARK SECTION ──
+  // // ── TOP LIGHT SECTION ──
   topDarkSection: {
-    backgroundColor: "#0F172A",
-    // No borderRadius — flows seamlessly with header
+    backgroundColor: "#F4F7FB",
   },
 
   // ── Hero ──
@@ -597,26 +568,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: HP,
     paddingTop: 10,
-    paddingBottom: 1,  // space between greeting and punch card
+    paddingBottom: 1,
   },
   heroLeft: { flex: 1, paddingRight: 8 },
-  heroName: { fontSize: 24, fontWeight: "900", color: "#fff", marginBottom: 8 },
+  heroName: { fontSize: 24, fontWeight: "900", color: "#0F172A", marginBottom: 8 },
   datePill: {
     flexDirection: "row", alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.08)",
-    paddingHorizontal: 0, paddingVertical: 5,
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 8, paddingVertical: 5,
     borderRadius: 15, alignSelf: "flex-start",
   },
-  datePillText: { fontSize: 11, fontWeight: "600", color: "#CBD5E1" },
-  // ── Punch Card — floating ROUNDED CARD on dark background (matches reference) ──
+  datePillText: { fontSize: 11, fontWeight: "600", color: "#475569" },
+  // ── Punch Card ──
   punchCardFull: {
-    marginHorizontal: HP,   // side margins — dark background shows on sides
-    marginBottom: 10,       // space below punch card before light section
-    borderRadius: 20,       // rounded card corners
+    marginHorizontal: HP,
+    marginTop: 8,
+    marginBottom: 12,
+    borderRadius: 20,
     paddingHorizontal: HP,
-    paddingTop: 2,
+    paddingTop: 12,
     paddingBottom: 14,
     overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   shiftBadge: {
     flexDirection: "row", alignItems: "center",
@@ -641,7 +618,7 @@ const styles = StyleSheet.create({
     elevation: 3, shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4,
   },
-  punchBtnText: { fontSize: 12, fontWeight: "800", color: "#EA580C" },
+  punchBtnText: { fontSize: 12, fontWeight: "800", color: "#1268D9" },
 
   // ── LIGHT SECTION ──
   lightSection: {
@@ -653,7 +630,7 @@ const styles = StyleSheet.create({
 
   // ── Dept filter ──
   pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0" },
-  pillA: { backgroundColor: "#F97316", borderColor: "#F97316" },
+  pillA: { backgroundColor: "#1268D9", borderColor: "#1268D9" },
   pillTxt: { fontSize: 11, fontWeight: "700", color: "#64748B" },
   pillTxtA: { color: "#fff" },
 
@@ -661,7 +638,7 @@ const styles = StyleSheet.create({
   secRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   secTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
   linkBtn: { flexDirection: "row", alignItems: "center" },
-  linkTxt: { fontSize: 11, fontWeight: "700", color: "#F97316" },
+  linkTxt: { fontSize: 11, fontWeight: "700", color: "#1268D9" },
 
   // ── Quick Actions ──
   quickCard: {
@@ -730,7 +707,7 @@ const styles = StyleSheet.create({
   fab: {
     position: "absolute", bottom: 26, right: 18,
     width: 50, height: 50, borderRadius: 25,
-    elevation: 8, shadowColor: "#F97316",
+    elevation: 8, shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
     overflow: "hidden",
   },

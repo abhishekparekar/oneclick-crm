@@ -26,7 +26,7 @@ import { getMeApi } from "../../api/authService";
 import { useAuth } from "../../context/AuthContext";
 import TaskActionModal from "../../components/TaskActionModal";
 
-const TEAL = "#EA580C";
+const TEAL = "#1268D9";
 
 const STATUS_COLORS = {
   pending: { bg: "#f1f5f9", text: "#64748b", border: "#cbd5e1", label: "Pending" },
@@ -990,10 +990,10 @@ const ManagerTasksScreen = ({ navigation, route }) => {
           removeClippedSubviews={true}
           ListHeaderComponent={() => (
             <>
-              {/* ── Top Hero Section (Dark Navy Container + Orange Gradient Banner) ── */}
+              {/* ── Top Hero Section (Dark Navy Container + Blue Gradient Banner) ── */}
               <View style={styles.heroDarkContainer}>
                 <LinearGradient
-                  colors={["#FF5E00", "#EA580C", "#D97706"]}
+                  colors={["#082B52", "#1268D9", "#1D7DF2"]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={styles.heroBannerCard}
@@ -1076,7 +1076,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
                           <Ionicons
                             name={tab.icon}
                             size={14}
-                            color={isActive ? "#FF5E00" : "#64748b"}
+                            color={isActive ? "#1268D9" : "#64748b"}
                           />
                           <Text style={[styles.statusChipText, isActive && styles.statusChipTextActive]}>
                             {tab.label}
@@ -1371,7 +1371,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
               <TextInput
                 style={{
                   borderWidth: 1.5,
-                  borderColor: cancelReason.trim() ? "#EA580C" : "#e2e8f0",
+                  borderColor: cancelReason.trim() ? "#1268D9" : "#e2e8f0",
                   borderRadius: 10,
                   padding: 12,
                   fontSize: 13,
@@ -1437,9 +1437,9 @@ const styles = StyleSheet.create({
 
   // ── Hero Banner ────────────────────────────────────────────────────────────
   heroDarkContainer: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 12,
-    paddingTop: 2,
+    paddingTop: 4,
     paddingBottom: 6,
   },
   heroBannerCard: {
@@ -1447,7 +1447,7 @@ const styles = StyleSheet.create({
     padding: 10,
     overflow: "hidden",
     position: "relative",
-    shadowColor: "#FF5E00",
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -1574,7 +1574,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   statusChipBtnActive: {
-    borderColor: "#FF5E00",
+    borderColor: "#1268D9",
     backgroundColor: "#ffffff",
   },
   statusChipText: {
@@ -1583,7 +1583,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   statusChipTextActive: {
-    color: "#0f172a",
+    color: "#1268D9",
   },
   statusChipBadge: {
     backgroundColor: "#f1f5f9",
@@ -1595,7 +1595,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   statusChipBadgeActive: {
-    backgroundColor: "#ef4444",
+    backgroundColor: "#1268D9",
   },
   statusChipBadgeText: {
     fontSize: 9.5,
@@ -1619,8 +1619,8 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   dateChipBtnActive: {
-    backgroundColor: "#FF5E00",
-    borderColor: "#FF5E00",
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
   dateChipText: {
     fontSize: 11,
@@ -1648,7 +1648,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   dateChipBadgeTextActive: {
-    color: "#FF5E00",
+    color: "#1268D9",
   },
   dateCalendarBtn: {
     width: 32,
@@ -1682,8 +1682,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   segmentBtnActive: {
-    backgroundColor: "#FF5E00",
-    shadowColor: "#FF5E00",
+    backgroundColor: "#1268D9",
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
@@ -1937,7 +1937,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#EA580C",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -2050,8 +2050,8 @@ const styles = StyleSheet.create({
     borderColor: "#e2e8f0",
   },
   modalChipActive: {
-    backgroundColor: "#fff7ed",
-    borderColor: "#EA580C",
+    backgroundColor: "#EFF6FF",
+    borderColor: "#1268D9",
   },
   modalChipText: {
     fontSize: 12,
@@ -2059,7 +2059,7 @@ const styles = StyleSheet.create({
     color: "#475569",
   },
   modalChipTextActive: {
-    color: "#EA580C",
+    color: "#1268D9",
     fontWeight: "700",
   },
   modalFooter: {
@@ -2082,7 +2082,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
-    backgroundColor: "#EA580C",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     minWidth: 100,

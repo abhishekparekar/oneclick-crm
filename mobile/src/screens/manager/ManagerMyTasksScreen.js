@@ -12,7 +12,8 @@ import { getMeApi } from "../../api/authService";
 import { useAuth } from "../../context/AuthContext";
 import TaskActionModal from "../../components/TaskActionModal";
 
-const TEAL = "#C2410C";
+const TEAL = "#1268D9";
+const TEAL_LIGHT = "rgba(18, 104, 217, 0.1)";
 const BORDER = "#e2e8f0";
 
 const STATUS_COLORS = {
@@ -962,7 +963,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
           ListHeaderComponent={() => (
             <>
               {/* Stats Bar */}
-              <LinearGradient colors={["#C2410C", "#7C2D12"]} style={styles.statsHeader}>
+              <LinearGradient colors={["#082B52", "#1268D9", "#1D7DF2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.statsHeader}>
                 <View style={styles.statsRow}>
                   <View style={styles.statCell}>
                     <Text style={styles.statVal}>{stats.completeCount + stats.lateCompleteCount}</Text>
@@ -1266,7 +1267,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
               <TextInput
                 style={{
                   borderWidth: 1.5,
-                  borderColor: cancelReason.trim() ? "#C2410C" : "#e2e8f0",
+                  borderColor: cancelReason.trim() ? "#1268D9" : "#e2e8f0",
                   borderRadius: 10,
                   padding: 12,
                   fontSize: 13,
@@ -1338,7 +1339,7 @@ const styles = StyleSheet.create({
   },
   segmentContainer: {
     flexDirection: "row",
-    backgroundColor: "#0f572031",
+    backgroundColor: TEAL_LIGHT,
     borderRadius: 20,
     padding: 3,
     width: "100%",
@@ -1351,7 +1352,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
   },
   segmentActive: {
-    backgroundColor: "#C2410C",
+    backgroundColor: TEAL,
     shadowColor: "#ffffff",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -1364,7 +1365,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   segmentTextActive: {
-    color: "#ffffffff",
+    color: "#ffffff",
     fontWeight: "800",
   },
 
@@ -1428,8 +1429,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   tabActive: {
-    backgroundColor: "#C2410C",
-    borderColor: "#C2410C",
+    backgroundColor: TEAL,
+    borderColor: TEAL,
   },
   tabText: {
     fontSize: 11,
@@ -1457,7 +1458,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   tabBadgeTextActive: {
-    color: "#C2410C",
+    color: TEAL,
   },
 
   // ── List Header ────────────────────────────────────────────────────────────

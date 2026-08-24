@@ -94,7 +94,7 @@ app.use(morgan("dev"));
 app.use(apiResponse);
 
 app.get("/", (req, res) => {
-  res.json({ message: "Welcome to Nextact API" });
+  res.json({ message: "Welcome to Oneclick API" });
 });
 
 app.use("/api", apiRoutes);

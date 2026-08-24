@@ -637,7 +637,7 @@ const EmployeeEditProfileScreen = ({ navigation }) => {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#F97316', '#EA580C']}
+              colors={['#1268D9', '#0D50B8']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.nextBtnGradient}

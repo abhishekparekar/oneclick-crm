@@ -22,6 +22,7 @@ const buildEmployeeSections = (hasPermission) => {
       title: "Core Dashboard",
       items: [
         { label: "Dashboard", screen: "EmployeeDashboard", icon: "grid-outline" },
+        { label: "My Projects", screen: "MyProjects", icon: "folder-open-outline" },
         { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline" },
         ...(canAccessLeads ? [
           { label: "Lead Management", screen: "LeadsEngine", icon: "magnet-outline" }
@@ -41,6 +42,7 @@ const buildEmployeeSections = (hasPermission) => {
     {
       title: "Staff & Work",
       items: [
+        { label: "My Projects", screen: "MyProjects", icon: "folder-open-outline" },
         { label: "My Attendance", screen: "Attendance", icon: "calendar-outline", module: "attendance" },
         { label: "My Tasks", screen: "Tasks", icon: "albums-outline", module: "tasks" },
         { label: "Leave", screen: "Leave", icon: "document-text-outline", module: "leave" },
@@ -191,7 +193,7 @@ const EmployeeDrawerContent = (props) => {
                     <Ionicons
                       name={item.icon}
                       size={20}
-                      color={isActive ? "#C2410C" : "#475569"}
+                      color={isActive ? "#1268D9" : "#475569"}
                       style={styles.menuIcon}
                     />
                     <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
@@ -222,37 +224,37 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 16,
+    paddingBottom: 18,
     paddingHorizontal: 16,
-    backgroundColor: "#0F172A",
-    borderBottomLeftRadius: 16,
-    borderBottomRightRadius: 16,
-    shadowColor: "#0F172A",
+    backgroundColor: "#071A2F",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    shadowColor: "#071A2F",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 6,
-    marginBottom: 16,
+    marginBottom: 12,
   },
   avatar: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#ffffff",
+    borderColor: "rgba(255, 255, 255, 0.4)",
     elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     overflow: "hidden",
   },
   avatarText: {
     color: "#ffffff",
-    fontSize: 20,
+    fontSize: 18,
     fontFamily: FONTS.displayBold,
   },
   profileInfo: {
@@ -262,7 +264,7 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontFamily: FONTS.displayBold,
-    fontSize: 17,
+    fontSize: 16,
     color: "#ffffff",
     textAlign: "left",
   },
@@ -274,7 +276,7 @@ const styles = StyleSheet.create({
     textAlign: "left",
   },
   roleBadge: {
-    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    backgroundColor: "rgba(18, 104, 217, 0.2)",
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 2.5,
@@ -284,7 +286,7 @@ const styles = StyleSheet.create({
   roleBadgeText: {
     fontFamily: FONTS.bodyBold,
     fontSize: 9.5,
-    color: "#F97316",
+    color: "#2F8BFF",
     letterSpacing: 0.6,
   },
   scrollContent: {
@@ -292,12 +294,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   sectionContainer: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   sectionTitle: {
     fontFamily: FONTS.displayBold,
     fontSize: 10.5,
-    color: "#F97316",
+    color: "#64748B",
     marginLeft: 16,
     marginBottom: 6,
     marginTop: 8,
@@ -308,15 +310,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
-    marginHorizontal: 12,
-    borderRadius: 8,
-    marginBottom: 4,
+    marginHorizontal: 8,
+    borderRadius: 10,
+    marginBottom: 3,
     borderLeftWidth: 0,
   },
   menuItemActive: {
-    backgroundColor: "#FFF7ED",
-    borderLeftWidth: 3,
-    borderLeftColor: "#F97316",
+    backgroundColor: "rgba(18, 104, 217, 0.08)",
+    borderLeftWidth: 3.5,
+    borderLeftColor: "#1268D9",
   },
   menuIcon: {
     marginRight: 12,
@@ -325,19 +327,19 @@ const styles = StyleSheet.create({
   },
   menuText: {
     fontFamily: FONTS.bodySemiBold,
-    fontSize: 13.5,
-    color: "#64748B",
+    fontSize: 13,
+    color: "#475569",
   },
   menuTextActive: {
     fontFamily: FONTS.bodyBold,
-    color: "#F97316",
+    color: "#1268D9",
   },
   logoutItem: {
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginTop: 10,
     borderTopWidth: 1,
     borderTopColor: "#F1F5F9",
@@ -345,7 +347,7 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontFamily: FONTS.bodySemiBold,
-    fontSize: 14,
+    fontSize: 13.5,
     color: "#EF4444",
   },
 });

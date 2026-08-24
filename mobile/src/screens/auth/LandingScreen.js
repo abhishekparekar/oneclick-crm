@@ -96,7 +96,7 @@ const LandingScreen = ({ navigation }) => {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={["#FF6B00", "#F43F5E", "#A855F7", "#06B6D4"]}
+              colors={["#1268D9", "#0D50B8", "#082B52"]}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.primaryBtnGradient}

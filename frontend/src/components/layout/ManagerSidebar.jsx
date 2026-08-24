@@ -19,15 +19,13 @@ import {
   CalendarDays,
   FolderKanban,
   BarChart2,
-  UserCircle,
   LogOut,
   ChevronDown,
   Hexagon,
-  Link as LinkIcon,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MANAGER NAV SECTIONS — Prioritizes Daily Regular Options On Top
+// MANAGER NAV SECTIONS
 // ─────────────────────────────────────────────────────────────────────────────
 const MANAGER_SECTIONS = [
   {
@@ -54,7 +52,7 @@ const MANAGER_SECTIONS = [
   {
     title: "LEAD CRM & PROJECTS",
     items: [
-      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: MessageSquare },
+      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: Megaphone },
       { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock },
       { label: "Projects", path: "/manager/projects", icon: FolderKanban },
     ],
@@ -69,7 +67,7 @@ const MANAGER_SECTIONS = [
   },
 ];
 
-const ManagerSidebar = ({ logout, onItemClick }) => {
+const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
   const { user } = useAuth();
 
@@ -88,27 +86,37 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
     profileData?.manager?.fullName ||
     profileData?.manager?.firstName ||
     user?.name ||
-    "abhishek parekar";
+    "Manager";
 
   const isActive = (path) =>
     location.pathname === path || (path !== "/manager/dashboard" && location.pathname.startsWith(path + "/"));
 
   return (
-    <div className="ca-sidebar w-full lg:w-[228px] bg-[#070C14] text-slate-300 border-r border-white/[0.06] h-full flex flex-col flex-shrink-0 transition-colors duration-300 select-none">
-
+    <div
+      className={`ca-sidebar ${
+        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+    >
       {/* Brand Logo Header */}
-      <div className="px-4 py-3.5 flex items-center justify-start border-b border-white/[0.06]">
-        <OneClickLogo variant="landscape" />
+      <div className={`px-2.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : ""}`}>
+        {isCollapsed ? (
+          <OneClickLogo variant="square" />
+        ) : (
+          <OneClickLogo variant="landscape" />
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-2.5 py-2 custom-scrollbar space-y-3">
+      <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-2.5 py-2 space-y-2"} oc-scroll`}>
         {MANAGER_SECTIONS.map((section, idx) => (
-          <div key={idx} className="space-y-0.5">
-            {section.title && (
-              <p className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 px-2.5 pt-1 pb-1">
+          <div key={idx} className={isCollapsed ? "mb-1" : "space-y-0.5"}>
+            {!isCollapsed && section.title && (
+              <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500 px-2.5 pt-1 pb-1">
                 {section.title}
               </p>
+            )}
+            {isCollapsed && section.title && idx > 0 && (
+              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
             )}
             <div className="space-y-0.5">
               {section.items.map((item) => {
@@ -119,20 +127,33 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
                     key={item.path}
                     to={item.path}
                     onClick={onItemClick}
-                    className={`flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                      active
-                        ? "bg-[#0D3B43] text-teal-300 font-bold border border-teal-500/30 shadow-xs"
-                        : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
+                    title={item.label}
+                    className={`${
+                      isCollapsed
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                            active
+                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                          }`
+                        : `flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
+                            active
+                              ? "bg-[#1268D9] text-white font-bold shadow-md shadow-[#1268D9]/25"
+                              : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
+                          }`
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon
-                        size={15}
-                        strokeWidth={2}
-                        className={`flex-shrink-0 ${active ? "text-teal-400" : "text-slate-400 group-hover:text-slate-200"}`}
-                      />
-                      <span className="truncate text-[12.5px]">{item.label}</span>
-                    </div>
+                    {isCollapsed ? (
+                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                    ) : (
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon
+                          size={15}
+                          strokeWidth={2}
+                          className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`}
+                        />
+                        <span className="truncate text-[12.5px]">{item.label}</span>
+                      </div>
+                    )}
                   </Link>
                 );
               })}
@@ -142,50 +163,69 @@ const ManagerSidebar = ({ logout, onItemClick }) => {
       </nav>
 
       {/* Footer / User Profile */}
-      <div className="p-2.5 border-t border-white/[0.06] space-y-1.5 bg-[#050910]">
-        {/* Company Selector Pill */}
-        <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.04] text-xs font-bold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
-          <div className="flex items-center gap-2 truncate min-w-0">
-            <Hexagon size={14} strokeWidth={2} className="text-amber-500 flex-shrink-0" />
-            <span className="truncate text-[11.5px]">{companyName}</span>
-          </div>
-          <ChevronDown size={12} strokeWidth={2} className="text-slate-500 flex-shrink-0" />
-        </div>
-
-        {/* User row + Logout */}
-        <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-white/[0.04] transition-all group">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="relative flex-shrink-0">
-              {(() => {
-                const mgr = profileData?.manager || profileData?.employee || {};
-                const rawAvatar = user?.profileImage || mgr.photo || mgr.profileImage;
-                const avatarUrl = rawAvatar ? (rawAvatar.startsWith("http") || rawAvatar.startsWith("data:") ? rawAvatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawAvatar.startsWith("/") ? "" : "/"}${rawAvatar}`) : null;
-
-                return avatarUrl ? (
-                  <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 flex items-center justify-center text-white font-bold text-[10.5px]">
-                    {userName.slice(0, 2).toUpperCase()}
-                  </div>
-                );
-              })()}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#070C14]" />
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "p-2.5 space-y-1.5 bg-[#061225]"}`}>
+        {!isCollapsed ? (
+          <>
+            {/* Company Selector Pill */}
+            <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.04] text-xs font-bold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
+              <div className="flex items-center gap-2 truncate min-w-0">
+                <Hexagon size={14} strokeWidth={2} className="text-[#1268D9] flex-shrink-0" />
+                <span className="truncate text-[11.5px]">{companyName}</span>
+              </div>
+              <ChevronDown size={12} strokeWidth={2} className="text-slate-500 flex-shrink-0" />
             </div>
-            <div className="min-w-0">
-              <p className="text-[12px] font-bold text-slate-200 truncate leading-tight">{userName}</p>
-              <p className="text-[10px] text-slate-500 leading-tight">Manager</p>
+
+            {/* User row + Logout */}
+            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-white/[0.04] transition-all group">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="relative flex-shrink-0">
+                  {(() => {
+                    const mgr = profileData?.manager || profileData?.employee || {};
+                    const rawAvatar = user?.profileImage || mgr.photo || mgr.profileImage;
+                    const avatarUrl = rawAvatar ? (rawAvatar.startsWith("http") || rawAvatar.startsWith("data:") ? rawAvatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawAvatar.startsWith("/") ? "" : "/"}${rawAvatar}`) : null;
+
+                    return avatarUrl ? (
+                      <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[10.5px]">
+                        {userName.slice(0, 2).toUpperCase()}
+                      </div>
+                    );
+                  })()}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#070C14]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-bold text-slate-200 truncate leading-tight">{userName}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">Manager</p>
+                </div>
+              </div>
+              <button
+                onClick={logout}
+                title="Log Out"
+                className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
+              >
+                <LogOut size={13} strokeWidth={2} />
+              </button>
             </div>
-          </div>
-          <button
-            onClick={logout}
-            title="Log Out"
-            className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
-          >
-            <LogOut size={13} strokeWidth={2} />
-          </button>
-        </div>
+          </>
+        ) : (
+          <>
+            <div
+              title={userName}
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[10.5px] shadow-xs cursor-pointer"
+            >
+              {userName.slice(0, 2).toUpperCase()}
+            </div>
+            <button
+              onClick={logout}
+              title="Log Out"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+            >
+              <LogOut size={16} strokeWidth={2} />
+            </button>
+          </>
+        )}
       </div>
-
     </div>
   );
 };

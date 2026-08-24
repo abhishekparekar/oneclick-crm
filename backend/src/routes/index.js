@@ -14,6 +14,7 @@ const taskRoutes = require("./taskRoutes");
 const leadRoutes = require("./leadRoutes");
 const internalRequestRoutes = require("./internalRequestRoutes");
 const salaryAdvanceRoutes = require("./salaryAdvanceRoutes");
+const aiRoutes = require("./aiRoutes");
 
 const { protect } = require("../middleware/authMiddleware");
 const { checkSubscription } = require("../middleware/subscriptionMiddleware");
@@ -26,7 +27,7 @@ router.get("/health", async (req, res) => {
     const userCount = await User.countDocuments();
     res.json({
       status: "ok",
-      message: "Nextact API is running",
+      message: "Oneclick API is running",
       database: {
         host: mongoose.connection.host,
         name: mongoose.connection.name,
@@ -61,5 +62,8 @@ router.use("/internal-requests", protect, checkSubscription, internalRequestRout
 router.use("/company-requests", protect, checkSubscription, internalRequestRoutes);
 router.use("/leads-engine", leadRoutes);
 router.use(leadRoutes);
+
+// AI Business Intelligence Routes
+router.use("/ai", protect, checkSubscription, aiRoutes);
 
 module.exports = router;

@@ -11,6 +11,7 @@ import {
 } from "../../api/employeeApi";
 import api from "../../api/api";
 import {
+  LogIn,
   LogOut,
   ClipboardList,
   CalendarCheck,
@@ -561,88 +562,78 @@ const EmployeeDashboard = () => {
         </div>
       </div>
 
-      {/* ── Top Hero: Productivity & Punch Bar (Executive CRM Style) ────────── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800 relative overflow-hidden">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          
-          {/* Left: Productivity Score & Work Summary */}
-          <div className="flex items-center gap-4 flex-1">
-            <div className="relative flex items-center justify-center">
-              <div className="w-14 h-14 rounded-2xl flex flex-col items-center justify-center border shadow-inner bg-amber-500/10 border-amber-500/30">
-                <span className="text-lg font-black leading-none text-amber-600 dark:text-amber-400">{productivityScore}%</span>
-                <span className="text-[8.5px] font-extrabold uppercase tracking-wider mt-0.5 text-slate-500">Score</span>
-              </div>
-            </div>
+      {/* ── Top Hero: Royal Corporate Blue Active Shift & Punch Bar ────────── */}
+      <div className="bg-gradient-to-r from-[#082B52] via-[#1268D9] to-[#1D7DF2] rounded-2xl p-5 shadow-lg shadow-[#1268D9]/20 text-white relative overflow-hidden">
+        {/* Decorative Wave/Circle Overlays */}
+        <div className="absolute right-0 top-0 bottom-0 w-72 bg-white/[0.06] rounded-l-full pointer-events-none" />
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/[0.08] rounded-full pointer-events-none" />
 
-            <div className="space-y-1 flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-900 dark:text-white truncate">Business &amp; Productivity</span>
-                <span className="px-2 py-0.5 rounded-md text-[9.5px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                  {scoreLabel}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          {/* Left: Active Shift & Live Clock */}
+          <div className="flex items-center gap-4">
+            <div>
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className={`w-2 h-2 rounded-full ${isPunchedIn ? "bg-emerald-400 animate-pulse" : "bg-slate-300"}`} />
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">
+                  {isPunchedIn ? "ACTIVE SHIFT" : "SHIFT INACTIVE"}
                 </span>
               </div>
+              <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-none text-white font-mono">
+                {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              </h2>
+              <p className="text-xs text-blue-100/80 font-medium mt-1">
+                {punchInTimeRaw ? `In since ${formatTime(punchInTimeRaw)}` : "No active check-in logged today"}
+              </p>
+            </div>
 
-              <div className="w-full max-w-md h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-1000 bg-amber-500"
-                  style={{ width: `${productivityScore}%` }}
-                />
-              </div>
+            {/* Vertical Divider */}
+            <div className="hidden sm:block w-px h-12 bg-white/20 mx-2" />
 
-              <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-slate-400">
-                {punchInTimeRaw ? (
-                  <span>In: <strong className="text-slate-900 dark:text-white font-bold">{formatTime(punchInTimeRaw)}</strong></span>
-                ) : (
-                  <span>Status: <strong className="text-slate-500 font-bold">Not Punched In</strong></span>
-                )}
-                {punchOutTimeRaw && (
-                  <span>Out: <strong className="text-slate-900 dark:text-white font-bold">{formatTime(punchOutTimeRaw)}</strong></span>
-                )}
-                {totalHoursToday > 0 && (
-                  <span>Worked: <strong className="text-emerald-600 dark:text-emerald-400 font-bold">{totalHoursToday}h</strong></span>
-                )}
+            {/* Productivity Metric */}
+            <div className="hidden lg:block space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-blue-100">Productivity Score:</span>
+                <span className="text-sm font-black text-white">{productivityScore}%</span>
               </div>
+              <div className="w-36 h-1.5 bg-black/20 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${productivityScore}%` }} />
+              </div>
+              <p className="text-[10px] text-blue-100/70">Target: 95% efficiency</p>
             </div>
           </div>
 
-          {/* Right: Shift & Attendance Times Display */}
-          <div className="flex items-center gap-2.5 shrink-0 bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-            <div className="flex items-center gap-3">
-              <div className="text-center px-2">
-                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Punch In</span>
-                <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
-                  {punchInTimeRaw ? formatTime(punchInTimeRaw) : "--:--"}
-                </span>
+          {/* Right: Shift Stats & Action Button */}
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="text-right pr-2">
+              <div className="flex items-center justify-end gap-1 text-[11px] text-blue-100 font-bold">
+                <Clock size={12} />
+                <span>Punch In</span>
               </div>
-
-              <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
-
-              <div className="text-center px-2">
-                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Punch Out</span>
-                <span className="text-xs font-black text-slate-900 dark:text-white font-mono">
-                  {punchOutTimeRaw ? formatTime(punchOutTimeRaw) : "--:--"}
-                </span>
-              </div>
-
-              <div className="w-px h-6 bg-slate-200 dark:bg-slate-700" />
-
-              <div className="text-center px-2">
-                <span className="text-[9.5px] font-black text-slate-500 uppercase tracking-wider block">Shift Status</span>
-                {isPunchedIn ? (
-                  <span className="inline-flex items-center gap-1 text-[10.5px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Active
-                  </span>
-                ) : isPunchedOut ? (
-                  <span className="text-[10.5px] font-extrabold text-slate-700 dark:text-slate-300">
-                    Completed
-                  </span>
-                ) : (
-                  <span className="text-[10.5px] font-bold text-slate-500">
-                    Pending
-                  </span>
-                )}
-              </div>
+              <p className="text-base font-black text-white font-mono leading-tight">
+                {punchInTimeRaw ? formatTime(punchInTimeRaw) : "--:--"}
+              </p>
             </div>
+
+            {/* Punch Action Button */}
+            {isPunchedIn ? (
+              <button
+                onClick={() => punchOutMutation.mutate()}
+                disabled={punchOutMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
+              >
+                <LogOut size={15} strokeWidth={2.5} />
+                <span>{punchOutMutation.isPending ? "Punching Out..." : "Punch Out"}</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => punchInMutation.mutate()}
+                disabled={punchInMutation.isPending}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
+              >
+                <LogIn size={15} strokeWidth={2.5} />
+                <span>{punchInMutation.isPending ? "Punching In..." : "Punch In"}</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

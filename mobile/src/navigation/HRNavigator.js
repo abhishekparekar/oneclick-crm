@@ -76,8 +76,8 @@ const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-const TEAL    = "#EA580C";
-const INACTIVE = "#94A3B8";
+const TEAL    = "#1268D9";
+const TEAL_INACTIVE = "#64748B";
 
 // ── Custom HR Tab Bar ──────────────────────────────────────────
 const HRCustomTabBar = ({ state, descriptors, navigation }) => {
@@ -253,14 +253,14 @@ const HRNavigator = () => {
 // ── Tab Bar Styles ─────────────────────────────────────────────
 const tabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: "#0B132B",
+    backgroundColor: "#071A2F",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 10,
+    borderTopColor: "#1C3554",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 12,
   },
   container: {
     flexDirection: "row",
@@ -283,7 +283,7 @@ const tabStyles = StyleSheet.create({
     marginBottom: 2,
   },
   iconPillActive: {
-    backgroundColor: "rgba(234, 88, 12, 0.18)",
+    backgroundColor: "rgba(47, 139, 255, 0.18)",
   },
   label: {
     fontSize: 10,
@@ -291,7 +291,7 @@ const tabStyles = StyleSheet.create({
     color: "#94A3B8",
   },
   labelActive: {
-    color: "#EA580C",
+    color: "#2F8BFF",
     fontFamily: FONTS.bodyBold,
   },
 });

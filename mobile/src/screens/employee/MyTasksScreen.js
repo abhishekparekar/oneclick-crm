@@ -799,7 +799,7 @@ export default function MyTasksScreen({ route, navigation }) {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#F97316" colors={["#F97316"]} />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1268D9" colors={["#1268D9"]} />
           }
           data={displayedTasks}
           keyExtractor={(task) => task._id}
@@ -809,8 +809,13 @@ export default function MyTasksScreen({ route, navigation }) {
           removeClippedSubviews={true}
           ListHeaderComponent={() => (
             <>
-              {/* ── Today's Progress Dark Hero Card ── */}
-              <LinearGradient colors={["#0B132B", "#1C2541"]} style={styles.heroCard}>
+              {/* ── Today's Progress Active Shift Blue Hero Card ── */}
+              <LinearGradient
+                colors={["#082B52", "#1268D9", "#1D7DF2"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCard}
+              >
                 <View style={styles.heroTopRow}>
                   {/* Left: Circular Progress Ring */}
                   <View style={styles.progressCircleWrap}>
@@ -832,7 +837,7 @@ export default function MyTasksScreen({ route, navigation }) {
                   {/* Right: Target Graphic */}
                   <View style={styles.heroTargetWrap}>
                     <View style={styles.targetIconCircle}>
-                      <Ionicons name="location" size={24} color="#FF5B00" />
+                      <Ionicons name="location" size={24} color="#FFFFFF" />
                     </View>
                   </View>
                 </View>
@@ -870,7 +875,7 @@ export default function MyTasksScreen({ route, navigation }) {
                   </View>
 
                   <View style={styles.heroStatCell}>
-                    <View style={[styles.heroStatIconBox, { backgroundColor: "#F97316" }]}>
+                    <View style={[styles.heroStatIconBox, { backgroundColor: "#1268D9" }]}>
                       <Ionicons name="trending-up" size={12} color="#FFFFFF" />
                     </View>
                     <View style={styles.heroStatTextGroup}>
@@ -916,7 +921,7 @@ export default function MyTasksScreen({ route, navigation }) {
                         onPress={() => setActiveDateFilter(dateTab)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="calendar-outline" size={14} color={isActive ? "#F97316" : "#64748B"} style={{ marginRight: 5 }} />
+                        <Ionicons name="calendar-outline" size={14} color={isActive ? "#1268D9" : "#64748B"} style={{ marginRight: 5 }} />
                         <Text style={[styles.dateTabText, isActive && styles.dateTabTextActive]}>{dateTab}</Text>
                       </TouchableOpacity>
                     );
@@ -953,7 +958,7 @@ export default function MyTasksScreen({ route, navigation }) {
                 <TouchableOpacity
                   style={[
                     styles.filterToggleBtn,
-                    (selectedPriority !== "" || deadlineComingFilter !== "") && { backgroundColor: "#F97316", borderColor: "#F97316" }
+                    (selectedPriority !== "" || deadlineComingFilter !== "") && { backgroundColor: "#1268D9", borderColor: "#1268D9" }
                   ]}
                   onPress={() => setShowFilters(true)}
                   activeOpacity={0.7}
@@ -976,7 +981,7 @@ export default function MyTasksScreen({ route, navigation }) {
                 </View>
                 <View style={styles.viewToggleRow}>
                   <TouchableOpacity style={styles.viewToggleBtnActive} activeOpacity={0.7}>
-                    <Ionicons name="list" size={16} color="#F97316" />
+                    <Ionicons name="list" size={16} color="#1268D9" />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.viewToggleBtn} activeOpacity={0.7}>
                     <Ionicons name="grid-outline" size={16} color="#94A3B8" />
@@ -1246,19 +1251,19 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 10.5,
-    color: "#94A3B8",
+    color: "#E0F2FE",
     marginTop: 2,
   },
   heroProgressTrack: {
     height: 5,
-    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
     borderRadius: 2.5,
     overflow: "hidden",
     marginTop: 8,
   },
   heroProgressBar: {
     height: "100%",
-    backgroundColor: "#F97316",
+    backgroundColor: "#FFFFFF",
     borderRadius: 2.5,
   },
   heroTargetWrap: {
@@ -1269,9 +1274,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(249, 115, 22, 0.3)",
+    borderColor: "rgba(255, 255, 255, 0.3)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1327,8 +1332,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   statusPillTabActive: {
-    backgroundColor: "#F97316",
-    borderColor: "#F97316",
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
   statusPillText: {
     fontSize: 12,

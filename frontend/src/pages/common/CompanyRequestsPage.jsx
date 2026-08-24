@@ -1016,10 +1016,10 @@ export default function CompanyRequestsPage({ role = "hr" }) {
         </div>
       )}
 
-      {/* ── 6. SLIDE-OVER DRAWER: REQUEST DETAILS & THREAD ─────────────────── */}
+      {/* ── 6. CENTERED MODAL POPUP: REQUEST DETAILS & THREAD ───────────────── */}
       {activeRequest && (
-        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm animate-fadeIn font-sans">
-          <div className="w-full max-w-xl h-full bg-white dark:bg-[#0A0F18] border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col animate-slideLeft">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-black/70 backdrop-blur-sm animate-fadeIn font-sans">
+          <div className="w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-scaleUp">
             {/* Drawer Luxury Header */}
             <div className="bg-gradient-to-r from-slate-900 via-[#111A29] to-slate-900 dark:from-[#060A10] dark:via-[#0E1524] dark:to-[#060A10] px-5 py-4 border-b border-slate-800 flex items-center justify-between shrink-0">
               <div className="min-w-0 flex-1 pr-3">

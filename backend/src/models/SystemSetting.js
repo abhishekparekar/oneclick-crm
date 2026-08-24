@@ -4,7 +4,7 @@ const systemSettingSchema = new mongoose.Schema(
   {
     appName: {
       type: String,
-      default: "Nextact",
+      default: "Oneclick",
     },
     supportEmail: {
       type: String,

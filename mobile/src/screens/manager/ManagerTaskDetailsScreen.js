@@ -748,7 +748,7 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
             <View style={{ marginTop: 16 }}>
               {isOverdue && (normalizedSt !== "complete" && normalizedSt !== "late_complete") && (
                 <TouchableOpacity
-                  style={[styles.workflowActionBtn, { backgroundColor: "#F97316" }]}
+                  style={[styles.workflowActionBtn, { backgroundColor: "#1268D9" }]}
                   onPress={() => openActionModal("late-complete")}
                   activeOpacity={0.85}
                 >

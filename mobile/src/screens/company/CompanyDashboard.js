@@ -259,7 +259,7 @@ const CompanyDashboard = ({ navigation }) => {
           style={{ marginRight: 10, padding: 4 }}
           activeOpacity={0.7}
         >
-          <Ionicons name="funnel-outline" size={21} color="#FFFFFF" />
+          <Ionicons name="funnel-outline" size={21} color="#0F172A" />
         </TouchableOpacity>
       }
     >
@@ -284,7 +284,7 @@ const CompanyDashboard = ({ navigation }) => {
 
             {/* Hero Welcome Card */}
             <LinearGradient
-              colors={['#0F172A', '#1E293B']}
+              colors={['#082B52', '#1268D9']}
               style={styles.heroCard}
             >
               <View style={styles.heroLeft}>
@@ -317,10 +317,21 @@ const CompanyDashboard = ({ navigation }) => {
                 onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}
                 activeOpacity={0.8}
               >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
-                  <Ionicons name="magnet-outline" size={18} color={COLORS.primary} />
+                <View style={[styles.shortcutIconBox, { backgroundColor: "rgba(18, 104, 217, 0.1)" }]}>
+                  <Ionicons name="magnet-outline" size={18} color="#1268D9" />
                 </View>
                 <Text style={styles.shortcutText} numberOfLines={1}>Lead CRM</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shortcutBtn}
+                onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.shortcutIconBox, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="folder-open-outline" size={18} color="#1268D9" />
+                </View>
+                <Text style={styles.shortcutText} numberOfLines={1}>Projects</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -354,17 +365,6 @@ const CompanyDashboard = ({ navigation }) => {
                   <Ionicons name="calendar-outline" size={18} color="#10B981" />
                 </View>
                 <Text style={styles.shortcutText} numberOfLines={1}>Attendance</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.shortcutBtn}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "LeaveRequests" })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "#FFF7ED" }]}>
-                  <Ionicons name="document-text-outline" size={18} color="#EA580C" />
-                </View>
-                <Text style={styles.shortcutText} numberOfLines={1}>Leaves</Text>
               </TouchableOpacity>
             </View>
 
@@ -473,7 +473,7 @@ const CompanyDashboard = ({ navigation }) => {
             <View style={styles.cardContainer}>
               <View style={styles.cardHeaderRow}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="magnet-outline" size={18} color="#F97316" style={{ marginRight: 6 }} />
+                  <Ionicons name="magnet-outline" size={18} color="#1268D9" style={{ marginRight: 6 }} />
                   <Text style={styles.cardHeaderTitle}>Lead Pipeline Summary</Text>
                 </View>
                 <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}>
@@ -745,9 +745,9 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   heroBadge: {
-    backgroundColor: "rgba(249, 115, 22, 0.2)",
+    backgroundColor: "rgba(18, 104, 217, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(249, 115, 22, 0.4)",
+    borderColor: "rgba(18, 104, 217, 0.4)",
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -958,7 +958,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#F1F5F9",
   },
   filterOptionRowActive: {
-    backgroundColor: "rgba(249, 115, 22, 0.08)",
+    backgroundColor: "rgba(18, 104, 217, 0.08)",
     borderRadius: 8,
     paddingHorizontal: 8,
   },

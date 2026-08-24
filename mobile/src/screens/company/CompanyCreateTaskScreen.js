@@ -433,7 +433,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             activeOpacity={0.8}
           >
             <View style={styles.actionTriggerLeft}>
-              <View style={styles.iconBoxOrange}><Feather name="layers" size={16} color={COLORS.primary} /></View>
+              <View style={styles.iconBoxBlue}><Feather name="layers" size={16} color="#1268D9" /></View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.actionTriggerLabel}>Department *</Text>
                 <Text style={styles.actionTriggerValue} numberOfLines={1}>
@@ -452,7 +452,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
               activeOpacity={0.8}
             >
               <View style={styles.actionTriggerLeft}>
-                <View style={styles.iconBoxOrange}><Feather name="users" size={16} color={COLORS.primary} /></View>
+                <View style={styles.iconBoxBlue}><Feather name="users" size={16} color="#1268D9" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionTriggerLabel}>Select Staff</Text>
                   <Text style={styles.actionTriggerValue} numberOfLines={1}>
@@ -635,7 +635,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           activeOpacity={0.9}
         >
           <LinearGradient
-            colors={['#F97316', '#EA580C']}
+            colors={['#1268D9', '#0D50B8']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.submitBtnGradient}
@@ -1063,11 +1063,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
   },
-  iconBoxOrange: {
+  iconBoxBlue: {
     width: 32,
     height: 32,
     borderRadius: 9,
-    backgroundColor: COLORS.primaryPale,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -1075,13 +1077,13 @@ const styles = StyleSheet.create({
   actionTriggerLabel: {
     fontFamily: FONTS.bodyMedium,
     fontSize: 10,
-    color: COLORS.text.muted,
+    color: '#64748B',
     textTransform: 'uppercase',
   },
   actionTriggerValue: {
     fontFamily: FONTS.bodyBold,
     fontSize: 13,
-    color: COLORS.darkNavy,
+    color: '#0F172A',
     marginTop: 1,
   },
   chipsRow: {
@@ -1220,11 +1222,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 14,
+    backgroundColor: '#1268D9',
   },
   submitBtnText: {
     fontFamily: FONTS.bodyBold,
     fontSize: 15,
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   modalOverlay: {
     flex: 1,

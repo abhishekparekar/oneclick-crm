@@ -42,23 +42,31 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   primary: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1268D9",
+    borderWidth: 1,
+    borderColor: "#0D50B8",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   outline: {
     backgroundColor: "transparent",
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: "#1268D9",
   },
   disabled: {
     opacity: 0.6,
   },
   text: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.2,
   },
   outlineText: {
-    color: COLORS.primary,
+    color: "#1268D9",
   },
 });
 

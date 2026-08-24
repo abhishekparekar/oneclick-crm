@@ -113,6 +113,7 @@ import AuditLogs from "../pages/companyadmin/AuditLogs";
 import Reports from "../pages/companyadmin/Reports";
 import Performance from "../pages/companyadmin/Performance";
 import AccessControl from "../pages/companyadmin/AccessControl";
+import AIDashboard from "../pages/companyadmin/AIDashboard";
 
 // Lead Engine & WhatsApp Automations
 import Leads from "../pages/leads/Leads";
@@ -217,6 +218,9 @@ const AppRoutes = () => {
             <Route path="reports/employee" element={<Reports />} />
             <Route path="reports/performance" element={<Reports />} />
             <Route path="performance" element={<Performance />} />
+
+            {/* AI Business Intelligence */}
+            <Route path="ai-intelligence" element={<AIDashboard />} />
 
             {/* Lead Engine & WhatsApp Automations */}
             <Route path="leads" element={<Leads />} />

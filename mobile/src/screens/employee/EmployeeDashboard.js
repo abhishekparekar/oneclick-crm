@@ -20,33 +20,33 @@ import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
 
-// ── Nextact Design Tokens ─────────────────────────────────────
+// ── Oneclick Design Tokens ─────────────────────────────────────
 const C = {
-  primary:  "#F97316", // Nextact Vibrant Orange
-  primaryDark: "#EA580C", 
-  primaryLight: "#FF8C38", 
-  darkNavy: "#0F172A",
+  primary: "#2875BD", // Master Primary Blue
+  primaryDark: "#2174C6",
+  primaryLight: "#74B4EE",
+  darkNavy: "#333436",
   slateHeader: "#1E293B",
   accentPurple: "#8B5CF6",
   accentIndigo: "#6366F1",
-  accentBlue: "#3B82F6",
+  accentBlue: "#2875BD",
   accentEmerald: "#10B981",
   accentRose: "#EF4444",
   accentAmber: "#F59E0B",
-  bg:       "#F8FAFC", // Modern Slate Bg
-  card:     "#FFFFFF",
-  border:   "#F1F5F9",
-  text:     "#0F172A",
-  sub:      "#475569",
-  muted:    "#94A3B8",
+  bg: "#F4F7FB", // Modern Crisp Slate Bg
+  card: "#FFFFFF",
+  border: "#E2E8F0",
+  text: "#333436",
+  sub: "#475569",
+  muted: "#94A3B8",
 
   // Status Colors
-  green:    "#10B981",  greenBg:  "#ECFDF5",
-  red:      "#EF4444",  redBg:    "#FEE2E2",
-  amber:    "#F59E0B",  amberBg:  "#FEF3C7",
-  blue:     "#3B82F6",  blueBg:   "#EFF6FF",
-  purple:   "#8B5CF6",  purpleBg: "#F5F3FF",
-  teal:     "#0D9488",  tealBg:   "#F0FDFA",
+  green: "#10B981", greenBg: "#ECFDF5",
+  red: "#EF4444", redBg: "#FEE2E2",
+  amber: "#F59E0B", amberBg: "#FEF3C7",
+  blue: "#2875BD", blueBg: "#EBF4FC",
+  purple: "#8B5CF6", purpleBg: "#F5F3FF",
+  teal: "#0D9488", tealBg: "#F0FDFA",
 };
 
 // ── Section Header (Compact) ──────────────────────────────────
@@ -93,7 +93,7 @@ export default function EmployeeDashboard({ navigation }) {
         leadsService.getLeads().then((res) => {
           const arr = Array.isArray(res) ? res : res?.data || [];
           setLeadsList(arr);
-        }).catch(() => {});
+        }).catch(() => { });
       }
     } catch (err) {
       console.error("Error loading dashboard summary data:", err);
@@ -110,7 +110,7 @@ export default function EmployeeDashboard({ navigation }) {
         leadsService.getLeads().then((res) => {
           const arr = Array.isArray(res) ? res : res?.data || [];
           setLeadsList(arr);
-        }).catch(() => {});
+        }).catch(() => { });
       }
     }, [selectedDeptId, canAccessLeads])
   );
@@ -129,7 +129,7 @@ export default function EmployeeDashboard({ navigation }) {
         list.push({ _id: dId, name: dName });
       }
     }
-    
+
     const addDepts = (deptArray) => {
       if (Array.isArray(deptArray) && deptArray.length > 0) {
         deptArray.forEach(d => {
@@ -192,7 +192,7 @@ export default function EmployeeDashboard({ navigation }) {
       let color = "#10B981";
       let badgeBg = "rgba(16, 185, 129, 0.15)";
       let trendIcon = "trending-up";
-      let barGradient = ["#F97316", "#10B981"];
+      let barGradient = ["#1268D9", "#10B981"];
 
       if (s >= 90) {
         rating = "Excellent";
@@ -257,14 +257,20 @@ export default function EmployeeDashboard({ navigation }) {
     let color = "#10B981";
     let badgeBg = "rgba(16, 185, 129, 0.15)";
     let trendIcon = "trending-up";
-    let barGradient = ["#F97316", "#10B981"];
+    let barGradient = ["#1268D9", "#10B981"];
 
-    if (calculatedScore >= 90) {
-      rating = "Excellent";
+    if (calculatedScore >= 80) {
+      rating = "Exceptional";
       color = "#10B981";
       badgeBg = "rgba(16, 185, 129, 0.15)";
       trendIcon = "trending-up";
-      barGradient = ["#F97316", "#10B981"];
+      barGradient = ["#1268D9", "#10B981"];
+    } else if (calculatedScore >= 50) {
+      rating = "Consistent";
+      color = "#1268D9";
+      badgeBg = "rgba(18, 104, 217, 0.15)";
+      trendIcon = "arrow-forward";
+      barGradient = ["#1268D9", "#2F8BFF"];
     } else if (calculatedScore >= 75) {
       rating = "Good";
       color = "#3B82F6";
@@ -378,11 +384,11 @@ export default function EmployeeDashboard({ navigation }) {
         {/* Profile incomplete stepper banner */}
         {!profileCompletion.isCompleted && (
           <LinearGradient
-            colors={["#fff7ed", "#ffedd5"]}
+            colors={["#EFF6FF", "#DBEAFE"]}
             style={styles.incompleteBanner}
           >
             <View style={styles.bannerRow}>
-              <Ionicons name="alert-circle" size={18} color="#ea580c" />
+              <Ionicons name="alert-circle" size={18} color="#1268D9" />
               <View style={styles.bannerTextContainer}>
                 <Text style={styles.bannerTitle}>Complete Your Profile</Text>
                 <Text style={styles.bannerDesc}>{profileCompletion.percentage}% finished</Text>
@@ -398,9 +404,9 @@ export default function EmployeeDashboard({ navigation }) {
           </LinearGradient>
         )}
 
-        {/* ── Nextact Hero Business / Performance Score Card ───── */}
+        {/* ── Royal Blue Hero Active Shift & Productivity Card ───── */}
         <LinearGradient
-          colors={["#0F172A", "#1E293B"]}
+          colors={["#082B52", "#1268D9", "#1D7DF2"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroScoreCard}
@@ -410,12 +416,12 @@ export default function EmployeeDashboard({ navigation }) {
               <Text style={styles.heroScoreLabel}>Business & Productivity Score</Text>
               <View style={styles.heroScoreValueRow}>
                 <Text style={styles.heroScoreValue}>{productivityScoreInfo.score}%</Text>
-                <Text style={[styles.heroScoreRating, { color: productivityScoreInfo.color }]}>
+                <Text style={[styles.heroScoreRating, { color: "#E0F2FE" }]}>
                   {productivityScoreInfo.rating}
                 </Text>
-                <View style={[styles.heroBadge, { backgroundColor: productivityScoreInfo.badgeBg }]}>
-                  <Ionicons name={productivityScoreInfo.trendIcon} size={12} color={productivityScoreInfo.color} />
-                  <Text style={[styles.heroBadgeText, { color: productivityScoreInfo.color }]}>
+                <View style={[styles.heroBadge, { backgroundColor: "rgba(255, 255, 255, 0.2)" }]}>
+                  <Ionicons name={productivityScoreInfo.trendIcon} size={12} color="#FFFFFF" />
+                  <Text style={[styles.heroBadgeText, { color: "#FFFFFF" }]}>
                     {productivityScoreInfo.trendText}
                   </Text>
                 </View>
@@ -426,13 +432,10 @@ export default function EmployeeDashboard({ navigation }) {
               onPress={() => navigation.navigate("CheckInCheckOut")}
               activeOpacity={0.85}
             >
-              <LinearGradient
-                colors={isCurrentlyPunchedIn ? ["#EF4444", "#DC2626"] : ["#F97316", "#EA580C"]}
-                style={styles.heroPunchGradient}
-              >
-                <Ionicons name={isCurrentlyPunchedIn ? "log-out" : "finger-print"} size={16} color="#FFFFFF" style={{ marginRight: 4 }} />
-                <Text style={styles.heroPunchText}>{isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}</Text>
-              </LinearGradient>
+              <View style={styles.heroPunchWhiteBtn}>
+                <Ionicons name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"} size={16} color="#1268D9" style={{ marginRight: 4 }} />
+                <Text style={styles.heroPunchWhiteText}>{isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
@@ -453,7 +456,7 @@ export default function EmployeeDashboard({ navigation }) {
           </View>
         </LinearGradient>
 
-        {/* ── Today's Overview (Nextact 4-Column Grid) ────────── */}
+        {/* ── Today's Overview (Oneclick 4-Column Grid) ────────── */}
         <View style={styles.card}>
           <SectionHeader
             title="Today's Overview"
@@ -511,7 +514,7 @@ export default function EmployeeDashboard({ navigation }) {
           </View>
         </View>
 
-        {/* ── Nextact Quick Actions Grid ────────────────────── */}
+        {/* ── Oneclick Quick Actions Grid ────────────────────── */}
         <View style={styles.card}>
           <SectionHeader title="Quick Actions" icon="grid-outline" />
           <View style={styles.quickAccessGrid}>
@@ -522,16 +525,23 @@ export default function EmployeeDashboard({ navigation }) {
                   onPress={() => navigation.navigate("LeadsEngine")}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.quickIconBg, { backgroundColor: "#FFF7ED" }]}>
-                    <Ionicons name="magnet" size={20} color="#F97316" />
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="magnet" size={20} color="#1268D9" />
                   </View>
                   <Text style={styles.quickLabel}>Lead CRM</Text>
                 </TouchableOpacity>
               )}
 
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="folder-open" size={20} color="#1268D9" />
+                </View>
+                <Text style={styles.quickLabel}>Projects</Text>
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#FFF7ED" }]}>
-                  <Ionicons name="briefcase" size={20} color="#F97316" />
+                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="briefcase" size={20} color="#1268D9" />
                 </View>
                 <Text style={styles.quickLabel}>Add Task</Text>
               </TouchableOpacity>
@@ -568,11 +578,11 @@ export default function EmployeeDashboard({ navigation }) {
               icon="magnet"
               onViewAll={() => navigation.navigate("LeadsEngine")}
             />
-            
+
             {/* Quick 4 KPI Row */}
             <View style={styles.leadKpiRow}>
               <TouchableOpacity
-                style={[styles.leadKpiTile, { borderLeftColor: "#F97316" }]}
+                style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
                 onPress={() => navigation.navigate("LeadsEngine")}
                 activeOpacity={0.75}
               >
@@ -711,8 +721,8 @@ export default function EmployeeDashboard({ navigation }) {
           <View style={styles.eventsContainer}>
             {/* Real Announcements */}
             {announcements.slice(0, 3).map((ann, idx) => (
-              <TouchableOpacity 
-                key={`ann-${idx}`} 
+              <TouchableOpacity
+                key={`ann-${idx}`}
                 style={[styles.eventCard, idx < announcements.slice(0, 3).length - 1 && styles.eventCardBorder]}
                 activeOpacity={0.75}
                 onPress={() => navigation.navigate("EmployeeAnnouncementDetails", { announcement: ann })}
@@ -737,8 +747,8 @@ export default function EmployeeDashboard({ navigation }) {
 
             {/* Real Holidays */}
             {holidays.slice(0, 3).map((holiday, idx) => (
-              <TouchableOpacity 
-                key={`hol-${idx}`} 
+              <TouchableOpacity
+                key={`hol-${idx}`}
                 style={[styles.eventCard, (idx < holidays.slice(0, 3).length - 1 || announcements.length > 0) && styles.eventCardBorder]}
                 activeOpacity={0.75}
                 onPress={() => navigation.navigate("EmployeeHolidayDetails", { holiday })}
@@ -930,7 +940,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     lineHeight: 34,
   },
-  // ── Nextact Hero Business Score Card Styles ──────────────
+  // ── Oneclick Hero Business Score Card Styles ──────────────
   heroScoreCard: {
     marginHorizontal: 12,
     marginTop: 10,
@@ -988,8 +998,27 @@ const styles = StyleSheet.create({
     color: "#10B981",
   },
   heroPunchBtn: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: "hidden",
+  },
+  heroPunchWhiteBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 14,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  heroPunchWhiteText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0B57D0",
+    fontWeight: "700",
   },
   heroPunchGradient: {
     flexDirection: "row",
@@ -1030,10 +1059,10 @@ const styles = StyleSheet.create({
   sparklineTarget: {
     fontSize: 10,
     fontFamily: FONTS.bodySemiBold,
-    color: "#F97316",
+    color: "#1268D9",
   },
 
-  // ── Nextact Overview Grid Styles ──────────────────────────
+  // ── Oneclick Overview Grid Styles ──────────────────────────
   overviewGrid: {
     flexDirection: "row",
     gap: 8,
@@ -1368,9 +1397,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#FFF7ED",
+    backgroundColor: "#EFF6FF",
     borderWidth: 1,
-    borderColor: "#FFEDD5",
+    borderColor: "#DBEAFE",
     alignItems: "center",
     justifyContent: "center",
     marginRight: 8,
@@ -1378,7 +1407,7 @@ const styles = StyleSheet.create({
   recentLeadAvatarText: {
     fontSize: 10,
     fontFamily: FONTS.headerBold,
-    color: "#F97316",
+    color: "#1268D9",
   },
   recentLeadMeta: {
     flex: 1,
@@ -1416,11 +1445,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
     paddingVertical: 9,
     borderRadius: 8,
     marginTop: 10,
-    ...SHADOWS.primary,
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   openLeadsPipelineText: {
     color: "#FFFFFF",

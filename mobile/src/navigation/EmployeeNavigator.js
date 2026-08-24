@@ -70,24 +70,25 @@ const EmployeeBottomTabs = () => {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: "#C2410C",
-        tabBarInactiveTintColor: "#64748b",
+        tabBarActiveTintColor: "#1268D9",
+        tabBarInactiveTintColor: "#64748B",
         tabBarStyle: {
-          height: (Platform.OS === "ios" ? 88 : 68) + insets.bottom,
-          paddingBottom: (Platform.OS === "ios" ? 30 : 12) + insets.bottom,
-          paddingTop: 8,
-          backgroundColor: "#ffffff",
+          height: (Platform.OS === "ios" ? 88 : 64) + insets.bottom,
+          paddingBottom: (Platform.OS === "ios" ? 28 : 10) + insets.bottom,
+          paddingTop: 6,
+          backgroundColor: "#FFFFFF",
           borderTopWidth: 1,
-          borderTopColor: "#e2e8f0",
-          elevation: 8,
-          shadowColor: "#000",
-          shadowOpacity: 0.06,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: -2 },
+          borderTopColor: "#E2E8F0",
+          elevation: 10,
+          shadowColor: "#0F172A",
+          shadowOpacity: 0.08,
+          shadowRadius: 8,
+          shadowOffset: { width: 0, height: -3 },
         },
         tabBarLabelStyle: {
           fontSize: 10.5,
           fontFamily: FONTS.bodyMedium,
+          marginTop: 2,
         },
         tabBarIcon: ({ color, size, focused }) => {
           let iconName;
@@ -215,6 +216,7 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="EmployeeTaskDetails" component={EmployeeTaskDetailsScreen} />
       <Stack.Screen name="EmployeeCreateTask" component={EmployeeCreateTaskScreen} />
       <Stack.Screen name="Projects" component={MyProjectsScreen} />
+      <Stack.Screen name="MyProjects" component={MyProjectsScreen} />
       <Stack.Screen name="EmployeeProjectDetails" component={EmployeeProjectDetailsScreen} />
       <Stack.Screen name="EmployeeProjectTasks" component={EmployeeProjectTasksScreen} />
       <Stack.Screen name="EmployeeProjectActivity" component={EmployeeProjectActivityScreen} />
@@ -245,22 +247,24 @@ const EmployeeNavigator = () => {
 
 const styles = StyleSheet.create({
   customTabButtonContainer: {
-    top: -12,
+    top: -16,
     justifyContent: "center",
     alignItems: "center",
   },
   customTabButton: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: "#C2410C",
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1268D9",
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#C2410C",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
 

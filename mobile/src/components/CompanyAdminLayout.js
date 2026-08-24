@@ -202,9 +202,11 @@ const CompanyAdminLayout = ({
         case "Dashboard":
           return "ManagerDashboard";
         case "TaskBoard":
-          return "ManagerTaskBoard";
+        case "ManagerTaskBoard":
+          return "ManagerTasks";
         case "CompanyAttendance":
-          return "ManagerAttendance";
+        case "Attendance":
+          return "ManagerTeamAttendance";
         case "CompanyProfile":
           return "ManagerProfile";
         case "CompanyAnnouncements":
@@ -236,7 +238,7 @@ const CompanyAdminLayout = ({
     if (screenName === "CompanyDashboard" && typeof onResetDashboard === "function") {
       try {
         onResetDashboard();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     if (screenName === "LeadsEngine") {
@@ -291,7 +293,7 @@ const CompanyAdminLayout = ({
           }
           return;
         }
-      } catch (_) {}
+      } catch (_) { }
 
       navigation.navigate("LeadsEngine", { screen: targetScreen, params: targetParams });
       return;
@@ -358,7 +360,7 @@ const CompanyAdminLayout = ({
           return;
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       navigation.navigate(target, params);
@@ -378,13 +380,13 @@ const CompanyAdminLayout = ({
 
   const userRole = (user?.role || "").toLowerCase();
   const isCompanyAdmin = userRole === "companyadmin" || userRole === "superadmin" || userRole === "admin";
-  const hideBottomNav = propHideBottomNav !== undefined 
-    ? propHideBottomNav 
-    : (!isCompanyAdmin || HIDE_BOTTOM_NAV_SCREENS.includes(currentRouteName));
+  const hideBottomNav = propHideBottomNav !== undefined
+    ? propHideBottomNav
+    : HIDE_BOTTOM_NAV_SCREENS.includes(currentRouteName);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       {/* Top Header Bar */}
       <View
@@ -393,7 +395,7 @@ const CompanyAdminLayout = ({
           {
             height: 60 + insets.top,
             paddingTop: insets.top,
-            backgroundColor: headerBg || "#0F172A",
+            backgroundColor: headerBg || "#FFFFFF",
           },
           headerStyle,
         ]}
@@ -411,7 +413,7 @@ const CompanyAdminLayout = ({
               style={styles.menuBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -419,16 +421,16 @@ const CompanyAdminLayout = ({
               style={styles.menuBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="menu-outline" size={26} color="#FFFFFF" />
+              <Ionicons name="menu-outline" size={26} color="#0F172A" />
             </TouchableOpacity>
           )}
 
           <View style={styles.titleBlock}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {headerTitle || user?.companyName || "One Click Business HRMS"}
+              {headerTitle || "Dashboard"}
             </Text>
             <Text style={styles.companySubtitle} numberOfLines={1}>
-              {user?.role === "CompanyAdmin" ? "Company Administration" : "HR Operations Hub"}
+              {user?.companyName || "Oneclick"}
             </Text>
           </View>
         </View>
@@ -442,7 +444,7 @@ const CompanyAdminLayout = ({
               style={styles.headerActionBtn}
               activeOpacity={0.7}
             >
-              <Ionicons name="search-outline" size={22} color="#FFFFFF" />
+              <Ionicons name="search-outline" size={22} color="#0F172A" />
             </TouchableOpacity>
           )}
 
@@ -451,7 +453,7 @@ const CompanyAdminLayout = ({
             style={styles.bellBtn}
             activeOpacity={0.7}
           >
-            <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+            <Ionicons name="notifications-outline" size={24} color="#0F172A" />
             {unreadNotifications > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
@@ -503,12 +505,12 @@ const CompanyAdminLayout = ({
       {/* Main Body Content */}
       <View style={styles.content}>{children}</View>
 
-      {/* Dark Navy Bottom Navigation Bar (Matches Manager Portal Design) */}
+      {/* Clean White Bottom Navigation Bar with Blue Center FAB */}
       {!hideBottomNav && (
         <View
           style={[
             styles.bottomNavContainer,
-            { height: 60 + insets.bottom, paddingBottom: insets.bottom },
+            { height: 62 + insets.bottom, paddingBottom: insets.bottom },
           ]}
         >
           {ADMIN_NAV_ITEMS.map((item) => {
@@ -537,7 +539,7 @@ const CompanyAdminLayout = ({
                   <Ionicons
                     name={isActive ? item.activeIcon : item.icon}
                     size={22}
-                    color={isActive ? COLORS.primary : "#64748B"}
+                    color={isActive ? "#1268D9" : "#64748B"}
                   />
                 </View>
                 <Text style={[styles.bottomNavText, isActive && styles.bottomNavTextActive]}>
@@ -570,8 +572,8 @@ const CompanyAdminLayout = ({
               onPress={() => handleQuickNav("LeadsEngine", { screen: "LeadsList", params: { openAddModal: true } })}
               activeOpacity={0.8}
             >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#FFF7ED" }]}>
-                <Ionicons name="person-add-outline" size={20} color={COLORS.primary} />
+              <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
+                <Ionicons name="person-add-outline" size={20} color="#1268D9" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionText}>Add New Lead</Text>
@@ -586,7 +588,7 @@ const CompanyAdminLayout = ({
               activeOpacity={0.8}
             >
               <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="people-outline" size={20} color="#2563EB" />
+                <Ionicons name="people-outline" size={20} color="#1268D9" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionText}>Add New Employee</Text>
@@ -601,7 +603,7 @@ const CompanyAdminLayout = ({
               activeOpacity={0.8}
             >
               <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="checkbox-outline" size={20} color="#2563EB" />
+                <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionText}>Create New Task</Text>
@@ -657,18 +659,22 @@ const CompanyAdminLayout = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FB",
   },
   header: {
-    backgroundColor: COLORS.darkNavy,
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "#334155",
-    ...SHADOWS.sm,
+    borderBottomColor: "#F1F5F9",
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerLeft: {
     flexDirection: "row",
@@ -684,16 +690,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 16,
+    color: "#0F172A",
+    fontSize: 17,
     fontFamily: FONTS.displayBold,
     letterSpacing: -0.2,
   },
   companySubtitle: {
-    color: "#94A3B8",
-    fontSize: 10.5,
-    fontFamily: FONTS.bodyMedium,
-    marginTop: 1,
+    color: "#1268D9",
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    marginTop: 0.5,
   },
   headerRight: {
     flexDirection: "row",
@@ -712,7 +718,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: 2,
     right: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#EF4444",
     borderRadius: 8,
     minWidth: 16,
     height: 16,
@@ -720,7 +726,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: COLORS.darkNavy,
+    borderColor: "#FFFFFF",
   },
   badgeText: {
     color: "#FFFFFF",
@@ -728,65 +734,71 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyBold,
   },
   avatar: {
-    width: 33,
-    height: 33,
-    borderRadius: 16.5,
-    backgroundColor: COLORS.primary,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: "#E2E8F0",
     marginLeft: 6,
+    elevation: 2,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 16.5,
+    borderRadius: 18,
   },
   avatarText: {
     color: "#FFFFFF",
-    fontSize: 12,
-    fontFamily: FONTS.bodyBold,
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
   },
   searchSubHeader: {
-    backgroundColor: COLORS.darkNavy,
+    backgroundColor: "#FFFFFF",
     paddingHorizontal: 14,
     paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
   },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#1E293B",
+    backgroundColor: "#F1F5F9",
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 7,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: "#E2E8F0",
   },
   searchInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#0F172A",
     fontSize: 13,
     fontFamily: FONTS.body,
     padding: 0,
   },
   content: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FB",
   },
 
-  // Dark Navy Bottom Navigation (Matches Manager Portal Design)
+  // Clean White Bottom Navigation
   bottomNavContainer: {
     flexDirection: "row",
-    backgroundColor: "#0B132B",
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderTopColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "space-around",
     elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: -3 },
   },
   bottomNavItem: {
@@ -805,25 +817,28 @@ const styles = StyleSheet.create({
   bottomNavText: {
     fontSize: 10,
     fontFamily: FONTS.bodyMedium,
-    color: "#D0D5DB",
-    marginTop: 4,
+    color: "#64748B",
+    marginTop: 3,
   },
   bottomNavTextActive: {
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primary,
+    color: "#1268D9",
   },
   centerAddBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: COLORS.primary,
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 36,
-    shadowColor: COLORS.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    marginBottom: 28,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
   },
 
   // Modal Styles

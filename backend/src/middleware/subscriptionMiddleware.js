@@ -18,8 +18,11 @@ const Subscription = require("../models/Subscription");
  *   4. All other writes require active + paid subscription
  */
 
-// Build the full logical path from baseUrl + path
+// Build the full logical path from baseUrl + path or originalUrl
 const getFullPath = (req) => {
+  if (req.originalUrl) {
+    return req.originalUrl.replace(/^\/api/, "").split("?")[0];
+  }
   const base = req.baseUrl || "";
   const p = req.path === "/" ? "" : (req.path || "");
   return base + p;
@@ -55,6 +58,9 @@ const ALWAYS_ALLOWED = [
 
   // ── Announcement read-marks ────────────────────────────────────────────────
   (f) => /^\/company\/announcements\/[a-f0-9]{24}\/read$/.test(f),
+
+  // ── AI Intelligence Actions & Reports ──────────────────────────────────────
+  (f) => f.startsWith("/ai"),
 ];
 
 const isAlwaysAllowed = (req) => {

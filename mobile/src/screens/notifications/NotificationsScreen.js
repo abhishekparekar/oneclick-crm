@@ -132,7 +132,7 @@ const NotificationsScreen = ({ navigation }) => {
             case "lead":
             case "lead_assigned":
             case "lead_status":
-                return { icon: "magnet-outline", color: "#F97316", bg: "#FFF7ED" };
+                return { icon: "magnet-outline", color: "#1268D9", bg: "#EFF6FF" };
             case "request":
             case "company_request":
                 return { icon: "chatbubbles-outline", color: "#F59E0B", bg: "#FEF3C7" };
@@ -184,11 +184,6 @@ const NotificationsScreen = ({ navigation }) => {
         const userRole = (user?.role || "").toLowerCase();
 
         if (isEmployeeRole(user?.role) || userRole === "employee" || userRole === "staff") {
-            try {
-                await deleteNotificationApi(notif._id);
-                if (refreshEmployeeDashboard) refreshEmployeeDashboard();
-            } catch (err) { }
-
             if (type.includes("lead")) {
                 navigation.navigate("LeadsEngine");
             } else if (type.includes("request")) {
@@ -289,37 +284,48 @@ const NotificationsScreen = ({ navigation }) => {
     };
 
     let Layout;
-    if (isEmployeeRole(user?.role)) {
+    let layoutProps = { navigation, activeTab: "Notifications", showSearch: false, title: "Notifications" };
+    const uRole = (user?.role || "").toLowerCase();
+
+    if (isEmployeeRole(user?.role) || uRole === "employee" || uRole === "staff") {
         Layout = EmployeeLayout;
-    } else if (user?.role === "Manager") {
+    } else if (uRole === "manager") {
         Layout = ManagerLayout;
+        layoutProps = { navigation, activeTabOverride: "Notifications", title: "Notifications" };
+    } else if (uRole === "hr") {
+        Layout = ({ children }) => (
+            <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+                <HRHeader title="Notifications" />
+                {children}
+            </View>
+        );
     } else {
         Layout = CompanyAdminLayout;
     }
 
     return (
-        <Layout
-            navigation={navigation}
-            activeTab="Notifications"
-            showSearch={false}
-            title="Notifications"
-        >
+        <Layout {...layoutProps}>
             <View style={styles.container}>
                 {/* Header Options */}
                 <View style={styles.header}>
                     <View style={styles.headerTitleContainer}>
-                        <Text style={styles.title}>System Alerts</Text>
-                        <Text style={styles.subtitle}>Check notifications and tracking updates</Text>
+                        <Text style={styles.title}>Notifications</Text>
+                        <Text style={styles.subtitle}>Stay updated with tasks, announcements, and portal alerts</Text>
                     </View>
-                    {unreadCount > 0 && (
-                        <TouchableOpacity style={styles.markAllBtn} onPress={handleMarkAllRead} activeOpacity={0.7}>
-                            <Ionicons name="checkmark-done" size={16} color="#2563eb" />
-                            <Text style={styles.markAllText}>Mark all read</Text>
-                        </TouchableOpacity>
-                    )}
+                    <TouchableOpacity
+                        style={[styles.markAllBtn, unreadCount === 0 && styles.markAllBtnDisabled]}
+                        onPress={handleMarkAllRead}
+                        disabled={unreadCount === 0}
+                        activeOpacity={0.7}
+                    >
+                        <Ionicons name="checkmark-done" size={15} color={unreadCount > 0 ? "#1268D9" : "#94A3B8"} />
+                        <Text style={[styles.markAllText, unreadCount === 0 && styles.markAllTextDisabled]}>
+                            Mark All Read
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Filter Tabs */}
+                {/* Filter Tabs matching Web */}
                 <View style={styles.filtersWrapper}>
                     {FILTER_TABS.map((tab) => {
                         const isActive = activeFilter === tab.value;
@@ -340,13 +346,11 @@ const NotificationsScreen = ({ navigation }) => {
                                 <Text style={[styles.filterTabText, isActive && styles.filterTabTextActive]}>
                                     {tab.label}
                                 </Text>
-                                {count > 0 && (
-                                    <View style={[styles.badge, isActive ? styles.badgeActive : styles.badgeInactive]}>
-                                        <Text style={[styles.badgeText, isActive ? styles.badgeTextActive : styles.badgeTextInactive]}>
-                                            {count}
-                                        </Text>
-                                    </View>
-                                )}
+                                <View style={[styles.badge, isActive ? styles.badgeActive : styles.badgeInactive]}>
+                                    <Text style={[styles.badgeText, isActive ? styles.badgeTextActive : styles.badgeTextInactive]}>
+                                        {count}
+                                    </Text>
+                                </View>
                             </TouchableOpacity>
                         );
                     })}
@@ -357,46 +361,47 @@ const NotificationsScreen = ({ navigation }) => {
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2563eb"]} />
+                        <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} />
                     }
                 >
                     {loading && !refreshing ? (
                         <View style={styles.loaderContainer}>
-                            <ActivityIndicator size="small" color="#2563eb" />
+                            <ActivityIndicator size="small" color="#1268D9" />
                         </View>
                     ) : filteredNotifications.length === 0 ? (
                         <View style={styles.emptyContainer}>
-                            <Ionicons name="notifications-off-outline" size={44} color="#94a3b8" />
-                            <Text style={styles.emptyText}>No notifications in this folder.</Text>
+                            <View style={styles.emptyIconCircle}>
+                                <Ionicons name="notifications-outline" size={32} color="#1268D9" />
+                            </View>
+                            <Text style={styles.emptyTitle}>No notifications found</Text>
+                            <Text style={styles.emptySub}>You are all caught up!</Text>
                         </View>
                     ) : (
                         filteredNotifications.map((notif) => {
                             const { icon, color, bg } = getIconAndColor(notif.type);
+                            const isUnread = !notif.isRead;
 
                             return (
                                 <TouchableOpacity
                                     key={notif._id}
                                     onPress={() => handleNotificationTap(notif)}
                                     activeOpacity={0.8}
+                                    style={[styles.notificationCard, isUnread && styles.unreadCard]}
                                 >
-                                    <AppCard style={[styles.notificationCard, !notif.isRead && styles.unreadCard]}>
-                                        <View style={styles.cardRow}>
-                                            <View style={[styles.iconWrapper, { backgroundColor: bg }]}>
-                                                <Ionicons name={icon} size={18} color={color} />
-                                            </View>
+                                    {/* Left Accent Bar for Unread */}
+                                    {isUnread && <View style={styles.leftAccentBar} />}
 
-                                            <View style={styles.cardContent}>
-                                                <View style={styles.titleRow}>
-                                                    <Text style={styles.notifTitle} numberOfLines={1}>
-                                                        {notif.title}
-                                                    </Text>
-                                                    {!notif.isRead && (
-                                                        <View style={styles.unreadDot} />
-                                                    )}
-                                                </View>
-                                                <Text style={styles.notifMsg} numberOfLines={2}>
-                                                    {notif.body || notif.message}
+                                    <View style={styles.cardMainRow}>
+                                        <View style={[styles.iconWrapper, { backgroundColor: bg }]}>
+                                            <Ionicons name={icon} size={18} color={color} />
+                                        </View>
+
+                                        <View style={styles.cardContent}>
+                                            <View style={styles.titleRow}>
+                                                <Text style={[styles.notifTitle, isUnread && styles.notifTitleUnread]} numberOfLines={1}>
+                                                    {notif.title}
                                                 </Text>
+                                                {isUnread && <View style={styles.unreadDot} />}
                                                 <Text style={styles.notifTime}>
                                                     {new Date(notif.createdAt).toLocaleDateString(undefined, {
                                                         month: "short",
@@ -406,27 +411,32 @@ const NotificationsScreen = ({ navigation }) => {
                                                     })}
                                                 </Text>
                                             </View>
-                                        </View>
-
-                                        <View style={styles.actionsRow}>
-                                            {!notif.isRead && (
-                                                <TouchableOpacity
-                                                    style={[styles.actionBtn, styles.readBtn]}
-                                                    onPress={() => handleMarkRead(notif._id)}
-                                                >
-                                                    <Ionicons name="checkmark" size={14} color="#10b981" />
-                                                    <Text style={styles.readBtnText}>Mark read</Text>
-                                                </TouchableOpacity>
+                                            {Boolean(notif.body || notif.message) && (
+                                                <Text style={styles.notifMsg} numberOfLines={2}>
+                                                    {notif.body || notif.message}
+                                                </Text>
                                             )}
-                                            <TouchableOpacity
-                                                style={[styles.actionBtn, styles.deleteBtn]}
-                                                onPress={() => handleDelete(notif._id)}
-                                            >
-                                                <Ionicons name="trash-outline" size={14} color="#dc2626" />
-                                                <Text style={styles.deleteBtnText}>Delete</Text>
-                                            </TouchableOpacity>
                                         </View>
-                                    </AppCard>
+                                    </View>
+
+                                    <View style={styles.actionsRow}>
+                                        {isUnread && (
+                                            <TouchableOpacity
+                                                style={styles.markReadActionBtn}
+                                                onPress={() => handleMarkRead(notif._id)}
+                                            >
+                                                <Ionicons name="checkmark" size={13} color="#1268D9" />
+                                                <Text style={styles.markReadActionText}>Mark Read</Text>
+                                            </TouchableOpacity>
+                                        )}
+                                        <TouchableOpacity
+                                            style={styles.deleteActionBtn}
+                                            onPress={() => handleDelete(notif._id)}
+                                        >
+                                            <Ionicons name="trash-outline" size={13} color="#EF4444" />
+                                            <Text style={styles.deleteActionText}>Delete</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </TouchableOpacity>
                             );
                         })
@@ -468,18 +478,26 @@ const styles = StyleSheet.create({
     markAllBtn: {
         flexDirection: "row",
         alignItems: "center",
-        backgroundColor: "#eff6ff",
-        paddingHorizontal: 10,
-        paddingVertical: 6,
-        borderRadius: 8,
+        backgroundColor: "#EFF6FF",
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderRadius: 10,
         borderWidth: 1,
-        borderColor: "#bfdbfe",
+        borderColor: "#BFDBFE",
+    },
+    markAllBtnDisabled: {
+        backgroundColor: "#F1F5F9",
+        borderColor: "#E2E8F0",
+        opacity: 0.7,
     },
     markAllText: {
-        color: "#2563eb",
+        color: "#1268D9",
         fontSize: 11.5,
-        fontWeight: "700",
+        fontWeight: "800",
         marginLeft: 4,
+    },
+    markAllTextDisabled: {
+        color: "#94A3B8",
     },
     filtersWrapper: {
         flexDirection: "row",
@@ -499,7 +517,7 @@ const styles = StyleSheet.create({
         borderBottomColor: "transparent",
     },
     filterTabActive: {
-        borderBottomColor: "#F97316",
+        borderBottomColor: "#1268D9",
     },
     filterTabText: {
         fontSize: 12.5,
@@ -507,8 +525,8 @@ const styles = StyleSheet.create({
         color: "#64748b",
     },
     filterTabTextActive: {
-        color: "#F97316",
-        fontWeight: "750",
+        color: "#1268D9",
+        fontWeight: "800",
     },
     badge: {
         paddingHorizontal: 6,
@@ -520,7 +538,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
     },
     badgeActive: {
-        backgroundColor: "#FFF7ED",
+        backgroundColor: "#EFF6FF",
     },
     badgeInactive: {
         backgroundColor: "#f1f5f9",
@@ -530,13 +548,13 @@ const styles = StyleSheet.create({
         fontWeight: "800",
     },
     badgeTextActive: {
-        color: "#F97316",
+        color: "#1268D9",
     },
     badgeTextInactive: {
         color: "#64748b",
     },
     scrollContent: {
-        padding: 16,
+        padding: 14,
         paddingBottom: 40,
     },
     loaderContainer: {
@@ -546,109 +564,147 @@ const styles = StyleSheet.create({
     emptyContainer: {
         alignItems: "center",
         justifyContent: "center",
-        paddingVertical: 80,
+        paddingVertical: 60,
     },
-    emptyText: {
-        fontSize: 13.5,
-        color: "#64748b",
-        fontWeight: "600",
-        marginTop: 10,
+    emptyIconCircle: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
+        alignItems: "center",
+        justifyContent: "center",
+        marginBottom: 12,
+    },
+    emptyTitle: {
+        fontSize: 15,
+        fontWeight: "800",
+        color: "#0F172A",
+    },
+    emptySub: {
+        fontSize: 12,
+        color: "#94A3B8",
+        fontWeight: "500",
+        marginTop: 4,
     },
     notificationCard: {
+        position: "relative",
         padding: 14,
-        backgroundColor: "#ffffff",
-        marginBottom: 12,
+        backgroundColor: "#FFFFFF",
+        marginBottom: 10,
         borderRadius: 14,
         borderWidth: 1,
-        borderColor: "#f1f5f9",
-        elevation: 2,
+        borderColor: "#E2E8F0",
+        elevation: 1,
         shadowColor: "#000",
         shadowOpacity: 0.02,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
+        shadowRadius: 4,
+        shadowOffset: { width: 0, height: 2 },
+        overflow: "hidden",
     },
     unreadCard: {
-        borderColor: "#FFEDD5",
-        borderWidth: 1.2,
+        backgroundColor: "#FAFCFF",
+        borderColor: "#BFDBFE",
+        borderWidth: 1,
     },
-    cardRow: {
+    leftAccentBar: {
+        position: "absolute",
+        left: 0,
+        top: 0,
+        bottom: 0,
+        width: 3.5,
+        backgroundColor: "#1268D9",
+    },
+    cardMainRow: {
         flexDirection: "row",
         alignItems: "flex-start",
     },
     iconWrapper: {
         width: 36,
         height: 36,
-        borderRadius: 18,
+        borderRadius: 10,
         alignItems: "center",
         justifyContent: "center",
-        marginRight: 12,
+        marginRight: 10,
     },
     cardContent: {
         flex: 1,
     },
     titleRow: {
         flexDirection: "row",
-        justifyContent: "space-between",
         alignItems: "center",
+        justifyContent: "space-between",
     },
     notifTitle: {
-        fontSize: 13.5,
-        fontWeight: "800",
-        color: "#1e293b",
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#334155",
         flex: 1,
+        marginRight: 6,
+    },
+    notifTitleUnread: {
+        fontWeight: "900",
+        color: "#0F172A",
     },
     unreadDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: "#F97316",
-        marginLeft: 6,
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: "#1268D9",
+        marginRight: 6,
     },
     notifMsg: {
-        fontSize: 12.5,
-        color: "#475569",
-        lineHeight: 18,
-        marginTop: 4,
+        fontSize: 12,
+        color: "#64748B",
+        lineHeight: 17,
+        marginTop: 3,
     },
     notifTime: {
-        fontSize: 10.5,
-        color: "#94a3b8",
+        fontSize: 10,
+        color: "#94A3B8",
         fontWeight: "600",
-        marginTop: 6,
     },
     actionsRow: {
         flexDirection: "row",
         justifyContent: "flex-end",
-        marginTop: 10,
-        borderTopWidth: 1,
-        borderTopColor: "#f1f5f9",
+        gap: 8,
+        marginTop: 8,
         paddingTop: 8,
+        borderTopWidth: 1,
+        borderTopColor: "#F1F5F9",
     },
-    actionBtn: {
+    markReadActionBtn: {
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: 5,
+        gap: 4,
+        paddingVertical: 4,
         paddingHorizontal: 10,
-        borderRadius: 6,
-        marginLeft: 8,
+        borderRadius: 8,
+        backgroundColor: "#EFF6FF",
+        borderWidth: 1,
+        borderColor: "#BFDBFE",
     },
-    readBtn: {
-        backgroundColor: "#ecfdf5",
-    },
-    readBtnText: {
-        color: "#10b981",
+    markReadActionText: {
+        color: "#1268D9",
         fontSize: 11,
-        fontWeight: "700",
-        marginLeft: 4,
+        fontWeight: "800",
     },
-    deleteBtn: {
-        backgroundColor: "#fef2f2",
+    deleteActionBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        backgroundColor: "#FEF2F2",
+        borderWidth: 1,
+        borderColor: "#FECACA",
     },
-    deleteBtnText: {
-        color: "#dc2626",
+    deleteActionText: {
+        color: "#EF4444",
         fontSize: 11,
-        fontWeight: "700",
-        marginLeft: 4,
+        fontWeight: "800",
     },
 });
 

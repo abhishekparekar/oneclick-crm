@@ -21,12 +21,22 @@ const SIDEBAR_SECTIONS = [
     title: "Core Dashboard",
     items: [
       { label: "Dashboard", screen: "CompanyDashboard", icon: "grid-outline", roles: ["CompanyAdmin", "HR"] },
+      { label: "Projects", screen: "ProjectList", icon: "folder-open-outline", roles: ["CompanyAdmin", "HR"] },
       { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline", roles: ["CompanyAdmin", "HR"] },
       { label: "Lead Engine CRM", screen: "LeadsEngine", targetScreen: "LeadsDashboard", icon: "magnet-outline", roles: ["CompanyAdmin", "HR"] },
       { label: "Company Attendance", screen: "CompanyAttendance", icon: "calendar-outline", roles: ["CompanyAdmin", "HR"], module: "attendance" },
       { label: "Task Board", screen: "TaskBoard", icon: "albums-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
       { label: "Company Profile", screen: "CompanyProfile", icon: "business-outline", roles: ["CompanyAdmin", "HR"] },
       { label: "Send Document", screen: "UploadDocument", icon: "document-attach-outline", roles: ["CompanyAdmin", "HR"] },
+    ]
+  },
+  {
+    title: "Projects & Work",
+    items: [
+      { label: "All Projects", screen: "ProjectList", icon: "folder-open-outline", roles: ["CompanyAdmin", "HR"] },
+      { label: "Create Project", screen: "CompanyCreateProject", icon: "add-circle-outline", roles: ["CompanyAdmin", "HR"] },
+      { label: "Task Board", screen: "TaskBoard", icon: "albums-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
+      { label: "Create Task", screen: "CompanyCreateTask", icon: "checkbox-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
     ]
   },
   {
@@ -176,17 +186,21 @@ const CompanyDrawerContent = (props) => {
     <SafeAreaView style={styles.container} edges={["bottom"]}>
       <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
-      {/* Dark Navy Hero Header */}
+      {/* Dark Obsidian Hero Header */}
       <LinearGradient
-        colors={['#0F172A', '#1E293B']}
-        style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 16) + 8 }]}
+        colors={['#071A2F', '#082B52']}
+        style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 16) + 10 }]}
       >
         <View style={styles.headerTopRow}>
-          {/* Avatar with Glow */}
+          {/* Avatar with Glow Circle */}
           <View style={styles.avatarGlow}>
-            <View style={styles.avatarCircle}>
-              <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-            </View>
+            {user?.photo ? (
+              <Image source={{ uri: user.photo }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+              </View>
+            )}
           </View>
 
           {/* User Info */}
@@ -194,7 +208,7 @@ const CompanyDrawerContent = (props) => {
             <Text style={styles.userName} numberOfLines={1}>
               {user?.name || "Company Admin"}
             </Text>
-            <Text style={styles.userRole} numberOfLines={1}>
+            <Text style={styles.userCompany} numberOfLines={1}>
               {user?.companyName || "Organization"}
             </Text>
             <View style={styles.roleBadge}>
@@ -226,7 +240,7 @@ const CompanyDrawerContent = (props) => {
                 <Ionicons
                   name={isExpanded ? "chevron-down" : "chevron-forward"}
                   size={14}
-                  color={COLORS.primary}
+                  color="#1268D9"
                 />
               </TouchableOpacity>
               
@@ -244,7 +258,7 @@ const CompanyDrawerContent = (props) => {
                     <Ionicons
                       name={item.icon}
                       size={18}
-                      color={isActive ? COLORS.primary : "#64748B"}
+                      color={isActive ? "#1268D9" : "#64748B"}
                       style={styles.menuIcon}
                     />
                     <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
@@ -274,39 +288,46 @@ const styles = StyleSheet.create({
   },
   headerGradient: {
     paddingHorizontal: 16,
-    paddingBottom: 18,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    flexDirection: "row",
-    alignItems: "center",
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     ...SHADOWS.md,
   },
-  avatarWrap: {
-    marginRight: 12,
+  headerTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarGlow: {
+    marginRight: 14,
   },
   avatarImg: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     borderWidth: 2,
-    borderColor: COLORS.primary,
+    borderColor: "#1268D9",
   },
-  avatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "#FFFFFF",
+    borderColor: "rgba(255, 255, 255, 0.4)",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarText: {
     color: "#FFFFFF",
     fontSize: 18,
     fontFamily: FONTS.displayBold,
   },
-  profileInfo: {
+  userInfo: {
     flex: 1,
   },
   userName: {
@@ -315,7 +336,7 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     letterSpacing: -0.2,
   },
-  companyName: {
+  userCompany: {
     fontFamily: FONTS.bodyMedium,
     fontSize: 11.5,
     color: "#94A3B8",
@@ -324,19 +345,19 @@ const styles = StyleSheet.create({
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    backgroundColor: "rgba(18, 104, 217, 0.2)",
     borderWidth: 1,
-    borderColor: "rgba(249, 115, 22, 0.3)",
+    borderColor: "rgba(18, 104, 217, 0.4)",
     borderRadius: 8,
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
     marginTop: 5,
     alignSelf: "flex-start",
   },
-  roleText: {
+  roleBadgeText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 9,
-    color: COLORS.primary,
+    fontSize: 9.5,
+    color: "#2F8BFF",
     letterSpacing: 0.5,
   },
   scrollContent: {
@@ -356,7 +377,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: FONTS.bodyBold,
     fontSize: 10.5,
-    color: COLORS.darkNavy,
+    color: "#475569",
     letterSpacing: 0.8,
   },
   menuItem: {
@@ -369,7 +390,7 @@ const styles = StyleSheet.create({
     position: "relative",
   },
   menuItemActive: {
-    backgroundColor: "rgba(249, 115, 22, 0.08)",
+    backgroundColor: "rgba(18, 104, 217, 0.08)",
   },
   activePillBar: {
     position: "absolute",
@@ -377,7 +398,7 @@ const styles = StyleSheet.create({
     top: 6,
     bottom: 6,
     width: 3.5,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1268D9",
     borderTopRightRadius: 2,
     borderBottomRightRadius: 2,
   },
@@ -389,11 +410,11 @@ const styles = StyleSheet.create({
   menuText: {
     fontFamily: FONTS.bodyMedium,
     fontSize: 13,
-    color: COLORS.text.muted,
+    color: "#475569",
   },
   menuTextActive: {
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primary,
+    color: "#1268D9",
   },
   logoutBtn: {
     flexDirection: "row",

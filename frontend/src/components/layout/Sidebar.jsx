@@ -2,18 +2,42 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useQuery } from "@tanstack/react-query";
 import { getCompanyProfileApi, getActiveSubscriptionApi } from "../../api/companyAdminApi";
-import { getManagerProfileApi } from "../../api/managerApi";
-import { getMyProfileApi } from "../../api/employeeApi";
 import EmployeeSidebar from "./EmployeeSidebar";
 import ManagerSidebar from "./ManagerSidebar";
 import HRSidebar from "./HRSidebar";
 import OneClickLogo from "../common/OneClickLogo";
 import {
-  LayoutDashboard, Building2, Users, Settings, LogOut, Search,
-  CalendarCheck, FileText, CalendarDays, GitBranch, Tags, MapPin, UserPlus, ShieldCheck, FileUp,
-  DollarSign, Receipt, Megaphone, ShieldAlert, BarChart2, ClipboardList, Activity,
-  Briefcase, CheckSquare, UserCircle, Hexagon, HelpCircle, ChevronDown, Leaf, Sparkles,
-  ListTodo, UsersRound, FolderKanban, UserCog, Bell, MessageSquare
+  LayoutDashboard,
+  Building2,
+  Users,
+  Settings,
+  LogOut,
+  CalendarCheck,
+  FileText,
+  CalendarDays,
+  GitBranch,
+  Tags,
+  MapPin,
+  UserPlus,
+  ShieldCheck,
+  FileUp,
+  DollarSign,
+  Receipt,
+  Megaphone,
+  BarChart2,
+  ClipboardList,
+  Activity,
+  CheckSquare,
+  Hexagon,
+  ChevronDown,
+  ChevronRight,
+  Sparkles,
+  FolderKanban,
+  Magnet,
+  Bell,
+  Clock,
+  MessageSquare,
+  BrainCircuit,
 } from "lucide-react";
 
 // ─── Company Admin nav sections — ordered by usage frequency ────────────────
@@ -33,17 +57,17 @@ const COMPANY_SECTIONS = [
   {
     title: "LEAD ENGINE & WHATSAPP",
     items: [
-      { label: "Leads", path: "/company/leads", icon: UsersRound },
+      { label: "Leads", path: "/company/leads", icon: Magnet },
       { label: "WhatsApp Automation", path: "/company/leads/automation", icon: Sparkles },
       { label: "WhatsApp Campaigns", path: "/company/leads/campaigns", icon: Megaphone },
-      { label: "Reminders", path: "/company/leads/reminders", icon: CalendarDays },
+      { label: "Reminders", path: "/company/leads/reminders", icon: Bell },
       { label: "Lead Settings", path: "/company/leads/settings", icon: Settings },
     ],
   },
   {
     title: "PROJECTS",
     items: [
-      { label: "Projects", path: "/company/projects", icon: Briefcase, module: "projects" },
+      { label: "Projects", path: "/company/projects", icon: FolderKanban, module: "projects" },
     ],
   },
   {
@@ -53,7 +77,7 @@ const COMPANY_SECTIONS = [
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
-      { label: "Shift & Rosters", path: "/company/attendance-settings", icon: CalendarDays, module: "attendance" },
+      { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },
       { label: "Payroll", path: "/company/payroll/history", icon: DollarSign, module: "payroll" },
       { label: "Salary Advances", path: "/company/payroll/advances", icon: Receipt, module: "payroll" },
       { label: "Departments", path: "/company/departments", icon: GitBranch },
@@ -63,9 +87,15 @@ const COMPANY_SECTIONS = [
   {
     title: "ORGANIZATION",
     items: [
-      { label: "Company Profile", path: "/company/profile", icon: UserCircle },
+      { label: "Company Profile", path: "/company/profile", icon: Building2 },
       { label: "Upload Document", path: "/company/upload-document", icon: FileUp },
       { label: "Announcements", path: "/company/announcements", icon: Megaphone },
+    ],
+  },
+  {
+    title: "AI INTELLIGENCE",
+    items: [
+      { label: "AI Business Dashboard", path: "/company/ai-intelligence", icon: BrainCircuit },
     ],
   },
   {
@@ -79,7 +109,7 @@ const COMPANY_SECTIONS = [
     title: "SETTINGS",
     items: [
       { label: "Settings", path: "/company/settings", icon: Settings },
-      { label: "Access & Control", path: "/company/access-control", icon: ShieldAlert },
+      { label: "Access & Control", path: "/company/access-control", icon: ShieldCheck },
       { label: "Payroll Settings", path: "/company/payroll/settings", icon: Receipt, module: "payroll" },
       { label: "Subscription", path: "/company/subscription", icon: Sparkles },
     ],
@@ -92,57 +122,8 @@ const COMPANY_SECTIONS = [
   },
 ];
 
-// ─── Super Admin nav sections ───────────────────────────────────────────────
-const SUPERADMIN_SECTIONS = [
-  {
-    title: null,
-    items: [
-      { label: "Dashboard", path: "/superadmin/dashboard", icon: LayoutDashboard },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: "Companies", path: "/superadmin/companies", icon: Building2 },
-      { label: "Company Requests", path: "/superadmin/company-requests", icon: UserPlus },
-      { label: "Company Admins", path: "/superadmin/company-admins", icon: ShieldCheck },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: "Subscriptions", path: "/superadmin/subscriptions", icon: Receipt },
-      { label: "Plans", path: "/superadmin/plans", icon: Tags },
-      { label: "Payments", path: "/superadmin/payments", icon: DollarSign },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: "Global Users", path: "/superadmin/users", icon: Users },
-      { label: "Announcements", path: "/superadmin/announcements", icon: Megaphone },
-      { label: "Support Tickets", path: "/superadmin/support-tickets", icon: ShieldAlert },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: "Reports & Analytics", path: "/superadmin/reports", icon: BarChart2 },
-      { label: "Activity Logs", path: "/superadmin/activity-logs", icon: ClipboardList },
-      { label: "System Settings", path: "/superadmin/settings", icon: Settings },
-    ],
-  },
-  {
-    title: null,
-    items: [
-      { label: "Profile", path: "/superadmin/profile", icon: UserCircle },
-      { label: "Logout", path: "/login", icon: LogOut, action: "logout" },
-    ],
-  },
-];
-
-// ─── Super Admin Sidebar (Company Admin Dark Obsidian + Amber theme) ─────────
-const SuperAdminSidebar = ({ logout, onItemClick }) => {
+// ─── Super Admin Sidebar ──────────────────────────────────────────────────
+const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
@@ -175,7 +156,7 @@ const SuperAdminSidebar = ({ logout, onItemClick }) => {
       items: [
         { label: "Global Users", path: "/superadmin/users", icon: Users },
         { label: "Announcements", path: "/superadmin/announcements", icon: Megaphone },
-        { label: "Support Tickets", path: "/superadmin/support-tickets", icon: ShieldAlert },
+        { label: "Support Tickets", path: "/superadmin/support-tickets", icon: MessageSquare },
       ],
     },
     {
@@ -189,21 +170,34 @@ const SuperAdminSidebar = ({ logout, onItemClick }) => {
   ];
 
   return (
-    <div className="ca-sidebar w-full lg:w-[228px] bg-[#090D16] text-slate-300 border-r border-white/[0.06] h-full flex flex-col flex-shrink-0 transition-colors duration-300">
-      {/* Logo — identical to Company Admin */}
-      <div className="px-3.5 py-3 flex flex-col items-center border-b border-white/[0.06] mb-1 gap-1">
-        <OneClickLogo variant="landscape" />
-        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-amber-500/80 mt-0.5">Super Admin</span>
+    <div
+      className={`ca-sidebar ${
+        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+    >
+      {/* Centered Brand Logo Header */}
+      <div className={`px-2.5 py-3 flex flex-col items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : "gap-1"}`}>
+        {isCollapsed ? (
+          <OneClickLogo variant="square" />
+        ) : (
+          <>
+            <OneClickLogo variant="landscape" />
+            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#1268D9] mt-0.5">Super Admin</span>
+          </>
+        )}
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1 oc-scroll">
+      <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
         {SUPERADMIN_NAV.map((section, idx) => (
-          <div key={idx} className="mb-1">
-            {section.title && (
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 px-2.5 pt-3 pb-1">
+          <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
+            {!isCollapsed && section.title && (
+              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
                 {section.title}
               </p>
+            )}
+            {isCollapsed && section.title && idx > 0 && (
+              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
             )}
             <div className="space-y-0.5">
               {section.items.map((item) => {
@@ -214,12 +208,25 @@ const SuperAdminSidebar = ({ logout, onItemClick }) => {
                     key={item.path}
                     to={item.path}
                     onClick={onItemClick}
-                    className={`oc-nav-item ${active ? "active" : ""}`}
+                    title={item.label}
+                    className={`${
+                      isCollapsed
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                            active
+                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                          }`
+                        : `oc-nav-item ${active ? "active" : ""}`
+                    }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <Icon size={15} strokeWidth={1.75} className={`flex-shrink-0 ${active ? "text-amber-400" : "text-slate-500"}`} />
-                      <span className="truncate text-[13px]">{item.label}</span>
-                    </div>
+                    {isCollapsed ? (
+                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                    ) : (
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Icon size={15} strokeWidth={active ? 2 : 1.75} className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+                        <span className="truncate text-[13px]">{item.label}</span>
+                      </div>
+                    )}
                   </Link>
                 );
               })}
@@ -229,44 +236,64 @@ const SuperAdminSidebar = ({ logout, onItemClick }) => {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] space-y-1.5">
-        <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-white/[0.04] text-[12px] font-semibold text-slate-300 cursor-pointer hover:bg-white/[0.06] transition-all">
-          <div className="flex items-center gap-2 truncate min-w-0">
-            <Hexagon size={13} strokeWidth={1.75} className="text-amber-400 flex-shrink-0" />
-            <span className="truncate">One Click Platform</span>
-          </div>
-        </div>
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
-          <Link
-            to="/superadmin/profile"
-            onClick={onItemClick}
-            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
-            title="View Super Admin Profile"
-          >
-            <div className="relative flex-shrink-0">
-              <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-bold text-[11px] shadow-xs">
-                SA
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "px-3 pb-3 pt-2 space-y-1.5"}`}>
+        {!isCollapsed ? (
+          <>
+            <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-[#061225] text-[12px] font-semibold text-slate-300 cursor-pointer hover:bg-white/[0.06] transition-all">
+              <div className="flex items-center gap-2 truncate min-w-0">
+                <Hexagon size={13} strokeWidth={1.75} className="text-[#1268D9] flex-shrink-0" />
+                <span className="truncate">One Click Platform</span>
               </div>
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
             </div>
-            <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-amber-400 transition-colors">Super Admin</p>
-              <p className="text-[10px] text-slate-500 leading-tight">Platform Root</p>
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
+              <Link
+                to="/superadmin/profile"
+                onClick={onItemClick}
+                className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
+                title="View Super Admin Profile"
+              >
+                <div className="relative flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs">
+                    SA
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">Super Admin</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">Platform Root</p>
+                </div>
+              </Link>
+              <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
+                <LogOut size={13} strokeWidth={1.75} />
+              </button>
             </div>
-          </Link>
-          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
-            <LogOut size={13} strokeWidth={1.75} />
-          </button>
-        </div>
+          </>
+        ) : (
+          <>
+            <Link
+              to="/superadmin/profile"
+              onClick={onItemClick}
+              title="Super Admin Profile"
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs"
+            >
+              SA
+            </Link>
+            <button
+              onClick={logout}
+              title="Log Out"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+            >
+              <LogOut size={16} strokeWidth={1.75} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
-
-
-// ─── Company Admin Sidebar (ONE CLICK obsidian theme) ────────────────────
-const CompanyAdminSidebar = ({ logout, onItemClick }) => {
+// ─── Company Admin Sidebar ────────────────────────────────────────────────
+const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
   const { user } = useAuth();
 
@@ -285,7 +312,7 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
   const subscription = subData?.subscription;
   const planModules = subscription?.planId?.modules || [];
   const companyName = profileData?.company?.companyName || profileData?.company?.name || "One Click Solutions";
-  const userName = user?.name || "Rameshwar Shinde";
+  const userName = user?.name || "Company Admin";
 
   const isActive = (path) => {
     if (path === "/company/leads") return location.pathname === "/company/leads";
@@ -293,14 +320,22 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
   };
 
   return (
-    <div className="ca-sidebar w-full lg:w-[228px] bg-[#090D16] text-slate-300 border-r border-white/[0.06] h-full flex flex-col flex-shrink-0 transition-colors duration-300">
+    <div
+      className={`ca-sidebar ${
+        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+    >
       {/* Centered Brand Logo Header */}
-      <div className="px-3.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1">
-        <OneClickLogo variant="landscape" />
+      <div className={`px-2.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : ""}`}>
+        {isCollapsed ? (
+          <OneClickLogo variant="square" />
+        ) : (
+          <OneClickLogo variant="landscape" />
+        )}
       </div>
 
       {/* Navigation Links */}
-      <nav className="flex-1 overflow-y-auto px-3 py-1 oc-scroll">
+      <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
         {COMPANY_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
@@ -311,11 +346,18 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={idx} className="mb-1">
-              {section.title && (
-                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-600 px-2.5 pt-3 pb-1">
-                  {section.title}
+            <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
+              {!isCollapsed && section.title && (
+                <p className={`text-[9px] font-bold uppercase tracking-[0.12em] px-2.5 pt-3 pb-1 ${
+                  section.title === "AI INTELLIGENCE"
+                    ? "text-violet-400"
+                    : "text-slate-500"
+                }`}>
+                  {section.title === "AI INTELLIGENCE" ? "✦ " : ""}{section.title}
                 </p>
+              )}
+              {isCollapsed && section.title && idx > 0 && (
+                <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
               )}
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
@@ -326,12 +368,29 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
                       key={item.path}
                       to={item.path}
                       onClick={onItemClick}
-                      className={`oc-nav-item ${active ? "active" : ""}`}
+                      title={item.label}
+                      className={`${
+                        isCollapsed
+                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                              active
+                                ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                                : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                            }`
+                          : `oc-nav-item ${active ? "active" : ""}`
+                      }`}
                     >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon size={15} strokeWidth={1.75} className={`flex-shrink-0 ${active ? "text-amber-400" : "text-slate-500"}`} />
-                        <span className="truncate text-[13px]">{item.label}</span>
-                      </div>
+                      {isCollapsed ? (
+                        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                      ) : (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon
+                            size={15}
+                            strokeWidth={active ? 2 : 1.75}
+                            className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`}
+                          />
+                          <span className="truncate text-[13px]">{item.label}</span>
+                        </div>
+                      )}
                     </Link>
                   );
                 })}
@@ -342,85 +401,107 @@ const CompanyAdminSidebar = ({ logout, onItemClick }) => {
       </nav>
 
       {/* Footer */}
-      <div className="px-3 pb-3 pt-2 border-t border-white/[0.06] space-y-1.5">
-        {/* Company */}
-        <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-white/[0.04] text-[12px] font-semibold text-slate-300 cursor-pointer hover:bg-white/[0.06] transition-all">
-          <div className="flex items-center gap-2 truncate min-w-0">
-            <Hexagon size={13} strokeWidth={1.75} className="text-amber-400 flex-shrink-0" />
-            <span className="truncate">{companyName}</span>
-          </div>
-          <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
-        </div>
-
-        {/* User Profile Card */}
-        <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
-          <Link
-            to="/company/profile"
-            onClick={onItemClick}
-            className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
-            title="View Company Admin Profile"
-          >
-            <div className="relative flex-shrink-0">
-              {(() => {
-                const rawAvatar = user?.profileImage || user?.photo || user?.avatar || user?.profilePicture;
-                let avatarUrl = null;
-                if (rawAvatar && typeof rawAvatar === "string") {
-                  const trimmed = rawAvatar.trim();
-                  if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
-                    avatarUrl = trimmed;
-                  } else {
-                    const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
-                    const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
-                    avatarUrl = `${base}/${cleanPath}`;
-                  }
-                }
-
-                return avatarUrl ? (
-                  <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-2xs border border-slate-700" />
-                ) : (
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-slate-950 font-black text-[11px] shadow-2xs">
-                    {(userName || "A").slice(0, 2).toUpperCase()}
-                  </div>
-                );
-              })()}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "px-3 pb-3 pt-2 space-y-1.5"}`}>
+        {!isCollapsed ? (
+          <>
+            {/* Company */}
+            <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-[#061225] text-[12px] font-semibold text-slate-300 cursor-pointer hover:bg-white/[0.06] transition-all">
+              <div className="flex items-center gap-2 truncate min-w-0">
+                <Hexagon size={13} strokeWidth={1.75} className="text-[#1268D9] flex-shrink-0" />
+                <span className="truncate">{companyName}</span>
+              </div>
+              <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
             </div>
-            <div className="min-w-0">
-              <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-amber-400 transition-colors">{userName}</p>
-              <p className="text-[10px] text-slate-500 leading-tight">Company Admin</p>
+
+            {/* User Profile Card */}
+            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all group">
+              <Link
+                to="/company/profile"
+                onClick={onItemClick}
+                className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
+                title="View Company Admin Profile"
+              >
+                <div className="relative flex-shrink-0">
+                  {(() => {
+                    const rawAvatar = user?.profileImage || user?.photo || user?.avatar || user?.profilePicture;
+                    let avatarUrl = null;
+                    if (rawAvatar && typeof rawAvatar === "string") {
+                      const trimmed = rawAvatar.trim();
+                      if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
+                        avatarUrl = trimmed;
+                      } else {
+                        const cleanPath = trimmed.startsWith("/") ? trimmed.slice(1) : trimmed;
+                        const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/api\/?$/, "");
+                        avatarUrl = `${base}/${cleanPath}`;
+                      }
+                    }
+
+                    return avatarUrl ? (
+                      <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-2xs border border-slate-700" />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-black text-[11px] shadow-2xs">
+                        {(userName || "A").slice(0, 2).toUpperCase()}
+                      </div>
+                    );
+                  })()}
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">{userName}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">Company Admin</p>
+                </div>
+              </Link>
+              <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
+                <LogOut size={13} strokeWidth={1.75} />
+              </button>
             </div>
-          </Link>
-          <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
-            <LogOut size={13} strokeWidth={1.75} />
-          </button>
-        </div>
+          </>
+        ) : (
+          <>
+            <Link
+              to="/company/profile"
+              onClick={onItemClick}
+              title={userName}
+              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-black text-[11px] shadow-xs"
+            >
+              {(userName || "A").slice(0, 2).toUpperCase()}
+            </Link>
+            <button
+              onClick={logout}
+              title="Log Out"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
+            >
+              <LogOut size={16} strokeWidth={1.75} />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
 // ─── Main Sidebar (role router) ─────────────────────────────────────────────
-const Sidebar = ({ onItemClick }) => {
+const Sidebar = ({ onItemClick, isCollapsed = false }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
   if (user?.role === "SuperAdmin" || location.pathname.startsWith("/superadmin")) {
-    return <SuperAdminSidebar logout={logout} onItemClick={onItemClick} />;
+    return <SuperAdminSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
   }
 
   if (user?.role === "Manager" || location.pathname.startsWith("/manager")) {
-    return <ManagerSidebar logout={logout} onItemClick={onItemClick} />;
+    return <ManagerSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
   }
 
   if (user?.role === "Employee" || location.pathname.startsWith("/employee")) {
-    return <EmployeeSidebar logout={logout} onItemClick={onItemClick} />;
+    return <EmployeeSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
   }
 
   if (user?.role === "HR" || location.pathname.startsWith("/hr")) {
-    return <HRSidebar logout={logout} onItemClick={onItemClick} />;
+    return <HRSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
   }
 
-  return <CompanyAdminSidebar logout={logout} onItemClick={onItemClick} />;
+  return <CompanyAdminSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
 };
 
 export default Sidebar;

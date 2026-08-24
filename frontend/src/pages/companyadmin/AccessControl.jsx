@@ -40,7 +40,7 @@ const Toggle = ({ checked, onChange }) => (
     type="button"
     onClick={onChange}
     className={`relative inline-flex h-4 w-7.5 items-center rounded-full transition-colors duration-150 focus:outline-none flex-shrink-0 cursor-pointer ${
-      checked ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-700"
+      checked ? "bg-[#1268D9]" : "bg-slate-300 dark:bg-slate-700"
     }`}
   >
     <span
@@ -55,10 +55,10 @@ const Toggle = ({ checked, onChange }) => (
 const PermItem = ({ label, checked, onChange }) => (
   <div
     onClick={onChange}
-    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer select-none ${
+    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer select-none ${
       checked
-        ? "bg-amber-500/8 dark:bg-amber-950/20 border-amber-500/30 text-slate-900 dark:text-white font-bold"
-        : "bg-white dark:bg-[#111C24] border-slate-200/80 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700"
+        ? "bg-[#1268D9]/10 dark:bg-[#1268D9]/20 border-[#1268D9]/40 text-slate-900 dark:text-white font-bold shadow-2xs"
+        : "bg-white dark:bg-[#071A2F]/80 border-slate-200/80 dark:border-[#1C3554] text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700"
     }`}
   >
     <span className="text-xs truncate">{label}</span>
@@ -645,16 +645,16 @@ const AccessControl = () => {
               <button
                 key={tab.id}
                 onClick={() => setRoleTab(tab.id)}
-                className={`px-2.5 py-1 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                className={`px-3 py-1 rounded-xl text-[11px] font-extrabold uppercase tracking-wide transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
                   roleTab === tab.id
-                    ? "bg-amber-500 text-slate-950 shadow-2xs"
+                    ? "bg-[#1268D9] text-white shadow-xs"
                     : tab.highlight
-                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20"
+                    ? "bg-[#1268D9]/10 text-[#1268D9] dark:text-[#2F8BFF] hover:bg-[#1268D9]/20"
                     : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
                 }`}
               >
                 <span>{tab.label}</span>
-                <span className={`px-1 py-0.2 rounded text-[9.5px] ${roleTab === tab.id ? "bg-slate-950/20 text-slate-950 font-black" : "bg-slate-100 dark:bg-slate-800 text-slate-400"}`}>
+                <span className={`px-1.5 py-0.2 rounded-md text-[9.5px] font-black ${roleTab === tab.id ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-400"}`}>
                   {tab.count}
                 </span>
               </button>
@@ -802,9 +802,9 @@ const AccessControl = () => {
                       <td className="px-4 py-2.5 text-center">
                         <button
                           onClick={() => handleEditClick(mgr)}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-[11px] font-extrabold transition-all shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-[11px] font-extrabold transition-all shadow-2xs shadow-[#1268D9]/20 cursor-pointer"
                         >
-                          <Lock size={11} />
+                          <Lock size={12} />
                           <span>Configure</span>
                         </button>
                       </td>
@@ -825,75 +825,75 @@ const AccessControl = () => {
         )}
       </div>
 
-      {/* ── Right-Side Ultra-Compact Permission Studio Drawer ───────────────── */}
+      {/* ── Centered Permission Studio Modal Popup ─────────────────────────── */}
       {selectedManager && (
-        <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 animate-fadeIn">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity"
+            className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
             onClick={() => setSelectedManager(null)}
           />
 
-          {/* Drawer Body */}
+          {/* Modal Popup Body */}
           <div
-            className="relative h-full w-full max-w-[540px] bg-slate-50 dark:bg-[#0B111E] shadow-2xl flex flex-col border-l border-slate-200 dark:border-slate-800 animate-slideLeft"
+            className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#0D1B2E] rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-[#1C3554] overflow-hidden z-10 animate-scaleUp"
           >
-            {/* ── 1. Unified Executive Header Bar ── */}
-            <div className="flex-shrink-0 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800 px-4 py-2.5">
+            {/* ── 1. Executive Header Bar ── */}
+            <div className="flex-shrink-0 bg-slate-50/80 dark:bg-[#071A2F] border-b border-slate-200/80 dark:border-[#1C3554] px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shadow-2xs flex-shrink-0 border ${avatarColor(selectedManager.fullName || "")}`}>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black shadow-2xs flex-shrink-0 border ${avatarColor(selectedManager.fullName || "")}`}>
                     {(selectedManager.fullName || selectedManager.firstName || "?").charAt(0).toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <p className="font-black text-slate-900 dark:text-white text-xs leading-tight truncate">
+                    <div className="flex items-center gap-2">
+                      <p className="font-black text-slate-900 dark:text-white text-sm leading-tight truncate">
                         {selectedManager.fullName || `${selectedManager.firstName || ""} ${selectedManager.lastName || ""}`.trim() || selectedManager.name || "Employee"}
                       </p>
                       <span className={`inline-flex px-1.5 py-0.2 rounded text-[9.5px] font-extrabold border shrink-0 ${roleStyle(selectedManager.role || "Employee").bg}`}>
                         {roleStyle(selectedManager.role || "Employee").label}
                       </span>
                     </div>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.2 truncate">
+                    <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
                       {selectedManager.employeeCode || "EMP"} · {selectedManager.departmentId?.name || "General"}
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-[10px] font-mono font-black px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                  <span className="text-[11px] font-mono font-black px-2.5 py-0.5 rounded-lg bg-[#1268D9]/10 text-[#1268D9] dark:text-[#2F8BFF] border border-[#1268D9]/20">
                     {drawerActiveCount}/{drawerTotalCount} Active
                   </span>
                   <button
                     onClick={() => setSelectedManager(null)}
-                    className="p-1 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors cursor-pointer"
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-colors cursor-pointer"
                   >
-                    <X size={15} />
+                    <X size={16} />
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* ── 2. Unified Controls Strip (Scope & Presets) ── */}
-            <div className="flex-shrink-0 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800 p-2.5 space-y-2">
+            {/* ── 2. Controls Strip (Scope & Presets & Search) ── */}
+            <div className="flex-shrink-0 bg-white dark:bg-[#071A2F]/60 border-b border-slate-200/80 dark:border-[#1C3554] p-3 space-y-2.5">
               
               {/* Row 1: Scope & Presets */}
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 {/* Scope segmented selector */}
-                <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-0.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#050F1F] p-0.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554]">
                   {[
                     { key: "team", label: "Team" },
-                    { key: "department", label: "Depts" },
-                    { key: "company", label: "All Org" },
+                    { key: "department", label: "Departments" },
+                    { key: "company", label: "Whole Org" },
                   ].map(s => (
                     <button
                       key={s.key}
                       type="button"
                       onClick={() => setTempAccessLevel(s.key)}
-                      className={`px-2.5 py-1 rounded-md text-[10.5px] font-extrabold transition-all cursor-pointer ${
+                      className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
                         tempAccessLevel === s.key
-                          ? "bg-white dark:bg-[#111C24] text-amber-700 dark:text-amber-400 shadow-2xs font-black"
-                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900"
+                          ? "bg-[#1268D9] text-white shadow-xs font-black"
+                          : "text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                       }`}
                     >
                       {s.label}
@@ -902,7 +902,8 @@ const AccessControl = () => {
                 </div>
 
                 {/* Presets pills */}
-                <div className="flex items-center gap-1 overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                  <span className="text-[10px] font-black uppercase text-slate-400">Presets:</span>
                   {[
                     { type: "admin", label: "Admin" },
                     { type: "hr", label: "HR" },
@@ -914,10 +915,10 @@ const AccessControl = () => {
                       key={p.type}
                       type="button"
                       onClick={() => applyPreset(p.type)}
-                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold transition-all cursor-pointer ${
+                      className={`px-2.5 py-0.5 rounded-lg text-[10.5px] font-extrabold transition-all cursor-pointer ${
                         p.danger
-                          ? "text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                          : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-amber-500/10 hover:text-amber-600"
+                          ? "text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 border border-rose-200 dark:border-rose-900"
+                          : "bg-slate-100 dark:bg-[#050F1F] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#1C3554] hover:bg-[#1268D9]/10 hover:text-[#1268D9]"
                       }`}
                     >
                       {p.label}
@@ -928,21 +929,21 @@ const AccessControl = () => {
 
               {/* Department chips when scope is department */}
               {tempAccessLevel === "department" && (
-                <div className="pt-1.5 border-t border-slate-100 dark:border-slate-800/60">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9.5px] font-bold text-slate-400">Accessible Departments:</span>
+                <div className="pt-2 border-t border-slate-100 dark:border-[#1C3554]/60">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-bold text-slate-400">Accessible Departments:</span>
                     <button
                       type="button"
                       onClick={() => {
                         if (tempDepts.length === departments.length) setTempDepts([]);
                         else setTempDepts(departments.map(d => d._id));
                       }}
-                      className="text-[9.5px] font-extrabold text-amber-600 hover:underline cursor-pointer"
+                      className="text-[10.5px] font-extrabold text-[#1268D9] hover:underline cursor-pointer"
                     >
                       {tempDepts.length === departments.length ? "Deselect All" : "Select All"}
                     </button>
                   </div>
-                  <div className="flex flex-wrap gap-1 max-h-16 overflow-y-auto custom-scrollbar">
+                  <div className="flex flex-wrap gap-1.5 max-h-20 overflow-y-auto custom-scrollbar">
                     {departments.map((dept) => {
                       const isSelected = tempDepts.includes(dept._id);
                       return (
@@ -950,10 +951,10 @@ const AccessControl = () => {
                           key={dept._id}
                           type="button"
                           onClick={() => handleToggleDept(dept._id)}
-                          className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all cursor-pointer ${
+                          className={`px-2.5 py-0.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
                             isSelected
-                              ? "bg-amber-500 text-slate-950 font-black shadow-2xs"
-                              : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                              ? "bg-[#1268D9] text-white font-black shadow-2xs"
+                              : "bg-slate-100 dark:bg-[#050F1F] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#1C3554]"
                           }`}
                         >
                           {dept.name || dept.departmentName}
@@ -965,35 +966,35 @@ const AccessControl = () => {
               )}
 
               {/* Row 2: Search & Global Batch Toggles */}
-              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800/60">
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-[#1C3554]/60">
                 <div className="relative flex-1">
-                  <Search size={11} className="absolute left-2.5 top-1.5 text-slate-400" />
+                  <Search size={13} className="absolute left-2.5 top-2 text-slate-400" />
                   <input
                     type="text"
                     placeholder="Filter permissions..."
                     value={drawerSearch}
                     onChange={(e) => setDrawerSearch(e.target.value)}
-                    className="w-full pl-6 pr-2 py-0.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-md text-[11px] font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-amber-500"
+                    className="w-full pl-7 pr-3 py-1 bg-slate-50 dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-[#1268D9]"
                   />
                   {drawerSearch && (
-                    <button onClick={() => setDrawerSearch("")} className="absolute right-1.5 top-1 text-slate-400 hover:text-slate-600">
-                      <X size={11} />
+                    <button onClick={() => setDrawerSearch("")} className="absolute right-2 top-1.5 text-slate-400 hover:text-slate-600">
+                      <X size={12} />
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
                     onClick={() => handleToggleAllGlobal(true)}
-                    className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-400 hover:bg-amber-500/20 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-[#1268D9]/10 text-[#1268D9] dark:text-[#2F8BFF] hover:bg-[#1268D9]/20 transition-all cursor-pointer"
                   >
                     Grant All
                   </button>
                   <button
                     type="button"
                     onClick={() => handleToggleAllGlobal(false)}
-                    className="px-2 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 transition-all cursor-pointer"
+                    className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-slate-100 dark:bg-[#050F1F] text-slate-500 dark:text-slate-400 hover:bg-slate-200 transition-all cursor-pointer"
                   >
                     Revoke All
                   </button>
@@ -1003,7 +1004,7 @@ const AccessControl = () => {
             </div>
 
             {/* ── 3. High-Density Permissions List Body ── */}
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 custom-scrollbar">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
               {permissionCategories.map((cat) => {
                 const CategoryIcon = cat.icon;
                 const activeCount = Object.values(tempPermissions[cat.key] || {}).filter(Boolean).length;
@@ -1020,17 +1021,17 @@ const AccessControl = () => {
                 if (filteredItems.length === 0) return null;
 
                 return (
-                  <div key={cat.key} className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs space-y-2">
+                  <div key={cat.key} className="bg-slate-50/50 dark:bg-[#071A2F]/40 border border-slate-200/80 dark:border-[#1C3554] rounded-2xl p-3 shadow-2xs space-y-2.5">
                     
                     {/* Category Header */}
-                    <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <div className={`w-5 h-5 rounded-md ${cat.iconBg} ${cat.iconColor} flex items-center justify-center flex-shrink-0 font-bold`}>
-                          <CategoryIcon size={12} strokeWidth={2.5} />
+                    <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100 dark:border-[#1C3554]">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-[#1268D9]/10 text-[#1268D9] flex items-center justify-center flex-shrink-0 font-bold">
+                          <CategoryIcon size={13} strokeWidth={2.5} />
                         </div>
-                        <span className="text-[11px] font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 truncate">{cat.title}</span>
-                        <span className={`text-[9.5px] font-mono font-black px-1.5 py-0.2 rounded-md ${
-                          isAll ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : activeCount > 0 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400" : "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 truncate">{cat.title}</span>
+                        <span className={`text-[10px] font-mono font-black px-2 py-0.2 rounded-md ${
+                          isAll ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400" : activeCount > 0 ? "bg-[#1268D9]/10 text-[#1268D9] dark:text-[#2F8BFF]" : "bg-slate-100 dark:bg-[#050F1F] text-slate-400"
                         }`}>
                           {activeCount}/{totalCount}
                         </span>
@@ -1039,18 +1040,18 @@ const AccessControl = () => {
                       <button
                         type="button"
                         onClick={() => handleToggleCategory(cat.key, !isAll)}
-                        className={`text-[9.5px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded transition-all cursor-pointer ${
+                        className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded transition-all cursor-pointer ${
                           isAll
                             ? "text-slate-400 hover:text-slate-600"
-                            : "text-amber-600 dark:text-amber-400 hover:underline"
+                            : "text-[#1268D9] dark:text-[#2F8BFF] hover:underline"
                         }`}
                       >
                         {isAll ? "Revoke" : "Grant All"}
                       </button>
                     </div>
 
-                    {/* Compact 2-Column Grid of Permissions */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                    {/* 2-Column Grid of Permissions */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {filteredItems.map((item) => (
                         <PermItem
                           key={item.key}
@@ -1067,16 +1068,16 @@ const AccessControl = () => {
             </div>
 
             {/* ── 4. Sticky Action Footer ── */}
-            <div className="flex-shrink-0 px-4 py-2.5 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] flex items-center justify-between gap-2.5 shadow-lg">
-              <div className="text-[10.5px] font-bold text-slate-400">
-                <span className="text-slate-700 dark:text-slate-200 font-extrabold">{drawerActiveCount}</span> of {drawerTotalCount} permissions enabled
+            <div className="flex-shrink-0 px-4 py-3 border-t border-slate-200 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F] flex items-center justify-between gap-3 shadow-lg">
+              <div className="text-xs font-bold text-slate-400">
+                <span className="text-slate-900 dark:text-white font-extrabold">{drawerActiveCount}</span> of {drawerTotalCount} permissions enabled
               </div>
 
               <div className="flex items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedManager(null)}
-                  className="px-3 py-1 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-all cursor-pointer"
+                  className="px-4 py-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1084,16 +1085,16 @@ const AccessControl = () => {
                   type="button"
                   onClick={handleSave}
                   disabled={updateAccessMutation.isPending}
-                  className="px-4 py-1 text-xs font-extrabold text-slate-950 bg-amber-500 hover:bg-amber-600 rounded-lg disabled:opacity-50 transition-all shadow-2xs flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-1.5 text-xs font-extrabold text-white bg-[#1268D9] hover:bg-[#0D50B8] rounded-xl disabled:opacity-50 transition-all shadow-md shadow-[#1268D9]/25 flex items-center gap-1.5 cursor-pointer"
                 >
                   {updateAccessMutation.isPending ? (
                     <>
-                      <RefreshCw size={12} className="animate-spin" />
+                      <RefreshCw size={13} className="animate-spin" />
                       <span>Saving...</span>
                     </>
                   ) : (
                     <>
-                      <ShieldCheck size={13} strokeWidth={2.5} />
+                      <ShieldCheck size={14} strokeWidth={2.5} />
                       <span>Save Changes</span>
                     </>
                   )}

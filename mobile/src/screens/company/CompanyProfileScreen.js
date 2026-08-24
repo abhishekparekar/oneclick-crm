@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   saveBtn: {
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
     height: 46,
   },
   disabledInputWrapper: {

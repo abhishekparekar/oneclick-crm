@@ -486,7 +486,7 @@ export default function EmployeeMyTasks() {
 
         <button
           onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+          className="flex items-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer self-start sm:self-auto"
         >
           <Plus size={14} strokeWidth={2.5} /> Create Task
         </button>
@@ -505,7 +505,7 @@ export default function EmployeeMyTasks() {
                 onClick={() => handleTabChange(tab.name)}
                 className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
                   active
-                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    ? "bg-[#1268D9] text-white border-[#1268D9] dark:bg-[#1268D9] dark:border-[#1268D9] shadow-xs ring-2 ring-[#1268D9]/20"
                     : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
                 }`}
               >
@@ -530,7 +530,7 @@ export default function EmployeeMyTasks() {
               label: "All Tasks",
               count: baseTabTasks.length,
               pillInactive: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-[#0B101B] dark:text-slate-200 dark:border-slate-700/80 hover:border-slate-300 shadow-2xs",
-              pillActive: "bg-slate-900 text-white dark:bg-amber-600 border-slate-900 shadow-xs ring-2 ring-slate-900/30",
+              pillActive: "bg-[#1268D9] text-white dark:bg-[#1268D9] border-[#1268D9] shadow-xs ring-2 ring-[#1268D9]/30",
               badgeInactive: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
               badgeActive: "bg-white/20 text-white"
             },
@@ -947,7 +947,7 @@ export default function EmployeeMyTasks() {
                             ) : (
                               <button
                                 onClick={(e) => { e.stopPropagation(); handleOpenReportModal(t); }}
-                                className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                                className="px-2.5 py-1 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
                                 title="Set Next Follow-Up Date & Progress Report"
                               >
                                 <Clock size={11} /> Update Report

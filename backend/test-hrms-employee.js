@@ -14,7 +14,7 @@ const employeeAnnouncementController = require("./src/controllers/employeeAnnoun
 const employeeDashboardController = require("./src/controllers/employeeDashboardController");
 
 console.log("-----------------------------------------");
-console.log("Nextact MODULE COMPILATION DIAGNOSTIC");
+console.log("Oneclick MODULE COMPILATION DIAGNOSTIC");
 console.log("-----------------------------------------");
 
 try {

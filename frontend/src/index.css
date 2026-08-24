@@ -12,6 +12,25 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+:root {
+  --main-dark: #071A2F;
+  --deep-navy: #061225;
+  --dark-blue: #082B52;
+  --charcoal-navy: #101827;
+  --sidebar-dark: #050F1F;
+  --card-dark: #0D1B2E;
+  --border-dark: #1C3554;
+  --primary-blue: #1268D9;
+  --primary-blue-dark: #082B52;
+  --primary-blue-accent: #1268D9;
+  --logo-light-blue: #1597E5;
+  --bright-blue: #2F8BFF;
+  --white-text: #F8FAFC;
+  --white: #FFFFFF;
+  --muted-text: #94A3B8;
+  --dark: #071A2F;
+}
+
 /* ── Keyframes ──────────────────────────────────────────────────────────── */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(6px); }
@@ -44,12 +63,12 @@
   transform: translateY(-1px);
 }
 .dark .oc-card {
-  background: #0F172A;
-  border-color: rgba(255,255,255,0.05);
-  box-shadow: 0 2px 8px rgba(0,0,0,.16), 0 8px 24px rgba(0,0,0,.12);
+  background: #0D1B2E;
+  border-color: #1C3554;
+  box-shadow: 0 2px 8px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
 }
 .dark .oc-card:hover {
-  box-shadow: 0 4px 16px rgba(0,0,0,.24), 0 12px 32px rgba(0,0,0,.18);
+  box-shadow: 0 4px 16px rgba(18, 104, 217, 0.15), 0 12px 32px rgba(0,0,0,.35);
 }
 
 /* ── Staggered animation delay ──────────────────────────────────────────── */
@@ -63,42 +82,38 @@
 /* ── Premium scrollbar ──────────────────────────────────────────────────── */
 .oc-scroll::-webkit-scrollbar { width: 4px; height: 4px; }
 .oc-scroll::-webkit-scrollbar-track { background: transparent; }
-.oc-scroll::-webkit-scrollbar-thumb { background: rgba(15,23,42,.12); border-radius: 99px; }
-.oc-scroll::-webkit-scrollbar-thumb:hover { background: rgba(15,23,42,.22); }
+.oc-scroll::-webkit-scrollbar-thumb { background: rgba(18,104,217,.25); border-radius: 99px; }
+.oc-scroll::-webkit-scrollbar-thumb:hover { background: rgba(18,104,217,.45); }
 
 /* ── Sidebar nav item ───────────────────────────────────────────────────── */
 .oc-nav-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
   font-size: 13px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.4;
-  transition: background 150ms ease, color 150ms ease;
+  transition: all 180ms ease;
   cursor: pointer;
   text-decoration: none;
   position: relative;
 }
 .oc-nav-item.active {
-  background: rgba(255,255,255,.06);
-  color: #ffffff;
+  background: #1268D9 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(18, 104, 217, 0.35);
 }
-.oc-nav-item.active::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 4px; bottom: 4px;
-  width: 2.5px;
-  background: #EAB308;
-  border-radius: 0 2px 2px 0;
+.oc-nav-item.active svg {
+  color: #FFFFFF !important;
 }
 .oc-nav-item:not(.active) {
-  color: rgba(148,163,184,1);
+  color: #94A3B8;
 }
 .oc-nav-item:not(.active):hover {
-  background: rgba(255,255,255,.04);
-  color: rgba(226,232,240,1);
+  background: #101827;
+  color: #F8FAFC;
 }
 
 /* ── Count-up animation for stats ──────────────────────────────────────── */
@@ -106,156 +121,149 @@
 
 @theme {
   /* ═══════════════════════════════════════════════════════════════════════════
-     COMPANY ADMIN CENTRALIZED MASTER THEME (ONE-PROMPT PALETTE ENGINE)
-     Brand: Orange Primary + Dark Charcoal (One Click  logo)
-     Rule: Orange = primary actions/accents ONLY. Backgrounds = neutral gray.
+     ONE CLICK CENTRALIZED MASTER THEME
+     Exact palette mapping for Corporate Blue & Deep Navy
      ═══════════════════════════════════════════════════════════════════════════ */
-  --ca-palette-1: #FFF3E0;
-  --ca-palette-2: #FFE0B2;
-  --ca-palette-3: #FFCC80;
-  --ca-palette-4: #FFB74D;
-  --ca-palette-5: #FFA726;
-  --ca-palette-6: #FF9800;
-  --ca-palette-7: #FB8C00;
-  --ca-palette-8: #F57C00;
-  --ca-palette-9: #EF6C00;
-  --ca-palette-10: #E65100;
-  /* Secondary Green */
-  /* Shade 10 (charcoal / sidebar / dark contrast) */
+  --ca-palette-1: #EBF4FC;
+  --ca-palette-2: #D3E7FA;
+  --ca-palette-3: #A9D2F5;
+  --ca-palette-4: #2F8BFF;
+  --ca-palette-5: #1597E5;
+  --ca-palette-6: #1268D9;
+  --ca-palette-7: #082B52;
+  --ca-palette-8: #061225;
+  --ca-palette-9: #071A2F;
+  --ca-palette-10: #050F1F;
 
   /* ── Company Admin Functional Tokens (`ca-*`) ─────────────────────────────── */
-  --color-ca-primary: var(--ca-palette-10);
-  --color-ca-primary-hover: #CC4800;
-  --color-ca-primary-light: #FFF0E5;
-  --color-ca-secondary: #B33F00;
-  --color-ca-accent: var(--ca-palette-10);
+  --color-ca-primary: #1268D9;
+  --color-ca-primary-hover: #082B52;
+  --color-ca-primary-light: #EBF4FC;
+  --color-ca-secondary: #082B52;
+  --color-ca-accent: #2F8BFF;
 
   /* Surfaces & Neutrals (Light Mode) */
-  --color-ca-bg: #F0F5FA;
+  --color-ca-bg: #F4F7FB;
   --color-ca-surface: #FFFFFF;
   --color-ca-card: #FFFFFF;
-  --color-ca-border: rgba(0, 0, 0, 0.1);
-  --color-ca-hover: var(--ca-palette-1);
-  --color-ca-text: #000000;
-  --color-ca-text-secondary: rgba(0, 0, 0, 0.6);
-  --color-ca-modal-backdrop: rgba(0, 0, 0, 0.5);
-  --color-ca-sidebar: #171115;
-  --color-ca-sidebar-text: #FFFFFF;
+  --color-ca-border: #E2E8F0;
+  --color-ca-hover: #EBF4FC;
+  --color-ca-text: #071A2F;
+  --color-ca-text-secondary: #94A3B8;
+  --color-ca-modal-backdrop: rgba(5, 15, 31, 0.7);
+  --color-ca-sidebar: #050F1F;
+  --color-ca-sidebar-text: #F8FAFC;
 
   /* ── Tailwind `primary-*` mapping ──────────────────────────────────────────── */
-  --color-primary: var(--ca-palette-8);
-  --color-primary-50: #FFF7ED;
-  --color-primary-100: #FFEDD5;
-  --color-primary-200: var(--ca-palette-3);
-  --color-primary-300: var(--ca-palette-4);
-  --color-primary-400: var(--ca-palette-5);
-  --color-primary-500: var(--ca-palette-6);
-  --color-primary-600: var(--ca-palette-7);
-  --color-primary-700: var(--ca-palette-8);
-  --color-primary-800: var(--ca-palette-9);
-  --color-primary-900: var(--ca-palette-10);
+  --color-primary: #1268D9;
+  --color-primary-50: #EBF4FC;
+  --color-primary-100: #D3E7FA;
+  --color-primary-200: #A9D2F5;
+  --color-primary-300: #2F8BFF;
+  --color-primary-400: #1597E5;
+  --color-primary-500: #1268D9;
+  --color-primary-600: #082B52;
+  --color-primary-700: #061225;
+  --color-primary-800: #071A2F;
+  --color-primary-900: #050F1F;
 
-  --color-secondary: var(--ca-palette-5);
-  --color-accent: var(--ca-palette-3);
-  --color-background: var(--ca-palette-1);
-  --color-card: rgba(255, 255, 255, 0.95);
-  --color-text: #111827;
-  --color-sidebar-bg: #0F1115;
-  --color-sidebar-border: rgba(255, 255, 255, 0.08);
+  --color-secondary: #082B52;
+  --color-accent: #2F8BFF;
+  --color-background: #F4F7FB;
+  --color-card: #FFFFFF;
+  --color-text: #071A2F;
+  --color-sidebar-bg: #050F1F;
+  --color-sidebar-border: rgba(28, 53, 84, 0.5);
 
   /* ONE-STOP THEME PALETTE FOR CHARTS, AVATARS, WIDGETS */
-  --color-theme-1: var(--ca-palette-10);
-  --color-theme-2: var(--ca-palette-9);
-  --color-theme-3: var(--ca-palette-8);
-  --color-theme-4: var(--ca-palette-6);
-  --color-theme-5: var(--ca-palette-4);
-  --color-theme-6: var(--ca-palette-3);
+  --color-theme-1: #1268D9;
+  --color-theme-2: #1597E5;
+  --color-theme-3: #2F8BFF;
+  --color-theme-4: #082B52;
+  --color-theme-5: #061225;
+  --color-theme-6: #A9D2F5;
 
   /* REPORT CHART SPECIFIC PALETTE */
-  --color-chart-1: var(--ca-palette-8);
-  --color-chart-2: var(--ca-palette-7);
-  --color-chart-3: var(--ca-palette-6);
-  --color-chart-4: var(--ca-palette-5);
-  --color-chart-5: var(--ca-palette-4);
-  --color-chart-6: var(--ca-palette-3);
+  --color-chart-1: #1268D9;
+  --color-chart-2: #1597E5;
+  --color-chart-3: #2F8BFF;
+  --color-chart-4: #082B52;
+  --color-chart-5: #10B981;
+  --color-chart-6: #F59E0B;
 
-  --color-theme-1-light: var(--ca-palette-2);
-  --color-theme-2-light: var(--ca-palette-2);
-  --color-theme-3-light: #FFF7ED;
-  --color-theme-4-light: #FFEDD5;
-  --color-theme-5-light: #FFF7ED;
-  --color-theme-6-light: #FFF7ED;
+  --color-theme-1-light: #EBF4FC;
+  --color-theme-2-light: #D3E7FA;
+  --color-theme-3-light: #EBF4FC;
+  --color-theme-4-light: #D3E7FA;
+  --color-theme-5-light: #EBF4FC;
+  --color-theme-6-light: #EBF4FC;
 
   /* ═══════════════════════════════════════════════════════════════════════════
-     MANAGER PANEL THEME (mg-* — ISOLATED FROM CA & SA PALETTES)
-     ⚠️  Replace these placeholder values with your own colors.
-     These variables are ONLY active inside .manager-panel wrapper.
+     MANAGER PANEL THEME (mg-*)
      ═══════════════════════════════════════════════════════════════════════════ */
-
-  /* 10-shade palette (Dark Orange / Rust) */
-  --mg-palette-1: #FFF0E5;
-  --mg-palette-2: #FFDAC2;
-  --mg-palette-3: #FFBC94;
-  --mg-palette-4: #FF9961;
-  --mg-palette-5: #FF762B;
-  --mg-palette-6: #F05805;
-  --mg-palette-7: #C74402;
-  --mg-palette-8: #9E3502;
-  --mg-palette-9: #7C2D05;
-  --mg-palette-10: #5C2002;
+  --mg-palette-1: #EBF4FC;
+  --mg-palette-2: #D3E7FA;
+  --mg-palette-3: #A9D2F5;
+  --mg-palette-4: #2F8BFF;
+  --mg-palette-5: #1597E5;
+  --mg-palette-6: #1268D9;
+  --mg-palette-7: #082B52;
+  --mg-palette-8: #061225;
+  --mg-palette-9: #071A2F;
+  --mg-palette-10: #050F1F;
 
   /* Functional Tokens */
-  --color-mg-primary: var(--mg-palette-8);
-  --color-mg-primary-hover: var(--mg-palette-9);
-  --color-mg-primary-light: var(--mg-palette-1);
-  --color-mg-secondary: var(--mg-palette-9);
-  --color-mg-accent: var(--mg-palette-7);
+  --color-mg-primary: #1268D9;
+  --color-mg-primary-hover: #082B52;
+  --color-mg-primary-light: #EBF4FC;
+  --color-mg-secondary: #082B52;
+  --color-mg-accent: #2F8BFF;
 
   /* Surfaces & Neutrals (Light Mode) */
-  --color-mg-bg: #F0F5FA;
+  --color-mg-bg: #F4F7FB;
   --color-mg-surface: #FFFFFF;
   --color-mg-card: #FFFFFF;
-  --color-mg-border: rgba(0, 0, 0, 0.1);
-  --color-mg-hover: var(--mg-palette-1);
-  --color-mg-text: #000000;
-  --color-mg-text-secondary: rgba(0, 0, 0, 0.6);
-  --color-mg-modal-backdrop: rgba(0, 0, 0, 0.5);
-  --color-mg-sidebar: #0f172a;
-  --color-mg-sidebar-text: #FFFFFF;
+  --color-mg-border: #E2E8F0;
+  --color-mg-hover: #EBF4FC;
+  --color-mg-text: #071A2F;
+  --color-mg-text-secondary: #94A3B8;
+  --color-mg-modal-backdrop: rgba(5, 15, 31, 0.7);
+  --color-mg-sidebar: #050F1F;
+  --color-mg-sidebar-text: #F8FAFC;
 
   /* ═══════════════════════════════════════════════════════════════════════════
-     SUPER ADMIN THEME — Matches Company Admin Amber/Dark palette
+     SUPER ADMIN THEME
      ═══════════════════════════════════════════════════════════════════════════ */
-  --color-sa-primary: #f59e0b;
-  --color-sa-primary-hover: #d97706;
-  --color-sa-secondary: #fbbf24;
-  --color-sa-accent: #fcd34d;
+  --color-sa-primary: #1268D9;
+  --color-sa-primary-hover: #082B52;
+  --color-sa-secondary: #082B52;
+  --color-sa-accent: #2F8BFF;
 
-  /* Surfaces & Neutrals — identical to Company Admin */
-  --color-sa-bg: #F0F5FA;
+  /* Surfaces & Neutrals */
+  --color-sa-bg: #F4F7FB;
   --color-sa-surface: #FFFFFF;
-  --color-sa-card: rgba(255, 255, 255, 0.95);
-  --color-sa-border: rgba(0, 0, 0, 0.1);
-  --color-sa-hover: #FFF7ED;
-  --color-sa-text: #0f172a;
-  --color-sa-text-secondary: rgba(0, 0, 0, 0.6);
-  --color-sa-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --color-sa-card: #FFFFFF;
+  --color-sa-border: #E2E8F0;
+  --color-sa-hover: #EBF4FC;
+  --color-sa-text: #071A2F;
+  --color-sa-text-secondary: #94A3B8;
+  --color-sa-modal-backdrop: rgba(5, 15, 31, 0.7);
 
-  /* Status Colors — mapped to amber/standard palette */
-  --color-sa-success: #10b981;
+  /* Status Colors */
+  --color-sa-success: #10B981;
   --color-sa-success-bg: rgba(16, 185, 129, 0.1);
-  --color-sa-success-text: #065f46;
+  --color-sa-success-text: #065F46;
 
-  --color-sa-warning: #f59e0b;
+  --color-sa-warning: #F59E0B;
   --color-sa-warning-bg: rgba(245, 158, 11, 0.12);
-  --color-sa-warning-text: #92400e;
+  --color-sa-warning-text: #92400E;
 
-  --color-sa-danger: #ef4444;
+  --color-sa-danger: #EF4444;
   --color-sa-danger-bg: rgba(239, 68, 68, 0.1);
-  --color-sa-danger-text: #7f1d1d;
+  --color-sa-danger-text: #7F1D1D;
 
-  --color-sa-info: #3b82f6;
-  --color-sa-info-bg: rgba(59, 130, 246, 0.1);
+  --color-sa-info: #1268D9;
+  --color-sa-info-bg: rgba(18, 104, 217, 0.1);
 
   --font-sans: 'Lato', sans-serif;
   --animate-pulse-slow: pulse-slow 8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -2319,9 +2327,11 @@ input[type="password"]::-ms-clear {
   border-color: #CBD5E1;
 }
 
-.input-base:focus {
-  border-color: #0E6B50;
-  box-shadow: 0 0 0 2px rgba(14, 107, 80, 0.18);
+.input-base:focus,
+.textarea-base:focus,
+.select-base:focus {
+  border-color: var(--primary-blue, #2875BD);
+  box-shadow: 0 0 0 2px rgba(40, 117, 189, 0.2);
 }
 
 .textarea-base {
@@ -2381,27 +2391,30 @@ input[type="password"]::-ms-clear {
 }
 
 .btn-primary {
-  background: linear-gradient(180deg, #FE6D04, #E65100);
+  background: linear-gradient(180deg, #1268D9, #0D50B8) !important;
   color: #FFFFFF !important;
-  border: 1px solid #E65100;
-  box-shadow: 0 1px 2px 0 rgba(230, 81, 0, 0.25);
+  border: 1px solid #0B459E !important;
+  box-shadow: 0 2px 8px 0 rgba(18, 104, 217, 0.35) !important;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(180deg, #E65100, #B33F00);
+  background: linear-gradient(180deg, #0D50B8, #093D8E) !important;
+  border-color: #093D8E !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px 0 rgba(18, 104, 217, 0.5) !important;
 }
 
 .btn-secondary {
-  background: #FFFFFF !important;
-  color: #334155 !important;
+  background: var(--white, #FFFFFF) !important;
+  color: var(--main-dark, #071A2F) !important;
   border: 1px solid #E2E8F0 !important;
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
 }
 
 .btn-secondary:hover {
-  background: #F8FAFC !important;
-  border-color: #CBD5E1 !important;
-  color: #0F172A !important;
+  background: #F4F7FB !important;
+  border-color: var(--dark-blue, #082B52) !important;
+  color: var(--dark-blue, #082B52) !important;
 }
 
 .btn-ghost {
@@ -2411,8 +2424,8 @@ input[type="password"]::-ms-clear {
 }
 
 .btn-ghost:hover {
-  background: #F1F5F9 !important;
-  color: #0F172A !important;
+  background: #EBF4FC !important;
+  color: var(--primary-blue, #2875BD) !important;
 }
 
 .btn-danger {
@@ -2477,11 +2490,124 @@ input[type="password"]::-ms-clear {
 }
 
 .data-table tbody tr:hover {
-  background: rgba(14, 107, 80, 0.015);
+  background: rgba(40, 117, 189, 0.04);
 }
 
 .data-table tbody td {
   padding: 12.5px 16px;
   color: #334155;
   vertical-align: middle;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GLOBAL BRAND COLOR THEME SYNCHRONIZATION
+   Maps legacy orange/amber action buttons & pills to the Master Blue Theme
+   Palette: Primary #1268D9 · Dark #082B52 · Accent #2F8BFF · Card Dark #0D1B2E
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* 1. Primary Action Buttons (Royal Corporate Blue Theme) */
+button.bg-slate-900:not(.ca-sidebar *):not(nav *),
+button.bg-amber-500,
+button.bg-amber-600,
+button.bg-orange-600,
+button.bg-orange-500,
+a.bg-orange-600,
+a.bg-amber-600,
+.bg-orange-600,
+.bg-amber-600 {
+  background: linear-gradient(180deg, #1268D9, #0D50B8) !important;
+  color: #FFFFFF !important;
+  border-color: #0B459E !important;
+  box-shadow: 0 2px 8px 0 rgba(18, 104, 217, 0.3) !important;
+}
+
+button.bg-slate-900:not(.ca-sidebar *):not(nav *):hover,
+button.bg-amber-500:hover,
+button.bg-amber-600:hover,
+button.bg-orange-600:hover,
+button.bg-orange-500:hover,
+a.bg-orange-600:hover,
+a.bg-amber-600:hover,
+.hover\:bg-slate-800:hover,
+.hover\:bg-orange-700:hover,
+.hover\:bg-amber-700:hover,
+.hover\:bg-orange-500:hover,
+.hover\:bg-amber-500:hover {
+  background: linear-gradient(180deg, #0D50B8, #093D8E) !important;
+  border-color: #093D8E !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px 0 rgba(18, 104, 217, 0.45) !important;
+}
+
+/* 2. Text & Icon Highlights */
+.text-orange-600,
+.text-amber-600,
+.text-orange-500,
+.text-amber-500 {
+  color: var(--primary-blue, #1268D9) !important;
+}
+
+.text-orange-700,
+.text-amber-700,
+.text-orange-800,
+.text-amber-800,
+.text-orange-900 {
+  color: var(--primary-blue-dark, #082B52) !important;
+}
+
+/* 3. Soft Backgrounds & Pills */
+.bg-orange-50,
+.bg-amber-50,
+.bg-orange-100,
+.bg-amber-100 {
+  background-color: #EBF4FC !important;
+}
+
+.dark .bg-orange-50,
+.dark .bg-amber-50,
+.dark .bg-orange-950\/40,
+.dark .bg-amber-950\/40,
+.dark .bg-orange-950\/30,
+.dark .bg-amber-950\/30 {
+  background-color: rgba(18, 104, 217, 0.16) !important;
+}
+
+/* 4. Borders & Rings */
+.border-orange-600,
+.border-amber-600,
+.border-orange-500,
+.border-amber-500,
+.border-orange-400,
+.border-amber-400 {
+  border-color: var(--primary-blue, #1268D9) !important;
+}
+
+.border-orange-200,
+.border-amber-200,
+.border-orange-300,
+.border-amber-300,
+.border-orange-100,
+.border-amber-100 {
+  border-color: #A9D2F5 !important;
+}
+
+.dark .border-orange-200,
+.dark .border-amber-200,
+.dark .border-orange-800,
+.dark .border-amber-800 {
+  border-color: #1C3554 !important;
+}
+
+/* 5. Focus Rings & Shadows */
+.focus\:border-orange-600:focus,
+.focus\:border-amber-600:focus,
+.focus\:ring-orange-600\/20:focus {
+  border-color: var(--primary-blue, #1268D9) !important;
+  box-shadow: 0 0 0 2px rgba(18, 104, 217, 0.25) !important;
+}
+
+.shadow-orange-500\/20,
+.shadow-amber-500\/20,
+.shadow-orange-600\/20 {
+  box-shadow: 0 4px 14px 0 rgba(18, 104, 217, 0.3) !important;
 }

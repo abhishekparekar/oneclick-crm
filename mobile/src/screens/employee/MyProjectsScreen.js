@@ -30,9 +30,9 @@ const getProjectDesignTokens = (project) => {
   if (name.includes("hrms") || name.includes("development")) {
     return {
       icon: "briefcase-outline",
-      color: "#F97316",
-      bgColor: "#FFF7ED",
-      progressColor: "#F97316",
+      color: "#1268D9",
+      bgColor: "#EFF6FF",
+      progressColor: "#1268D9",
     };
   } else if (name.includes("mobile") || name.includes("app") || name.includes("redesign")) {
     return {
@@ -66,9 +66,9 @@ const getProjectDesignTokens = (project) => {
   // Default fallback
   return {
     icon: "folder-open-outline",
-    color: "#F97316",
-    bgColor: "#FFF7ED",
-    progressColor: "#F97316",
+    color: "#1268D9",
+    bgColor: "#EFF6FF",
+    progressColor: "#1268D9",
   };
 };
 
@@ -271,12 +271,12 @@ const MyProjectsScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={handleRefresh}
-              colors={["#F97316"]}
+              colors={["#1268D9"]}
             />
           }
         >
-          {/* Forest Green Summary Card */}
-          <BlurView intensity={80} tint="dark" style={styles.summaryCard}>
+          {/* Active Shift Royal Blue Summary Card */}
+          <LinearGradient colors={["#082B52", "#1268D9", "#1D7DF2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.summaryCard}>
             {/* Total Projects Info (Left) */}
             <View style={styles.summaryLeftCol}>
               <Text style={styles.summaryLabel}>Total Projects</Text>
@@ -301,7 +301,7 @@ const MyProjectsScreen = ({ navigation }) => {
                 {String(atRiskCount).padStart(2, "0")}
               </Text>
             </View>
-          </BlurView>
+          </LinearGradient>
 
           {/* Underlined Segmented Tabs */}
           <View style={styles.tabsContainer}>
@@ -555,7 +555,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
   },
   activeTabButton: {
-    borderBottomColor: "#C2410C",
+    borderBottomColor: "#1268D9",
   },
   tabText: {
     fontSize: 12.5,
@@ -563,7 +563,7 @@ const styles = StyleSheet.create({
     color: "#64748b",
   },
   activeTabText: {
-    color: "#C2410C",
+    color: "#1268D9",
     fontFamily: FONTS.bodyBold,
   },
   projectCard: {

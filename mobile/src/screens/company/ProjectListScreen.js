@@ -39,14 +39,15 @@ const ProjectListScreen = ({ navigation }) => {
     }
   });
 
+  const safeProjects = Array.isArray(projects) ? projects : [];
+
   const filteredProjects = safeProjects.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
+    const matchesSearch = (p.name || "").toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter ? p.status === statusFilter : true;
     return matchesSearch && matchesStatus;
   });
 
   // Calculate Metrics based on project status
-  const safeProjects = Array.isArray(projects) ? projects : [];
   const totalProjectsCount = safeProjects.length;
   const inProjectsCount = safeProjects.filter(p => p.status === 'active' || p.status === 'working').length;
   const completedProjectsCount = safeProjects.filter(p => p.status === 'completed' || p.status === 'done').length;
@@ -239,13 +240,21 @@ const ProjectListScreen = ({ navigation }) => {
       searchPlaceholder="Search projects..."
       headerBg="#ffffff"
       headerTextColor="#1e293b"
-      headerTitle="My Projects"
+      headerTitle="Company Projects"
+      headerRightElement={
+        <TouchableOpacity
+          onPress={() => navigation.navigate("CompanyCreateProject")}
+          style={{ padding: 6 }}
+        >
+          <Ionicons name="add-circle" size={26} color="#1268D9" />
+        </TouchableOpacity>
+      }
     >
       <View style={{ flex: 1, backgroundColor: "#f8fafc" }}>
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#C2410C" />}
+          refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#1268D9" colors={["#1268D9"]} />}
         >
           {/* Stats bar */}
           <View style={styles.statsBar}>
@@ -309,7 +318,7 @@ const ProjectListScreen = ({ navigation }) => {
           {/* Project List */}
           {isLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color="#C2410C" />
+              <ActivityIndicator size="large" color="#1268D9" />
               <Text style={styles.loadingText}>Loading project portfolio...</Text>
             </View>
           ) : (

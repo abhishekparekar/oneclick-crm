@@ -13,9 +13,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../theme/tokens";
 
-const THEME_ACCENT = "#EA580C";
-const ACCENT_LIGHT = "#FFF7ED";
-const ACCENT_BORDER = "#FFEDD5";
+const THEME_ACCENT = "#1268D9";
+const ACCENT_LIGHT = "rgba(18, 104, 217, 0.08)";
+const ACCENT_BORDER = "rgba(18, 104, 217, 0.3)";
 
 const buildHRSections = (hasPermission) => [
   {
@@ -244,11 +244,11 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(234, 88, 12, 0.2)",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: THEME_ACCENT,
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   avatarText: {
     color: "#FFFFFF",
@@ -272,8 +272,8 @@ const styles = StyleSheet.create({
   },
   roleBadge: {
     alignSelf: "flex-start",
-    backgroundColor: "rgba(234, 88, 12, 0.18)",
-    borderColor: "rgba(234, 88, 12, 0.4)",
+    backgroundColor: "rgba(18, 104, 217, 0.2)",
+    borderColor: "rgba(18, 104, 217, 0.4)",
     borderWidth: 1,
     borderRadius: 6,
     paddingHorizontal: 6,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   roleText: {
     fontSize: 9,
     fontFamily: FONTS.bodyBold,
-    color: "#FB923C",
+    color: "#2F8BFF",
     letterSpacing: 0.5,
   },
   scrollContent: {
@@ -319,7 +319,7 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   menuItemActive: {
-    backgroundColor: "rgba(234, 88, 12, 0.15)",
+    backgroundColor: "rgba(18, 104, 217, 0.15)",
     borderLeftWidth: 3,
     borderLeftColor: THEME_ACCENT,
   },

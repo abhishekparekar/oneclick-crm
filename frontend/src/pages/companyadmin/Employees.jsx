@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -345,7 +345,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
   const InfoRow = ({ label, value, highlight = false }) => (
     <div className="flex flex-col gap-0.5 py-2 border-b border-slate-100 dark:border-slate-800/50 last:border-0">
       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</span>
-      <span className={`text-xs font-bold leading-snug ${highlight ? "text-amber-600 dark:text-amber-400" : "text-slate-800 dark:text-slate-200"}`}>{value || "—"}</span>
+      <span className={`text-xs font-bold leading-snug ${highlight ? "text-[#1268D9] dark:text-[#2F8BFF]" : "text-slate-800 dark:text-slate-200"}`}>{value || "—"}</span>
     </div>
   );
   const InfoGrid = ({ items }) => (
@@ -353,9 +353,9 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
       {items.map(({ label, value, highlight }) => (<InfoRow key={label} label={label} value={value} highlight={highlight} />))}
     </div>
   );
-  const SectionBlock = ({ title, iconEl, iconColor = "text-amber-500", iconBg = "bg-amber-500/10", children }) => (
-    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
-      <div className={`flex items-center gap-2 px-3.5 py-2.5 bg-slate-50/60 dark:bg-slate-900/40 border-b border-slate-100 dark:border-slate-800/80`}>
+  const SectionBlock = ({ title, iconEl, iconColor = "text-[#1268D9]", iconBg = "bg-[#1268D9]/10", children }) => (
+    <div className="bg-slate-50/50 dark:bg-[#071A2F]/40 rounded-2xl border border-slate-200/80 dark:border-[#1C3554] overflow-hidden shadow-2xs">
+      <div className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-100/60 dark:bg-[#071A2F] border-b border-slate-200/80 dark:border-[#1C3554]">
         <div className={`w-5 h-5 rounded-md ${iconBg} ${iconColor} flex items-center justify-center shrink-0`}>{iconEl}</div>
         <span className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">{title}</span>
       </div>
@@ -363,136 +363,135 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
     </div>
   );
   return (
-    <div className="fixed inset-0 z-50 flex justify-end animate-fadeIn">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xs" onClick={onClose} />
-      <div className="relative w-full sm:w-[660px] bg-slate-50 dark:bg-[#0B111E] h-full flex flex-col shadow-2xl border-l border-slate-200 dark:border-slate-800 overflow-hidden animate-slideLeft">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
+      <div className="relative w-full max-w-2xl max-h-[90vh] bg-white dark:bg-[#0D1B2E] rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-[#1C3554] overflow-hidden z-10 animate-scaleUp">
         {/* Fixed Header */}
-        <div className="flex-shrink-0 bg-white dark:bg-[#111C24] border-b border-slate-200/80 dark:border-slate-800">
+        <div className="flex-shrink-0 bg-slate-50/80 dark:bg-[#071A2F] border-b border-slate-200/80 dark:border-[#1C3554]">
           {/* Top Bar */}
-          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 dark:border-slate-800/60">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 flex items-center justify-center shrink-0">
-                <Users size={13} className="text-amber-600 dark:text-amber-400" />
+          <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200/80 dark:border-[#1C3554]">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-[#1268D9]/10 text-[#1268D9] flex items-center justify-center shrink-0">
+                <Users size={15} />
               </div>
               <div className="min-w-0">
                 <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-widest leading-none">Employee Profile</p>
-                <p className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight">{name}</p>
+                <p className="text-sm font-black text-slate-900 dark:text-white truncate leading-tight mt-0.5">{name}</p>
               </div>
               {empData.employeeCode && (
-                <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-mono text-[9.5px] font-extrabold border border-slate-200 dark:border-slate-700 shrink-0">
+                <span className="px-2 py-0.5 rounded-lg bg-white dark:bg-[#050F1F] text-slate-600 dark:text-slate-300 font-mono text-[10px] font-extrabold border border-slate-200 dark:border-[#1C3554] shrink-0">
                   {empData.employeeCode}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <EmpStatusBadge status={empData.status} />
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"><X size={14} /></button>
+              <button onClick={onClose} className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-slate-200 dark:hover:bg-white/[0.06] text-slate-400 hover:text-slate-700 dark:hover:text-white transition-colors cursor-pointer"><X size={16} /></button>
             </div>
           </div>
           {/* Profile Banner */}
           <div className="px-4 py-3 flex items-start gap-3.5">
             <div className="relative shrink-0">
               {photoUrl ? (
-                <img src={photoUrl} alt={name} className="w-14 h-14 rounded-xl object-cover shadow-md border-2 border-white dark:border-slate-700 ring-2 ring-amber-500/20" />
+                <img src={photoUrl} alt={name} className="w-13 h-13 rounded-2xl object-cover shadow-md border-2 border-white dark:border-[#1C3554] ring-2 ring-[#1268D9]/20" />
               ) : (
-                <div className={`w-14 h-14 rounded-xl ${ac} flex items-center justify-center text-lg font-black shadow-md border-2 border-white dark:border-slate-700 ring-2 ring-amber-500/20`}>{initials}</div>
+                <div className={`w-13 h-13 rounded-2xl ${ac} flex items-center justify-center text-base font-black shadow-md border-2 border-white dark:border-[#1C3554] ring-2 ring-[#1268D9]/20`}>{initials}</div>
               )}
-              {isActive && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#111C24]" />}
+              {isActive && <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-[#0D1B2E]" />}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex flex-wrap items-center gap-1 mb-1">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">{formattedRole}</span>
-                {drawerDepts && drawerDepts !== "—" && (<span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/60">{drawerDepts}</span>)}
-                {empData.employmentType && (<span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">{empData.employmentType}</span>)}
+              <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10.5px] font-extrabold bg-[#1268D9]/10 text-[#1268D9] dark:text-[#2F8BFF] border border-[#1268D9]/20">{formattedRole}</span>
+                {drawerDepts && drawerDepts !== "—" && (<span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-200/50 dark:border-indigo-800/60">{drawerDepts}</span>)}
+                {empData.employmentType && (<span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[10.5px] font-bold bg-slate-100 dark:bg-[#050F1F] text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-[#1C3554]">{empData.employmentType}</span>)}
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                {email && <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium truncate"><Mail size={10} className="text-amber-500 shrink-0" />{email}</span>}
-                {phone && <span className="flex items-center gap-1 text-[11px] text-slate-500 dark:text-slate-400 font-medium"><Phone size={10} className="text-emerald-500 shrink-0" />{phone}</span>}
+              <div className="flex flex-wrap items-center gap-3">
+                {email && <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium truncate"><Mail size={12} className="text-[#1268D9] shrink-0" />{email}</span>}
+                {phone && <span className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium"><Phone size={12} className="text-emerald-500 shrink-0" />{phone}</span>}
               </div>
             </div>
-            <div className="flex flex-col gap-1 shrink-0">
-              {email && (<a href={`mailto:${email}`} className="flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-lg hover:border-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all font-bold text-[10px] cursor-pointer"><Mail size={10} className="text-amber-500" /> Email</a>)}
-              {phone && (<a href={`tel:${phone}`} className="flex items-center gap-1 px-2 py-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-200 rounded-lg hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all font-bold text-[10px] cursor-pointer"><Phone size={10} className="text-emerald-500" /> Call</a>)}
+            <div className="flex flex-col gap-1.5 shrink-0">
+              {email && (<a href={`mailto:${email}`} className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] text-slate-700 dark:text-slate-200 rounded-lg hover:border-[#1268D9] hover:bg-[#1268D9]/5 transition-all font-bold text-[10.5px] cursor-pointer"><Mail size={11} className="text-[#1268D9]" /> Email</a>)}
+              {phone && (<a href={`tel:${phone}`} className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] text-slate-700 dark:text-slate-200 rounded-lg hover:border-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all font-bold text-[10.5px] cursor-pointer"><Phone size={11} className="text-emerald-500" /> Call</a>)}
             </div>
           </div>
           {/* Stats Strip */}
-          <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-800/50 border-t border-slate-100 dark:border-slate-800/50">
-            {[{ label:"Present", value:employee._stats?.present??"0", color:"text-emerald-600 dark:text-emerald-400" },{ label:"Leaves", value:employee._stats?.leaves??"0", color:"text-amber-600 dark:text-amber-400" },{ label:"Tasks", value:employee._stats?.tasks??"0", color:"text-indigo-600 dark:text-indigo-400" }].map(s=>(
-              <div key={s.label} className="flex flex-col items-center py-2">
+          <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-[#1C3554] border-t border-slate-200/80 dark:border-[#1C3554]">
+            {[{ label:"Present", value:employee._stats?.present??"0", color:"text-emerald-600 dark:text-emerald-400" },{ label:"Leaves", value:employee._stats?.leaves??"0", color:"text-[#1268D9] dark:text-[#2F8BFF]" },{ label:"Tasks", value:employee._stats?.tasks??"0", color:"text-indigo-600 dark:text-indigo-400" }].map(s=>(
+              <div key={s.label} className="flex flex-col items-center py-2.5">
                 <span className={`text-base font-black leading-none ${s.color}`}>{s.value}</span>
-                <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">{s.label}</span>
+                <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider mt-1">{s.label}</span>
               </div>
             ))}
           </div>
           {/* Tab Bar */}
-          <div className="flex border-t border-slate-100 dark:border-slate-800/50">
+          <div className="flex border-t border-slate-200/80 dark:border-[#1C3554]">
             {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setDrawerTab(t.id)} className={`flex-1 flex items-center justify-center gap-1 py-2.5 text-[10.5px] font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer ${drawerTab===t.id ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20" : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-slate-800/40"}`}>
-                <t.icon size={11} strokeWidth={2.5} />{t.label}
+              <button key={t.id} onClick={()=>setDrawerTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer ${drawerTab===t.id ? "border-[#1268D9] text-[#1268D9] dark:text-[#2F8BFF] bg-[#1268D9]/10" : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"}`}>
+                <t.icon size={13} strokeWidth={2.5} />{t.label}
               </button>
             ))}
           </div>
         </div>
         {/* Scrollable Body */}
-        <div className="flex-1 overflow-y-auto p-3.5 space-y-3 custom-scrollbar">
-          {isLoadingFull && (<div className="flex items-center justify-center py-8 gap-2"><RefreshCw size={16} className="text-amber-500 animate-spin" /><span className="text-xs text-slate-400 font-bold">Loading full profile...</span></div>)}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
+          {isLoadingFull && (<div className="flex items-center justify-center py-8 gap-2"><RefreshCw size={16} className="text-[#1268D9] animate-spin" /><span className="text-xs text-slate-400 font-bold">Loading full profile...</span></div>)}
           {/* OVERVIEW */}
           {drawerTab==="overview" && (<>
-            <SectionBlock title="Work Information" iconEl={<Building2 size={11} strokeWidth={2.5}/>} iconColor="text-amber-600 dark:text-amber-400" iconBg="bg-amber-500/10">
+            <SectionBlock title="Work Information" iconEl={<Building2 size={12} strokeWidth={2.5}/>} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
               <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"Joined Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Department",value:drawerDepts},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Work Mode",value:empData.workMode}]}/>
             </SectionBlock>
-            <SectionBlock title="Contact Details" iconEl={<Phone size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+            <SectionBlock title="Contact Details" iconEl={<Phone size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
               <InfoGrid items={[{label:"Official Email",value:email},{label:"Phone Number",value:phone},{label:"Emergency Contact",value:empData.emergencyContact?.name||null},{label:"Emergency Phone",value:empData.emergencyContact?.phone||null}]}/>
             </SectionBlock>
-            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs">
-              <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800/40 text-indigo-700 dark:text-indigo-300 text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all cursor-pointer">
-                <div className="flex items-center gap-2"><Calendar size={13}/><span>View Full Attendance Logs</span></div><ChevronRight size={13}/>
+            <div className="bg-slate-50/50 dark:bg-[#071A2F]/40 rounded-2xl border border-slate-200/80 dark:border-[#1C3554] p-3 shadow-2xs">
+              <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#1268D9]/10 border border-[#1268D9]/20 text-[#1268D9] dark:text-[#2F8BFF] text-xs font-bold hover:bg-[#1268D9]/20 transition-all cursor-pointer">
+                <div className="flex items-center gap-2"><Calendar size={14}/><span>View Full Attendance Logs</span></div><ChevronRight size={14}/>
               </Link>
             </div>
           </>)}
           {/* JOB INFO */}
           {drawerTab==="job" && (<>
-            <SectionBlock title="Employment Details" iconEl={<Briefcase size={11} strokeWidth={2.5}/>} iconColor="text-amber-600 dark:text-amber-400" iconBg="bg-amber-500/10">
+            <SectionBlock title="Employment Details" iconEl={<Briefcase size={12} strokeWidth={2.5}/>} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
               <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"System Role",value:formattedRole},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Department",value:drawerDepts},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Employment Type",value:empData.employmentType},{label:"Work Mode",value:empData.workMode},{label:"Joining Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Confirmation Date",value:empData.confirmationDate?new Date(empData.confirmationDate).toLocaleDateString("en-IN"):null},{label:"Notice Period",value:empData.noticePeriod?`${empData.noticePeriod} Days`:null}]}/>
             </SectionBlock>
-            <SectionBlock title="Reporting & Access" iconEl={<Shield size={11} strokeWidth={2.5}/>} iconColor="text-purple-600 dark:text-purple-400" iconBg="bg-purple-500/10">
+            <SectionBlock title="Reporting & Access" iconEl={<Shield size={12} strokeWidth={2.5}/>} iconColor="text-purple-600 dark:text-purple-400" iconBg="bg-purple-500/10">
               <InfoGrid items={[{label:"Reports To / Manager",value:empData.reportsTo?.name||empData.managerId?.name||null},{label:"Access Level",value:formattedRole},{label:"Multi-Dept Access",value:Array.isArray(empData.accessibleDepartments)&&empData.accessibleDepartments.length>1?"Yes":"No"},{label:"Portal Status",value:isActive?"Active & Enabled":"Suspended"}]}/>
             </SectionBlock>
           </>)}
           {/* PERSONAL */}
           {drawerTab==="personal" && (<>
-            <SectionBlock title="Personal Information" iconEl={<User size={11} strokeWidth={2.5}/>} iconColor="text-cyan-600 dark:text-cyan-400" iconBg="bg-cyan-500/10">
+            <SectionBlock title="Personal Information" iconEl={<User size={12} strokeWidth={2.5}/>} iconColor="text-cyan-600 dark:text-cyan-400" iconBg="bg-cyan-500/10">
               <InfoGrid items={[{label:"Date of Birth",value:empData.dateOfBirth?new Date(empData.dateOfBirth).toLocaleDateString("en-IN"):null},{label:"Gender",value:empData.gender},{label:"Blood Group",value:empData.bloodGroup},{label:"Marital Status",value:empData.maritalStatus},{label:"Aadhaar No.",value:empData.aadhaarNumber},{label:"PAN No.",value:empData.panNumber}]}/>
             </SectionBlock>
-            <SectionBlock title="Address Information" iconEl={<MapPin size={11} strokeWidth={2.5}/>} iconColor="text-rose-600 dark:text-rose-400" iconBg="bg-rose-500/10">
+            <SectionBlock title="Address Information" iconEl={<MapPin size={12} strokeWidth={2.5}/>} iconColor="text-rose-600 dark:text-rose-400" iconBg="bg-rose-500/10">
               <InfoRow label="Current Address" value={formatAddress(empData.currentAddress)}/>
               <InfoRow label="Permanent Address" value={formatAddress(empData.permanentAddress)}/>
             </SectionBlock>
-            {docList.length>0&&(<SectionBlock title={`Uploaded Documents (${docList.length})`} iconEl={<FileText size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+            {docList.length>0&&(<SectionBlock title={`Uploaded Documents (${docList.length})`} iconEl={<FileText size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
-                {docList.map(doc=>(<a key={doc.key} href={doc.url.startsWith("http")?doc.url:`${(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace("/api","")}${doc.url.startsWith("/")?"":" /"}${doc.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2 rounded-lg bg-slate-50/80 dark:bg-[#0D1321] border border-slate-200/60 dark:border-slate-800 hover:border-amber-500/40 hover:bg-amber-50/50 dark:hover:bg-amber-950/20 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer group"><span className="truncate">{doc.label}</span><Download size={12} className="text-amber-500 shrink-0 ml-1.5 group-hover:text-amber-600"/></a>))}
+                {docList.map(doc=>(<a key={doc.key} href={doc.url.startsWith("http")?doc.url:`${(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace("/api","")}${doc.url.startsWith("/")?"":" /"}${doc.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2 rounded-xl bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] hover:border-[#1268D9] hover:bg-[#1268D9]/5 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer group"><span className="truncate">{doc.label}</span><Download size={13} className="text-[#1268D9] shrink-0 ml-1.5 group-hover:scale-110 transition-transform"/></a>))}
               </div>
             </SectionBlock>)}
           </>)}
           {/* FINANCE */}
           {drawerTab==="finance" && (<>
-            <SectionBlock title="Salary Structure" iconEl={<DollarSign size={11} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+            <SectionBlock title="Salary Structure" iconEl={<DollarSign size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
               {empData.salaryDetails?(<>
                 {empData.salaryDetails.ctc&&(<div className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-slate-800/50 mb-0.5"><span className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider">Annual CTC</span><span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₹{Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}</span></div>)}
                 <InfoGrid items={[{label:"Basic (Monthly)",value:empData.salaryDetails?.basic?`₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}`:null},{label:"HRA",value:empData.salaryDetails?.hra?`₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}`:null},{label:"Special Allowance",value:empData.salaryDetails?.specialAllowance?`₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}`:null},{label:"PF Deduction",value:empData.salaryDetails?.pf?`₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}`:null},{label:"ESI Deduction",value:empData.salaryDetails?.esi?`₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}`:null},{label:"TDS Deduction",value:empData.salaryDetails?.tds?`₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}`:null}]}/>
               </>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No salary data configured</div>)}
             </SectionBlock>
-            <SectionBlock title="Bank Account Details" iconEl={<Briefcase size={11} strokeWidth={2.5}/>} iconColor="text-blue-600 dark:text-blue-400" iconBg="bg-blue-500/10">
+            <SectionBlock title="Bank Account Details" iconEl={<Briefcase size={12} strokeWidth={2.5}/>} iconColor="text-blue-600 dark:text-blue-400" iconBg="bg-blue-500/10">
               {empData.bankDetails?.accountNumber?(<InfoGrid items={[{label:"Bank Name",value:empData.bankDetails?.bankName},{label:"Account Holder",value:empData.bankDetails?.accountHolderName},{label:"Account Number",value:empData.bankDetails?.accountNumber,highlight:true},{label:"IFSC Code",value:empData.bankDetails?.ifscCode},{label:"UPI ID",value:empData.bankDetails?.upiId}]}/>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No bank details on file</div>)}
             </SectionBlock>
           </>)}
         </div>
         {/* Sticky Footer */}
-        <div className="flex-shrink-0 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111C24] p-3 flex items-center gap-2 shadow-lg">
-          <Link to={`${window.location.pathname.startsWith("/hr")?"/hr":"/company"}/employees/edit/${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-extrabold shadow-2xs transition-all cursor-pointer"><Edit2 size={12} strokeWidth={2.5}/><span>Edit Employee</span></Link>
-          <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-center gap-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-extrabold transition-all cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700"><Calendar size={12} strokeWidth={2.5}/><span className="hidden sm:inline">Attendance</span></Link>
-          <button onClick={()=>onToggleStatus(employee)} className={`flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-extrabold transition-all border cursor-pointer ${isActive?"bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 hover:bg-rose-100":"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"}`}>
-            {isActive?<PowerOff size={12} strokeWidth={2.5}/>:<Power size={12} strokeWidth={2.5}/>}<span className="hidden sm:inline">{isActive?"Deactivate":"Activate"}</span>
+        <div className="flex-shrink-0 border-t border-slate-200 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F] p-3.5 flex items-center gap-2.5 shadow-lg">
+          <Link to={`${window.location.pathname.startsWith("/hr")?"/hr":"/company"}/employees/edit/${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"><Edit2 size={13} strokeWidth={2.5}/><span>Edit Employee</span></Link>
+          <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] text-slate-700 dark:text-slate-200 rounded-xl text-xs font-extrabold transition-all cursor-pointer hover:bg-slate-100"><Calendar size={13} strokeWidth={2.5}/><span className="hidden sm:inline">Attendance</span></Link>
+          <button onClick={()=>onToggleStatus(employee)} className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${isActive?"bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-100":"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"}`}>
+            {isActive?<PowerOff size={13} strokeWidth={2.5}/>:<Power size={13} strokeWidth={2.5}/>}<span className="hidden sm:inline">{isActive?"Deactivate":"Activate"}</span>
           </button>
         </div>
       </div>
@@ -919,7 +918,7 @@ const Employees = () => {
                     return (
                       <tr
                         key={emp._id}
-                        className={`hover:bg-slate-50 transition-colors cursor-pointer group ${isSelected ? "bg-[#E65100]/5 border-l-2 border-l-[#E65100]" : ""}`}
+                        className={`hover:bg-slate-50 transition-colors cursor-pointer group ${isSelected ? "bg-[#1268D9]/5 border-l-2 border-l-[#1268D9]" : ""}`}
                         onClick={() => setSelectedEmployee(isSelected ? null : emp)}
                       >
                         {/* Employee */}

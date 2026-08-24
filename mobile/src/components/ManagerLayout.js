@@ -7,6 +7,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,8 +17,8 @@ import useManagerController from "../controllers/managerController";
 
 import { useLayout } from "../context/LayoutContext";
 
-const MANAGER_PRIMARY = "#F97316";
-const MANAGER_AVATAR_BG = "#F97316";
+const MANAGER_PRIMARY = "#1268D9";
+const MANAGER_AVATAR_BG = "#1268D9";
 
 // Map of screen names to which tab they "belong to"
 const SCREEN_TO_TAB = {
@@ -65,19 +66,12 @@ const HIDE_BOTTOM_NAV_SCREENS = [
   "ManagerProjectDetails",
   "ManagerRegularization",
   "ManagerTeamLeaveDetails",
-  "ManagerMyLeave",
   "ManagerNotifications",
   "ManagerNotificationDetailsScreen",
   "ManagerAnnouncements",
   "ManagerAnnouncementDetailsScreen",
   "ManagerSettings",
   "ManagerEditProfileScreen",
-  "ManagerMyTasks",
-  "ManagerTeamTasks",
-  "LeadDetails",
-  "LeadSettings",
-  "LeadCampaigns",
-  "LeadReminders",
 ];
 
 const ManagerLayout = ({
@@ -172,11 +166,15 @@ const ManagerLayout = ({
       navigation.dispatch(DrawerActions.openDrawer());
       return;
     }
-    if (screen === "LeadsEngine") {
+    if (screen === "LeadsEngine" || screen === "LeadsDashboard" || screen === "Leads") {
       navigation.navigate("ManagerStack", {
         screen: "LeadsEngine",
         params: { screen: "LeadsDashboard" },
       });
+      return;
+    }
+    if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
+      navigation.navigate("ManagerStack", { screen: "ManagerTeamAttendance" });
       return;
     }
     navigation.navigate("ManagerTabs", { screen });
@@ -191,8 +189,18 @@ const ManagerLayout = ({
 
   return (
     <View style={styles.container}>
-      {/* ── Top Header ─────────────────────────────────── */}
-      <View style={[styles.header, { height: 60 + insets.top, paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* ── Top Header Bar ──────────────────────────────── */}
+      <View
+        style={[
+          styles.header,
+          {
+            height: 60 + insets.top,
+            paddingTop: insets.top,
+          },
+        ]}
+      >
         <View style={styles.headerLeft}>
           {shouldShowBack ? (
             <TouchableOpacity
@@ -207,7 +215,7 @@ const ManagerLayout = ({
               activeOpacity={0.7}
               accessibilityLabel="Go Back"
             >
-              <Ionicons name="arrow-back" size={26} color="#ffffff" />
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
@@ -216,13 +224,13 @@ const ManagerLayout = ({
               activeOpacity={0.7}
               accessibilityLabel="Open Manager Menu"
             >
-              <Ionicons name="menu-outline" size={26} color="#ffffff" />
+              <Ionicons name="menu-outline" size={26} color="#0F172A" />
             </TouchableOpacity>
           )}
           <View style={styles.titleBlock}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{title === "Manager" ? "Dashboard" : title}</Text>
             <Text style={styles.companySubtitle} numberOfLines={1}>
-              {subtitle || user?.companyName || "One Click Business"}
+              {subtitle || user?.companyName || "Oneclick"}
             </Text>
           </View>
         </View>
@@ -232,12 +240,12 @@ const ManagerLayout = ({
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSettings && (
                 <TouchableOpacity onPress={onRightActionPress.onSettings} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="settings-outline" size={22} color="#ffffff" />
+                  <Ionicons name="settings-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onEdit && (
                 <TouchableOpacity onPress={onRightActionPress.onEdit} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="create-outline" size={22} color="#ffffff" />
+                  <Ionicons name="create-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
             </View>
@@ -249,7 +257,7 @@ const ManagerLayout = ({
                   style={{ marginRight: 12, padding: 4 }}
                   activeOpacity={0.6}
                 >
-                  <Ionicons name="search-outline" size={22} color="#ffffff" />
+                  <Ionicons name="search-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
 
@@ -258,11 +266,11 @@ const ManagerLayout = ({
                   onPress={onFilterPress}
                   style={[
                     { marginRight: 12, padding: 6, borderRadius: 8, position: "relative" },
-                    filterActive ? { backgroundColor: "#f59e0b", borderWidth: 1, borderColor: "#ffffff" } : { padding: 4 }
+                    filterActive ? { backgroundColor: "#1268D9", borderWidth: 1, borderColor: "#ffffff" } : { padding: 4 }
                   ]}
                   activeOpacity={0.6}
                 >
-                  <Ionicons name={filterActive ? "funnel" : "funnel-outline"} size={filterActive ? 18 : 22} color="#ffffff" />
+                  <Ionicons name={filterActive ? "funnel" : "funnel-outline"} size={filterActive ? 18 : 22} color={filterActive ? "#ffffff" : "#0F172A"} />
                   {filterActive && (
                     <View style={{
                       position: "absolute",
@@ -285,8 +293,8 @@ const ManagerLayout = ({
                   style={[styles.bellBtn, { marginRight: 8 }]}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="megaphone-outline" size={24} color="#ffffff" />
-                  <View style={styles.badge}>
+                  <Ionicons name="megaphone-outline" size={24} color="#0F172A" />
+                  <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#1268D9" }]}>
                     <Text style={styles.badgeText}>
                       {unreadAnnouncementsCount > 9 ? "9+" : unreadAnnouncementsCount}
                     </Text>
@@ -300,8 +308,8 @@ const ManagerLayout = ({
                   style={styles.bellBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="notifications-outline" size={24} color="#ffffff" />
-                  <View style={styles.badge}>
+                  <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+                  <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#EF4444" }]}>
                     <Text style={styles.badgeText}>{displayUnread > 9 ? "9+" : displayUnread}</Text>
                   </View>
                 </TouchableOpacity>
@@ -373,7 +381,7 @@ const ManagerLayout = ({
                   <Ionicons
                     name={isActive ? item.activeIcon : item.icon}
                     size={22}
-                    color={isActive ? MANAGER_PRIMARY : "#64748b"}
+                    color={isActive ? "#1268D9" : "#64748B"}
                   />
                 </View>
                 <Text style={[styles.bottomNavText, isActive && styles.bottomNavTextActive]}>
@@ -422,14 +430,14 @@ const ManagerLayout = ({
                 });
               }}
             >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#fff7ed' }]}>
-                <Ionicons name="person-add-outline" size={20} color="#f97316" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="person-add-outline" size={20} color="#1268D9" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionText}>Add New Lead</Text>
                 <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
 
             {hasPermission("tasks", "create") && (
@@ -437,8 +445,8 @@ const ManagerLayout = ({
                 style={styles.modalOption}
                 onPress={() => navigateToScreen("ManagerCreateTask")}
               >
-                <View style={[styles.modalOptionIcon, { backgroundColor: '#eff6ff' }]}>
-                  <Ionicons name="checkbox-outline" size={20} color="#2563eb" />
+                <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
                 </View>
                 <Text style={styles.modalOptionText}>Create New Task</Text>
               </TouchableOpacity>
@@ -448,8 +456,8 @@ const ManagerLayout = ({
               style={styles.modalOption}
               onPress={() => navigateToScreen("ManagerCreateProject")}
             >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#f0fdfa' }]}>
-                <Ionicons name="folder-open-outline" size={20} color="#C2410C" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
+                <Ionicons name="folder-open-outline" size={20} color="#1268D9" />
               </View>
               <Text style={styles.modalOptionText}>Add New Project</Text>
             </TouchableOpacity>
@@ -495,20 +503,22 @@ const ManagerLayout = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FB",
   },
   header: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     zIndex: 1000,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerLeft: {
     flexDirection: "row",
@@ -519,16 +529,16 @@ const styles = StyleSheet.create({
   menuBtn: { padding: 6, marginRight: 8 },
   titleBlock: { flex: 1 },
   headerTitle: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+    color: "#0F172A",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.2,
   },
   companySubtitle: {
-    color: "#94a3b8",
+    color: "#1268D9",
     fontSize: 11,
-    fontWeight: "500",
-    marginTop: 1,
+    fontWeight: "700",
+    marginTop: 0.5,
   },
   headerRight: {
     flexDirection: "row",
@@ -546,39 +556,43 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: MANAGER_PRIMARY,
+    borderColor: "#FFFFFF",
   },
   badgeText: { color: "#ffffff", fontSize: 9, fontWeight: "700" },
   avatar: {
-    width: 33,
-    height: 33,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: MANAGER_AVATAR_BG,
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
     borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.7)",
+    borderColor: "#E2E8F0",
+    elevation: 2,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
-  avatarText: { color: "#ffffff", fontSize: 12, fontWeight: "700" },
+  avatarText: { color: "#ffffff", fontSize: 13, fontWeight: "800" },
 
   content: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FB",
   },
 
-  // Bottom Navigation Matches Design Mockup
+  // Clean White Bottom Navigation
   bottomNavContainer: {
     flexDirection: "row",
-    backgroundColor: "#0B132B",
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
+    borderTopColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "space-around",
     elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: -3 },
   },
   bottomNavItem: {
@@ -597,29 +611,29 @@ const styles = StyleSheet.create({
   bottomNavText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#d0d5dbff",
-    marginTop: 4,
+    color: "#64748B",
+    marginTop: 3,
   },
   bottomNavTextActive: {
-    color: "#F97316",
+    color: "#1268D9",
     fontWeight: "700",
   },
   centerAddBtn: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: "#F97316",
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     marginTop: 0,
-    marginBottom: 36,
-    shadowColor: "#F97316",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    // elevation: 6,
-    // borderWidth: 3,
-    // borderColor: "#0B132B",
+    marginBottom: 28,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
 
   // Modal Styles

@@ -92,7 +92,7 @@ const downloadPayslip = async (req, res, next) => {
 
     // Return simple placeholder text representing a PDF structure
     res.send(`%PDF-1.4
-%Nextact PAYSLIP GENERATOR
+%Oneclick PAYSLIP GENERATOR
 1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
@@ -108,7 +108,7 @@ stream
 BT
 /F1 12 Tf
 72 712 Td
-(Nextact Payslip Summary - Month: ${payslip.month} Year: ${payslip.year}) Tj
+(Oneclick Payslip Summary - Month: ${payslip.month} Year: ${payslip.year}) Tj
 (Basic: ${payslip.basicSalary} | Net NetSalary: ${payslip.netSalary} | Status: ${payslip.status}) Tj
 ET
 endstream

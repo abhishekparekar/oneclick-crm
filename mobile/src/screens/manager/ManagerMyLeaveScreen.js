@@ -30,6 +30,9 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
   const [activeFilter, setActiveFilter] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
 
+  const remainingLeaves = (balance?.casual || 0) + (balance?.sick || 0) + (balance?.annual || 0);
+  const totalLeaves = balance?.totalAllowed || balance?.total || (remainingLeaves > 0 ? remainingLeaves + (balance?.used || 0) : 24);
+
   const isFetchingRef = useRef(false);
   const hasFetchedBalanceRef = useRef(false);
 
@@ -125,41 +128,42 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#F97316"]} tintColor="#F97316" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
         >
-          {/* ── 1. Dark Hero Card (Time Off & Leaves) ── */}
-          <LinearGradient colors={["#0B132B", "#1C2541"]} style={styles.heroCard}>
-            <View style={styles.heroTopRow}>
-              <View style={styles.heroCalendarIconWrap}>
-                <Ionicons name="calendar" size={28} color="#F97316" />
-                <View style={styles.heroCheckBadge}>
-                  <Ionicons name="checkmark" size={10} color="#FFFFFF" />
+          {/* ── 1. Top Compact Hero KPI Card ── */}
+          <LinearGradient
+            colors={["#082B52", "#1268D9", "#1D7DF2"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.heroCard}
+          >
+            <View style={styles.heroHeaderRow}>
+              <View style={styles.heroIconBox}>
+                <Ionicons name="calendar" size={28} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.heroTitle}>Leave Entitlement</Text>
+                <Text style={styles.heroSubtitle}>Overview of your allocated balance</Text>
+              </View>
+            </View>
+
+            <View style={styles.heroKpiRow}>
+              <View style={styles.heroKpiCol}>
+                <View style={styles.heroKpiLabelRow}>
+                  <Ionicons name="pie-chart-outline" size={13} color="#FFFFFF" />
+                  <Text style={styles.heroKpiLabel}>Remaining</Text>
                 </View>
+                <Text style={styles.heroKpiValue}>{remainingLeaves} Days</Text>
               </View>
 
-              <View style={styles.heroMiddleContent}>
-                <Text style={styles.heroTitle}>Time Off & Leaves</Text>
-                <Text style={styles.heroSubtitle}>Check leave counts and request balance time offs</Text>
-              </View>
+              <View style={styles.heroKpiDivider} />
 
-              <View style={styles.heroActionsCol}>
-                <TouchableOpacity
-                  style={styles.heroPillBtn}
-                  onPress={() => navigation.navigate("EmployeeLeaveBalance")}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="pie-chart-outline" size={13} color="#F97316" />
-                  <Text style={styles.heroPillBtnText}>Balance</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.heroPillBtn}
-                  onPress={() => navigation.navigate("EmployeeHolidayCalendar")}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="calendar-outline" size={13} color="#F97316" />
-                  <Text style={styles.heroPillBtnText}>Holidays</Text>
-                </TouchableOpacity>
+              <View style={styles.heroKpiCol}>
+                <View style={styles.heroKpiLabelRow}>
+                  <Ionicons name="calendar-outline" size={13} color="#FFFFFF" />
+                  <Text style={styles.heroKpiLabel}>Total Allowed</Text>
+                </View>
+                <Text style={styles.heroKpiValue}>{totalLeaves} Days</Text>
               </View>
             </View>
           </LinearGradient>
@@ -235,7 +239,7 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
             onPress={() => navigation.navigate("ManagerApplyLeave")}
             activeOpacity={0.85}
           >
-            <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.requestButtonGradient}>
+            <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.requestButtonGradient}>
               <Ionicons name="send" size={15} color="#FFFFFF" style={{ marginRight: 8 }} />
               <Text style={styles.requestButtonText}>Request Time Off</Text>
             </LinearGradient>
@@ -246,12 +250,12 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
             <Text style={styles.sectionTitle}>My Leave Applications History</Text>
             <TouchableOpacity onPress={() => setActiveFilter("")} activeOpacity={0.7} style={styles.viewAllBtn}>
               <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={12} color="#F97316" />
+              <Ionicons name="chevron-forward" size={12} color="#1268D9" />
             </TouchableOpacity>
           </View>
 
           {loading ? (
-            <ActivityIndicator size="small" color="#F97316" style={{ marginTop: 20 }} />
+            <ActivityIndicator size="small" color="#1268D9" style={{ marginTop: 20 }} />
           ) : displayedLeaves.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>
@@ -365,8 +369,8 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
           onPress={() => navigation.navigate("ManagerApplyLeave")}
           activeOpacity={0.85}
         >
-          <LinearGradient colors={["#F97316", "#EA580C"]} style={styles.fabGradient}>
-            <Ionicons name="add" size={26} color="#FFFFFF" />
+          <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.fabGradient}>
+            <Ionicons name="add" size={28} color="#FFFFFF" />
           </LinearGradient>
         </TouchableOpacity>
       </View>
@@ -420,7 +424,7 @@ const styles = StyleSheet.create({
     width: 18,
     height: 18,
     borderRadius: 9,
-    backgroundColor: "#F97316",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
@@ -437,7 +441,7 @@ const styles = StyleSheet.create({
   },
   heroSubtitle: {
     fontSize: 10.5,
-    color: "#94A3B8",
+    color: "#E0F2FE",
     marginTop: 2,
   },
   heroActionsCol: {
@@ -479,8 +483,8 @@ const styles = StyleSheet.create({
     borderColor: "#E2E8F0",
   },
   statusPillTabActive: {
-    backgroundColor: "#F97316",
-    borderColor: "#F97316",
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
   },
   statusPillText: {
     fontSize: 12,
@@ -559,7 +563,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 16,
     elevation: 4,
-    shadowColor: "#F97316",
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -592,7 +596,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#F97316",
+    color: "#1268D9",
   },
   historyCard: {
     backgroundColor: "#FFFFFF",
@@ -744,7 +748,7 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 27,
     elevation: 8,
-    shadowColor: "#F97316",
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 10,

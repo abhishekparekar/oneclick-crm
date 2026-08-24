@@ -1107,7 +1107,7 @@ const DEFAULT_APPROVED_TEMPLATES = [
     headerType: "TEXT",
     bodyText: "Hi {{1}}, we received your inquiry regarding {{2}}. Our executive {{3}} is available to assist you. Let us know a convenient time to connect.",
     variablesJson: ["1", "2", "3"],
-    footerText: "Nextact CRM",
+    footerText: "Oneclick CRM",
     isCustom: false,
   },
   {

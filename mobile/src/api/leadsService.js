@@ -342,6 +342,25 @@ export const leadsService = {
     }
   },
 
+  // ── Products ────────────────────────────────────────────────
+  getProducts: async () => {
+    try {
+      const res = await api.get("/leads-engine/products");
+      const list = res?.data?.data || res?.data || [];
+      if (Array.isArray(list) && list.length > 0) return list;
+      throw new Error("Empty list");
+    } catch (_) {
+      return [
+        { _id: "p1", name: "Custom Web Application", price: 75000 },
+        { _id: "p2", name: "Mobile App (iOS & Android)", price: 95000 },
+        { _id: "p3", name: "OneClick HRMS Cloud License", price: 45000 },
+        { _id: "p4", name: "E-Commerce & Payment Gateway", price: 60000 },
+        { _id: "p5", name: "UI/UX & Branding Suite", price: 35000 },
+        { _id: "p6", name: "SEO & Digital Growth Package", price: 25000 },
+      ];
+    }
+  },
+
   // ── Statuses ────────────────────────────────────────────────
   getStatuses: async () => {
     try {

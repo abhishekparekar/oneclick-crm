@@ -20,9 +20,9 @@ import leadsService from "../../api/leadsService";
 import { FONTS } from "../../theme/tokens";
 
 const C = {
-  primary: "#F97316",
-  primaryLight: "#FFF7ED",
-  primaryBorder: "#FFEDD5",
+  primary: "#1268D9",
+  primaryLight: "#EFF6FF",
+  primaryBorder: "#DBEAFE",
   darkNavy: "#0F172A",
   bg: "#F8FAFC",
   card: "#FFFFFF",

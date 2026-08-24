@@ -1625,7 +1625,7 @@ const styles = StyleSheet.create({
   taskCardSelected: {
     borderColor: COLORS.primary,
     borderWidth: 1.5,
-    backgroundColor: "rgba(249, 115, 22, 0.04)",
+    backgroundColor: "rgba(18, 104, 217, 0.06)",
   },
   taskCardTouchable: {
     flex: 1,

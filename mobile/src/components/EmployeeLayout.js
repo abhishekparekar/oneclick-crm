@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Platform,
   Image,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -75,12 +76,13 @@ const EmployeeLayout = ({
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
       {/* Top Header */}
       <View
         style={[
           styles.header,
-          { height: (isDashboard ? 75 : 60) + insets.top, paddingTop: insets.top },
-          { backgroundColor: "#0F172A" }
+          { height: (isDashboard ? 72 : 60) + insets.top, paddingTop: insets.top },
         ]}
       >
         <View style={styles.headerLeft}>
@@ -89,17 +91,17 @@ const EmployeeLayout = ({
             style={styles.menuBtn}
             activeOpacity={0.7}
           >
-            <Ionicons name="menu-outline" size={26} color="#ffffff" />
+            <Ionicons name="menu-outline" size={26} color="#0F172A" />
           </TouchableOpacity>
           {isDashboard ? (
             <View style={styles.headerTitleContainer}>
-              <Text style={[styles.greetingText, { color: "#94A3B8" }]}>{getGreeting()}</Text>
-              <Text style={[styles.nameText, { color: "#ffffff" }]}>
-                {employeeDashboard?.employee?.fullName || employeeDashboard?.employee?.firstName || user?.name || "Team Member"} 👋
+              <Text style={styles.dashboardTitleText}>Dashboard</Text>
+              <Text style={styles.companySubText}>
+                {user?.companyName || "Oneclick"}
               </Text>
             </View>
           ) : (
-            <Text style={[styles.headerTitle, { color: "#ffffff" }]} numberOfLines={1}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
               {title}
             </Text>
           )}
@@ -110,7 +112,7 @@ const EmployeeLayout = ({
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSearch && (
                 <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="search-outline" size={22} color="#ffffff" />
+                  <Ionicons name="search-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onFilter && (
@@ -118,15 +120,15 @@ const EmployeeLayout = ({
                   onPress={onRightActionPress.onFilter}
                   style={[
                     styles.headerActionBtn,
-                    onRightActionPress.filterActive ? { backgroundColor: "#F97316", padding: 6, borderRadius: 8 } : null
+                    onRightActionPress.filterActive ? { backgroundColor: "#1268D9", padding: 6, borderRadius: 8 } : null
                   ]}
                   activeOpacity={0.6}
                 >
-                  <Ionicons name={onRightActionPress.filterActive ? "funnel" : "funnel-outline"} size={onRightActionPress.filterActive ? 18 : 22} color="#ffffff" />
+                  <Ionicons name={onRightActionPress.filterActive ? "funnel" : "funnel-outline"} size={onRightActionPress.filterActive ? 18 : 22} color={onRightActionPress.filterActive ? "#FFFFFF" : "#0F172A"} />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onPlus && (
-                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#F97316" }]} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.6}>
                   <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               )}
@@ -135,11 +137,11 @@ const EmployeeLayout = ({
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSearch && (
                 <TouchableOpacity onPress={onRightActionPress.onSearch} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="search-outline" size={22} color="#ffffff" />
+                  <Ionicons name="search-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onPlus && (
-                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#F97316" }]} activeOpacity={0.6}>
+                <TouchableOpacity onPress={onRightActionPress.onPlus} style={[styles.headerPlusBtn, { backgroundColor: "#1268D9" }]} activeOpacity={0.6}>
                   <Ionicons name="add" size={18} color="#ffffff" />
                 </TouchableOpacity>
               )}
@@ -148,12 +150,12 @@ const EmployeeLayout = ({
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSettings && (
                 <TouchableOpacity onPress={onRightActionPress.onSettings} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="settings-outline" size={22} color="#ffffff" />
+                  <Ionicons name="settings-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
               {onRightActionPress.onEdit && (
                 <TouchableOpacity onPress={onRightActionPress.onEdit} style={styles.headerActionBtn} activeOpacity={0.6}>
-                  <Ionicons name="create-outline" size={22} color="#ffffff" />
+                  <Ionicons name="create-outline" size={22} color="#0F172A" />
                 </TouchableOpacity>
               )}
             </View>
@@ -166,8 +168,8 @@ const EmployeeLayout = ({
                   style={[styles.bellBtn, { marginRight: 8 }]}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="megaphone-outline" size={24} color="#ffffff" />
-                  <View style={[styles.badge, { borderColor: "#0F172A", backgroundColor: "#F97316" }]}>
+                  <Ionicons name="megaphone-outline" size={24} color="#0F172A" />
+                  <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#1268D9" }]}>
                     <Text style={styles.badgeText}>
                       {unreadAnnouncementsCount > 9 ? "9+" : unreadAnnouncementsCount}
                     </Text>
@@ -180,8 +182,8 @@ const EmployeeLayout = ({
                   style={styles.bellBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="notifications-outline" size={24} color="#ffffff" />
-                  <View style={[styles.badge, { borderColor: "#0F172A", backgroundColor: "#EF4444" }]}>
+                  <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+                  <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#EF4444" }]}>
                     <Text style={styles.badgeText}>
                       {unreadNotificationsVal > 9 ? "9+" : unreadNotificationsVal}
                     </Text>
@@ -235,17 +237,17 @@ const EmployeeLayout = ({
                 >
                   <Text style={styles.fabMenuText}>Add Lead</Text>
                   <View style={[styles.fabMenuIcon, { backgroundColor: '#FFF7ED' }]}>
-                    <Ionicons name="person-add" size={16} color="#F97316" />
+                    <Ionicons name="person-add" size={16} color="#2875BD" />
                   </View>
                 </TouchableOpacity>
               )}
               <TouchableOpacity style={styles.fabMenuItem} onPress={() => { setFabOpen(false); navigation.navigate('EmployeeCreateTask'); }}>
                 <Text style={styles.fabMenuText}>Add Task</Text>
-                <View style={styles.fabMenuIcon}><Ionicons name="briefcase" size={16} color="#F97316" /></View>
+                <View style={styles.fabMenuIcon}><Ionicons name="briefcase" size={16} color="#2875BD" /></View>
               </TouchableOpacity>
               <TouchableOpacity style={styles.fabMenuItem} onPress={() => { setFabOpen(false); navigation.navigate('EmployeeApplyLeave'); }}>
                 <Text style={styles.fabMenuText}>Apply Leave</Text>
-                <View style={styles.fabMenuIcon}><Ionicons name="calendar" size={16} color="#F97316" /></View>
+                <View style={styles.fabMenuIcon}><Ionicons name="calendar" size={16} color="#2875BD" /></View>
               </TouchableOpacity>
             </View>
           )}
@@ -265,15 +267,22 @@ const EmployeeLayout = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#F4F7FB",
   },
   header: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     zIndex: 1000,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerLeft: {
     flexDirection: "row",
@@ -288,27 +297,22 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     justifyContent: "center",
   },
-  greetingText: {
-    color: "#94A3B8",
-    fontSize: 10,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
+  dashboardTitleText: {
+    color: "#0F172A",
+    fontSize: 17,
+    fontWeight: "800",
+    letterSpacing: -0.2,
   },
-  nameText: {
-    color: "#ffffff",
-    fontSize: 16,
+  companySubText: {
+    color: "#1268D9",
+    fontSize: 11,
     fontWeight: "700",
-  },
-  designationText: {
-    color: "#64748B",
-    fontSize: 10,
-    fontWeight: "500",
+    marginTop: 0.5,
   },
   headerTitle: {
-    color: "#ffffff",
+    color: "#0F172A",
     fontSize: 17,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: 0.2,
   },
   headerRight: {
@@ -330,7 +334,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#0F172A",
+    borderColor: "#FFFFFF",
   },
   badgeText: {
     color: "#ffffff",
@@ -338,26 +342,30 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F97316",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
-    borderWidth: 1.5,
-    borderColor: "#ffffff",
+    borderWidth: 2,
+    borderColor: "#E2E8F0",
     overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
   },
   avatarImage: {
     width: "100%",
     height: "100%",
-    borderRadius: 15,
+    borderRadius: 18,
   },
   avatarText: {
     color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "800",
   },
   headerActionRow: {
     flexDirection: "row",
@@ -371,7 +379,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: "#F97316",
+    backgroundColor: "#2875BD",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
@@ -390,7 +398,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F97316',
+    backgroundColor: '#2875BD',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#0F172A',
