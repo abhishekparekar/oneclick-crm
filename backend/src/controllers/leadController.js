@@ -2699,39 +2699,55 @@ const searchMapPlaces = async (req, res) => {
     const existingNames = new Set();
 
     if (companyId && places.length > 0) {
-      const phones = places.map((p) => p.whatsappPhone || p.phone).filter(Boolean);
-      const names = places.map((p) => p.company || p.name).filter(Boolean);
+      try {
+        const rawPhones = places.map((p) => p.whatsappPhone || p.phone).filter(Boolean);
+        const rawNames = places.map((p) => (p.company || p.name || "").trim()).filter(Boolean);
 
-      const phoneRegexes = phones.map(p => {
-        const digits = String(p).replace(/\D/g, "");
-        return digits.length >= 7 ? new RegExp(digits.slice(-8) + "$") : p;
-      });
+        const phoneSuffixes = Array.from(
+          new Set(
+            rawPhones
+              .map((p) => String(p).replace(/\D/g, ""))
+              .filter((d) => d.length >= 7)
+              .map((d) => d.slice(-8))
+          )
+        );
 
-      const existingLeads = await Lead.find({
-        companyId,
-        $or: [
-          { whatsappPhone: { $in: phoneRegexes } },
-          { phone: { $in: phoneRegexes } },
-          { name: { $in: names.map(n => new RegExp(`^${n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i')) } },
-          { company: { $in: names.map(n => new RegExp(`^${n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i')) } },
-        ],
-        deletedAt: null,
-      })
-        .select("_id name company whatsappPhone phone statusId")
-        .populate("statusId", "name color")
-        .lean();
+        const orConditions = [];
+        phoneSuffixes.forEach((sfx) => {
+          orConditions.push({ whatsappPhone: { $regex: sfx + "$", $options: "i" } });
+          orConditions.push({ phone: { $regex: sfx + "$", $options: "i" } });
+        });
 
-      for (const el of existingLeads) {
-        if (el.whatsappPhone) {
-          const d = String(el.whatsappPhone).replace(/\D/g, "");
-          if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
+        rawNames.slice(0, 30).forEach((n) => {
+          const escaped = n.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&");
+          orConditions.push({ name: { $regex: `^${escaped}$`, $options: "i" } });
+          orConditions.push({ company: { $regex: `^${escaped}$`, $options: "i" } });
+        });
+
+        if (orConditions.length > 0) {
+          const existingLeads = await Lead.find({
+            companyId,
+            $or: orConditions,
+            deletedAt: null,
+          })
+            .select("_id name company whatsappPhone phone statusId")
+            .lean();
+
+          for (const el of existingLeads) {
+            if (el.whatsappPhone) {
+              const d = String(el.whatsappPhone).replace(/\D/g, "");
+              if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
+            }
+            if (el.phone) {
+              const d = String(el.phone).replace(/\D/g, "");
+              if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
+            }
+            if (el.name) existingNames.add(el.name.trim().toLowerCase());
+            if (el.company) existingNames.add(el.company.trim().toLowerCase());
+          }
         }
-        if (el.phone) {
-          const d = String(el.phone).replace(/\D/g, "");
-          if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
-        }
-        if (el.name) existingNames.add(el.name.trim().toLowerCase());
-        if (el.company) existingNames.add(el.company.trim().toLowerCase());
+      } catch (dbErr) {
+        console.warn("[searchMapPlaces duplicate check warning]:", dbErr.message);
       }
     }
 
@@ -2766,26 +2782,57 @@ const importMapLeads = async (req, res) => {
     const companyId = getCompanyId(req);
     await seedDefaultsForCompany(companyId);
 
-    const { places, statusId, assignedTo, source, tagIds } = req.body;
+    const { places, statusId, assignedTo, source, tagIds } = req.body || {};
     if (!Array.isArray(places) || places.length === 0) {
       return res.status(400).json({ success: false, message: "No places provided for import." });
     }
 
     let targetStatusId = statusId;
-    if (!targetStatusId) {
+    if (!targetStatusId || !mongoose.Types.ObjectId.isValid(targetStatusId)) {
       const defStatus =
         (await LeadStatus.findOne(buildCompanyQuery(req, { isDefault: true }))) ||
         (await LeadStatus.findOne(buildCompanyQuery(req)));
-      targetStatusId = defStatus?._id;
+
+      if (defStatus) {
+        targetStatusId = defStatus._id;
+      } else {
+        const fallbackStatus = await LeadStatus.create({
+          name: "New",
+          color: "#06B6D4",
+          displayOrder: 1,
+          isDefault: true,
+          companyId: companyId && mongoose.Types.ObjectId.isValid(companyId) ? companyId : null,
+        });
+        targetStatusId = fallbackStatus._id;
+      }
     }
 
     let resolvedAssignedTo = assignedTo;
     if (assignedTo && assignedTo !== "unassigned") {
-      const emp = await Employee.findById(assignedTo).select("userId");
-      if (emp && emp.userId) {
-        resolvedAssignedTo = emp.userId;
+      try {
+        if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+          const emp = await Employee.findById(assignedTo).select("userId");
+          if (emp && emp.userId) {
+            resolvedAssignedTo = emp.userId;
+          }
+        } else {
+          resolvedAssignedTo = null;
+        }
+      } catch (_) {
+        resolvedAssignedTo = null;
       }
+    } else {
+      resolvedAssignedTo = null;
     }
+
+    if (resolvedAssignedTo && !mongoose.Types.ObjectId.isValid(resolvedAssignedTo)) {
+      resolvedAssignedTo = null;
+    }
+
+    const validCompanyId = companyId && mongoose.Types.ObjectId.isValid(companyId) ? companyId : null;
+    const validTagIds = Array.isArray(tagIds)
+      ? tagIds.filter((t) => t && mongoose.Types.ObjectId.isValid(t))
+      : [];
 
     const createdLeads = [];
     let skippedCount = 0;
@@ -2810,8 +2857,8 @@ const importMapLeads = async (req, res) => {
 
       // 2. Skip existing database leads
       const duplicateConditions = [
-        { name: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
-        { company: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+        { name: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") },
+        { company: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}$`, "i") },
       ];
       if (phoneSuffix) {
         duplicateConditions.push(
@@ -2820,24 +2867,26 @@ const importMapLeads = async (req, res) => {
         );
       }
 
-      const existing = await Lead.findOne({
-        companyId,
-        $or: duplicateConditions,
-        deletedAt: null,
-      });
+      if (validCompanyId) {
+        const existing = await Lead.findOne({
+          companyId: validCompanyId,
+          $or: duplicateConditions,
+          deletedAt: null,
+        });
 
-      if (existing) {
-        skippedCount++;
-        if (phoneSuffix) batchProcessedPhones.add(phoneSuffix);
-        batchProcessedNames.add(leadName.toLowerCase());
-        continue;
+        if (existing) {
+          skippedCount++;
+          if (phoneSuffix) batchProcessedPhones.add(phoneSuffix);
+          batchProcessedNames.add(leadName.toLowerCase());
+          continue;
+        }
       }
 
       if (phoneSuffix) batchProcessedPhones.add(phoneSuffix);
       batchProcessedNames.add(leadName.toLowerCase());
 
       const newLead = await Lead.create({
-        companyId,
+        companyId: validCompanyId,
         name: leadName,
         company: item.company || item.name || null,
         whatsappPhone: whatsapp || "9999999999",
@@ -2849,14 +2898,14 @@ const importMapLeads = async (req, res) => {
         source: source || "Google Maps / Map Search",
         productService: item.category || item.productService || null,
         assignedTo: resolvedAssignedTo || null,
-        createdBy: req.user?._id || null,
+        createdBy: req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id) ? req.user._id : null,
         notes: item.notes || `Discovered via Map Search (Rating: ${item.rating || 4.0}★, Reviews: ${item.reviewsCount || 0})`,
         whatsappOptIn: true,
-        tags: Array.isArray(tagIds) ? tagIds : [],
+        tags: validTagIds,
         leadNotes: [
           {
             note: `Imported from Map Place Search: ${item.address || item.city || "Location details saved."}`,
-            createdBy: req.user?._id || null,
+            createdBy: req.user?._id && mongoose.Types.ObjectId.isValid(req.user._id) ? req.user._id : null,
             createdAt: new Date(),
           },
         ],
