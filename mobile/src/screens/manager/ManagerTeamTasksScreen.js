@@ -396,6 +396,17 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
   const canCancel = hasPermission("tasks", "cancel");
   const insets = useSafeAreaInsets();
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchTeamTasks();
+      fetchMyManagerTasks();
+      fetchProjects();
+      fetchDashboard();
+      fetchTeam();
+      fetchTaskPermissions();
+    }, [])
+  );
+
   const [refreshing, setRefreshing] = useState(false);
   const [taskStatuses, setTaskStatuses] = useState([]);
   const [search, setSearch] = useState("");
@@ -676,7 +687,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     const finishedTasks = completeCount + lateCompleteCount;
     const progress = totalActiveTasks > 0 ? Math.round((finishedTasks / totalActiveTasks) * 100) : 0;
     
-    return { completeCount, lateCompleteCount, inProcessCount, rePendingCount, overdueCount, progress };
+    return { totalActiveTasks, completeCount, lateCompleteCount, inProcessCount, rePendingCount, overdueCount, progress };
   }, [activeTab, myManagerTasks, teamTasks, selectedDepts, selectedEmployeeIds]);
 
   const matchesDateFilter = (task, tabKey) => {
@@ -807,12 +818,43 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
   if (taskFilter === "recurring") {
     filteredData = filteredData.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
-  } else {
-    filteredData = filteredData.filter(t => !t.isTemplate);
-    if (taskFilter !== "") {
-      const target = normalizeStatusValue(taskFilter);
-      filteredData = filteredData.filter(t => normalizeStatusValue(t.status || "") === target);
-    }
+  } else if (taskFilter === "overdue") {
+    filteredData = filteredData.filter(t => {
+      const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      return t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+    });
+  } else if (taskFilter === "pending") {
+    filteredData = filteredData.filter(t => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "pending" || s === "todo" || s === "re_pending" || !s;
+    });
+  } else if (taskFilter === "in_process") {
+    filteredData = filteredData.filter(t => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+    });
+  } else if (taskFilter === "complete") {
+    filteredData = filteredData.filter(t => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+    });
+  } else if (taskFilter === "late_complete") {
+    filteredData = filteredData.filter(t => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+    });
+  } else if (taskFilter === "re_open") {
+    filteredData = filteredData.filter(t => {
+      if (t.isTemplate) return false;
+      return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+    });
+  } else if (taskFilter !== "") {
+    const target = normalizeStatusValue(taskFilter);
+    filteredData = filteredData.filter(t => normalizeStatusValue(t.status || "") === target);
   }
 
   if (deadlineComingFilter) {
@@ -838,7 +880,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
         return true;
       });
       base = base.filter(t => matchesDeadlineComingFilter(t, deadlineComingFilter));
-    } else {
+    } else if (dateFilter && dateFilter !== "all_time") {
       base = base.filter(t => matchesDateFilter(t, dateFilter));
     }
 
@@ -863,8 +905,47 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     }
     
     if (statusKey === "recurring") return base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    if (statusKey === "overdue") {
+      return base.filter(t => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (statusKey === "pending") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (statusKey === "in_process") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (statusKey === "complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (statusKey === "late_complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (statusKey === "re_open") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
     
-    base = base.filter(t => !t.isTemplate);
     if (!statusKey) return base.length;
     
     const target = normalizeStatusValue(statusKey);
@@ -907,13 +988,51 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     }
 
     if (taskFilter === "recurring") {
-      base = base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
-    } else {
-      base = base.filter(t => !t.isTemplate);
-      if (taskFilter !== "") {
-        const target = normalizeStatusValue(taskFilter);
-        base = base.filter(t => normalizeStatusValue(t.status || "") === target);
-      }
+      return base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    }
+    if (taskFilter === "overdue") {
+      return base.filter(t => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (taskFilter === "pending") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (taskFilter === "in_process") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (taskFilter === "complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (taskFilter === "late_complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (taskFilter === "re_open") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
+    if (taskFilter !== "") {
+      const target = normalizeStatusValue(taskFilter);
+      return base.filter(t => normalizeStatusValue(t.status || "") === target).length;
     }
     return base.length;
   };
@@ -922,7 +1041,9 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     { key: "", label: "All" },
     { key: "pending", label: "Pending" },
     { key: "in_process", label: "In Process" },
-    { key: "complete", label: "Complete" },
+    { key: "complete", label: "Completed" },
+    { key: "late_complete", label: "Late Completed" },
+    { key: "re_open", label: "Re-Open" },
     { key: "overdue", label: "Overdue" },
     { key: "recurring", label: "Recurring" },
   ];
@@ -933,7 +1054,8 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     { key: "yesterday", label: "Yesterday" },
     { key: "this_week", label: "This Week" },
     { key: "this_month", label: "This Month" },
-    { key: "last_month", label: "Last Month" }
+    { key: "last_month", label: "Last Month" },
+    { key: "re_open", label: "Re-Open" }
   ];
 
   const isFilterActive = selectedDepts.length > 0 || selectedEmployeeIds.length > 0 || deadlineComingFilter !== "";
@@ -962,25 +1084,35 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
           ListHeaderComponent={() => (
             <>
               {/* Stats Bar */}
-              <LinearGradient colors={["#C2410C", "#7C2D12"]} style={styles.statsHeader}>
+              <LinearGradient
+                colors={['#082B52', '#1268D9']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.statsHeader}
+              >
                 <View style={styles.statsRow}>
                   <View style={styles.statCell}>
-                    <Text style={styles.statVal}>{stats.completeCount + stats.lateCompleteCount}</Text>
+                    <Text style={[styles.statVal, { color: "#FFFFFF" }]}>{stats.totalActiveTasks}</Text>
+                    <Text style={styles.statLbl}>All Tasks</Text>
+                  </View>
+                  <View style={styles.statSep} />
+                  <View style={styles.statCell}>
+                    <Text style={[styles.statVal, { color: "#6EE7B7" }]}>{stats.completeCount + stats.lateCompleteCount}</Text>
                     <Text style={styles.statLbl}>Finished</Text>
                   </View>
                   <View style={styles.statSep} />
                   <View style={styles.statCell}>
-                    <Text style={[styles.statVal, { color: "#a5f3fc" }]}>{stats.inProcessCount + stats.rePendingCount}</Text>
+                    <Text style={[styles.statVal, { color: "#93C5FD" }]}>{stats.inProcessCount + stats.rePendingCount}</Text>
                     <Text style={styles.statLbl}>Working</Text>
                   </View>
                   <View style={styles.statSep} />
                   <View style={styles.statCell}>
-                    <Text style={[styles.statVal, { color: "#fca5a5" }]}>{stats.overdueCount}</Text>
+                    <Text style={[styles.statVal, { color: "#FCA5A5" }]}>{stats.overdueCount}</Text>
                     <Text style={styles.statLbl}>Overdue</Text>
                   </View>
                   <View style={styles.statSep} />
                   <View style={styles.statCell}>
-                    <Text style={[styles.statVal, { color: "#6ee7b7" }]}>{stats.progress}%</Text>
+                    <Text style={[styles.statVal, { color: "#FDE047" }]}>{stats.progress}%</Text>
                     <Text style={styles.statLbl}>Progress</Text>
                   </View>
                 </View>

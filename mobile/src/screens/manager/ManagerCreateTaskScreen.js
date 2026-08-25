@@ -23,10 +23,12 @@ import { loadTaskScheduleContext } from "../../utils/loadTaskScheduleContext";
 import TaskAttachmentPicker from "../../components/TaskAttachmentPicker";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
+import { useQueryClient } from "@tanstack/react-query";
 
 const ManagerCreateTaskScreen = ({ route, navigation }) => {
   const { defaultAssignmentType, isRecurring, defaultProjectId } = route.params || {};
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const {
     createTeamTask,
@@ -219,6 +221,11 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
       };
 
       await createTeamTask(payload);
+      queryClient.invalidateQueries(["companyTasks"]);
+      queryClient.invalidateQueries(["tasks"]);
+      queryClient.invalidateQueries(["teamTasks"]);
+      queryClient.invalidateQueries(["myTasks"]);
+      queryClient.invalidateQueries(["employeeTasks"]);
       Alert.alert("Success", "Task created successfully!");
       navigation.goBack();
     } catch (err) {

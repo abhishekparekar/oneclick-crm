@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -11,11 +11,14 @@ import {
   Animated,
   TextInput,
   Modal,
+  FlatList,
+  Platform,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Stop } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
@@ -54,7 +57,9 @@ const STATUS_TABS = [
   { key: "", label: "All" },
   { key: "pending", label: "Pending" },
   { key: "in_process", label: "In Process" },
-  { key: "complete", label: "Complete" },
+  { key: "complete", label: "Completed" },
+  { key: "late_complete", label: "Late Completed" },
+  { key: "re_open", label: "Re-Open" },
   { key: "overdue", label: "Overdue" },
   { key: "recurring", label: "Recurring" },
 ];
@@ -379,9 +384,21 @@ const TaskBoardScreen = ({ navigation }) => {
     }
   };
 
+  const handleClearFilters = () => {
+    setSelectedDepts([]);
+    setSelectedEmployeeIds([]);
+    setDeadlineComingFilter("");
+  };
+
   useEffect(() => {
     setSelectedTaskIds([]);
   }, [selectedDepts, selectedEmployeeIds, taskFilter, deadlineComingFilter, dateFilter]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
 
   const { data: tasksData = [], isLoading, isRefetching, refetch } = useQuery({
     queryKey: ["companyTasks"],
@@ -394,6 +411,7 @@ const TaskBoardScreen = ({ navigation }) => {
       const templates = (recurringRes.data?.tasks || []).map((t) => ({ ...t, isTemplate: true }));
       return [...all, ...templates];
     },
+    staleTime: 0,
   });
 
   const { data: departments = [] } = useQuery({
@@ -402,6 +420,7 @@ const TaskBoardScreen = ({ navigation }) => {
       const res = await getDepartmentsApi().catch(() => ({ data: { departments: [] } }));
       return res.data?.departments || [];
     },
+    staleTime: 60000,
   });
 
   const { data: employees = [] } = useQuery({
@@ -410,6 +429,7 @@ const TaskBoardScreen = ({ navigation }) => {
       const res = await getEmployeesApi().catch(() => ({ data: { employees: [] } }));
       return res.data?.employees || res.data || [];
     },
+    staleTime: 60000,
   });
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -562,12 +582,11 @@ const TaskBoardScreen = ({ navigation }) => {
     { key: "today", label: "Today" },
     { key: "yesterday", label: "Yesterday" },
     { key: "this_week", label: "This Week" },
-    { key: "last_month", label: "Last Month" },
     { key: "this_month", label: "This Month" },
-    { key: "next_month", label: "Next Month" }
+    { key: "last_month", label: "Last Month" },
+    { key: "next_month", label: "Next Month" },
+    { key: "re_open", label: "Re-Open" },
   ];
-
-  
 
   // ── Filtered List ───────────────────────────────────────────────────────────
   let filteredData = tasksData;
@@ -608,12 +627,43 @@ const TaskBoardScreen = ({ navigation }) => {
 
   if (taskFilter === "recurring") {
     filteredData = filteredData.filter((t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
-  } else {
-    filteredData = filteredData.filter((t) => !t.isTemplate);
-    if (taskFilter !== "") {
-      const target = normalizeStatusValue(taskFilter);
-      filteredData = filteredData.filter((t) => normalizeStatusValue(t.status || "") === target);
-    }
+  } else if (taskFilter === "overdue") {
+    filteredData = filteredData.filter((t) => {
+      const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+    });
+  } else if (taskFilter === "pending") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "pending" || s === "todo" || s === "re_pending" || !s;
+    });
+  } else if (taskFilter === "in_process") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+    });
+  } else if (taskFilter === "complete") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+    });
+  } else if (taskFilter === "late_complete") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+    });
+  } else if (taskFilter === "re_open") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+    });
+  } else if (taskFilter !== "") {
+    const target = normalizeStatusValue(taskFilter);
+    filteredData = filteredData.filter((t) => normalizeStatusValue(t.status || "") === target);
   }
 
   if (deadlineComingFilter) {
@@ -638,7 +688,7 @@ const TaskBoardScreen = ({ navigation }) => {
         return true;
       });
       base = base.filter(t => matchesDeadlineComingFilter(t, deadlineComingFilter));
-    } else {
+    } else if (dateFilter && dateFilter !== "all_time") {
       base = base.filter(t => matchesDateFilter(t, dateFilter));
     }
 
@@ -662,9 +712,51 @@ const TaskBoardScreen = ({ navigation }) => {
       });
     }
     
-    if (statusKey === "recurring") return base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    if (statusKey === "recurring") {
+      return base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    }
+    if (statusKey === "overdue") {
+      return base.filter(t => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (statusKey === "pending") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (statusKey === "in_process") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (statusKey === "complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (statusKey === "late_complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (statusKey === "re_open") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
     
-    base = base.filter(t => !t.isTemplate);
+    // When statusKey is "" ("All"), return all tasks including recurring
     if (!statusKey) return base.length;
     
     const target = normalizeStatusValue(statusKey);
@@ -706,19 +798,264 @@ const TaskBoardScreen = ({ navigation }) => {
     }
     
     if (taskFilter === "recurring") {
-      base = base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
-    } else {
-      base = base.filter(t => !t.isTemplate);
-      if (taskFilter !== "") {
-        const target = normalizeStatusValue(taskFilter);
-        base = base.filter(t => normalizeStatusValue(t.status || "") === target);
-      }
+      return base.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
+    }
+    if (taskFilter === "overdue") {
+      return base.filter(t => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (taskFilter === "pending") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (taskFilter === "in_process") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (taskFilter === "complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (taskFilter === "late_complete") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (taskFilter === "re_open") {
+      return base.filter(t => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
+    if (taskFilter !== "") {
+      const target = normalizeStatusValue(taskFilter);
+      return base.filter(t => normalizeStatusValue(t.status || "") === target).length;
     }
     return base.length;
   };
 
   const isFilterActive = selectedDepts.length > 0 || selectedEmployeeIds.length > 0 || deadlineComingFilter !== "";
 
+
+  const renderTaskItem = useCallback(({ item }) => {
+    return (
+      <View style={{ paddingHorizontal: 12 }}>
+        <TaskCard
+          key={item._id}
+          item={item}
+          onPress={() => {
+            if (selectedEmployeeIds.length > 0) {
+              const visibleIds = filteredData.map((t) => t._id).filter(Boolean);
+              const isAnySelected = visibleIds.some((id) => selectedTaskIds.includes(id));
+              if (isAnySelected) {
+                setSelectedTaskIds((prev) => prev.filter((id) => !visibleIds.includes(id)));
+              } else {
+                setSelectedTaskIds((prev) => [...new Set([...prev, ...visibleIds])]);
+              }
+            } else {
+              navigation.navigate("CompanyTaskDetails", { taskId: item._id, initialTask: item });
+            }
+          }}
+          onEdit={() => navigation.navigate("CompanyCreateTask", { editingTask: item })}
+          onDelete={() => handleDelete(item._id)}
+          isSelected={selectedTaskIds.includes(item._id)}
+          onToggle={() => {
+            const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(
+              item.status?.toLowerCase()
+            );
+            const isOverdue = item.endDateTime && new Date(item.endDateTime) < new Date() && !isDone;
+
+            let nextStatus = "completed";
+            if (isDone) {
+              nextStatus = "todo";
+            } else if (isOverdue) {
+              nextStatus = "late_complete";
+            }
+            handleMoveStatus(item._id, nextStatus);
+          }}
+          canEdit={hasPermission("tasks", "edit")}
+          canCancel={hasPermission("tasks", "cancel")}
+          canShift={hasPermission("tasks", "shift")}
+        />
+      </View>
+    );
+  }, [selectedEmployeeIds, filteredData, selectedTaskIds, navigation, hasPermission]);
+
+  const renderListHeader = useCallback(() => (
+    <View>
+      {/* ── Gradient Stats Header ─────────────────────────────────────── */}
+      <LinearGradient
+        colors={['#082B52', '#1268D9']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
+        style={styles.statsHeader}
+      >
+        <View style={styles.statsRow}>
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: "#FFFFFF" }]}>{totalActiveTasks}</Text>
+            <Text style={styles.statLbl}>All Tasks</Text>
+          </View>
+          <View style={styles.statSep} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: "#6EE7B7" }]}>{completeCount + lateCompleteCount}</Text>
+            <Text style={styles.statLbl}>Finished</Text>
+          </View>
+          <View style={styles.statSep} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: "#93C5FD" }]}>{inProcessCount + rePendingCount}</Text>
+            <Text style={styles.statLbl}>Working</Text>
+          </View>
+          <View style={styles.statSep} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: "#FCA5A5" }]}>{overdueCount}</Text>
+            <Text style={styles.statLbl}>Overdue</Text>
+          </View>
+          <View style={styles.statSep} />
+          <View style={styles.statCell}>
+            <Text style={[styles.statVal, { color: "#FDE047" }]}>{progress}%</Text>
+            <Text style={styles.statLbl}>Progress</Text>
+          </View>
+        </View>
+      </LinearGradient>
+
+      {/* Status filter tabs */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+          {STATUS_TABS.map((tab) => {
+            const isActive = taskFilter === tab.key;
+            const cnt = getStatusCount(tab.key);
+            return (
+              <TouchableOpacity
+                key={tab.key}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setTaskFilter(tab.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
+                  {tab.label}
+                </Text>
+                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
+                    {cnt}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Date Filter Tabs (Moved below status) ── */}
+      <View style={styles.tabsWrapper}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
+          {dateFilters.map((df) => {
+            const isActive = dateFilter === df.key;
+            const cnt = getDateTabCount(df.key);
+            return (
+              <TouchableOpacity
+                key={df.key}
+                style={[styles.tab, isActive && styles.tabActive]}
+                onPress={() => setDateFilter(df.key)}
+              >
+                <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{df.label}</Text>
+                <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
+                  <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>{cnt}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Active Filter Indicators Bar ── */}
+      {isFilterActive && (
+        <View style={styles.activeFilterBanner}>
+          <View style={styles.activeFilterLeft}>
+            <Ionicons name="funnel" size={13} color="#1268D9" />
+            <Text style={styles.activeFilterBannerText}>
+              Filters active ({selectedDepts.length + selectedEmployeeIds.length + (deadlineComingFilter ? 1 : 0)})
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={handleClearFilters}
+            style={styles.clearFiltersBtn}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="close-circle" size={14} color="#EF4444" style={{ marginRight: 3 }} />
+            <Text style={styles.clearFiltersBtnText}>Clear All</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Task List Header ──────────────────────────────────────────── */}
+      <View style={styles.listHeader}>
+        <View style={styles.listHeaderLeft}>
+          <View style={styles.listHeaderAccent} />
+          <Text style={styles.listHeaderTitle}>
+            {taskFilter === "" ? "All Task List" : `${STATUS_TABS.find(t => t.key === taskFilter)?.label || ""} Tasks`}
+          </Text>
+        </View>
+        <View style={styles.listHeaderRight}>
+          <TouchableOpacity
+            onPress={toggleFilter}
+            style={[
+              styles.listFilterBtn,
+              isFilterActive && styles.listFilterBtnActive
+            ]}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isFilterActive ? "funnel" : "funnel-outline"}
+              size={13}
+              color={isFilterActive ? "#FFFFFF" : "#1268D9"}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.listFilterBtnText, isFilterActive && styles.listFilterBtnTextActive]}>
+              {isFilterActive ? "Filtered" : "Filter"}
+            </Text>
+          </TouchableOpacity>
+          <Ionicons name="layers-outline" size={12} color="#94a3b8" />
+          <Text style={styles.listHeaderCount}>{filteredData.length} tasks</Text>
+        </View>
+      </View>
+    </View>
+  ), [
+    totalActiveTasks, completeCount, lateCompleteCount, inProcessCount, rePendingCount, overdueCount, progress,
+    taskFilter, dateFilter, isFilterActive, selectedDepts, selectedEmployeeIds, deadlineComingFilter, filteredData.length
+  ]);
+
+  const renderEmptyComponent = useCallback(() => {
+    if (isLoading) {
+      return (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#0d9488" />
+          <Text style={styles.loadingText}>Loading tasks…</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.emptyWrap}>
+        <LinearGradient colors={["#f0fdf4", "#ecfdf5"]} style={styles.emptyIcon}>
+          <Ionicons name="checkmark-done-outline" size={28} color="#10b981" />
+        </LinearGradient>
+        <Text style={styles.emptyTitle}>No matching tasks</Text>
+        <Text style={styles.emptySubtitle}>Try changing status filters or date tabs</Text>
+      </View>
+    );
+  }, [isLoading]);
 
   return (
     <CompanyAdminLayout
@@ -727,217 +1064,42 @@ const TaskBoardScreen = ({ navigation }) => {
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search tasks..."
-      headerTextColor="#ffffff"
       headerTitle="Task Board"
       headerRightElement={
         <TouchableOpacity 
           onPress={toggleFilter} 
-          style={[styles.filterToggleBtn, isFilterActive ? { backgroundColor: "#f59e0b", padding: 6, borderRadius: 8, borderWidth: 1, borderColor: "#ffffff" } : null]}
+          style={[
+            styles.headerFilterBtn,
+            isFilterActive && styles.headerFilterBtnActive
+          ]}
+          activeOpacity={0.7}
         >
-          <Ionicons name={isFilterActive ? "funnel" : (showFilter ? "funnel" : "funnel-outline")} size={isFilterActive ? 18 : 22} color={isFilterActive ? "#ffffff" : (showFilter ? "#2dd4bf" : "#ffffff")} />
+          <Ionicons
+            name={isFilterActive ? "funnel" : "funnel-outline"}
+            size={20}
+            color={isFilterActive ? "#FFFFFF" : "#0F172A"}
+          />
           {isFilterActive && (
-            <View style={{
-              position: "absolute",
-              top: -3,
-              right: -3,
-              width: 9,
-              height: 9,
-              borderRadius: 4.5,
-              backgroundColor: "#ef4444",
-              borderWidth: 1.5,
-              borderColor: "#ffffff"
-            }} />
+            <View style={styles.headerFilterDot} />
           )}
         </TouchableOpacity>
       }
     >
       <View style={styles.root}>
-        <ScrollView
+        <FlatList
+          data={filteredData}
+          keyExtractor={(item) => item._id}
+          renderItem={renderTaskItem}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}
+          initialNumToRender={8}
+          maxToRenderPerBatch={8}
+          windowSize={7}
+          removeClippedSubviews={Platform.OS === "android"}
           refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#0d9488" />}
-        >
-
-          {/* ── Gradient Stats Header ─────────────────────────────────────── */}
-          <LinearGradient colors={['#0F172A', '#1E293B']} style={styles.statsHeader}>
-            <View style={styles.statsRow}>
-              <View style={styles.statCell}>
-                <Text style={[styles.statVal, { color: "#FFFFFF" }]}>{totalActiveTasks}</Text>
-                <Text style={styles.statLbl}>All Tasks</Text>
-              </View>
-              <View style={styles.statSep} />
-              <View style={styles.statCell}>
-                <Text style={[styles.statVal, { color: "#10B981" }]}>{completeCount + lateCompleteCount}</Text>
-                <Text style={styles.statLbl}>Finished</Text>
-              </View>
-              <View style={styles.statSep} />
-              <View style={styles.statCell}>
-                <Text style={[styles.statVal, { color: "#3B82F6" }]}>{inProcessCount + rePendingCount}</Text>
-                <Text style={styles.statLbl}>Working</Text>
-              </View>
-              <View style={styles.statSep} />
-              <View style={styles.statCell}>
-                <Text style={[styles.statVal, { color: "#EF4444" }]}>{overdueCount}</Text>
-                <Text style={styles.statLbl}>Overdue</Text>
-              </View>
-              <View style={styles.statSep} />
-              <View style={styles.statCell}>
-                <Text style={[styles.statVal, { color: COLORS.primary }]}>{progress}%</Text>
-                <Text style={styles.statLbl}>Progress</Text>
-              </View>
-            </View>
-          </LinearGradient>
-
-
-
-
-
-          {/* Status filter tabs */}
-          <View style={styles.tabsWrapper}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-              {STATUS_TABS.map((tab) => {
-                const isActive = taskFilter === tab.key;
-                const cnt = getStatusCount(tab.key);
-                return (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={[styles.tab, isActive && styles.tabActive]}
-                    onPress={() => setTaskFilter(tab.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>
-                      {tab.label}
-                    </Text>
-                    <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                      <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>
-                        {cnt}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* Date filter tabs */}
-          {/* <View style={styles.tabsWrapper}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-              {DATE_TABS.map((tab) => {
-                const isActive = dateFilter === tab.key;
-                const cnt = getDateTabCount(tab.key);
-                return (
-                  <TouchableOpacity
-                    key={tab.key}
-                    style={[styles.dateTab, isActive && styles.dateTabActive]}
-                    onPress={() => setDateFilter(tab.key)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={[styles.dateTabText, isActive && styles.dateTabTextActive]}>
-                      {tab.label}
-                    </Text>
-                    <View style={[styles.dateTabBadge, isActive && styles.dateTabBadgeActive]}>
-                      <Text style={[styles.dateTabBadgeText, isActive && styles.dateTabBadgeTextActive]}>
-                        {cnt}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View> */}
-
-          {/* ── Date Filter Tabs (Moved below status) ── */}
-          <View style={styles.tabsWrapper}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
-              {dateFilters.map((df) => {
-                const isActive = dateFilter === df.key;
-                const cnt = getDateTabCount(df.key);
-                return (
-                  <TouchableOpacity
-                    key={df.key}
-                    style={[styles.tab, isActive && styles.tabActive]}
-                    onPress={() => setDateFilter(df.key)}
-                  >
-                    <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{df.label}</Text>
-                    <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
-                      <Text style={[styles.tabBadgeText, isActive && styles.tabBadgeTextActive]}>{cnt}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          {/* ── Task List Header ──────────────────────────────────────────── */}
-          <View style={styles.listHeader}>
-            <View style={styles.listHeaderLeft}>
-              <View style={styles.listHeaderAccent} />
-              <Text style={styles.listHeaderTitle}>
-                {taskFilter === "" ? "All Task List" : `${STATUS_TABS.find(t => t.key === taskFilter)?.label || ""} Tasks`}
-              </Text>
-            </View>
-            <View style={styles.listHeaderRight}>
-              <Ionicons name="layers-outline" size={12} color="#94a3b8" />
-              <Text style={styles.listHeaderCount}>{filteredData.length} tasks</Text>
-            </View>
-          </View>
-
-          {/* ── Task List ─────────────────────────────────────────────────── */}
-          {isLoading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator size="large" color="#0d9488" />
-              <Text style={styles.loadingText}>Loading tasks…</Text>
-            </View>
-          ) : filteredData.length === 0 ? (
-            <View style={styles.emptyWrap}>
-              <LinearGradient colors={["#f0fdf4", "#ecfdf5"]} style={styles.emptyIcon}>
-                <Ionicons name="checkmark-done-outline" size={28} color="#10b981" />
-              </LinearGradient>
-              <Text style={styles.emptyTitle}>No matching tasks</Text>
-              <Text style={styles.emptySubtitle}>Try changing status filters or date tabs</Text>
-            </View>
-          ) : (
-            <View style={styles.taskListContainer}>
-              {filteredData.map((item) => (
-                <TaskCard
-                  key={item._id}
-                  item={item}
-                  onPress={() => {
-                    if (selectedEmployeeIds.length > 0) {
-                      const visibleIds = filteredData.map(t => t._id).filter(id => id);
-                      const isAnySelected = visibleIds.some(id => selectedTaskIds.includes(id));
-                      if (isAnySelected) {
-                        setSelectedTaskIds(prev => prev.filter(id => !visibleIds.includes(id)));
-                      } else {
-                        setSelectedTaskIds(prev => [...new Set([...prev, ...visibleIds])]);
-                      }
-                    } else {
-                      navigation.navigate("CompanyTaskDetails", { taskId: item._id, initialTask: item });
-                    }
-                  }}
-                  onEdit={() => navigation.navigate("CompanyCreateTask", { editingTask: item })}
-                  onDelete={() => handleDelete(item._id)}
-                  isSelected={selectedTaskIds.includes(item._id)}
-                  onToggle={() => {
-                    const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(item.status?.toLowerCase());
-                    const isOverdue = item.endDateTime && new Date(item.endDateTime) < new Date() && !isDone;
-                    
-                    let nextStatus = "completed";
-                    if (isDone) {
-                      nextStatus = "todo";
-                    } else if (isOverdue) {
-                      nextStatus = "late_complete";
-                    }
-                    handleMoveStatus(item._id, nextStatus);
-                  }}
-                  canEdit={hasPermission("tasks", "edit")}
-                  canCancel={hasPermission("tasks", "cancel")}
-                  canShift={hasPermission("tasks", "shift")}
-                />
-              ))}
-            </View>
-          )}
-        </ScrollView>
+          ListHeaderComponent={renderListHeader}
+          ListEmptyComponent={renderEmptyComponent}
+        />
 
         {/* ── FAB Add Task ─────────────────────────────────────────────────── */}
         {hasPermission("tasks", "create") && (
@@ -947,15 +1109,20 @@ const TaskBoardScreen = ({ navigation }) => {
               onPress={() => navigation.navigate("CompanyCreateTask", { isRecurring: true })}
               activeOpacity={0.85}
             >
-              <Ionicons name="repeat-outline" size={16} color="#0d9488" />
+              <Ionicons name="repeat-outline" size={20} color={COLORS.primary} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.fab}
               onPress={() => navigation.navigate("CompanyCreateTask")}
               activeOpacity={0.85}
             >
-              <LinearGradient colors={["#0d9488", "#C2410C"]} style={styles.fabGradient}>
-                <Ionicons name="add" size={22} color="#ffffff" />
+              <LinearGradient
+                colors={['#082B52', '#1268D9']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGradient}
+              >
+                <Ionicons name="add" size={28} color="#FFFFFF" />
               </LinearGradient>
             </TouchableOpacity>
           </View>
@@ -1507,6 +1674,47 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  statsHeader: {
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 8,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    elevation: 3,
+    shadowColor: "#082B52",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+  statsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statCell: {
+    flex: 1,
+    alignItems: "center",
+  },
+  statVal: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#ffffff",
+    letterSpacing: -0.3,
+  },
+  statLbl: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: "rgba(255, 255, 255, 0.8)",
+    marginTop: 2,
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+  },
+  statSep: {
+    width: 1,
+    height: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  },
+
   // ── Tabs (Date Periods) ──────────────────────────────────────────────────
   tabsWrapper: {
     backgroundColor: "#ffffff",
@@ -1563,6 +1771,85 @@ const styles = StyleSheet.create({
   },
   tabBadgeTextActive: {
     color: "#ffffff",
+  },
+
+  // ── Header & List Filter Button Styles ──
+  headerFilterBtn: {
+    padding: 6,
+    marginRight: 6,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerFilterBtnActive: {
+    backgroundColor: "#1268D9",
+  },
+  headerFilterDot: {
+    position: "absolute",
+    top: 2,
+    right: 2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#EF4444",
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+  listFilterBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  listFilterBtnActive: {
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
+  },
+  listFilterBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#1268D9",
+  },
+  listFilterBtnTextActive: {
+    color: "#FFFFFF",
+  },
+  activeFilterBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#EFF6FF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#DBEAFE",
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+  },
+  activeFilterLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  activeFilterBannerText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#1E40AF",
+  },
+  clearFiltersBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEE2E2",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  clearFiltersBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#EF4444",
   },
 
   // ── List Header ───────────────────────────────────────────────────────────
@@ -1883,37 +2170,39 @@ const styles = StyleSheet.create({
   // ── FAB ───────────────────────────────────────────────────────────────────
   fabContainer: {
     position: "absolute",
-    bottom: 20,
-    right: 16,
+    bottom: 24,
+    right: 18,
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
+    gap: 12,
   },
   fabSecondary: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#ffffff",
     borderWidth: 1.5,
-    borderColor: "#ccfbf1",
+    borderColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#0d9488",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 3,
+    shadowRadius: 5,
+    elevation: 4,
   },
   fab: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: "hidden",
-    shadowColor: "#0d9488",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.28,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowColor: "#082B52",
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 1.5,
+    borderColor: "rgba(255, 255, 255, 0.4)",
   },
   fabGradient: {
     flex: 1,

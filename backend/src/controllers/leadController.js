@@ -405,7 +405,8 @@ const getLeads = async (req, res) => {
       .populate("createdBy", "name email")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
     const formattedData = leads.map((l) => ({
       id: l._id.toString(),

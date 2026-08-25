@@ -1,5 +1,6 @@
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
+const User = require("../models/User");
 
 const sendNotificationToEmployees = async (companyId, employeeIds, title, body, type, data = {}) => {
   try {
@@ -12,7 +13,7 @@ const sendNotificationToEmployees = async (companyId, employeeIds, title, body, 
         { _id: { $in: cleanIds } },
         { userId: { $in: cleanIds } }
       ]
-    }).populate("userId");
+    }).select("userId");
 
     const targetUserIds = new Set();
     for (const emp of employees) {
@@ -21,10 +22,10 @@ const sendNotificationToEmployees = async (companyId, employeeIds, title, body, 
       }
     }
 
-    // In case cleanIds are direct User IDs
-    for (const id of cleanIds) {
-      const idStr = id._id ? id._id.toString() : id.toString();
-      targetUserIds.add(idStr);
+    // Also check if any cleanIds are directly valid User _id documents
+    const directUsers = await User.find({ _id: { $in: cleanIds } }).select("_id");
+    for (const u of directUsers) {
+      targetUserIds.add(u._id.toString());
     }
 
     if (targetUserIds.size === 0) return;
@@ -37,24 +38,9 @@ const sendNotificationToEmployees = async (companyId, employeeIds, title, body, 
 
 const sendNotificationToAllEmployees = async (companyId, title, body, type, data = {}) => {
   try {
-    const employees = await Employee.find({ companyId, status: "active" }).populate("userId");
-    const notifications = [];
-    
-    for (const emp of employees) {
-      if (emp.userId) {
-        notifications.push(
-          Notification.create({
-            companyId,
-            userId: emp.userId._id || emp.userId,
-            title,
-            body,
-            type,
-            data
-          })
-        );
-      }
-    }
-    await Promise.all(notifications);
+    const employees = await Employee.find({ companyId, status: "active" }).select("userId");
+    const userIds = employees.map(emp => emp.userId).filter(Boolean);
+    await notifyManyUsers(userIds, companyId, title, body, type, data);
   } catch (err) {
     console.error("Error creating notifications for all employees:", err);
   }
@@ -79,13 +65,14 @@ const notifyUser = async (userId, companyId, title, body, type, data = {}) => {
 const notifyManyUsers = async (userIds, companyId, title, body, type, data = {}) => {
   try {
     if (!userIds || userIds.length === 0) return;
-    // Use Promise.all + Notification.create (NOT insertMany!) so the post('save') hook
-    // fires for each document, which triggers Firebase FCM push notifications.
+    const uniqueUserIds = [...new Set(userIds.map(id => id ? (id._id ? id._id.toString() : id.toString()) : "").filter(Boolean))];
+    if (uniqueUserIds.length === 0) return;
+
     await Promise.all(
-      userIds.map((id) =>
+      uniqueUserIds.map((id) =>
         Notification.create({
           companyId,
-          userId: id._id || id,
+          userId: id,
           title,
           body,
           type,
@@ -100,8 +87,12 @@ const notifyManyUsers = async (userIds, companyId, title, body, type, data = {})
 
 const notifyRole = async (companyId, role, title, body, type, data = {}) => {
   try {
-    const User = require("../models/User");
-    const users = await User.find({ companyId, role, isActive: true }).select("_id");
+    const roleRegex = new RegExp(`^${role}$`, "i");
+    const users = await User.find({
+      companyId,
+      role: { $regex: roleRegex },
+      isActive: { $ne: false }
+    }).select("_id");
     const userIds = users.map(u => u._id);
     await notifyManyUsers(userIds, companyId, title, body, type, data);
   } catch (err) {
@@ -122,19 +113,22 @@ const notifyDepartment = async (companyId, departmentId, title, body, type, data
 const notifyReportingManagers = async (companyId, employeeIds, title, body, type, data = {}) => {
   try {
     if (!employeeIds || employeeIds.length === 0) return;
-    const Employee = require("../models/Employee");
     
     // Find all assigned employees
-    const employees = await Employee.find({ _id: { $in: employeeIds }, companyId });
+    const employees = await Employee.find({
+      $or: [
+        { _id: { $in: employeeIds } },
+        { userId: { $in: employeeIds } }
+      ],
+      companyId
+    }).select("reportingManagerId");
     
-    // Extract reporting manager IDs (which are Employee IDs)
+    // Extract reporting manager IDs
     const managerEmpIds = [...new Set(employees.map(e => e.reportingManagerId).filter(Boolean))];
-    
     if (managerEmpIds.length === 0) return;
     
-    // Find those managers to get their userIds
-    const managers = await Employee.find({ _id: { $in: managerEmpIds }, companyId }).populate("userId");
-    const userIds = managers.map(m => m.userId?._id || m.userId).filter(Boolean);
+    const managers = await Employee.find({ _id: { $in: managerEmpIds }, companyId }).select("userId");
+    const userIds = managers.map(m => m.userId).filter(Boolean);
     
     await notifyManyUsers(userIds, companyId, title, body, type, data);
   } catch (err) {
@@ -154,43 +148,45 @@ const notifyCompany = async (companyId, title, body, type, data = {}) => {
 
 /**
  * Notify all supervisors of a task:
- * 1. CompanyAdmin users for this company
+ * 1. CompanyAdmin / HR users for this company
  * 2. Reporting managers of the assigned employees
- * 3. Department managers (employees with accessibleDepartments containing the task's departmentId)
- *
- * Automatically deduplicates so no user gets double-notified.
- *
- * @param {ObjectId} companyId
- * @param {ObjectId[]} assignedEmployeeIds - Array of Employee._id of assigned employees
- * @param {ObjectId|null} departmentId - The task's departmentId (if any)
- * @param {string} title
- * @param {string} body
- * @param {string} type
- * @param {object} data
+ * 3. Department managers
  */
 const notifyTaskSupervisors = async (companyId, assignedEmployeeIds, departmentId, title, body, type, data = {}) => {
   try {
-    const User = require("../models/User");
     const collectedUserIds = new Set();
 
-    // 1. Notify CompanyAdmin users
-    const admins = await User.find({ companyId, role: "CompanyAdmin", isActive: true }).select("_id");
+    // 1. Notify CompanyAdmin & HR users
+    const admins = await User.find({
+      companyId,
+      role: { $in: ["CompanyAdmin", "admin", "Admin", "hr", "HR", "company_admin"] },
+      isActive: { $ne: false }
+    }).select("_id");
     admins.forEach(a => collectedUserIds.add(a._id.toString()));
 
     if (assignedEmployeeIds && assignedEmployeeIds.length > 0) {
       // 2. Notify Reporting Managers of assigned employees
-      const assignedEmps = await Employee.find({ _id: { $in: assignedEmployeeIds }, companyId });
+      const assignedEmps = await Employee.find({
+        $or: [
+          { _id: { $in: assignedEmployeeIds } },
+          { userId: { $in: assignedEmployeeIds } }
+        ],
+        companyId
+      }).select("reportingManagerId departmentId");
+
       const reportingManagerEmpIds = [...new Set(assignedEmps.map(e => e.reportingManagerId).filter(Boolean).map(id => id.toString()))];
 
       if (reportingManagerEmpIds.length > 0) {
-        const reportingManagers = await Employee.find({ _id: { $in: reportingManagerEmpIds }, companyId }).populate("userId");
+        const reportingManagers = await Employee.find({
+          _id: { $in: reportingManagerEmpIds },
+          companyId
+        }).select("userId");
         reportingManagers.forEach(m => {
-          const uid = m.userId?._id || m.userId;
-          if (uid) collectedUserIds.add(uid.toString());
+          if (m.userId) collectedUserIds.add((m.userId._id || m.userId).toString());
         });
       }
 
-      // 3. Notify Department Managers (accessibleDepartments covers the task's dept or assigned employees' depts)
+      // 3. Notify Department Managers
       const deptIds = [...new Set([
         ...(departmentId ? [departmentId.toString()] : []),
         ...assignedEmps.map(e => e.departmentId).filter(Boolean).map(id => id.toString())
@@ -202,14 +198,27 @@ const notifyTaskSupervisors = async (companyId, assignedEmployeeIds, departmentI
           status: "active",
           $or: [
             { accessibleDepartments: { $in: deptIds } },
-            { departmentId: { $in: deptIds }, managerAccessLevel: "department" }
+            { departmentId: { $in: deptIds }, managerAccessLevel: { $in: ["department", "full", "team"] } },
+            { isManager: true, departmentId: { $in: deptIds } }
           ]
-        }).populate("userId");
+        }).select("userId");
         deptManagers.forEach(m => {
-          const uid = m.userId?._id || m.userId;
-          if (uid) collectedUserIds.add(uid.toString());
+          if (m.userId) collectedUserIds.add((m.userId._id || m.userId).toString());
         });
       }
+    } else if (departmentId) {
+      const deptManagers = await Employee.find({
+        companyId,
+        status: "active",
+        $or: [
+          { accessibleDepartments: { $in: [departmentId] } },
+          { departmentId: departmentId, managerAccessLevel: { $in: ["department", "full", "team"] } },
+          { isManager: true, departmentId: departmentId }
+        ]
+      }).select("userId");
+      deptManagers.forEach(m => {
+        if (m.userId) collectedUserIds.add((m.userId._id || m.userId).toString());
+      });
     }
 
     if (collectedUserIds.size === 0) return;
@@ -221,8 +230,10 @@ const notifyTaskSupervisors = async (companyId, assignedEmployeeIds, departmentI
 
 const notifyTaskAll = async (companyId, assignedEmployeeIds, departmentId, title, body, type, data = {}) => {
   try {
-    await sendNotificationToEmployees(companyId, assignedEmployeeIds, title, body, type, data);
-    await notifyTaskSupervisors(companyId, assignedEmployeeIds, departmentId, title, body, type, data);
+    await Promise.all([
+      sendNotificationToEmployees(companyId, assignedEmployeeIds, title, body, type, data),
+      notifyTaskSupervisors(companyId, assignedEmployeeIds, departmentId, title, body, type, data)
+    ]);
   } catch (err) {
     console.error("Error in notifyTaskAll helper:", err);
   }

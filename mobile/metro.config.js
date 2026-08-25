@@ -8,16 +8,6 @@ const defaultConfig = getDefaultConfig(__dirname);
  *
  * @type {import('metro-config').MetroConfig}
  */
-const config = {
-  resolver: {
-    blockList: [
-      /.*[/\\]android[/\\].*/,
-      /.*[/\\]ios[/\\].*/,
-      /.*[/\\]\.gradle[/\\].*/,
-      /.*[/\\]\.expo[/\\].*/,
-    ],
-  },
-  maxWorkers: 2,
-};
+const config = {};
 
 module.exports = mergeConfig(defaultConfig, config);

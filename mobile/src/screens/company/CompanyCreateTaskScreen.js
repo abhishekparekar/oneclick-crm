@@ -18,6 +18,7 @@ import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { getDepartmentsApi, createTaskApi, updateTaskApi } from "../../api/companyService";
 import { getEmployeesApi } from "../../api/employeeService";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { parseDDMMYYYYToISO, formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { validateTaskDatesClient } from "../../utils/taskDateValidation";
@@ -29,6 +30,7 @@ import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const { editingTask, isRecurring } = route.params || {};
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState(editingTask?.title || "");
@@ -202,9 +204,19 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
 
       if (editingTask) {
         await updateTaskApi(editingTask._id, payload);
+        queryClient.invalidateQueries(["companyTasks"]);
+        queryClient.invalidateQueries(["tasks"]);
+        queryClient.invalidateQueries(["teamTasks"]);
+        queryClient.invalidateQueries(["myTasks"]);
+        queryClient.invalidateQueries(["companyDashboard"]);
         Alert.alert("Success", "Task updated successfully");
       } else {
         await createTaskApi(payload);
+        queryClient.invalidateQueries(["companyTasks"]);
+        queryClient.invalidateQueries(["tasks"]);
+        queryClient.invalidateQueries(["teamTasks"]);
+        queryClient.invalidateQueries(["myTasks"]);
+        queryClient.invalidateQueries(["companyDashboard"]);
         Alert.alert("Success", "Task created successfully");
       }
       navigation.goBack();

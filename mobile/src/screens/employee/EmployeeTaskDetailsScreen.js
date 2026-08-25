@@ -36,21 +36,21 @@ import { LinearGradient } from "expo-linear-gradient";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 
 const STATUS_COLORS = {
-  pending: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Pending" },
-  re_pending: { bg: "#F5F3FF", text: "#6D28D9", border: "#DDD6FE", label: "Re-Pending" },
-  in_process: { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", label: "In Process" },
-  re_in_process: { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", label: "Re-In Process" },
-  complete: { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
-  completed: { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
-  done: { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
-  late_complete: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Late Completed" },
-  re_late_complete: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Late Completed" },
-  re_complete: { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
-  re_completed: { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
-  overdue: { bg: "#FEE2E2", text: "#DC2626", border: "#FCA5A5", label: "Overdue" },
-  todo: { bg: "#F1F5F9", text: "#64748B", border: "#CBD5E1", label: "To Do" },
-  "in-progress": { bg: "#EFF6FF", text: "#2563EB", border: "#BFDBFE", label: "In Progress" },
-  review: { bg: "#FEF3C7", text: "#D97706", border: "#FDE68A", label: "In Review" },
+  pending:          { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", darkBg: "#B45309", label: "Pending" },
+  re_pending:       { bg: "#F5F3FF", text: "#6D28D9", border: "#DDD6FE", darkBg: "#6D28D9", label: "Re-Pending" },
+  in_process:       { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", darkBg: "#1D4ED8", label: "In Process" },
+  re_in_process:    { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", darkBg: "#1D4ED8", label: "Re-In Process" },
+  complete:         { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", darkBg: "#15803D", label: "Completed" },
+  completed:        { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", darkBg: "#15803D", label: "Completed" },
+  done:             { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", darkBg: "#15803D", label: "Completed" },
+  late_complete:    { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", darkBg: "#B45309", label: "Late Completed" },
+  re_late_complete: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", darkBg: "#B45309", label: "Late Completed" },
+  re_complete:      { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", darkBg: "#15803D", label: "Completed" },
+  re_completed:     { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", darkBg: "#15803D", label: "Completed" },
+  overdue:          { bg: "#FEE2E2", text: "#DC2626", border: "#FCA5A5", darkBg: "#B91C1C", label: "Overdue" },
+  todo:             { bg: "#F1F5F9", text: "#475569", border: "#CBD5E1", darkBg: "#334155", label: "To Do" },
+  "in-progress":    { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", darkBg: "#1D4ED8", label: "In Progress" },
+  review:           { bg: "#FEF3C7", text: "#B45309", border: "#FDE68A", darkBg: "#B45309", label: "In Review" },
 };
 
 const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
@@ -115,22 +115,33 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
     if (taskId) fetchTaskDetails();
   }, [taskId]);
 
-  const handleToggleChecklist = async (checkItem) => {
+  const handleToggleChecklist = async (checkItem, idx) => {
     if (!task) return;
-    setUpdatingChecklistId(checkItem._id);
+    const newStatus = !checkItem.isCompleted;
+    setUpdatingChecklistId(checkItem._id || idx);
+
+    // Optimistic UI update
+    setTask((prevTask) => {
+      if (!prevTask) return prevTask;
+      const updatedChecklist = (prevTask.checklist || []).map((item, i) =>
+        (item._id && checkItem._id && item._id === checkItem._id) || i === idx
+          ? { ...item, isCompleted: newStatus }
+          : item
+      );
+      return { ...prevTask, checklist: updatedChecklist };
+    });
+
     try {
-      const newStatus = !checkItem.isCompleted;
-      const res = await updateTaskChecklistApi(taskId, checkItem._id, { isCompleted: newStatus });
-      if (res.data && res.data.success) {
-        setTask((prevTask) => {
-          if (!prevTask) return prevTask;
-          const updatedChecklist = (prevTask.checklist || []).map((item) =>
-            item._id === checkItem._id ? { ...item, isCompleted: newStatus } : item
-          );
-          return { ...prevTask, checklist: updatedChecklist };
-        });
-      }
+      const payload = {
+        subtaskId: checkItem._id,
+        itemIndex: idx,
+        isCompleted: newStatus,
+        completed: newStatus,
+      };
+      await updateTaskChecklistApi(taskId || task._id, payload);
     } catch (err) {
+      console.error("Failed to toggle checklist item", err);
+      fetchTaskDetails();
       Alert.alert("Error", err.response?.data?.message || "Failed to update checklist item");
     } finally {
       setUpdatingChecklistId(null);
@@ -349,8 +360,24 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
   })();
 
   const currentStatus = isOverdueActive
-    ? { bg: "#FEF2F2", text: "#DC2626", border: "#FECACA", label: "Overdue" }
+    ? { bg: "#FEF2F2", text: "#DC2626", border: "#FECACA", darkBg: "#B91C1C", label: "Overdue" }
     : STATUS_COLORS[(task.status || "pending").toLowerCase()] || STATUS_COLORS.pending;
+
+  const statusBannerGradient = (() => {
+    if (isCompleted) return ["#059669", "#10B981"];
+    if (isCancelled) return ["#475569", "#334155"];
+    if (isOverdueActive || isOverdueTime) return ["#DC2626", "#EF4444"];
+    if (isInProcess) return ["#1D4ED8", "#2563EB"];
+    return ["#D97706", "#F59E0B"]; // Pending / default
+  })();
+
+  const statusBannerIconColor = (() => {
+    if (isCompleted) return "#059669";
+    if (isCancelled) return "#475569";
+    if (isOverdueActive || isOverdueTime) return "#DC2626";
+    if (isInProcess) return "#1D4ED8";
+    return "#B45309";
+  })();
 
   let deptName = typeof task.departmentId === 'object' ? task.departmentId?.name : null;
   if (!deptName || deptName === "[object Object]") deptName = "My Department";
@@ -509,10 +536,10 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
 
                 {checklistItems.map((item, idx) => (
                   <TouchableOpacity
-                    key={idx}
+                    key={item._id || idx}
                     style={styles.nativeChecklistItem}
-                    onPress={() => handleToggleChecklist(item)}
-                    disabled={updatingChecklistId === item._id}
+                    onPress={() => handleToggleChecklist(item, idx)}
+                    disabled={updatingChecklistId === (item._id || idx)}
                     activeOpacity={0.8}
                   >
                     <Ionicons
@@ -539,82 +566,52 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                 <Ionicons name="options-outline" size={15} color={COLORS.primary} style={{ marginRight: 6 }} />
                 <Text style={styles.nativeSectionLabel}>WORKFLOW ACTIONS</Text>
               </View>
-              <Text style={styles.nativeCurrentStatusNote}>Status: {currentStatus.label}</Text>
+              <View style={[styles.statusBadgeCapsule, { backgroundColor: currentStatus.bg, borderColor: currentStatus.border }]}>
+                <View style={[styles.statusDot, { backgroundColor: currentStatus.darkBg || currentStatus.text }]} />
+                <Text style={[styles.statusBadgeCapsuleText, { color: currentStatus.darkBg || currentStatus.text }]}>
+                  {currentStatus.label.toUpperCase()}
+                </Text>
+              </View>
             </View>
 
-            {/* Primary Change Status Button */}
+            {/* Primary Change Status Button with Darker Prominent Color */}
             <TouchableOpacity
-              style={styles.nativeChangeStatusBtn}
+              style={[
+                styles.nativeChangeStatusBtn,
+                {
+                  backgroundColor: currentStatus.darkBg || currentStatus.text || "#1E293B",
+                  borderColor: currentStatus.darkBg || currentStatus.text || "#0F172A",
+                }
+              ]}
               onPress={() => setStatusPickerModalVisible(true)}
-              activeOpacity={0.88}
+              activeOpacity={0.85}
             >
-              <LinearGradient
-                colors={["#1E40AF", "#2563EB"]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.nativeChangeStatusGradient}
-              >
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <View style={styles.nativeChangeStatusInner}>
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                   <View style={styles.nativeActionIconCircle}>
-                    <Ionicons name="swap-vertical" size={16} color="#1E40AF" />
+                    <Ionicons
+                      name={
+                        isCompleted ? "checkmark-circle" :
+                        isInProcess ? "play-circle" :
+                        isOverdue ? "alert-circle" :
+                        "time"
+                      }
+                      size={18}
+                      color="#FFFFFF"
+                    />
                   </View>
-                  <View style={{ marginLeft: 10 }}>
-                    <Text style={styles.nativeActionBtnTitle}>Change Task Status</Text>
-                    <Text style={styles.nativeActionBtnSub}>Select updated workflow state</Text>
+                  <View style={{ marginLeft: 10, flex: 1 }}>
+                    <Text style={styles.nativeActionBtnTitle}>
+                      Change Task Status
+                    </Text>
+                    <Text style={styles.nativeActionBtnSub}>
+                      Current: {currentStatus.label} • Tap to update status
+                    </Text>
                   </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-              </LinearGradient>
+              </View>
             </TouchableOpacity>
-
-            {/* Quick Action Pills Row */}
-            <View style={styles.nativeQuickRow}>
-              {/* If Task is Pending or Overdue: Show Start In Process */}
-              {(isPending || isOverdue) && !isCompleted && !isCancelled && (
-                <TouchableOpacity
-                  style={[styles.nativeQuickPill, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}
-                  onPress={() => openActionModal("in-process")}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="play" size={14} color="#1D4ED8" />
-                  <Text style={[styles.nativeQuickPillText, { color: "#1D4ED8" }]}>In Process</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* If Task is In Process: Show Option to Move to Pending / Hold */}
-              {isInProcess && (
-                <TouchableOpacity
-                  style={[styles.nativeQuickPill, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}
-                  onPress={() => openActionModal("pending")}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="time-outline" size={14} color="#B45309" />
-                  <Text style={[styles.nativeQuickPillText, { color: "#B45309" }]}>Hold / Pending</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Complete button: Show when not completed and not cancelled */}
-              {!isCompleted && !isCancelled && (
-                <TouchableOpacity
-                  style={[styles.nativeQuickPill, { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }]}
-                  onPress={() => openActionModal(isOverdue ? "late-complete" : "complete")}
-                  activeOpacity={0.8}
-                >
-                  <Ionicons name="checkmark-done" size={15} color="#15803D" />
-                  <Text style={[styles.nativeQuickPillText, { color: "#15803D" }]}>Complete</Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Follow-up button */}
-              <TouchableOpacity
-                style={[styles.nativeQuickPill, { backgroundColor: "#F0FDFA", borderColor: "#99F6E4" }]}
-                onPress={() => openActionModal("follow_up")}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="paper-plane-outline" size={14} color="#0F766E" />
-                <Text style={[styles.nativeQuickPillText, { color: "#0F766E" }]}>Follow-Up</Text>
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* ── Native Attachments ── */}
@@ -805,7 +802,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
               {/* Option: In Process (Show if task is Pending or Overdue and not completed/cancelled) */}
               {(isPending || isOverdue) && !isCompleted && !isCancelled && (
                 <TouchableOpacity
@@ -817,10 +814,10 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.statusOptionIconWrap, { backgroundColor: "#DBEAFE" }]}>
-                    <Ionicons name="play" size={20} color="#1D4ED8" />
+                    <Ionicons name="play-circle" size={22} color="#1D4ED8" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.statusOptionTitle, { color: "#1E40AF" }]}>In Process</Text>
+                    <Text style={[styles.statusOptionTitle, { color: "#1E40AF" }]}>In Process / Start Work</Text>
                     <Text style={styles.statusOptionDesc}>Start working or mark task as in progress</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#1D4ED8" />
@@ -838,10 +835,10 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.statusOptionIconWrap, { backgroundColor: "#DCFCE7" }]}>
-                    <Ionicons name="checkmark-circle" size={20} color="#15803D" />
+                    <Ionicons name="checkmark-done-circle" size={22} color="#15803D" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.statusOptionTitle, { color: "#15803D" }]}>Completed</Text>
+                    <Text style={[styles.statusOptionTitle, { color: "#15803D" }]}>Mark Complete</Text>
                     <Text style={styles.statusOptionDesc}>Mark task as fully resolved and finished</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#15803D" />
@@ -859,34 +856,36 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                   activeOpacity={0.7}
                 >
                   <View style={[styles.statusOptionIconWrap, { backgroundColor: "#FEF3C7" }]}>
-                    <Ionicons name="time" size={20} color="#B45309" />
+                    <Ionicons name="pause-circle" size={22} color="#B45309" />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
                     <Text style={[styles.statusOptionTitle, { color: "#B45309" }]}>Hold / Pending</Text>
-                    <Text style={styles.statusOptionDesc}>Move task back to waiting/pending queue</Text>
+                    <Text style={styles.statusOptionDesc}>Pause work & move task back to waiting queue</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#B45309" />
                 </TouchableOpacity>
               )}
 
-              {/* Option: Submit Follow-Up (Always available for documentation) */}
-              <TouchableOpacity
-                style={[styles.statusOptionRow, { borderColor: "#99F6E4", backgroundColor: "#F0FDFA" }]}
-                onPress={() => {
-                  setStatusPickerModalVisible(false);
-                  openActionModal("follow_up");
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.statusOptionIconWrap, { backgroundColor: "#CCFBF1" }]}>
-                  <Ionicons name="paper-plane" size={18} color="#0F766E" />
-                </View>
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={[styles.statusOptionTitle, { color: "#0F766E" }]}>Submit Follow-Up</Text>
-                  <Text style={styles.statusOptionDesc}>Add progress remark & set next follow-up date</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#0F766E" />
-              </TouchableOpacity>
+              {/* Option: Submit Follow-Up (Always available for active task) */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#99F6E4", backgroundColor: "#F0FDFA" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    openActionModal("follow_up");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#CCFBF1" }]}>
+                    <Ionicons name="calendar" size={20} color="#0F766E" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#0F766E" }]}>Next Follow-Up</Text>
+                    <Text style={styles.statusOptionDesc}>Add progress remark & set next follow-up date</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#0F766E" />
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
@@ -1133,7 +1132,6 @@ const styles = StyleSheet.create({
     textDecorationLine: "line-through",
     color: "#64748B",
   },
-  // ── Seamless Action Bar (No Card Box) ──
   nativeActionBar: {
     paddingBottom: 10,
     borderBottomWidth: 1,
@@ -1146,17 +1144,36 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 8,
   },
-  nativeCurrentStatusNote: {
-    fontSize: 11.5,
+  statusBadgeCapsule: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  statusBadgeCapsuleText: {
+    fontSize: 11,
     fontFamily: FONTS.bodyBold,
-    color: "#1D4ED8",
   },
   nativeChangeStatusBtn: {
     borderRadius: 8,
     overflow: "hidden",
-    marginBottom: 8,
+    marginBottom: 0,
+    borderWidth: 1,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
   },
-  nativeChangeStatusGradient: {
+  nativeChangeStatusInner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
@@ -1167,7 +1184,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1177,7 +1194,7 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.displayBold,
   },
   nativeActionBtnSub: {
-    color: "rgba(255, 255, 255, 0.85)",
+    color: "rgba(255, 255, 255, 0.88)",
     fontSize: 10.5,
     fontFamily: FONTS.body,
   },
@@ -1437,6 +1454,37 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     color: COLORS.text.muted,
     marginTop: 1,
+  },
+  modalSectionLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    marginTop: 4,
+  },
+  modalSectionLabelText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#047857",
+    fontWeight: "900",
+    marginLeft: 5,
+    letterSpacing: 0.5,
+  },
+  rollbackWarningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    marginBottom: 8,
+  },
+  rollbackWarningText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#B45309",
+    fontWeight: "800",
   },
 });
 

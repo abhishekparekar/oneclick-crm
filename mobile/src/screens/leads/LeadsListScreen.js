@@ -55,6 +55,7 @@ export default function LeadsListScreen({ navigation, route }) {
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState(route.params?.initialStatus || "all");
   const [selectedSource, setSelectedSource] = useState("all");
+  const [selectedAssignee, setSelectedAssignee] = useState("all");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Bulk Actions
@@ -95,26 +96,18 @@ export default function LeadsListScreen({ navigation, route }) {
     notes: "",
   });
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const params = { limit: 100 };
-      if (search) params.search = search;
-      if (selectedStatus !== "all") params.statusId = selectedStatus;
-      if (selectedSource !== "all") params.source = selectedSource;
+  const metadataLoadedRef = useRef(false);
 
-      const [leadsRes, statusesRes, sourcesRes] = await Promise.all([
-        leadsService.getLeads(params),
+  const fetchMetadata = async () => {
+    if (metadataLoadedRef.current) return;
+    try {
+      const [statusesRes, sourcesRes, assignable, prods, depts] = await Promise.all([
         leadsService.getStatuses(),
         leadsService.getSources(),
+        leadsService.getAssignableUsers().catch(() => []),
+        leadsService.getProducts().catch(() => []),
+        leadsService.getDepartments().catch(() => []),
       ]);
-
-      const data = Array.isArray(leadsRes?.data)
-        ? leadsRes.data
-        : Array.isArray(leadsRes)
-        ? leadsRes
-        : [];
-      setLeads(data);
 
       let stList = Array.isArray(statusesRes) && statusesRes.length > 0 ? statusesRes : [];
       if (stList.length === 0) {
@@ -133,20 +126,46 @@ export default function LeadsListScreen({ navigation, route }) {
         const def = stList.find((s) => s.isDefault) || stList[0];
         setForm((prev) => ({ ...prev, statusId: def.id || def._id }));
       }
-
       setSources(Array.isArray(sourcesRes) ? sourcesRes : []);
+      setEmployees(Array.isArray(assignable) ? assignable : []);
+      setProducts(Array.isArray(prods) ? prods : []);
+      setDepartments(Array.isArray(depts) ? depts : []);
+      metadataLoadedRef.current = true;
+    } catch (_) {}
+  };
 
-      // Fetch employees, products and departments for assignment
-      try {
-        const [assignable, prods, depts] = await Promise.all([
-          leadsService.getAssignableUsers(),
-          leadsService.getProducts(),
-          leadsService.getDepartments(),
-        ]);
-        setEmployees(Array.isArray(assignable) ? assignable : []);
-        setProducts(Array.isArray(prods) ? prods : []);
-        setDepartments(Array.isArray(depts) ? depts : []);
-      } catch (_) {}
+  const fetchData = async (forceMetadata = false) => {
+    try {
+      setLoading(true);
+      const params = { limit: 100 };
+      if (search) params.search = search;
+      if (selectedStatus !== "all") params.statusId = selectedStatus;
+      if (selectedSource !== "all") params.source = selectedSource;
+      if (selectedAssignee !== "all") {
+        if (selectedAssignee === "unassigned") {
+          params.unassigned = true;
+        } else {
+          params.assignedTo = selectedAssignee;
+        }
+      }
+
+      if (forceMetadata || !metadataLoadedRef.current) {
+        await fetchMetadata();
+      }
+
+      const leadsRes = await leadsService.getLeads(params);
+
+      let data = Array.isArray(leadsRes?.data)
+        ? leadsRes.data
+        : Array.isArray(leadsRes)
+        ? leadsRes
+        : [];
+      if (selectedAssignee === "unassigned") {
+        data = data.filter((l) => !l.assignedTo || (!l.assignedTo._id && !l.assignedTo.id && !l.assignedTo.name));
+      } else if (selectedAssignee !== "all") {
+        data = data.filter((l) => (l.assignedTo?._id === selectedAssignee || l.assignedTo?.id === selectedAssignee || l.assignedTo === selectedAssignee));
+      }
+      setLeads(data);
     } catch (err) {
       console.warn("[LeadsList] Fetch note:", err?.message || err);
     } finally {
@@ -229,12 +248,12 @@ export default function LeadsListScreen({ navigation, route }) {
 
   useEffect(() => {
     fetchData();
-  }, [selectedStatus, selectedSource]);
+  }, [selectedStatus, selectedSource, selectedAssignee]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchData();
-  }, [selectedStatus, selectedSource, search]);
+    fetchData(true);
+  }, [selectedStatus, selectedSource, selectedAssignee, search]);
 
   const handleSearchSubmit = () => {
     fetchData();
@@ -506,13 +525,16 @@ export default function LeadsListScreen({ navigation, route }) {
           </View>
 
           <TouchableOpacity
-            style={[styles.filterButton, (selectedStatus !== "all" || selectedSource !== "all") && styles.filterButtonActive]}
+            style={[
+              styles.filterButton,
+              (selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all") && styles.filterButtonActive
+            ]}
             onPress={() => setFilterModalVisible(true)}
           >
             <Ionicons
               name="filter"
               size={16}
-              color={selectedStatus !== "all" || selectedSource !== "all" ? "#FFF" : THEME.textPrimary}
+              color={selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all" ? "#FFF" : THEME.textPrimary}
             />
           </TouchableOpacity>
 
@@ -605,6 +627,10 @@ export default function LeadsListScreen({ navigation, route }) {
             keyExtractor={(item, idx) => item.id || item._id || String(idx)}
             renderItem={renderLeadCard}
             contentContainerStyle={styles.leadsListPadding}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews={Platform.OS === "android"}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME.primary]} />}
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
@@ -1320,45 +1346,254 @@ export default function LeadsListScreen({ navigation, route }) {
           </View>
         </Modal>
 
-        {/* ── MODAL: FILTER SHEET ── */}
-        <Modal visible={filterModalVisible} animationType="slide" transparent>
+        {/* ── MODAL: FILTER LEADS (PROFESSIONAL THEME) ── */}
+        <Modal
+          visible={filterModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setFilterModalVisible(false)}
+        >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalHeading}>Filter Leads</Text>
-                <TouchableOpacity onPress={() => setFilterModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={THEME.textMuted} />
+            <View style={styles.filterModalContainer}>
+              {/* Dark Navy / Corporate Blue Top Banner */}
+              <View style={styles.filterModalHeaderBanner}>
+                <View style={styles.filterModalIconBadge}>
+                  <Ionicons name="funnel" size={18} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.filterModalHeadingText}>FILTER LEADS</Text>
+                  <Text style={styles.filterModalSubheadingText}>
+                    Refine lead pipeline by stage, source & assigned staff
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setFilterModalVisible(false)}
+                  style={styles.filterModalCloseBtn}
+                >
+                  <Ionicons name="close" size={18} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.fieldLabel}>Filter By Source Channel</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
-                <TouchableOpacity
-                  style={[styles.choiceChip, selectedSource === "all" && styles.choiceChipActive]}
-                  onPress={() => setSelectedSource("all")}
-                >
-                  <Text style={[styles.choiceChipText, selectedSource === "all" && styles.choiceChipTextActive]}>All Sources</Text>
-                </TouchableOpacity>
-                {sources.map((s, idx) => {
-                  const sName = s.name || s;
-                  return (
+              {/* Scrollable Filter Content */}
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterModalScrollBody}>
+                {/* ── Section 1: Lead Pipeline Stage ── */}
+                <View style={styles.filterSectionBox}>
+                  <View style={styles.filterSectionHeaderRow}>
+                    <Ionicons name="git-commit-outline" size={14} color="#1268D9" />
+                    <Text style={styles.filterSectionHeaderText}>PIPELINE STAGE / STATUS</Text>
+                  </View>
+                  <View style={styles.filterChipsWrap}>
                     <TouchableOpacity
-                      key={idx}
-                      style={[styles.choiceChip, selectedSource === sName && styles.choiceChipActive]}
-                      onPress={() => setSelectedSource(sName)}
+                      style={[
+                        styles.filterOptionChip,
+                        selectedStatus === "all" && styles.filterOptionChipActive,
+                      ]}
+                      onPress={() => setSelectedStatus("all")}
+                      activeOpacity={0.7}
                     >
-                      <Text style={[styles.choiceChipText, selectedSource === sName && styles.choiceChipTextActive]}>{sName}</Text>
+                      <Text
+                        style={[
+                          styles.filterOptionChipText,
+                          selectedStatus === "all" && styles.filterOptionChipTextActive,
+                        ]}
+                      >
+                        All Stages ({leads.length})
+                      </Text>
                     </TouchableOpacity>
-                  );
-                })}
+
+                    {statuses.map((st) => {
+                      const stId = st.id || st._id;
+                      const isSel = selectedStatus === stId;
+                      const count = leads.filter(
+                        (l) => l.statusId === stId || l.status?.id === stId || l.status?._id === stId
+                      ).length;
+                      return (
+                        <TouchableOpacity
+                          key={stId}
+                          style={[
+                            styles.filterOptionChip,
+                            isSel && { backgroundColor: (st.color || THEME.primary) + "18", borderColor: st.color || THEME.primary, borderWidth: 1.5 },
+                          ]}
+                          onPress={() => setSelectedStatus(stId)}
+                          activeOpacity={0.7}
+                        >
+                          <View
+                            style={[
+                              styles.filterDot,
+                              { backgroundColor: st.color || THEME.primary },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.filterOptionChipText,
+                              isSel && { color: st.color || THEME.primary, fontWeight: "800" },
+                            ]}
+                          >
+                            {st.name} ({count})
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* ── Section 2: Lead Acquisition Source ── */}
+                <View style={styles.filterSectionBox}>
+                  <View style={styles.filterSectionHeaderRow}>
+                    <Ionicons name="compass-outline" size={14} color="#1268D9" />
+                    <Text style={styles.filterSectionHeaderText}>SOURCE CHANNEL</Text>
+                  </View>
+                  <View style={styles.filterChipsWrap}>
+                    <TouchableOpacity
+                      style={[
+                        styles.filterOptionChip,
+                        selectedSource === "all" && styles.filterOptionChipActive,
+                      ]}
+                      onPress={() => setSelectedSource("all")}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.filterOptionChipText,
+                          selectedSource === "all" && styles.filterOptionChipTextActive,
+                        ]}
+                      >
+                        All Sources
+                      </Text>
+                    </TouchableOpacity>
+
+                    {sources.map((s, idx) => {
+                      const sName = s.name || s;
+                      const isSel = selectedSource === sName;
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.filterOptionChip,
+                            isSel && styles.filterOptionChipActive,
+                          ]}
+                          onPress={() => setSelectedSource(sName)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.filterOptionChipText,
+                              isSel && styles.filterOptionChipTextActive,
+                            ]}
+                          >
+                            {sName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* ── Section 3: Assigned Sales Representative ── */}
+                {employees.length > 0 && (
+                  <View style={styles.filterSectionBox}>
+                    <View style={styles.filterSectionHeaderRow}>
+                      <Ionicons name="people-outline" size={14} color="#1268D9" />
+                      <Text style={styles.filterSectionHeaderText}>ASSIGNED SALES REP / STAFF</Text>
+                    </View>
+                    <View style={styles.filterChipsWrap}>
+                      <TouchableOpacity
+                        style={[
+                          styles.filterOptionChip,
+                          selectedAssignee === "all" && styles.filterOptionChipActive,
+                        ]}
+                        onPress={() => setSelectedAssignee("all")}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.filterOptionChipText,
+                            selectedAssignee === "all" && styles.filterOptionChipTextActive,
+                          ]}
+                        >
+                          All Staff
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.filterOptionChip,
+                          selectedAssignee === "unassigned" && styles.filterOptionChipActive,
+                        ]}
+                        onPress={() => setSelectedAssignee("unassigned")}
+                        activeOpacity={0.7}
+                      >
+                        <Text
+                          style={[
+                            styles.filterOptionChipText,
+                            selectedAssignee === "unassigned" && styles.filterOptionChipTextActive,
+                          ]}
+                        >
+                          Unassigned Pool
+                        </Text>
+                      </TouchableOpacity>
+
+                      {employees.map((emp) => {
+                        const empId = emp.id || emp._id;
+                        const isSel = selectedAssignee === empId;
+                        return (
+                          <TouchableOpacity
+                            key={empId}
+                            style={[
+                              styles.filterOptionChip,
+                              isSel && styles.filterOptionChipActive,
+                            ]}
+                            onPress={() => setSelectedAssignee(empId)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons
+                              name="person-circle-outline"
+                              size={14}
+                              color={isSel ? "#FFFFFF" : "#64748B"}
+                            />
+                            <Text
+                              style={[
+                                styles.filterOptionChipText,
+                                isSel && styles.filterOptionChipTextActive,
+                              ]}
+                            >
+                              {emp.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
               </ScrollView>
 
-              <TouchableOpacity
-                style={styles.primarySubmitBtn}
-                onPress={() => setFilterModalVisible(false)}
-              >
-                <Text style={styles.primarySubmitBtnText}>Apply Filter</Text>
-              </TouchableOpacity>
+              {/* ── Footer Actions: Reset & Apply ── */}
+              <View style={styles.filterModalFooterRow}>
+                <TouchableOpacity
+                  style={styles.filterResetBtn}
+                  onPress={() => {
+                    setSelectedStatus("all");
+                    setSelectedSource("all");
+                    setSelectedAssignee("all");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="refresh-outline" size={16} color="#64748B" />
+                  <Text style={styles.filterResetBtnText}>Reset All</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.filterApplyBtn}
+                  onPress={() => {
+                    setFilterModalVisible(false);
+                    fetchData();
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.filterApplyBtnText}>Apply Filters</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
@@ -2119,5 +2354,164 @@ const styles = StyleSheet.create({
     color: "#475569",
     fontWeight: "700",
     marginTop: 6,
+  },
+
+  // ── Filter Modal Styling (Corporate Blue & Dark Navy) ──
+  filterModalContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    width: "92%",
+    maxHeight: "85%",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  filterModalHeaderBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#1E293B",
+  },
+  filterModalIconBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#1268D9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterModalHeadingText: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    letterSpacing: 0.5,
+  },
+  filterModalSubheadingText: {
+    fontSize: 10.5,
+    fontWeight: "500",
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+  filterModalCloseBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterModalScrollBody: {
+    padding: 16,
+    gap: 14,
+  },
+  filterSectionBox: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 12,
+  },
+  filterSectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#EEF2F6",
+  },
+  filterSectionHeaderText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1E293B",
+    letterSpacing: 0.3,
+  },
+  filterChipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 7,
+  },
+  filterOptionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 6,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+  },
+  filterOptionChipActive: {
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
+  },
+  filterOptionChipText: {
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#334155",
+  },
+  filterOptionChipTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+  },
+  filterDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  filterModalFooterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#FFFFFF",
+    borderTopWidth: 1,
+    borderTopColor: "#E2E8F0",
+    gap: 10,
+  },
+  filterResetBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
+    paddingVertical: 11,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    backgroundColor: "#F8FAFC",
+  },
+  filterResetBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  filterApplyBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    backgroundColor: "#1268D9",
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  filterApplyBtnText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#FFFFFF",
   },
 });

@@ -21,9 +21,11 @@ import TaskAttachmentPicker from "../../components/TaskAttachmentPicker";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { useAuth } from "../../context/AuthContext";
+import { useQueryClient } from "@tanstack/react-query";
 
 const EmployeeCreateTaskScreen = ({ navigation }) => {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -164,6 +166,11 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
 
       const res = await createEmployeeTaskApi(payload);
       if (res.data && res.data.success) {
+        queryClient.invalidateQueries(["employeeTasks"]);
+        queryClient.invalidateQueries(["tasks"]);
+        queryClient.invalidateQueries(["companyTasks"]);
+        queryClient.invalidateQueries(["myTasks"]);
+        queryClient.invalidateQueries(["teamTasks"]);
         Alert.alert("Success", "Task created successfully!");
         navigation.goBack();
       }

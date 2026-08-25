@@ -823,12 +823,43 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     filteredData = filteredData.filter(
       (t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId
     );
-  } else {
-    filteredData = filteredData.filter((t) => !t.isTemplate);
-    if (taskFilter !== "") {
-      const target = normalizeStatusValue(taskFilter);
-      filteredData = filteredData.filter((t) => normalizeStatusValue(t.status || "") === target);
-    }
+  } else if (taskFilter === "overdue") {
+    filteredData = filteredData.filter((t) => {
+      const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+    });
+  } else if (taskFilter === "pending") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "pending" || s === "todo" || s === "re_pending" || !s;
+    });
+  } else if (taskFilter === "in_process") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+    });
+  } else if (taskFilter === "complete") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+    });
+  } else if (taskFilter === "late_complete") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      const s = normalizeStatusValue(t.status || "");
+      return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+    });
+  } else if (taskFilter === "re_open") {
+    filteredData = filteredData.filter((t) => {
+      if (t.isTemplate) return false;
+      return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+    });
+  } else if (taskFilter !== "") {
+    const target = normalizeStatusValue(taskFilter);
+    filteredData = filteredData.filter((t) => normalizeStatusValue(t.status || "") === target);
   }
 
   if (deadlineComingFilter) {
@@ -857,7 +888,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
         return true;
       });
       base = base.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
-    } else {
+    } else if (dateFilter && dateFilter !== "all_time") {
       base = base.filter((t) => matchesDateFilter(t, dateFilter));
     }
 
@@ -885,8 +916,47 @@ const ManagerTasksScreen = ({ navigation, route }) => {
       return base.filter(
         (t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId
       ).length;
+    if (statusKey === "overdue") {
+      return base.filter((t) => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (statusKey === "pending") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (statusKey === "in_process") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (statusKey === "complete") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (statusKey === "late_complete") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (statusKey === "re_open") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
 
-    base = base.filter((t) => !t.isTemplate);
     if (!statusKey) return base.length;
 
     const target = normalizeStatusValue(statusKey);
@@ -933,15 +1003,53 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     }
 
     if (taskFilter === "recurring") {
-      base = base.filter(
+      return base.filter(
         (t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId
-      );
-    } else {
-      base = base.filter((t) => !t.isTemplate);
-      if (taskFilter !== "") {
-        const target = normalizeStatusValue(taskFilter);
-        base = base.filter((t) => normalizeStatusValue(t.status || "") === target);
-      }
+      ).length;
+    }
+    if (taskFilter === "overdue") {
+      return base.filter((t) => {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+        return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
+      }).length;
+    }
+    if (taskFilter === "pending") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "pending" || s === "todo" || s === "re_pending" || !s;
+      }).length;
+    }
+    if (taskFilter === "in_process") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "in_process" || s === "in_progress" || s === "working" || s === "re_in_process";
+      }).length;
+    }
+    if (taskFilter === "complete") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      }).length;
+    }
+    if (taskFilter === "late_complete") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        const s = normalizeStatusValue(t.status || "");
+        return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      }).length;
+    }
+    if (taskFilter === "re_open") {
+      return base.filter((t) => {
+        if (t.isTemplate) return false;
+        return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status?.toLowerCase());
+      }).length;
+    }
+    if (taskFilter !== "") {
+      const target = normalizeStatusValue(taskFilter);
+      return base.filter((t) => normalizeStatusValue(t.status || "") === target).length;
     }
     return base.length;
   };
@@ -951,6 +1059,8 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     { key: "pending", label: "Pending", icon: "time-outline" },
     { key: "in_process", label: "In Process", icon: "sync-outline" },
     { key: "complete", label: "Completed", icon: "checkmark-circle-outline" },
+    { key: "late_complete", label: "Late Completed", icon: "time-outline" },
+    { key: "re_open", label: "Re-Open", icon: "refresh-outline" },
     { key: "overdue", label: "Overdue", icon: "alert-circle-outline" },
     { key: "recurring", label: "Recurring", icon: "repeat-outline" },
   ];
@@ -962,6 +1072,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     { key: "this_week", label: "This Week" },
     { key: "this_month", label: "This Month" },
     { key: "last_month", label: "Last Month" },
+    { key: "re_open", label: "Re-Open" },
   ];
 
   const isFilterActive =

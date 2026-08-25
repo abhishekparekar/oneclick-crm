@@ -63,11 +63,16 @@ const notificationSchema = new mongoose.Schema(
 const DeviceToken = require("./DeviceToken");
 const { sendPushNotification } = require("../services/firebaseService");
 
+notificationSchema.pre("save", function (next) {
+    this._wasNew = this.isNew;
+    next();
+});
+
 notificationSchema.post("save", async function (doc) {
     try {
-        // Only send notification if it's newly created (handling Mongoose post-save hook state)
-        const isNewDoc = this.$wasNew || this.wasNew || doc.$wasNew || doc.wasNew || 
-                         (doc.createdAt && doc.updatedAt && doc.createdAt.getTime() === doc.updatedAt.getTime());
+        // Robust check for new document insertion
+        const isNewDoc = this._wasNew || this.$wasNew || this.wasNew || doc._wasNew || doc.$wasNew || doc.wasNew ||
+                         (doc.createdAt && doc.updatedAt && Math.abs(doc.createdAt.getTime() - doc.updatedAt.getTime()) < 1500);
         if (isNewDoc) {
             // 1. Emit Socket.io event for instant in-app notification update
             try {
@@ -86,12 +91,13 @@ notificationSchema.post("save", async function (doc) {
             // 2. Send FCM Mobile Push Notification
             const deviceTokens = await DeviceToken.find({ userId: doc.userId, isActive: true });
             if (deviceTokens.length > 0) {
-                const tokens = deviceTokens.map((dt) => dt.fcmToken);
-                // Fire and forget the push notification so it doesn't block the API response
-                sendPushNotification(tokens, doc.title, doc.body, {
-                    type: doc.type || "system",
-                    ...(doc.data || {}),
-                }).catch(err => console.error("Background FCM Error:", err));
+                const tokens = deviceTokens.map((dt) => dt.fcmToken).filter(Boolean);
+                if (tokens.length > 0) {
+                    sendPushNotification(tokens, doc.title, doc.body, {
+                        type: doc.type || "system",
+                        ...(doc.data || {}),
+                    }).catch(err => console.error("Background FCM Error:", err));
+                }
             }
         }
     } catch (error) {

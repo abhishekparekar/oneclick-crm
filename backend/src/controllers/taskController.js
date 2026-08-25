@@ -373,9 +373,10 @@ exports.getTasks = async (req, res) => {
                 .populate("assignedTo", "firstName lastName email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
-                .populate({ path: "projectId", select: "name", strictPopulate: false });
+                .populate({ path: "projectId", select: "name", strictPopulate: false })
+                .lean();
             tasks = docs.map(d => {
-                const obj = d.toObject();
+                const obj = { ...d };
                 obj.isTemplate = true;
                 obj.assignees = obj.assignedTo || [];
                 return obj;
@@ -385,7 +386,8 @@ exports.getTasks = async (req, res) => {
                 .populate("assignedTo", "firstName lastName email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
-                .populate({ path: "projectId", select: "name", strictPopulate: false });
+                .populate({ path: "projectId", select: "name", strictPopulate: false })
+                .lean();
         }
 
         res.json({ success: true, tasks });
@@ -1598,53 +1600,76 @@ exports.uploadTaskAttachment = async (req, res) => {
 exports.toggleChecklistItem = async (req, res) => {
     try {
         const { id } = req.params;
-        const { subtaskId, completed, itemIndex } = req.body;
+        const { subtaskId, completed, isCompleted, itemIndex, checklist } = req.body;
 
-        let task = await Task.findOne({ _id: id, companyId: req.user.companyId });
+        const companyId = req.companyId || req.user?.companyId;
+        let task = companyId ? await Task.findOne({ _id: id, companyId }) : await Task.findById(id);
         if (!task) {
-            task = await TaskTemplate.findOne({ _id: id, companyId: req.user.companyId });
+            task = await Task.findById(id);
+        }
+        if (!task && companyId) {
+            task = await TaskTemplate.findOne({ _id: id, companyId });
+        }
+        if (!task) {
+            task = await TaskTemplate.findById(id);
         }
         if (!task) {
             return res.status(404).json({ success: false, message: "Task not found" });
         }
 
-        let item = null;
+        if (!Array.isArray(task.checklist)) {
+            task.checklist = [];
+        }
 
-        // 1. Try finding by mongoose id() method if valid ObjectId
-        if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
-            try {
-                if (typeof task.checklist.id === "function") {
-                    item = task.checklist.id(subtaskId);
+        // If entire checklist array is provided, update all
+        if (Array.isArray(checklist)) {
+            task.checklist = checklist;
+        } else {
+            let item = null;
+
+            // 1. Try finding by mongoose id() method if valid ObjectId
+            if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
+                try {
+                    if (typeof task.checklist.id === "function") {
+                        item = task.checklist.id(subtaskId);
+                    }
+                } catch (err) {
+                    console.error("Mongoose checklist.id() failed:", err);
                 }
-            } catch (err) {
-                console.error("Mongoose checklist.id() failed:", err);
+            }
+
+            // 2. Fallback to searching array by string comparison of _id
+            if (!item && subtaskId) {
+                item = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
+            }
+
+            // 3. Fallback to itemIndex if provided
+            if (!item && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
+                item = task.checklist[itemIndex];
+            }
+
+            if (!item) {
+                return res.status(404).json({ success: false, message: "Checklist item not found" });
+            }
+
+            const nextCompleted = completed !== undefined ? completed : (isCompleted !== undefined ? isCompleted : !item.isCompleted);
+            item.isCompleted = Boolean(nextCompleted);
+
+            // Log activity safely
+            try {
+                if (typeof TaskActivity !== "undefined" && TaskActivity) {
+                    await TaskActivity.create({
+                        companyId: task.companyId,
+                        taskId: task._id,
+                        action: "edited",
+                        remarks: `Checklist item "${item.title}" marked as ${item.isCompleted ? "completed" : "incomplete"}`,
+                        performedBy: req.user?._id
+                    });
+                }
+            } catch (actErr) {
+                console.error("TaskActivity create log ignored:", actErr.message);
             }
         }
-
-        // 2. Fallback to searching array by string comparison of _id
-        if (!item && subtaskId) {
-            item = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
-        }
-
-        // 3. Fallback to itemIndex if provided
-        if (!item && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
-            item = task.checklist[itemIndex];
-        }
-
-        if (!item) {
-            return res.status(404).json({ success: false, message: "Checklist item not found" });
-        }
-
-        item.isCompleted = completed !== undefined ? completed : !item.isCompleted;
-
-        // Log activity
-        await TaskActivity.create({
-            companyId: task.companyId,
-            taskId: task._id,
-            action: "edited",
-            remarks: `Subtask "${item.title}" marked as ${item.isCompleted ? "completed" : "incomplete"}`,
-            performedBy: req.user._id
-        });
 
         await task.save();
 

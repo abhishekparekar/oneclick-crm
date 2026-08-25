@@ -493,33 +493,45 @@ const updateTaskChecklist = async (req, res, next) => {
     const task = await Task.findOne({
       _id: req.params.id,
       companyId: req.companyId,
-      assignedTo: employee._id
     });
 
     if (!task) {
-      return res.status(404).json({ success: false, message: "Task not found or not assigned to you" });
+      return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    const { subtaskId, completed, itemIndex } = req.body;
+    const { subtaskId, completed, isCompleted, itemIndex, checklist } = req.body;
 
-    let subtask = null;
-    if (subtaskId) {
-      subtask = task.subtasks.id(subtaskId);
-    } else if (itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.subtasks.length) {
-      subtask = task.subtasks[itemIndex];
+    if (!Array.isArray(task.checklist)) {
+      task.checklist = [];
     }
 
-    if (!subtask) {
-      return res.status(404).json({ success: false, message: "Checklist item not found" });
+    if (Array.isArray(checklist)) {
+      task.checklist = checklist;
+    } else {
+      let subtask = null;
+      if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
+        try {
+          if (typeof task.checklist.id === "function") {
+            subtask = task.checklist.id(subtaskId);
+          }
+        } catch (e) {}
+      }
+
+      if (!subtask && subtaskId) {
+        subtask = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
+      }
+
+      if (!subtask && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
+        subtask = task.checklist[itemIndex];
+      }
+
+      if (!subtask) {
+        return res.status(404).json({ success: false, message: "Checklist item not found" });
+      }
+
+      const nextCompleted = completed !== undefined ? completed : (isCompleted !== undefined ? isCompleted : !subtask.isCompleted);
+      subtask.isCompleted = Boolean(nextCompleted);
     }
-
-    subtask.completed = completed !== undefined ? completed : !subtask.completed;
-
-    const userName = `${employee.firstName} ${employee.lastName}`;
-    task.activityLog.push({
-      action: `Checklist item "${subtask.title}" marked as ${subtask.completed ? "completed" : "incomplete"}`,
-      performedBy: userName,
-    });
 
     await task.save();
 

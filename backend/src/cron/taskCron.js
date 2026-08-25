@@ -497,17 +497,15 @@ const checkTaskDeadlinesAndReminders = async () => {
         task.lastReminderSentAt = now;
         await task.save();
 
-        const assignees = task.assignedTo || [];
-        if (assignees.length > 0) {
-          await sendNotificationToEmployees(
-            task.companyId,
-            assignees,
-            "⏰ Task Due in 2 Hours",
-            `Task "${task.title}" is due at ${timeStr}. Please wrap up your work.`,
-            "task",
-            { taskId: task._id.toString(), stage: 1 }
-          ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
-        }
+        await notifyTaskAll(
+          task.companyId,
+          task.assignedTo || [],
+          task.departmentId || null,
+          "⏰ Task Due in 2 Hours",
+          `Task "${task.title}" is due at ${timeStr}. Please wrap up pending work.`,
+          "task",
+          { taskId: task._id.toString(), stage: 1 }
+        ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
       }
 
       // ── Stage 2: 30-Minute Urgent Notice (30 min >= diff > 0 min) ──
@@ -516,17 +514,15 @@ const checkTaskDeadlinesAndReminders = async () => {
         task.lastReminderSentAt = now;
         await task.save();
 
-        const assignees = task.assignedTo || [];
-        if (assignees.length > 0) {
-          await sendNotificationToEmployees(
-            task.companyId,
-            assignees,
-            "⚠️ Urgent: Task Due in 30 Mins",
-            `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
-            "task",
-            { taskId: task._id.toString(), stage: 2 }
-          ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
-        }
+        await notifyTaskAll(
+          task.companyId,
+          task.assignedTo || [],
+          task.departmentId || null,
+          "⚠️ Urgent: Task Due in 30 Mins",
+          `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
+          "task",
+          { taskId: task._id.toString(), stage: 2 }
+        ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
       }
 
       // ── Stage 3: Deadline Crossed / Overdue Escalation (diff <= 0) ──

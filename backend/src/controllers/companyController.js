@@ -28,6 +28,7 @@ const {
     notifyRole,
     notifyDepartment,
     notifyCompany,
+    notifyTaskAll,
 } = require("../utils/notificationHelper");
 
 const handleValidation = (req, res) => {
@@ -1929,17 +1930,17 @@ const updateTaskStatus = async (req, res, next) => {
 
         await task.save();
 
-        // Notify assignees
-        if (task.assignees && task.assignees.length > 0) {
-            await sendNotificationToEmployees(
-                req.companyId,
-                task.assignees,
-                "Task Status Updated",
-                `Company Admin changed the status of "${task.title}" to ${status}`,
-                "task",
-                { taskId: task._id.toString() }
-            );
-        }
+        // Notify assignees & supervisors
+        const assignees = (task.assignedTo && task.assignedTo.length > 0) ? task.assignedTo : (task.assignees || []);
+        await notifyTaskAll(
+            req.companyId,
+            assignees,
+            task.departmentId || null,
+            "Task Status Updated",
+            `Company Admin changed the status of "${task.title}" to ${statusDoc.label || status}`,
+            "task_update",
+            { taskId: task._id.toString() }
+        ).catch(err => console.error("Error sending task notification in companyController:", err));
 
         res.json({ success: true, task, message: "Task status updated successfully" });
     } catch (error) {

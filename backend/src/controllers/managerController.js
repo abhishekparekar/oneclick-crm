@@ -2171,7 +2171,8 @@ const updateTaskStatus = async (req, res, next) => {
 
 
     // Notify assignees about status change
-    const otherAssignees = (task.assignees || []).filter(id => id.toString() !== manager._id.toString());
+    const allTaskAssignees = (task.assignedTo && task.assignedTo.length > 0) ? task.assignedTo : (task.assignees || []);
+    const otherAssignees = allTaskAssignees.filter(id => (id._id ? id._id.toString() : id.toString()) !== manager._id.toString());
     if (otherAssignees.length > 0) {
       await sendNotificationToEmployees(
         companyId,
@@ -2180,7 +2181,7 @@ const updateTaskStatus = async (req, res, next) => {
         `${manager.fullName} changed the status of "${task.title}" to ${status}`,
         "task",
         { taskId: task._id.toString() }
-      );
+      ).catch(err => console.error("Error sending notification to other assignees:", err));
     }
 
     // Notify CompanyAdmin + Dept Manager when task is completed or late completed
@@ -2192,7 +2193,7 @@ const updateTaskStatus = async (req, res, next) => {
         : `Task "${task.title}" has been completed.`;
       notifyTaskSupervisors(
         companyId,
-        task.assignees || [],
+        allTaskAssignees,
         task.departmentId || null,
         notifTitle,
         notifBody,
@@ -2258,17 +2259,49 @@ const updateTaskChecklist = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const { id } = req.params;
-    const { subtasks } = req.body;
+    const { subtaskId, completed, isCompleted, itemIndex, subtasks, checklist } = req.body;
 
     const manager = await resolveManagerEmployee(req);
     const task = await Task.findOne({ _id: id, companyId });
     if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
-    task.subtasks = subtasks || [];
-    task.activityLog.push({ action: "Updated checklist", performedBy: manager.fullName });
+    if (!Array.isArray(task.checklist)) {
+      task.checklist = [];
+    }
+
+    const fullChecklist = Array.isArray(checklist) ? checklist : (Array.isArray(subtasks) ? subtasks : null);
+
+    if (fullChecklist) {
+      task.checklist = fullChecklist;
+    } else {
+      let subtask = null;
+      if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
+        try {
+          if (typeof task.checklist.id === "function") {
+            subtask = task.checklist.id(subtaskId);
+          }
+        } catch (e) {}
+      }
+
+      if (!subtask && subtaskId) {
+        subtask = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
+      }
+
+      if (!subtask && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
+        subtask = task.checklist[itemIndex];
+      }
+
+      if (!subtask) {
+        return res.status(404).json({ success: false, message: "Checklist item not found" });
+      }
+
+      const nextCompleted = completed !== undefined ? completed : (isCompleted !== undefined ? isCompleted : !subtask.isCompleted);
+      subtask.isCompleted = Boolean(nextCompleted);
+    }
+
     await task.save();
 
-    return res.json({ success: true, data: task, message: "Checklist updated" });
+    return res.json({ success: true, data: task, task, message: "Checklist updated" });
   } catch (error) {
     next(error);
   }

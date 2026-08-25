@@ -592,42 +592,50 @@ export default function MyTasksScreen({ route, navigation }) {
       });
     }
 
-    if (activeStatus === "recurring") {
-      tasks = tasks.filter((t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
-    } else {
-      tasks = tasks.filter((t) => !t.isTemplate);
-    }
-
-    if (activeStatus === "recurring") return tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
-    // "All" tab: show regular tasks filtered by date
-    if (!activeStatus) return tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
-    const target = normalizeStatusValue(activeStatus);
-    
-    const checkTargetMatch = (taskStatus, tgt) => {
+    const checkTargetMatch = (taskStatus, tgt, task) => {
       const s = normalizeStatusValue(taskStatus);
-      if (tgt === "pending") return s === "pending" || s === "re_pending";
-      if (tgt === "in_process") return s === "in_process" || s === "re_in_process";
-      if (tgt === "complete") return ["complete", "late_complete", "re_complete", "re_late_complete"].includes(s);
+      if (tgt === "pending") return s === "pending" || s === "re_pending" || s === "todo" || !s;
+      if (tgt === "in_process") return s === "in_process" || s === "re_in_process" || s === "in_progress" || s === "working";
+      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      if (tgt === "late_complete") return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      if (tgt === "re_open") return task && (task.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s));
+      if (tgt === "overdue") {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(s);
+        return task && !task.isTemplate && task.endDateTime && new Date(task.endDateTime) < new Date() && !isDone;
+      }
       return s === tgt;
     };
 
-    let filtered = tasks.filter((t) => checkTargetMatch(t.status || "", target));
-
-    if (deadlineComingFilter) {
-      filtered = filtered.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
-    } else {
-      filtered = filtered.filter((t) => matchesDateFilter(t, activeDateFilter));
+    if (activeStatus === "recurring") {
+      tasks = tasks.filter((t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId);
+      return tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
+    } else if (activeStatus !== "") {
+      tasks = tasks.filter((t) => !t.isTemplate);
+      const target = normalizeStatusValue(activeStatus);
+      tasks = tasks.filter((t) => checkTargetMatch(t.status || "", target, t));
     }
 
-    return filtered;
+    if (deadlineComingFilter) {
+      tasks = tasks.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
+    } else {
+      tasks = tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
+    }
+
+    return tasks;
   }, [allTasks, activeStatus, searchQuery, activeDateFilter, deadlineComingFilter, selectedDepts]);
 
   const getStatusCount = (tabValue) => {
-    const checkTargetMatch = (taskStatus, tgt) => {
+    const checkTargetMatch = (taskStatus, tgt, task) => {
       const s = normalizeStatusValue(taskStatus);
-      if (tgt === "pending") return s === "pending" || s === "re_pending";
-      if (tgt === "in_process") return s === "in_process" || s === "re_in_process";
-      if (tgt === "complete") return ["complete", "late_complete", "re_complete", "re_late_complete"].includes(s);
+      if (tgt === "pending") return s === "pending" || s === "re_pending" || s === "todo" || !s;
+      if (tgt === "in_process") return s === "in_process" || s === "re_in_process" || s === "in_progress" || s === "working";
+      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      if (tgt === "late_complete") return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
+      if (tgt === "re_open") return task && (task.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s));
+      if (tgt === "overdue") {
+        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(s);
+        return task && !task.isTemplate && task.endDateTime && new Date(task.endDateTime) < new Date() && !isDone;
+      }
       return s === tgt;
     };
 
@@ -645,12 +653,11 @@ export default function MyTasksScreen({ route, navigation }) {
     }
 
     if (tabValue === "recurring") return base.filter((t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
-    
-    base = base.filter((t) => !t.isTemplate);
     if (!tabValue) return base.length;
     
+    base = base.filter((t) => !t.isTemplate);
     const target = normalizeStatusValue(tabValue);
-    return base.filter((t) => checkTargetMatch(t.status || "", target)).length;
+    return base.filter((t) => checkTargetMatch(t.status || "", target, t)).length;
   };
 
   const getDateTabCount = (dateTab) => {
@@ -776,11 +783,13 @@ export default function MyTasksScreen({ route, navigation }) {
     { key: "pending", label: "Pending" },
     { key: "in_process", label: "In Process" },
     { key: "complete", label: "Completed" },
+    { key: "late_complete", label: "Late Completed" },
+    { key: "re_open", label: "Re-Open" },
     { key: "overdue", label: "Overdue" },
     { key: "recurring", label: "Recurring" },
   ];
 
-  const DATE_TABS = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month"];
+  const DATE_TABS = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Re-Open"];
 
   return (
     <EmployeeLayout
