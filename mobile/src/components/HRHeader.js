@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { getHRAnnouncementsApi } from "../api/hrService";
+import { getMyNotificationsApi } from "../api/notificationService";
 import { COLORS, FONTS } from "../theme/tokens";
 
 const HRHeader = ({ title, showBack = false }) => {
@@ -12,26 +13,33 @@ const HRHeader = ({ title, showBack = false }) => {
   const navigation = useNavigation();
   const { user } = useAuth();
   const [unreadAnnouncements, setUnreadAnnouncements] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
-  const fetchHRAnnouncementsCount = async () => {
+  const fetchHRData = async () => {
     try {
-      const { data } = await getHRAnnouncementsApi();
-      if (data && data.announcements) {
-        const count = data.announcements.filter(
+      const [annRes, notifRes] = await Promise.all([
+        getHRAnnouncementsApi().catch(() => ({ data: { announcements: [] } })),
+        getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } })),
+      ]);
+      if (annRes?.data?.announcements) {
+        const count = annRes.data.announcements.filter(
           (ann) => !ann.readBy?.includes(user?._id)
         ).length;
         setUnreadAnnouncements(count);
       }
+      if (notifRes?.data) {
+        setUnreadNotifications(notifRes.data.unreadCount || 0);
+      }
     } catch (err) {
-      console.log("Error fetching announcements in HRHeader:", err.message);
+      console.log("Error fetching data in HRHeader:", err.message);
     }
   };
 
   useEffect(() => {
-    fetchHRAnnouncementsCount();
+    fetchHRData();
 
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchHRAnnouncementsCount();
+      fetchHRData();
     });
     return unsubscribe;
   }, [navigation, user?._id]);
@@ -121,9 +129,13 @@ const HRHeader = ({ title, showBack = false }) => {
           activeOpacity={0.7}
         >
           <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>5</Text>
-          </View>
+          {unreadNotifications > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadNotifications > 9 ? "9+" : unreadNotifications}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity

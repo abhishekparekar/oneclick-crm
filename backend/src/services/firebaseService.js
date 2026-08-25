@@ -3,26 +3,40 @@ const dotenv = require("dotenv");
 const path = require("path");
 dotenv.config();
 
+const fs = require("fs");
+
 // Initialize Firebase Admin
 try {
+  let serviceAccount = null;
+
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    // Better for Vercel: Parse JSON string directly from environment variable
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-      storageBucket: "conpany-1dffc.firebasestorage.app",
-    });
-    console.log("Firebase Admin initialized successfully from JSON string.");
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
-    // Fallback: load from local file path relative to cwd
     const fullPath = path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
-    const serviceAccount = require(fullPath);
+    if (fs.existsSync(fullPath)) {
+      serviceAccount = require(fullPath);
+    }
+  } else {
+    // Check standard locations in project
+    const defaultPaths = [
+      path.resolve(process.cwd(), "firebase-admin.json"),
+      path.resolve(__dirname, "../../firebase-admin.json"),
+    ];
+    for (const p of defaultPaths) {
+      if (fs.existsSync(p)) {
+        serviceAccount = require(p);
+        break;
+      }
+    }
+  }
+
+  if (serviceAccount && !admin.apps.length) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
       storageBucket: "conpany-1dffc.firebasestorage.app",
     });
-    console.log("Firebase Admin initialized successfully from file path.");
-  } else {
+    console.log("✓ Firebase Admin initialized successfully for project:", serviceAccount.project_id);
+  } else if (!admin.apps.length) {
     console.warn("FIREBASE_SERVICE_ACCOUNT config is missing. Push notifications will NOT work.");
   }
 } catch (error) {

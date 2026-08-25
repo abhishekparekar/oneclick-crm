@@ -63,9 +63,8 @@ const notificationSchema = new mongoose.Schema(
 const DeviceToken = require("./DeviceToken");
 const { sendPushNotification } = require("../services/firebaseService");
 
-notificationSchema.pre("save", function (next) {
+notificationSchema.pre("save", function () {
     this._wasNew = this.isNew;
-    next();
 });
 
 notificationSchema.post("save", async function (doc) {

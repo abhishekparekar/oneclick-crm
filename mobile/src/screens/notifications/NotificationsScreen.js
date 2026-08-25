@@ -38,7 +38,7 @@ const NotificationsScreen = ({ navigation }) => {
     const [notifications, setNotifications] = useState([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const [activeFilter, setActiveFilter] = useState("unread");
+    const [activeFilter, setActiveFilter] = useState("all");
 
     const fetchNotifications = async (showLoading = true) => {
         try {

@@ -13,6 +13,8 @@ import {
   StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useQuery } from "@tanstack/react-query";
+import { getMyNotificationsApi } from "../api/notificationService";
 import { useAuth } from "../context/AuthContext";
 import { isEmployeeRole, isManagerRole } from "../utils/roleHelpers";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -126,6 +128,18 @@ const CompanyAdminLayout = ({
   const navigation = propNavigation || hookNavigation;
   const parentLayout = useLayout();
   const isFocused = useIsFocused();
+
+  const { data: notifData } = useQuery({
+    queryKey: ["myNotifications"],
+    queryFn: async () => {
+      const res = await getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } }));
+      return res.data || { unreadCount: 0 };
+    },
+    staleTime: 10000,
+    refetchInterval: 15000,
+  });
+
+  const effectiveUnread = unreadNotifications > 0 ? unreadNotifications : (notifData?.unreadCount || 0);
 
   const currentRouteName = useMemo(() => {
     try {
@@ -454,10 +468,10 @@ const CompanyAdminLayout = ({
             activeOpacity={0.7}
           >
             <Ionicons name="notifications-outline" size={24} color="#0F172A" />
-            {unreadNotifications > 0 && (
+            {effectiveUnread > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>
-                  {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  {effectiveUnread > 9 ? "9+" : effectiveUnread}
                 </Text>
               </View>
             )}

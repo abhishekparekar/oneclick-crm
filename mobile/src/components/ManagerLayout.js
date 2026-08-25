@@ -302,18 +302,18 @@ const ManagerLayout = ({
                 </TouchableOpacity>
               )}
 
-              {displayUnread > 0 && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerNotifications" })}
-                  style={styles.bellBtn}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+              <TouchableOpacity
+                onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerNotifications" })}
+                style={styles.bellBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+                {displayUnread > 0 && (
                   <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#EF4444" }]}>
                     <Text style={styles.badgeText}>{displayUnread > 9 ? "9+" : displayUnread}</Text>
                   </View>
-                </TouchableOpacity>
-              )}
+                )}
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.avatar}

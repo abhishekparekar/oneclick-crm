@@ -69,7 +69,10 @@ const createNotification = async (req, res, next) => {
 
 const getMyNotifications = async (req, res, next) => {
   try {
-    const notifications = await Notification.find({ userId: req.user._id })
+    const userIds = [req.user._id];
+    if (req.user.employeeId) userIds.push(req.user.employeeId);
+
+    const notifications = await Notification.find({ userId: { $in: userIds } })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -94,9 +97,12 @@ const markNotificationRead = async (req, res, next) => {
       });
     }
 
+    const userIds = [req.user._id.toString()];
+    if (req.user.employeeId) userIds.push(req.user.employeeId.toString());
+
     if (
       req.user.role !== "SuperAdmin" &&
-      notification.userId.toString() !== req.user._id.toString()
+      !userIds.includes(notification.userId.toString())
     ) {
       return res.status(403).json({
         success: false,
@@ -119,8 +125,11 @@ const markNotificationRead = async (req, res, next) => {
 
 const markAllRead = async (req, res, next) => {
   try {
+    const userIds = [req.user._id];
+    if (req.user.employeeId) userIds.push(req.user.employeeId);
+
     const result = await Notification.updateMany(
-      { userId: req.user._id, isRead: false },
+      { userId: { $in: userIds }, isRead: false },
       { $set: { isRead: true } }
     );
 
@@ -144,9 +153,12 @@ const deleteNotification = async (req, res, next) => {
       });
     }
 
+    const userIds = [req.user._id.toString()];
+    if (req.user.employeeId) userIds.push(req.user.employeeId.toString());
+
     if (
       req.user.role !== "SuperAdmin" &&
-      notification.userId.toString() !== req.user._id.toString()
+      !userIds.includes(notification.userId.toString())
     ) {
       return res.status(403).json({
         success: false,

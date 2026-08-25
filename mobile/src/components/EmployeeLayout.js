@@ -176,20 +176,20 @@ const EmployeeLayout = ({
                   </View>
                 </TouchableOpacity>
               )}
-              {unreadNotificationsVal > 0 && (
-                <TouchableOpacity
-                  onPress={() => navigation.navigate("Notifications")}
-                  style={styles.bellBtn}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+              <TouchableOpacity
+                onPress={() => navigation.navigate("Notifications")}
+                style={styles.bellBtn}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="notifications-outline" size={24} color="#0F172A" />
+                {unreadNotificationsVal > 0 && (
                   <View style={[styles.badge, { borderColor: "#FFFFFF", backgroundColor: "#EF4444" }]}>
                     <Text style={styles.badgeText}>
                       {unreadNotificationsVal > 9 ? "9+" : unreadNotificationsVal}
                     </Text>
                   </View>
-                </TouchableOpacity>
-              )}
+                )}
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.avatar}
