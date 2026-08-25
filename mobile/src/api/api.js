@@ -18,7 +18,7 @@ export const getBackendHost = () => {
 
   if (__DEV__) {
     // Current machine LAN IP for Wi-Fi Expo Go & USB ADB reverse
-    let ip = "10.244.239.50";
+    let ip = "192.168.1.12";
 
     const hostUri =
       Constants.expoConfig?.hostUri ||

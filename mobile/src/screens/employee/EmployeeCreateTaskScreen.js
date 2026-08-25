@@ -175,9 +175,9 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
   };
 
   const priorityOptions = [
-    { key: "low", label: "Low", color: "#10B981", bg: "#ECFDF5", border: "#A7F3D0", icon: "checkmark-circle-outline" },
-    { key: "medium", label: "Medium", color: "#F59E0B", bg: "#FEF3C7", border: "#FDE68A", icon: "alert-circle-outline" },
-    { key: "high", label: "High", color: "#EF4444", bg: "#FEE2E2", border: "#FECACA", icon: "flame-outline" },
+    { key: "low", label: "Low", activeBg: "#059669", activeBorder: "#047857", activeColor: "#FFFFFF", inactiveBg: "#F0FDF4", inactiveBorder: "#BBF7D0", inactiveColor: "#047857", icon: "checkmark-circle-outline" },
+    { key: "medium", label: "Medium", activeBg: "#D97706", activeBorder: "#B45309", activeColor: "#FFFFFF", inactiveBg: "#FFFBEB", inactiveBorder: "#FDE68A", inactiveColor: "#B45309", icon: "alert-circle-outline" },
+    { key: "high", label: "High", activeBg: "#DC2626", activeBorder: "#B91C1C", activeColor: "#FFFFFF", inactiveBg: "#FEF2F2", inactiveBorder: "#FECACA", inactiveColor: "#B91C1C", icon: "flame-outline" },
   ];
 
   return (
@@ -211,7 +211,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
           <Ionicons
             name={repeatEnabled ? "repeat" : "calendar-outline"}
             size={18}
-            color={repeatEnabled ? "#1268D9" : "#64748B"}
+            color={repeatEnabled ? "#1E40AF" : "#475569"}
           />
         </TouchableOpacity>
       </View>
@@ -231,7 +231,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
             <Ionicons
               name="calendar-outline"
               size={15}
-              color={!repeatEnabled ? "#FFFFFF" : "#64748B"}
+              color={!repeatEnabled ? "#FFFFFF" : "#475569"}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.modeSegmentText, !repeatEnabled && styles.modeSegmentTextActive]}>
@@ -247,7 +247,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
             <Ionicons
               name="repeat-outline"
               size={15}
-              color={repeatEnabled ? "#FFFFFF" : "#64748B"}
+              color={repeatEnabled ? "#FFFFFF" : "#475569"}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.modeSegmentText, repeatEnabled && styles.modeSegmentTextActive]}>
@@ -259,32 +259,32 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
         {/* ── 2. Core Task Information ── */}
         <View style={styles.sectionBox}>
           <View style={styles.sectionHeaderRow}>
-            <Ionicons name="create-outline" size={15} color="#1268D9" />
+            <Ionicons name="create-outline" size={15} color="#1E40AF" />
             <Text style={styles.sectionHeaderTitle}>TASK DETAILS</Text>
           </View>
 
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Task Title *</Text>
             <View style={styles.inputWrap}>
-              <Ionicons name="document-text-outline" size={16} color="#94A3B8" style={styles.inputPrefixIcon} />
+              <Ionicons name="document-text-outline" size={16} color="#64748B" style={styles.inputPrefixIcon} />
               <TextInput
                 style={styles.textInput}
                 placeholder="e.g. Prepare Client Proposal / Complete Bugfixes"
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 value={title}
                 onChangeText={setTitle}
               />
             </View>
           </View>
 
-          <View style={[styles.inputContainer, { marginTop: 10 }]}>
+          <View style={[styles.inputContainer, { marginTop: 8 }]}>
             <Text style={styles.inputLabel}>Description / Guidelines (Optional)</Text>
             <View style={[styles.inputWrap, { alignItems: "flex-start", paddingVertical: 8 }]}>
-              <Ionicons name="reader-outline" size={16} color="#94A3B8" style={[styles.inputPrefixIcon, { marginTop: 2 }]} />
+              <Ionicons name="reader-outline" size={16} color="#64748B" style={[styles.inputPrefixIcon, { marginTop: 2 }]} />
               <TextInput
-                style={[styles.textInput, { minHeight: 60, textAlignVertical: "top" }]}
+                style={[styles.textInput, { minHeight: 52, textAlignVertical: "top" }]}
                 placeholder="Add step-by-step notes, links, or instructions..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 value={description}
                 onChangeText={setDescription}
                 multiline
@@ -297,7 +297,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
         {/* ── 3. Priority & Department ── */}
         <View style={styles.sectionBox}>
           <View style={styles.sectionHeaderRow}>
-            <Ionicons name="options-outline" size={15} color="#1268D9" />
+            <Ionicons name="options-outline" size={15} color="#1E40AF" />
             <Text style={styles.sectionHeaderTitle}>CLASSIFICATION</Text>
           </View>
 
@@ -311,7 +311,9 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
                   key={opt.key}
                   style={[
                     styles.priorityPill,
-                    isSelected && { backgroundColor: opt.bg, borderColor: opt.color, borderWidth: 1.5 },
+                    isSelected
+                      ? { backgroundColor: opt.activeBg, borderColor: opt.activeBorder, borderWidth: 1.5 }
+                      : { backgroundColor: opt.inactiveBg, borderColor: opt.inactiveBorder, borderWidth: 1 }
                   ]}
                   onPress={() => setPriority(opt.key)}
                   activeOpacity={0.8}
@@ -319,13 +321,13 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
                   <Ionicons
                     name={opt.icon}
                     size={14}
-                    color={isSelected ? opt.color : "#64748B"}
+                    color={isSelected ? '#FFFFFF' : opt.inactiveColor}
                     style={{ marginRight: 5 }}
                   />
                   <Text
                     style={[
                       styles.priorityPillText,
-                      isSelected && { color: opt.color, fontWeight: "900" },
+                      isSelected ? { color: '#FFFFFF', fontWeight: "900" } : { color: opt.inactiveColor, fontWeight: "700" },
                     ]}
                   >
                     {opt.label}
@@ -336,7 +338,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
           </View>
 
           {/* Department Selection Card */}
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 10 }}>
             <Text style={styles.inputLabel}>Assigned Department *</Text>
             <TouchableOpacity
               style={styles.deptCardTrigger}
@@ -344,14 +346,14 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
               activeOpacity={0.8}
             >
               <View style={styles.deptIconCircle}>
-                <Feather name="layers" size={15} color="#1268D9" />
+                <Feather name="layers" size={15} color="#1E40AF" />
               </View>
               <View style={{ flex: 1, marginLeft: 10 }}>
                 <Text style={styles.deptCardText} numberOfLines={1}>
                   {departmentName || "Select Department *"}
                 </Text>
               </View>
-              <Ionicons name="chevron-down" size={16} color="#94A3B8" />
+              <Ionicons name="chevron-down" size={16} color="#475569" />
             </TouchableOpacity>
           </View>
         </View>
@@ -486,7 +488,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
           <TaskAttachmentPicker attachments={attachments} onChange={setAttachments} />
         </View>
 
-        <View style={{ height: 90 }} />
+        <View style={{ height: 30 }} />
       </ScrollView>
 
       {/* ── Fixed Bottom Submit Dock ── */}
@@ -578,7 +580,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FFFFFF",
   },
   header: {
     flexDirection: "row",
@@ -586,19 +588,14 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
-    paddingBottom: 12,
+    paddingBottom: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 2,
+    borderBottomColor: "#F1F5F9",
   },
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -611,21 +608,21 @@ const styles = StyleSheet.create({
     marginHorizontal: 10,
   },
   headerTitle: {
-    fontSize: 16.5,
+    fontSize: 16,
     fontWeight: "900",
     color: "#0F172A",
     letterSpacing: -0.2,
   },
   headerSub: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: "#64748B",
-    marginTop: 2,
+    marginTop: 1,
     fontWeight: "600",
   },
   headerRightAction: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -637,67 +634,59 @@ const styles = StyleSheet.create({
     borderColor: "#BFDBFE",
   },
   scrollContent: {
-    padding: 12,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 85,
   },
   modeSegmentContainer: {
     flexDirection: "row",
     backgroundColor: "#E2E8F0",
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 3,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   modeSegmentBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
   modeSegmentBtnActive: {
-    backgroundColor: "#1268D9",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
+    backgroundColor: "#0F172A",
   },
   modeSegmentText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
+    fontSize: 11.5,
+    fontWeight: "700",
+    color: "#475569",
   },
   modeSegmentTextActive: {
     fontWeight: "800",
     color: "#FFFFFF",
   },
+  // ── Seamless Section Container (No Cards) ──
   sectionBox: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    padding: 14,
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 3,
-    elevation: 1,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 8,
   },
   sectionHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginBottom: 12,
-    paddingBottom: 6,
+    gap: 5,
+    marginBottom: 6,
+    paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: "#F1F5F9",
+    borderBottomColor: "#F8FAFC",
   },
   sectionHeaderTitle: {
     fontSize: 11,
     fontWeight: "900",
-    color: "#1268D9",
-    letterSpacing: 0.6,
+    color: "#0F172A",
+    letterSpacing: 0.5,
+    textTransform: "uppercase",
   },
   inputContainer: {
     width: "100%",
@@ -705,31 +694,34 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 11,
     fontWeight: "800",
-    color: "#334155",
-    marginBottom: 5,
+    color: "#0F172A",
+    marginBottom: 4,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   inputWrap: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
     paddingHorizontal: 10,
-    minHeight: 40,
+    minHeight: 38,
   },
   inputPrefixIcon: {
-    marginRight: 8,
+    marginRight: 6,
   },
   textInput: {
     flex: 1,
-    fontSize: 12.5,
+    fontSize: 13,
     color: "#0F172A",
-    paddingVertical: 6,
+    paddingVertical: 4,
+    fontWeight: "600",
   },
   priorityGrid: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
   },
   priorityPill: {
     flex: 1,
@@ -738,32 +730,30 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 8,
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
   },
   priorityPillText: {
     fontSize: 11.5,
     fontWeight: "700",
-    color: "#64748B",
+    color: "#475569",
   },
   deptCardTrigger: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
     paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingVertical: 8,
   },
   deptIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
+    width: 26,
+    height: 26,
+    borderRadius: 6,
+    backgroundColor: "#1E40AF",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -774,43 +764,43 @@ const styles = StyleSheet.create({
   },
   subSegmentContainer: {
     flexDirection: "row",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 10,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 8,
     padding: 3,
   },
   subSegmentBtn: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 7,
-    borderRadius: 8,
+    paddingVertical: 6,
+    borderRadius: 6,
   },
   subSegmentBtnActive: {
-    backgroundColor: "#1268D9",
+    backgroundColor: "#0F172A",
   },
   subSegmentText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#64748B",
+    color: "#475569",
   },
   subSegmentTextActive: {
     color: "#FFFFFF",
     fontWeight: "800",
   },
   chipPill: {
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-    borderRadius: 14,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
     backgroundColor: "#F8FAFC",
   },
   chipPillActive: {
-    backgroundColor: "#1268D9",
-    borderColor: "#1268D9",
+    backgroundColor: "#1E40AF",
+    borderColor: "#1E3A8A",
   },
   chipPillText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "700",
     color: "#334155",
   },
@@ -819,21 +809,21 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
   miniDateCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
     backgroundColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
   },
   miniDateCircleActive: {
-    backgroundColor: "#1268D9",
-    borderColor: "#1268D9",
+    backgroundColor: "#1E40AF",
+    borderColor: "#1E3A8A",
   },
   miniDateText: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: "700",
     color: "#334155",
   },
@@ -843,7 +833,7 @@ const styles = StyleSheet.create({
   },
   dateRow: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
   },
   halfCol: {
     flex: 1,
@@ -852,14 +842,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#EFF6FF",
-    borderRadius: 8,
-    padding: 8,
+    borderRadius: 6,
+    padding: 6,
     borderWidth: 1,
     borderColor: "#BFDBFE",
-    marginTop: 8,
+    marginTop: 6,
   },
   helperBannerText: {
-    fontSize: 11,
+    fontSize: 10.5,
     color: "#1E40AF",
     fontWeight: "600",
     flex: 1,
@@ -871,27 +861,17 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 14,
-    paddingTop: 10,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 4,
+    borderTopColor: "#F1F5F9",
   },
   submitButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#1268D9",
+    backgroundColor: "#1D4ED8",
     paddingVertical: 12,
-    borderRadius: 10,
-    shadowColor: "#1268D9",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 3,
+    borderRadius: 8,
   },
   submitButtonText: {
     fontSize: 14,
@@ -906,26 +886,26 @@ const styles = StyleSheet.create({
   },
   modalSheet: {
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    borderTopLeftRadius: 18,
+    borderTopRightRadius: 18,
+    paddingHorizontal: 14,
+    paddingTop: 14,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   modalTitle: {
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: "900",
     color: "#0F172A",
   },
   modalCloseBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
@@ -934,17 +914,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
-    borderRadius: 8,
+    borderRadius: 6,
   },
   modalDeptRowActive: {
     backgroundColor: "#EFF6FF",
   },
   modalDeptText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "700",
     color: "#334155",
   },
@@ -953,14 +933,14 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   modalCancelBtn: {
-    marginTop: 12,
+    marginTop: 10,
     backgroundColor: "#F1F5F9",
-    paddingVertical: 11,
-    borderRadius: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
     alignItems: "center",
   },
   modalCancelText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: "800",
     color: "#475569",
   },

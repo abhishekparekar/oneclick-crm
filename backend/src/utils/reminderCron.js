@@ -68,39 +68,22 @@ const initCronJobs = () => {
   cron.schedule("0 8 * * *", async () => {
     try {
       const now = new Date();
+      const { notifyTaskAll } = require("./notificationHelper");
       const overdueTasks = await Task.find({ 
-        dueDate: { $lt: now },
-        status: { $nin: ["completed", "done", "cancelled"] }
+        endDateTime: { $lt: now },
+        status: { $in: ["pending", "re_pending", "in_process", "re_in_process", "overdue"] }
       });
 
       for (const task of overdueTasks) {
-        // Notify Assignees
-        for (const assigneeId of task.assignees) {
-          const emp = await Employee.findById(assigneeId);
-          if (emp && emp.userId) {
-            await notifyUser(
-              emp.userId,
-              task.companyId,
-              "Task Overdue",
-              `The task "${task.title}" is overdue. Please update its status.`,
-              "task",
-              { taskId: task._id.toString() }
-            );
-          }
-        }
-        
-        // Notify Manager/Creator
-        const creator = await Employee.findById(task.createdBy);
-        if (creator && creator.userId) {
-          await notifyUser(
-            creator.userId,
-            task.companyId,
-            "Task Overdue",
-            `A task you assigned ("${task.title}") is overdue.`,
-            "task",
-            { taskId: task._id.toString() }
-          );
-        }
+        await notifyTaskAll(
+          task.companyId,
+          task.assignedTo || [],
+          task.departmentId || null,
+          "🚨 Task Overdue Reminder",
+          `The task "${task.title}" is overdue. Please complete it or submit a follow-up.`,
+          "task",
+          { taskId: task._id.toString() }
+        ).catch(() => {});
       }
     } catch (err) {
       console.error("Cron Error (Overdue tasks):", err);
@@ -174,6 +157,7 @@ const initCronJobs = () => {
     try {
       const now = new Date();
       const Lead = require("../models/Lead");
+      const Employee = require("../models/Employee");
       // Find leads whose scheduled nextFollowUpDate is <= now and has not been notified yet
       const dueLeads = await Lead.find({
         nextFollowUpDate: { $lte: now, $ne: null },
@@ -189,17 +173,28 @@ const initCronJobs = () => {
         const title = `⏰ Lead Follow-up Reminder: ${lead.name}`;
         const message = `Follow-up scheduled at ${timeStr}, ${dateStr} with client ${lead.name} (${contact}).`;
 
-        // Notify assigned user if available, otherwise notify creator
-        const targetUserId = lead.assignedTo?._id || lead.assignedTo || lead.createdBy;
-        if (targetUserId && lead.companyId) {
+        // Resolve user ID (handling case where assignedTo might be an Employee or User ID)
+        let rawTargetId = lead.assignedTo?._id || lead.assignedTo || lead.createdBy;
+        let targetUserId = rawTargetId;
+        let companyId = lead.companyId;
+
+        if (rawTargetId) {
+          const emp = await Employee.findById(rawTargetId).select("userId companyId");
+          if (emp && emp.userId) {
+            targetUserId = emp.userId;
+            if (!companyId) companyId = emp.companyId;
+          }
+        }
+
+        if (targetUserId && companyId) {
           await notifyUser(
             targetUserId,
-            lead.companyId,
+            companyId,
             title,
             message,
             "lead_follow_up",
             { leadId: lead._id.toString(), leadName: lead.name }
-          ).catch(() => {});
+          ).catch((e) => console.error("[Lead follow-up notify error]:", e));
         }
 
         // Mark as notified so notification isn't resent every minute

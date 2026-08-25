@@ -102,7 +102,7 @@ const RegisterScreen = () => {
             <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
           </TouchableOpacity>
           <Image
-            source={require("../../../assets/logo.png")}
+            source={require("../../../assets/one_click_.jpeg")}
             style={styles.logoImage}
             resizeMode="contain"
           />

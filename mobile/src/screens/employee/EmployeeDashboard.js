@@ -307,7 +307,7 @@ export default function EmployeeDashboard({ navigation }) {
 
   if (loading.employeeDashboard && !employeeDashboard) {
     return (
-      <EmployeeLayout navigation={navigation} title="Home">
+      <EmployeeLayout navigation={navigation} title="Home" hideFab={true}>
         <View style={styles.loaderContainer}>
           <ActivityIndicator size="large" color={C.primary} />
           <Text style={styles.loaderText}>Assembling your dashboard…</Text>
@@ -344,7 +344,7 @@ export default function EmployeeDashboard({ navigation }) {
   }
 
   return (
-    <EmployeeLayout navigation={navigation} title="Home">
+    <EmployeeLayout navigation={navigation} title="Home" hideFab={true}>
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}

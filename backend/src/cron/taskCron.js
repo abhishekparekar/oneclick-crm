@@ -250,79 +250,202 @@ const processSingleTemplate = async (template, targetDate = new Date()) => {
   return null;
 };
 
-// 2. Morning Reminder Cron — sends "Task Reminder" push to employees with a pending recurring task today
-const sendMorningTaskReminders = async () => {
-  console.log("[CRON] Morning Task Reminder starting...");
+// Helper: Send aggregated pending tasks reminder to employees
+const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTemplate) => {
   try {
-    const { sendNotificationToEmployees } = require("../utils/notificationHelper");
-    const today = getKolkataDate(new Date());
+    const { notifyUser } = require("../utils/notificationHelper");
+    const Employee = require("../models/Employee");
 
-    const startOfToday = new Date(today);
-    const endOfToday = new Date(today);
-    endOfToday.setUTCHours(23, 59, 59, 999);
-
-    // Find all live recurring tasks generated today that are still pending
+    // Find all tasks that are currently pending or in progress (both template and manual)
     const pendingTasks = await Task.find({
-      isGeneratedFromTemplate: true,
-      status: { $in: ["pending", "re_pending"] },
-      startDateTime: { $gte: startOfToday, $lte: endOfToday }
-    }).populate("templateId");
+      status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
+    });
 
-    if (pendingTasks.length === 0) {
-      console.log("[CRON] No pending recurring tasks to remind today.");
+    if (!pendingTasks || pendingTasks.length === 0) {
+      console.log(`[CRON] ${partName}: No pending tasks found.`);
       return;
     }
 
-    // Group by companyId for working day checks
-    const companyWorkingDayCache = {};
-    const notified = new Set();
+    // Collect all assignee IDs across tasks
+    const allAssigneeIds = [];
+    pendingTasks.forEach(t => {
+      const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
+      assignees.forEach(id => {
+        if (id) allAssigneeIds.push(id);
+      });
+    });
 
+    if (allAssigneeIds.length === 0) return;
+
+    // Fetch all active employees
+    const employees = await Employee.find({
+      $or: [
+        { _id: { $in: allAssigneeIds } },
+        { userId: { $in: allAssigneeIds } }
+      ],
+      status: "active"
+    }).populate("userId");
+
+    // Map: employeeId -> { userId, empName, companyId }
+    const empIdToUserMap = new Map();
+    employees.forEach(emp => {
+      if (emp.userId) {
+        const uId = (emp.userId._id || emp.userId).toString();
+        const info = {
+          userId: uId,
+          empName: emp.firstName || "Team Member",
+          companyId: emp.companyId
+        };
+        empIdToUserMap.set(emp._id.toString(), info);
+        empIdToUserMap.set(uId, info);
+      }
+    });
+
+    // Group pending tasks per user
+    const userTaskMap = new Map(); // key: userId -> { companyId, empName, tasks: [] }
     for (const task of pendingTasks) {
-      if (!companyWorkingDayCache[task.companyId]) {
-        companyWorkingDayCache[task.companyId] = await getCompanyWorkingDays(task.companyId);
+      const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
+      for (const rawId of assignees) {
+        if (!rawId) continue;
+        const idStr = rawId.toString();
+        const empInfo = empIdToUserMap.get(idStr);
+        if (empInfo) {
+          if (!userTaskMap.has(empInfo.userId)) {
+            userTaskMap.set(empInfo.userId, {
+              companyId: task.companyId || empInfo.companyId,
+              empName: empInfo.empName,
+              tasks: []
+            });
+          }
+          userTaskMap.get(empInfo.userId).tasks.push(task);
+        }
       }
-      const workingDays = companyWorkingDayCache[task.companyId];
-      const dayOff = await isCompanyDayOff(task.companyId, today, workingDays);
-      if (dayOff.off) {
-        console.log(`[CRON] Skipping reminder for company ${task.companyId} — ${dayOff.reason}`);
-        continue;
-      }
-
-      // Filter out employees on leave today
-      const availableAssignees = await filterAssigneesNotOnLeave(
-        task.companyId,
-        task.assignedTo || [],
-        today
-      );
-
-      if (availableAssignees.length === 0) continue;
-
-      // Deduplicate — don't notify same employee twice for same task
-      const key = `${task._id}`;
-      if (notified.has(key)) continue;
-      notified.add(key);
-
-      const deadlineStr = task.endDateTime
-        ? new Date(task.endDateTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" })
-        : "";
-
-      await sendNotificationToEmployees(
-        task.companyId,
-        availableAssignees,
-        "📋 Task Reminder",
-        `Reminder: "${task.title}" is pending. Deadline: ${deadlineStr}`,
-        "task",
-        { taskId: task._id.toString() }
-      ).catch(err => console.error("[CRON] Reminder notification error:", err));
     }
 
-    console.log(`[CRON] Morning reminders sent for ${notified.size} task(s).`);
+    let sentCount = 0;
+    for (const [userId, info] of userTaskMap.entries()) {
+      const taskCount = info.tasks.length;
+      if (taskCount === 0) continue;
+
+      const topTask = info.tasks[0];
+      const title = `${titlePrefix}: ${taskCount} Pending Task${taskCount > 1 ? "s" : ""}`;
+      const body = msgTemplate(info.empName, taskCount, topTask.title);
+
+      await notifyUser(
+        userId,
+        info.companyId,
+        title,
+        body,
+        "task",
+        { taskCount, topTaskId: topTask._id.toString() }
+      ).catch(err => console.error(`[CRON] ${partName} error for user ${userId}:`, err));
+
+      sentCount++;
+    }
+
+    console.log(`[CRON] ${partName} sent to ${sentCount} employee(s).`);
   } catch (error) {
-    console.error("[CRON] Error in Morning Reminder:", error);
+    console.error(`[CRON] Error in ${partName}:`, error);
   }
 };
 
-// 2. Daily Generator Cron (Runs at 12:00 AM midnight)
+// 1. Part 1: Morning Kickoff Reminder (09:00 AM IST) - For Employees + Company Admin
+const sendAdminMorningPendingTasksSummary = async () => {
+  try {
+    const User = require("../models/User");
+    const { notifyManyUsers } = require("../utils/notificationHelper");
+
+    // Find all pending tasks grouped by companyId
+    const pendingTasks = await Task.find({
+      status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] }
+    });
+
+    if (!pendingTasks || pendingTasks.length === 0) {
+      console.log("[CRON] Admin Morning Summary: No pending tasks found.");
+      return;
+    }
+
+    const companyTaskMap = new Map(); // key: companyId -> tasks array
+    for (const task of pendingTasks) {
+      if (task.companyId) {
+        const cIdStr = task.companyId.toString();
+        if (!companyTaskMap.has(cIdStr)) {
+          companyTaskMap.set(cIdStr, []);
+        }
+        companyTaskMap.get(cIdStr).push(task);
+      }
+    }
+
+    for (const [companyId, tasks] of companyTaskMap.entries()) {
+      const taskCount = tasks.length;
+      if (taskCount === 0) continue;
+
+      // Find all CompanyAdmin users for this company
+      const adminUsers = await User.find({
+        companyId,
+        role: "CompanyAdmin",
+        isActive: true
+      }).select("_id");
+
+      const adminUserIds = adminUsers.map(u => u._id.toString());
+      if (adminUserIds.length === 0) continue;
+
+      const title = `📋 Daily Task Overview: ${taskCount} Pending Task${taskCount > 1 ? "s" : ""}`;
+      const body = `Good morning Admin! There are ${taskCount} total pending task(s) active in your company today. Track team progress and workflow status.`;
+
+      await notifyManyUsers(
+        adminUserIds,
+        companyId,
+        title,
+        body,
+        "task",
+        { totalPendingTasks: taskCount }
+      ).catch(e => console.error("[CRON] Admin morning summary error:", e));
+    }
+
+    console.log("[CRON] Admin Morning Pending Task Summary sent successfully.");
+  } catch (error) {
+    console.error("[CRON] Error in sendAdminMorningPendingTasksSummary:", error);
+  }
+};
+
+const sendMorningTaskReminders = async () => {
+  console.log("[CRON] Running Part 1: Morning Task Reminders (09:00 AM) for Employees & Admin...");
+  // 1. Send employee-specific morning reminders
+  await sendPendingTasksBatchNotification(
+    "Morning Task Reminder",
+    "📋 Morning Task Reminder",
+    (name, count, topTitle) =>
+      `Good morning ${name}! You have ${count} pending task${count > 1 ? "s" : ""} today (e.g. "${topTitle}"). Please start and complete them on time.`
+  );
+
+  // 2. Send 1 aggregated morning overview to Company Admin
+  await sendAdminMorningPendingTasksSummary();
+};
+
+// 2. Part 2: Mid-Day Progress Check (01:30 PM IST)
+const sendMidDayTaskReminders = async () => {
+  console.log("[CRON] Running Part 2: Mid-Day Task Reminders (01:30 PM)...");
+  await sendPendingTasksBatchNotification(
+    "Mid-Day Task Reminder",
+    "⏳ Mid-Day Task Reminder",
+    (name, count, topTitle) =>
+      `Mid-day update for ${name}: You still have ${count} pending task${count > 1 ? "s" : ""} (e.g. "${topTitle}"). Keep up the momentum to finish before deadlines!`
+  );
+};
+
+// 3. Part 3: Evening Pre-Closing / Shift-End Reminder (05:00 PM IST)
+const sendEveningTaskReminders = async () => {
+  console.log("[CRON] Running Part 3: Evening Task Reminders (05:00 PM)...");
+  await sendPendingTasksBatchNotification(
+    "Evening Task Reminder",
+    "⚠️ Evening Task Reminder",
+    (name, count, topTitle) =>
+      `Shift closing soon ${name}! You have ${count} task${count > 1 ? "s" : ""} still pending (e.g. "${topTitle}"). Please submit your updates or complete them.`
+  );
+};
+
+// 4. Daily Recurring Generator Cron (Runs at 12:00 AM midnight)
 const generateRecurringTasks = async () => {
   try {
     const today = getKolkataDate(new Date());
@@ -336,8 +459,6 @@ const generateRecurringTasks = async () => {
     console.log(`[CRON] Generating recurring tasks for ${today.toUTCString()} - Found ${activeTemplates.length} active templates`);
 
     for (const template of activeTemplates) {
-      // Generate task for today without checking original creation time,
-      // as this job now strictly runs at midnight.
       await processSingleTemplate(template, today);
     }
   } catch (error) {
@@ -345,62 +466,138 @@ const generateRecurringTasks = async () => {
   }
 };
 
-// 2. Overdue Checker Cron (Runs every 5 minutes)
-const checkOverdueTasks = async () => {
+// 5. High-Accuracy 3-Stage Task Deadline & Overdue Reminder Engine (Runs every 1 minute)
+const checkTaskDeadlinesAndReminders = async () => {
   try {
     const now = new Date();
+    const { notifyTaskAll, sendNotificationToEmployees } = require("../utils/notificationHelper");
 
-    // Find tasks that missed their endDateTime
-    const overdueTasks = await Task.find({
-      status: { $in: ["pending", "re_pending"] },
-      endDateTime: { $lt: now }
+    // Fetch active incomplete tasks
+    const activeTasks = await Task.find({
+      status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
+      endDateTime: { $ne: null }
     });
 
-    if (overdueTasks.length > 0) {
-      console.log(`[CRON] Found ${overdueTasks.length} newly overdue tasks. Updating status...`);
+    for (const task of activeTasks) {
+      const dueTime = new Date(task.endDateTime);
+      const diffMs = dueTime.getTime() - now.getTime();
+      const diffMinutes = Math.round(diffMs / 60000);
+      const timeStr = dueTime.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+        timeZone: "Asia/Kolkata"
+      });
 
-      for (const task of overdueTasks) {
+      const currentStage = task.reminderStage || 0;
+
+      // ── Stage 1: 2-Hour Advance Notice (120 min >= diff > 30 min) ──
+      if (diffMinutes <= 120 && diffMinutes > 30 && currentStage < 1) {
+        task.reminderStage = 1;
+        task.lastReminderSentAt = now;
+        await task.save();
+
+        const assignees = task.assignedTo || [];
+        if (assignees.length > 0) {
+          await sendNotificationToEmployees(
+            task.companyId,
+            assignees,
+            "⏰ Task Due in 2 Hours",
+            `Task "${task.title}" is due at ${timeStr}. Please wrap up your work.`,
+            "task",
+            { taskId: task._id.toString(), stage: 1 }
+          ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
+        }
+      }
+
+      // ── Stage 2: 30-Minute Urgent Notice (30 min >= diff > 0 min) ──
+      else if (diffMinutes <= 30 && diffMinutes > 0 && currentStage < 2) {
+        task.reminderStage = 2;
+        task.lastReminderSentAt = now;
+        await task.save();
+
+        const assignees = task.assignedTo || [];
+        if (assignees.length > 0) {
+          await sendNotificationToEmployees(
+            task.companyId,
+            assignees,
+            "⚠️ Urgent: Task Due in 30 Mins",
+            `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
+            "task",
+            { taskId: task._id.toString(), stage: 2 }
+          ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
+        }
+      }
+
+      // ── Stage 3: Deadline Crossed / Overdue Escalation (diff <= 0) ──
+      else if (diffMinutes <= 0 && currentStage < 3) {
         task.status = "overdue";
+        task.reminderStage = 3;
+        task.lastReminderSentAt = now;
         await task.save();
 
         await TaskActivity.create({
           companyId: task.companyId,
           taskId: task._id,
           action: "overdue",
-          remarks: "Task automatically marked as overdue",
-          performedBy: task.assignedBy // System action attributed loosely to creator/assigner
-        });
+          remarks: `Task automatically marked as overdue at ${timeStr}`,
+          performedBy: task.assignedBy
+        }).catch(() => {});
+
+        // Notify both assignees and supervisors (CompanyAdmin + Managers)
+        await notifyTaskAll(
+          task.companyId,
+          task.assignedTo || [],
+          task.departmentId || null,
+          "🚨 Task Overdue Alert",
+          `Task "${task.title}" has crossed its deadline (${timeStr})! Immediate action or follow-up required.`,
+          "task",
+          { taskId: task._id.toString(), stage: 3 }
+        ).catch(e => console.error("[CRON] Stage 3 overdue error:", e));
       }
     }
   } catch (error) {
-    console.error("[CRON] Error in Overdue Checker:", error);
+    console.error("[CRON] Error in checkTaskDeadlinesAndReminders:", error);
   }
 };
 
 const initCronJobs = () => {
-  // At 12:00 AM (Midnight) IST every day — generate recurring tasks
+  // 1. Daily midnight recurring generator (12:00 AM IST)
   cron.schedule("0 0 * * *", generateRecurringTasks, {
     scheduled: true,
     timezone: "Asia/Kolkata"
   });
 
-  // 9:00 AM IST every day — send morning reminders for pending recurring tasks
+  // 2. Part 1: Morning Kickoff Reminder (09:00 AM IST)
   cron.schedule("0 9 * * *", sendMorningTaskReminders, {
     scheduled: true,
     timezone: "Asia/Kolkata"
   });
 
-  // Every 5 minutes — mark overdue tasks
-  cron.schedule("*/5 * * * *", checkOverdueTasks, {
+  // 3. Part 2: Mid-Day Progress Check (01:30 PM IST)
+  cron.schedule("30 13 * * *", sendMidDayTaskReminders, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  });
+
+  // 4. Part 3: Evening Pre-Closing Alert (05:00 PM IST)
+  cron.schedule("0 17 * * *", sendEveningTaskReminders, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
+  });
+
+  // 5. High-Accuracy 3-Stage Deadline Reminders & Overdue Escalation (Every 1 minute)
+  cron.schedule("* * * * *", checkTaskDeadlinesAndReminders, {
     scheduled: true,
   });
 
-  console.log("[CRON] Task generator, morning reminder, and overdue checker initialized.");
+  console.log("[CRON] 3-Part Task Reminders and 1-Minute High-Accuracy Deadline Engine initialized.");
 
   // Run immediate catch-up on server start
   setTimeout(() => {
-    console.log("[CRON] Running immediate catch-up for recurring tasks...");
+    console.log("[CRON] Running immediate catch-up for task engine...");
     generateRecurringTasks().catch(err => console.error("[CRON] Catch-up failed:", err));
+    checkTaskDeadlinesAndReminders().catch(err => console.error("[CRON] Initial deadline check failed:", err));
   }, 5000);
 };
 
@@ -408,6 +605,8 @@ module.exports = {
   initCronJobs,
   generateRecurringTasks,
   sendMorningTaskReminders,
-  checkOverdueTasks,
+  sendMidDayTaskReminders,
+  sendEveningTaskReminders,
+  checkTaskDeadlinesAndReminders,
   processSingleTemplate
 };

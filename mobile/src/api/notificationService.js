@@ -8,3 +8,6 @@ export const markNotificationReadApi = (id) =>
 
 export const markAllNotificationsReadApi = () =>
   api.patch("/notifications/read-all");
+
+export const registerDeviceApi = (fcmToken, platform) =>
+  api.post("/notifications/register-device", { fcmToken, platform });

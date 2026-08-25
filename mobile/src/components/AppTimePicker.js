@@ -39,11 +39,11 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
         onPress={() => setModalVisible(true)}
         activeOpacity={0.7}
       >
-        <Text style={[styles.inputText, !value && { color: "#94A3B8" }]}>
+        <Text style={[styles.inputText, !value && { color: "#64748B" }]}>
           {value || placeholder}
         </Text>
         <View style={styles.clockIconBtn}>
-          <Ionicons name="time" size={18} color="#F97316" />
+          <Ionicons name="time" size={18} color="#1D4ED8" />
         </View>
       </TouchableOpacity>
 
@@ -98,41 +98,44 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
     backgroundColor: "#F8FAFC",
-    paddingLeft: 12,
+    paddingLeft: 10,
     paddingRight: 6,
     paddingVertical: 5,
     justifyContent: "space-between",
-    minHeight: 44,
+    minHeight: 40,
   },
   inputText: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: "#0F172A",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   clockIconBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#FFF7ED",
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "#EFF6FF",
   },
   inputError: {
     borderColor: "#EF4444",
   },
   errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 4,
+    color: "#DC2626",
+    fontSize: 11.5,
+    fontWeight: "700",
+    marginTop: 3,
   },
   modalOverlay: {
     flex: 1,

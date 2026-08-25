@@ -59,7 +59,7 @@ const LandingScreen = ({ navigation }) => {
         <View style={styles.headerSection}>
           <View style={styles.logoSection}>
             <Image
-              source={require("../../../assets/logo.png")}
+              source={require("../../../assets/one_click_.jpeg")}
               style={styles.logoImage}
               resizeMode="contain"
             />

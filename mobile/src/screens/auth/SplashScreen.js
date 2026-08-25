@@ -94,7 +94,7 @@ const SplashScreen = ({ navigation }) => {
         ]}
       >
         <Image
-          source={require("../../../assets/logo.png")}
+          source={require("../../../assets/one_click_.jpeg")}
           style={styles.logo}
           resizeMode="contain"
         />

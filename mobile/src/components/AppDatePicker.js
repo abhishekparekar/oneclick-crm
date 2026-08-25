@@ -152,7 +152,7 @@ const AppDatePicker = ({
         <TextInput
           style={[styles.input, compact && styles.inputCompact]}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor="#64748B"
           value={value}
           onChangeText={onChangeText}
           keyboardType="numeric"
@@ -163,7 +163,7 @@ const AppDatePicker = ({
           onPress={() => setModalVisible(true)}
           activeOpacity={0.7}
         >
-          <Ionicons name="calendar" size={18} color="#F97316" />
+          <Ionicons name="calendar" size={18} color="#1D4ED8" />
         </TouchableOpacity>
       </TouchableOpacity>
 
@@ -372,45 +372,48 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   label: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
-    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 5,
+    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
     backgroundColor: "#F8FAFC",
     paddingRight: 6,
   },
   input: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 13.5,
     color: "#0F172A",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontWeight: "600",
-  },
-  inputCompact: {
-    fontSize: 13,
     paddingHorizontal: 10,
     paddingVertical: 9,
+    fontWeight: "700",
+  },
+  inputCompact: {
+    fontSize: 12.5,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
   },
   calendarIconBtn: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#FFF7ED",
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "#EFF6FF",
   },
   inputError: {
     borderColor: "#EF4444",
   },
   errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 4,
+    color: "#DC2626",
+    fontSize: 11.5,
+    fontWeight: "700",
+    marginTop: 3,
   },
 
   // Modal & Card Layout

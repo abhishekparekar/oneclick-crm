@@ -441,6 +441,57 @@ export const leadsService = {
     return { message: "Deleted" };
   },
 
+  // ── Assignable Staff & Products ─────────────────────────────
+  getAssignableUsers: async () => {
+    try {
+      const response = await api.get("/company/employees", { params: { status: "active" } });
+      const emps = response?.data?.employees || response?.data?.data || response?.data || [];
+      if (Array.isArray(emps) && emps.length > 0) {
+        return emps.map((e) => ({
+          id: e._id,
+          _id: e._id,
+          name: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name || "Employee",
+          department: e.departmentId?.name || e.department || "General",
+          departmentId: e.departmentId?._id || e.departmentId || "",
+          role: e.designationId?.name || e.role || "Staff",
+          designation: e.designationId?.name || e.designation || "",
+          email: e.email || "",
+          phone: e.phone || "",
+          label: `${e.firstName || ""} ${e.lastName || ""}`.trim(),
+        }));
+      }
+    } catch (_) {
+      try {
+        const response = await api.get("/leads-engine/assignable-users");
+        if (Array.isArray(response?.data)) return response.data;
+      } catch (err) {}
+    }
+    return [];
+  },
+
+  getProducts: async () => {
+    try {
+      const response = await api.get("/leads-engine/products");
+      if (Array.isArray(response?.data?.products)) return response.data.products;
+      if (Array.isArray(response?.data)) return response.data;
+    } catch (_) {}
+    return [
+      { id: "p1", name: "Standard HRMS Package", price: 45000 },
+      { id: "p2", name: "Enterprise HRMS + Payroll", price: 95000 },
+      { id: "p3", name: "Biometric Hardware Integration", price: 25000 },
+      { id: "p4", name: "Custom CRM & Lead Engine", price: 75000 },
+    ];
+  },
+
+  getDepartments: async () => {
+    try {
+      const response = await api.get("/company/departments");
+      const depts = response?.data?.departments || response?.data?.data || response?.data || [];
+      if (Array.isArray(depts)) return depts;
+    } catch (_) {}
+    return [];
+  },
+
   // ── Reminders ───────────────────────────────────────────────
   getReminders: async () => {
     try {

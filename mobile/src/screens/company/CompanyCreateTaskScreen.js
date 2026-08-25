@@ -218,11 +218,11 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const getPriorityStyle = (p) => {
     switch (p) {
       case 'high':
-        return { color: '#EF4444', bg: '#FEE2E2', border: '#FCA5A5', icon: 'flame-outline' };
+        return { color: '#DC2626', bg: '#DC2626', border: '#B91C1C', inactiveBg: '#FEF2F2', inactiveBorder: '#FECACA', inactiveColor: '#B91C1C', icon: 'flame-outline' };
       case 'medium':
-        return { color: '#F59E0B', bg: '#FEF3C7', border: '#FDE047', icon: 'alert-circle-outline' };
+        return { color: '#D97706', bg: '#D97706', border: '#B45309', inactiveBg: '#FFFBEB', inactiveBorder: '#FDE68A', inactiveColor: '#B45309', icon: 'alert-circle-outline' };
       default:
-        return { color: '#10B981', bg: '#ECFDF5', border: '#A7F3D0', icon: 'checkmark-circle-outline' };
+        return { color: '#059669', bg: '#059669', border: '#047857', inactiveBg: '#F0FDF4', inactiveBorder: '#BBF7D0', inactiveColor: '#047857', icon: 'checkmark-circle-outline' };
     }
   };
 
@@ -254,7 +254,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             <Ionicons
               name="calendar-outline"
               size={16}
-              color={!repeatEnabled ? COLORS.white : COLORS.text.muted}
+              color={!repeatEnabled ? COLORS.white : '#475569'}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.modeSwitchText, !repeatEnabled && styles.modeSwitchTextActive]}>
@@ -270,7 +270,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             <Ionicons
               name="repeat-outline"
               size={16}
-              color={repeatEnabled ? COLORS.white : COLORS.text.muted}
+              color={repeatEnabled ? COLORS.white : '#475569'}
               style={{ marginRight: 6 }}
             />
             <Text style={[styles.modeSwitchText, repeatEnabled && styles.modeSwitchTextActive]}>
@@ -279,37 +279,39 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* ── Core Details Card ── */}
+        {/* ── Core Details ── */}
         <View style={styles.card}>
-          <View style={styles.cardHeaderRow}>
-            <Feather name="edit-3" size={16} color={COLORS.primary} />
-            <Text style={styles.cardHeaderTitle}>Task Details</Text>
+          <View style={styles.sectionHeaderRow}>
+            <Feather name="edit-3" size={15} color="#1E40AF" />
+            <Text style={styles.sectionTitleText}>Task Title & Instructions</Text>
           </View>
 
-          <TextInput
-            style={styles.titleInput}
-            placeholder="What needs to be done? *"
-            placeholderTextColor="#94A3B8"
-            value={title}
-            onChangeText={setTitle}
-          />
+          <View style={styles.inputBox}>
+            <TextInput
+              style={styles.titleInput}
+              placeholder="What needs to be done? *"
+              placeholderTextColor="#64748B"
+              value={title}
+              onChangeText={setTitle}
+            />
+          </View>
 
-          <View style={styles.cardDivider} />
-
-          <TextInput
-            style={styles.descInput}
-            placeholder="Add details, instructions, links or guidelines..."
-            placeholderTextColor="#94A3B8"
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={3}
-          />
+          <View style={[styles.inputBox, { marginTop: 8 }]}>
+            <TextInput
+              style={styles.descInput}
+              placeholder="Add details, instructions, links or guidelines..."
+              placeholderTextColor="#64748B"
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={3}
+            />
+          </View>
         </View>
 
         {/* ── Priority Selector ── */}
         <View style={styles.sectionHeaderRow}>
-          <Ionicons name="speedometer-outline" size={16} color={COLORS.slateMuted} />
+          <Ionicons name="speedometer-outline" size={15} color="#1E40AF" />
           <Text style={styles.sectionTitleText}>Priority</Text>
         </View>
 
@@ -322,7 +324,9 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
                 key={p}
                 style={[
                   styles.priorityChip,
-                  isSelected && { backgroundColor: pStyle.bg, borderColor: pStyle.color }
+                  isSelected
+                    ? { backgroundColor: pStyle.bg, borderColor: pStyle.border }
+                    : { backgroundColor: pStyle.inactiveBg, borderColor: pStyle.inactiveBorder }
                 ]}
                 onPress={() => setPriority(p)}
                 activeOpacity={0.8}
@@ -330,13 +334,13 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
                 <Ionicons
                   name={pStyle.icon}
                   size={15}
-                  color={isSelected ? pStyle.color : COLORS.text.muted}
+                  color={isSelected ? '#FFFFFF' : pStyle.inactiveColor}
                   style={{ marginRight: 6 }}
                 />
                 <Text
                   style={[
                     styles.priorityChipText,
-                    isSelected && { color: pStyle.color, fontFamily: FONTS.bodyBold }
+                    isSelected ? { color: '#FFFFFF', fontWeight: '800' } : { color: pStyle.inactiveColor, fontWeight: '700' }
                   ]}
                 >
                   {p.charAt(0).toUpperCase() + p.slice(1)}
@@ -348,7 +352,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
 
         {/* ── Checkpoints / Checklist Section ── */}
         <View style={styles.sectionHeaderRow}>
-          <Ionicons name="checkbox-outline" size={16} color={COLORS.slateMuted} />
+          <Ionicons name="checkbox-outline" size={15} color="#1E40AF" />
           <Text style={styles.sectionTitleText}>Checkpoints / Checklist</Text>
           {checkpoints.length > 0 && (
             <View style={styles.countBadge}>
@@ -366,7 +370,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
               <TextInput
                 style={styles.checkpointInput}
                 placeholder="Enter checkpoint task (e.g. Audit Approval)..."
-                placeholderTextColor="#94A3B8"
+                placeholderTextColor="#64748B"
                 value={cp.title}
                 onChangeText={(val) => {
                   const newCp = [...checkpoints];
@@ -389,14 +393,14 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             activeOpacity={0.85}
             onPress={() => setCheckpoints([...checkpoints, { title: "", isCompleted: false }])}
           >
-            <Ionicons name="add-circle" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
             <Text style={styles.addCheckpointBtnText}>Add Checkpoint Item</Text>
           </TouchableOpacity>
         </View>
 
         {/* ── Assign To Section ── */}
         <View style={styles.sectionHeaderRow}>
-          <Ionicons name="people-outline" size={16} color={COLORS.slateMuted} />
+          <Ionicons name="people-outline" size={15} color="#1E40AF" />
           <Text style={styles.sectionTitleText}>Assign Scope</Text>
         </View>
 
@@ -623,7 +627,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           <TaskAttachmentPicker attachments={attachments} onChange={setAttachments} />
         </View>
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 30 }} />
       </ScrollView>
 
       {/* ── Sticky Bottom Footer Bar ── */}
@@ -797,7 +801,6 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
-
     </CompanyAdminLayout>
   );
 };
@@ -805,14 +808,14 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
   },
   headerGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#334155',
   },
@@ -831,7 +834,7 @@ const styles = StyleSheet.create({
   },
   headerTitleText: {
     fontFamily: FONTS.displayBold,
-    fontSize: 17,
+    fontSize: 16.5,
     color: '#FFFFFF',
     letterSpacing: -0.2,
   },
@@ -839,224 +842,208 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyMedium,
     fontSize: 11,
     color: '#94A3B8',
-    marginTop: 2,
+    marginTop: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 85,
   },
   modeSwitchContainer: {
     flexDirection: 'row',
     backgroundColor: '#E2E8F0',
-    borderRadius: 14,
+    borderRadius: 10,
     padding: 3,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   modeSwitchBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'center',
-    paddingVertical: 10,
-    borderRadius: 11,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   modeSwitchBtnActive: {
-    backgroundColor: COLORS.darkNavy,
-    ...SHADOWS.sm,
+    backgroundColor: '#0F172A',
   },
   modeSwitchText: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 13,
-    color: COLORS.text.muted,
+    fontFamily: FONTS.bodyBold,
+    fontSize: 12.5,
+    color: '#475569',
   },
   modeSwitchTextActive: {
     fontFamily: FONTS.bodyBold,
-    color: COLORS.white,
+    color: '#FFFFFF',
   },
+  // ── Seamless Core Details (No Cards) ──
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: ROUNDING.lg,
-    padding: 14,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOWS.sm,
-  },
-  cardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
     marginBottom: 10,
   },
-  cardHeaderTitle: {
-    fontFamily: FONTS.displaySemiBold,
-    fontSize: 14,
-    color: COLORS.darkNavy,
-    marginLeft: 8,
+  inputBox: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   titleInput: {
     fontFamily: FONTS.displayBold,
-    fontSize: 17,
-    color: COLORS.darkNavy,
-    paddingVertical: 4,
-  },
-  cardDivider: {
-    height: 1,
-    backgroundColor: '#F1F5F9',
-    marginVertical: 10,
+    fontSize: 15,
+    color: '#0F172A',
+    padding: 0,
   },
   descInput: {
     fontFamily: FONTS.body,
-    fontSize: 14,
-    color: COLORS.text.primary,
-    minHeight: 65,
+    fontSize: 13.5,
+    color: '#0F172A',
+    minHeight: 52,
     textAlignVertical: 'top',
-    paddingVertical: 4,
+    padding: 0,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    marginLeft: 4,
+    marginBottom: 6,
+    marginLeft: 2,
   },
   sectionTitleText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 12.5,
-    color: COLORS.slateMuted,
+    fontSize: 12,
+    color: '#0F172A',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     marginLeft: 6,
   },
   countBadge: {
-    backgroundColor: COLORS.primaryPale,
-    borderRadius: 10,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    marginLeft: 6,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    marginLeft: 5,
   },
   countBadgeText: {
-    fontSize: 10.5,
+    fontSize: 10,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primary,
+    color: '#1D4ED8',
   },
   priorityRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 14,
+    gap: 6,
+    marginBottom: 10,
   },
   priorityChip: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    justify: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOWS.sm,
+    justifyContent: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1.5,
   },
   priorityChipText: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 13,
-    color: COLORS.text.muted,
+    fontFamily: FONTS.bodyBold,
+    fontSize: 12,
   },
+  // ── Seamless Checklist (No Cards) ──
   checklistCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: ROUNDING.lg,
-    padding: 12,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOWS.sm,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    marginBottom: 10,
   },
   checkpointRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8FAFC',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 2,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 8,
+    borderColor: '#CBD5E1',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    marginBottom: 6,
   },
   checkpointBullet: {
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: COLORS.primaryPale,
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
-    justify: 'center',
-    marginRight: 8,
+    justifyContent: 'center',
+    marginRight: 6,
   },
   checkpointNum: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primary,
+    color: '#FFFFFF',
   },
   checkpointInput: {
     flex: 1,
     fontFamily: FONTS.body,
-    fontSize: 13.5,
-    color: COLORS.text.primary,
-    paddingVertical: 8,
+    fontSize: 13,
+    color: '#0F172A',
+    paddingVertical: 6,
   },
   deleteCheckpointBtn: {
-    padding: 6,
+    padding: 4,
   },
   addCheckpointBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: COLORS.primaryGhost,
-    borderWidth: 1,
-    borderColor: COLORS.primarySoft,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginTop: 2,
+    backgroundColor: '#1E40AF',
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 4,
   },
   addCheckpointBtnText: {
-    color: COLORS.primary,
+    color: '#FFFFFF',
     fontFamily: FONTS.bodyBold,
-    fontSize: 13,
+    fontSize: 12.5,
   },
   segmentedControl: {
     flexDirection: 'row',
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 10,
     padding: 3,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   segmentBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    borderRadius: 9,
+    paddingVertical: 7,
+    borderRadius: 8,
   },
   segmentBtnActive: {
-    backgroundColor: COLORS.darkNavy,
-    ...SHADOWS.sm,
+    backgroundColor: '#0F172A',
   },
   segmentText: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 12,
-    color: COLORS.text.muted,
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11.5,
+    color: '#475569',
   },
   segmentTextActive: {
     fontFamily: FONTS.bodyBold,
-    color: COLORS.white,
+    color: '#FFFFFF',
   },
   actionTriggerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 12,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    ...SHADOWS.sm,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
   },
   actionTriggerLeft: {
     flexDirection: 'row',
@@ -1064,86 +1051,80 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBoxBlue: {
-    width: 32,
-    height: 32,
-    borderRadius: 9,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    width: 28,
+    height: 28,
+    borderRadius: 7,
+    backgroundColor: '#1E40AF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 10,
+    marginRight: 8,
   },
   actionTriggerLabel: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 10,
-    color: '#64748B',
+    fontFamily: FONTS.bodyBold,
+    fontSize: 9.5,
+    color: '#475569',
     textTransform: 'uppercase',
   },
   actionTriggerValue: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#0F172A',
     marginTop: 1,
   },
   chipsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 12,
-    paddingHorizontal: 2,
+    gap: 5,
+    marginBottom: 8,
   },
   memberChipPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 20,
-    paddingLeft: 4,
-    paddingRight: 8,
-    paddingVertical: 3,
-    ...SHADOWS.sm,
+    backgroundColor: '#F1F5F9',
+    borderRadius: 14,
+    paddingLeft: 3,
+    paddingRight: 6,
+    paddingVertical: 2.5,
   },
   memberChipAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: COLORS.darkNavy,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 6,
+    marginRight: 5,
   },
   memberChipAvatarText: {
-    fontSize: 9,
+    fontSize: 8,
     fontFamily: FONTS.bodyBold,
     color: '#FFFFFF',
   },
   memberChipText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontFamily: FONTS.bodyMedium,
     color: COLORS.text.primary,
   },
   inputLabel: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 12.5,
+    fontSize: 11.5,
     color: COLORS.darkNavy,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   dayChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
   },
   dayChipActive: {
     backgroundColor: COLORS.primary,
     borderColor: COLORS.primaryDark,
   },
   dayChipText: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: FONTS.bodyMedium,
     color: COLORS.text.primary,
   },
@@ -1152,12 +1133,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   dateChip: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1166,7 +1147,7 @@ const styles = StyleSheet.create({
     borderColor: COLORS.primaryDark,
   },
   dateChipText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontFamily: FONTS.bodyMedium,
     color: COLORS.text.primary,
   },
@@ -1177,28 +1158,27 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginHorizontal: -4,
+    marginHorizontal: -3,
+    marginBottom: 6,
   },
   half: {
     flex: 1,
-    marginHorizontal: 4,
+    marginHorizontal: 3,
   },
   recurringInfoBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F3FF',
-    borderRadius: 10,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#DDD6FE',
-    marginTop: 10,
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 6,
   },
   recurringInfoText: {
     flex: 1,
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#7C3AED',
     fontFamily: FONTS.bodyMedium,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   footer: {
     position: 'absolute',
@@ -1206,27 +1186,25 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    ...SHADOWS.md,
+    borderTopColor: '#F1F5F9',
   },
   submitBtnContainer: {
-    borderRadius: 14,
+    borderRadius: 10,
     overflow: 'hidden',
-    ...SHADOWS.md,
   },
   submitBtnGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     backgroundColor: '#1268D9',
   },
   submitBtnText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 15,
+    fontSize: 14,
     color: '#FFFFFF',
     fontWeight: '800',
   },
@@ -1237,26 +1215,26 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 18,
+    paddingTop: 18,
   },
   modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 14,
+    marginBottom: 12,
   },
   modalTitle: {
     fontFamily: FONTS.displayBold,
-    fontSize: 17,
+    fontSize: 16,
     color: COLORS.darkNavy,
   },
   modalCloseIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#F1F5F9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1265,15 +1243,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 12,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
   },
   modalSearchInput: {
     flex: 1,
     fontFamily: FONTS.body,
-    fontSize: 13.5,
+    fontSize: 13,
     color: COLORS.darkNavy,
     padding: 0,
   },
@@ -1281,68 +1259,68 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
     borderBottomColor: '#F1F5F9',
-    borderRadius: 8,
+    borderRadius: 6,
   },
   modalItemRowSelected: {
     backgroundColor: COLORS.primaryGhost,
   },
   memberAvatarCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: COLORS.darkNavy,
     alignItems: 'center',
     justifyContent: 'center',
   },
   memberAvatarText: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONTS.bodyBold,
     color: '#FFFFFF',
   },
   modalItemTitle: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: COLORS.darkNavy,
   },
   modalItemSubtitle: {
     fontFamily: FONTS.body,
-    fontSize: 11,
+    fontSize: 10.5,
     color: COLORS.text.muted,
-    marginTop: 2,
+    marginTop: 1,
   },
   emptySearchText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontFamily: FONTS.body,
     color: COLORS.text.muted,
     textAlign: 'center',
-    marginVertical: 20,
+    marginVertical: 16,
   },
   modalDoneBtn: {
-    marginTop: 16,
+    marginTop: 12,
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   modalDoneBtnText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 14.5,
+    fontSize: 14,
     color: '#FFFFFF',
   },
   modalCancelBtn: {
-    marginTop: 16,
+    marginTop: 12,
     backgroundColor: '#F1F5F9',
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
   },
   modalCancelBtnText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 14.5,
+    fontSize: 14,
     color: COLORS.darkNavy,
   },
 });

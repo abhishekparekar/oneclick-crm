@@ -4,25 +4,32 @@ const Notification = require("../models/Notification");
 const sendNotificationToEmployees = async (companyId, employeeIds, title, body, type, data = {}) => {
   try {
     if (!employeeIds || employeeIds.length === 0) return;
+    const cleanIds = (Array.isArray(employeeIds) ? employeeIds : [employeeIds]).filter(Boolean);
     
-    const employees = await Employee.find({ _id: { $in: employeeIds }, companyId }).populate("userId");
-    const notifications = [];
-    
+    // Find employees by _id OR by userId
+    const employees = await Employee.find({
+      $or: [
+        { _id: { $in: cleanIds } },
+        { userId: { $in: cleanIds } }
+      ]
+    }).populate("userId");
+
+    const targetUserIds = new Set();
     for (const emp of employees) {
-      if (emp.userId) {
-        notifications.push(
-          Notification.create({
-            companyId,
-            userId: emp.userId._id || emp.userId,
-            title,
-            body,
-            type,
-            data
-          })
-        );
+      if (emp && emp.userId) {
+        targetUserIds.add((emp.userId._id || emp.userId).toString());
       }
     }
-    await Promise.all(notifications);
+
+    // In case cleanIds are direct User IDs
+    for (const id of cleanIds) {
+      const idStr = id._id ? id._id.toString() : id.toString();
+      targetUserIds.add(idStr);
+    }
+
+    if (targetUserIds.size === 0) return;
+
+    await notifyManyUsers([...targetUserIds], companyId, title, body, type, data);
   } catch (err) {
     console.error("Error creating notifications for employees:", err);
   }

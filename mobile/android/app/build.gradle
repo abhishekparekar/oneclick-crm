@@ -12,6 +12,7 @@ def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 react {
     root = file("../../")
     debuggableVariants = ["debug"]
+    extraPackagerArgs = ["--max-workers", "2"]
     autolinkLibrariesWithApp()
 }
 

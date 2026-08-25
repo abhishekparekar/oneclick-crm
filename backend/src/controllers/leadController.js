@@ -37,7 +37,7 @@ const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type =
     if (!companyId) return;
     const adminUsers = await User.find({
       $or: [{ companyId }, { _id: companyId }],
-      role: { $in: ["CompanyAdmin", "companyadmin", "HR", "hr"] },
+      role: { $regex: /^(companyadmin|company_admin|admin|hr)$/i },
       isActive: true,
       ...(excludeUserId ? { _id: { $ne: excludeUserId } } : {}),
     }).select("_id");
@@ -59,13 +59,21 @@ const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type =
 
 const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "lead_assigned", data = {}) => {
   try {
-    if (!companyId || !targetId) return;
+    if (!targetId) return;
     let targetUserId = targetId;
 
-    const emp = await Employee.findById(targetId).select("userId");
+    const emp = await Employee.findById(targetId).select("userId companyId");
     if (emp && emp.userId) {
       targetUserId = emp.userId;
+      if (!companyId) companyId = emp.companyId;
     }
+
+    if (!companyId) {
+      const usr = await User.findById(targetUserId).select("companyId");
+      if (usr && usr.companyId) companyId = usr.companyId;
+    }
+
+    if (!companyId || !targetUserId) return;
 
     await Notification.create({
       companyId,
@@ -475,6 +483,7 @@ const createLead = async (req, res) => {
       productService,
       dateOfBirth,
       anniversaryDate,
+      nextFollowUpDate,
       address,
       city,
       notes,
@@ -490,6 +499,16 @@ const createLead = async (req, res) => {
       targetStatusId = defStatus?._id;
     }
 
+    let resolvedAssignedTo = assignedTo;
+    if (assignedTo && assignedTo !== "unassigned") {
+      const emp = await Employee.findById(assignedTo).select("userId");
+      if (emp && emp.userId) {
+        resolvedAssignedTo = emp.userId;
+      }
+    } else if (req.user?.role?.toLowerCase() === "employee") {
+      resolvedAssignedTo = req.user?._id;
+    }
+
     const newLead = await Lead.create({
       companyId,
       name,
@@ -499,12 +518,14 @@ const createLead = async (req, res) => {
       company: company || null,
       estimatedValue: estimatedValue ? Number(estimatedValue) : null,
       createdBy: req.user?._id || null,
-      assignedTo: assignedTo || (req.user?.role?.toLowerCase() === "employee" ? req.user?._id : null),
+      assignedTo: resolvedAssignedTo || null,
       statusId: targetStatusId,
       source: source || "Walk-in",
       productService: productService || null,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       anniversaryDate: anniversaryDate ? new Date(anniversaryDate) : null,
+      nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
+      followUpNotified: false,
       address: address || null,
       city: city || null,
       notes: notes || null,
@@ -534,6 +555,7 @@ const createLead = async (req, res) => {
       email: populated.email,
       source: populated.source,
       productService: populated.productService,
+      nextFollowUpDate: populated.nextFollowUpDate,
       whatsappOptIn: populated.whatsappOptIn,
       createdAt: populated.createdAt,
       statusId: populated.statusId?._id?.toString() || populated.statusId,
@@ -562,18 +584,18 @@ const createLead = async (req, res) => {
       `🎯 New Lead Captured: ${newLead.name}`,
       `${creatorName} added a new lead "${newLead.name}" (${contactInfo}) via ${newLead.source || "Walk-in"}.`,
       "lead",
-      { leadId: newLead._id, leadName: newLead.name }
+      { leadId: newLead._id.toString(), leadName: newLead.name }
     );
 
     // 2. If assigned to a specific staff member on creation, notify them
-    if (newLead.assignedTo && newLead.assignedTo.toString() !== req.user?._id?.toString()) {
+    if (resolvedAssignedTo && resolvedAssignedTo.toString() !== req.user?._id?.toString()) {
       await notifyUserOrEmployee(
         companyId,
-        newLead.assignedTo,
+        resolvedAssignedTo,
         `📋 Lead Assigned: ${newLead.name}`,
         `You have been assigned a new lead "${newLead.name}" (${contactInfo}) by ${creatorName}.`,
         "lead_assigned",
-        { leadId: newLead._id, leadName: newLead.name }
+        { leadId: newLead._id.toString(), leadName: newLead.name }
       );
     }
 
@@ -643,6 +665,16 @@ const updateLead = async (req, res) => {
     const updateData = { ...req.body };
     if (updateData.assignedTo === "" || updateData.assignedTo === "unassigned") {
       updateData.assignedTo = null;
+    } else if (updateData.assignedTo) {
+      const emp = await Employee.findById(updateData.assignedTo).select("userId");
+      if (emp && emp.userId) {
+        updateData.assignedTo = emp.userId;
+      }
+    }
+
+    if (updateData.nextFollowUpDate) {
+      updateData.nextFollowUpDate = new Date(updateData.nextFollowUpDate);
+      updateData.followUpNotified = false;
     }
 
     const prevLead = await Lead.findById(id).populate("statusId", "name");
@@ -1020,18 +1052,26 @@ const bulkAssign = async (req, res) => {
       return res.status(400).json({ message: "leadIds array is required" });
     }
 
-    const updateData = { assignedTo: assignedTo || null };
+    let resolvedAssignee = assignedTo;
+    if (assignedTo && assignedTo !== "unassigned") {
+      const emp = await Employee.findById(assignedTo).select("userId");
+      if (emp && emp.userId) {
+        resolvedAssignee = emp.userId;
+      }
+    }
+
+    const updateData = { assignedTo: resolvedAssignee || null };
     await Lead.updateMany({ _id: { $in: leadIds } }, { $set: updateData });
 
-    if (assignedTo) {
+    if (resolvedAssignee) {
       const assigneeUser =
-        (await User.findById(assignedTo)) || (await Employee.findById(assignedTo));
+        (await User.findById(resolvedAssignee)) || (await Employee.findById(assignedTo));
       const assigneeName = assigneeUser?.name || assigneeUser?.fullName || "Staff Member";
 
       // 1. Notify newly assigned user
       await notifyUserOrEmployee(
         companyId,
-        assignedTo,
+        resolvedAssignee,
         `📋 ${leadIds.length} Leads Assigned to You`,
         `You have been assigned ${leadIds.length} lead(s) by ${req.user?.name || "Admin"}.`,
         "lead_assigned",

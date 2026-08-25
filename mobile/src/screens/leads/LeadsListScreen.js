@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -62,7 +62,19 @@ export default function LeadsListScreen({ navigation, route }) {
   const [selectedLeadIds, setSelectedLeadIds] = useState([]);
   const [bulkStatusModal, setBulkStatusModal] = useState(false);
   const [bulkAssignModal, setBulkAssignModal] = useState(false);
+  const [bulkStaffSearch, setBulkStaffSearch] = useState("");
+  const [bulkSelectedDept, setBulkSelectedDept] = useState("all");
+
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+
+  // Staff Picker Modal for Add Lead
+  const [staffPickerModal, setStaffPickerModal] = useState(false);
+  const [staffSearch, setStaffSearch] = useState("");
+  const [selectedStaffDept, setSelectedStaffDept] = useState("all");
+
+  // Stage Picker Dropdown Modal
+  const [stagePickerModal, setStagePickerModal] = useState(false);
 
   // Add Lead Modal State
   const [modalVisible, setModalVisible] = useState(route.params?.openAddModal || false);
@@ -104,7 +116,18 @@ export default function LeadsListScreen({ navigation, route }) {
         : [];
       setLeads(data);
 
-      const stList = Array.isArray(statusesRes) ? statusesRes : [];
+      let stList = Array.isArray(statusesRes) && statusesRes.length > 0 ? statusesRes : [];
+      if (stList.length === 0) {
+        stList = [
+          { id: "st-new", _id: "st-new", name: "New Prospect", color: "#3B82F6", isDefault: true, order: 1 },
+          { id: "st-contacted", _id: "st-contacted", name: "Contacted / Pitch", color: "#8B5CF6", isDefault: false, order: 2 },
+          { id: "st-qualified", _id: "st-qualified", name: "Qualified / Demo", color: "#06B6D4", isDefault: false, order: 3 },
+          { id: "st-proposal", _id: "st-proposal", name: "Proposal Sent", color: "#EAB308", isDefault: false, order: 4 },
+          { id: "st-negotiation", _id: "st-negotiation", name: "Negotiation", color: "#F97316", isDefault: false, order: 5 },
+          { id: "st-won", _id: "st-won", name: "Won / Closed", color: "#10B981", isDefault: false, order: 6 },
+          { id: "st-lost", _id: "st-lost", name: "Lost / Dropped", color: "#EF4444", isDefault: false, order: 7 },
+        ];
+      }
       setStatuses(stList);
       if (stList.length > 0 && !form.statusId) {
         const def = stList.find((s) => s.isDefault) || stList[0];
@@ -113,14 +136,16 @@ export default function LeadsListScreen({ navigation, route }) {
 
       setSources(Array.isArray(sourcesRes) ? sourcesRes : []);
 
-      // Fetch employees and products for assignment
+      // Fetch employees, products and departments for assignment
       try {
-        const [assignable, prods] = await Promise.all([
+        const [assignable, prods, depts] = await Promise.all([
           leadsService.getAssignableUsers(),
           leadsService.getProducts(),
+          leadsService.getDepartments(),
         ]);
         setEmployees(Array.isArray(assignable) ? assignable : []);
         setProducts(Array.isArray(prods) ? prods : []);
+        setDepartments(Array.isArray(depts) ? depts : []);
       } catch (_) {}
     } catch (err) {
       console.warn("[LeadsList] Fetch note:", err?.message || err);
@@ -129,6 +154,78 @@ export default function LeadsListScreen({ navigation, route }) {
       setRefreshing(false);
     }
   };
+
+  // Department tabs computed for Staff Selection
+  const departmentTabs = useMemo(() => {
+    const map = new Map();
+    departments.forEach((d) => {
+      const name = d.name || d;
+      const id = d._id || d.id || name;
+      if (name) map.set(name, { id, name });
+    });
+    employees.forEach((e) => {
+      const name = e.department || e.departmentId?.name;
+      if (name && !map.has(name)) {
+        map.set(name, { id: name, name });
+      }
+    });
+    return Array.from(map.values());
+  }, [departments, employees]);
+
+  // Filtered employees for Add Lead modal
+  const filteredEmployeesForModal = useMemo(() => {
+    let list = employees;
+    if (selectedStaffDept && selectedStaffDept !== "all") {
+      list = list.filter((e) => {
+        const dName = e.department || e.departmentId?.name || "";
+        const dId = e.departmentId?._id || e.departmentId || "";
+        return dName === selectedStaffDept || dId === selectedStaffDept;
+      });
+    }
+    if (staffSearch.trim()) {
+      const q = staffSearch.toLowerCase();
+      list = list.filter((e) =>
+        (e.name || "").toLowerCase().includes(q) ||
+        (e.department || "").toLowerCase().includes(q) ||
+        (e.role || "").toLowerCase().includes(q) ||
+        (e.phone || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [employees, selectedStaffDept, staffSearch]);
+
+  // Filtered employees for Bulk Assign modal
+  const filteredEmployeesForBulk = useMemo(() => {
+    let list = employees;
+    if (bulkSelectedDept && bulkSelectedDept !== "all") {
+      list = list.filter((e) => {
+        const dName = e.department || e.departmentId?.name || "";
+        const dId = e.departmentId?._id || e.departmentId || "";
+        return dName === bulkSelectedDept || dId === bulkSelectedDept;
+      });
+    }
+    if (bulkStaffSearch.trim()) {
+      const q = bulkStaffSearch.toLowerCase();
+      list = list.filter((e) =>
+        (e.name || "").toLowerCase().includes(q) ||
+        (e.department || "").toLowerCase().includes(q) ||
+        (e.role || "").toLowerCase().includes(q) ||
+        (e.phone || "").toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [employees, bulkSelectedDept, bulkStaffSearch]);
+
+  // Selected Employee Object in Add Lead Form
+  const selectedEmployeeObj = useMemo(() => {
+    if (!form.assignedTo) return null;
+    return employees.find((e) => (e.id || e._id) === form.assignedTo) || null;
+  }, [form.assignedTo, employees]);
+
+  // Selected Stage Object in Add Lead Form
+  const selectedStageObj = useMemo(() => {
+    return statuses.find((s) => (s.id || s._id) === form.statusId) || statuses[0] || null;
+  }, [form.statusId, statuses]);
 
   useEffect(() => {
     fetchData();
@@ -706,25 +803,60 @@ export default function LeadsListScreen({ navigation, route }) {
                     <Text style={styles.sectionHeaderText}>PIPELINE STAGE & NEXT FOLLOW-UP</Text>
                   </View>
 
-                  <Text style={styles.fieldLabel}>PIPELINE STAGE</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 10 }}>
-                    {statuses.map((st) => {
-                      const stId = st.id || st._id;
-                      const isSel = form.statusId === stId;
-                      return (
-                        <TouchableOpacity
-                          key={stId}
-                          style={[styles.choiceChip, isSel && styles.choiceChipActive]}
-                          onPress={() => setForm((p) => ({ ...p, statusId: stId }))}
-                        >
-                          <View style={[styles.pillDot, { backgroundColor: st.color || "#1268D9" }]} />
-                          <Text style={[styles.choiceChipText, isSel && styles.choiceChipTextActive]}>
-                            {st.name}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
+                  <Text style={styles.fieldLabel}>
+                    PIPELINE STAGE <Text style={{ color: "#EF4444" }}>*</Text>
+                  </Text>
+                  <TouchableOpacity
+                    style={styles.dropdownSelectorBox}
+                    onPress={() => setStagePickerModal(true)}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.dropdownStageDot,
+                        { backgroundColor: selectedStageObj?.color || "#1268D9" }
+                      ]}
+                    />
+                    <Text style={styles.dropdownSelectedValText} numberOfLines={1}>
+                      {selectedStageObj ? selectedStageObj.name : "Select Pipeline Stage"}
+                    </Text>
+                    <Ionicons name="chevron-down" size={18} color="#64748B" style={{ marginLeft: "auto" }} />
+                  </TouchableOpacity>
+
+                  <Text style={styles.fieldLabel}>ASSIGN TO SALES / STAFF</Text>
+                  <TouchableOpacity
+                    style={styles.assignedStaffSelectorBox}
+                    onPress={() => {
+                      setStaffSearch("");
+                      setSelectedStaffDept("all");
+                      setStaffPickerModal(true);
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.assignedStaffAvatar, selectedEmployeeObj && { backgroundColor: "#DBEAFE" }]}>
+                      <Ionicons
+                        name={selectedEmployeeObj ? "person" : "person-add-outline"}
+                        size={17}
+                        color={selectedEmployeeObj ? "#1D4ED8" : "#64748B"}
+                      />
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.assignedStaffNameText} numberOfLines={1}>
+                        {selectedEmployeeObj ? selectedEmployeeObj.name : "Tap to Select Staff / Sales Person"}
+                      </Text>
+                      <Text style={styles.assignedStaffMetaText} numberOfLines={1}>
+                        {selectedEmployeeObj
+                          ? `${selectedEmployeeObj.department || "General"} • ${selectedEmployeeObj.role || "Staff"}`
+                          : "Filter by department & search employee"}
+                      </Text>
+                    </View>
+                    <View style={styles.staffChangeBtnPill}>
+                      <Text style={styles.staffChangeBtnText}>
+                        {selectedEmployeeObj ? "Change" : "Select"}
+                      </Text>
+                      <Ionicons name="chevron-forward" size={13} color="#1D4ED8" />
+                    </View>
+                  </TouchableOpacity>
 
                   <Text style={styles.fieldLabel}>NEXT FOLLOW-UP DATE & TIME</Text>
                   <View style={styles.inputWithIcon}>
@@ -738,34 +870,6 @@ export default function LeadsListScreen({ navigation, route }) {
                     />
                     <Ionicons name="calendar" size={15} color="#94A3B8" />
                   </View>
-
-                  <Text style={styles.fieldLabel}>ASSIGN TO SALES / STAFF</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 10 }}>
-                    <TouchableOpacity
-                      style={[styles.choiceChip, !form.assignedTo && styles.choiceChipActive]}
-                      onPress={() => setForm((p) => ({ ...p, assignedTo: "" }))}
-                    >
-                      <Text style={[styles.choiceChipText, !form.assignedTo && styles.choiceChipTextActive]}>
-                        Unassigned
-                      </Text>
-                    </TouchableOpacity>
-                    {employees.map((emp) => {
-                      const empId = emp.id || emp._id;
-                      const isSelected = form.assignedTo === empId;
-                      return (
-                        <TouchableOpacity
-                          key={empId}
-                          style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
-                          onPress={() => setForm((p) => ({ ...p, assignedTo: empId }))}
-                        >
-                          <Ionicons name="person" size={11} color={isSelected ? "#FFF" : "#1268D9"} style={{ marginRight: 3 }} />
-                          <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
-                            {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
 
                   <Text style={styles.fieldLabel}>INITIAL NOTES / INQUIRY DETAILS</Text>
                   <View style={[styles.inputWithIcon, { alignItems: "flex-start", paddingTop: 8, minHeight: 70 }]}>
@@ -810,44 +914,380 @@ export default function LeadsListScreen({ navigation, route }) {
           </View>
         </Modal>
 
-        {/* ── MODAL: BULK ASSIGN TO EMPLOYEE ── */}
-        <Modal visible={bulkAssignModal} animationType="slide" transparent>
+        {/* ── MODAL: PIPELINE STAGE DROPDOWN PICKER ── */}
+        <Modal
+          visible={stagePickerModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setStagePickerModal(false)}
+        >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalContainer}>
+            <View style={styles.modalSheetContainer}>
+              <View style={styles.dragHandle} />
               <View style={styles.modalHeaderRow}>
-                <View>
-                  <Text style={styles.modalHeading}>Assign {selectedLeadIds.length} Lead(s)</Text>
-                  <Text style={styles.modalSubheading}>Select team member to assign</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalHeading}>Select Pipeline Stage</Text>
+                  <Text style={styles.modalSubheading}>Choose stage for this prospective client</Text>
                 </View>
-                <TouchableOpacity onPress={() => setBulkAssignModal(false)}>
-                  <Ionicons name="close" size={22} color={THEME.textMuted} />
+                <TouchableOpacity
+                  onPress={() => setStagePickerModal(false)}
+                  style={styles.modalCloseIconBtn}
+                >
+                  <Ionicons name="close" size={18} color="#475569" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={{ maxHeight: 340, marginTop: 10 }}>
+              <ScrollView style={{ maxHeight: 380, marginTop: 6 }} showsVerticalScrollIndicator={false}>
+                {statuses.map((st, idx) => {
+                  const stId = st.id || st._id;
+                  const isSel = form.statusId === stId;
+                  const stageColor = st.color || "#1268D9";
+                  return (
+                    <TouchableOpacity
+                      key={stId}
+                      style={[
+                        styles.stagePickerRow,
+                        isSel && { borderColor: stageColor, backgroundColor: stageColor + "14" }
+                      ]}
+                      onPress={() => {
+                        setForm((p) => ({ ...p, statusId: stId }));
+                        setStagePickerModal(false);
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.stagePickerDot, { backgroundColor: stageColor }]} />
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.stagePickerName, isSel && { color: "#0F172A", fontWeight: "800" }]}>
+                          {st.name}
+                        </Text>
+                        <Text style={styles.stagePickerOrder}>
+                          Stage {idx + 1} of {statuses.length}
+                        </Text>
+                      </View>
+                      {isSel && (
+                        <Ionicons name="checkmark-circle" size={20} color={stageColor} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL: ASSIGN STAFF PICKER (FOR ADD LEAD) ── */}
+        <Modal
+          visible={staffPickerModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setStaffPickerModal(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalSheetContainer}>
+              <View style={styles.dragHandle} />
+              {/* Header */}
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalHeading}>Assign Sales / Staff</Text>
+                  <Text style={styles.modalSubheading}>
+                    {employees.length} team member(s) available
+                  </Text>
+                </View>
                 <TouchableOpacity
-                  style={[styles.stageChoiceRow, { backgroundColor: "#F3F4F6", borderColor: "#E5E7EB", borderWidth: 1 }]}
-                  onPress={() => handleBulkAssign(null, "Unassigned")}
+                  onPress={() => setStaffPickerModal(false)}
+                  style={styles.modalCloseIconBtn}
                 >
-                  <Ionicons name="person-remove-outline" size={18} color="#6B7280" />
-                  <Text style={[styles.stageChoiceText, { color: "#374151" }]}>-- Leave Unassigned --</Text>
+                  <Ionicons name="close" size={18} color="#475569" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Search Bar */}
+              <View style={styles.staffSearchBox}>
+                <Ionicons name="search" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                <TextInput
+                  style={styles.staffSearchInput}
+                  placeholder="Search staff by name, department, role..."
+                  placeholderTextColor="#94A3B8"
+                  value={staffSearch}
+                  onChangeText={setStaffSearch}
+                  autoCorrect={false}
+                />
+                {staffSearch ? (
+                  <TouchableOpacity onPress={() => setStaffSearch("")}>
+                    <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+
+              {/* Department Filter Tabs */}
+              <View style={styles.staffDeptBar}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 2 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.staffDeptTab,
+                      selectedStaffDept === "all" && styles.staffDeptTabActive
+                    ]}
+                    onPress={() => setSelectedStaffDept("all")}
+                  >
+                    <Text
+                      style={[
+                        styles.staffDeptTabText,
+                        selectedStaffDept === "all" && styles.staffDeptTabTextActive
+                      ]}
+                    >
+                      All ({employees.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  {departmentTabs.map((d) => {
+                    const count = employees.filter(
+                      (e) => (e.department || e.departmentId?.name) === d.name
+                    ).length;
+                    const isSel = selectedStaffDept === d.name || selectedStaffDept === d.id;
+                    return (
+                      <TouchableOpacity
+                        key={d.id || d.name}
+                        style={[styles.staffDeptTab, isSel && styles.staffDeptTabActive]}
+                        onPress={() => setSelectedStaffDept(d.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.staffDeptTabText,
+                            isSel && styles.staffDeptTabTextActive
+                          ]}
+                        >
+                          {d.name} ({count})
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              {/* Staff Scroll List */}
+              <ScrollView style={{ maxHeight: 360 }} showsVerticalScrollIndicator={false}>
+                {/* Option: Leave Unassigned */}
+                <TouchableOpacity
+                  style={[
+                    styles.staffCardRow,
+                    !form.assignedTo && styles.staffCardRowSelected
+                  ]}
+                  onPress={() => {
+                    setForm((p) => ({ ...p, assignedTo: "" }));
+                    setStaffPickerModal(false);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.staffAvatarCircle, { backgroundColor: "#F1F5F9" }]}>
+                    <Ionicons name="person-remove-outline" size={16} color="#64748B" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.staffCardName, !form.assignedTo && { color: "#1D4ED8" }]}>
+                      -- Leave Unassigned --
+                    </Text>
+                    <Text style={styles.staffCardMeta}>Lead will remain in open pool</Text>
+                  </View>
+                  {!form.assignedTo && (
+                    <Ionicons name="checkmark-circle" size={20} color="#1D4ED8" />
+                  )}
                 </TouchableOpacity>
 
-                {employees.map((emp) => (
-                  <TouchableOpacity
-                    key={emp.id || emp._id}
-                    style={styles.stageChoiceRow}
-                    onPress={() => handleBulkAssign(emp.id || emp._id, emp.name)}
-                  >
-                    <Ionicons name="person-circle" size={22} color={THEME.primary} />
-                    <View style={{ marginLeft: 8 }}>
-                      <Text style={styles.stageChoiceText}>{emp.name}</Text>
-                      <Text style={{ fontSize: 10, color: THEME.textMuted }}>
-                        {emp.department ? `${emp.department} • ${emp.role || 'Employee'}` : (emp.role || "Employee")}
-                      </Text>
-                    </View>
+                {/* Filtered Employees */}
+                {filteredEmployeesForModal.length === 0 ? (
+                  <View style={styles.staffEmptyWrap}>
+                    <Ionicons name="people-outline" size={28} color="#94A3B8" />
+                    <Text style={styles.staffEmptyText}>No staff members found</Text>
+                  </View>
+                ) : (
+                  filteredEmployeesForModal.map((emp) => {
+                    const empId = emp.id || emp._id;
+                    const isSelected = form.assignedTo === empId;
+                    const initials = ((emp.name || "S")[0] || "S").toUpperCase();
+                    return (
+                      <TouchableOpacity
+                        key={empId}
+                        style={[
+                          styles.staffCardRow,
+                          isSelected && styles.staffCardRowSelected
+                        ]}
+                        onPress={() => {
+                          setForm((p) => ({ ...p, assignedTo: empId }));
+                          setStaffPickerModal(false);
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.staffAvatarCircle, isSelected && { backgroundColor: "#DBEAFE" }]}>
+                          <Text style={[styles.staffAvatarInitials, isSelected && { color: "#1D4ED8" }]}>
+                            {initials}
+                          </Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={[styles.staffCardName, isSelected && { color: "#1D4ED8" }]}>
+                              {emp.name}
+                            </Text>
+                            {emp.department ? (
+                              <View style={styles.staffDeptBadge}>
+                                <Text style={styles.staffDeptBadgeText}>
+                                  {emp.department}
+                                </Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text style={styles.staffCardMeta} numberOfLines={1}>
+                            {emp.role || emp.designation || "Staff Member"}
+                            {emp.phone ? ` • ${emp.phone}` : ""}
+                          </Text>
+                        </View>
+                        {isSelected ? (
+                          <Ionicons name="checkmark-circle" size={20} color="#1D4ED8" />
+                        ) : (
+                          <View style={styles.radioEmptyCircle} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+
+        {/* ── MODAL: BULK ASSIGN TO EMPLOYEE (WITH DEPT & SEARCH) ── */}
+        <Modal
+          visible={bulkAssignModal}
+          animationType="slide"
+          transparent
+          onRequestClose={() => setBulkAssignModal(false)}
+        >
+          <View style={styles.modalBackdrop}>
+            <View style={styles.modalSheetContainer}>
+              <View style={styles.dragHandle} />
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalHeading}>Assign {selectedLeadIds.length} Lead(s)</Text>
+                  <Text style={styles.modalSubheading}>Select sales representative or staff</Text>
+                </View>
+                <TouchableOpacity onPress={() => setBulkAssignModal(false)} style={styles.modalCloseIconBtn}>
+                  <Ionicons name="close" size={18} color="#475569" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Bulk Search Bar */}
+              <View style={styles.staffSearchBox}>
+                <Ionicons name="search" size={16} color="#64748B" style={{ marginRight: 6 }} />
+                <TextInput
+                  style={styles.staffSearchInput}
+                  placeholder="Search staff by name, department, role..."
+                  placeholderTextColor="#94A3B8"
+                  value={bulkStaffSearch}
+                  onChangeText={setBulkStaffSearch}
+                  autoCorrect={false}
+                />
+                {bulkStaffSearch ? (
+                  <TouchableOpacity onPress={() => setBulkStaffSearch("")}>
+                    <Ionicons name="close-circle" size={16} color="#94A3B8" />
                   </TouchableOpacity>
-                ))}
+                ) : null}
+              </View>
+
+              {/* Bulk Department Filter Tabs */}
+              <View style={styles.staffDeptBar}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 2 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.staffDeptTab,
+                      bulkSelectedDept === "all" && styles.staffDeptTabActive
+                    ]}
+                    onPress={() => setBulkSelectedDept("all")}
+                  >
+                    <Text
+                      style={[
+                        styles.staffDeptTabText,
+                        bulkSelectedDept === "all" && styles.staffDeptTabTextActive
+                      ]}
+                    >
+                      All ({employees.length})
+                    </Text>
+                  </TouchableOpacity>
+
+                  {departmentTabs.map((d) => {
+                    const count = employees.filter(
+                      (e) => (e.department || e.departmentId?.name) === d.name
+                    ).length;
+                    const isSel = bulkSelectedDept === d.name || bulkSelectedDept === d.id;
+                    return (
+                      <TouchableOpacity
+                        key={d.id || d.name}
+                        style={[styles.staffDeptTab, isSel && styles.staffDeptTabActive]}
+                        onPress={() => setBulkSelectedDept(d.name)}
+                      >
+                        <Text
+                          style={[
+                            styles.staffDeptTabText,
+                            isSel && styles.staffDeptTabTextActive
+                          ]}
+                        >
+                          {d.name} ({count})
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+
+              <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
+                <TouchableOpacity
+                  style={styles.staffCardRow}
+                  onPress={() => handleBulkAssign(null, "Unassigned")}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.staffAvatarCircle, { backgroundColor: "#F1F5F9" }]}>
+                    <Ionicons name="person-remove-outline" size={16} color="#64748B" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.staffCardName}>-- Leave Unassigned --</Text>
+                    <Text style={styles.staffCardMeta}>Unassign selected leads</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {filteredEmployeesForBulk.length === 0 ? (
+                  <View style={styles.staffEmptyWrap}>
+                    <Ionicons name="people-outline" size={28} color="#94A3B8" />
+                    <Text style={styles.staffEmptyText}>No staff members found</Text>
+                  </View>
+                ) : (
+                  filteredEmployeesForBulk.map((emp) => {
+                    const initials = ((emp.name || "S")[0] || "S").toUpperCase();
+                    return (
+                      <TouchableOpacity
+                        key={emp.id || emp._id}
+                        style={styles.staffCardRow}
+                        onPress={() => handleBulkAssign(emp.id || emp._id, emp.name)}
+                        activeOpacity={0.7}
+                      >
+                        <View style={styles.staffAvatarCircle}>
+                          <Text style={styles.staffAvatarInitials}>{initials}</Text>
+                        </View>
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={styles.staffCardName}>{emp.name}</Text>
+                            {emp.department ? (
+                              <View style={styles.staffDeptBadge}>
+                                <Text style={styles.staffDeptBadgeText}>{emp.department}</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          <Text style={styles.staffCardMeta} numberOfLines={1}>
+                            {emp.role || emp.designation || "Staff Member"}
+                            {emp.phone ? ` • ${emp.phone}` : ""}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+                      </TouchableOpacity>
+                    );
+                  })
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1304,13 +1744,13 @@ const styles = StyleSheet.create({
   sectionHeaderText: {
     fontSize: 11,
     fontWeight: "900",
-    color: "#1268D9",
+    color: "#0F4499",
     letterSpacing: 0.5,
   },
   fieldLabel: {
     fontSize: 10.5,
-    fontWeight: "800",
-    color: "#475569",
+    fontWeight: "900",
+    color: "#1E293B",
     marginBottom: 5,
     marginTop: 8,
     letterSpacing: 0.3,
@@ -1320,7 +1760,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
     borderRadius: 10,
     paddingHorizontal: 12,
     height: 42,
@@ -1331,14 +1771,14 @@ const styles = StyleSheet.create({
   },
   currencyPrefix: {
     fontSize: 13,
-    fontWeight: "800",
-    color: "#94A3B8",
+    fontWeight: "900",
+    color: "#334155",
     marginRight: 8,
   },
   fieldInnerInput: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 12.5,
+    fontWeight: "700",
     color: "#0F172A",
     padding: 0,
   },
@@ -1346,7 +1786,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#E2E8F0",
     borderWidth: 1,
     borderColor: "#CBD5E1",
     paddingHorizontal: 10,
@@ -1355,13 +1795,13 @@ const styles = StyleSheet.create({
     marginRight: 6,
   },
   choiceChipActive: {
-    backgroundColor: "#1268D9",
-    borderColor: "#1268D9",
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
   },
   choiceChipText: {
-    fontSize: 10,
-    fontWeight: "700",
-    color: "#475569",
+    fontSize: 10.5,
+    fontWeight: "800",
+    color: "#1E293B",
   },
   choiceChipTextActive: {
     color: "#FFFFFF",
@@ -1375,7 +1815,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
+    borderTopColor: "#CBD5E1",
   },
   cancelModalBtn: {
     paddingVertical: 10,
@@ -1383,12 +1823,12 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#CBD5E1",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#E2E8F0",
   },
   cancelModalBtnText: {
     fontSize: 12,
-    fontWeight: "800",
-    color: "#475569",
+    fontWeight: "900",
+    color: "#0F172A",
   },
   saveModalBtn: {
     paddingVertical: 10,
@@ -1402,8 +1842,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   saveModalBtnText: {
-    fontSize: 12,
-    fontWeight: "800",
+    fontSize: 12.5,
+    fontWeight: "900",
     color: "#FFFFFF",
   },
   stageChoiceRow: {
@@ -1425,5 +1865,259 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     color: THEME.textPrimary,
+  },
+  // ── Pipeline Stage Dropdown Selector & Modal ──
+  dropdownSelectorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 44,
+    marginBottom: 6,
+  },
+  dropdownStageDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 8,
+  },
+  dropdownSelectedValText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+    flex: 1,
+  },
+  stagePickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    marginBottom: 8,
+  },
+  stagePickerDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  stagePickerName: {
+    fontSize: 13.5,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  stagePickerOrder: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#334155",
+    marginTop: 2,
+  },
+
+  // ── Assigned Staff Selector Box ──
+  assignedStaffSelectorBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  assignedStaffAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  assignedStaffNameText: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  assignedStaffMetaText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#334155",
+    marginTop: 2,
+  },
+  staffChangeBtnPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#1D4ED8",
+    borderWidth: 1,
+    borderColor: "#1E40AF",
+    borderRadius: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  staffChangeBtnText: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#FFFFFF",
+  },
+
+  // ── Bottom Sheet Container & Header Styling ──
+  modalSheetContainer: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 24,
+    maxHeight: "90%",
+    overflow: "hidden",
+  },
+  dragHandle: {
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#94A3B8",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  modalHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  modalHeading: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: 0.3,
+  },
+  modalSubheading: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#334155",
+    marginTop: 2,
+  },
+  modalCloseIconBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  staffSearchBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    height: 42,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  staffSearchInput: {
+    flex: 1,
+    fontSize: 12.5,
+    color: "#0F172A",
+    fontWeight: "700",
+    padding: 0,
+  },
+  staffDeptBar: {
+    marginBottom: 10,
+  },
+  staffDeptTab: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: "#E2E8F0",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    marginRight: 6,
+  },
+  staffDeptTabActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  staffDeptTabText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1E293B",
+  },
+  staffDeptTabTextActive: {
+    color: "#FFFFFF",
+  },
+  staffCardRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 11,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    marginBottom: 7,
+  },
+  staffCardRowSelected: {
+    borderColor: "#0F4499",
+    backgroundColor: "#EFF6FF",
+  },
+  staffAvatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  staffAvatarInitials: {
+    fontSize: 13.5,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  staffCardName: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  staffDeptBadge: {
+    backgroundColor: "#E2E8F0",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  staffDeptBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  staffCardMeta: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#334155",
+    marginTop: 2,
+  },
+  radioEmptyCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+  },
+  staffEmptyWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 28,
+  },
+  staffEmptyText: {
+    fontSize: 12,
+    color: "#475569",
+    fontWeight: "700",
+    marginTop: 6,
   },
 });

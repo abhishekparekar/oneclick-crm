@@ -71,7 +71,7 @@ const LoginScreen = () => {
 
         <View style={styles.brandHeader}>
           <Image
-            source={require("../../../assets/logo.png")}
+            source={require("../../../assets/one_click_.jpeg")}
             style={styles.logoImage}
             resizeMode="contain"
           />

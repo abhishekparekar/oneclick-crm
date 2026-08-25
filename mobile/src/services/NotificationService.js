@@ -11,9 +11,7 @@ import {
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import axios from 'axios';
-
-import { getApiBaseUrl } from '../api/api';
+import api, { getApiBaseUrl } from '../api/api';
 
 class NotificationService {
   /**
@@ -74,19 +72,24 @@ class NotificationService {
     });
   }
 
-  /**
-   * Send the FCM token to the backend server
-   */
   static async sendTokenToBackend(fcmToken, userToken) {
+    if (!fcmToken || !userToken) {
+      return;
+    }
     try {
-      await axios.post(
-        `${getApiBaseUrl()}/notifications/register-device`,
+      await api.post(
+        '/notifications/register-device',
         { fcmToken, platform: Platform.OS },
         { headers: { Authorization: `Bearer ${userToken}` } }
       );
-      console.log('FCM Token sent to backend');
+      console.log('✓ FCM Token registered successfully on backend');
     } catch (error) {
-      console.error('Error sending FCM token to backend:', error?.response?.data || error.message);
+      if (error?.response?.status === 401) {
+        // Expected when user logs out or session is expired
+        console.log('[NotificationService] Device registration skipped: user is not logged in');
+      } else {
+        console.error('Error sending FCM token to backend:', error?.response?.data || error.message);
+      }
     }
   }
 

@@ -37,10 +37,12 @@ const notificationSchema = new mongoose.Schema(
                 "project",
                 "system",
                 "request",
-                "company_request",
                 "lead",
                 "lead_assigned",
-                "lead_status"
+                "lead_status",
+                "lead_follow_up",
+                "lead_created",
+                "lead_note"
             ],
             default: "system",
         },
@@ -67,6 +69,21 @@ notificationSchema.post("save", async function (doc) {
         const isNewDoc = this.$wasNew || this.wasNew || doc.$wasNew || doc.wasNew || 
                          (doc.createdAt && doc.updatedAt && doc.createdAt.getTime() === doc.updatedAt.getTime());
         if (isNewDoc) {
+            // 1. Emit Socket.io event for instant in-app notification update
+            try {
+                const socketHelper = require("../socket");
+                const io = socketHelper.getIO();
+                if (io && doc.userId) {
+                    const uIdStr = doc.userId.toString();
+                    io.to(uIdStr).emit("notification:received", doc);
+                    io.to(uIdStr).emit("new_notification", doc);
+                    io.emit(`notification:${uIdStr}`, doc);
+                }
+            } catch (sockErr) {
+                // Socket not initialized or not connected yet
+            }
+
+            // 2. Send FCM Mobile Push Notification
             const deviceTokens = await DeviceToken.find({ userId: doc.userId, isActive: true });
             if (deviceTokens.length > 0) {
                 const tokens = deviceTokens.map((dt) => dt.fcmToken);

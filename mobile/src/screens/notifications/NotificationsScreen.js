@@ -132,6 +132,9 @@ const NotificationsScreen = ({ navigation }) => {
             case "lead":
             case "lead_assigned":
             case "lead_status":
+            case "lead_follow_up":
+            case "lead_created":
+            case "lead_note":
                 return { icon: "magnet-outline", color: "#1268D9", bg: "#EFF6FF" };
             case "request":
             case "company_request":

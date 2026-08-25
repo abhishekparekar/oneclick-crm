@@ -4,8 +4,18 @@
   "expo": {
     "name": "One Click",
     "slug": "one-click",
+    "icon": "./assets/one_clic.jpeg",
+    "splash": {
+      "image": "./assets/one_clic.jpeg",
+      "resizeMode": "contain",
+      "backgroundColor": "#071A2F"
+    },
     "android": {
-      "package": "com.oneclick.hrms"
+      "package": "com.oneclick.hrms",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/one_clic.jpeg",
+        "backgroundColor": "#000000"
+      }
     }
   }
 }

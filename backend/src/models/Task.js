@@ -152,6 +152,14 @@ const taskSchema = new mongoose.Schema(
       hours: { type: Number, default: 0 },
       minutes: { type: Number, default: 0 },
     },
+    reminderStage: {
+      type: Number,
+      default: 0, // 0: None, 1: 2-Hour Pre-Due Alert, 2: 30-Min Urgent Alert, 3: Overdue Alert
+    },
+    lastReminderSentAt: {
+      type: Date,
+      default: null,
+    },
     attachments: [{
       fileUrl: { type: String, required: true },
       fileName: { type: String, default: "Attachment" },

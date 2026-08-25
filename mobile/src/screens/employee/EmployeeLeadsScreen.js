@@ -430,6 +430,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       title="Lead Management"
       rightActionType="none"
       onAddLeadPress={() => setAddModalVisible(true)}
+      hideFab={true}
     >
       <View style={styles.container}>
         {/* Top Summary Bar - Clean Bright KPI Cards */}

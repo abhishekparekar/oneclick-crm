@@ -39,20 +39,20 @@ import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import api from "../../api/api";
 
 const STATUS_CONFIG = {
-  pending:       { bg: "#FEF9C3", text: "#CA8A04", border: "#FEF08A", label: "Pending" },
-  in_process:    { bg: "#EFF6FF", text: "#2563EB", border: "#BFDBFE", label: "In Process" },
-  complete:      { bg: "#DCFCE7", text: "#16A34A", border: "#BBF7D0", label: "Completed" },
-  completed:     { bg: "#DCFCE7", text: "#16A34A", border: "#BBF7D0", label: "Completed" },
-  done:          { bg: "#DCFCE7", text: "#16A34A", border: "#BBF7D0", label: "Completed" },
-  overdue:       { bg: "#FEE2E2", text: "#EF4444", border: "#FCA5A5", label: "Overdue" },
-  late_complete: { bg: "#FEF9C3", text: "#CA8A04", border: "#FEF08A", label: "Late Completed" },
-  re_pending:    { bg: "#F5F3FF", text: "#7C3AED", border: "#DDD6FE", label: "Re-Pending" },
-  re_in_process: { bg: "#EFF6FF", text: "#2563EB", border: "#BFDBFE", label: "Re-In Process" },
-  re_complete:   { bg: "#DCFCE7", text: "#16A34A", border: "#BBF7D0", label: "Completed" },
-  re_completed:  { bg: "#DCFCE7", text: "#16A34A", border: "#BBF7D0", label: "Completed" },
-  re_late_complete: { bg: "#FEF9C3", text: "#CA8A04", border: "#FEF08A", label: "Late Completed" },
-  active:        { bg: "#ECFDF5", text: "#059669", border: "#A7F3D0", label: "Active" },
-  inactive:      { bg: "#FFF5F5", text: "#E53E3E", border: "#FED7D7", label: "Inactive" },
+  pending:       { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Pending" },
+  in_process:    { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", label: "In Process" },
+  complete:      { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
+  completed:     { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
+  done:          { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
+  overdue:       { bg: "#FEE2E2", text: "#DC2626", border: "#FCA5A5", label: "Overdue" },
+  late_complete: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Late Completed" },
+  re_pending:    { bg: "#F5F3FF", text: "#6D28D9", border: "#DDD6FE", label: "Re-Pending" },
+  re_in_process: { bg: "#EFF6FF", text: "#1D4ED8", border: "#BFDBFE", label: "Re-In Process" },
+  re_complete:   { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
+  re_completed:  { bg: "#DCFCE7", text: "#15803D", border: "#86EFAC", label: "Completed" },
+  re_late_complete: { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", label: "Late Completed" },
+  active:        { bg: "#ECFDF5", text: "#047857", border: "#6EE7B7", label: "Active" },
+  inactive:      { bg: "#FFF5F5", text: "#DC2626", border: "#FECACA", label: "Inactive" },
 };
 
 const CompanyTaskDetailsScreen = ({ route, navigation }) => {
@@ -101,6 +101,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
 
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [actionType, setActionType] = useState("");
+  const [statusPickerModalVisible, setStatusPickerModalVisible] = useState(false);
 
   const openActionModal = (type) => {
     setActionType(type);
@@ -458,7 +459,12 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
   const st = (task.status || "pending").toLowerCase();
   const normalizedSt = normalizeStatusValue(st);
 
-  const isOverdueTime = task.endDateTime && new Date(task.endDateTime) < new Date() && !["completed", "complete", "done", "late_complete", "re_late_complete", "re_complete", "re_completed"].includes((task.status || "").toLowerCase());
+  const isCompleted = ["complete", "completed", "done", "late_complete", "re_complete", "re_completed", "re_late_complete"].includes(normalizedSt);
+  const isCancelled = ["cancel", "cancelled", "canceled"].includes(normalizedSt);
+  const isInProcess = ["in_process", "re_in_process", "in-progress"].includes(normalizedSt);
+  const isPending = ["pending", "re_pending", "todo"].includes(normalizedSt) || (!isCompleted && !isCancelled && !isInProcess);
+
+  const isOverdueTime = task.endDateTime && new Date(task.endDateTime) < new Date() && !isCompleted && !isCancelled;
   const isOverdueActive = task.status === "overdue" || task.status === "re_overdue";
   const isOverdue = isOverdueTime || isOverdueActive;
 
@@ -470,13 +476,13 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
 
   const priorityConfig = (() => {
     const p = task.priority?.toLowerCase();
-    if (p === 'high') return { bg: '#FEE2E2', text: '#EF4444', border: '#FCA5A5', icon: 'flame-outline', label: 'High Priority' };
-    if (p === 'medium') return { bg: '#FEF3C7', text: '#D97706', border: '#FDE68A', icon: 'alert-circle-outline', label: 'Medium Priority' };
-    return { bg: '#ECFDF5', text: '#10B981', border: '#A7F3D0', icon: 'checkmark-circle-outline', label: 'Low Priority' };
+    if (p === 'high') return { bg: '#FEF2F2', text: '#B91C1C', border: '#FECACA', icon: 'flame-outline', label: 'High Priority' };
+    if (p === 'medium') return { bg: '#FFFBEB', text: '#B45309', border: '#FDE68A', icon: 'alert-circle-outline', label: 'Medium Priority' };
+    return { bg: '#F0FDF4', text: '#047857', border: '#BBF7D0', icon: 'checkmark-circle-outline', label: 'Low Priority' };
   })();
 
   const currentStatus = isOverdueActive
-    ? { bg: "#FEE2E2", text: "#EF4444", border: "#FCA5A5", label: "Overdue" }
+    ? { bg: "#FEF2F2", text: "#DC2626", border: "#FECACA", label: "Overdue" }
     : STATUS_CONFIG[(task.status || "pending").toLowerCase()] || STATUS_CONFIG.pending;
 
   const assignees = Array.isArray(task.assignees) && task.assignees.length > 0
@@ -503,7 +509,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         <KeyboardAwareScrollView
           ref={scrollViewRef}
           style={styles.content}
-          contentContainerStyle={{ paddingBottom: 160 }}
+          contentContainerStyle={{ paddingBottom: 85 }}
           showsVerticalScrollIndicator={false}
           enableOnAndroid={true}
           enableAutomaticScroll={true}
@@ -517,172 +523,132 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
               colors={isOverdueTime ? ["#EF4444", "#DC2626"] : ["#F59E0B", "#D97706"]}
               style={styles.overdueBanner}
             >
-              <Ionicons name="warning-outline" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
+              <Ionicons name="warning-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
               <Text style={styles.overdueText}>{delayText}</Text>
             </LinearGradient>
           ) : null}
 
-          {/* ── Hero Task Header Card ── */}
-          <View style={styles.headerCard}>
-            <View style={styles.headerTopRow}>
-              {/* Priority Badge */}
-              <View style={[styles.badge, { backgroundColor: priorityConfig.bg, borderColor: priorityConfig.border }]}>
-                <Ionicons name={priorityConfig.icon} size={12} color={priorityConfig.text} style={{ marginRight: 4 }} />
-                <Text style={[styles.badgeText, { color: priorityConfig.text }]}>
-                  {priorityConfig.label}
-                </Text>
+          {/* ── Native Hero Summary Section ── */}
+          <View style={styles.nativeHeroContainer}>
+            {/* Top Pill Badges Row */}
+            <View style={styles.topBadgesRow}>
+              {task.taskId ? (
+                <View style={styles.idChip}>
+                  <Text style={styles.idChipText}>{task.taskId}</Text>
+                </View>
+              ) : null}
+
+              <View style={[styles.priorityChip, { backgroundColor: priorityConfig.bg, borderColor: priorityConfig.border }]}>
+                <Ionicons name={priorityConfig.icon} size={11} color={priorityConfig.text} style={{ marginRight: 3 }} />
+                <Text style={[styles.priorityChipText, { color: priorityConfig.text }]}>{priorityConfig.label}</Text>
               </View>
 
-              {/* Status Badge */}
-              <View style={[styles.statusBadge, { backgroundColor: currentStatus.bg, borderColor: currentStatus.border }]}>
+              <View style={[styles.statusChip, { backgroundColor: currentStatus.bg, borderColor: currentStatus.border }]}>
                 <View style={[styles.statusDot, { backgroundColor: currentStatus.text }]} />
-                <Text style={[styles.statusText, { color: currentStatus.text }]}>
+                <Text style={[styles.statusChipText, { color: currentStatus.text }]}>
                   {isOverdueActive ? "Overdue" : currentStatus.label}
                 </Text>
               </View>
             </View>
 
-            <Text style={styles.taskTitle}>
-              {task.taskId ? `${task.taskId} - ${task.title}` : task.title}
-            </Text>
+            {/* Task Title */}
+            <Text style={styles.nativeTaskTitle}>{task.title}</Text>
 
+            {/* Task Description */}
             {task.description ? (
-              <View style={styles.descBox}>
-                <Text style={styles.taskDesc}>{task.description}</Text>
+              <View style={styles.nativeDescBox}>
+                <Text style={styles.nativeDescText}>{task.description}</Text>
               </View>
-            ) : (
-              <Text style={styles.noDesc}>No detailed description provided.</Text>
-            )}
+            ) : null}
 
-            {/* Stop/Resume Recurring Task Toggle */}
+            {/* Recurring Toggle Button */}
             {task.isTemplate && (
-              <View style={{ marginTop: 14 }}>
-                <TouchableOpacity
-                  style={[
-                    styles.toggleTemplateBtn,
-                    { backgroundColor: task.isActive === false ? "#10B981" : "#EF4444" }
-                  ]}
-                  onPress={handleToggleRecurring}
-                  disabled={submitting}
-                  activeOpacity={0.85}
-                >
-                  {submitting ? (
-                    <ActivityIndicator color="#FFFFFF" />
-                  ) : (
-                    <>
-                      <Ionicons name={task.isActive === false ? "play-circle" : "stop-circle"} size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                      <Text style={styles.toggleTemplateBtnText}>
-                        {task.isActive === false ? "Resume Recurring Task" : "Stop Recurring Task"}
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
+              <TouchableOpacity
+                style={[
+                  styles.nativeToggleTemplateBtn,
+                  { backgroundColor: task.isActive === false ? "#10B981" : "#EF4444" }
+                ]}
+                onPress={handleToggleRecurring}
+                disabled={submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name={task.isActive === false ? "play-circle" : "stop-circle"} size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.nativeToggleTemplateBtnText}>
+                      {task.isActive === false ? "Resume Recurring Task" : "Stop Recurring Task"}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
             )}
-          </View>
 
-          {/* ── Metadata Compact Grid ── */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <Feather name="info" size={15} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Task Information</Text>
-            </View>
-
-            <View style={styles.grid}>
-              {/* Task ID */}
-              {task.taskId && (
-                <View style={styles.gridItem}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons name="key-outline" size={15} color="#6366F1" />
-                  </View>
-                  <View style={styles.gridContent}>
-                    <Text style={styles.gridLabel}>Task ID</Text>
-                    <Text style={styles.gridValue} numberOfLines={1}>{task.taskId}</Text>
-                  </View>
-                </View>
-              )}
-
-              {/* Assigned By */}
-              <View style={styles.gridItem}>
-                <View style={styles.gridIconWrap}>
-                  <Ionicons name="person-circle-outline" size={15} color="#EC4899" />
-                </View>
-                <View style={styles.gridContent}>
-                  <Text style={styles.gridLabel}>Assigned By</Text>
-                  <Text style={styles.gridValue} numberOfLines={1}>{task.assignedBy?.name || "Company Admin"}</Text>
+            {/* ── Native 2-Column Info Grid ── */}
+            <View style={styles.nativeInfoGrid}>
+              <View style={styles.nativeGridCell}>
+                <Ionicons name="business-outline" size={15} color="#6366F1" style={styles.gridCellIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nativeGridLabel}>Department</Text>
+                  <Text style={styles.nativeGridVal} numberOfLines={1}>{deptName}</Text>
                 </View>
               </View>
 
-              {/* Department */}
-              <View style={styles.gridItem}>
-                <View style={styles.gridIconWrap}>
-                  <Feather name="layers" size={14} color="#0D9488" />
-                </View>
-                <View style={styles.gridContent}>
-                  <Text style={styles.gridLabel}>Department</Text>
-                  <Text style={styles.gridValue} numberOfLines={1}>{deptName}</Text>
+              <View style={styles.nativeGridCell}>
+                <Ionicons name="person-outline" size={15} color="#EC4899" style={styles.gridCellIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nativeGridLabel}>Assigned By</Text>
+                  <Text style={styles.nativeGridVal} numberOfLines={1}>{task.assignedBy?.name || "Admin"}</Text>
                 </View>
               </View>
 
-              {/* Start Date */}
-              {task.startDateTime && (
-                <View style={styles.gridItem}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons name="calendar-outline" size={15} color="#10B981" />
-                  </View>
-                  <View style={styles.gridContent}>
-                    <Text style={styles.gridLabel}>Start Date</Text>
-                    <Text style={styles.gridValue}>
-                      {new Date(task.startDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </Text>
-                  </View>
+              <View style={styles.nativeGridCell}>
+                <Ionicons name="calendar-outline" size={15} color="#10B981" style={styles.gridCellIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nativeGridLabel}>Start Date</Text>
+                  <Text style={styles.nativeGridVal}>
+                    {task.startDateTime ? new Date(task.startDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-"}
+                  </Text>
                 </View>
-              )}
+              </View>
 
-              {/* Due Date */}
-              {task.endDateTime && !task.isTemplate && (
-                <View style={styles.gridItem}>
-                  <View style={[styles.gridIconWrap, isOverdueTime && { backgroundColor: "#FEE2E2" }]}>
-                    <Ionicons name="time-outline" size={15} color={isOverdueTime ? "#EF4444" : "#F59E0B"} />
-                  </View>
-                  <View style={styles.gridContent}>
-                    <Text style={styles.gridLabel}>Due Date</Text>
-                    <Text style={[styles.gridValue, isOverdueTime && { color: "#EF4444", fontWeight: "700" }]}>
-                      {new Date(task.endDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                    </Text>
-                  </View>
+              <View style={[styles.nativeGridCell, isOverdueTime && { backgroundColor: "#FEF2F2", borderColor: "#FECACA" }]}>
+                <Ionicons name="alarm-outline" size={15} color={isOverdueTime ? "#EF4444" : "#F59E0B"} style={styles.gridCellIcon} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.nativeGridLabel, isOverdueTime && { color: "#EF4444" }]}>Due Deadline</Text>
+                  <Text style={[styles.nativeGridVal, isOverdueTime && { color: "#DC2626", fontFamily: FONTS.bodyBold }]}>
+                    {task.endDateTime ? new Date(task.endDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No deadline"}
+                  </Text>
                 </View>
-              )}
+              </View>
 
-              {/* Next Follow-up Date */}
-              {task.nextFollowUpDate && (
-                <View style={styles.gridItem}>
-                  <View style={styles.gridIconWrap}>
-                    <Ionicons name="notifications-outline" size={15} color="#2563EB" />
-                  </View>
-                  <View style={styles.gridContent}>
-                    <Text style={styles.gridLabel}>Next Follow-up</Text>
-                    <Text style={[styles.gridValue, { color: "#2563EB", fontWeight: "700" }]}>
+              {task.nextFollowUpDate ? (
+                <View style={[styles.nativeGridCell, { width: "100%", backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}>
+                  <Ionicons name="notifications-outline" size={15} color="#2563EB" style={styles.gridCellIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.nativeGridLabel, { color: "#2563EB" }]}>Next Scheduled Follow-Up</Text>
+                    <Text style={[styles.nativeGridVal, { color: "#1E40AF", fontFamily: FONTS.bodyBold }]}>
                       {new Date(task.nextFollowUpDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </Text>
                   </View>
                 </View>
-              )}
+              ) : null}
             </View>
 
-            {/* Assigned Staff Area */}
-            <View style={styles.assigneesBox}>
-              <Text style={styles.gridLabel}>Assigned Staff</Text>
+            {/* Assigned Staff Row */}
+            <View style={styles.nativeAssigneeSection}>
+              <Text style={styles.nativeSectionLabel}>ASSIGNED STAFF ({assignees.length})</Text>
               {assignees.length > 0 ? (
-                <View style={styles.assigneesList}>
+                <View style={styles.nativeAssigneeRow}>
                   {assignees.map((a, idx) => {
                     const initials = ((a.firstName || "S")[0] + (a.lastName || "")[0]).toUpperCase();
                     return (
-                      <View key={idx} style={styles.assigneeChip}>
-                        <View style={styles.assigneeAvatar}>
-                          <Text style={styles.assigneeAvatarText}>{initials}</Text>
+                      <View key={idx} style={styles.nativeAssigneeChip}>
+                        <View style={styles.nativeAvatarBadge}>
+                          <Text style={styles.nativeAvatarText}>{initials}</Text>
                         </View>
-                        <Text style={styles.assigneeName} numberOfLines={1}>
+                        <Text style={styles.nativeAssigneeName} numberOfLines={1}>
                           {a.firstName} {a.lastName}
                         </Text>
                       </View>
@@ -690,152 +656,175 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                   })}
                 </View>
               ) : (
-                <Text style={styles.unassignedText}>Unassigned / All Staff</Text>
+                <Text style={styles.nativeEmptyText}>Unassigned / Company Wide</Text>
+              )}
+            </View>
+
+            {/* Checklist Section (if checklist exists) */}
+            {task?.checklist && task.checklist.length > 0 && (
+              <View style={styles.nativeChecklistSection}>
+                <View style={styles.nativeChecklistHeader}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons name="checkbox-outline" size={16} color={COLORS.primary} style={{ marginRight: 6 }} />
+                    <Text style={styles.nativeSectionLabel}>TASK CHECKLIST</Text>
+                  </View>
+                  <Text style={styles.nativeProgressText}>
+                    {task.checklist.filter(c => c.isCompleted).length}/{task.checklist.length} Done
+                  </Text>
+                </View>
+                {task.checklist.map((item, idx) => (
+                  <View key={idx} style={styles.nativeChecklistItem}>
+                    <Ionicons
+                      name={item.isCompleted ? "checkbox" : "square-outline"}
+                      size={18}
+                      color={item.isCompleted ? "#16A34A" : "#94A3B8"}
+                    />
+                    <Text style={[styles.nativeChecklistTitle, item.isCompleted && styles.nativeChecklistTitleDone]}>
+                      {item.title}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+
+          {/* ── Native Status & Action Bar ── */}
+          <View style={styles.nativeActionBar}>
+            <View style={styles.nativeActionBarHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="options-outline" size={15} color={COLORS.primary} style={{ marginRight: 6 }} />
+                <Text style={styles.nativeSectionLabel}>WORKFLOW ACTIONS</Text>
+              </View>
+              <Text style={styles.nativeCurrentStatusNote}>Status: {currentStatus.label}</Text>
+            </View>
+
+            {/* Primary Change Status Button */}
+            <TouchableOpacity
+              style={styles.nativeChangeStatusBtn}
+              onPress={() => setStatusPickerModalVisible(true)}
+              activeOpacity={0.88}
+            >
+              <LinearGradient
+                colors={["#1E40AF", "#2563EB"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.nativeChangeStatusGradient}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View style={styles.nativeActionIconCircle}>
+                    <Ionicons name="swap-vertical" size={16} color="#1E40AF" />
+                  </View>
+                  <View style={{ marginLeft: 10 }}>
+                    <Text style={styles.nativeActionBtnTitle}>Change Task Status</Text>
+                    <Text style={styles.nativeActionBtnSub}>Select updated workflow state</Text>
+                  </View>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* Quick Action Pills Row */}
+            <View style={styles.nativeQuickRow}>
+              {/* If Task is Pending or Overdue: Show Start In Process */}
+              {(isPending || isOverdue) && !isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.nativeQuickPill, { backgroundColor: "#EFF6FF", borderColor: "#BFDBFE" }]}
+                  onPress={() => openActionModal("in_process")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="play" size={14} color="#1D4ED8" />
+                  <Text style={[styles.nativeQuickPillText, { color: "#1D4ED8" }]}>In Process</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* If Task is In Process: Show Option to Move to Pending / Hold */}
+              {isInProcess && (
+                <TouchableOpacity
+                  style={[styles.nativeQuickPill, { backgroundColor: "#FFFBEB", borderColor: "#FDE68A" }]}
+                  onPress={() => openActionModal("pending")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="time-outline" size={14} color="#B45309" />
+                  <Text style={[styles.nativeQuickPillText, { color: "#B45309" }]}>Hold / Pending</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Complete button: Show when not completed and not cancelled */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.nativeQuickPill, { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" }]}
+                  onPress={() => openActionModal("complete")}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="checkmark-done" size={15} color="#15803D" />
+                  <Text style={[styles.nativeQuickPillText, { color: "#15803D" }]}>Complete</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Shift button: Show when task is not finished */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.nativeQuickPill, { backgroundColor: "#EEF2FF", borderColor: "#C7D2FE" }]}
+                  onPress={() => setShiftModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="swap-horizontal-outline" size={15} color="#4338CA" />
+                  <Text style={[styles.nativeQuickPillText, { color: "#4338CA" }]}>Shift</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Follow-up button */}
+              <TouchableOpacity
+                style={[styles.nativeQuickPill, { backgroundColor: "#F0FDFA", borderColor: "#99F6E4" }]}
+                onPress={() => openActionModal("follow_up")}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="paper-plane-outline" size={14} color="#0F766E" />
+                <Text style={[styles.nativeQuickPillText, { color: "#0F766E" }]}>Follow-Up</Text>
+              </TouchableOpacity>
+
+              {/* Re-Open button: ONLY SHOW WHEN TASK IS COMPLETED OR CANCELLED */}
+              {(isCompleted || isCancelled) && (
+                <TouchableOpacity
+                  style={[styles.nativeQuickPill, { backgroundColor: "#FAF5FF", borderColor: "#E9D5FF" }]}
+                  onPress={() => setReopenModalVisible(true)}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="refresh-outline" size={15} color="#6D28D9" />
+                  <Text style={[styles.nativeQuickPillText, { color: "#6D28D9" }]}>Re-Open</Text>
+                </TouchableOpacity>
               )}
             </View>
           </View>
 
-          {/* ── Workflow Progress Stepper ── */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <Ionicons name="git-commit-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Task Workflow Progress</Text>
-            </View>
-
-            <View style={styles.stepperContainer}>
-              {/* Step 1: Pending */}
-              <View style={styles.stepNodeWrap}>
-                <View style={[
-                  styles.stepNodeCircle,
-                  (normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete")
-                    ? styles.stepNodeSuccess
-                    : (normalizedSt === "pending" ? styles.stepNodeActive : styles.stepNodeInactive)
-                ]}>
-                  {(normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete") ? (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  ) : (
-                    <View style={styles.stepInnerDot} />
-                  )}
-                </View>
-                <Text style={styles.stepLabel}>Pending</Text>
-              </View>
-
-              {/* Connecting Line 1 */}
-              <View style={[
-                styles.stepLine,
-                (normalizedSt === "in_process" || normalizedSt === "complete" || normalizedSt === "late_complete") && styles.stepLineActive
-              ]} />
-
-              {/* Step 2: In Process */}
-              <View style={styles.stepNodeWrap}>
-                <View style={[
-                  styles.stepNodeCircle,
-                  (normalizedSt === "complete" || normalizedSt === "late_complete")
-                    ? styles.stepNodeSuccess
-                    : (normalizedSt === "in_process" ? styles.stepNodeActive : styles.stepNodeInactive)
-                ]}>
-                  {(normalizedSt === "complete" || normalizedSt === "late_complete") ? (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  ) : (
-                    <View style={styles.stepInnerDot} />
-                  )}
-                </View>
-                <Text style={styles.stepLabel}>In Process</Text>
-              </View>
-
-              {/* Connecting Line 2 */}
-              <View style={[
-                styles.stepLine,
-                (normalizedSt === "complete" || normalizedSt === "late_complete") && styles.stepLineActive
-              ]} />
-
-              {/* Step 3: Completed */}
-              <View style={styles.stepNodeWrap}>
-                <View style={[
-                  styles.stepNodeCircle,
-                  (normalizedSt === "complete" || normalizedSt === "late_complete") ? styles.stepNodeSuccess : styles.stepNodeInactive
-                ]}>
-                  {(normalizedSt === "complete" || normalizedSt === "late_complete") ? (
-                    <Ionicons name="checkmark" size={14} color="#FFFFFF" />
-                  ) : (
-                    <View style={styles.stepInnerDot} />
-                  )}
-                </View>
-                <Text style={styles.stepLabel}>
-                  {normalizedSt === "late_complete" ? "Late Done" : "Completed"}
-                </Text>
-              </View>
-            </View>
-
-            {/* Contextual Action Buttons for Admin */}
-            <View style={{ marginTop: 16, gap: 8 }}>
-              <View style={{ flexDirection: "row", gap: 8 }}>
-                <TouchableOpacity
-                  style={[styles.workflowActionBtn, { flex: 1, backgroundColor: "#4F46E5" }]}
-                  onPress={() => setShiftModalVisible(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="swap-horizontal-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.workflowActionBtnText}>Shift Task</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.workflowActionBtn, { flex: 1, backgroundColor: "#7C3AED" }]}
-                  onPress={() => setReopenModalVisible(true)}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons name="refresh-outline" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
-                  <Text style={styles.workflowActionBtnText}>Re-Open Task</Text>
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={[styles.workflowActionBtn, { backgroundColor: "#0D9488" }]}
-                onPress={() => openActionModal("follow_up")}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.workflowActionBtnText}>Submit Follow-Up</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* ── Task Attachments Section ── */}
+          {/* ── Native Attachments ── */}
           {task?.attachments && task.attachments.length > 0 && (
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeaderRow}>
-                <Ionicons name="document-attach-outline" size={16} color={COLORS.primary} />
-                <Text style={styles.sectionTitle}>Task Attachments ({task.attachments.length})</Text>
+            <View style={styles.nativeSectionContainer}>
+              <Text style={styles.nativeSectionLabel}>ATTACHED FILES ({task.attachments.length})</Text>
+              <View style={styles.nativeAttGrid}>
+                {task.attachments.map((att, idx) => (
+                  <TouchableOpacity
+                    key={idx}
+                    style={styles.nativeAttCard}
+                    onPress={() => WebBrowser.openBrowserAsync(att.fileUrl).catch(err => console.error("URL Open Err", err))}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons name="document-text-outline" size={18} color="#2563EB" />
+                    <Text style={styles.nativeAttName} numberOfLines={1}>
+                      {decodeURIComponent(att.fileName || "Attachment")}
+                    </Text>
+                    <Ionicons name="arrow-down-circle-outline" size={16} color="#64748B" />
+                  </TouchableOpacity>
+                ))}
               </View>
-
-              {task.attachments.map((att, idx) => (
-                <TouchableOpacity
-                  key={idx}
-                  style={styles.attachmentCard}
-                  onPress={() => WebBrowser.openBrowserAsync(att.fileUrl).catch(err => console.error("URL Open Err", err))}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.attachmentIconBox}>
-                    <Ionicons name="document-text-outline" size={20} color={COLORS.primary} />
-                  </View>
-                  <Text style={styles.attachmentFileName} numberOfLines={1}>
-                    {decodeURIComponent(att.fileName || "Attachment")}
-                  </Text>
-                  <Ionicons name="open-outline" size={16} color="#94A3B8" />
-                </TouchableOpacity>
-              ))}
             </View>
           )}
 
-          {/* ── Comments & Discussion Timeline ── */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeaderRow}>
-              <Ionicons name="chatbubbles-outline" size={16} color={COLORS.primary} />
-              <Text style={styles.sectionTitle}>Comments & Discussion</Text>
-            </View>
-
+          {/* ── Native Discussion Stream ── */}
+          <View style={styles.nativeSectionContainer}>
+            <Text style={styles.nativeSectionLabel}>COMMENTS & ACTIVITY ({task.comments?.length || 0})</Text>
             {(!task.comments || task.comments.length === 0) ? (
-              <Text style={styles.noCommentsText}>No discussion comments yet. Be the first to comment below!</Text>
+              <Text style={styles.nativeEmptyText}>No discussion yet. Leave a note below!</Text>
             ) : (
               task.comments.map((c, i) => {
                 const isCurrentUser = c.addedBy === user?._id || c.senderName?.includes(user?.name?.split(" ")[0]) || c.senderName === user?.name;
@@ -843,16 +832,16 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                   <View 
                     key={i} 
                     style={[
-                      styles.commentBubble,
-                      isCurrentUser ? styles.commentBubbleUser : styles.commentBubbleOther
+                      styles.nativeCommentBubble,
+                      isCurrentUser ? styles.nativeCommentBubbleUser : styles.nativeCommentBubbleOther
                     ]}
                   >
-                    <Text style={[styles.commentAuthor, { color: isCurrentUser ? COLORS.primaryPale : COLORS.slateMuted }]}>
-                      {isCurrentUser ? "You" : c.senderName || "User"} ({c.senderRole || "Member"})
+                    <Text style={[styles.nativeCommentAuthor, { color: isCurrentUser ? "#93C5FD" : "#64748B" }]}>
+                      {isCurrentUser ? "You" : c.senderName || "User"} • {c.senderRole || "Member"}
                     </Text>
 
                     {c.comment ? (
-                      <Text style={[styles.commentBody, { color: isCurrentUser ? "#FFFFFF" : COLORS.darkNavy }]}>
+                      <Text style={[styles.nativeCommentBody, { color: isCurrentUser ? "#FFFFFF" : "#0F172A" }]}>
                         {c.comment}
                       </Text>
                     ) : null}
@@ -861,23 +850,23 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                       <TouchableOpacity 
                         key={idx} 
                         style={[
-                          styles.commentAttChip,
-                          { backgroundColor: isCurrentUser ? "rgba(255, 255, 255, 0.2)" : "#E2E8F0" }
+                          styles.nativeCommentAtt,
+                          { backgroundColor: isCurrentUser ? "rgba(255, 255, 255, 0.18)" : "#E2E8F0" }
                         ]}
                         onPress={() => WebBrowser.openBrowserAsync(att.fileUrl).catch(err => console.error("URL Open Err", err))}
                       >
                         {att.fileType?.startsWith('image') ? (
-                          <Image source={{ uri: att.fileUrl }} style={styles.commentAttImage} resizeMode="cover" />
+                          <Image source={{ uri: att.fileUrl }} style={styles.nativeCommentImg} resizeMode="cover" />
                         ) : (
                           <Ionicons name="document-outline" size={14} color={isCurrentUser ? "#FFFFFF" : "#475569"} />
                         )}
-                        <Text style={[styles.commentAttText, { color: isCurrentUser ? "#FFFFFF" : "#475569" }]} numberOfLines={1}>
+                        <Text style={[styles.nativeCommentAttText, { color: isCurrentUser ? "#FFFFFF" : "#475569" }]} numberOfLines={1}>
                           {decodeURIComponent(att.fileName || "Attachment")}
                         </Text>
                       </TouchableOpacity>
                     ))}
 
-                    <Text style={[styles.commentTime, { color: isCurrentUser ? COLORS.primaryPale : COLORS.text.muted }]}>
+                    <Text style={[styles.nativeCommentTime, { color: isCurrentUser ? "#93C5FD" : "#94A3B8" }]}>
                       {new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                   </View>
@@ -942,7 +931,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
             <TextInput
               style={styles.commentInput}
               placeholder="Type a comment or update..."
-              placeholderTextColor="#94A3B8"
+              placeholderTextColor="#64748B"
               value={newComment}
               onChangeText={setNewComment}
               multiline
@@ -1084,6 +1073,179 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
+      {/* ── Status Selection Action Sheet Modal ── */}
+      <Modal
+        visible={statusPickerModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setStatusPickerModalVisible(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setStatusPickerModalVisible(false)}
+        >
+          <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+            <View style={styles.modalHeaderRow}>
+              <View>
+                <Text style={styles.modalTitle}>Change Task Status</Text>
+                <Text style={styles.modalSubTitle}>Select a new status to update this task</Text>
+              </View>
+              <TouchableOpacity onPress={() => setStatusPickerModalVisible(false)} style={styles.modalCloseIconBtn}>
+                <Ionicons name="close" size={20} color={COLORS.darkNavy} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>
+              {/* Option: In Process (Show if task is Pending or Overdue and not completed/cancelled) */}
+              {(isPending || isOverdue) && !isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#BFDBFE", backgroundColor: "#EFF6FF" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    openActionModal("in_process");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#DBEAFE" }]}>
+                    <Ionicons name="play" size={20} color="#1D4ED8" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#1E40AF" }]}>In Process</Text>
+                    <Text style={styles.statusOptionDesc}>Start working or mark task as in progress</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#1D4ED8" />
+                </TouchableOpacity>
+              )}
+
+              {/* Option: Completed (Show if not already completed/cancelled) */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    openActionModal("complete");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#DCFCE7" }]}>
+                    <Ionicons name="checkmark-circle" size={20} color="#15803D" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#15803D" }]}>Completed</Text>
+                    <Text style={styles.statusOptionDesc}>Mark task as fully resolved and finished</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#15803D" />
+                </TouchableOpacity>
+              )}
+
+              {/* Option: Move back to Pending (Show if task is currently In Process) */}
+              {isInProcess && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#FDE68A", backgroundColor: "#FFFBEB" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    openActionModal("pending");
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#FEF3C7" }]}>
+                    <Ionicons name="time" size={20} color="#B45309" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#B45309" }]}>Hold / Pending</Text>
+                    <Text style={styles.statusOptionDesc}>Move task back to waiting/pending queue</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#B45309" />
+                </TouchableOpacity>
+              )}
+
+              {/* Option: Submit Follow-Up (Always available for documentation) */}
+              <TouchableOpacity
+                style={[styles.statusOptionRow, { borderColor: "#99F6E4", backgroundColor: "#F0FDFA" }]}
+                onPress={() => {
+                  setStatusPickerModalVisible(false);
+                  openActionModal("follow_up");
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.statusOptionIconWrap, { backgroundColor: "#CCFBF1" }]}>
+                  <Ionicons name="paper-plane" size={18} color="#0F766E" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={[styles.statusOptionTitle, { color: "#0F766E" }]}>Submit Follow-Up</Text>
+                  <Text style={styles.statusOptionDesc}>Add progress remark & set next follow-up date</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#0F766E" />
+              </TouchableOpacity>
+
+              {/* Option: Shift Task (Show if task is not finished/cancelled) */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#C7D2FE", backgroundColor: "#EEF2FF" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    setShiftModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#E0E7FF" }]}>
+                    <Ionicons name="swap-horizontal" size={20} color="#4338CA" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#3730A3" }]}>Shift Task Assignee</Text>
+                    <Text style={styles.statusOptionDesc}>Reassign task to another team member</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#4338CA" />
+                </TouchableOpacity>
+              )}
+
+              {/* Option: Re-Open Task (ONLY SHOW WHEN TASK IS COMPLETED OR CANCELLED) */}
+              {(isCompleted || isCancelled) && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#E9D5FF", backgroundColor: "#FAF5FF" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    setReopenModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#F3E8FF" }]}>
+                    <Ionicons name="refresh-circle" size={22} color="#6D28D9" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#6B21A8" }]}>Re-Open Task</Text>
+                    <Text style={styles.statusOptionDesc}>Set a new deadline & resume workflow</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#6D28D9" />
+                </TouchableOpacity>
+              )}
+
+              {/* Option: Cancel Task (Show if not already completed/cancelled) */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#FECACA", backgroundColor: "#FEF2F2" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    setCancelModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#FEE2E2" }]}>
+                    <Ionicons name="close-circle" size={20} color="#DC2626" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#B91C1C" }]}>Cancel Task</Text>
+                    <Text style={styles.statusOptionDesc}>Terminate this task with reason</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#DC2626" />
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       <DatePickerModal
         visible={showCalendarModal}
         onClose={() => setShowCalendarModal(false)}
@@ -1161,553 +1323,595 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   content: {
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: 8,
   },
   overdueBanner: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    ...SHADOWS.sm,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   overdueText: {
     color: "#FFFFFF",
     fontFamily: FONTS.bodyBold,
-    fontSize: 13,
+    fontSize: 12,
   },
-  headerCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: ROUNDING.lg,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    ...SHADOWS.sm,
-  },
-  headerTopRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
+  nativeHeroContainer: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
     marginBottom: 10,
   },
-  badge: {
+  topBadgesRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
+    flexWrap: "wrap",
+    gap: 5,
+    marginBottom: 6,
+  },
+  idChip: {
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
+  },
+  idChipText: {
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#1D4ED8",
+  },
+  priorityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
     borderWidth: 1,
   },
-  badgeText: {
+  priorityChipText: {
     fontSize: 10.5,
     fontFamily: FONTS.bodyBold,
   },
-  statusBadge: {
+  statusChip: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
     borderWidth: 1,
-    gap: 5,
+    gap: 4,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
   },
-  statusText: {
+  statusChipText: {
     fontSize: 10.5,
     fontFamily: FONTS.bodyBold,
   },
-  taskTitle: {
-    fontSize: 18,
+  nativeTaskTitle: {
+    fontSize: 17,
     fontFamily: FONTS.displayBold,
-    color: COLORS.darkNavy,
-    lineHeight: 24,
-    marginBottom: 10,
+    color: "#0F172A",
+    lineHeight: 23,
+    marginBottom: 6,
   },
-  descBox: {
+  nativeDescBox: {
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    padding: 12,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
   },
-  taskDesc: {
-    fontSize: 13.5,
+  nativeDescText: {
+    fontSize: 13,
     fontFamily: FONTS.body,
-    color: COLORS.text.primary,
-    lineHeight: 20,
+    color: "#0F172A",
+    lineHeight: 19,
   },
-  noDesc: {
-    fontSize: 12.5,
-    fontFamily: FONTS.body,
-    color: COLORS.text.muted,
-    fontStyle: "italic",
-  },
-  toggleTemplateBtn: {
+  nativeToggleTemplateBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    ...SHADOWS.sm,
+    paddingVertical: 9,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  toggleTemplateBtnText: {
+  nativeToggleTemplateBtnText: {
     color: "#FFFFFF",
-    fontSize: 13.5,
-    fontFamily: FONTS.bodyBold,
-  },
-  sectionCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: ROUNDING.lg,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    ...SHADOWS.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
     fontSize: 12.5,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.darkNavy,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginLeft: 6,
   },
-  grid: {
+  nativeInfoGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginBottom: 12,
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 8,
   },
-  gridItem: {
-    width: "48.5%",
+  nativeGridCell: {
+    width: "49%",
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 10,
-    padding: 9,
-    gap: 8,
-  },
-  gridIconWrap: {
-    width: 28,
-    height: 28,
-    borderRadius: 7,
-    backgroundColor: "#FFFFFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  gridContent: {
-    flex: 1,
-    minWidth: 0,
-  },
-  gridLabel: {
-    fontSize: 9.5,
-    color: COLORS.text.muted,
-    fontFamily: FONTS.bodyBold,
-    textTransform: "uppercase",
-    marginBottom: 2,
-  },
-  gridValue: {
-    fontSize: 12,
-    fontFamily: FONTS.bodyBold,
-    color: COLORS.darkNavy,
-  },
-  assigneesBox: {
-    borderTopWidth: 1,
-    borderColor: "#F1F5F9",
-    paddingTop: 10,
-  },
-  assigneesList: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
-    marginTop: 6,
-  },
-  assigneeChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#F1F5F9",
-    borderRadius: 18,
-    paddingRight: 10,
-    paddingLeft: 3,
-    paddingVertical: 3,
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-    gap: 6,
-  },
-  assigneeAvatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: COLORS.primary,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  assigneeAvatarText: {
-    fontSize: 9,
-    fontFamily: FONTS.bodyBold,
-    color: "#FFFFFF",
-  },
-  assigneeName: {
-    fontSize: 11.5,
-    fontFamily: FONTS.bodyMedium,
-    color: COLORS.darkNavy,
-  },
-  unassignedText: {
-    fontSize: 12,
-    fontFamily: FONTS.body,
-    color: COLORS.text.muted,
-    fontStyle: "italic",
-    marginTop: 4,
-  },
-  stepperContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginVertical: 12,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    paddingVertical: 7,
     paddingHorizontal: 8,
   },
-  stepNodeWrap: {
+  gridCellIcon: {
+    marginRight: 6,
+  },
+  nativeGridLabel: {
+    fontSize: 9.5,
+    color: "#475569",
+    fontFamily: FONTS.bodyBold,
+    textTransform: "uppercase",
+    marginBottom: 1,
+  },
+  nativeGridVal: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  nativeAssigneeSection: {
+    borderTopWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingTop: 8,
+    marginTop: 4,
+  },
+  nativeSectionLabel: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+    marginBottom: 6,
+  },
+  nativeAssigneeRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 5,
+  },
+  nativeAssigneeChip: {
+    flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 14,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    gap: 5,
+  },
+  nativeAvatarBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#1E40AF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nativeAvatarText: {
+    fontSize: 8.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#FFFFFF",
+  },
+  nativeAssigneeName: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  nativeEmptyText: {
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: "#64748B",
+    fontStyle: "italic",
+  },
+  nativeChecklistSection: {
+    borderTopWidth: 1,
+    borderColor: "#F1F5F9",
+    paddingTop: 8,
+    marginTop: 8,
+  },
+  nativeChecklistHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  nativeProgressText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#15803D",
+  },
+  nativeChecklistItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 5,
+    gap: 6,
+  },
+  nativeChecklistTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
     flex: 1,
   },
-  stepNodeCircle: {
+  nativeChecklistTitleDone: {
+    textDecorationLine: "line-through",
+    color: "#64748B",
+  },
+  nativeActionBar: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 10,
+  },
+  nativeActionBarHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  nativeCurrentStatusNote: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#1D4ED8",
+  },
+  nativeChangeStatusBtn: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginBottom: 8,
+  },
+  nativeChangeStatusGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  nativeActionIconCircle: {
     width: 26,
     height: 26,
     borderRadius: 13,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
   },
-  stepNodeSuccess: {
-    backgroundColor: "#10B981",
+  nativeActionBtnTitle: {
+    color: "#FFFFFF",
+    fontSize: 13.5,
+    fontFamily: FONTS.displayBold,
   },
-  stepNodeActive: {
-    backgroundColor: "#F59E0B",
-  },
-  stepNodeInactive: {
-    backgroundColor: "#CBD5E1",
-  },
-  stepInnerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#FFFFFF",
-  },
-  stepLabel: {
+  nativeActionBtnSub: {
+    color: "rgba(255, 255, 255, 0.85)",
     fontSize: 10.5,
-    color: COLORS.text.muted,
-    fontFamily: FONTS.bodyBold,
-    marginTop: 5,
+    fontFamily: FONTS.body,
   },
-  stepLine: {
-    height: 3,
+  nativeQuickRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  nativeQuickPill: {
     flex: 1,
-    backgroundColor: "#CBD5E1",
-    marginBottom: 16,
-  },
-  stepLineActive: {
-    backgroundColor: "#10B981",
-  },
-  workflowActionBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
-    borderRadius: 10,
-    ...SHADOWS.sm,
+    paddingVertical: 8,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    gap: 4,
   },
-  workflowActionBtnText: {
-    color: "#FFFFFF",
-    fontSize: 13.5,
+  nativeQuickPillText: {
+    fontSize: 11,
     fontFamily: FONTS.bodyBold,
   },
-  attachmentCard: {
+  nativeSectionContainer: {
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 10,
+  },
+  nativeAttGrid: {
+    gap: 5,
+  },
+  nativeAttCard: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F8FAFC",
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 8,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
-  attachmentIconBox: {
-    width: 32,
-    height: 32,
+    borderColor: "#CBD5E1",
     borderRadius: 8,
-    backgroundColor: COLORS.primaryPale,
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
+    padding: 8,
+    gap: 6,
   },
-  attachmentFileName: {
-    fontSize: 13,
-    fontFamily: FONTS.bodyMedium,
-    color: COLORS.darkNavy,
+  nativeAttName: {
     flex: 1,
-  },
-  noCommentsText: {
     fontSize: 12.5,
-    fontFamily: FONTS.body,
-    color: COLORS.text.muted,
-    fontStyle: "italic",
-    textAlign: "center",
-    marginVertical: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
   },
-  commentBubble: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 14,
-    maxWidth: "85%",
-    marginBottom: 10,
-    ...SHADOWS.sm,
+  nativeCommentBubble: {
+    padding: 8,
+    borderRadius: 10,
+    marginBottom: 6,
+    maxWidth: "92%",
   },
-  commentBubbleUser: {
+  nativeCommentBubbleUser: {
     alignSelf: "flex-end",
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1E40AF",
     borderBottomRightRadius: 2,
   },
-  commentBubbleOther: {
+  nativeCommentBubbleOther: {
     alignSelf: "flex-start",
     backgroundColor: "#F1F5F9",
     borderBottomLeftRadius: 2,
   },
-  commentAuthor: {
+  nativeCommentAuthor: {
     fontSize: 10,
     fontFamily: FONTS.bodyBold,
+    marginBottom: 2,
   },
-  commentBody: {
-    fontSize: 13.5,
+  nativeCommentBody: {
+    fontSize: 12.5,
     fontFamily: FONTS.body,
-    marginTop: 3,
-    lineHeight: 18,
+    lineHeight: 17,
   },
-  commentAttChip: {
+  nativeCommentAtt: {
     flexDirection: "row",
     alignItems: "center",
     padding: 6,
-    borderRadius: 8,
+    borderRadius: 6,
     marginTop: 6,
+    gap: 6,
   },
-  commentAttImage: {
-    width: 28,
-    height: 28,
+  nativeCommentImg: {
+    width: 60,
+    height: 60,
     borderRadius: 4,
-    marginRight: 6,
   },
-  commentAttText: {
+  nativeCommentAttText: {
     fontSize: 11,
-    fontFamily: FONTS.bodyMedium,
-    marginLeft: 4,
+    fontFamily: FONTS.body,
     flex: 1,
   },
-  commentTime: {
-    fontSize: 9,
+  nativeCommentTime: {
+    fontSize: 9.5,
     fontFamily: FONTS.body,
-    alignSelf: "flex-end",
     marginTop: 4,
+    textAlign: "right",
   },
   stickyCommentBar: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 14,
-    paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: "#E2E8F0",
+    borderColor: "#E2E8F0",
+    paddingTop: 8,
+    paddingHorizontal: 12,
     ...SHADOWS.md,
   },
   attachedPreviewRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F1F5F9",
-    padding: 8,
-    borderRadius: 10,
-    marginBottom: 8,
+    backgroundColor: "#EFF6FF",
     borderWidth: 1,
-    borderColor: "#E2E8F0",
+    borderColor: "#BFDBFE",
+    borderRadius: 8,
+    padding: 6,
+    marginBottom: 6,
   },
   attachedPreviewIcon: {
-    backgroundColor: "#E2E8F0",
-    padding: 6,
-    borderRadius: 6,
+    marginRight: 6,
   },
   attachedPreviewText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#1E40AF",
     flex: 1,
-    fontSize: 12.5,
-    fontFamily: FONTS.bodyMedium,
-    color: COLORS.darkNavy,
-    marginLeft: 8,
   },
   recordingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FEE2E2',
-    padding: 10,
-    borderRadius: 10,
-    marginBottom: 8,
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FEF2F2",
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: "#FECACA",
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 6,
   },
   recordingText: {
-    marginLeft: 8,
-    color: '#EF4444',
+    fontSize: 12,
     fontFamily: FONTS.bodyBold,
-    fontSize: 12.5,
+    color: "#EF4444",
+    marginLeft: 6,
   },
   recordingStopBtn: {
-    backgroundColor: '#EF4444',
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 10,
+    backgroundColor: "#EF4444",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
   },
   recordingStopBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
+    color: "#FFFFFF",
+    fontSize: 11,
     fontFamily: FONTS.bodyBold,
   },
   commentInputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    marginBottom: 2,
   },
   mediaActionBtn: {
-    padding: 8,
+    padding: 6,
     backgroundColor: "#F1F5F9",
-    borderRadius: 20,
+    borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
   },
   commentInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#E2E8F0",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingTop: 8,
-    paddingBottom: 8,
+    borderColor: "#CBD5E1",
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     backgroundColor: "#F8FAFC",
     fontFamily: FONTS.body,
-    fontSize: 13.5,
-    maxHeight: 90,
-    color: COLORS.darkNavy,
+    fontSize: 13,
+    maxHeight: 80,
+    color: "#0F172A",
   },
   commentSendBtn: {
-    backgroundColor: COLORS.primary,
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    backgroundColor: "#1D4ED8",
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: "center",
     justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'flex-end',
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    justifyContent: "flex-end",
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 18,
+    paddingTop: 18,
   },
   modalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justify: 'space-between',
-    marginBottom: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   modalTitle: {
     fontFamily: FONTS.displayBold,
-    fontSize: 17,
+    fontSize: 16,
     color: COLORS.darkNavy,
   },
+  modalSubTitle: {
+    fontFamily: FONTS.body,
+    fontSize: 11.5,
+    color: COLORS.text.muted,
+    marginTop: 1,
+  },
   modalCloseIconBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F1F5F9',
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalLabel: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 12.5,
+    fontSize: 12,
     color: COLORS.darkNavy,
-    marginTop: 10,
-    marginBottom: 6,
+    marginTop: 8,
+    marginBottom: 5,
   },
   modalDateBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    padding: 12,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    padding: 10,
   },
   modalDateBoxText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: COLORS.darkNavy,
   },
   modalTextarea: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    padding: 12,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    padding: 10,
     fontFamily: FONTS.body,
-    fontSize: 13.5,
+    fontSize: 13,
     color: COLORS.darkNavy,
-    minHeight: 70,
-    textAlignVertical: 'top',
+    minHeight: 65,
+    textAlignVertical: "top",
   },
   modalSubmitBtn: {
     backgroundColor: COLORS.primary,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: 14,
   },
   modalSubmitBtnText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 14.5,
-    color: '#FFFFFF',
+    fontSize: 13.5,
+    color: "#FFFFFF",
   },
   modalItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: "#F1F5F9",
   },
   modalItemRowSelected: {
     backgroundColor: COLORS.primaryGhost,
   },
   modalItemTitle: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 13.5,
+    fontSize: 13,
     color: COLORS.darkNavy,
+  },
+  statusOptionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  statusOptionIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  statusOptionTitle: {
+    fontSize: 13.5,
+    fontFamily: FONTS.bodyBold,
+  },
+  statusOptionDesc: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: COLORS.text.muted,
+    marginTop: 1,
   },
 });
 
