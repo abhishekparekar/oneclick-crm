@@ -12,9 +12,11 @@ import {
   Dimensions,
   Linking,
   Platform,
+  PermissionsAndroid,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
+import Geolocation from "@react-native-community/geolocation";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import AppButton from "../../components/AppButton";
 import { useAuth } from "../../context/AuthContext";
@@ -22,8 +24,6 @@ import {
   getCompanyAttendanceSettingsApi,
   updateCompanyAttendanceSettingsApi,
 } from "../../api/companyService";
-
-const { width } = Dimensions.get("window");
 
 const AttendanceSettingsScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -40,21 +40,16 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   const [latitudeInput, setLatitudeInput] = useState("");
   const [longitudeInput, setLongitudeInput] = useState("");
   const [loadingLocation, setLoadingLocation] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
   const [locationError, setLocationError] = useState("");
-  const [gpsAccuracy, setGpsAccuracy] = useState(null); // metres accuracy of last GPS read
-  const [isGeocodingName, setIsGeocodingName] = useState(false); // reverse geocoding in progress
-  const [nameAutoFilled, setNameAutoFilled] = useState(false);  // whether name came from GPS
+  const [gpsAccuracy, setGpsAccuracy] = useState(null);
 
-  // --- Other settings states (unchanged) ---
+  // --- Attendance Configuration States ---
   const [officeName, setOfficeName] = useState("Main Office");
   const [allowedRadiusMeters, setAllowedRadiusMeters] = useState("100");
   const [attendanceMode, setAttendanceMode] = useState("office_only");
   const [requireGps, setRequireGps] = useState(true);
   const [requireSelfie, setRequireSelfie] = useState(false);
   const [allowAdminBypassGeoFencing, setAllowAdminBypassGeoFencing] = useState(true);
-
-  // Late & Early Leave Settings
   const [gracePeriodMinutes, setGracePeriodMinutes] = useState("15");
   const [autoHalfDayOnLate, setAutoHalfDayOnLate] = useState(true);
   const [earlyLeaveGracePeriodMinutes, setEarlyLeaveGracePeriodMinutes] = useState("10");
@@ -67,9 +62,11 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const { data } = await getCompanyAttendanceSettingsApi();
-      if (data && data.settings) {
-        const s = data.settings;
+      const res = await getCompanyAttendanceSettingsApi();
+      const data = res?.data || res;
+      const s = data?.settings || data;
+
+      if (s) {
         setOfficeName(s.officeName || "Main Office");
         setAllowedRadiusMeters(String(s.allowedRadiusMeters ?? 100));
         setAttendanceMode(s.attendanceMode || "office_only");
@@ -87,18 +84,20 @@ const AttendanceSettingsScreen = ({ navigation }) => {
           s.longitude !== null &&
           s.latitude !== undefined &&
           s.longitude !== undefined &&
-          !(s.latitude === 0 && s.longitude === 0)
+          !(Number(s.latitude) === 0 && Number(s.longitude) === 0)
         ) {
+          const latNum = Number(s.latitude);
+          const lngNum = Number(s.longitude);
           setSelectedLocation({
-            latitude: s.latitude,
-            longitude: s.longitude,
+            latitude: latNum,
+            longitude: lngNum,
           });
-          setLatitudeInput(String(s.latitude));
-          setLongitudeInput(String(s.longitude));
+          setLatitudeInput(String(latNum));
+          setLongitudeInput(String(lngNum));
         }
       }
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || "Failed to load location settings");
+      console.warn("[AttendanceSettingsScreen] Settings fetch warning:", err?.message || err);
     } finally {
       setLoading(false);
     }
@@ -112,10 +111,10 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   useEffect(() => {
     if (selectedLocation && webViewRef.current) {
       const payload = JSON.stringify({
-        type: 'UPDATE_LOCATION',
+        type: "UPDATE_LOCATION",
         latitude: selectedLocation.latitude,
         longitude: selectedLocation.longitude,
-        radius: radiusMeters
+        radius: radiusMeters,
       });
       webViewRef.current.postMessage(payload);
     }
@@ -125,7 +124,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   const handleWebViewMessage = (event) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      if (data.type === 'LOCATION_CHANGED') {
+      if (data.type === "LOCATION_CHANGED") {
         const { latitude, longitude } = data;
         setSelectedLocation({ latitude, longitude });
         setLatitudeInput(String(latitude.toFixed(6)));
@@ -136,125 +135,63 @@ const AttendanceSettingsScreen = ({ navigation }) => {
     }
   };
 
-  // ─── Shared reverse geocode helper ─────────────────────────────────────────────
-  const reverseGeocodeCoords = async (latitude, longitude) => {
-    try {
-      setIsGeocodingName(true);
-      const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
-      if (geocode && geocode.length > 0) {
-        const place = geocode[0];
-        const parts = [
-          place.name,
-          place.street,
-          place.district || place.subregion,
-          place.city,
-          place.region,
-        ].filter(Boolean);
-        const uniqueParts = [...new Set(parts)];
-        const addressStr = uniqueParts.join(", ");
-        if (addressStr) {
-          setOfficeName(addressStr);
-          setNameAutoFilled(true);
-        }
-      }
-    } catch (err) {
-      console.log("[Geocode] reverse geocode failed:", err);
-    } finally {
-      setIsGeocodingName(false);
-    }
-  };
-
-  // ─── Use Current Location (real GPS only — no simulated fallback) ───────────────
+  // ─── Use Current Location (native Geolocation) ──────────────────────────────────
   const handleUseCurrentLocation = async () => {
     try {
       setLoadingLocation(true);
       setLocationError("");
 
-      // Step 1: Check current permission status first
-      const { status: existingStatus } = await Location.getForegroundPermissionsAsync();
+      if (Platform.OS === "android") {
+        const granted = await PermissionsAndroid.requestMultiple([
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        ]);
 
-      let finalStatus = existingStatus;
+        const fineGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+        const coarseGranted = granted[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
 
-      // Step 2: If not granted yet, request it
-      if (existingStatus !== "granted") {
-        const { status: requestedStatus } = await Location.requestForegroundPermissionsAsync();
-        finalStatus = requestedStatus;
+        if (!fineGranted && !coarseGranted) {
+          Alert.alert(
+            "📍 Location Permission Required",
+            "To set your office attendance location, please allow location access.",
+            [
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+              { text: "Cancel", style: "cancel" },
+            ]
+          );
+          setLoadingLocation(false);
+          return;
+        }
       }
 
-      // Step 3: If still denied, show Alert with Open Settings button
-      if (finalStatus !== "granted") {
-        Alert.alert(
-          "📍 Location Permission Required",
-          "To set your office attendance location, please allow location access.\n\nGo to: Settings → Apps → Expo Go → Permissions → Location → Allow",
-          [
-            {
-              text: "Open Settings",
-              onPress: () => Linking.openSettings(),
-            },
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-          ]
-        );
-        setLoadingLocation(false);
-        return;
-      }
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const lat = Number(position.coords.latitude.toFixed(6));
+          const lng = Number(position.coords.longitude.toFixed(6));
+          const acc = position.coords.accuracy ? Math.round(position.coords.accuracy) : null;
 
-      // Step 4: Get real GPS coordinates — highest accuracy, no simulations
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.BestForNavigation,
-        maximumAge: 0,       // always get fresh reading
-        timeout: 15000,      // 15 second timeout
-      });
-
-      const { latitude, longitude, accuracy } = loc.coords;
-
-      console.log(`[Settings GPS] lat=${latitude}, lon=${longitude}, accuracy=${accuracy}m`);
-
-      setSelectedLocation({ latitude, longitude });
-      setLatitudeInput(String(latitude.toFixed(6)));
-      setLongitudeInput(String(longitude.toFixed(6)));
-      setGpsAccuracy(accuracy ? Math.round(accuracy) : null);
-      setLocationError("");
-
-      // Step 5: Reverse geocode to auto-fill Office Location Name
-      await reverseGeocodeCoords(latitude, longitude);
+          setSelectedLocation({ latitude: lat, longitude: lng });
+          setLatitudeInput(String(lat));
+          setLongitudeInput(String(lng));
+          setGpsAccuracy(acc);
+          setLocationError("");
+          setLoadingLocation(false);
+        },
+        (err) => {
+          console.log("[Settings GPS Error]", err);
+          setLocationError("Unable to acquire high accuracy GPS. You can tap directly on the map to pin your office.");
+          setLoadingLocation(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
     } catch (err) {
-      console.log("[Settings GPS Error]", err);
-      if (err.code === "E_LOCATION_SERVICES_DISABLED" || err.message?.includes("disabled")) {
-        setLocationError("GPS is turned off. Please enable Location Services on your device and try again.");
-      } else if (err.code === "E_LOCATION_TIMEOUT") {
-        setLocationError("GPS signal timed out. Move to an open area and try again.");
-      } else {
-        setLocationError("Unable to get your location. Make sure GPS is on and try again.");
-      }
-    } finally {
+      console.log("[GPS Request Error]", err);
+      setLocationError("Failed to request GPS position.");
       setLoadingLocation(false);
     }
   };
 
-  // ─── Map interactions ────────────────────────────────────────────────────────
-  const handleMapPress = (e) => {
-    if (!isAdmin) return;
-    const coord = e.nativeEvent.coordinate;
-    setSelectedLocation(coord);
-    setLatitudeInput(String(coord.latitude.toFixed(6)));
-    setLongitudeInput(String(coord.longitude.toFixed(6)));
-    setNameAutoFilled(false); // manual tap — name no longer auto-filled
-  };
-
-  const handleMarkerDragEnd = (e) => {
-    if (!isAdmin) return;
-    const coord = e.nativeEvent.coordinate;
-    setSelectedLocation(coord);
-    setLatitudeInput(String(coord.latitude.toFixed(6)));
-    setLongitudeInput(String(coord.longitude.toFixed(6)));
-    // Re-geocode so the office name stays in sync with wherever the pin is dropped
-    reverseGeocodeCoords(coord.latitude, coord.longitude);
-  };
-
-  // ─── Save ────────────────────────────────────────────────────────────────────
+  // ─── Save Settings ─────────────────────────────────────────────────────────────
   const handleSaveSettings = async () => {
     if (!isAdmin) {
       Alert.alert("Denied", "Only Company Administrators can modify settings");
@@ -288,7 +225,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
         autoHalfDayOnEarlyLeave,
       };
 
-      const { data } = await updateCompanyAttendanceSettingsApi(payload);
+      await updateCompanyAttendanceSettingsApi(payload);
       Alert.alert("✅ Saved", "Office location settings updated successfully!");
       fetchSettings();
     } catch (err) {
@@ -299,7 +236,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   };
 
   const getLeafletHTML = () => {
-    const lat = selectedLocation ? selectedLocation.latitude : 19.0760;
+    const lat = selectedLocation ? selectedLocation.latitude : 19.076;
     const lng = selectedLocation ? selectedLocation.longitude : 72.8777;
     const radius = radiusMeters;
     const hasLoc = selectedLocation ? "true" : "false";
@@ -449,13 +386,8 @@ const AttendanceSettingsScreen = ({ navigation }) => {
     `;
   };
 
-  // ─── Render ───────────────────────────────────────────────────────────────────
   return (
-    <CompanyAdminLayout
-      navigation={navigation}
-      activeTab="Dashboard"
-      showSearch={false}
-    >
+    <CompanyAdminLayout navigation={navigation} activeTab="Dashboard" showSearch={false}>
       <View style={styles.screenHeader}>
         <Text style={styles.title}>Office Location Settings</Text>
         <Text style={styles.subtitle}>
@@ -469,18 +401,14 @@ const AttendanceSettingsScreen = ({ navigation }) => {
           <Text style={styles.loadingText}>Fetching location settings...</Text>
         </View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── MAP SECTION ─────────────────────────────────────────────── */}
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* ── MAP PICKER ──────────────────────────────────────────────── */}
           <View style={styles.mapCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="map" size={20} color="#2563eb" />
               <Text style={styles.sectionTitle}>Set Office Attendance Location</Text>
             </View>
 
-            {/* Error message — tappable to open device Settings when permission is denied */}
             {locationError ? (
               <TouchableOpacity
                 style={styles.errorBanner}
@@ -496,7 +424,6 @@ const AttendanceSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             ) : null}
 
-            {/* Use My Current Location button — always visible for admin */}
             {isAdmin && (
               <TouchableOpacity
                 style={styles.currentLocationBtn}
@@ -515,30 +442,35 @@ const AttendanceSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
             )}
 
-            {/* GPS accuracy badge — shown after a successful GPS capture */}
             {gpsAccuracy !== null && !loadingLocation && (
-              <View style={[
-                styles.accuracyBadge,
-                gpsAccuracy <= 10 ? styles.accuracyGood :
-                gpsAccuracy <= 30 ? styles.accuracyOk : styles.accuracyPoor
-              ]}>
+              <View
+                style={[
+                  styles.accuracyBadge,
+                  gpsAccuracy <= 10
+                    ? styles.accuracyGood
+                    : gpsAccuracy <= 30
+                    ? styles.accuracyOk
+                    : styles.accuracyPoor,
+                ]}
+              >
                 <Ionicons
                   name="cellular-outline"
                   size={13}
                   color={gpsAccuracy <= 10 ? "#16a34a" : gpsAccuracy <= 30 ? "#d97706" : "#dc2626"}
                   style={{ marginRight: 5 }}
                 />
-                <Text style={[
-                  styles.accuracyText,
-                  { color: gpsAccuracy <= 10 ? "#16a34a" : gpsAccuracy <= 30 ? "#d97706" : "#dc2626" }
-                ]}>
+                <Text
+                  style={[
+                    styles.accuracyText,
+                    { color: gpsAccuracy <= 10 ? "#16a34a" : gpsAccuracy <= 30 ? "#d97706" : "#dc2626" },
+                  ]}
+                >
                   GPS Accuracy: ±{gpsAccuracy}m
                   {gpsAccuracy <= 10 ? "  ✓ Excellent" : gpsAccuracy <= 30 ? "  △ Moderate" : "  ✕ Poor — move outdoors"}
                 </Text>
               </View>
             )}
 
-            {/* Loading hint while GPS signal is being acquired */}
             {loadingLocation && (
               <View style={styles.gpsAcquiringRow}>
                 <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 8 }} />
@@ -548,33 +480,31 @@ const AttendanceSettingsScreen = ({ navigation }) => {
               </View>
             )}
 
-            {/* Map — always rendered to allow pinning */}
             <View style={styles.mapWrapper}>
               <WebView
                 ref={webViewRef}
                 style={styles.map}
-                originWhitelist={['*']}
+                originWhitelist={["*"]}
                 source={{ html: getLeafletHTML() }}
                 onMessage={handleWebViewMessage}
                 javaScriptEnabled={true}
                 domStorageEnabled={true}
               />
 
-              {/* Coordinates display or hint over map bottom */}
               <View style={styles.coordsOverlay}>
                 <Ionicons name="pin" size={13} color="#2563eb" style={{ marginRight: 5 }} />
                 <Text style={styles.coordsOverlayText}>
-                  {selectedLocation ? (
-                    `${selectedLocation.latitude.toFixed(6)}°, ${selectedLocation.longitude.toFixed(6)}°  ·  Radius: ${radiusMeters}m`
-                  ) : (
-                    "No Location Pinned"
-                  )}
+                  {selectedLocation
+                    ? `${selectedLocation.latitude.toFixed(6)}°, ${selectedLocation.longitude.toFixed(6)}°  ·  Radius: ${radiusMeters}m`
+                    : "No Location Pinned"}
                 </Text>
               </View>
 
               {isAdmin && (
                 <Text style={styles.mapHintText}>
-                  {selectedLocation ? "Drag the pin or tap anywhere on the map to reposition" : "Tap anywhere on the map to pin your office"}
+                  {selectedLocation
+                    ? "Drag the pin or tap anywhere on the map to reposition"
+                    : "Tap anywhere on the map to pin your office"}
                 </Text>
               )}
             </View>
@@ -588,35 +518,16 @@ const AttendanceSettingsScreen = ({ navigation }) => {
             </View>
 
             <View style={styles.inputGroup}>
-              {/* Label row with GPS auto-fill badge */}
-              <View style={styles.inputLabelRow}>
-                <Text style={styles.inputLabel}>Office Location Name *</Text>
-                {isGeocodingName && (
-                  <View style={styles.geocodingBadge}>
-                    <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 4 }} />
-                    <Text style={styles.geocodingBadgeText}>Fetching address...</Text>
-                  </View>
-                )}
-                {nameAutoFilled && !isGeocodingName && (
-                  <View style={styles.autoFilledBadge}>
-                    <Ionicons name="locate" size={11} color="#16a34a" style={{ marginRight: 3 }} />
-                    <Text style={styles.autoFilledBadgeText}>GPS auto-filled</Text>
-                  </View>
-                )}
-              </View>
+              <Text style={styles.inputLabel}>Office Location Name *</Text>
               <TextInput
-                style={[styles.input, !isAdmin && styles.inputDisabled, nameAutoFilled && styles.inputAutoFilled]}
+                style={[styles.input, !isAdmin && styles.inputDisabled]}
                 value={officeName}
-                onChangeText={(val) => {
-                  setOfficeName(val);
-                  setNameAutoFilled(false); // user is manually editing
-                }}
+                onChangeText={setOfficeName}
                 placeholder="e.g. Pune Headquarters"
                 editable={isAdmin}
               />
             </View>
 
-            {/* Show saved coords as text inputs for manual override */}
             <View style={styles.gridRow}>
               <View style={styles.gridCol}>
                 <Text style={styles.inputLabel}>Latitude</Text>
@@ -627,9 +538,9 @@ const AttendanceSettingsScreen = ({ navigation }) => {
                     setLatitudeInput(val);
                     const parsed = parseFloat(val);
                     if (!isNaN(parsed)) {
-                      setSelectedLocation(prev => ({
+                      setSelectedLocation((prev) => ({
                         latitude: parsed,
-                        longitude: prev ? prev.longitude : 72.8777
+                        longitude: prev ? prev.longitude : 72.8777,
                       }));
                     } else if (val === "") {
                       setSelectedLocation(null);
@@ -649,9 +560,9 @@ const AttendanceSettingsScreen = ({ navigation }) => {
                     setLongitudeInput(val);
                     const parsed = parseFloat(val);
                     if (!isNaN(parsed)) {
-                      setSelectedLocation(prev => ({
+                      setSelectedLocation((prev) => ({
                         latitude: prev ? prev.latitude : 18.5204,
-                        longitude: parsed
+                        longitude: parsed,
                       }));
                     } else if (val === "") {
                       setSelectedLocation(null);
@@ -700,11 +611,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
 
             <View style={styles.modeContainer}>
               <TouchableOpacity
-                style={[
-                  styles.modeChip,
-                  attendanceMode === "office_only" && styles.modeChipActive,
-                  !isAdmin && styles.modeChipDisabled,
-                ]}
+                style={[styles.modeChip, attendanceMode === "office_only" && styles.modeChipActive, !isAdmin && styles.modeChipDisabled]}
                 onPress={() => isAdmin && setAttendanceMode("office_only")}
                 activeOpacity={0.7}
               >
@@ -715,11 +622,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.modeChip,
-                  attendanceMode === "hybrid" && styles.modeChipActive,
-                  !isAdmin && styles.modeChipDisabled,
-                ]}
+                style={[styles.modeChip, attendanceMode === "hybrid" && styles.modeChipActive, !isAdmin && styles.modeChipDisabled]}
                 onPress={() => isAdmin && setAttendanceMode("hybrid")}
                 activeOpacity={0.7}
               >
@@ -730,11 +633,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.modeChip,
-                  attendanceMode === "remote_allowed" && styles.modeChipActive,
-                  !isAdmin && styles.modeChipDisabled,
-                ]}
+                style={[styles.modeChip, attendanceMode === "remote_allowed" && styles.modeChipActive, !isAdmin && styles.modeChipDisabled]}
                 onPress={() => isAdmin && setAttendanceMode("remote_allowed")}
                 activeOpacity={0.7}
               >
@@ -746,7 +645,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* ── VERIFICATION SWITCHES ─────────────────────────────────────── */}
+          {/* ── SECURITY RULES ───────────────────────────────────────────── */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="shield-checkmark" size={20} color="#2563eb" />
@@ -796,7 +695,7 @@ const AttendanceSettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
-          {/* ── LATE & EARLY LEAVE RULES ───────────────────────────────────── */}
+          {/* ── LATE & EARLY RULES ───────────────────────────────────────── */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="time" size={20} color="#2563eb" />
@@ -914,8 +813,6 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 48,
   },
-
-  // ── MAP CARD ────────────────────────────────────────────────
   mapCard: {
     backgroundColor: "#ffffff",
     borderRadius: 14,
@@ -940,7 +837,6 @@ const styles = StyleSheet.create({
     color: "#1e293b",
     marginLeft: 8,
   },
-
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -962,7 +858,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     fontStyle: "italic",
   },
-
   currentLocationBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -978,7 +873,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
-
   mapWrapper: {
     borderRadius: 12,
     overflow: "hidden",
@@ -1010,33 +904,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
     fontStyle: "italic",
   },
-
-  mapPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 36,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderStyle: "dashed",
-    backgroundColor: "#f8fafc",
-  },
-  mapPlaceholderTitle: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#94a3b8",
-    marginTop: 12,
-  },
-  mapPlaceholderSub: {
-    fontSize: 12,
-    color: "#cbd5e1",
-    textAlign: "center",
-    marginTop: 6,
-    paddingHorizontal: 20,
-    lineHeight: 17,
-  },
-
-  // ── SHARED SECTION CARD ─────────────────────────────────────
   sectionCard: {
     backgroundColor: "#ffffff",
     borderRadius: 12,
@@ -1088,53 +955,12 @@ const styles = StyleSheet.create({
     color: "#64748b",
     borderColor: "#e2e8f0",
   },
-  inputAutoFilled: {
-    borderColor: "#86efac",
-    backgroundColor: "#f0fdf4",
-  },
-  inputLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  geocodingBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: "auto",
-    backgroundColor: "#eff6ff",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  geocodingBadgeText: {
-    fontSize: 10.5,
-    color: "#2563eb",
-    fontWeight: "600",
-  },
-  autoFilledBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: "auto",
-    backgroundColor: "#f0fdf4",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: "#86efac",
-  },
-  autoFilledBadgeText: {
-    fontSize: 10.5,
-    color: "#16a34a",
-    fontWeight: "700",
-  },
   fieldHelpText: {
     fontSize: 11,
     color: "#94a3b8",
     marginTop: 4,
     lineHeight: 15,
   },
-
-  // ── MODES ───────────────────────────────────────────────────
   modeContainer: {
     marginTop: 4,
   },
@@ -1166,8 +992,6 @@ const styles = StyleSheet.create({
     color: "#2563eb",
     fontWeight: "700",
   },
-
-  // ── SWITCHES ────────────────────────────────────────────────
   switchRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -1191,8 +1015,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     lineHeight: 14,
   },
-
-  // ── SAVE ────────────────────────────────────────────────────
   saveBtn: {
     marginTop: 8,
   },
@@ -1216,8 +1038,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 16,
   },
-
-  // ── GPS ACCURACY ────────────────────────────────────────────
   accuracyBadge: {
     flexDirection: "row",
     alignItems: "center",

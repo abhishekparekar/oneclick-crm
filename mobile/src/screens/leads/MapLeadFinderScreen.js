@@ -69,9 +69,10 @@ export default function MapLeadFinderScreen() {
     } catch (_) {}
   };
 
-  const handleSearch = async (overrideKeyword, overrideCity) => {
+  const handleSearch = async (overrideKeyword, overrideCity, overrideLimit) => {
     const k = (overrideKeyword !== undefined ? overrideKeyword : keyword).trim();
     const c = (overrideCity !== undefined ? overrideCity : city).trim();
+    const l = overrideLimit !== undefined ? overrideLimit : limit;
 
     if (!k && !c) {
       Alert.alert("Required", "Please enter a business category or city to search.");
@@ -85,7 +86,7 @@ export default function MapLeadFinderScreen() {
       const res = await leadsService.searchMapPlaces({
         keyword: k || "Businesses",
         city: c || "Mumbai",
-        limit,
+        limit: l,
       });
 
       const list = Array.isArray(res?.places) ? res.places : [];
@@ -316,6 +317,42 @@ export default function MapLeadFinderScreen() {
             );
           })}
         </ScrollView>
+
+        {/* Limit Selector Chips (5, 10, 15, 20, 25) */}
+        <View style={{ flexDirection: "row", alignItems: "center", marginTop: 8 }}>
+          <Text style={{ fontSize: 11, fontWeight: "800", color: "#64748B", marginRight: 8 }}>
+            Limit:
+          </Text>
+          <View style={{ flexDirection: "row", gap: 6, flexWrap: "wrap" }}>
+            {[5, 10, 15, 20, 25].map((lim) => {
+              const isSel = limit === lim;
+              return (
+                <TouchableOpacity
+                  key={lim}
+                  style={[
+                    styles.cityChip,
+                    { paddingHorizontal: 10, paddingVertical: 3 },
+                    isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                  ]}
+                  onPress={() => {
+                    setLimit(lim);
+                    handleSearch(keyword, city, lim);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.cityChipText,
+                      isSel && { color: "#FFFFFF", fontWeight: "900" },
+                    ]}
+                  >
+                    {lim}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
       </View>
 
       {/* ── PLACES LIST & RESULTS ──────────────────────────────────── */}

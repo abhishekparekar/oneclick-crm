@@ -1112,7 +1112,7 @@ export default function Leads() {
             onClick={() => setShowMapPlacesModal(true)} 
             className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
-            <MapPin size={13} className="text-blue-600 dark:text-blue-400" /> Map Scraping
+            <MapPin size={13} className="text-blue-600 dark:text-blue-400" /> Map Leads
           </button>
 
           <button 

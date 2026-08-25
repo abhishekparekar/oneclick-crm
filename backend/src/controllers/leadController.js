@@ -2880,17 +2880,6 @@ const importMapLeads = async (req, res) => {
       skippedCount,
       leads: createdLeads,
     });
-
-      createdLeads.push(newLead);
-    }
-
-    return res.json({
-      success: true,
-      message: `Successfully imported ${createdLeads.length} leads from Maps! (${skippedCount} duplicates skipped)`,
-      createdCount: createdLeads.length,
-      skippedCount,
-      leads: createdLeads,
-    });
   } catch (err) {
     console.error("[importMapLeads error]:", err);
     return res.status(500).json({ success: false, message: err.message });

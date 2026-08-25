@@ -7,11 +7,12 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
-import { useAppData } from "../context/AppDataContext";
 import { FONTS } from "../theme/tokens";
 
 const buildEmployeeSections = (hasPermission) => {
@@ -19,42 +20,110 @@ const buildEmployeeSections = (hasPermission) => {
 
   return [
     {
-      title: "Core Dashboard",
+      title: "Work & Tasks",
       items: [
-        { label: "Dashboard", screen: "EmployeeDashboard", icon: "grid-outline" },
-        { label: "My Projects", screen: "MyProjects", icon: "folder-open-outline" },
-        { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline" },
-        ...(canAccessLeads ? [
-          { label: "Lead Management", screen: "LeadsEngine", icon: "magnet-outline" }
-        ] : []),
-        { label: "My Profile", screen: "EmployeeProfile", icon: "person-outline" },
-        { label: "My Documents", screen: "EmployeeDocuments", icon: "document-text-outline" },
+        {
+          label: "Dashboard",
+          screen: "EmployeeDashboard",
+          icon: "grid-outline",
+          activeIcon: "grid",
+          color: "#2563EB",
+        },
+        {
+          label: "My Tasks",
+          screen: "Tasks",
+          icon: "albums-outline",
+          activeIcon: "albums",
+          color: "#059669",
+          module: "tasks",
+        },
+        {
+          label: "My Projects",
+          screen: "MyProjects",
+          icon: "folder-open-outline",
+          activeIcon: "folder-open",
+          color: "#2563EB",
+        },
+        ...(canAccessLeads
+          ? [
+              {
+                label: "Lead Management",
+                screen: "LeadsEngine",
+                icon: "magnet-outline",
+                activeIcon: "magnet",
+                color: "#7C3AED",
+              },
+            ]
+          : []),
+        {
+          label: "Company Requests",
+          screen: "CompanyRequests",
+          icon: "chatbubbles-outline",
+          activeIcon: "chatbubbles",
+          color: "#0284C7",
+        },
       ],
     },
-    ...(canAccessLeads ? [
-      {
-        title: "Lead Engine CRM",
-        items: [
-          { label: "Leads Pipeline", screen: "LeadsEngine", icon: "magnet-outline" },
-        ],
-      }
-    ] : []),
     {
-      title: "Staff & Work",
+      title: "Attendance & Time Off",
       items: [
-        { label: "My Projects", screen: "MyProjects", icon: "folder-open-outline" },
-        { label: "My Attendance", screen: "Attendance", icon: "calendar-outline", module: "attendance" },
-        { label: "My Tasks", screen: "Tasks", icon: "albums-outline", module: "tasks" },
-        { label: "Leave", screen: "Leave", icon: "document-text-outline", module: "leave" },
-        { label: "Payslips", screen: "Payslips", icon: "receipt-outline", module: "payroll" },
+        {
+          label: "My Attendance",
+          screen: "Attendance",
+          icon: "calendar-outline",
+          activeIcon: "calendar",
+          color: "#D97706",
+          module: "attendance",
+        },
+        {
+          label: "Leave Applications",
+          screen: "Leave",
+          icon: "time-outline",
+          activeIcon: "time",
+          color: "#EA580C",
+          module: "leave",
+        },
+        {
+          label: "My Payslips",
+          screen: "Payslips",
+          icon: "receipt-outline",
+          activeIcon: "receipt",
+          color: "#16A34A",
+          module: "payroll",
+        },
       ],
     },
     {
-      title: "Support & Communication",
+      title: "Account & Notices",
       items: [
-        { label: "Notifications", screen: "Notifications", icon: "notifications-outline" },
-        { label: "Announcements", screen: "Announcements", icon: "megaphone-outline" },
-        { label: "Settings", screen: "Settings", icon: "settings-outline" },
+        {
+          label: "My Profile",
+          screen: "EmployeeProfile",
+          icon: "person-outline",
+          activeIcon: "person",
+          color: "#4F46E5",
+        },
+        {
+          label: "My Documents",
+          screen: "EmployeeDocuments",
+          icon: "document-text-outline",
+          activeIcon: "document-text",
+          color: "#0891B2",
+        },
+        {
+          label: "Announcements",
+          screen: "Announcements",
+          icon: "megaphone-outline",
+          activeIcon: "megaphone",
+          color: "#E11D48",
+        },
+        {
+          label: "Notifications",
+          screen: "Notifications",
+          icon: "notifications-outline",
+          activeIcon: "notifications",
+          color: "#8B5CF6",
+        },
       ],
     },
   ];
@@ -63,7 +132,6 @@ const buildEmployeeSections = (hasPermission) => {
 const EmployeeDrawerContent = (props) => {
   const { state, navigation } = props;
   const { user, logout, hasPermission } = useAuth();
-  const { employeeDashboard } = useAppData();
   const insets = useSafeAreaInsets();
   const [imgError, setImgError] = useState(false);
 
@@ -82,7 +150,6 @@ const EmployeeDrawerContent = (props) => {
 
   const handleNavigate = (item) => {
     const screenName = typeof item === "string" ? item : item.screen;
-    const targetScreen = typeof item === "object" && item.targetScreen ? item.targetScreen : null;
     const itemParams = typeof item === "object" && item.params ? item.params : {};
 
     const bottomTabs = [
@@ -110,10 +177,10 @@ const EmployeeDrawerContent = (props) => {
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Logout",
+        text: "Sign Out",
         style: "destructive",
         onPress: () => {
           navigation.closeDrawer();
@@ -124,79 +191,104 @@ const EmployeeDrawerContent = (props) => {
   };
 
   const getInitials = (name) => {
-    if (!name) return "EE";
+    if (!name) return "EM";
     const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.slice(0, 2).toUpperCase();
   };
 
-  // Get department / designation from cached dashboard profile
-  const profile = employeeDashboard?.employee;
-  const subtitle = profile
-    ? `${profile.designationId?.name || ""} (${profile.departmentId?.name || ""})`
-    : user?.role || "Team Member";
-
-  const photoUrl = profile?.photo?.trim() || user?.photo || user?.avatar || user?.profilePicture || "";
-  const showPlaceholder = !photoUrl || imgError;
-
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      {/* Profile Header Card */}
-      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.avatar}>
-          {showPlaceholder ? (
-            <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-          ) : (
-            <Image
-              source={{ uri: photoUrl }}
-              style={{ width: "100%", height: "100%", borderRadius: 26 }}
-              onError={() => setImgError(true)}
-            />
-          )}
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {user?.name || "Team Member"}
-          </Text>
-          <Text style={styles.companyName} numberOfLines={1}>
-            {user?.companyName || "One Click Business"}
-          </Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleBadgeText}>
-              {subtitle.toUpperCase()}
-            </Text>
-          </View>
-        </View>
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
 
-      {/* Menu List */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* ── COMPACT PROFILE HEADER ──────────────────────────────────── */}
+      <LinearGradient
+        colors={["#071A2F", "#0B2346", "#0E3260"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}
+      >
+        <View style={styles.headerTopRow}>
+          <View style={styles.avatarWrapper}>
+            {user?.photo && !imgError ? (
+              <Image
+                source={{ uri: user.photo }}
+                style={styles.avatarImg}
+                onError={() => setImgError(true)}
+              />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+              </View>
+            )}
+            <View style={styles.onlineDot} />
+          </View>
+
+          <View style={styles.headerUserInfo}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {user?.name || "Employee"}
+            </Text>
+            <Text style={styles.userEmail} numberOfLines={1}>
+              {user?.email || user?.companyName || "Organization"}
+            </Text>
+            <View style={styles.roleBadge}>
+              <View style={styles.roleDot} />
+              <Text style={styles.roleText}>Team Member</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => navigation.closeDrawer()}
+            style={styles.closeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* ── COMPACT NAVIGATION LIST ─────────────────────────────────── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {sections.map((section) => {
           const visibleItems = section.items;
-
-          if (!visibleItems || visibleItems.length === 0) return null;
-
+          if (visibleItems.length === 0) return null;
           return (
-            <View key={section.title} style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionLabel}>{section.title}</Text>
               {visibleItems.map((item) => {
-                const isActive = activeRouteName === item.screen;
+                const active = activeRouteName === item.screen;
                 return (
                   <TouchableOpacity
                     key={item.label}
                     onPress={() => handleNavigate(item)}
-                    style={[styles.menuItem, isActive && styles.menuItemActive]}
+                    style={[styles.navItem, active && styles.navItemActive]}
                     activeOpacity={0.7}
                   >
-                    <Ionicons
-                      name={item.icon}
-                      size={20}
-                      color={isActive ? "#1268D9" : "#475569"}
-                      style={styles.menuIcon}
-                    />
-                    <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
+                    {active && <View style={[styles.activeBar, { backgroundColor: item.color }]} />}
+                    <View
+                      style={[
+                        styles.iconBox,
+                        active
+                          ? { backgroundColor: item.color + "18" }
+                          : { backgroundColor: "#F1F5F9" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={active ? item.activeIcon : item.icon}
+                        size={18}
+                        color={active ? item.color : "#475569"}
+                      />
+                    </View>
+                    <Text
+                      style={[
+                        styles.navLabel,
+                        active && { color: item.color, fontFamily: FONTS.bodyBold },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {item.label}
                     </Text>
                   </TouchableOpacity>
@@ -206,150 +298,181 @@ const EmployeeDrawerContent = (props) => {
           );
         })}
 
-        {/* Logout Item */}
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutItem} activeOpacity={0.7}>
-          <Ionicons name="log-out-outline" size={22} color="#dc2626" style={styles.menuIcon} />
-          <Text style={styles.logoutText}>Logout</Text>
+        <View style={styles.divider} />
+
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
+          <View style={styles.logoutIconBox}>
+            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          </View>
+          <Text style={styles.logoutLabel}>Sign Out</Text>
         </TouchableOpacity>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerVersion}>One Click HRMS  •  v2.4.0</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
+  container: { flex: 1, backgroundColor: "#FFFFFF" },
   header: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    paddingBottom: 18,
-    paddingHorizontal: 16,
-    backgroundColor: "#071A2F",
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    shadowColor: "#071A2F",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
-    marginBottom: 12,
   },
-  avatar: {
+  closeBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginLeft: 8,
+  },
+  avatarWrapper: {
+    position: "relative",
+    width: 52,
+    height: 52,
+    marginRight: 13,
+  },
+  avatarImg: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#1268D9",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1D4ED8",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.4)",
-    elevation: 4,
-    shadowColor: "#1268D9",
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    overflow: "hidden",
+    borderColor: "rgba(255,255,255,0.25)",
   },
-  avatarText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontFamily: FONTS.displayBold,
+  avatarText: { color: "#FFFFFF", fontSize: 18, fontFamily: FONTS.displayBold, fontWeight: "700" },
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: "#22C55E",
+    borderWidth: 2,
+    borderColor: "#071A2F",
   },
-  profileInfo: {
-    marginLeft: 14,
+  headerUserInfo: {
     flex: 1,
     justifyContent: "center",
   },
   userName: {
     fontFamily: FONTS.displayBold,
+    fontWeight: "700",
     fontSize: 16,
-    color: "#ffffff",
-    textAlign: "left",
+    color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
-  companyName: {
-    fontFamily: FONTS.bodySemiBold,
-    fontSize: 11.5,
-    color: "#94A3B8",
-    marginTop: 2,
-    textAlign: "left",
+  userEmail: {
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 1.5,
+    marginBottom: 5,
   },
   roleBadge: {
-    backgroundColor: "rgba(18, 104, 217, 0.2)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    marginTop: 4,
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "flex-start",
+    backgroundColor: "rgba(56,189,248,0.15)",
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.3)",
   },
-  roleBadgeText: {
+  roleDot: { width: 5, height: 5, borderRadius: 2.5, backgroundColor: "#38BDF8", marginRight: 5 },
+  roleText: { fontFamily: FONTS.bodyBold, fontWeight: "700", fontSize: 10, color: "#38BDF8", letterSpacing: 0.3 },
+
+  scrollContent: { paddingTop: 4, paddingBottom: 16 },
+  section: { marginBottom: 2 },
+  sectionLabel: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 9.5,
-    color: "#2F8BFF",
-    letterSpacing: 0.6,
+    fontWeight: "700",
+    fontSize: 10,
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  scrollContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-  },
-  sectionContainer: {
-    marginBottom: 10,
-  },
-  sectionTitle: {
-    fontFamily: FONTS.displayBold,
-    fontSize: 10.5,
-    color: "#64748B",
-    marginLeft: 16,
-    marginBottom: 6,
-    marginTop: 8,
-    letterSpacing: 1.2,
-  },
-  menuItem: {
+  navItem: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 8.5,
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginHorizontal: 8,
-    borderRadius: 10,
-    marginBottom: 3,
-    borderLeftWidth: 0,
+    position: "relative",
   },
-  menuItemActive: {
-    backgroundColor: "rgba(18, 104, 217, 0.08)",
-    borderLeftWidth: 3.5,
-    borderLeftColor: "#1268D9",
+  navItemActive: { backgroundColor: "#F0F6FF" },
+  activeBar: {
+    position: "absolute",
+    left: 0,
+    top: 6,
+    bottom: 6,
+    width: 3.5,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
   },
-  menuIcon: {
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
-    width: 22,
-    textAlign: "center",
   },
-  menuText: {
-    fontFamily: FONTS.bodySemiBold,
-    fontSize: 13,
-    color: "#475569",
+  navLabel: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontWeight: "500",
+    fontSize: 13.5,
+    color: "#334155",
   },
-  menuTextActive: {
-    fontFamily: FONTS.bodyBold,
-    color: "#1268D9",
-  },
-  logoutItem: {
+  divider: { height: 1, backgroundColor: "#F1F5F9", marginHorizontal: 16, marginVertical: 6 },
+  logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 8.5,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-    paddingTop: 16,
   },
-  logoutText: {
-    fontFamily: FONTS.bodySemiBold,
+  logoutIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  logoutLabel: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontWeight: "500",
     fontSize: 13.5,
-    color: "#EF4444",
+    color: "#DC2626",
   },
+  footer: { alignItems: "center", paddingTop: 12, paddingBottom: 6 },
+  footerVersion: { fontFamily: FONTS.body, fontSize: 10.5, color: "#CBD5E1", letterSpacing: 0.2 },
 });
 
 export default EmployeeDrawerContent;

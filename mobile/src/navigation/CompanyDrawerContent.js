@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -14,135 +14,194 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { useLayout } from "../context/LayoutContext";
-import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../theme/tokens";
+import { FONTS } from "../theme/tokens";
 
-const SIDEBAR_SECTIONS = [
+// ── NAVIGATION SECTIONS ───────────────────────────────────────────────────────
+const NATIVE_SECTIONS = [
   {
-    title: "Core Dashboard",
+    title: "Operations & Work",
     items: [
-      { label: "Dashboard", screen: "CompanyDashboard", icon: "grid-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Projects", screen: "ProjectList", icon: "folder-open-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Lead Engine CRM", screen: "LeadsEngine", targetScreen: "LeadsDashboard", icon: "magnet-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Company Attendance", screen: "CompanyAttendance", icon: "calendar-outline", roles: ["CompanyAdmin", "HR"], module: "attendance" },
-      { label: "Task Board", screen: "TaskBoard", icon: "albums-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
-      { label: "Company Profile", screen: "CompanyProfile", icon: "business-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Send Document", screen: "UploadDocument", icon: "document-attach-outline", roles: ["CompanyAdmin", "HR"] },
-    ]
+      {
+        label: "Dashboard",
+        screen: "CompanyDashboard",
+        icon: "grid-outline",
+        activeIcon: "grid",
+        color: "#2563EB",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Task Management",
+        screen: "TaskBoard",
+        icon: "albums-outline",
+        activeIcon: "albums",
+        color: "#059669",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Lead Engine",
+        screen: "LeadsEngine",
+        targetScreen: "LeadsDashboard",
+        icon: "magnet-outline",
+        activeIcon: "magnet",
+        color: "#7C3AED",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "All Projects",
+        screen: "ProjectList",
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+        color: "#0891B2",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Company Requests",
+        screen: "CompanyRequests",
+        icon: "chatbubbles-outline",
+        activeIcon: "chatbubbles",
+        color: "#6366F1",
+        roles: ["CompanyAdmin", "HR"],
+      },
+    ],
   },
   {
-    title: "Projects & Work",
+    title: "Team & Time Off",
     items: [
-      { label: "All Projects", screen: "ProjectList", icon: "folder-open-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Create Project", screen: "CompanyCreateProject", icon: "add-circle-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Task Board", screen: "TaskBoard", icon: "albums-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
-      { label: "Create Task", screen: "CompanyCreateTask", icon: "checkbox-outline", roles: ["CompanyAdmin", "HR"], module: "tasks" },
-    ]
+      {
+        label: "Team Members",
+        screen: "EmployeeList",
+        icon: "people-outline",
+        activeIcon: "people",
+        color: "#4F46E5",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Attendance Tracker",
+        screen: "CompanyAttendance",
+        icon: "calendar-outline",
+        activeIcon: "calendar",
+        color: "#D97706",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Leave Management",
+        screen: "LeaveRequests",
+        icon: "time-outline",
+        activeIcon: "time",
+        color: "#EA580C",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Regularization",
+        screen: "RegularizationApproval",
+        icon: "checkmark-done-circle-outline",
+        activeIcon: "checkmark-done-circle",
+        color: "#0D9488",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Holiday Calendar",
+        screen: "HolidayList",
+        icon: "flag-outline",
+        activeIcon: "flag",
+        color: "#DC2626",
+        roles: ["CompanyAdmin", "HR"],
+      },
+    ],
   },
   {
-    title: "Lead Engine & WhatsApp",
+    title: "Payroll & Finance",
     items: [
-      { label: "Leads Pipeline", screen: "LeadsEngine", targetScreen: "LeadsDashboard", icon: "magnet-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "WhatsApp Drips", screen: "LeadsEngine", targetScreen: "LeadCampaigns", icon: "water-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "WhatsApp Campaigns", screen: "LeadsEngine", targetScreen: "LeadCampaigns", icon: "logo-whatsapp", roles: ["CompanyAdmin", "HR"] },
-      { label: "Service Reminders", screen: "LeadsEngine", targetScreen: "LeadReminders", icon: "alarm-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Lead Settings", screen: "LeadsEngine", targetScreen: "LeadSettings", icon: "settings-outline", roles: ["CompanyAdmin", "HR"] },
-    ]
+      {
+        label: "Payroll History",
+        screen: "PayrollList",
+        icon: "receipt-outline",
+        activeIcon: "receipt",
+        color: "#16A34A",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Salary Structures",
+        screen: "SalaryStructureList",
+        icon: "cash-outline",
+        activeIcon: "cash",
+        color: "#0891B2",
+        roles: ["CompanyAdmin", "HR"],
+      },
+    ],
   },
   {
-    title: "Organization Setup",
+    title: "Administration",
     items: [
-      { label: "Departments", screen: "DepartmentList", icon: "git-branch-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Designations", screen: "DesignationList", icon: "ribbon-outline", roles: ["HR"] },
-      { label: "Branches", screen: "BranchList", icon: "map-outline", roles: ["CompanyAdmin", "HR"] },
-    ]
+      {
+        label: "Company Profile",
+        screen: "CompanyProfile",
+        icon: "business-outline",
+        activeIcon: "business",
+        color: "#475569",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Announcements",
+        screen: "CompanyAnnouncements",
+        icon: "megaphone-outline",
+        activeIcon: "megaphone",
+        color: "#E11D48",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Send Document",
+        screen: "UploadDocument",
+        icon: "document-attach-outline",
+        activeIcon: "document-attach",
+        color: "#6366F1",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Reports & Insights",
+        screen: "CompanyReportsDashboard",
+        icon: "pie-chart-outline",
+        activeIcon: "pie-chart",
+        color: "#8B5CF6",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "Office Geo-fencing",
+        screen: "AttendanceSettings",
+        icon: "locate-outline",
+        activeIcon: "locate",
+        color: "#059669",
+        roles: ["CompanyAdmin", "HR"],
+      },
+      {
+        label: "System Settings",
+        screen: "CompanySettings",
+        icon: "settings-outline",
+        activeIcon: "settings",
+        color: "#334155",
+        roles: ["CompanyAdmin"],
+      },
+    ],
   },
-  {
-    title: "Staff Management",
-    items: [
-      { label: "Employees List", screen: "EmployeeList", icon: "people-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Add Employee", screen: "AddEmployee", icon: "person-add-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Regularization Approvals", screen: "RegularizationApproval", icon: "checkmark-done-circle-outline", roles: ["CompanyAdmin", "HR"], module: "attendance" },
-    ]
-  },
-  {
-    title: "Time Off & Holidays",
-    items: [
-      { label: "Leave Requests", screen: "LeaveRequests", icon: "document-text-outline", roles: ["CompanyAdmin", "HR"], module: "leave" },
-      { label: "Leave Balances", screen: "LeaveBalance", icon: "hourglass-outline", roles: ["CompanyAdmin", "HR"], module: "leave" },
-      { label: "Holiday Calendar", screen: "HolidayList", icon: "flag-outline", roles: ["CompanyAdmin", "HR"], module: "leave" },
-    ]
-  },
-  {
-    title: "Payroll & Compensation",
-    items: [
-      { label: "Salary Structures", screen: "SalaryStructureList", icon: "cash-outline", roles: ["CompanyAdmin", "HR"], module: "payroll" },
-      { label: "Payroll History", screen: "PayrollList", icon: "receipt-outline", roles: ["CompanyAdmin", "HR"], module: "payroll" },
-      { label: "Generate Payroll", screen: "GeneratePayroll", icon: "calculator-outline", roles: ["CompanyAdmin", "HR"], module: "payroll" },
-    ]
-  },
-  {
-    title: "Communication & Control",
-    items: [
-      { label: "Announcements", screen: "CompanyAnnouncements", icon: "megaphone-outline", roles: ["CompanyAdmin", "HR"] },
-      { label: "Office Location Settings", screen: "AttendanceSettings", icon: "locate-outline", roles: ["CompanyAdmin", "HR"], module: "attendance" },
-      { label: "Access & Control", screen: "AccessControl", icon: "shield-outline", roles: ["CompanyAdmin"] },
-      { label: "System Settings", screen: "CompanySettings", icon: "settings-outline", roles: ["CompanyAdmin"] },
-      { label: "Audit Logs", screen: "CompanyAuditLogs", icon: "shield-checkmark-outline", roles: ["CompanyAdmin"] },
-    ]
-  },
-  {
-    title: "Reports & Analytics",
-    items: [
-      { label: "Reports Dashboard", screen: "CompanyReportsDashboard", icon: "pie-chart-outline", roles: ["CompanyAdmin", "HR"], module: "reports" },
-      { label: "Performance Report", screen: "PerformanceReport", icon: "trending-up-outline", roles: ["CompanyAdmin", "HR"], module: "reports" },
-    ]
-  }
 ];
 
 const CompanyDrawerContent = (props) => {
   const { navigation } = props;
   const { user, logout } = useAuth();
   const layout = useLayout();
-
-  const userRole = user?.role || "CompanyAdmin";
   const insets = useSafeAreaInsets();
 
+  const userRole = user?.role || "CompanyAdmin";
   const activeTabVal = layout ? layout.activeTab : "Dashboard";
 
-  const isItemActive = (item) => {
-    return activeTabVal === item.label ||
-           activeTabVal === item.screen ||
-           (activeTabVal === "Team Members" && item.label === "Employees List") ||
-           (activeTabVal === "Attendance" && item.label === "Company Attendance") ||
-           (activeTabVal === "Leaves" && item.label === "Leave Requests") ||
-           (activeTabVal === "Tasks" && item.label === "Task Board") ||
-           (activeTabVal === "Projects" && item.label === "Projects");
-  };
-
-  const [expandedSections, setExpandedSections] = useState({
-    "Core Dashboard": true,
-    "Lead Engine & WhatsApp": true,
-  });
-
-  useEffect(() => {
-    SIDEBAR_SECTIONS.forEach(section => {
-      const containsActive = section.items.some(item => isItemActive(item));
-      if (containsActive) {
-        setExpandedSections(prev => ({
-          ...prev,
-          [section.title]: true
-        }));
-      }
-    });
-  }, [activeTabVal]);
-
-  const toggleSection = (title) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [title]: !prev[title]
-    }));
-  };
+  const isItemActive = (item) =>
+    activeTabVal === item.label ||
+    activeTabVal === item.screen ||
+    (activeTabVal === "Team Members" && item.label === "Team Members") ||
+    (activeTabVal === "Attendance" && item.label === "Attendance Tracker") ||
+    (activeTabVal === "Leaves" && item.label === "Leave Management") ||
+    (activeTabVal === "Tasks" && item.label === "Task Management") ||
+    (activeTabVal === "Projects" && item.label === "All Projects");
 
   const handleNavigate = (item) => {
     const screenName = typeof item === "string" ? item : item.screen;
@@ -160,10 +219,10 @@ const CompanyDrawerContent = (props) => {
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
       {
-        text: "Logout",
+        text: "Sign Out",
         style: "destructive",
         onPress: () => {
           navigation.closeDrawer();
@@ -176,24 +235,23 @@ const CompanyDrawerContent = (props) => {
   const getInitials = (name) => {
     if (!name) return "CA";
     const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.slice(0, 2).toUpperCase();
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
 
-      {/* Dark Obsidian Hero Header */}
+      {/* ── COMPACT PROFILE HEADER ──────────────────────────────────── */}
       <LinearGradient
-        colors={['#071A2F', '#082B52']}
-        style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 16) + 10 }]}
+        colors={["#071A2F", "#0B2346", "#0E3260"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}
       >
         <View style={styles.headerTopRow}>
-          {/* Avatar with Glow Circle */}
-          <View style={styles.avatarGlow}>
+          <View style={styles.avatarWrapper}>
             {user?.photo ? (
               <Image source={{ uri: user.photo }} style={styles.avatarImg} />
             ) : (
@@ -201,67 +259,82 @@ const CompanyDrawerContent = (props) => {
                 <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
               </View>
             )}
+            <View style={styles.onlineDot} />
           </View>
 
-          {/* User Info */}
-          <View style={styles.userInfo}>
+          <View style={styles.headerUserInfo}>
             <Text style={styles.userName} numberOfLines={1}>
               {user?.name || "Company Admin"}
             </Text>
-            <Text style={styles.userCompany} numberOfLines={1}>
-              {user?.companyName || "Organization"}
+            <Text style={styles.userEmail} numberOfLines={1}>
+              {user?.email || user?.companyName || "Organization"}
             </Text>
             <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>{userRole}</Text>
+              <View style={styles.roleDot} />
+              <Text style={styles.roleText}>{userRole}</Text>
             </View>
           </View>
+
+          <TouchableOpacity
+            onPress={() => navigation.closeDrawer()}
+            style={styles.closeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
-      {/* Menu List */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {SIDEBAR_SECTIONS.map((section) => {
-          const visibleItems = section.items.filter(item =>
+      {/* ── COMPACT NAVIGATION LIST ─────────────────────────────────── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {NATIVE_SECTIONS.map((section) => {
+          const visibleItems = section.items.filter((item) =>
             item.roles.includes(userRole)
           );
-          
           if (visibleItems.length === 0) return null;
 
-          const isExpanded = !!expandedSections[section.title];
-
           return (
-            <View key={section.title} style={styles.sectionContainer}>
-              <TouchableOpacity
-                style={styles.sectionHeaderBtn}
-                activeOpacity={0.7}
-                onPress={() => toggleSection(section.title)}
-              >
-                <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
-                <Ionicons
-                  name={isExpanded ? "chevron-down" : "chevron-forward"}
-                  size={14}
-                  color="#1268D9"
-                />
-              </TouchableOpacity>
-              
-              {isExpanded && visibleItems.map((item) => {
-                const isActive = isItemActive(item);
-
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionLabel}>{section.title}</Text>
+              {visibleItems.map((item) => {
+                const active = isItemActive(item);
                 return (
                   <TouchableOpacity
                     key={item.label}
                     onPress={() => handleNavigate(item)}
-                    style={[styles.menuItem, isActive && styles.menuItemActive]}
-                    activeOpacity={0.8}
+                    style={[styles.navItem, active && styles.navItemActive]}
+                    activeOpacity={0.7}
                   >
-                    {isActive && <View style={styles.activePillBar} />}
-                    <Ionicons
-                      name={item.icon}
-                      size={18}
-                      color={isActive ? "#1268D9" : "#64748B"}
-                      style={styles.menuIcon}
-                    />
-                    <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
+                    {/* Active indicator bar */}
+                    {active && <View style={[styles.activeBar, { backgroundColor: item.color }]} />}
+
+                    {/* Icon */}
+                    <View
+                      style={[
+                        styles.iconBox,
+                        active
+                          ? { backgroundColor: item.color + "18" }
+                          : { backgroundColor: "#F1F5F9" },
+                      ]}
+                    >
+                      <Ionicons
+                        name={active ? item.activeIcon : item.icon}
+                        size={18}
+                        color={active ? item.color : "#475569"}
+                      />
+                    </View>
+
+                    {/* Label */}
+                    <Text
+                      style={[
+                        styles.navLabel,
+                        active && { color: item.color, fontFamily: FONTS.bodyBold },
+                      ]}
+                      numberOfLines={1}
+                    >
                       {item.label}
                     </Text>
                   </TouchableOpacity>
@@ -271,11 +344,25 @@ const CompanyDrawerContent = (props) => {
           );
         })}
 
-        {/* Logout Row */}
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.8}>
-          <Ionicons name="log-out-outline" size={18} color="#EF4444" style={styles.menuIcon} />
-          <Text style={styles.logoutText}>Logout Account</Text>
+        {/* ── DIVIDER ─────────────────────────────────────────────── */}
+        <View style={styles.divider} />
+
+        {/* ── LOGOUT ──────────────────────────────────────────────── */}
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={styles.logoutBtn}
+          activeOpacity={0.7}
+        >
+          <View style={styles.logoutIconBox}>
+            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          </View>
+          <Text style={styles.logoutLabel}>Sign Out</Text>
         </TouchableOpacity>
+
+        {/* ── APP FOOTER ──────────────────────────────────────────── */}
+        <View style={styles.footer}>
+          <Text style={styles.footerVersion}>One Click HRMS  •  v2.4.0</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -286,152 +373,212 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#FFFFFF",
   },
-  headerGradient: {
-    paddingHorizontal: 16,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    ...SHADOWS.md,
+
+  // ── HEADER ──────────────────────────────────────────────────────────
+  header: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
   },
   headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
   },
-  avatarGlow: {
-    marginRight: 14,
+  closeBtn: {
+    width: 30,
+    height: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginLeft: 8,
+  },
+  avatarWrapper: {
+    position: "relative",
+    width: 52,
+    height: 52,
+    marginRight: 13,
   },
   avatarImg: {
     width: 52,
     height: 52,
     borderRadius: 26,
     borderWidth: 2,
-    borderColor: "#1268D9",
+    borderColor: "rgba(255,255,255,0.35)",
   },
   avatarCircle: {
     width: 52,
     height: 52,
     borderRadius: 26,
-    backgroundColor: "#1268D9",
+    backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 2,
-    borderColor: "rgba(255, 255, 255, 0.4)",
-    shadowColor: "#1268D9",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    elevation: 4,
+    borderColor: "rgba(255,255,255,0.25)",
   },
   avatarText: {
     color: "#FFFFFF",
     fontSize: 18,
     fontFamily: FONTS.displayBold,
+    fontWeight: "700",
   },
-  userInfo: {
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: "#22C55E",
+    borderWidth: 2,
+    borderColor: "#071A2F",
+  },
+  headerUserInfo: {
     flex: 1,
+    justifyContent: "center",
   },
   userName: {
     fontFamily: FONTS.displayBold,
+    fontWeight: "700",
     fontSize: 16,
     color: "#FFFFFF",
     letterSpacing: -0.2,
   },
-  userCompany: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 11.5,
-    color: "#94A3B8",
-    marginTop: 1,
+  userEmail: {
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 1.5,
+    marginBottom: 5,
   },
   roleBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(18, 104, 217, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(18, 104, 217, 0.4)",
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    marginTop: 5,
     alignSelf: "flex-start",
+    backgroundColor: "rgba(56,189,248,0.15)",
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: "rgba(56,189,248,0.3)",
   },
-  roleBadgeText: {
+  roleDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#38BDF8",
+    marginRight: 5,
+  },
+  roleText: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 9.5,
-    color: "#2F8BFF",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    fontSize: 10,
+    color: "#38BDF8",
+    letterSpacing: 0.3,
   },
+
+  // ── SCROLL CONTENT ───────────────────────────────────────────────────
   scrollContent: {
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
-  sectionContainer: {
-    marginBottom: 8,
+
+  // ── SECTION ─────────────────────────────────────────────────────────
+  section: {
+    marginBottom: 2,
   },
-  sectionHeaderBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  sectionTitle: {
+  sectionLabel: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 10.5,
-    color: "#475569",
-    letterSpacing: 0.8,
+    fontWeight: "700",
+    fontSize: 10,
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  menuItem: {
+
+  // ── NAV ITEM (COMPACT, NO CHEVRON) ──────────────────────────────────
+  navItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    marginBottom: 3,
+    paddingVertical: 8.5,
+    paddingHorizontal: 16,
     position: "relative",
   },
-  menuItemActive: {
-    backgroundColor: "rgba(18, 104, 217, 0.08)",
+  navItemActive: {
+    backgroundColor: "#F0F6FF",
   },
-  activePillBar: {
+  activeBar: {
     position: "absolute",
     left: 0,
     top: 6,
     bottom: 6,
     width: 3.5,
-    backgroundColor: "#1268D9",
-    borderTopRightRadius: 2,
-    borderBottomRightRadius: 2,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
   },
-  menuIcon: {
-    marginRight: 10,
-    width: 20,
-    textAlign: "center",
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
   },
-  menuText: {
+  navLabel: {
+    flex: 1,
     fontFamily: FONTS.bodyMedium,
-    fontSize: 13,
-    color: "#475569",
+    fontWeight: "500",
+    fontSize: 13.5,
+    color: "#334155",
   },
-  menuTextActive: {
-    fontFamily: FONTS.bodyBold,
-    color: "#1268D9",
+
+  // ── DIVIDER ─────────────────────────────────────────────────────────
+  divider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginHorizontal: 16,
+    marginVertical: 6,
   },
+
+  // ── LOGOUT ──────────────────────────────────────────────────────────
   logoutBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#FEF2F2",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 12,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "#FCA5A5",
+    paddingVertical: 8.5,
+    paddingHorizontal: 16,
   },
-  logoutText: {
-    fontFamily: FONTS.bodyBold,
+  logoutIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  logoutLabel: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontWeight: "500",
     fontSize: 13.5,
-    color: "#EF4444",
+    color: "#DC2626",
+  },
+
+  // ── FOOTER ──────────────────────────────────────────────────────────
+  footer: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  footerVersion: {
+    fontFamily: FONTS.body,
+    fontSize: 10.5,
+    color: "#CBD5E1",
+    letterSpacing: 0.2,
   },
 });
 

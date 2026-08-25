@@ -269,11 +269,13 @@ export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = fa
             <select
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
-              className="w-full h-11 px-2 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500"
+              className="w-full h-11 px-2 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-2xl text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-blue-500 cursor-pointer"
             >
+              <option value={5}>5</option>
               <option value={10}>10</option>
+              <option value={15}>15</option>
+              <option value={20}>20</option>
               <option value={25}>25</option>
-              <option value={50}>50</option>
             </select>
           </div>
 

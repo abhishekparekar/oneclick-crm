@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   View,
   Text,
@@ -7,59 +7,163 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  StatusBar,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../theme/tokens";
 
-const THEME_ACCENT = "#1268D9";
-const ACCENT_LIGHT = "rgba(18, 104, 217, 0.08)";
-const ACCENT_BORDER = "rgba(18, 104, 217, 0.3)";
-
 const buildHRSections = (hasPermission) => [
   {
-    title: "Core",
+    title: "Operations & Work",
     items: [
-      { label: "Dashboard", screen: "HRDashboard", icon: "grid-outline" },
-      { label: "Leads Pipeline", screen: "LeadsEngine", targetScreen: "LeadsDashboard", icon: "magnet-outline" },
-      { label: "Company Requests", screen: "CompanyRequests", icon: "chatbubbles-outline" },
-      { label: "My Tasks", screen: "HRMyTasks", icon: "checkmark-circle-outline", module: "tasks" },
-      { label: "Task Board", screen: "HRTaskBoard", icon: "albums-outline", module: "tasks" },
-      { label: "Profile", screen: "HRProfile", icon: "person-outline" },
-      { label: "My Documents", screen: "EmployeeDocuments", icon: "document-text-outline" },
+      {
+        label: "Dashboard",
+        screen: "HRDashboard",
+        icon: "grid-outline",
+        activeIcon: "grid",
+        color: "#2563EB",
+        module: null,
+      },
+      {
+        label: "My Tasks",
+        screen: "HRMyTasks",
+        icon: "checkmark-circle-outline",
+        activeIcon: "checkmark-circle",
+        color: "#059669",
+        module: "tasks",
+      },
+      {
+        label: "Team Task Board",
+        screen: "HRTaskBoard",
+        icon: "albums-outline",
+        activeIcon: "albums",
+        color: "#10B981",
+        module: "tasks",
+      },
+      {
+        label: "Lead Engine CRM",
+        screen: "LeadsEngine",
+        targetScreen: "LeadsDashboard",
+        icon: "magnet-outline",
+        activeIcon: "magnet",
+        color: "#7C3AED",
+        module: null,
+      },
+      {
+        label: "Company Requests",
+        screen: "CompanyRequests",
+        icon: "chatbubbles-outline",
+        activeIcon: "chatbubbles",
+        color: "#0284C7",
+        module: null,
+      },
     ],
   },
   {
     title: "Staff & Attendance",
     items: [
-      { label: "Team Members", screen: "HREmployeeList", icon: "people-outline" },
-      ...(hasPermission("teamMembers", "add")
-        ? [{ label: "Add Employee", screen: "HRAddEmployee", icon: "person-add-outline" }]
-        : []),
-      { label: "Send Document", screen: "UploadDocument", icon: "document-attach-outline" },
-      { label: "Team Attendance", screen: "HRAttendance", icon: "calendar-outline", module: "attendance" },
-      { label: "Attendance Regularization", screen: "HRRegularizationApproval", icon: "checkmark-done-circle-outline", module: "attendance" },
+      {
+        label: "Team Members",
+        screen: "HREmployeeList",
+        icon: "people-outline",
+        activeIcon: "people",
+        color: "#4F46E5",
+        module: null,
+        permission: null,
+      },
+      {
+        label: "Add Employee",
+        screen: "HRAddEmployee",
+        icon: "person-add-outline",
+        activeIcon: "person-add",
+        color: "#2563EB",
+        permission: { module: "teamMembers", action: "add" },
+      },
+      {
+        label: "Team Attendance",
+        screen: "HRAttendance",
+        icon: "calendar-outline",
+        activeIcon: "calendar",
+        color: "#D97706",
+        module: "attendance",
+      },
+      {
+        label: "Regularization",
+        screen: "HRRegularizationApproval",
+        icon: "checkmark-done-circle-outline",
+        activeIcon: "checkmark-done-circle",
+        color: "#0D9488",
+        module: "attendance",
+      },
     ],
   },
   {
-    title: "Time Off & Holidays",
+    title: "Leaves & Time Off",
     items: [
-      ...(hasPermission("leaves", "approveReject")
-        ? [{ label: "Leave Requests", screen: "HRLeaveRequests", icon: "document-text-outline", module: "leave" }]
-        : []),
-      { label: "Leave Balance", screen: "HRLeaveBalance", icon: "hourglass-outline", module: "leave" },
-      ...(hasPermission("announcementsHolidays")
-        ? [{ label: "Holidays", screen: "HRHolidayList", icon: "flag-outline", module: "leave" }]
-        : []),
+      {
+        label: "Leave Requests",
+        screen: "HRLeaveRequests",
+        icon: "document-text-outline",
+        activeIcon: "document-text",
+        color: "#EA580C",
+        permission: { module: "leaves", action: "approveReject" },
+      },
+      {
+        label: "Leave Balance",
+        screen: "HRLeaveBalance",
+        icon: "hourglass-outline",
+        activeIcon: "hourglass",
+        color: "#E11D48",
+        module: "leave",
+      },
+      {
+        label: "Holiday Calendar",
+        screen: "HRHolidayList",
+        icon: "flag-outline",
+        activeIcon: "flag",
+        color: "#DC2626",
+        permission: { module: "announcementsHolidays" },
+      },
     ],
   },
   {
-    title: "Communication & Reports",
+    title: "Communication",
     items: [
-      { label: "Announcements", screen: "HRAnnouncements", icon: "megaphone-outline" },
-      { label: "Reports & Analytics", screen: "HRReportsDashboard", icon: "bar-chart-outline", module: "reports" },
-      { label: "Audit Logs", screen: "HRAuditLogs", icon: "shield-checkmark-outline" },
+      {
+        label: "Announcements",
+        screen: "HRAnnouncements",
+        icon: "megaphone-outline",
+        activeIcon: "megaphone",
+        color: "#DB2777",
+        module: null,
+      },
+      {
+        label: "Send Document",
+        screen: "UploadDocument",
+        icon: "document-attach-outline",
+        activeIcon: "document-attach",
+        color: "#6366F1",
+        module: null,
+      },
+      {
+        label: "Reports & Analytics",
+        screen: "HRReportsDashboard",
+        icon: "bar-chart-outline",
+        activeIcon: "bar-chart",
+        color: "#8B5CF6",
+        module: "reports",
+      },
+      {
+        label: "HR Profile",
+        screen: "HRProfile",
+        icon: "person-outline",
+        activeIcon: "person",
+        color: "#475569",
+        module: null,
+      },
     ],
   },
 ];
@@ -70,19 +174,6 @@ const HRDrawerContent = (props) => {
   const insets = useSafeAreaInsets();
 
   const HR_SECTIONS = buildHRSections(hasPermission);
-
-  // Section expand/collapse state
-  const [expandedSections, setExpandedSections] = useState(() => {
-    const initial = {};
-    HR_SECTIONS.forEach((s) => {
-      initial[s.title] = true;
-    });
-    return initial;
-  });
-
-  const toggleSection = (title) => {
-    setExpandedSections((prev) => ({ ...prev, [title]: !prev[title] }));
-  };
 
   const getActiveRouteName = (navState) => {
     if (!navState) return null;
@@ -115,112 +206,149 @@ const HRDrawerContent = (props) => {
         params: targetScreen ? { screen: targetScreen } : undefined,
       });
     } else {
-      navigation.navigate("HRStack", {
-        screen: screenName,
-        params: targetScreen ? { screen: targetScreen } : undefined,
-      });
+      navigation.navigate("HRStack", { screen: screenName });
     }
     navigation.closeDrawer();
   };
 
   const handleLogout = () => {
-    Alert.alert("Logout", "Are you sure you want to logout?", [
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Logout", style: "destructive", onPress: () => logout() },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          navigation.closeDrawer();
+          logout();
+        },
+      },
     ]);
   };
 
   const getInitials = (name) => {
     if (!name) return "HR";
     const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
+    if (parts.length > 1) return (parts[0][0] + parts[1][0]).toUpperCase();
     return name.slice(0, 2).toUpperCase();
+  };
+
+  const isItemVisible = (item) => {
+    if (item.permission) {
+      const { module, action } = item.permission;
+      return action ? hasPermission(module, action) : hasPermission(module);
+    }
+    return true;
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["bottom"]}>
-      {/* Profile Header Card */}
-      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
-        <View style={styles.avatar}>
-          {user?.photo || user?.avatar || user?.profilePicture ? (
-            <Image
-              source={{ uri: user.photo || user.avatar || user.profilePicture }}
-              style={{ width: "100%", height: "100%", borderRadius: 24 }}
-            />
-          ) : (
-            <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
-          )}
-        </View>
-        <View style={styles.profileInfo}>
-          <Text style={styles.userName} numberOfLines={1}>
-            {user?.name || "HR Manager"}
-          </Text>
-          <Text style={styles.companyName} numberOfLines={1}>
-            {user?.companyName || "One Click Solutions"}
-          </Text>
-          <View style={styles.roleBadge}>
-            <Text style={styles.roleText}>HR OPERATOR</Text>
+      <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
+
+      {/* ── COMPACT PROFILE HEADER ──────────────────────────────────── */}
+      <LinearGradient
+        colors={["#071A2F", "#0B2346", "#0E3260"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: Math.max(insets.top, 20) + 14 }]}
+      >
+        <View style={styles.headerTopRow}>
+          <View style={styles.avatarWrapper}>
+            {user?.photo ? (
+              <Image source={{ uri: user.photo }} style={styles.avatarImg} />
+            ) : (
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+              </View>
+            )}
+            <View style={styles.onlineDot} />
           </View>
+
+          <View style={styles.headerUserInfo}>
+            <Text style={styles.userName} numberOfLines={1}>
+              {user?.name || "HR Officer"}
+            </Text>
+            <Text style={styles.userEmail} numberOfLines={1}>
+              {user?.email || user?.companyName || "Organization"}
+            </Text>
+            <View style={styles.roleBadge}>
+              <View style={styles.roleDot} />
+              <Text style={styles.roleText}>HR Manager</Text>
+            </View>
+          </View>
+
+          <TouchableOpacity
+            onPress={() => navigation.closeDrawer()}
+            style={styles.closeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons name="close" size={20} color="rgba(255,255,255,0.7)" />
+          </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
-      {/* ── Menu List ── */}
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      {/* ── COMPACT NAVIGATION LIST ─────────────────────────────────── */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {HR_SECTIONS.map((section) => {
-          const isExpanded = !!expandedSections[section.title];
-          const visibleItems = section.items;
-
+          const visibleItems = section.items.filter(isItemVisible);
           if (visibleItems.length === 0) return null;
-
           return (
-            <View key={section.title} style={styles.sectionContainer}>
-              <TouchableOpacity
-                style={styles.sectionHeaderButton}
-                activeOpacity={0.7}
-                onPress={() => toggleSection(section.title)}
-              >
-                <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
-                <Ionicons
-                  name={isExpanded ? "chevron-down" : "chevron-forward"}
-                  size={14}
-                  color={THEME_ACCENT}
-                  style={styles.sectionChevron}
-                />
-              </TouchableOpacity>
-
-              {isExpanded &&
-                visibleItems.map((item) => {
-                  const isActive = activeRouteName === item.screen;
-                  return (
-                    <TouchableOpacity
-                      key={item.label}
-                      onPress={() => handleNavigate(item)}
-                      style={[styles.menuItem, isActive && styles.menuItemActive]}
-                      activeOpacity={0.7}
+            <View key={section.title} style={styles.section}>
+              <Text style={styles.sectionLabel}>{section.title}</Text>
+              {visibleItems.map((item) => {
+                const active = activeRouteName === item.screen;
+                return (
+                  <TouchableOpacity
+                    key={item.label}
+                    onPress={() => handleNavigate(item)}
+                    style={[styles.navItem, active && styles.navItemActive]}
+                    activeOpacity={0.7}
+                  >
+                    {active && <View style={[styles.activeBar, { backgroundColor: item.color }]} />}
+                    <View
+                      style={[
+                        styles.iconBox,
+                        active
+                          ? { backgroundColor: item.color + "18" }
+                          : { backgroundColor: "#F1F5F9" },
+                      ]}
                     >
                       <Ionicons
-                        name={item.icon}
+                        name={active ? item.activeIcon : item.icon}
                         size={18}
-                        color={isActive ? THEME_ACCENT : "#64748B"}
-                        style={styles.menuIcon}
+                        color={active ? item.color : "#475569"}
                       />
-                      <Text style={[styles.menuText, isActive && styles.menuTextActive]}>
-                        {item.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
+                    </View>
+                    <Text
+                      style={[
+                        styles.navLabel,
+                        active && { color: item.color, fontFamily: FONTS.bodyBold },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           );
         })}
 
-        {/* Logout Item */}
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutItem} activeOpacity={0.7}>
-          <Ionicons name="log-out-outline" size={20} color="#DC2626" style={styles.menuIcon} />
-          <Text style={styles.logoutText}>Logout</Text>
+        <View style={styles.divider} />
+
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
+          <View style={styles.logoutIconBox}>
+            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+          </View>
+          <Text style={styles.logoutLabel}>Sign Out</Text>
         </TouchableOpacity>
+
+        <View style={styles.footer}>
+          <Text style={styles.footerVersion}>One Click HRMS  •  v2.4.0</Text>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -229,130 +357,201 @@ const HRDrawerContent = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0F172A",
+    backgroundColor: "#FFFFFF",
   },
   header: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 18,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+  headerTopRow: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#0F172A",
   },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#1268D9",
+  closeBtn: {
+    width: 30,
+    height: 30,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.4)",
+    borderRadius: 15,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginLeft: 8,
+  },
+  avatarWrapper: {
+    position: "relative",
+    width: 52,
+    height: 52,
+    marginRight: 13,
+  },
+  avatarImg: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.35)",
+  },
+  avatarCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: "#1D4ED8",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.25)",
   },
   avatarText: {
     color: "#FFFFFF",
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: FONTS.displayBold,
+    fontWeight: "700",
   },
-  profileInfo: {
-    marginLeft: 12,
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 13,
+    height: 13,
+    borderRadius: 6.5,
+    backgroundColor: "#22C55E",
+    borderWidth: 2,
+    borderColor: "#071A2F",
+  },
+  headerUserInfo: {
     flex: 1,
+    justifyContent: "center",
   },
   userName: {
-    fontSize: 14,
     fontFamily: FONTS.displayBold,
+    fontWeight: "700",
+    fontSize: 16,
     color: "#FFFFFF",
+    letterSpacing: -0.2,
   },
-  companyName: {
-    fontSize: 11,
-    color: "#94A3B8",
-    fontFamily: FONTS.bodyMedium,
-    marginTop: 1,
+  userEmail: {
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    color: "rgba(255,255,255,0.65)",
+    marginTop: 1.5,
+    marginBottom: 5,
   },
   roleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
     alignSelf: "flex-start",
-    backgroundColor: "rgba(18, 104, 217, 0.2)",
-    borderColor: "rgba(18, 104, 217, 0.4)",
+    backgroundColor: "rgba(56,189,248,0.15)",
+    borderRadius: 12,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
     borderWidth: 1,
-    borderRadius: 6,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginTop: 4,
+    borderColor: "rgba(56,189,248,0.3)",
+  },
+  roleDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: "#38BDF8",
+    marginRight: 5,
   },
   roleText: {
-    fontSize: 9,
     fontFamily: FONTS.bodyBold,
-    color: "#2F8BFF",
-    letterSpacing: 0.5,
+    fontWeight: "700",
+    fontSize: 10,
+    color: "#38BDF8",
+    letterSpacing: 0.3,
   },
+
   scrollContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
+    paddingTop: 4,
+    paddingBottom: 16,
   },
-  sectionContainer: {
-    marginBottom: 6,
-  },
-  sectionHeaderButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  sectionTitle: {
-    fontSize: 9.5,
-    fontFamily: FONTS.bodyBold,
-    color: "#64748B",
-    letterSpacing: 0.8,
-  },
-  sectionChevron: {
-    opacity: 0.8,
-  },
-  menuItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
+  section: {
     marginBottom: 2,
   },
-  menuItemActive: {
-    backgroundColor: "rgba(18, 104, 217, 0.15)",
-    borderLeftWidth: 3,
-    borderLeftColor: THEME_ACCENT,
-  },
-  menuIcon: {
-    marginRight: 10,
-    width: 20,
-    textAlign: "center",
-  },
-  menuText: {
-    fontSize: 12.5,
-    fontFamily: FONTS.bodyMedium,
-    color: "#94A3B8",
-  },
-  menuTextActive: {
-    color: "#FFFFFF",
+  sectionLabel: {
     fontFamily: FONTS.bodyBold,
+    fontWeight: "700",
+    fontSize: 10,
+    color: "#94A3B8",
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
   },
-  logoutItem: {
+  navItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.08)",
-    paddingTop: 14,
-    marginBottom: 20,
+    paddingVertical: 8.5,
+    paddingHorizontal: 16,
+    position: "relative",
   },
-  logoutText: {
-    fontSize: 13,
-    fontFamily: FONTS.bodyBold,
-    color: "#F87171",
+  navItemActive: {
+    backgroundColor: "#F0F6FF",
+  },
+  activeBar: {
+    position: "absolute",
+    left: 0,
+    top: 6,
+    bottom: 6,
+    width: 3.5,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+  },
+  iconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  navLabel: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontWeight: "500",
+    fontSize: 13.5,
+    color: "#334155",
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginHorizontal: 16,
+    marginVertical: 6,
+  },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8.5,
+    paddingHorizontal: 16,
+  },
+  logoutIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  logoutLabel: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontWeight: "500",
+    fontSize: 13.5,
+    color: "#DC2626",
+  },
+  footer: {
+    alignItems: "center",
+    paddingTop: 12,
+    paddingBottom: 6,
+  },
+  footerVersion: {
+    fontFamily: FONTS.body,
+    fontSize: 10.5,
+    color: "#CBD5E1",
+    letterSpacing: 0.2,
   },
 });
 

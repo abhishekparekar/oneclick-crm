@@ -543,7 +543,7 @@ export default function LeadsListScreen({ navigation, route }) {
             onPress={() => navigation.navigate("MapLeadFinder")}
           >
             <Ionicons name="map-outline" size={15} color="#FFF" />
-            <Text style={styles.newLeadPillText}>Map Scraping</Text>
+            <Text style={styles.newLeadPillText}>Map Leads</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
