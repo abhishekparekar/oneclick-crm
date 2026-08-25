@@ -52,7 +52,10 @@ const connectDB = async () => {
   }
 
   const defaultUri = "mongodb+srv://Abhiparekar58:Abhi%408485@oneclick.zy12ers.mongodb.net/icoded_hrms?retryWrites=true&w=majority";
-  const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || defaultUri;
+  let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
+  if (!mongoUri || mongoUri.includes("127.0.0.1") || mongoUri.includes("localhost")) {
+    mongoUri = defaultUri;
+  }
 
   try {
     console.log("[DB] Connecting to MongoDB Atlas Cloud...");
@@ -65,6 +68,19 @@ const connectDB = async () => {
     seedInitialData().catch(err => console.warn("[DB Seed Warning]:", err.message));
   } catch (error) {
     console.error("[DB Connection Error]:", error.message);
+    if (mongoUri !== defaultUri) {
+      try {
+        console.log("[DB] Retrying connection with default MongoDB Atlas URI...");
+        const conn = await mongoose.connect(defaultUri, {
+          serverSelectionTimeoutMS: 10000,
+          connectTimeoutMS: 10000,
+        });
+        isConnected = conn.connections[0].readyState === 1;
+        console.log("[DB] Connected to MongoDB Atlas Cloud (fallback)");
+      } catch (fallbackErr) {
+        console.error("[DB Fallback Error]:", fallbackErr.message);
+      }
+    }
   }
 };
 

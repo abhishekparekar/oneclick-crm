@@ -235,6 +235,47 @@ export default function LeadsDashboardScreen({ navigation }) {
               </View>
             </LinearGradient>
 
+            {/* ── Map Place Leads Discovery Banner ── */}
+            <TouchableOpacity
+              style={{
+                backgroundColor: "#0284C7",
+                borderRadius: 16,
+                padding: 12,
+                marginTop: 10,
+                flexDirection: "row",
+                alignItems: "center",
+                justifyContent: "space-between",
+                ...SHADOWS.sm,
+              }}
+              activeOpacity={0.85}
+              onPress={() => navigation.navigate("MapLeadFinder")}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                <View
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 10,
+                    backgroundColor: "rgba(255,255,255,0.2)",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    marginRight: 10,
+                  }}
+                >
+                  <Ionicons name="map" size={20} color="#FFFFFF" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 13, fontWeight: "900", color: "#FFFFFF" }}>
+                    📍 Map Scraping Leads
+                  </Text>
+                  <Text style={{ fontSize: 10.5, color: "#E0F2FE", fontWeight: "600" }}>
+                    Scrape & discover local businesses from live maps into CRM
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+
             {/* ── 2. Compact Navigation Tiles ── */}
             <View style={styles.tilesRow}>
               <TouchableOpacity

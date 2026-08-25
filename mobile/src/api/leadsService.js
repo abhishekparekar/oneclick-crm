@@ -874,6 +874,46 @@ export const leadsService = {
     }
     return { success: true, message: "WhatsApp API connection verified successfully!" };
   },
+
+  searchMapPlaces: async ({ keyword, city, limit = 25 }) => {
+    try {
+      const response = await api.post("/leads-engine/leads/map-search", { keyword, city, limit });
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.post("/leads/map-search", { keyword, city, limit });
+        return response.data;
+      } catch (err) {
+        throw err;
+      }
+    }
+  },
+
+  importMapLeads: async ({ places, statusId, assignedTo, source, tagIds }) => {
+    try {
+      const response = await api.post("/leads-engine/leads/map-import", {
+        places,
+        statusId,
+        assignedTo,
+        source: source || "Google Maps / Map Search",
+        tagIds,
+      });
+      return response.data;
+    } catch (_) {
+      try {
+        const response = await api.post("/leads/map-import", {
+          places,
+          statusId,
+          assignedTo,
+          source: source || "Google Maps / Map Search",
+          tagIds,
+        });
+        return response.data;
+      } catch (err) {
+        throw err;
+      }
+    }
+  },
 };
 
 export default leadsService;

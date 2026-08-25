@@ -539,6 +539,14 @@ export default function LeadsListScreen({ navigation, route }) {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.newLeadPillBtn, { backgroundColor: "#0284C7", marginRight: 4 }]}
+            onPress={() => navigation.navigate("MapLeadFinder")}
+          >
+            <Ionicons name="map-outline" size={15} color="#FFF" />
+            <Text style={styles.newLeadPillText}>Map Scraping</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.newLeadPillBtn}
             onPress={() => setModalVisible(true)}
           >

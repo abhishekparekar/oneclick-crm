@@ -21,6 +21,7 @@ const {
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
   sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
+  searchMapPlaces, importMapLeads,
 } = require("../controllers/leadController");
 
 const optionalAuth = async (req, res, next) => {
@@ -124,11 +125,19 @@ router.get("/organization/public-token", getPublicToken);
 router.get("/assignable-users", getAssignableUsers);
 router.get("/leads/stats", getLeadStats);
 router.get("/leads/opt-in-counts", getOptInCounts);
+router.get("/leads/statuses", getStatuses);
+router.get("/leads/sources", getSources);
+router.get("/leads/tags", getTags);
+router.get("/leads/products", getProducts);
+router.get("/leads/assignable-users", getAssignableUsers);
 router.patch("/leads/bulk-status", bulkStatus);
 router.patch("/leads/bulk-tags", bulkTags);
 router.patch("/leads/bulk-assign", bulkAssign);
 router.post("/leads/bulk-delete", bulkDelete);
 router.post("/leads/import", importLeads);
+router.post("/leads/map-search", searchMapPlaces);
+router.get("/leads/map-search", searchMapPlaces);
+router.post("/leads/map-import", importMapLeads);
 
 router.get("/leads", getLeads);
 router.post("/leads", createLead);

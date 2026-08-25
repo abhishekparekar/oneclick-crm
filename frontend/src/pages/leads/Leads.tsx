@@ -16,9 +16,10 @@ import {
   ArrowUp, ArrowDown, UserCheck, Sparkles, Filter, SlidersHorizontal, RefreshCw, CheckCircle,
   Kanban, LayoutGrid, List, MessageSquare, Phone, Mail, MoreVertical, Layers, Calendar, ChevronUp, Clock, Globe,
   Layers3, Flame, CheckSquare, Package, FileText, User,
-  Zap, Eye
+  Zap, Eye, MapPin
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import MapPlacesSearch from './MapPlacesSearch';
 
 // ── Status Colors ─────────────────────────────────────────────────────────────
 const STATUS_COLORS = [
@@ -408,6 +409,7 @@ export default function Leads() {
   const [statusPopoverRect, setStatusPopoverRect] = useState<DOMRect | null>(null);
 
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showMapPlacesModal, setShowMapPlacesModal] = useState(false);
 
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
@@ -1105,6 +1107,14 @@ export default function Leads() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 relative z-30">
+          <button 
+            type="button"
+            onClick={() => setShowMapPlacesModal(true)} 
+            className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+          >
+            <MapPin size={13} className="text-blue-600 dark:text-blue-400" /> Map Scraping
+          </button>
+
           <button 
             type="button"
             onClick={() => setShowManageProductsModal(true)} 
@@ -2414,6 +2424,23 @@ export default function Leads() {
                 Done
               </button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* ── MAP PLACES LEAD FINDER MODAL ── */}
+      {showMapPlacesModal && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-900/80 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-white dark:bg-[#111C24] rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-4">
+            <MapPlacesSearch
+              isModal={true}
+              onClose={() => setShowMapPlacesModal(false)}
+              onImportSuccess={() => {
+                fetchLeads(1);
+                fetchStats();
+              }}
+            />
           </div>
         </div>,
         document.body

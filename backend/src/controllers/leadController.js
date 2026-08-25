@@ -2677,6 +2677,226 @@ const getLeadStats = async (req, res) => {
   }
 };
 
+// ── MAP / PLACES LEAD EXTRACTOR & SEARCH ─────────────────────────────────
+const { searchPlaces } = require("../services/mapPlacesService");
+
+const searchMapPlaces = async (req, res) => {
+  try {
+    const { keyword, category, city, location, limit } = req.body || req.query;
+    const queryKeyword = (keyword || category || "Businesses").trim();
+    const queryCity = (city || location || "Mumbai").trim();
+    const queryLimit = parseInt(limit, 10) || 25;
+
+    const companyId = getCompanyId(req);
+    const places = await searchPlaces({
+      keyword: queryKeyword,
+      city: queryCity,
+      limit: queryLimit,
+    });
+
+    // Check against existing leads in CRM
+    const existingPhoneSuffixes = new Set();
+    const existingNames = new Set();
+
+    if (companyId && places.length > 0) {
+      const phones = places.map((p) => p.whatsappPhone || p.phone).filter(Boolean);
+      const names = places.map((p) => p.company || p.name).filter(Boolean);
+
+      const phoneRegexes = phones.map(p => {
+        const digits = String(p).replace(/\D/g, "");
+        return digits.length >= 7 ? new RegExp(digits.slice(-8) + "$") : p;
+      });
+
+      const existingLeads = await Lead.find({
+        companyId,
+        $or: [
+          { whatsappPhone: { $in: phoneRegexes } },
+          { phone: { $in: phoneRegexes } },
+          { name: { $in: names.map(n => new RegExp(`^${n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i')) } },
+          { company: { $in: names.map(n => new RegExp(`^${n.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i')) } },
+        ],
+        deletedAt: null,
+      })
+        .select("_id name company whatsappPhone phone statusId")
+        .populate("statusId", "name color")
+        .lean();
+
+      for (const el of existingLeads) {
+        if (el.whatsappPhone) {
+          const d = String(el.whatsappPhone).replace(/\D/g, "");
+          if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
+        }
+        if (el.phone) {
+          const d = String(el.phone).replace(/\D/g, "");
+          if (d.length >= 7) existingPhoneSuffixes.add(d.slice(-8));
+        }
+        if (el.name) existingNames.add(el.name.trim().toLowerCase());
+        if (el.company) existingNames.add(el.company.trim().toLowerCase());
+      }
+    }
+
+    const annotatedPlaces = places.map((p) => {
+      const pDigits = String(p.whatsappPhone || p.phone || "").replace(/\D/g, "");
+      const pSuffix = pDigits.length >= 7 ? pDigits.slice(-8) : "";
+      const isPhoneDuplicate = pSuffix ? existingPhoneSuffixes.has(pSuffix) : false;
+      const isNameDuplicate =
+        existingNames.has(p.name?.trim().toLowerCase()) ||
+        existingNames.has(p.company?.trim().toLowerCase());
+
+      return {
+        ...p,
+        isAlreadyLead: Boolean(isPhoneDuplicate || isNameDuplicate),
+      };
+    });
+
+    return res.json({
+      success: true,
+      query: { keyword: queryKeyword, city: queryCity, limit: queryLimit },
+      count: annotatedPlaces.length,
+      places: annotatedPlaces,
+    });
+  } catch (err) {
+    console.error("[searchMapPlaces error]:", err);
+    return res.status(500).json({ success: false, message: err.message, places: [] });
+  }
+};
+
+const importMapLeads = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    await seedDefaultsForCompany(companyId);
+
+    const { places, statusId, assignedTo, source, tagIds } = req.body;
+    if (!Array.isArray(places) || places.length === 0) {
+      return res.status(400).json({ success: false, message: "No places provided for import." });
+    }
+
+    let targetStatusId = statusId;
+    if (!targetStatusId) {
+      const defStatus =
+        (await LeadStatus.findOne(buildCompanyQuery(req, { isDefault: true }))) ||
+        (await LeadStatus.findOne(buildCompanyQuery(req)));
+      targetStatusId = defStatus?._id;
+    }
+
+    let resolvedAssignedTo = assignedTo;
+    if (assignedTo && assignedTo !== "unassigned") {
+      const emp = await Employee.findById(assignedTo).select("userId");
+      if (emp && emp.userId) {
+        resolvedAssignedTo = emp.userId;
+      }
+    }
+
+    const createdLeads = [];
+    let skippedCount = 0;
+    const batchProcessedPhones = new Set();
+    const batchProcessedNames = new Set();
+
+    for (const item of places) {
+      const leadName = (item.name || item.company || "Map Discovered Lead").trim();
+      const whatsapp = item.whatsappPhone || item.phone || "";
+      const cleanDigits = String(whatsapp).replace(/\D/g, "");
+      const phoneSuffix = cleanDigits.length >= 7 ? cleanDigits.slice(-8) : "";
+
+      // 1. Skip intra-batch duplicates
+      if (phoneSuffix && batchProcessedPhones.has(phoneSuffix)) {
+        skippedCount++;
+        continue;
+      }
+      if (batchProcessedNames.has(leadName.toLowerCase())) {
+        skippedCount++;
+        continue;
+      }
+
+      // 2. Skip existing database leads
+      const duplicateConditions = [
+        { name: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+        { company: new RegExp(`^${leadName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&')}$`, 'i') },
+      ];
+      if (phoneSuffix) {
+        duplicateConditions.push(
+          { whatsappPhone: new RegExp(phoneSuffix + "$") },
+          { phone: new RegExp(phoneSuffix + "$") }
+        );
+      }
+
+      const existing = await Lead.findOne({
+        companyId,
+        $or: duplicateConditions,
+        deletedAt: null,
+      });
+
+      if (existing) {
+        skippedCount++;
+        if (phoneSuffix) batchProcessedPhones.add(phoneSuffix);
+        batchProcessedNames.add(leadName.toLowerCase());
+        continue;
+      }
+
+      if (phoneSuffix) batchProcessedPhones.add(phoneSuffix);
+      batchProcessedNames.add(leadName.toLowerCase());
+
+      const newLead = await Lead.create({
+        companyId,
+        name: leadName,
+        company: item.company || item.name || null,
+        whatsappPhone: whatsapp || "9999999999",
+        phone: item.phone || null,
+        email: item.email || null,
+        address: item.address || null,
+        city: item.city || null,
+        statusId: targetStatusId,
+        source: source || "Google Maps / Map Search",
+        productService: item.category || item.productService || null,
+        assignedTo: resolvedAssignedTo || null,
+        createdBy: req.user?._id || null,
+        notes: item.notes || `Discovered via Map Search (Rating: ${item.rating || 4.0}★, Reviews: ${item.reviewsCount || 0})`,
+        whatsappOptIn: true,
+        tags: Array.isArray(tagIds) ? tagIds : [],
+        leadNotes: [
+          {
+            note: `Imported from Map Place Search: ${item.address || item.city || "Location details saved."}`,
+            createdBy: req.user?._id || null,
+            createdAt: new Date(),
+          },
+        ],
+        leadActivities: [
+          {
+            title: "Lead Imported from Map Place Search",
+            description: `Discovered and added from Map search for "${item.category || "Business"}" in "${item.city || "Local area"}".`,
+            type: "LEAD_CREATED",
+            createdAt: new Date(),
+          },
+        ],
+      });
+
+      createdLeads.push(newLead);
+    }
+
+    return res.json({
+      success: true,
+      message: `Successfully imported ${createdLeads.length} leads from Maps! (${skippedCount} duplicates skipped)`,
+      createdCount: createdLeads.length,
+      skippedCount,
+      leads: createdLeads,
+    });
+
+      createdLeads.push(newLead);
+    }
+
+    return res.json({
+      success: true,
+      message: `Successfully imported ${createdLeads.length} leads from Maps! (${skippedCount} duplicates skipped)`,
+      createdCount: createdLeads.length,
+      skippedCount,
+      leads: createdLeads,
+    });
+  } catch (err) {
+    console.error("[importMapLeads error]:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getStatuses, createStatus, updateStatus, deleteStatus,
   getSources, createSource,
@@ -2696,4 +2916,5 @@ module.exports = {
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
   sendTestWhatsappMessage, getWhatsappLogs, sendBroadcastWhatsAppMessage,
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
+  searchMapPlaces, importMapLeads,
 };
