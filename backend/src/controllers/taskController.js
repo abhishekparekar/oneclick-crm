@@ -565,7 +565,11 @@ exports.inProcessTask = async (req, res) => {
         task.status = targetStatus;
         if (!isTemplate) {
             task.timerActive = true;
-            task.nextFollowUpDate = nextFollowUpDate;
+            if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+                task.nextFollowUpDate = new Date(nextFollowUpDate);
+            } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+                task.nextFollowUpDate = null;
+            }
         }
 
         const formattedAttachments = (attachments || []).map(att => ({
@@ -590,7 +594,7 @@ exports.inProcessTask = async (req, res) => {
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: targetStatus, remarks, nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: targetStatus, remarks, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -853,7 +857,11 @@ exports.reopenTask = async (req, res) => {
 
         task.status = "re_pending";
         task.endDateTime = newEndDate;
-        task.nextFollowUpDate = nextFollowUpDate;
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
         task.reopenCount += 1;
         task.reopenedBy = req.user._id;
         task.reopenedAt = new Date();
@@ -874,7 +882,7 @@ exports.reopenTask = async (req, res) => {
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "reopened", remarks, nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "reopened", remarks, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -912,7 +920,11 @@ exports.reInProcessTask = async (req, res) => {
 
         task.status = "re_in_process";
         task.timerActive = true;
-        task.nextFollowUpDate = nextFollowUpDate;
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
 
         const remarkToUse = (typeof remarks === 'string' && remarks.trim()) ? remarks : '';
         if (remarkToUse || formattedAttachments.length > 0) {
@@ -930,7 +942,7 @@ exports.reInProcessTask = async (req, res) => {
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "re_in_process", remarks, nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "re_in_process", remarks, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1474,20 +1486,26 @@ exports.submitFollowUp = async (req, res) => {
         const task = await Task.findById(id);
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
-        if (nextFollowUpDate) {
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
             task.nextFollowUpDate = new Date(nextFollowUpDate);
         } else {
             task.nextFollowUpDate = null;
         }
 
-        if (remark || (attachments && attachments.length > 0)) {
+        const formattedAttachments = (attachments || []).map(att => ({
+            fileUrl: att.fileUrl || att.url || "",
+            fileName: att.fileName || att.name || "Attachment",
+            fileType: att.fileType || att.type || ""
+        }));
+
+        if (remark || formattedAttachments.length > 0) {
             if (!task.comments) task.comments = [];
             task.comments.push({
                 comment: remark ? `Follow-up completed: ${remark}` : `Follow-up completed with attachment`,
                 senderName: req.user.name,
                 senderRole: req.user.role,
                 addedBy: req.user._id,
-                attachments: attachments || [],
+                attachments: formattedAttachments,
                 createdAt: new Date()
             });
         }
@@ -1498,8 +1516,9 @@ exports.submitFollowUp = async (req, res) => {
             companyId: task.companyId,
             taskId: task._id,
             action: "follow_up",
-            remarks: `Follow-up submitted. ${nextFollowUpDate ? "Next date set." : "No next date."}`,
-            attachments: attachments || [],
+            remarks: remark || (task.nextFollowUpDate ? "Next follow-up date scheduled" : "Follow-up update submitted"),
+            nextFollowUpDate: task.nextFollowUpDate,
+            attachments: formattedAttachments,
             performedBy: req.user._id
         });
 

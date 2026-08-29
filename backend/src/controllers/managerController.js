@@ -2134,7 +2134,8 @@ const updateTaskStatus = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, nextFollowUpDate, remarks, remark } = req.body;
+    const actualRemark = remarks || remark || "";
 
     const manager = await resolveManagerEmployee(req);
     const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
@@ -2158,7 +2159,18 @@ const updateTaskStatus = async (req, res, next) => {
     }
 
     task.status = status;
-    task.activityLog.push({ action: `Status changed to ${status}`, performedBy: manager.fullName });
+    if (nextFollowUpDate !== undefined) {
+      if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+        task.nextFollowUpDate = new Date(nextFollowUpDate);
+      } else {
+        task.nextFollowUpDate = null;
+      }
+    } else if (["complete", "completed", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(status)) {
+      task.nextFollowUpDate = null;
+    }
+
+    task.activityLog = task.activityLog || [];
+    task.activityLog.push({ action: `Status changed to ${status}`, performedBy: manager.fullName, remark: actualRemark || undefined });
     await task.save();
 
     // Auto calculate project progress

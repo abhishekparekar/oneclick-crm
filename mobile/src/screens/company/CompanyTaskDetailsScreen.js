@@ -1144,27 +1144,6 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               )}
 
-              {/* Option: Submit Follow-Up (Always available for active task) */}
-              {!isCompleted && !isCancelled && (
-                <TouchableOpacity
-                  style={[styles.statusOptionRow, { borderColor: "#99F6E4", backgroundColor: "#F0FDFA" }]}
-                  onPress={() => {
-                    setStatusPickerModalVisible(false);
-                    openActionModal("follow_up");
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#CCFBF1" }]}>
-                    <Ionicons name="calendar" size={20} color="#0F766E" />
-                  </View>
-                  <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.statusOptionTitle, { color: "#0F766E" }]}>Next Follow-Up</Text>
-                    <Text style={styles.statusOptionDesc}>Add progress remark & set next follow-up date</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color="#0F766E" />
-                </TouchableOpacity>
-              )}
-
               {/* Option: Cancel Task (Show if not already completed/cancelled) */}
               {!isCompleted && !isCancelled && (
                 <TouchableOpacity

@@ -365,16 +365,6 @@ export default function TaskDetailsPage() {
             </button>
           )}
 
-          {!task.isTemplate && (task.status !== "complete" && task.status !== "late_complete" && task.status !== "cancelled") && (
-            <button 
-              onClick={() => setShowFollowUp(true)} 
-              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
-            >
-              <CalendarDays size={11} className="text-slate-400" />
-              <span>Follow-up</span>
-            </button>
-          )}
-
           {!task.isTemplate && (task.status === "pending" || task.status === "re_pending" || task.status === "overdue") && (
             <button 
               onClick={() => setShowInProcess(true)} 
@@ -756,6 +746,13 @@ export default function TaskDetailsPage() {
                           {act.remarks && (
                             <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg p-2 text-xs text-slate-800 dark:text-slate-200 font-semibold shadow-2xs">
                               {act.remarks}
+                            </div>
+                          )}
+
+                          {act.nextFollowUpDate && (
+                            <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-teal-50 dark:bg-teal-950/60 text-teal-800 dark:text-teal-300 border border-teal-200 dark:border-teal-800 text-[10.5px] font-mono font-bold">
+                              <Calendar size={10} className="text-teal-600 dark:text-teal-400" />
+                              <span>Next Follow-up: {formatDateTime(act.nextFollowUpDate)}</span>
                             </div>
                           )}
                         </div>

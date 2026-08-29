@@ -323,18 +323,45 @@ const updateOwnTaskStatus = async (req, res, next) => {
       }
     }
 
-    // Handle remarks and attachments if passed from complete modal
-    const { remark, attachments: passedAttachments } = req.body;
+    // Handle remarks, attachments, and nextFollowUpDate
+    const { remark, remarks, attachments: passedAttachments, nextFollowUpDate } = req.body;
+    const actualRemark = remark || remarks || "";
+
+    if (nextFollowUpDate !== undefined) {
+      if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+        task.nextFollowUpDate = new Date(nextFollowUpDate);
+      } else {
+        task.nextFollowUpDate = null;
+      }
+    } else if (COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase())) {
+      task.nextFollowUpDate = null;
+    }
+
+    const formattedAttachments = [];
     if (Array.isArray(passedAttachments) && passedAttachments.length > 0) {
       task.attachments = task.attachments || [];
       passedAttachments.forEach(att => {
-        task.attachments.push({
-          fileName: att.fileName || "attachment",
-          fileUrl: att.fileUrl || att.url,
-          fileType: att.fileType || "application/octet-stream",
+        const attObj = {
+          fileName: att.fileName || att.name || "attachment",
+          fileUrl: att.fileUrl || att.url || "",
+          fileType: att.fileType || att.type || "application/octet-stream",
           uploadedAt: new Date(),
           uploadedBy: employee._id
-        });
+        };
+        task.attachments.push(attObj);
+        formattedAttachments.push(attObj);
+      });
+    }
+
+    if (actualRemark || formattedAttachments.length > 0) {
+      if (!task.comments) task.comments = [];
+      task.comments.push({
+        comment: actualRemark ? `Status updated: ${actualRemark}` : "Status updated with attachment",
+        senderName: `${employee.firstName || ""} ${employee.lastName || ""}`.trim() || "Employee",
+        senderRole: "Employee",
+        addedBy: req.user._id,
+        attachments: formattedAttachments,
+        createdAt: new Date()
       });
     }
 
@@ -345,11 +372,34 @@ const updateOwnTaskStatus = async (req, res, next) => {
       performedBy: userName,
       oldStatus: oldStatusLabel,
       newStatus: newStatusLabel,
-      remark: remark || undefined,
+      remark: actualRemark || undefined,
       timestamp: new Date()
     });
 
     await task.save();
+
+    // Log to global TaskActivity for unified history and timeline
+    try {
+      const TaskActivity = require("../models/TaskActivity");
+      const isCompletedAction = COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase());
+      const isFollowUpAction = statusDoc.statusKey === "follow_up" || (!isCompletedAction && Boolean(nextFollowUpDate));
+      const activityAction = isFollowUpAction ? "follow_up" :
+        (statusDoc.statusKey === "in_process" || statusDoc.statusKey === "in-progress" || statusDoc.statusKey === "re_in_process") ? "in_process" :
+        isCompletedAction ? (task.status === "late_complete" ? "late_completed" : "completed") :
+        statusDoc.statusKey || "comment_added";
+
+      await TaskActivity.create({
+        companyId: task.companyId,
+        taskId: task._id,
+        action: activityAction,
+        remarks: actualRemark || (isFollowUpAction && task.nextFollowUpDate ? "Next follow-up date scheduled" : `Status changed to ${statusDoc.label}`),
+        nextFollowUpDate: task.nextFollowUpDate,
+        attachments: formattedAttachments,
+        performedBy: req.user._id
+      });
+    } catch (actErr) {
+      console.error("TaskActivity create log error in employeeTaskController:", actErr.message);
+    }
 
     // Auto calculate project progress
     if (task.projectId) {
