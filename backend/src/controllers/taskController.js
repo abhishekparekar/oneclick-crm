@@ -536,10 +536,8 @@ exports.updateTask = async (req, res) => {
 exports.inProcessTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] inProcessTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { nextFollowUpDate, remarks, attachments } = req.body;
-        if ((!remarks || !remarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to start the task." });
-        }
+        const { nextFollowUpDate, remarks, remark, comment, attachments } = req.body;
+        const noteText = (remarks || remark || comment || "").trim();
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
         if (!task) {
@@ -549,16 +547,6 @@ exports.inProcessTask = async (req, res) => {
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         const currentStatus = task.status || "pending";
-
-        if (
-            currentStatus !== "pending" &&
-            currentStatus !== "re_pending" &&
-            currentStatus !== "re_open" &&
-            currentStatus !== "overdue" &&
-            currentStatus !== "re_overdue"
-        ) {
-            return res.status(400).json({ success: false, message: "Can only move pending, overdue or re-opened tasks to in_process" });
-        }
 
         const targetStatus = (currentStatus === "re_pending" || currentStatus === "re_open" || currentStatus === "re_overdue") ? "re_in_process" : "in_process";
 
@@ -578,23 +566,21 @@ exports.inProcessTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
-        const remarkToUse = (typeof remarks === 'string' && remarks.trim()) ? remarks : '';
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
-            });
-        }
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated to in-process");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: targetStatus, remarks, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: targetStatus, remarks: remarkToUse, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -617,10 +603,8 @@ exports.inProcessTask = async (req, res) => {
 exports.completeTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] completeTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, attachments } = req.body;
-        if ((!finalRemarks || !finalRemarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to complete the task." });
-        }
+        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const noteText = (finalRemarks || remarks || remark || comment || "Task completed").trim();
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
         if (!task) {
@@ -749,10 +733,8 @@ exports.completeTask = async (req, res) => {
 exports.lateCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] lateCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, attachments } = req.body;
-        if ((!finalRemarks || !finalRemarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to complete the task." });
-        }
+        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const noteText = (finalRemarks || remarks || remark || comment || "Task completed late").trim();
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
         if (!task) {
@@ -905,12 +887,10 @@ exports.reopenTask = async (req, res) => {
 exports.reInProcessTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] reInProcessTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { nextFollowUpDate, remarks, attachments } = req.body;
-        if ((!remarks || !remarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to start the task." });
-        }
+        const { nextFollowUpDate, remarks, remark, comment, attachments } = req.body;
+        const noteText = (remarks || remark || comment || "Task re-started in-process").trim();
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
-        if (!task || task.status !== "re_pending") return res.status(400).json({ success: false, message: "Task not in re_pending state" });
+        if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         const formattedAttachments = (attachments || []).map(att => ({
             fileUrl: att.fileUrl || att.url || "",
@@ -965,12 +945,10 @@ exports.reInProcessTask = async (req, res) => {
 exports.reCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] reCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, attachments } = req.body;
-        if ((!finalRemarks || !finalRemarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to complete the task." });
-        }
+        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const noteText = (finalRemarks || remarks || remark || comment || "Task re-completed").trim();
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
-        if (!task || task.status === "overdue") return res.status(400).json({ success: false, message: "Task not in correct state" });
+        if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         const formattedAttachments = (attachments || []).map(att => ({
             fileUrl: att.fileUrl || att.url || "",
@@ -981,26 +959,24 @@ exports.reCompleteTask = async (req, res) => {
         task.status = "re_complete";
         task.timerActive = false;
         task.completedAt = new Date();
-        task.finalRemarks = finalRemarks;
+        task.finalRemarks = noteText;
         task.nextFollowUpDate = null;
 
-        const remarkToUse = (typeof finalRemarks === 'string' && finalRemarks.trim()) ? finalRemarks : '';
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
-            });
-        }
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-completed");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "re_complete", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "re_complete", remarks: noteText, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1023,10 +999,8 @@ exports.reCompleteTask = async (req, res) => {
 exports.reLateCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] reLateCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, attachments } = req.body;
-        if ((!finalRemarks || !finalRemarks.trim()) && (!attachments || attachments.length === 0)) {
-            return res.status(400).json({ success: false, message: "Please provide Notes or upload an Attachment to complete the task." });
-        }
+        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const noteText = (finalRemarks || remarks || remark || comment || "Task re-completed late").trim();
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
@@ -1039,10 +1013,10 @@ exports.reLateCompleteTask = async (req, res) => {
         task.status = "re_late_complete";
         task.timerActive = false;
         task.lateCompletedAt = new Date();
-        task.finalRemarks = finalRemarks;
+        task.finalRemarks = noteText;
         task.nextFollowUpDate = null;
 
-        const remarkToUse = (typeof finalRemarks === 'string' && finalRemarks.trim()) ? finalRemarks : '';
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-late completed");
         if (remarkToUse || formattedAttachments.length > 0) {
             if (!task.comments) task.comments = [];
             task.comments.push({

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   getTasksApi,
   getDepartmentsApi,
@@ -342,6 +343,12 @@ export default function TaskBoard() {
 
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { user } = useAuth();
+  
+  const isHR = location.pathname.startsWith("/hr") || user?.role === "HR";
+  const getTaskDetailsUrl = (taskId) => isHR ? `/hr/tasks/${taskId}` : `/company/tasks/${taskId}`;
+
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("tb_activeTab") || "All Time");
   const [statusFilter, setStatusFilter] = useState(() => sessionStorage.getItem("tb_statusFilter") || "");
   const [searchQ, setSearchQ] = useState(() => sessionStorage.getItem("tb_searchQ") || "");
@@ -886,7 +893,7 @@ export default function TaskBoard() {
         /* ── GRID CARDS VIEW ── */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredTasks.map(task => (
-            <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+            <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
           ))}
         </div>
       ) : viewMode === "kanban" ? (
@@ -914,7 +921,7 @@ export default function TaskBoard() {
                     </div>
                   ) : (
                     colTasks.map(task => (
-                      <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+                      <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
                     ))
                   )}
                 </div>
@@ -949,7 +956,7 @@ export default function TaskBoard() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {filteredTasks.map(task => (
-                  <TableRow key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(`/company/tasks/${task._id}`)} />
+                  <TableRow key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
                 ))}
               </tbody>
             </table>

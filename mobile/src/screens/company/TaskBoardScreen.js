@@ -343,7 +343,8 @@ const TaskCard = ({ item, onPress, onEdit, onDelete, onToggle, isSelected, onSel
 
 // ─── Main Screen ─────────────────────────────────────────────────────────────
 const TaskBoardScreen = ({ navigation }) => {
-  const { hasPermission } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const isHR = user?.role === "HR";
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [selectedDepts, setSelectedDepts] = useState([]);
@@ -866,10 +867,10 @@ const TaskBoardScreen = ({ navigation }) => {
                 setSelectedTaskIds((prev) => [...new Set([...prev, ...visibleIds])]);
               }
             } else {
-              navigation.navigate("CompanyTaskDetails", { taskId: item._id, initialTask: item });
+              navigation.navigate(isHR ? "HRTaskDetails" : "CompanyTaskDetails", { taskId: item._id, initialTask: item });
             }
           }}
-          onEdit={() => navigation.navigate("CompanyCreateTask", { editingTask: item })}
+          onEdit={() => navigation.navigate(isHR ? "HRCreateTask" : "CompanyCreateTask", { editingTask: item })}
           onDelete={() => handleDelete(item._id)}
           isSelected={selectedTaskIds.includes(item._id)}
           onToggle={() => {
