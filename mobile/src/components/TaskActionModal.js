@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as DocumentPicker from "expo-document-picker";
 import { Audio } from "expo-av";
 import AppDatePicker from "./AppDatePicker";
+import AppTimePicker from "./AppTimePicker";
 import { uploadMediaFileApi } from "../api/taskService";
 import { parseDDMMYYYYToISO } from "../utils/dateFormatter";
 
@@ -35,6 +36,26 @@ const parseDDMMYYYY = (dateStr) => {
   return null;
 };
 
+const combineDateAndTimeToISO = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    let hour = 10;
+    let minute = 0;
+    if (timeStr && timeStr.includes(":")) {
+      const [h, m] = timeStr.split(":");
+      hour = parseInt(h, 10) || 10;
+      minute = parseInt(m, 10) || 0;
+    }
+    const d = new Date(year, month, day, hour, minute, 0);
+    return d.toISOString();
+  }
+  return null;
+};
+
 const TaskActionModal = ({
   visible,
   onClose,
@@ -46,6 +67,7 @@ const TaskActionModal = ({
   const insets = useSafeAreaInsets();
   const [remarks, setRemarks] = useState("");
   const [followUpDate, setFollowUpDate] = useState(null);
+  const [followUpTime, setFollowUpTime] = useState("10:00");
   const [attachments, setAttachments] = useState([]);
   const [uploading, setUploading] = useState(false);
 
@@ -245,7 +267,7 @@ const TaskActionModal = ({
       
       onSubmit({
         remarks,
-        nextFollowUpDate: (normalizedActionType === "in_process" || normalizedActionType === "follow_up") ? (followUpDate ? parseDDMMYYYYToISO(followUpDate) : null) : null,
+        nextFollowUpDate: (normalizedActionType === "in_process" || normalizedActionType === "follow_up") ? (followUpDate ? combineDateAndTimeToISO(followUpDate, followUpTime) : null) : null,
         attachments: finalAttachments,
       });
     } catch (err) {
@@ -302,12 +324,23 @@ const TaskActionModal = ({
 
             {(normalizedActionType === "in_process" || normalizedActionType === "follow_up") && (
               <View style={styles.field}>
-                <Text style={styles.label}>Next Follow-up Date *</Text>
-                <AppDatePicker
-                  value={followUpDate}
-                  onChangeText={setFollowUpDate}
-                  placeholder="Select follow-up date"
-                />
+                <Text style={styles.label}>Next Follow-up Date &amp; Time *</Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <View style={{ flex: 1.4, marginRight: 8 }}>
+                    <AppDatePicker
+                      value={followUpDate}
+                      onChangeText={setFollowUpDate}
+                      placeholder="Select date"
+                      compact
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppTimePicker
+                      value={followUpTime}
+                      onChangeText={setFollowUpTime}
+                    />
+                  </View>
+                </View>
               </View>
             )}
 

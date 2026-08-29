@@ -27,6 +27,26 @@ import TaskAttachmentPicker from "../../components/TaskAttachmentPicker";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 
+const combineDateAndTimeToISO = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    let hour = 10;
+    let minute = 0;
+    if (timeStr && timeStr.includes(":")) {
+      const [h, m] = timeStr.split(":");
+      hour = parseInt(h, 10) || 10;
+      minute = parseInt(m, 10) || 0;
+    }
+    const d = new Date(year, month, day, hour, minute, 0);
+    return d.toISOString();
+  }
+  return null;
+};
+
 const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const { editingTask, isRecurring } = route.params || {};
   const { user } = useAuth();
@@ -51,6 +71,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const [endDate, setEndDate] = useState(editingTask?.endDate ? formatDateToDDMMYYYY(editingTask.endDate) : formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
   const [deadlineTime, setDeadlineTime] = useState(editingTask?.deadlineTime || "17:00");
   const [nextFollowUpDate, setNextFollowUpDate] = useState(editingTask?.nextFollowUpDate ? formatDateToDDMMYYYY(editingTask.nextFollowUpDate) : formatDateToDDMMYYYY(new Date()));
+  const [nextFollowUpTime, setNextFollowUpTime] = useState(editingTask?.nextFollowUpDate ? `${String(new Date(editingTask.nextFollowUpDate).getHours()).padStart(2, '0')}:${String(new Date(editingTask.nextFollowUpDate).getMinutes()).padStart(2, '0')}` : "10:00");
 
   const [repeatEnabled, setRepeatEnabled] = useState(editingTask?.repeatEnabled || isRecurring || false);
   const [repeatType, setRepeatType] = useState(editingTask?.repeatType || "daily");
@@ -192,7 +213,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
         startDate: startISO,
         endDate: endISO,
         deadlineTime: deadlineTime || null,
-        nextFollowUpDate: repeatEnabled ? null : (nextFollowUpDate ? parseDDMMYYYYToISO(nextFollowUpDate) : null),
+        nextFollowUpDate: repeatEnabled ? null : (nextFollowUpDate ? combineDateAndTimeToISO(nextFollowUpDate, nextFollowUpTime) : null),
         repeatEnabled,
         repeatType: repeatEnabled ? repeatType : null,
         finishDate: repeatEnabled && finishDate ? parseDDMMYYYYToISO(finishDate) : null,
@@ -612,6 +633,15 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
               <View style={styles.half}>
                 <AppDatePicker label="Follow-up Date" value={nextFollowUpDate} onChangeText={setNextFollowUpDate} compact />
               </View>
+            </View>
+          )}
+
+          {!repeatEnabled && (
+            <View style={[styles.row, { marginTop: 10 }]}>
+              <View style={styles.half}>
+                <AppTimePicker label="Follow-up Time" value={nextFollowUpTime} onChangeText={setNextFollowUpTime} />
+              </View>
+              <View style={styles.half} />
             </View>
           )}
 

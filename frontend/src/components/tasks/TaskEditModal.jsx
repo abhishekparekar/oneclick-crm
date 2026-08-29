@@ -11,6 +11,14 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const formatToDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function TaskEditModal({ isOpen, onClose, task, departments = [], employees = [] }) {
   const queryClient = useQueryClient();
 
@@ -27,7 +35,7 @@ export default function TaskEditModal({ isOpen, onClose, task, departments = [],
     startDate: getTodayDateString(),
     endDate: "",
     deadlineTime: "18:00",
-    nextFollowUpDate: getTodayDateString(),
+    nextFollowUpDate: "",
     finishDate: "",
     checklist: [],
   };
@@ -45,7 +53,7 @@ export default function TaskEditModal({ isOpen, onClose, task, departments = [],
         priority: task.priority || "medium",
         startDate: task.startDateTime ? new Date(task.startDateTime).toISOString().split("T")[0] : getTodayDateString(),
         endDate: task.endDateTime ? new Date(task.endDateTime).toISOString().split("T")[0] : "",
-        nextFollowUpDate: task.nextFollowUpDate ? new Date(task.nextFollowUpDate).toISOString().split("T")[0] : (task.startDateTime ? new Date(task.startDateTime).toISOString().split("T")[0] : getTodayDateString()),
+        nextFollowUpDate: task.nextFollowUpDate ? formatToDateTimeLocal(task.nextFollowUpDate) : "",
         deadlineTime: task.endDateTime ? `${String(new Date(task.endDateTime).getHours()).padStart(2, '0')}:${String(new Date(task.endDateTime).getMinutes()).padStart(2, '0')}` : "18:00",
         checklist: task.checklist || [],
         repeatEnabled: task.repeatEnabled || false,
@@ -313,8 +321,8 @@ export default function TaskEditModal({ isOpen, onClose, task, departments = [],
               )}
               
               <div>
-                <label className="label-text">Next Follow-up Date</label>
-                <input type="date" name="nextFollowUpDate" value={form.nextFollowUpDate} onChange={handleChange} className="input-field" />
+                <label className="label-text">Next Follow-up Date &amp; Time</label>
+                <input type="datetime-local" name="nextFollowUpDate" value={form.nextFollowUpDate} onChange={handleChange} className="input-field" />
               </div>
 
               <div>

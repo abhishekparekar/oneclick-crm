@@ -43,8 +43,8 @@ export const InProcessModal = ({ isOpen, onClose, task }) => {
     <ModalWrapper title="Mark In-Process" isOpen={isOpen} onClose={onClose}>
       <form onSubmit={onSubmit} className="p-5 space-y-4">
         <div>
-          <label className="label-text">Next Follow-up Date *</label>
-          <input required type="date" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} className="input-field" />
+          <label className="label-text">Next Follow-up Date &amp; Time *</label>
+          <input required type="datetime-local" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} className="input-field" />
         </div>
         <div>
           <label className="label-text">Remarks / Progress</label>
@@ -135,8 +135,8 @@ export const ReopenModal = ({ isOpen, onClose, task }) => {
           <input required type="date" value={newEndDate} onChange={e => setNewEndDate(e.target.value)} className="input-field" />
         </div>
         <div>
-          <label className="label-text">Next Follow-up Date</label>
-          <input type="date" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} className="input-field" />
+          <label className="label-text">Next Follow-up Date &amp; Time</label>
+          <input type="datetime-local" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} className="input-field" />
         </div>
         <div>
           <label className="label-text">Reason for Re-opening *</label>

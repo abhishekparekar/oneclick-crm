@@ -18,6 +18,14 @@ const getTodayDateString = () => {
   return `${year}-${month}-${day}`;
 };
 
+const getTodayDateTimeString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}T10:00`;
+};
+
 const PRIORITIES = [
   { id: "low", label: "Low", icon: "🟢", color: "text-emerald-700 dark:text-emerald-300", bg: "bg-emerald-500/10 border-emerald-500/30", activeBg: "bg-emerald-500 text-white font-bold" },
   { id: "medium", label: "Medium", icon: "🟡", color: "text-amber-700 dark:text-amber-300", bg: "bg-amber-500/10 border-amber-500/30", activeBg: "bg-amber-500 text-slate-950 font-black shadow-xs" },
@@ -69,7 +77,7 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
     startDate: getTodayDateString(),
     endDate: "",
     deadlineTime: "18:00",
-    nextFollowUpDate: getTodayDateString(),
+    nextFollowUpDate: getTodayDateTimeString(),
     finishDate: "",
     checklist: [],
     attachments: [],
@@ -517,12 +525,12 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Next Follow-up Date
+                    Next Follow-up Date &amp; Time
                   </label>
                   <div className="relative">
                     <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                     <input 
-                      type="date" 
+                      type="datetime-local" 
                       name="nextFollowUpDate" 
                       value={form.nextFollowUpDate} 
                       onChange={handleChange} 
@@ -551,7 +559,7 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
                       name="repeatType" 
                       value={form.repeatType} 
                       onChange={handleChange} 
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white"
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white" 
                     >
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
@@ -592,10 +600,10 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
                   {/* Next Follow-up Date for Recurring */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      Follow-up Date
+                      Follow-up Date &amp; Time
                     </label>
                     <input 
-                      type="date" 
+                      type="datetime-local" 
                       name="nextFollowUpDate" 
                       value={form.nextFollowUpDate} 
                       onChange={handleChange} 

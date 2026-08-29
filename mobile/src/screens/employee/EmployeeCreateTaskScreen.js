@@ -23,6 +23,26 @@ import AppTimePicker from "../../components/AppTimePicker";
 import { useAuth } from "../../context/AuthContext";
 import { useQueryClient } from "@tanstack/react-query";
 
+const combineDateAndTimeToISO = (dateStr, timeStr) => {
+  if (!dateStr) return null;
+  const parts = dateStr.split("/");
+  if (parts.length === 3) {
+    const day = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const year = parseInt(parts[2], 10);
+    let hour = 10;
+    let minute = 0;
+    if (timeStr && timeStr.includes(":")) {
+      const [h, m] = timeStr.split(":");
+      hour = parseInt(h, 10) || 10;
+      minute = parseInt(m, 10) || 0;
+    }
+    const d = new Date(year, month, day, hour, minute, 0);
+    return d.toISOString();
+  }
+  return null;
+};
+
 const EmployeeCreateTaskScreen = ({ navigation }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -35,6 +55,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
   const [endDate, setEndDate] = useState(formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
   const [deadlineTime, setDeadlineTime] = useState("17:00");
   const [nextFollowUpDate, setNextFollowUpDate] = useState(formatDateToDDMMYYYY(new Date()));
+  const [nextFollowUpTime, setNextFollowUpTime] = useState("10:00");
 
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [repeatType, setRepeatType] = useState("daily");
@@ -154,7 +175,7 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
         startDate: startISO,
         endDate: endISO,
         deadlineTime: deadlineTime || undefined,
-        nextFollowUpDate: nextFollowUpDate ? parseDDMMYYYYToISO(nextFollowUpDate) : undefined,
+        nextFollowUpDate: nextFollowUpDate ? combineDateAndTimeToISO(nextFollowUpDate, nextFollowUpTime) : undefined,
         repeatEnabled,
         repeatType: repeatEnabled ? repeatType : undefined,
         weeklyDays: repeatEnabled && repeatType === "weekly" ? weeklyDays : undefined,
@@ -472,6 +493,15 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
               <View style={styles.halfCol}>
                 <AppDatePicker label="Follow-up Date" value={nextFollowUpDate} onChangeText={setNextFollowUpDate} compact />
               </View>
+            </View>
+          )}
+
+          {!repeatEnabled && (
+            <View style={[styles.dateRow, { marginTop: 10 }]}>
+              <View style={styles.halfCol}>
+                <AppTimePicker label="Follow-up Time" value={nextFollowUpTime} onChangeText={setNextFollowUpTime} />
+              </View>
+              <View style={styles.halfCol} />
             </View>
           )}
 
