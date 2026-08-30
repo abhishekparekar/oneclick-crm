@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import api from "../../api/api";
@@ -14,6 +14,7 @@ import {
 
 export default function HRLeads() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
@@ -402,7 +403,8 @@ export default function HRLeads() {
             return (
               <div
                 key={leadId}
-                className={`bg-white dark:bg-[#111C24] rounded-xl p-3.5 border hover:border-orange-300 dark:hover:border-orange-500/40 hover:shadow-md transition-all flex flex-col justify-between relative group ${
+                onClick={() => navigate(`/hr/leads/${leadId}`)}
+                className={`bg-white dark:bg-[#111C24] rounded-xl p-3.5 border hover:border-amber-300 dark:hover:border-amber-500/40 hover:shadow-md transition-all flex flex-col justify-between relative group cursor-pointer ${
                   isSelected ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/20 dark:bg-amber-950/10" : "border-slate-200/80 dark:border-slate-800"
                 }`}
                 style={{ borderLeftWidth: "4px", borderLeftColor: sColor }}
@@ -413,7 +415,10 @@ export default function HRLeads() {
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => toggleSelectLead(leadId)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          toggleSelectLead(leadId);
+                        }}
                         className="rounded accent-amber-500 cursor-pointer w-3.5 h-3.5 shrink-0"
                       />
                       <div
@@ -427,7 +432,7 @@ export default function HRLeads() {
                         <span className="text-[10px] text-slate-400 block font-mono">{lead.whatsappPhone || lead.phone || "No phone"}</span>
                       </div>
                     </div>
-                    <div className="relative shrink-0">
+                    <div className="relative shrink-0" onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => setStatusMenuLeadId(statusMenuLeadId === leadId ? null : leadId)}
                         className="px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all flex items-center gap-1 cursor-pointer"
@@ -445,9 +450,17 @@ export default function HRLeads() {
                     </span>
                   </div>
                 </div>
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800" onClick={(e) => e.stopPropagation()}>
                   <span className="text-[9.5px] font-semibold text-slate-400 uppercase">{lead.source || "Walk-in"}</span>
                   <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/hr/leads/${leadId}`)}
+                      className="w-6 h-6 rounded-md bg-amber-50 hover:bg-amber-500 text-amber-600 hover:text-white flex items-center justify-center cursor-pointer shadow-2xs transition-colors"
+                      title="View Candidate Details"
+                    >
+                      <Eye size={12} strokeWidth={2.4} />
+                    </button>
                     <button onClick={() => deleteMutation.mutate(leadId)} className="w-6 h-6 rounded-md bg-rose-50 hover:bg-rose-600 text-rose-500 hover:text-white flex items-center justify-center cursor-pointer shadow-2xs">
                       <Trash2 size={11} />
                     </button>
@@ -481,9 +494,21 @@ export default function HRLeads() {
                   const isSelected = selectedLeadIds.includes(leadId);
                   const rawPhone = lead.whatsappPhone || lead.phone || "";
                   return (
-                    <tr key={leadId} className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer ${isSelected ? "bg-amber-500/10" : ""}`}>
+                    <tr
+                      key={leadId}
+                      onClick={() => navigate(`/hr/leads/${leadId}`)}
+                      className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer ${isSelected ? "bg-amber-500/10" : ""}`}
+                    >
                       <td className="py-3 px-4" onClick={(e) => e.stopPropagation()}>
-                        <input type="checkbox" checked={isSelected} onChange={() => toggleSelectLead(leadId)} className="rounded accent-amber-500 cursor-pointer" />
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            toggleSelectLead(leadId);
+                          }}
+                          className="rounded accent-amber-500 cursor-pointer"
+                        />
                       </td>
                       <td className="py-3 px-4">
                         <p className="font-extrabold text-slate-900 dark:text-white text-xs">{lead.name}</p>
@@ -522,6 +547,14 @@ export default function HRLeads() {
                               <Phone size={12} />
                             </a>
                           )}
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/hr/leads/${leadId}`)}
+                            className="p-1.5 bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300 rounded-lg hover:bg-amber-100 transition-colors inline-block"
+                            title="View Candidate Details"
+                          >
+                            <Eye size={13} strokeWidth={2.4} />
+                          </button>
                           <button
                             type="button"
                             onClick={() => deleteMutation.mutate(leadId)}

@@ -66,6 +66,7 @@ import SuperAdminProfile from "../pages/superadmin/SuperAdminProfile";
 // HR — Dashboard & Leads
 import HRDashboard from "../pages/hr/HRDashboard";
 import HRLeads from "../pages/hr/HRLeads";
+import HRLeadDetails from "../pages/hr/HRLeadDetails";
 
 // Company Requests & Query Hub
 import CompanyRequestsPage from "../pages/common/CompanyRequestsPage";
@@ -276,6 +277,7 @@ const AppRoutes = () => {
 
             {/* Lead CRM */}
             <Route path="leads" element={<HRLeads />} />
+            <Route path="leads/:id" element={<HRLeadDetails />} />
           </Route>
         </Route>
 
