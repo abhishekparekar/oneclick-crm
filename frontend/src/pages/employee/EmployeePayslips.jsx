@@ -5,8 +5,7 @@ import {
   Receipt, Download, Calendar, X, FileText, Eye,
   Wallet, CheckCircle2, UserCheck, UserX, Clock,
   Umbrella, CalendarCheck, TrendingDown, TrendingUp, ChevronDown,
-  Sparkles, DollarSign, MinusCircle, Check, ArrowUp, ArrowDown,
-  ShieldCheck, Printer, ArrowRight
+  DollarSign, MinusCircle, ShieldCheck, Printer, ArrowUp, ArrowDown
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -16,44 +15,38 @@ const MONTH_NAMES = [
 ];
 
 const fmt = (n) => `₹ ${(Number(n) || 0).toLocaleString("en-IN")}`;
-const fmtDay = (v) => { const n = Number(v) || 0; return n % 1 === 0 ? String(n) : n.toFixed(1); };
+const fmtDay = (v) => {
+  const n = Number(v) || 0;
+  return n % 1 === 0 ? String(n) : n.toFixed(1);
+};
 
 /* ── Top Metric Stat Card ─────────────────────────────────────────────── */
 const MetricCard = ({ label, value, subtext, Icon, iconBg, iconColor, accentBorder, trend, isPositive }) => (
-  <div className="relative bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3.5 sm:p-4 shadow-2xs hover:shadow-xs transition-all overflow-hidden flex flex-col justify-between group">
+  <div className="relative bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-2xs hover:shadow-xs transition-all overflow-hidden flex flex-col justify-between group">
     <div className={`absolute top-0 left-0 right-0 h-[2.5px] ${accentBorder}`} />
     <div className="flex items-start justify-between gap-2 mb-2">
       <div>
-        <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+        <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
           {label}
         </span>
-        <h3 className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5 font-mono">
+        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1 font-mono">
           {value}
         </h3>
       </div>
-      <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${iconBg} flex-shrink-0 shadow-2xs`}>
-        <Icon size={16} style={{ color: iconColor }} strokeWidth={2.4} />
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg} shrink-0 shadow-2xs`}>
+        <Icon size={18} style={{ color: iconColor }} strokeWidth={2.4} />
       </div>
     </div>
-    <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800/80">
       <span className="text-slate-400 truncate">{subtext}</span>
       {trend && (
         <span className={`inline-flex items-center font-bold font-mono ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-          {isPositive ? <ArrowUp size={10} strokeWidth={2.5} className="mr-0.5" /> : <ArrowDown size={10} strokeWidth={2.5} className="mr-0.5" />}
+          {isPositive ? <ArrowUp size={11} strokeWidth={2.5} className="mr-0.5" /> : <ArrowDown size={11} strokeWidth={2.5} className="mr-0.5" />}
           {trend}
         </span>
       )}
     </div>
   </div>
-);
-
-/* ── Attendance Micro Pill ─────────────────────────────────────────────── */
-const AttPill = ({ icon: Icon, label, value, color }) => (
-  <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md ${color}`}>
-    <Icon size={10} strokeWidth={2.5} />
-    <span>{fmtDay(value)}</span>
-    <span className="opacity-75 font-normal text-[9px] hidden sm:inline">{label}</span>
-  </span>
 );
 
 const EmployeePayslips = () => {
@@ -118,20 +111,20 @@ const EmployeePayslips = () => {
   };
 
   return (
-    <div className="w-full font-sans pb-10 space-y-3.5 text-slate-900 dark:text-slate-100">
+    <div className="w-full font-sans pb-10 space-y-4 text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto text-xs">
 
       {/* ── Header Banner ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center flex-shrink-0 shadow-xs">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
             <Receipt size={20} strokeWidth={2.2} />
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
+              <h1 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
                 My Payslips &amp; Financial Ledger
               </h1>
-              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
                 Financial Year {yearFilter}
               </span>
             </div>
@@ -142,13 +135,13 @@ const EmployeePayslips = () => {
         </div>
 
         {/* Year Filter Switcher */}
-        <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
           <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-2">Year:</span>
           <div className="relative">
             <select
               value={yearFilter}
               onChange={(e) => setYearFilter(Number(e.target.value))}
-              className="appearance-none pl-2.5 pr-7 py-1 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-2xs"
+              className="appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-2xs"
             >
               {yearOptions.map((y) => (
                 <option key={y} value={y}>
@@ -156,7 +149,7 @@ const EmployeePayslips = () => {
                 </option>
               ))}
             </select>
-            <ChevronDown size={11} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
         </div>
       </div>
@@ -170,7 +163,7 @@ const EmployeePayslips = () => {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">Active Salary Advance</h3>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white">Active Salary Advance</h3>
                 <span className="px-2 py-0.5 text-[9.5px] font-black rounded-full bg-amber-500 text-slate-950 uppercase">
                   {activeAdvance.repaymentType === "percentage_of_salary"
                     ? `${activeAdvance.percentage || 15}% Salary Deduction`
@@ -198,7 +191,7 @@ const EmployeePayslips = () => {
       )}
 
       {/* ── 4 Top KPI Stat Cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <MetricCard
           label="Total Net Received"
           value={fmt(totalNetSalary)}
@@ -251,12 +244,12 @@ const EmployeePayslips = () => {
         {/* Table/Card Header */}
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/40">
           <div className="flex items-center gap-2">
-            <Receipt size={14} className="text-amber-500" />
-            <h3 className="font-bold text-slate-900 dark:text-white text-xs tracking-wider uppercase">
+            <Receipt size={15} className="text-amber-500" />
+            <h3 className="font-black text-slate-900 dark:text-white text-xs tracking-wider uppercase">
               Monthly Disbursal Statements ({yearFilter})
             </h3>
           </div>
-          <span className="text-[10px] font-extrabold text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111C24] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs">
+          <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111C24] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs">
             {payslips.length} Statements
           </span>
         </div>
@@ -264,7 +257,7 @@ const EmployeePayslips = () => {
         {/* Loading State */}
         {isLoading ? (
           <div className="py-20 flex flex-col items-center justify-center text-slate-400 gap-2">
-            <div className="w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-xs font-bold">Loading authenticated payslips...</p>
           </div>
         ) : payslips.length === 0 ? (
@@ -279,7 +272,7 @@ const EmployeePayslips = () => {
             </p>
           </div>
         ) : (
-          /* Full Table / Card View */
+          /* Full Clean Table / Card View */
           <div className="divide-y divide-slate-100 dark:divide-slate-800/80">
             {payslips.map((ps) => {
               const mNum = parseInt(ps.month, 10);
@@ -292,33 +285,33 @@ const EmployeePayslips = () => {
               const isExpanded = expandedId === ps._id;
 
               return (
-                <div key={ps._id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40 transition-colors">
+                <div key={ps._id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
                   
-                  {/* Summary Bar */}
+                  {/* Clean Summary Bar */}
                   <div className="p-3.5 sm:p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                     
                     {/* Pay Period & Status */}
-                    <div className="flex items-center gap-3 min-w-[200px]">
-                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center flex-shrink-0 shadow-2xs">
+                    <div className="flex items-center gap-3 min-w-[190px]">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center shrink-0 shadow-2xs">
                         <Calendar size={18} />
                       </div>
                       <div>
-                        <h4 className="font-extrabold text-slate-900 dark:text-white text-sm leading-tight">
+                        <h4 className="font-black text-slate-900 dark:text-white text-sm leading-tight">
                           {monthName} {ps.year}
                         </h4>
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span
-                            className={`inline-flex items-center px-1.5 py-0.2 rounded text-[9.5px] font-bold border capitalize ${
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider border ${
                               isPaid
                                 ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800"
-                                : "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                                : "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800"
                             }`}
                           >
-                            <span className={`w-1.5 h-1.5 rounded-full mr-1 ${isPaid ? "bg-emerald-500" : "bg-amber-500"}`} />
+                            <span className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isPaid ? "bg-emerald-500" : "bg-blue-500"}`} />
                             {ps.status || "Generated"}
                           </span>
                           {ps.sentAt && (
-                            <span className="text-[9.5px] text-slate-400">
+                            <span className="text-[10px] text-slate-400 font-medium">
                               · Released {new Date(ps.sentAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}
                             </span>
                           )}
@@ -326,65 +319,86 @@ const EmployeePayslips = () => {
                       </div>
                     </div>
 
-                    {/* Attendance Snapshot Chips */}
-                    <div className="flex flex-wrap items-center gap-1.5 flex-1 max-w-xl">
-                      <AttPill icon={UserCheck} label="Present" value={att.presentDays || 0} color="bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400" />
-                      <AttPill icon={UserX} label="Absent" value={att.absentDays || 0} color="bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400" />
-                      <AttPill icon={Clock} label="Half Day" value={att.halfDays || 0} color="bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400" />
-                      <AttPill icon={Umbrella} label="Paid Leave" value={att.paidLeaveDays || 0} color="bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400" />
-                      <AttPill icon={CalendarCheck} label="Payable" value={att.payableDays || 0} color="bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400" />
+                    {/* Clean Essential Attendance Summary */}
+                    <div className="flex flex-wrap items-center gap-1.5 flex-1 max-w-lg">
+                      {att.payableDays !== undefined && (
+                        <span className="inline-flex items-center gap-1 text-[10.5px] font-black px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700 shadow-2xs">
+                          <CalendarCheck size={12} className="text-amber-500" />
+                          <span>{fmtDay(att.payableDays)} Payable Days</span>
+                        </span>
+                      )}
+                      {(att.presentDays || 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400">
+                          <UserCheck size={11} /> {fmtDay(att.presentDays)} Present
+                        </span>
+                      )}
+                      {(att.absentDays || 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-400">
+                          <UserX size={11} /> {fmtDay(att.absentDays)} Absent
+                        </span>
+                      )}
+                      {(att.halfDays || 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-400">
+                          <Clock size={11} /> {fmtDay(att.halfDays)} Half Day
+                        </span>
+                      )}
+                      {(att.paidLeaveDays || 0) > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400">
+                          <Umbrella size={11} /> {fmtDay(att.paidLeaveDays)} Paid Leave
+                        </span>
+                      )}
                       {(att.lossOfPayDays || 0) > 0 && (
-                        <span className="text-[9px] font-bold text-rose-500 px-1.5 py-0.5 rounded bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/40">
+                        <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-300 dark:border-rose-800">
                           LOP: {fmtDay(att.lossOfPayDays)}d
                         </span>
                       )}
                     </div>
 
-                    {/* Salary Metrics */}
-                    <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-start pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+                    {/* Financial Figures */}
+                    <div className="flex items-center gap-4 sm:gap-6 justify-between sm:justify-start pt-2.5 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
                       <div>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Gross</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Gross</span>
                         <span className="font-bold text-slate-700 dark:text-slate-300 font-mono text-xs">{fmt(gross)}</span>
                       </div>
                       <div>
-                        <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">Deductions</span>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Deductions</span>
                         <span className="font-bold text-rose-600 dark:text-rose-400 font-mono text-xs">{fmt(deductions)}</span>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider block">Take-Home</span>
-                        <span className="font-black text-amber-600 dark:text-amber-400 font-mono text-sm sm:text-base">{fmt(net)}</span>
+                      <div className="pl-2 border-l border-slate-200 dark:border-slate-800">
+                        <span className="text-[10px] font-black text-[#1268D9] dark:text-blue-400 uppercase tracking-wider block">Take-Home</span>
+                        <span className="font-black text-[#1268D9] dark:text-blue-400 font-mono text-sm sm:text-base">{fmt(net)}</span>
                       </div>
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center gap-1.5 self-end sm:self-center flex-shrink-0">
+                    <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
                       <button
                         onClick={() => setExpandedId(isExpanded ? null : ps._id)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer border ${
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer border ${
                           isExpanded
                             ? "bg-slate-900 text-white dark:bg-slate-800 border-slate-900 dark:border-slate-700"
                             : "bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700"
                         }`}
                       >
-                        <ChevronDown size={12} className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
+                        <ChevronDown size={13} className={`transition-transform duration-200 ${isExpanded ? "rotate-180" : ""}`} />
                         <span>{isExpanded ? "Hide" : "Breakdown"}</span>
                       </button>
 
                       <button
                         onClick={() => previewPayslip(ps._id)}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
                         title="View Full Salary Slip"
                       >
-                        <Eye size={12} strokeWidth={2.5} />
+                        <Eye size={13} strokeWidth={2.2} />
                         <span>View</span>
                       </button>
 
                       <button
                         onClick={() => downloadPDF(ps._id, monthName, ps.year)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 rounded-xl text-xs font-extrabold transition-all shadow-2xs cursor-pointer"
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black transition-all shadow-md shadow-[#1268D9]/20 cursor-pointer"
                         title="Download Authenticated PDF"
                       >
-                        <Download size={12} strokeWidth={2.5} />
+                        <Download size={13} strokeWidth={2.2} />
                         <span>PDF</span>
                       </button>
                     </div>
@@ -505,9 +519,9 @@ const EmployeePayslips = () => {
                       </div>
 
                       {/* Net Disbursed Highlight Footer */}
-                      <div className="bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-200 dark:border-amber-800/60 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className="bg-gradient-to-r from-blue-500/10 via-blue-500/5 to-transparent border border-blue-200 dark:border-blue-900/60 rounded-xl px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div>
-                          <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider block">
+                          <span className="text-[10px] font-bold text-[#1268D9] dark:text-blue-400 uppercase tracking-wider block">
                             Net Take-Home Pay Disbursed
                           </span>
                           <span className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
@@ -515,7 +529,7 @@ const EmployeePayslips = () => {
                           </span>
                         </div>
                         <div className="flex items-center gap-3">
-                          <span className="text-xl sm:text-2xl font-black text-amber-600 dark:text-amber-400 font-mono">
+                          <span className="text-xl sm:text-2xl font-black text-[#1268D9] dark:text-blue-400 font-mono">
                             {fmt(net)}
                           </span>
                         </div>
@@ -565,7 +579,7 @@ const EmployeePayslips = () => {
                       printWin.print();
                     }, 250);
                   }}
-                  className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white font-extrabold text-xs rounded-xl shadow-2xs transition-all cursor-pointer flex items-center gap-1.5"
                 >
                   <Printer size={13} strokeWidth={2.4} />
                   <span>Print / Save PDF</span>
