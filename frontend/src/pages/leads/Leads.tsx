@@ -421,6 +421,17 @@ export default function Leads() {
     }
   }, [searchParams, setSearchParams]);
 
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setAddLeadError(null);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
+
   const [savingLead, setSavingLead] = useState(false);
   const [addLeadError, setAddLeadError] = useState<string | null>(null);
   const [newLead, setNewLead] = useState({
@@ -901,7 +912,7 @@ export default function Leads() {
       if (payload.dateOfBirth) payload.dateOfBirth = new Date(payload.dateOfBirth).toISOString();
       if (payload.anniversaryDate) payload.anniversaryDate = new Date(payload.anniversaryDate).toISOString();
       await api.post('/api/leads', payload);
-      setShowAddModal(false); setAddLeadError(null);
+      handleCloseAddModal();
       const def = statuses.find((s: any) => s.isDefault) || statuses[0];
       const defSource = sources[0]?.name || 'Walk-in';
       setNewLead({ name: '', whatsappPhone: '', phone: '', email: '', statusId: def?.id || '', source: defSource, productService: '', dateOfBirth: '', anniversaryDate: '', notes: '', whatsappOptIn: true, assignedTo: '', tagIds: [] });
@@ -1685,7 +1696,7 @@ export default function Leads() {
               </div>
               <button 
                 type="button"
-                onClick={() => { setShowAddModal(false); setAddLeadError(null); }} 
+                onClick={handleCloseAddModal} 
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
                 <X size={16} />
@@ -1951,7 +1962,7 @@ export default function Leads() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button 
                   type="button" 
-                  onClick={() => { setShowAddModal(false); setAddLeadError(null); }} 
+                  onClick={handleCloseAddModal} 
                   className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel

@@ -134,7 +134,7 @@ const resolveLeadStatusName = (lead, statusesList = []) => {
 
 export default function EmployeeLeads() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const queryClient = useQueryClient();
 
@@ -148,8 +148,22 @@ export default function EmployeeLeads() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setShowCreateModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseCreateModal = () => {
+    setShowCreateModal(false);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
   const [showStatusModalLead, setShowStatusModalLead] = useState(null);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [statusFollowUpDate, setStatusFollowUpDate] = useState("");
@@ -348,7 +362,7 @@ export default function EmployeeLeads() {
     },
     onSuccess: () => {
       toast.success("Lead created successfully!");
-      setShowCreateModal(false);
+      handleCloseCreateModal();
       setForm({
         name: "",
         phone: "",
@@ -803,7 +817,7 @@ export default function EmployeeLeads() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowCreateModal(false)}
+                onClick={handleCloseCreateModal}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
                 <X size={16} />
@@ -1029,7 +1043,7 @@ export default function EmployeeLeads() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCreateModal(false)}
+                  onClick={handleCloseCreateModal}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel

@@ -31,6 +31,16 @@ export default function HRLeads() {
       setSearchParams(newParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
   const [savingLead, setSavingLead] = useState(false);
   const [statusMenuLeadId, setStatusMenuLeadId] = useState(null);
 
@@ -235,7 +245,7 @@ export default function HRLeads() {
       toast.success("Lead created successfully!");
       queryClient.invalidateQueries({ queryKey: ["hrMyLeads"] });
       queryClient.invalidateQueries({ queryKey: ["hrDashboardLeads"] });
-      setShowAddModal(false);
+      handleCloseAddModal();
       setForm({
         name: "",
         phone: "",
@@ -580,7 +590,7 @@ export default function HRLeads() {
               </div>
               <button
                 type="button"
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCloseAddModal}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
                 <X size={16} />
@@ -836,7 +846,7 @@ export default function HRLeads() {
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={handleCloseAddModal}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
