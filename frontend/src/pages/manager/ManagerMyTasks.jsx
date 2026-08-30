@@ -95,7 +95,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
 };
 
 export default function ManagerMyTasks() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewMode, setViewMode] = useState("list");
@@ -106,8 +106,22 @@ export default function ManagerMyTasks() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setIsCreateOpen(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseCreateModal = () => {
+    setIsCreateOpen(false);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   const [filters, setFilters] = useState({
     startDate: "",
@@ -668,7 +682,7 @@ export default function ManagerMyTasks() {
       {/* Legacy Task Create Modal */}
       <TaskCreateModal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={handleCloseCreateModal}
         departments={departments}
         employees={employees}
       />

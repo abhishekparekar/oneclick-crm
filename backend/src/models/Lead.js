@@ -161,4 +161,8 @@ const leadSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+leadSchema.index({ companyId: 1, deletedAt: 1, createdAt: -1 });
+leadSchema.index({ companyId: 1, statusId: 1 });
+leadSchema.index({ companyId: 1, assignedTo: 1 });
+
 module.exports = mongoose.model("Lead", leadSchema);

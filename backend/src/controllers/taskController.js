@@ -150,8 +150,8 @@ exports.createTask = async (req, res) => {
         const startStr = safeStartDate;
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-        // Rule: If repeat OFF and Start Date is today/current -> Create LIVE Task
-        if (!isRepeatOn && startStr <= todayStr) {
+        // Rule: If repeat OFF -> ALWAYS Create LIVE Task (so it can be viewed, tracked, and displayed immediately)
+        if (!isRepeatOn) {
             const { taskId, seqNumber } = await generateNextTaskId(companyId);
 
             const endDt = new Date(safeEndDate);
@@ -208,20 +208,18 @@ exports.createTask = async (req, res) => {
                 { taskId: newTask._id.toString() }
             ).catch(err => console.error("Error sending task notification:", err));
 
-            return res.status(201).json({ success: true, task: newTask });
+            return res.status(201).json({ success: true, task: newTask, data: { task: newTask } });
         }
 
-        // Rule: If repeat ON or Start Date is future -> Create TaskTemplate
+        // Rule: If repeat ON -> Create TaskTemplate
         let finalWeeklyDays = weeklyDays || [];
         let finalMonthlyDates = monthlyDates || [];
 
-        if (isRepeatOn) {
-            if (safeRepeatType === "weekly" && finalWeeklyDays.length === 0) {
-                finalWeeklyDays = [startDt.toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Kolkata" })];
-            }
-            if (safeRepeatType === "monthly" && finalMonthlyDates.length === 0) {
-                finalMonthlyDates = [startDt.getDate()];
-            }
+        if (safeRepeatType === "weekly" && finalWeeklyDays.length === 0) {
+            finalWeeklyDays = [startDt.toLocaleDateString("en-US", { weekday: "long", timeZone: "Asia/Kolkata" })];
+        }
+        if (safeRepeatType === "monthly" && finalMonthlyDates.length === 0) {
+            finalMonthlyDates = [startDt.getDate()];
         }
 
         const { taskId: generatedTaskId } = await generateNextTaskId(companyId);
@@ -277,7 +275,8 @@ exports.createTask = async (req, res) => {
         return res.status(201).json({
             success: true,
             template: newTemplate,
-            task: generatedTask,
+            task: generatedTask || newTemplate,
+            data: { task: generatedTask || newTemplate },
             message: generatedTask
                 ? "Recurring task template created and first instance generated immediately."
                 : "Task Template scheduled for future generation."
@@ -438,9 +437,10 @@ exports.getTaskDetails = async (req, res) => {
         const timeline = await TaskActivity.find({ taskId: task._id }).sort({ createdAt: 1 })
             .populate("performedBy", "name");
 
-        res.json({ success: true, data: { task, timeline } });
+        res.json({ success: true, data: { task, timeline }, task, timeline });
     } catch (error) {
-        res.status(500).json({ success: false, message: "Server error" });
+        console.error("getTaskDetails error:", error);
+        res.status(500).json({ success: false, message: "Server error: " + error.message });
     }
 };
 

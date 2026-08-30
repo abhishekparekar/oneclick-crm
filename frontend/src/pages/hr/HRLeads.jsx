@@ -14,7 +14,7 @@ import {
 
 export default function HRLeads() {
   const { user } = useAuth();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const [search, setSearch] = useState("");
@@ -25,8 +25,12 @@ export default function HRLeads() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setShowAddModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
   const [savingLead, setSavingLead] = useState(false);
   const [statusMenuLeadId, setStatusMenuLeadId] = useState(null);
 

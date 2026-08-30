@@ -71,5 +71,8 @@ const taskActivitySchema = new mongoose.Schema(
   }
 );
 
+taskActivitySchema.index({ taskId: 1, createdAt: 1 });
+taskActivitySchema.index({ companyId: 1, createdAt: -1 });
+
 const TaskActivity = mongoose.model("TaskActivity", taskActivitySchema);
 module.exports = TaskActivity;

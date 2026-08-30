@@ -39,12 +39,21 @@ const THEME = {
   dangerBg: "#FEF2F2",
   success: "#10B981",
   successBg: "#ECFDF5",
+  emerald: "#10B981",
+  emeraldBg: "#ECFDF5",
+  emeraldBorder: "#A7F3D0",
   blue: "#3B82F6",
   blueBg: "#EFF6FF",
+  blueBorder: "#BFDBFE",
   violet: "#8B5CF6",
   violetBg: "#F5F3FF",
+  violetBorder: "#DDD6FE",
   amber: "#D97706",
   amberBg: "#FFFBEB",
+  amberBorder: "#FDE68A",
+  rose: "#EF4444",
+  roseBg: "#FEE2E2",
+  roseBorder: "#FECACA",
 };
 
 const DEFAULT_TEMPLATES = [
@@ -71,12 +80,18 @@ const DEFAULT_TEMPLATES = [
 ];
 
 export default function LeadDetailsScreen({ route, navigation }) {
-  const { leadId } = route.params || {};
+  const leadId =
+    route?.params?.leadId ||
+    route?.params?.id ||
+    route?.params?.lead?._id ||
+    route?.params?.lead?.id ||
+    "";
+  const initialLead = route?.params?.lead || null;
   const { user } = useAuth();
   const currentUserId = user?._id || user?.id || "";
-  const [lead, setLead] = useState(null);
+  const [lead, setLead] = useState(initialLead);
   const [statuses, setStatuses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialLead);
   const [refreshing, setRefreshing] = useState(false);
 
   // Default to 'notes' (Timeline & Notes) as requested!
@@ -171,31 +186,42 @@ export default function LeadDetailsScreen({ route, navigation }) {
   };
 
   const fetchDetails = async () => {
+    if (!leadId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
     try {
-      setLoading(true);
+      if (!lead) setLoading(true);
       const [leadData, statusList, tplList] = await Promise.all([
-        leadsService.getLeadById(leadId),
-        leadsService.getStatuses(),
+        leadsService.getLeadById(leadId).catch((err) => {
+          console.warn("[LeadDetails] getLeadById error:", err?.message || err);
+          return initialLead || null;
+        }),
+        leadsService.getStatuses().catch(() => []),
         leadsService.getTemplates().catch(() => []),
       ]);
 
-      setLead(leadData);
+      if (leadData) {
+        setLead(leadData);
+      }
       setStatuses(Array.isArray(statusList) ? statusList : []);
       if (Array.isArray(tplList) && tplList.length > 0) {
         setTemplates(tplList);
         setSelectedTemplate(tplList[0]);
-        initVariablesForTemplate(tplList[0], leadData);
+        initVariablesForTemplate(tplList[0], leadData || lead);
       }
 
-      if (leadData) {
+      const activeLead = leadData || lead;
+      if (activeLead) {
         setEditForm({
-          name: leadData.name || "",
-          whatsappPhone: leadData.whatsappPhone || "",
-          email: leadData.email || "",
-          company: leadData.company || "",
-          estimatedValue: leadData.estimatedValue ? String(leadData.estimatedValue) : "",
-          assignedTo: leadData.assignedTo?._id || leadData.assignedTo?.id || leadData.assignedTo || "",
-          notes: leadData.notes || "",
+          name: activeLead.name || "",
+          whatsappPhone: activeLead.whatsappPhone || "",
+          email: activeLead.email || "",
+          company: activeLead.company || "",
+          estimatedValue: activeLead.estimatedValue ? String(activeLead.estimatedValue) : "",
+          assignedTo: activeLead.assignedTo?._id || activeLead.assignedTo?.id || activeLead.assignedTo || "",
+          notes: activeLead.notes || "",
         });
       }
 

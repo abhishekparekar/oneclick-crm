@@ -341,7 +341,7 @@ export default function TaskBoard() {
     return { start, end };
   };
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -354,6 +354,7 @@ export default function TaskBoard() {
   const [searchQ, setSearchQ] = useState(() => sessionStorage.getItem("tb_searchQ") || "");
   const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "list");
   const [showStatusCards, setShowStatusCards] = useState(false);
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -379,8 +380,22 @@ export default function TaskBoard() {
     }
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setIsCreateOpen(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseCreateModal = () => {
+    setIsCreateOpen(false);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   const handleTabChange = (tabName) => {
     setActiveTab(tabName);
@@ -578,8 +593,6 @@ export default function TaskBoard() {
     link.click();
     document.body.removeChild(link);
   };
-
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
 
   // Kanban Columns Definition
   const kanbanColumns = [
@@ -965,7 +978,7 @@ export default function TaskBoard() {
       )}
 
       {/* ── Task Creation Modal ────────────────────────────────────────────── */}
-      <TaskCreateModal isOpen={isCreateOpen} onClose={() => setIsCreateOpen(false)} departments={departments} employees={employees} />
+      <TaskCreateModal isOpen={isCreateOpen} onClose={handleCloseCreateModal} departments={departments} employees={employees} />
     </div>
   );
 }

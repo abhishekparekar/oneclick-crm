@@ -159,7 +159,8 @@ const login = async (req, res, next) => {
       token,
     });
   } catch (error) {
-    next(error);
+    console.error("[Auth] Login error:", error.message, error.stack);
+    res.status(500).json({ success: false, message: error.message || "Login failed" });
   }
 };
 

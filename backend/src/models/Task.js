@@ -226,7 +226,11 @@ taskSchema.pre("save", function () {
 
 taskSchema.index({ companyId: 1, status: 1 });
 taskSchema.index({ companyId: 1, assignedTo: 1 });
+taskSchema.index({ companyId: 1, isLive: 1, createdAt: -1 });
 taskSchema.index({ companyId: 1, isLive: 1, startDateTime: -1 });
+taskSchema.index({ companyId: 1, departmentId: 1, status: 1 });
+taskSchema.index({ assignedTo: 1, status: 1 });
+taskSchema.index({ assignedBy: 1, createdAt: -1 });
 
 const Task = mongoose.model("Task", taskSchema);
 module.exports = Task;

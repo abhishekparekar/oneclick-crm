@@ -136,5 +136,8 @@ const taskTemplateSchema = new mongoose.Schema(
   }
 );
 
+taskTemplateSchema.index({ companyId: 1, isActive: 1, createdAt: -1 });
+taskTemplateSchema.index({ companyId: 1, assignedTo: 1 });
+
 const TaskTemplate = mongoose.model("TaskTemplate", taskTemplateSchema);
 module.exports = TaskTemplate;

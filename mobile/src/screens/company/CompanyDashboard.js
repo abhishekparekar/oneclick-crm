@@ -516,9 +516,9 @@ const CompanyDashboard = ({ navigation }) => {
                         style={styles.compactDashLeadCard}
                         activeOpacity={0.85}
                         onPress={() =>
-                          navigation.navigate("DashboardStack", {
-                            screen: "LeadsEngine",
-                            params: { screen: "LeadDetails", params: { leadId: l.id || l._id } },
+                          navigation.navigate("LeadDetails", {
+                            leadId: l.id || l._id,
+                            lead: l,
                           })
                         }
                       >

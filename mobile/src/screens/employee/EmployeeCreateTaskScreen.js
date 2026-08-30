@@ -192,6 +192,15 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
         queryClient.invalidateQueries(["companyTasks"]);
         queryClient.invalidateQueries(["myTasks"]);
         queryClient.invalidateQueries(["teamTasks"]);
+        const createdTask = res.data.task || res.data.data?.task || res.data.data;
+        if (createdTask && (createdTask._id || createdTask.id)) {
+          navigation.replace("EmployeeTaskDetails", {
+            taskId: createdTask._id || createdTask.id,
+            task: createdTask,
+            initialTask: createdTask,
+          });
+          return;
+        }
         Alert.alert("Success", "Task created successfully!");
         navigation.goBack();
       }

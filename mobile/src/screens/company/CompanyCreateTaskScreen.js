@@ -232,12 +232,21 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
         queryClient.invalidateQueries(["companyDashboard"]);
         Alert.alert("Success", "Task updated successfully");
       } else {
-        await createTaskApi(payload);
+        const res = await createTaskApi(payload);
         queryClient.invalidateQueries(["companyTasks"]);
         queryClient.invalidateQueries(["tasks"]);
         queryClient.invalidateQueries(["teamTasks"]);
         queryClient.invalidateQueries(["myTasks"]);
         queryClient.invalidateQueries(["companyDashboard"]);
+        const createdTask = res?.data?.task || res?.data?.data?.task || res?.task || res?.data;
+        if (createdTask && (createdTask._id || createdTask.id)) {
+          navigation.replace("CompanyTaskDetails", {
+            taskId: createdTask._id || createdTask.id,
+            task: createdTask,
+            initialTask: createdTask,
+          });
+          return;
+        }
         Alert.alert("Success", "Task created successfully");
       }
       navigation.goBack();

@@ -398,7 +398,7 @@ employeeSchema.pre("save", async function (next) {
 
 employeeSchema.index({ companyId: 1, employeeCode: 1 }, { unique: true });
 employeeSchema.index({ status: 1, shiftStartTime: 1 }); // Ultra-fast querying for the Cron Job
-
+employeeSchema.index({ userId: 1, companyId: 1 });
 employeeSchema.index({ companyId: 1, email: 1 }, { unique: true });
 employeeSchema.index({ companyId: 1, departmentId: 1, status: 1 });
 

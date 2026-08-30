@@ -54,7 +54,14 @@ const STATUS_COLORS = {
 };
 
 const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
-  const { taskId } = route.params || {};
+  const taskId =
+    route?.params?.taskId ||
+    route?.params?.id ||
+    route?.params?.task?._id ||
+    route?.params?.task?.id ||
+    route?.params?.initialTask?._id ||
+    "";
+  const initialTask = route?.params?.initialTask || route?.params?.task || null;
   const { user, hasPermission } = useAuth();
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -67,9 +74,9 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
     }
   }, []);
 
-  const [task, setTask] = useState(null);
+  const [task, setTask] = useState(initialTask || null);
   const [taskStatuses, setTaskStatuses] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialTask);
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [updatingChecklistId, setUpdatingChecklistId] = useState(null);
@@ -91,21 +98,30 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
   const scrollViewRef = useRef(null);
 
   const fetchTaskDetails = async (showLoading = true) => {
+    if (!taskId) return;
     try {
-      if (showLoading) setLoading(true);
+      if (showLoading && !task) setLoading(true);
       const [resTask, resStatuses] = await Promise.all([
-        getEmployeeTaskDetailsApi(taskId),
-        getActiveTaskStatusesApi()
+        getEmployeeTaskDetailsApi(taskId).catch((err) => {
+          console.warn("[EmployeeTaskDetails] API err:", err?.message || err);
+          return { data: { success: true, task: initialTask } };
+        }),
+        getActiveTaskStatusesApi().catch(() => ({ data: { statuses: [] } }))
       ]);
-      if (resTask.data && resTask.data.success) {
-        const fetchedTask = resTask.data.task || (resTask.data.data && resTask.data.data.task) || null;
-        setTask(fetchedTask);
+      if (resTask?.data && resTask?.data?.success) {
+        const fetchedTask = resTask.data.task || (resTask.data.data && resTask.data.data.task) || resTask.data.data || null;
+        if (fetchedTask) {
+          setTask(fetchedTask);
+        }
       }
-      if (resStatuses.data && resStatuses.data.success) {
+      if (resStatuses?.data && resStatuses?.data?.success) {
         setTaskStatuses(resStatuses.data.statuses || []);
       }
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || "Failed to fetch task details");
+      console.warn("[EmployeeTaskDetails] Fetch error:", err?.message || err);
+      if (!task) {
+        Alert.alert("Error", err.response?.data?.message || "Failed to fetch task details");
+      }
     } finally {
       setLoading(false);
     }

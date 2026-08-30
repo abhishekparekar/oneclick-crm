@@ -414,8 +414,12 @@ export default function Leads() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setShowAddModal(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
   const [savingLead, setSavingLead] = useState(false);
   const [addLeadError, setAddLeadError] = useState<string | null>(null);

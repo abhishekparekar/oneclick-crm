@@ -211,7 +211,7 @@ export default function EmployeeMyTasks() {
   };
 
   // Modals state
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState(null);
   const [selectedTaskForReport, setSelectedTaskForReport] = useState(null);
@@ -219,8 +219,22 @@ export default function EmployeeMyTasks() {
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setIsCreateModalOpen(true);
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
+
+  const handleCloseCreateModal = () => {
+    setIsCreateModalOpen(false);
+    if (searchParams.get("create") || searchParams.get("openCreate")) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete("create");
+      newParams.delete("openCreate");
+      setSearchParams(newParams, { replace: true });
+    }
+  };
 
   // Form state for report & update
   const [reportStatus, setReportStatus] = useState("in_progress");
@@ -1123,6 +1137,14 @@ export default function EmployeeMyTasks() {
           </div>
         </div>
       )}
+
+      {/* Task Create Modal */}
+      <TaskCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={handleCloseCreateModal}
+        departments={departments}
+        employees={employees}
+      />
     </div>
   );
 }

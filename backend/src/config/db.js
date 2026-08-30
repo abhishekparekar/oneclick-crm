@@ -57,12 +57,17 @@ const connectDB = async () => {
     mongoUri = defaultUri;
   }
 
+  const poolOptions = {
+    maxPoolSize: 50,
+    minPoolSize: 5,
+    serverSelectionTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+    socketTimeoutMS: 45000,
+  };
+
   try {
     console.log("[DB] Connecting to MongoDB Atlas Cloud...");
-    const conn = await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 10000,
-      connectTimeoutMS: 10000,
-    });
+    const conn = await mongoose.connect(mongoUri, poolOptions);
     isConnected = conn.connections[0].readyState === 1;
     console.log("[DB] Connected to MongoDB Atlas Cloud");
     seedInitialData().catch(err => console.warn("[DB Seed Warning]:", err.message));
@@ -71,10 +76,7 @@ const connectDB = async () => {
     if (mongoUri !== defaultUri) {
       try {
         console.log("[DB] Retrying connection with default MongoDB Atlas URI...");
-        const conn = await mongoose.connect(defaultUri, {
-          serverSelectionTimeoutMS: 10000,
-          connectTimeoutMS: 10000,
-        });
+        const conn = await mongoose.connect(defaultUri, poolOptions);
         isConnected = conn.connections[0].readyState === 1;
         console.log("[DB] Connected to MongoDB Atlas Cloud (fallback)");
       } catch (fallbackErr) {

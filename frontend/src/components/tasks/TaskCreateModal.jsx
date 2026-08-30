@@ -190,8 +190,11 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
         ...prev,
         [name]: type === "checkbox" ? checked : value
       };
-      if (name === "startDate" && (prev.nextFollowUpDate === "" || prev.nextFollowUpDate === prev.startDate)) {
-        updated.nextFollowUpDate = value;
+      if (name === "startDate") {
+        const timePart = prev.nextFollowUpDate && prev.nextFollowUpDate.includes("T")
+          ? prev.nextFollowUpDate.split("T")[1]
+          : "10:00";
+        updated.nextFollowUpDate = value ? `${value}T${timePart}` : "";
       }
       return updated;
     });

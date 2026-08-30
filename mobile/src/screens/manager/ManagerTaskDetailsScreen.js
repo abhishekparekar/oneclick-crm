@@ -17,16 +17,21 @@ import {
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, Feather } from "@expo/vector-icons";
-import useManagerController from "../../controllers/managerController";
 import * as DocumentPicker from "expo-document-picker";
 import { useAuth } from "../../context/AuthContext";
 import { Audio } from 'expo-av';
 import TaskActionModal from "../../components/TaskActionModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { submitFollowUpApi, updateTaskChecklistApi } from "../../api/taskService";
+import { submitFollowUpApi, updateTaskChecklistApi, uploadMediaFileApi as uploadMedia } from "../../api/taskService";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { toggleTaskTemplateApi } from "../../api/managerApi";
+import {
+  getTaskById as getTaskDetailsData,
+  updateTaskStatus as updateTaskStatusData,
+  addTaskComment as addComment,
+  deleteTask as removeTask,
+  toggleTaskTemplateApi
+} from "../../api/managerApi";
 import * as WebBrowser from 'expo-web-browser';
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 
@@ -49,15 +54,15 @@ const STATUS_COLORS = {
 };
 
 const ManagerTaskDetailsScreen = ({ route, navigation }) => {
-  const { taskId } = route.params || {};
+  const taskId =
+    route.params?.taskId ||
+    route.params?.id ||
+    route.params?.task?._id ||
+    route.params?.task?.id ||
+    route.params?.initialTask?._id ||
+    "";
+  const initialTask = route.params?.initialTask || route.params?.task || null;
   const { user, hasPermission } = useAuth();
-  const {
-    getTaskDetailsData,
-    updateTaskStatusData,
-    addComment,
-    uploadMedia,
-    removeTask,
-  } = useManagerController();
 
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -162,21 +167,23 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   };
 
   const fetchTask = useCallback(async () => {
+    if (!taskId) return;
     try {
-      setLoading(true);
-      const data = await getTaskDetailsData(taskId);
-      if (data && data.task) {
-        setTask(data.task);
-      } else {
-        setTask(data);
+      if (!task) setLoading(true);
+      const res = await getTaskDetailsData(taskId);
+      const taskData = res?.data?.task || res?.task || res?.data || res;
+      if (taskData && (taskData._id || taskData.id)) {
+        setTask(taskData);
       }
     } catch (err) {
-      Alert.alert("Error", err?.response?.data?.message || err.message);
-      navigation.goBack();
+      console.warn("[ManagerTaskDetails] Fetch error:", err?.message || err);
+      if (!task) {
+        Alert.alert("Error", err?.response?.data?.message || err.message || "Failed to load task details");
+      }
     } finally {
       setLoading(false);
     }
-  }, [taskId, getTaskDetailsData, navigation]);
+  }, [taskId, task]);
 
   useFocusEffect(
     useCallback(() => {

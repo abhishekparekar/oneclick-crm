@@ -241,12 +241,21 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
         attachments,
       };
 
-      await createTeamTask(payload);
+      const res = await createTeamTask(payload);
       queryClient.invalidateQueries(["companyTasks"]);
       queryClient.invalidateQueries(["tasks"]);
       queryClient.invalidateQueries(["teamTasks"]);
       queryClient.invalidateQueries(["myTasks"]);
       queryClient.invalidateQueries(["employeeTasks"]);
+      const createdTask = res?.data?.task || res?.data?.data?.task || res?.task || res?.data;
+      if (createdTask && (createdTask._id || createdTask.id)) {
+        navigation.replace("ManagerTaskDetails", {
+          taskId: createdTask._id || createdTask.id,
+          task: createdTask,
+          initialTask: createdTask,
+        });
+        return;
+      }
       Alert.alert("Success", "Task created successfully!");
       navigation.goBack();
     } catch (err) {

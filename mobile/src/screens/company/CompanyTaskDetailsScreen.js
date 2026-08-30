@@ -59,7 +59,14 @@ const STATUS_CONFIG = {
 };
 
 const CompanyTaskDetailsScreen = ({ route, navigation }) => {
-  const { taskId, initialTask } = route.params || {};
+  const taskId =
+    route?.params?.taskId ||
+    route?.params?.id ||
+    route?.params?.task?._id ||
+    route?.params?.task?.id ||
+    route?.params?.initialTask?._id ||
+    "";
+  const initialTask = route?.params?.initialTask || route?.params?.task || null;
   const { user, hasPermission } = useAuth();
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
@@ -180,22 +187,22 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
     async (silent = false) => {
       if (!taskId) return;
       try {
-        if (!silent) setRefreshing(true);
+        if (!silent && !task) setRefreshing(true);
         const res = await getTaskByIdApi(taskId);
         const taskData = res.data?.task || res.data?.data?.task || res.data?.data;
-        if (taskData && taskData._id) {
+        if (taskData && (taskData._id || taskData.id)) {
           setTask(taskData);
         }
       } catch (err) {
+        console.warn("[CompanyTaskDetails] Fetch error:", err?.message || err);
         if (!task) {
           Alert.alert("Error", err?.response?.data?.message || err.message);
-          navigation.goBack();
         }
       } finally {
         setRefreshing(false);
       }
     },
-    [taskId, navigation, task]
+    [taskId, task]
   );
 
   useEffect(() => {

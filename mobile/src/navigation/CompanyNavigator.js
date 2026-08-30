@@ -57,6 +57,9 @@ import AccessControlScreen from "../screens/company/AccessControlScreen";
 import EmployeeDocumentsScreen from "../screens/employee/EmployeeDocumentsScreen";
 import UploadDocumentScreen from "../screens/company/UploadDocumentScreen";
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
+import LeadsDashboardScreen from "../screens/leads/LeadsDashboardScreen";
+import LeadsListScreen from "../screens/leads/LeadsListScreen";
+import LeadDetailsScreen from "../screens/leads/LeadDetailsScreen";
 
 import LeadsNavigator from "./LeadsNavigator";
 
@@ -73,6 +76,10 @@ const DashboardStack = () => (
     <Stack.Screen name="CompanyDashboard" component={CompanyDashboard} />
     <Stack.Screen name="CompanyRequests" component={CompanyRequestsScreen} />
     <Stack.Screen name="LeadsEngine" component={LeadsNavigator} />
+    <Stack.Screen name="LeadDetails" component={LeadDetailsScreen} />
+    <Stack.Screen name="LeadDetailsScreen" component={LeadDetailsScreen} />
+    <Stack.Screen name="LeadsList" component={LeadsListScreen} />
+    <Stack.Screen name="LeadsDashboard" component={LeadsDashboardScreen} />
     <Stack.Screen name="CompanyProfile" component={CompanyProfileScreen} />
     <Stack.Screen name="DepartmentList" component={DepartmentListScreen} />
     <Stack.Screen name="AddEditDepartment" component={AddEditDepartmentScreen} />
