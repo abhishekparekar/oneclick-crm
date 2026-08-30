@@ -2,6 +2,80 @@ import { useState, useEffect } from "react";
 import { Layers, Calendar, Paperclip, X, FileText, CheckCircle, Clock } from "lucide-react";
 import { uploadTaskMediaApi } from "../../api/employeeApi";
 
+const getSmartStatusOptions = (task) => {
+  if (!task) return [];
+  const rawStatus = (task.status || "pending").toLowerCase().replace(/-/g, "_");
+  const due = task.dueDate || task.endDateTime ? new Date(task.dueDate || task.endDateTime) : null;
+  const isOverdue = due && !["complete", "completed", "done", "late_complete", "re_complete", "cancelled"].includes(rawStatus) && due < new Date();
+
+  // 1. Pending / Open state
+  if (rawStatus === "pending" || rawStatus === "todo" || rawStatus === "open") {
+    if (isOverdue) {
+      return [
+        { value: "in_process", label: "In Process" },
+        { value: "late_complete", label: "Late Completed" },
+      ];
+    }
+    return [
+      { value: "in_process", label: "In Process" },
+      { value: "complete", label: "Completed" },
+    ];
+  }
+
+  // 2. In Process state
+  if (rawStatus === "in_process" || rawStatus === "in_progress") {
+    if (isOverdue) {
+      return [
+        { value: "in_process", label: "In Process (Update Follow-up)" },
+        { value: "late_complete", label: "Late Completed" },
+      ];
+    }
+    return [
+      { value: "in_process", label: "In Process (Update Follow-up)" },
+      { value: "complete", label: "Completed" },
+    ];
+  }
+
+  // 3. Overdue state
+  if (rawStatus === "overdue" || isOverdue) {
+    return [
+      { value: "in_process", label: "In Process" },
+      { value: "late_complete", label: "Late Completed" },
+    ];
+  }
+
+  // 4. Re-pending state
+  if (rawStatus === "re_pending") {
+    return [
+      { value: "re_in_process", label: "Re-In Process" },
+      { value: "re_complete", label: "Re-Completed" },
+    ];
+  }
+
+  // 5. Re-in-process state
+  if (rawStatus === "re_in_process") {
+    return [
+      { value: "re_in_process", label: "Re-In Process (Update Follow-up)" },
+      { value: "re_complete", label: "Re-Completed" },
+      ...(isOverdue ? [{ value: "late_complete", label: "Late Completed" }] : [])
+    ];
+  }
+
+  // 6. Completed / Late completed state
+  if (["complete", "completed", "done", "late_complete", "re_complete"].includes(rawStatus)) {
+    return [
+      { value: rawStatus, label: rawStatus === "late_complete" ? "Late Completed" : "Completed" },
+      { value: "re_pending", label: "Re-Open Task" },
+    ];
+  }
+
+  return [
+    { value: "in_process", label: "In Process" },
+    { value: "complete", label: "Completed" },
+    { value: "late_complete", label: "Late Completed" },
+  ];
+};
+
 export default function TaskStatusModal({
   isOpen,
   onClose,
@@ -10,18 +84,7 @@ export default function TaskStatusModal({
   isSubmitting = false,
   statusOptions,
 }) {
-  const defaultStatuses = [
-    { value: "pending", label: "Pending" },
-    { value: "in_process", label: "In Process" },
-    { value: "complete", label: "Completed" },
-    { value: "late_complete", label: "Late Completed" },
-    { value: "re_pending", label: "Re-Pending" },
-    { value: "re_in_process", label: "Re-In Process" },
-    { value: "re_complete", label: "Re-Completed" },
-    { value: "cancelled", label: "Cancelled" },
-  ];
-
-  const availableStatuses = statusOptions && statusOptions.length > 0 ? statusOptions : defaultStatuses;
+  const availableStatuses = statusOptions && statusOptions.length > 0 ? statusOptions : getSmartStatusOptions(task);
 
   const [status, setStatus] = useState("in_process");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -30,8 +93,28 @@ export default function TaskStatusModal({
   const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
-    if (task) {
-      setStatus(task.status || "in_process");
+    if (task && isOpen) {
+      const opts = statusOptions && statusOptions.length > 0 ? statusOptions : getSmartStatusOptions(task);
+      const rawStatus = (task.status || "pending").toLowerCase().replace(/-/g, "_");
+      const due = task.dueDate || task.endDateTime ? new Date(task.dueDate || task.endDateTime) : null;
+      const isOverdue = due && !["complete", "completed", "done", "late_complete", "re_complete", "cancelled"].includes(rawStatus) && due < new Date();
+
+      let defaultTarget = opts[0]?.value || "in_process";
+      if (rawStatus === "pending" || rawStatus === "todo") {
+        defaultTarget = "in_process";
+      } else if (rawStatus === "in_process") {
+        defaultTarget = isOverdue ? "late_complete" : "complete";
+      } else if (rawStatus === "overdue" || isOverdue) {
+        defaultTarget = "late_complete";
+      } else if (rawStatus === "re_pending") {
+        defaultTarget = "re_in_process";
+      } else if (rawStatus === "re_in_process") {
+        defaultTarget = "re_complete";
+      }
+
+      const matchOpt = opts.find((o) => o.value === defaultTarget);
+      setStatus(matchOpt ? matchOpt.value : (opts[0]?.value || "in_process"));
+
       if (task.nextFollowUpDate) {
         try {
           const d = new Date(task.nextFollowUpDate);
@@ -53,7 +136,7 @@ export default function TaskStatusModal({
       setRemarks("");
       setAttachedFile(null);
     }
-  }, [task, isOpen]);
+  }, [task, isOpen, statusOptions]);
 
   if (!isOpen || !task) return null;
 
