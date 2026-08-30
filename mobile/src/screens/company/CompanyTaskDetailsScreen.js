@@ -423,11 +423,12 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
           type: attachedFile.type
         });
         const uploadRes = await uploadMediaFileApi(formData);
-        if (uploadRes.data?.success && uploadRes.data?.fileUrl) {
+        const resData = uploadRes.data || uploadRes;
+        if (resData?.fileUrl || resData?.url) {
           attachmentsList.push({
-            fileUrl: uploadRes.data.fileUrl,
-            fileName: uploadRes.data.fileName || attachedFile.name,
-            fileType: uploadRes.data.fileType || attachedFile.type
+            fileUrl: resData.fileUrl || resData.url,
+            fileName: resData.fileName || resData.filename || attachedFile.name || "attachment",
+            fileType: resData.fileType || attachedFile.type || "application/octet-stream"
           });
         }
         setUploadingMedia(false);
