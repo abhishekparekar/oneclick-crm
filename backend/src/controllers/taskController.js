@@ -1392,31 +1392,6 @@ exports.getDashboardSummary = async (req, res) => {
     }
 };
 
-exports.uploadMediaFile = async (req, res) => {
-    try {
-        logDebug(`[${new Date().toISOString()}] Upload request received. req.file: ${req.file ? JSON.stringify({ originalname: req.file.originalname, mimetype: req.file.mimetype, size: req.file.size }) : 'undefined'}\n`);
-
-        if (!req.file) {
-            return res.status(400).json({ success: false, message: "No file uploaded" });
-        }
-        const { uploadFileToFirebase } = require("../services/firebaseService");
-        const fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "comment-attachments");
-
-        logDebug(`[${new Date().toISOString()}] Upload successful. fileUrl: ${fileUrl}\n`);
-
-        res.json({
-            success: true,
-            fileUrl,
-            fileName: req.file.originalname,
-            fileType: req.file.mimetype
-        });
-    } catch (error) {
-        logDebug(`[${new Date().toISOString()}] Upload error: ${error.message}\n${error.stack}\n`);
-        console.error("Upload media error:", error);
-        res.status(500).json({ success: false, message: "Upload failed" });
-    }
-};
-
 exports.getTodayFollowUps = async (req, res) => {
     try {
         const companyId = req.user.companyId;

@@ -85,9 +85,23 @@ const expoUpload = async (path, formData) => {
   return { data: responseBody };
 };
 
-export const uploadMediaFileApi = (formData) =>
-  expoUpload("/tasks/upload-media", formData);
-
+export const uploadMediaFileApi = async (formData) => {
+  try {
+    const res = await api.post("/tasks/upload-media", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res;
+  } catch (err) {
+    try {
+      const res2 = await api.post("/company/tasks/upload-media", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return res2;
+    } catch (err2) {
+      return await expoUpload("/tasks/upload-media", formData);
+    }
+  }
+};
 
 export const updateTaskChecklistApi = (id, checklistPayload) =>
   api.post(`/tasks/${id}/checklist`, checklistPayload);
@@ -98,8 +112,15 @@ export const startTaskTimerApi = (id) =>
 export const stopTaskTimerApi = (id, payload = {}) =>
   api.post(`/tasks/${id}/time/stop`, payload);
 
-export const uploadTaskAttachmentApi = (id, formData) =>
-  expoUpload(`/tasks/${id}/attachments`, formData);
+export const uploadTaskAttachmentApi = async (id, formData) => {
+  try {
+    return await api.post(`/tasks/${id}/attachments`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  } catch (err) {
+    return await expoUpload(`/tasks/${id}/attachments`, formData);
+  }
+};
 
 
 export const deleteTaskAttachmentApi = (id, attachmentId) =>

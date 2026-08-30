@@ -248,16 +248,16 @@ const TaskActionModal = ({
           const formData = new FormData();
           formData.append("file", {
             uri: att.uri,
-            name: att.fileName,
-            type: att.fileType,
+            name: att.fileName || "attachment",
+            type: att.fileType || "application/octet-stream",
           });
           const res = await uploadMediaFileApi(formData);
-          const data = res.data || res;
-          if (data.success) {
+          const data = res?.data || res;
+          if (data && (data.fileUrl || data.url || data.success)) {
             finalAttachments.push({
-              fileName: data.fileName,
-              fileUrl: data.fileUrl,
-              fileType: data.fileType,
+              fileName: data.fileName || data.filename || att.fileName || "attachment",
+              fileUrl: data.fileUrl || data.url,
+              fileType: data.fileType || att.fileType || "application/octet-stream",
             });
           }
         } else {
@@ -271,7 +271,8 @@ const TaskActionModal = ({
         attachments: finalAttachments,
       });
     } catch (err) {
-      Alert.alert("Upload Failed", "Could not upload one or more attachments.");
+      console.error("Attachment upload error:", err);
+      Alert.alert("Upload Failed", err?.response?.data?.message || err?.message || "Could not upload one or more attachments.");
     } finally {
       setUploading(false);
     }
