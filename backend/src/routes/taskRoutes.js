@@ -19,6 +19,7 @@ router.get("/", taskController.getTasks);
 router.post("/", taskController.createTask);
 router.get("/:id", taskController.getTaskDetails);
 router.put("/:id", taskController.updateTask);
+router.patch("/:id/status", taskController.unifiedUpdateTaskStatus);
 
 // Workflow state changes
 router.patch("/:id/in-process", taskController.inProcessTask);

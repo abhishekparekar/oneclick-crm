@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMyTasksApi, updateTaskStatusApi, submitTaskProgressApi } from "../../api/employeeApi";
 import { getDepartmentsApi, getEmployeesApi, createTaskApi } from "../../api/companyAdminApi";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
+import TaskStatusModal from "../../components/tasks/TaskStatusModal";
 import {
   CheckSquare, Clock, AlertTriangle, CheckCircle2, Filter, Search,
   Send, MessageSquare, List, LayoutGrid, Plus, Calendar as CalendarIcon,
@@ -215,6 +216,7 @@ export default function EmployeeMyTasks() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedTaskForDetail, setSelectedTaskForDetail] = useState(null);
   const [selectedTaskForReport, setSelectedTaskForReport] = useState(null);
+  const [selectedTaskForStatus, setSelectedTaskForStatus] = useState(null);
 
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
@@ -225,6 +227,21 @@ export default function EmployeeMyTasks() {
       setSearchParams(newParams, { replace: true });
     }
   }, [searchParams, setSearchParams]);
+
+  const updateTaskStatusMut = useMutation({
+    mutationFn: async (payload) => {
+      const res = await updateTaskStatusApi(selectedTaskForStatus._id, payload.status, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      setSelectedTaskForStatus(null);
+      queryClient.invalidateQueries(["employeeMyTasksPage"]);
+      queryClient.invalidateQueries(["employeeDashboardSummary"]);
+    },
+    onError: (err) => {
+      alert(err?.response?.data?.message || "Failed to update task status");
+    }
+  });
 
   const handleCloseCreateModal = () => {
     setIsCreateModalOpen(false);
@@ -807,33 +824,13 @@ export default function EmployeeMyTasks() {
                     </span>
 
                     <div className="flex items-center gap-1.5">
-                      {(() => {
-                        const s = (t.status || "pending").toLowerCase();
-                        const isPending = s === "pending" || s === "todo" || s === "open";
-
-                        if (isPending) {
-                          return (
-                            <button
-                              onClick={(e) => handleStartTask(t, e)}
-                              disabled={updateStatusMut.isPending}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                              title="Start Task"
-                            >
-                              <Play size={11} className="fill-current" /> {updateStatusMut.isPending ? "Starting..." : "Start"}
-                            </button>
-                          );
-                        }
-
-                        return (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleOpenReportModal(t); }}
-                            className="px-2.5 py-1 bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 rounded-lg text-[10px] font-extrabold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
-                            title="Set Next Follow-Up Date & Daily Progress Report"
-                          >
-                            <Clock size={11} /> Follow-Up Date
-                          </button>
-                        );
-                      })()}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setSelectedTaskForStatus(t); }}
+                        className="px-2.5 py-1 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-lg text-[10px] font-extrabold transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                        title="Update Status"
+                      >
+                        <Layers size={11} /> Update Status
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -949,24 +946,13 @@ export default function EmployeeMyTasks() {
                         {/* Actions */}
                         <td className="py-3 px-4 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1.5">
-                            {isPending ? (
-                              <button
-                                onClick={(e) => handleStartTask(t, e)}
-                                disabled={updateStatusMut.isPending}
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-black transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                                title="Start Task"
-                              >
-                                <Play size={11} className="fill-current" /> {updateStatusMut.isPending ? "Starting..." : "Start"}
-                              </button>
-                            ) : (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); handleOpenReportModal(t); }}
-                                className="px-2.5 py-1 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
-                                title="Set Next Follow-Up Date & Progress Report"
-                              >
-                                <Clock size={11} /> Update Report
-                              </button>
-                            )}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setSelectedTaskForStatus(t); }}
+                              className="px-2.5 py-1 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-lg text-[11px] font-extrabold transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                              title="Update Status"
+                            >
+                              <Layers size={11} /> Update Status
+                            </button>
                             <button
                               type="button"
                               onClick={() => navigate(`/employee/tasks/${t._id}`)}
@@ -1145,6 +1131,17 @@ export default function EmployeeMyTasks() {
         departments={departments}
         employees={employees}
       />
+
+      {/* Unified Task Status Modal */}
+      {selectedTaskForStatus && (
+        <TaskStatusModal
+          isOpen={!!selectedTaskForStatus}
+          onClose={() => setSelectedTaskForStatus(null)}
+          task={selectedTaskForStatus}
+          onSave={(data) => updateTaskStatusMut.mutate(data)}
+          isSubmitting={updateTaskStatusMut.isPending}
+        />
+      )}
     </div>
   );
 }

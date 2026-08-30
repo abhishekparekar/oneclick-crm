@@ -1703,3 +1703,81 @@ exports.uploadMediaFile = async (req, res) => {
     }
 };
 
+exports.unifiedUpdateTaskStatus = async (req, res) => {
+    try {
+        const { status, remarks, remark, finalRemarks, comment, nextFollowUpDate, attachments, newEndDate } = req.body;
+        const targetStatus = status || "in_process";
+        const noteText = (remarks || remark || finalRemarks || comment || "").trim();
+        
+        let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
+        let isTemplate = false;
+        if (!task) {
+            task = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.user.companyId });
+            if (task) isTemplate = true;
+        }
+        if (!task) return res.status(404).json({ success: false, message: "Task not found" });
+
+        const formattedAttachments = (attachments || []).map(att => ({
+            fileUrl: att.fileUrl || att.url || "",
+            fileName: att.fileName || att.name || "Attachment",
+            fileType: att.fileType || att.type || ""
+        }));
+
+        task.status = targetStatus;
+        if (newEndDate && !isNaN(new Date(newEndDate).getTime())) {
+            task.endDateTime = new Date(newEndDate);
+        }
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === "" || nextFollowUpDate === null) {
+            task.nextFollowUpDate = null;
+        }
+
+        if (["complete", "completed", "done", "re_complete", "re_completed"].includes(targetStatus)) {
+            task.completedAt = new Date();
+            task.timerActive = false;
+        } else if (["in_process", "in-process", "in_progress", "re_in_process"].includes(targetStatus)) {
+            task.timerActive = true;
+        }
+
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : `Status updated to ${targetStatus.replace(/_/g, " ")}`);
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
+
+        await task.save();
+
+        await TaskActivity.create({
+            companyId: task.companyId,
+            taskId: task._id,
+            action: targetStatus,
+            remarks: remarkToUse,
+            nextFollowUpDate: task.nextFollowUpDate,
+            attachments: formattedAttachments,
+            performedBy: req.user._id
+        });
+
+        notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            `Task Status Updated: ${task.title}`,
+            `Task status changed to "${targetStatus.replace(/_/g, " ")}" by ${req.user.name}`,
+            "task_update",
+            { taskId: task._id.toString() }
+        ).catch(err => console.error("notifyTaskAll error:", err));
+
+        res.json({ success: true, data: task, task });
+    } catch (error) {
+        console.error("unifiedUpdateTaskStatus error:", error);
+        res.status(500).json({ success: false, message: error.message || "Server error" });
+    }
+};
+
+

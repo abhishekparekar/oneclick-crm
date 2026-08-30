@@ -8,6 +8,7 @@ import {
   uploadTaskMediaApi,
   updateEmployeeTaskChecklistApi
 } from "../../api/employeeApi";
+import TaskStatusModal from "../../components/tasks/TaskStatusModal";
 import {
   ArrowLeft, CheckSquare, Clock, Calendar as CalendarIcon, Send, FileText,
   User, Building, ShieldCheck, CheckCircle2, AlertCircle, MessageSquare,
@@ -359,7 +360,9 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
 export default function EmployeeTaskDetails() {
   const { id: taskId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [modalActionType, setModalActionType] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState(null);
@@ -378,6 +381,21 @@ export default function EmployeeTaskDetails() {
       return p.task ? p.task : p;
     },
     enabled: Boolean(taskId)
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await updateEmployeeTaskStatusApi(taskId, payload.status, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      setShowStatusModal(false);
+      queryClient.invalidateQueries(["employeeTaskDetails", taskId]);
+      queryClient.invalidateQueries(["employeeMyTasksPage"]);
+    },
+    onError: (err) => {
+      alert(err?.response?.data?.message || "Failed to update task status");
+    }
   });
 
   if (isLoading || !taskRes) {
@@ -408,6 +426,13 @@ export default function EmployeeTaskDetails() {
     return { bg: "bg-amber-500/20 text-amber-300 border-amber-500/40", label: "MEDIUM" };
   })();
 
+  const formatFollowUpDateTime = (val) => {
+    if (!val) return "Not Scheduled";
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return "Not Scheduled";
+    return `${d.toLocaleDateString("en-GB")}, ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+  };
+
   const openActionModal = (type) => {
     setModalActionType(type);
     setIsModalOpen(true);
@@ -425,30 +450,27 @@ export default function EmployeeTaskDetails() {
 
   // Add Standalone Comment
   const handleAddComment = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!standaloneComment.trim() && !standaloneFile) return;
 
-    setIsSubmittingComment(true);
     try {
-      let attachmentsList = [];
+      setIsSubmittingComment(true);
+      let attachments = [];
       if (standaloneFile) {
         const uploadRes = await uploadTaskMediaApi(standaloneFile);
-        const uData = uploadRes.data || uploadRes;
-        if (uData.success) {
-          attachmentsList.push({
-            fileUrl: uData.fileUrl,
-            fileName: uData.fileName || standaloneFile.name,
-            fileType: uData.fileType || standaloneFile.type,
+        if (uploadRes.data?.fileUrl || uploadRes.data?.url) {
+          attachments.push({
+            fileUrl: uploadRes.data.fileUrl || uploadRes.data.url,
+            fileName: uploadRes.data.fileName || standaloneFile.name,
+            fileType: uploadRes.data.fileType || standaloneFile.type
           });
         }
       }
 
-      await addEmployeeTaskCommentApi(taskId, standaloneComment.trim(), attachmentsList);
+      await addEmployeeTaskCommentApi(taskId, standaloneComment.trim(), attachments);
       setStandaloneComment("");
       setStandaloneFile(null);
       refetch();
-      setToastMessage({ type: "success", text: "Comment posted to task discussion." });
-      setTimeout(() => setToastMessage(null), 4000);
     } catch (err) {
       alert(err.response?.data?.message || "Failed to post comment");
     } finally {
@@ -457,7 +479,7 @@ export default function EmployeeTaskDetails() {
   };
 
   return (
-    <div className="space-y-2.5 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
+    <div className="space-y-2 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto text-xs">
 
       {/* ── ACTION POPUP MODAL ─────────────────────────────────────────────────── */}
       <TaskActionModal
@@ -481,22 +503,23 @@ export default function EmployeeTaskDetails() {
         </div>
       )}
 
-      {/* ── TOP NAVIGATION BAR & ACTION TOOLBAR (COMPACT HEADER) ── */}
+      {/* ── 1. UNIFIED COMPACT HEADER TOOLBAR ────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl px-3 py-2 shadow-2xs">
+        
+        {/* Left: Back & Title */}
         <div className="flex items-center gap-2.5 min-w-0">
-          <button
-            onClick={() => navigate(-1)}
-            className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shrink-0 shadow-2xs"
+          <button 
+            onClick={() => navigate(-1)} 
+            className="flex items-center gap-1 px-2.5 py-1 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs shrink-0"
           >
             <ArrowLeft size={13} /> Back
           </button>
-
           <div className="min-w-0 flex items-center gap-2 flex-wrap">
-            <span className="px-1.5 py-0.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 rounded text-[10.5px] font-mono font-black shrink-0">
+            <span className="text-[10.5px] font-mono font-black text-amber-700 dark:text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
               {formatTaskId(task)}
             </span>
-            <h1 className="text-sm sm:text-base font-black text-slate-900 dark:text-white tracking-tight truncate">
-              {task.title || task.name || "Task"}
+            <h1 className="text-sm sm:text-base font-black text-slate-900 dark:text-white truncate">
+              {task.title || "Untitled Task"}
             </h1>
             <span className={`px-2 py-0.5 rounded-full text-[9.5px] font-black uppercase tracking-wider ${
               isCompleted ? "bg-emerald-100 text-emerald-800 border border-emerald-300 dark:bg-emerald-950/60 dark:text-emerald-300 dark:border-emerald-700" :
@@ -512,54 +535,15 @@ export default function EmployeeTaskDetails() {
           </div>
         </div>
 
-        {/* Primary Workflow Action Button */}
+        {/* Single Unified Status Action Button */}
         <div className="shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
-          {isPending && !isOverdue && (
-            <button
-              onClick={() => openActionModal("in_process")}
-              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-            >
-              <Play size={11} className="fill-white" />
-              <span>Start Task</span>
-            </button>
-          )}
-
-          {isInProgress && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                onClick={() => openActionModal("follow_up")}
-                className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-2xs transition-all cursor-pointer"
-              >
-                <CalendarDays size={11} />
-                <span>Next Follow-Up</span>
-              </button>
-
-              <button
-                onClick={() => openActionModal("complete")}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-              >
-                <CheckCircle2 size={11} />
-                <span>Mark Completed</span>
-              </button>
-            </div>
-          )}
-
-          {isOverdue && !isCompleted && (
-            <button
-              onClick={() => openActionModal("late_complete")}
-              className="px-3 py-1 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-black flex items-center gap-1 shadow-xs transition-all cursor-pointer"
-            >
-              <AlertCircle size={11} />
-              <span>Late Complete</span>
-            </button>
-          )}
-
-          {isCompleted && (
-            <div className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 rounded-lg text-xs font-extrabold flex items-center gap-1">
-              <CheckCircle size={12} className="text-emerald-600" />
-              <span>Completed</span>
-            </div>
-          )}
+          <button
+            onClick={() => setShowStatusModal(true)}
+            className="px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"
+          >
+            <Layers size={13} />
+            <span>Update Status</span>
+          </button>
         </div>
       </div>
 
@@ -818,6 +802,15 @@ export default function EmployeeTaskDetails() {
 
         </div>
       </div>
+
+      {/* Unified Status Update Modal */}
+      <TaskStatusModal
+        isOpen={showStatusModal}
+        onClose={() => setShowStatusModal(false)}
+        task={task}
+        onSave={(data) => updateStatusMutation.mutate(data)}
+        isSubmitting={updateStatusMutation.isPending}
+      />
     </div>
   );
 }

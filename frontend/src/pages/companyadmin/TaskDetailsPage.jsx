@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useState } from "react";
 import { InProcessModal, CompleteModal, ReopenModal, ShiftModal } from "../../components/tasks/StatusModals";
 import TaskEditModal from "../../components/tasks/TaskEditModal";
+import TaskStatusModal from "../../components/tasks/TaskStatusModal";
 import TaskAttachmentField from "../../components/tasks/TaskAttachmentField";
 import { toast } from "react-hot-toast";
 import { downloadAttachment } from "../../utils/attachmentUtils";
@@ -200,6 +201,7 @@ export default function TaskDetailsPage() {
   };
 
   // Modals state
+  const [showStatusModal, setShowStatusModal] = useState(false);
   const [showInProcess, setShowInProcess] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
   const [showReopen, setShowReopen] = useState(false);
@@ -231,6 +233,22 @@ export default function TaskDetailsPage() {
   const task = taskRes?.data?.task;
   const timeline = taskRes?.data?.timeline || [];
 
+  const updateStatusMutation = useMutation({
+    mutationFn: async (payload) => {
+      const res = await api.patch(`/tasks/${id}/status`, payload);
+      return res.data;
+    },
+    onSuccess: () => {
+      setShowStatusModal(false);
+      toast.success("Task status updated successfully!");
+      queryClient.invalidateQueries(["task", id]);
+      queryClient.invalidateQueries(["tasks"]);
+    },
+    onError: (err) => {
+      toast.error(err?.response?.data?.message || "Failed to update status");
+    }
+  });
+
   const updateMutation = useMutation({
     mutationFn: (payload) => updateTaskApi(task?._id, payload),
     onSuccess: () => {
@@ -252,7 +270,7 @@ export default function TaskDetailsPage() {
   });
 
   const handleDelete = () => {
-    if (window.confirm("Are you sure you want to delete this task?")) {
+    if (window.confirm("Are you sure you want to delete this task? This action cannot be undone.")) {
       deleteMutation.mutate();
     }
   };
@@ -365,33 +383,13 @@ export default function TaskDetailsPage() {
             </button>
           )}
 
-          {!task.isTemplate && (task.status === "pending" || task.status === "re_pending" || task.status === "overdue") && (
+          {!task.isTemplate && (
             <button 
-              onClick={() => setShowInProcess(true)} 
-              className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
+              onClick={() => setShowStatusModal(true)} 
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"
             >
-              <Play size={11} />
-              <span>In-Process</span>
-            </button>
-          )}
-          
-          {(task.status === "in_process" || task.status === "re_in_process") && (
-            <button 
-              onClick={() => setShowComplete(true)} 
-              className="flex items-center gap-1 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
-            >
-              <CheckCircle2 size={11} />
-              <span>Complete</span>
-            </button>
-          )}
-
-          {task.status === "overdue" && (
-            <button 
-              onClick={() => setShowComplete(true)} 
-              className="flex items-center gap-1 px-3 py-1 bg-orange-600 hover:bg-orange-500 text-white rounded-lg text-xs font-black shadow-xs transition-all cursor-pointer"
-            >
-              <AlertCircle size={11} />
-              <span>Late Complete</span>
+              <Layers size={13} />
+              <span>Update Status</span>
             </button>
           )}
 
@@ -403,16 +401,6 @@ export default function TaskDetailsPage() {
             >
               <Share2 size={11} className="text-slate-400" />
               <span>Shift</span>
-            </button>
-          )}
-
-          {!task.isTemplate && (task.status === "complete" || task.status === "late_complete") && (user.role === "Admin" || user.role === "CompanyAdmin" || user.role === "Manager") && (
-            <button 
-              onClick={() => setShowReopen(true)} 
-              className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
-            >
-              <RotateCcw size={11} className="text-slate-400" />
-              <span>Re-open</span>
             </button>
           )}
 
@@ -768,9 +756,15 @@ export default function TaskDetailsPage() {
         </div>
       </div>
 
-      {task && <InProcessModal isOpen={showInProcess} onClose={() => setShowInProcess(false)} task={task} />}
-      {task && <CompleteModal isOpen={showComplete} onClose={() => setShowComplete(false)} task={task} isLate={task.status === "overdue"} />}
-      {task && <ReopenModal isOpen={showReopen} onClose={() => setShowReopen(false)} task={task} />}
+      {task && (
+        <TaskStatusModal
+          isOpen={showStatusModal}
+          onClose={() => setShowStatusModal(false)}
+          task={task}
+          onSave={(data) => updateStatusMutation.mutate(data)}
+          isSubmitting={updateStatusMutation.isPending}
+        />
+      )}
       {task && <ShiftModal isOpen={showShift} onClose={() => setShowShift(false)} task={task} employees={employees} />}
       {task && <FollowUpModal isOpen={showFollowUp} onClose={() => setShowFollowUp(false)} taskId={task._id} />}
       {task && showEdit && (
