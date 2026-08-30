@@ -17,6 +17,7 @@ import ManagerLayout from "../../components/ManagerLayout";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import { useAuth } from "../../context/AuthContext";
 import leadsService from "../../api/leadsService";
+import { COLORS, FONTS, SPACING, ROUNDING, SHADOWS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
 
