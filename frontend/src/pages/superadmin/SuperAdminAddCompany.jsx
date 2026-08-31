@@ -1,7 +1,7 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createCompanyApi } from "../../api/superAdminApi";
+import { useState, useMemo, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createCompanyApi, getPlansApi } from "../../api/superAdminApi";
 import {
   Building2, Save, ArrowLeft, Mail, Copy, CheckCircle2,
   User, Key, Shield, CreditCard, Sparkles, Check,
@@ -38,13 +38,54 @@ const SuperAdminAddCompany = () => {
     state: "",
     pincode: "",
     industryType: "Technology",
-    planName: "Trial",
+    planId: "",
+    planName: "",
     employeeLimit: 50,
     adminName: "",
     adminEmail: "",
     adminPhone: "",
     adminPassword: "",
   });
+
+  const { data: plansData, isLoading: plansLoading } = useQuery({
+    queryKey: ["superAdminPlans"],
+    queryFn: getPlansApi,
+  });
+
+  const activePlans = useMemo(() => {
+    return (plansData?.data?.plans || []).filter(p => p.status === "active" || !p.status);
+  }, [plansData]);
+
+  useEffect(() => {
+    if (activePlans.length > 0 && !formData.planId) {
+      const first = activePlans[0];
+      setFormData(prev => ({
+        ...prev,
+        planId: first._id,
+        planName: first.planName,
+        employeeLimit: first.employeeLimit || prev.employeeLimit || 50,
+      }));
+    }
+  }, [activePlans]);
+
+  const handlePlanSelect = (e) => {
+    const selectedId = e.target.value;
+    const plan = activePlans.find(p => p._id === selectedId);
+    if (plan) {
+      setFormData(prev => ({
+        ...prev,
+        planId: plan._id,
+        planName: plan.planName,
+        employeeLimit: plan.employeeLimit || prev.employeeLimit || 50,
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        planId: "",
+        planName: selectedId,
+      }));
+    }
+  };
 
   const [successData, setSuccessData] = useState(null);
   const [copiedField, setCopiedField] = useState(null);
@@ -390,14 +431,37 @@ const SuperAdminAddCompany = () => {
             
             <div className="space-y-4">
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Assign Subscription Plan</label>
-                <select name="planName" value={formData.planName} onChange={handleChange}
-                  className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all cursor-pointer">
-                  <option value="Trial">Free Trial (14 Days)</option>
-                  <option value="Starter">Starter Tier</option>
-                  <option value="Professional">Professional Tier</option>
-                  <option value="Enterprise">Enterprise Unlimited Tier</option>
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Assign Subscription Plan</label>
+                  <Link to="/superadmin/plans" className="text-[10px] font-bold text-sa-primary hover:underline">
+                    Manage Plans
+                  </Link>
+                </div>
+                {plansLoading ? (
+                  <div className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-sa-text-secondary animate-pulse font-medium">
+                    Loading subscription plans...
+                  </div>
+                ) : activePlans.length > 0 ? (
+                  <select 
+                    name="planId" 
+                    value={formData.planId || ""} 
+                    onChange={handlePlanSelect}
+                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all cursor-pointer"
+                  >
+                    {activePlans.map((plan) => (
+                      <option key={plan._id} value={plan._id}>
+                        {plan.planName} ({plan.employeeLimit} Seats · ₹{plan.priceMonthly || 0}/mo)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 font-semibold space-y-1.5">
+                    <p>No created subscription plans found.</p>
+                    <Link to="/superadmin/plans" className="inline-block text-[11px] font-extrabold text-sa-primary underline">
+                      + Create a Plan in Plans Module
+                    </Link>
+                  </div>
+                )}
               </div>
 
               <div>
