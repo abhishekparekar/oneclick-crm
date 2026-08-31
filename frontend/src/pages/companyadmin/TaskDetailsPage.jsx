@@ -383,7 +383,8 @@ export default function TaskDetailsPage() {
             </button>
           )}
 
-          {!task.isTemplate && (
+          {/* Status Actions */}
+          {!task.isTemplate && !["complete", "completed", "late_complete", "late_completed", "re_complete", "re_completed", "re_late_complete", "re_late_completed", "cancelled", "cancel"].includes((task.status || "").toLowerCase().replace(/-/g, "_")) ? (
             <button 
               onClick={() => setShowStatusModal(true)} 
               className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"
@@ -391,10 +392,33 @@ export default function TaskDetailsPage() {
               <Layers size={13} />
               <span>Update Status</span>
             </button>
+          ) : !task.isTemplate ? (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black shadow-2xs">
+              <CheckCircle2 size={13} className="text-emerald-600" />
+              <span>
+                {(task.status || "").toLowerCase().includes("late")
+                  ? "Late Completed"
+                  : (task.status || "").toLowerCase().includes("cancel")
+                  ? "Cancelled"
+                  : "Task Completed"}
+              </span>
+            </div>
+          ) : null}
+
+          {/* Admin / Manager Reopen Option for completed tasks */}
+          {!task.isTemplate && ["complete", "completed", "late_complete", "late_completed", "re_complete", "re_completed", "re_late_complete", "re_late_completed"].includes((task.status || "").toLowerCase().replace(/-/g, "_")) && 
+           (user?.role === "Admin" || user?.role === "CompanyAdmin" || user?.role === "Manager") && (
+            <button 
+              onClick={() => setShowReopen(true)} 
+              className="flex items-center gap-1 px-2.5 py-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"
+            >
+              <RotateCcw size={11} />
+              <span>Reopen</span>
+            </button>
           )}
 
           {!task.isTemplate && (task.status === "pending" || task.status === "in_process" || task.status === "overdue" || task.status === "re_pending" || task.status === "re_in_process") && 
-           (user.role === "Admin" || user.role === "CompanyAdmin" || user.role === "Manager") && (
+           (user?.role === "Admin" || user?.role === "CompanyAdmin" || user?.role === "Manager") && (
             <button 
               onClick={() => setShowShift(true)} 
               className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"

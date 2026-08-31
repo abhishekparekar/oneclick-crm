@@ -704,44 +704,76 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
               </View>
             </View>
 
-            {/* Primary Change Status Button with Darker Prominent Color */}
-            <TouchableOpacity
-              style={[
-                styles.nativeChangeStatusBtn,
-                {
-                  backgroundColor: currentStatus.darkBg || currentStatus.text || "#1E293B",
-                  borderColor: currentStatus.darkBg || currentStatus.text || "#0F172A",
-                }
-              ]}
-              onPress={() => setStatusPickerModalVisible(true)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.nativeChangeStatusInner}>
-                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                  <View style={styles.nativeActionIconCircle}>
-                    <Ionicons
-                      name={
-                        isCompleted ? "checkmark-circle" :
-                        isInProcess ? "play-circle" :
-                        isOverdue ? "alert-circle" :
-                        "time"
-                      }
-                      size={18}
-                      color="#FFFFFF"
-                    />
+            {/* Primary Change Status Button or Locked Completed Badge */}
+            {isCompleted || isCancelled ? (
+              <View
+                style={[
+                  styles.nativeChangeStatusBtn,
+                  {
+                    backgroundColor: isCompleted ? "#F0FDF4" : "#FEF2F2",
+                    borderColor: isCompleted ? "#BBF7D0" : "#FECACA",
+                  }
+                ]}
+              >
+                <View style={styles.nativeChangeStatusInner}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <View style={[styles.nativeActionIconCircle, { backgroundColor: isCompleted ? "#16A34A" : "#DC2626" }]}>
+                      <Ionicons
+                        name={isCompleted ? "checkmark-circle" : "close-circle"}
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={[styles.nativeActionBtnTitle, { color: isCompleted ? "#15803D" : "#B91C1C" }]}>
+                        {isCompleted ? (currentStatus.label.includes("Late") ? "Late Completed" : "Task Completed") : "Task Cancelled"}
+                      </Text>
+                      <Text style={[styles.nativeActionBtnSub, { color: isCompleted ? "#16A34A" : "#DC2626" }]}>
+                        {isCompleted ? "Task is finalized and closed" : "Task has been cancelled"}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={{ marginLeft: 10, flex: 1 }}>
-                    <Text style={styles.nativeActionBtnTitle}>
-                      Change Task Status
-                    </Text>
-                    <Text style={styles.nativeActionBtnSub}>
-                      Current: {currentStatus.label} • Tap to update status
-                    </Text>
-                  </View>
+                  <Ionicons name="lock-closed" size={16} color={isCompleted ? "#15803D" : "#B91C1C"} />
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
               </View>
-            </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.nativeChangeStatusBtn,
+                  {
+                    backgroundColor: currentStatus.darkBg || currentStatus.text || "#1E293B",
+                    borderColor: currentStatus.darkBg || currentStatus.text || "#0F172A",
+                  }
+                ]}
+                onPress={() => setStatusPickerModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.nativeChangeStatusInner}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <View style={styles.nativeActionIconCircle}>
+                      <Ionicons
+                        name={
+                          isInProcess ? "play-circle" :
+                          isOverdue ? "alert-circle" :
+                          "time"
+                        }
+                        size={18}
+                        color="#FFFFFF"
+                      />
+                    </View>
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={styles.nativeActionBtnTitle}>
+                        Change Task Status
+                      </Text>
+                      <Text style={styles.nativeActionBtnSub}>
+                        Current: {currentStatus.label} • Tap to update status
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ── Native Attachments ── */}

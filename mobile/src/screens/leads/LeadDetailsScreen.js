@@ -507,19 +507,38 @@ export default function LeadDetailsScreen({ route, navigation }) {
                 ) : null}
               </View>
 
-              {/* Compact Stage Selector Pill */}
+              {/* Compact Stage Selector Pill or Locked Won/Lost Badge */}
               <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "rgba(255,255,255,0.08)" }}>
-                <TouchableOpacity
-                  style={[styles.stageBadgeDropdown, { backgroundColor: statusColor + "22", borderColor: statusColor }]}
-                  activeOpacity={0.8}
-                  onPress={() => setStatusModalVisible(true)}
-                >
-                  <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
-                  <Text style={[styles.stageBadgeText, { color: "#FFF" }]}>
-                    Stage: {lead.status?.name || "New Prospect"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={11} color="#FFF" style={{ marginLeft: 3 }} />
-                </TouchableOpacity>
+                {(() => {
+                  const sName = (lead.status?.name || "").toLowerCase();
+                  const isWonLead = sName.includes("won") || sName.includes("converted") || sName.includes("selected");
+                  const isLostLead = sName.includes("lost") || sName.includes("dropped") || sName.includes("rejected") || sName.includes("closed");
+                  
+                  if (isWonLead || isLostLead) {
+                    return (
+                      <View style={[styles.stageBadgeDropdown, { backgroundColor: isWonLead ? "#064E3B" : "#881337", borderColor: isWonLead ? "#10B981" : "#F43F5E" }]}>
+                        <Ionicons name={isWonLead ? "checkmark-circle" : "close-circle"} size={12} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={[styles.stageBadgeText, { color: "#FFF", fontWeight: "800" }]}>
+                          Stage: {lead.status?.name || (isWonLead ? "Won" : "Closed")} (Locked)
+                        </Text>
+                      </View>
+                    );
+                  }
+
+                  return (
+                    <TouchableOpacity
+                      style={[styles.stageBadgeDropdown, { backgroundColor: statusColor + "22", borderColor: statusColor }]}
+                      activeOpacity={0.8}
+                      onPress={() => setStatusModalVisible(true)}
+                    >
+                      <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                      <Text style={[styles.stageBadgeText, { color: "#FFF" }]}>
+                        Stage: {lead.status?.name || "New Prospect"}
+                      </Text>
+                      <Ionicons name="chevron-down" size={11} color="#FFF" style={{ marginLeft: 3 }} />
+                    </TouchableOpacity>
+                  );
+                })()}
 
                 <Text style={{ fontSize: 9.5, color: "#94A3B8" }}>
                   {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : "Active"}

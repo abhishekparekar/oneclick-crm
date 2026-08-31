@@ -8,7 +8,7 @@ import {
   DollarSign, Tag, CheckCircle2, AlertCircle, Clock, Send,
   Paperclip, ExternalLink, X, Plus, Sparkles, User, ShieldCheck,
   CheckCircle, ChevronRight, Layers, FileText, Smartphone, Mail,
-  CheckCheck, Users, Briefcase, Trash2, RefreshCw
+  CheckCheck, Users, Briefcase, Trash2, RefreshCw, XCircle
 } from "lucide-react";
 
 const formatLeadId = (lead) => {
@@ -344,13 +344,39 @@ export default function HRLeadDetails() {
               <span>Call</span>
             </a>
           )}
-          <button
-            onClick={() => setShowStatusModal(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-extrabold shadow-md shadow-amber-600/20 transition-all cursor-pointer"
-          >
-            <Sparkles size={13} strokeWidth={2.2} />
-            <span>Update Status</span>
-          </button>
+          {/* Status CTA Button */}
+          {(() => {
+            const statusName = (currentStatusObj?.name || "").toLowerCase();
+            const isWon = statusName.includes("won") || statusName.includes("converted") || statusName.includes("selected") || statusName.includes("hired");
+            const isLost = statusName.includes("lost") || statusName.includes("dropped") || statusName.includes("rejected") || statusName.includes("closed");
+            
+            if (isWon) {
+              return (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl font-black text-xs shadow-2xs">
+                  <CheckCircle2 size={13} className="text-emerald-600" />
+                  <span>Selected / Won</span>
+                </div>
+              );
+            }
+            if (isLost) {
+              return (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/30 rounded-xl font-black text-xs shadow-2xs">
+                  <XCircle size={13} className="text-rose-600" />
+                  <span>Closed / Lost</span>
+                </div>
+              );
+            }
+
+            return (
+              <button
+                onClick={() => setShowStatusModal(true)}
+                className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-extrabold shadow-md shadow-amber-600/20 transition-all cursor-pointer"
+              >
+                <Sparkles size={13} strokeWidth={2.2} />
+                <span>Update Status</span>
+              </button>
+            );
+          })()}
         </div>
       </div>
 

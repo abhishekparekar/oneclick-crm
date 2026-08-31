@@ -537,13 +537,20 @@ export default function EmployeeTaskDetails() {
 
         {/* Single Unified Status Action Button */}
         <div className="shrink-0 flex items-center gap-1.5 self-start sm:self-auto">
-          <button
-            onClick={() => setShowStatusModal(true)}
-            className="px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"
-          >
-            <Layers size={13} />
-            <span>Update Status</span>
-          </button>
+          {!isCompleted && !isCancelled ? (
+            <button
+              onClick={() => setShowStatusModal(true)}
+              className="px-3.5 py-1.5 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"
+            >
+              <Layers size={13} />
+              <span>Update Status</span>
+            </button>
+          ) : (
+            <div className="px-3.5 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black flex items-center gap-1.5 shadow-2xs">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>{isLateCompleted ? "Late Completed" : isCompleted ? "Task Completed" : "Cancelled"}</span>
+            </div>
+          )}
         </div>
       </div>
 
