@@ -17,6 +17,7 @@ module.exports = {
           'expo-file-system': './src/shims/FileSystemShim.js',
           'expo-web-browser': './src/shims/WebBrowserShim.js',
           'expo-av': './src/shims/AudioShim.js',
+          'expo-camera': './src/shims/CameraShim.js',
           'expo-blur': './src/shims/BlurShim.js',
           'expo-constants': './src/shims/ConstantsShim.js',
         },

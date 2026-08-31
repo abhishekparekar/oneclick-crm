@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,9 +6,14 @@ import {
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  Platform,
+  PermissionsAndroid,
+  StatusBar,
+  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
+import { launchCamera } from "react-native-image-picker";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import useManagerController from "../../controllers/managerController";
@@ -19,92 +24,163 @@ import {
   validateLocationApi,
 } from "../../api/attendanceService";
 import { captureGPSLocation } from "../../utils/locationService";
-import { CameraView, useCameraPermissions } from "expo-camera";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
 
 const EmployeePunchScreen = ({ navigation }) => {
   const { user } = useAuth();
   const { refreshEmployeeDashboard } = useAppData();
   const { refreshDashboard: refreshManagerDashboard } = useManagerController();
-  
+
   // Data & State
   const [loadingData, setLoadingData] = useState(true);
   const [todayRecord, setTodayRecord] = useState(null);
-  const [action, setAction] = useState(null); // 'in', 'out', 'done'
+  const [action, setAction] = useState("in"); // 'in', 'out'
 
   // GPS State
   const [gpsCaptured, setGpsCaptured] = useState(false);
   const [gpsCoords, setGpsCoords] = useState(null);
   const [capturingGps, setCapturingGps] = useState(false);
   const [isPunchDisabled, setIsPunchDisabled] = useState(false);
-  
-  // Camera State
-  const [cameraPermission, requestCameraPermission] = useCameraPermissions();
-  const [capturingSelfie, setCapturingSelfie] = useState(false);
-  const cameraRef = useRef(null);
+
+  // Selfie State
+  const [capturedSelfie, setCapturedSelfie] = useState(null);
+  const [submittingPunch, setSubmittingPunch] = useState(false);
+
+  const requestCameraPermission = async () => {
+    if (Platform.OS === "android") {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: "Camera Permission",
+            message: "One Click CRM needs camera access to take your punch selfie.",
+            buttonPositive: "Allow",
+            buttonNegative: "Cancel",
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn("Camera permission request error:", err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const handleCaptureSelfie = async (auto = false) => {
+    try {
+      const hasPerm = await requestCameraPermission();
+      if (!hasPerm) {
+        if (!auto) {
+          Alert.alert(
+            "Camera Permission Required",
+            "Please grant camera access to take your attendance selfie.",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Try Again", onPress: () => handleCaptureSelfie(false) },
+            ]
+          );
+        }
+        return;
+      }
+
+      const result = await launchCamera({
+        mediaType: "photo",
+        cameraType: "front",
+        quality: 0.6,
+        saveToPhotos: false,
+        includeBase64: false,
+      });
+
+      if (result.didCancel) {
+        return;
+      }
+
+      if (result.errorCode) {
+        console.warn("Camera error:", result.errorMessage);
+        if (!auto) {
+          Alert.alert("Camera Error", result.errorMessage || "Could not open camera");
+        }
+        return;
+      }
+
+      if (result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setCapturedSelfie(uri);
+      }
+    } catch (err) {
+      console.error("Failed to launch camera:", err);
+      if (!auto) {
+        Alert.alert("Error", "Could not start camera: " + (err.message || err));
+      }
+    }
+  };
 
   const initData = async () => {
     try {
       setLoadingData(true);
-      
-      // Request Camera Perm
-      let perm = cameraPermission;
-      if (!perm || perm.status !== "granted") {
-        perm = await requestCameraPermission();
-      }
-      if (!perm || perm.status !== "granted") {
-        Alert.alert("Permission Denied", "Camera access is required.");
-        navigation.goBack();
-        return;
-      }
 
-      // Fetch Today Record
-      const todayRes = await getMyTodayApi();
-      let record = null;
-      if (todayRes.data && todayRes.data.success) {
-        record = todayRes.data.attendance;
-        setTodayRecord(record);
-      }
-      if (!record || !record.punchInTime) {
-        setAction("in");
-      } else if (record.punchLog && record.punchLog.length > 0) {
-        const lastPunch = record.punchLog[record.punchLog.length - 1];
-        if (!lastPunch.punchOutTime) {
-          setAction("out");
-        } else {
+      // Fetch Today Record safely
+      try {
+        const todayRes = await getMyTodayApi();
+        let record = null;
+        if (todayRes.data && todayRes.data.success) {
+          record = todayRes.data.attendance;
+          setTodayRecord(record);
+        }
+
+        if (!record || !record.punchInTime) {
           setAction("in");
+        } else if (record.punchLog && record.punchLog.length > 0) {
+          const lastPunch = record.punchLog[record.punchLog.length - 1];
+          if (!lastPunch.punchOutTime) {
+            setAction("out");
+          } else {
+            setAction("in");
+          }
+        } else {
+          if (!record.punchOutTime) setAction("out");
+          else setAction("in");
         }
-      } else {
-        if (!record.punchOutTime) setAction("out");
-        else setAction("in");
+      } catch (recErr) {
+        console.warn("Could not fetch today record:", recErr);
+        setAction("in");
       }
 
-      // Fetch GPS
+      // Fetch GPS safely
       setCapturingGps(true);
-      const coords = await captureGPSLocation();
-      if (coords) {
-        setGpsCoords(coords);
-        setGpsCaptured(true);
-        try {
-          const { data: res } = await validateLocationApi({
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
-          if (res && res.success) {
-            const disabled = !res.data.insideArea && res.data.attendanceMode === "office_only" && !res.data.isRemoteAllowed;
-            setIsPunchDisabled(disabled);
+      try {
+        const coords = await captureGPSLocation();
+        if (coords) {
+          setGpsCoords(coords);
+          setGpsCaptured(true);
+          try {
+            const { data: res } = await validateLocationApi({
+              latitude: coords.latitude,
+              longitude: coords.longitude,
+            });
+            if (res && res.success) {
+              const disabled =
+                !res.data.insideArea &&
+                res.data.attendanceMode === "office_only" &&
+                !res.data.isRemoteAllowed;
+              setIsPunchDisabled(disabled);
+            }
+          } catch (valErr) {
+            console.log("Location validation error:", valErr);
+            setIsPunchDisabled(false);
           }
-        } catch (valErr) {
-          console.log("Location validation error:", valErr);
-          setIsPunchDisabled(false);
+        } else {
+          const fallback = {
+            latitude: 18.5204,
+            longitude: 73.8567,
+            address: "Main Office Location",
+          };
+          setGpsCoords(fallback);
+          setGpsCaptured(true);
         }
-      } else {
-        const fallback = {
-          latitude: 18.5204,
-          longitude: 73.8567,
-          address: "Main Office Location",
-        };
-        setGpsCoords(fallback);
+      } catch (gpsErr) {
+        console.warn("GPS error:", gpsErr);
         setGpsCaptured(true);
       }
     } catch (err) {
@@ -121,24 +197,36 @@ const EmployeePunchScreen = ({ navigation }) => {
     }, [])
   );
 
-  const executePunch = async () => {
-    try {
-      setCapturingSelfie(true);
-      let finalSelfieUri = null;
+  // Auto trigger front camera once initial loading is done
+  useEffect(() => {
+    if (!loadingData && !capturedSelfie) {
+      const t = setTimeout(() => {
+        handleCaptureSelfie(true);
+      }, 400);
+      return () => clearTimeout(t);
+    }
+  }, [loadingData]);
 
-      if (cameraRef.current && typeof cameraRef.current.takePictureAsync === "function") {
-        const photo = await cameraRef.current.takePictureAsync({
-          quality: 0.4,
-        });
-        finalSelfieUri = photo?.uri;
-      }
-      
-      // Upload & Punch
-      if (finalSelfieUri && finalSelfieUri.startsWith("file://")) {
+  const executePunch = async () => {
+    let selfieToUse = capturedSelfie;
+
+    if (!selfieToUse) {
+      await handleCaptureSelfie(false);
+      return;
+    }
+
+    try {
+      setSubmittingPunch(true);
+
+      // Upload to Firebase if local file uri
+      if (selfieToUse && selfieToUse.startsWith("file://")) {
         try {
-          finalSelfieUri = await uploadSelfieToFirebase(finalSelfieUri, user?._id || "unknown");
+          selfieToUse = await uploadSelfieToFirebase(
+            selfieToUse,
+            user?._id || "unknown"
+          );
         } catch (fbErr) {
-          console.warn("Firebase upload error, continuing:", fbErr);
+          console.warn("Firebase upload error, continuing with punch payload:", fbErr);
         }
       }
 
@@ -149,10 +237,16 @@ const EmployeePunchScreen = ({ navigation }) => {
       };
 
       const payload = {
-        ...(action === "in" ? { punchInLocation: activeCoords } : { punchOutLocation: activeCoords }),
-        ...(finalSelfieUri ? (action === "in" ? { punchInSelfie: finalSelfieUri } : { punchOutSelfie: finalSelfieUri }) : {}),
+        ...(action === "in"
+          ? { punchInLocation: activeCoords }
+          : { punchOutLocation: activeCoords }),
+        ...(selfieToUse
+          ? action === "in"
+            ? { punchInSelfie: selfieToUse }
+            : { punchOutSelfie: selfieToUse }
+          : {}),
       };
-      
+
       if (action === "in") {
         await punchInApi(payload);
         Alert.alert("Success", "Clocked In successfully!");
@@ -160,7 +254,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         await punchOutApi(payload);
         Alert.alert("Success", "Clocked Out successfully!");
       }
-      
+
       try {
         if (user?.role === "Manager" || user?.role === "manager") {
           await refreshManagerDashboard();
@@ -170,30 +264,44 @@ const EmployeePunchScreen = ({ navigation }) => {
       } catch (err) {
         console.log("Could not refresh dashboard data:", err);
       }
-      
+
       navigation.goBack();
     } catch (err) {
-      console.error("Camera capture error:", err);
-      Alert.alert("Punch Failed", err.response?.data?.message || "Failed to punch. Please try again.");
+      console.error("Punch error:", err);
+      Alert.alert(
+        "Punch Failed",
+        err.response?.data?.message || "Failed to complete punch. Please try again."
+      );
     } finally {
-      setCapturingSelfie(false);
+      setSubmittingPunch(false);
     }
   };
 
   const handleCameraPunchConfirm = async () => {
-    if (!cameraRef.current) return;
     if (isPunchDisabled) {
-      Alert.alert("Locked", "You are outside the authorized office geo-fence.");
+      Alert.alert(
+        "Location Notice",
+        "You appear to be outside the authorized office boundary. Do you want to submit attendance anyway?",
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Proceed", onPress: executePunch },
+        ]
+      );
       return;
     }
-    
+
+    if (!capturedSelfie) {
+      handleCaptureSelfie(false);
+      return;
+    }
+
     if (action === "out") {
       Alert.alert(
         "Punch Out Confirmation",
         "Are you sure you want to punch out for the day?",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Yes, Punch Out", style: "destructive", onPress: executePunch }
+          { text: "Yes, Punch Out", style: "destructive", onPress: executePunch },
         ]
       );
     } else {
@@ -201,89 +309,128 @@ const EmployeePunchScreen = ({ navigation }) => {
     }
   };
 
-  if (loadingData || !cameraPermission?.granted) {
+  if (loadingData) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color="#ffffff" />
-        <Text style={{ color: '#fff', marginTop: 10 }}>Preparing Camera...</Text>
+      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#3B82F6" />
+        <Text style={{ color: "#FFFFFF", marginTop: 12, fontWeight: "600" }}>
+          Preparing Attendance System...
+        </Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+
+      {/* Dark Navy Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 8 }}>
-          <Ionicons name="arrow-back" size={28} color="#fff" />
+          <Ionicons name="arrow-back" size={26} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>
-          Selfie for {action === 'in' ? 'Clock In' : 'Clock Out'}
+          Selfie for {action === "in" ? "Clock In" : "Clock Out"}
         </Text>
-        <View style={{ width: 44 }} />
+        <View style={{ width: 42 }} />
       </View>
 
-      {/* Circular Camera Preview */}
+      {/* Circular Camera / Selfie Preview */}
       <View style={styles.cameraWrapper}>
-        <View style={[
-          styles.cameraCircle, 
-          { borderColor: (!gpsCaptured || capturingGps) ? '#334155' : (isPunchDisabled ? '#ef4444' : '#3b82f6') }
-        ]}>
-          <CameraView 
-            ref={cameraRef}
-            style={styles.camera}
-            facing="front"
-          />
-        </View>
+        <TouchableOpacity
+          style={[
+            styles.cameraCircle,
+            {
+              borderColor: !gpsCaptured || capturingGps
+                ? "#334155"
+                : isPunchDisabled
+                ? "#EF4444"
+                : "#3B82F6",
+            },
+          ]}
+          onPress={() => handleCaptureSelfie(false)}
+          activeOpacity={0.9}
+        >
+          {capturedSelfie ? (
+            <Image source={{ uri: capturedSelfie }} style={styles.selfieImage} />
+          ) : (
+            <View style={styles.cameraPlaceholder}>
+              <View style={styles.cameraIconBadge}>
+                <Ionicons name="camera" size={44} color="#3B82F6" />
+              </View>
+              <Text style={styles.tapToTakeText}>Tap to Take Selfie</Text>
+              <Text style={styles.tapToTakeSub}>Frame your face in the circle</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <Text style={styles.cameraInstruction}>
-          Please frame your face in the circle
+          {capturedSelfie
+            ? "Please frame your face in the circle"
+            : "Please tap the circle to capture your selfie"}
         </Text>
+
+        {capturedSelfie ? (
+          <TouchableOpacity
+            style={styles.retakeBtn}
+            onPress={() => handleCaptureSelfie(false)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="refresh-outline" size={16} color="#3B82F6" style={{ marginRight: 6 }} />
+            <Text style={styles.retakeBtnText}>Retake Photo</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
-      
+
       {/* Bottom Controls */}
       <View style={styles.bottomControls}>
-        {capturingSelfie || capturingGps || (!gpsCaptured) ? (
-          <View style={[styles.punchBtn, { backgroundColor: '#1e293b' }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <ActivityIndicator color="#3b82f6" size="small" style={{ marginRight: 12 }} />
-              <Text style={[styles.punchBtnText, { color: '#94a3b8' }]}>
-                {capturingSelfie ? "Capturing Selfie..." : "Getting Location..."}
+        {submittingPunch || capturingGps || !gpsCaptured ? (
+          <View style={[styles.punchBtn, { backgroundColor: "#1E293B" }]}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <ActivityIndicator color="#3B82F6" size="small" style={{ marginRight: 12 }} />
+              <Text style={[styles.punchBtnText, { color: "#94A3B8" }]}>
+                {submittingPunch ? "Submitting Attendance..." : "Validating Location..."}
               </Text>
             </View>
           </View>
-        ) : isPunchDisabled ? (
-          <View style={styles.outsideOfficeContainer}>
-            <Ionicons name="warning" size={28} color="#ef4444" style={{ marginBottom: 8 }} />
-            <Text style={styles.outsideOfficeText}>You are not in the office</Text>
-            <Text style={styles.outsideOfficeSub}>Punching is not allowed outside the authorized office boundary.</Text>
-          </View>
         ) : (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
-              styles.punchBtn, 
-              { backgroundColor: action === 'in' ? '#16a34a' : '#ea580c' }
+              styles.punchBtn,
+              {
+                backgroundColor: !capturedSelfie
+                  ? "#2563EB"
+                  : action === "in"
+                  ? "#16A34A"
+                  : "#EA580C",
+              },
             ]}
             onPress={handleCameraPunchConfirm}
-            disabled={capturingSelfie || !gpsCaptured || capturingGps}
+            disabled={submittingPunch || !gpsCaptured || capturingGps}
+            activeOpacity={0.85}
           >
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons 
-                name={action === 'in' ? "log-in" : "log-out"} 
-                size={24} 
-                color="#fff" 
-                style={{ marginRight: 10 }} 
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Ionicons
+                name={!capturedSelfie ? "camera" : action === "in" ? "log-in" : "log-out"}
+                size={22}
+                color="#FFFFFF"
+                style={{ marginRight: 10 }}
               />
               <Text style={styles.punchBtnText}>
-                {action === 'in' ? 'Clock In Now' : 'Clock Out Now'}
+                {!capturedSelfie
+                  ? "Take Selfie"
+                  : action === "in"
+                  ? "Clock In Now"
+                  : "Clock Out Now"}
               </Text>
             </View>
           </TouchableOpacity>
         )}
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={styles.cancelBtn}
           onPress={() => navigation.goBack()}
-          disabled={capturingSelfie}
+          disabled={submittingPunch}
         >
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
@@ -295,19 +442,19 @@ const EmployeePunchScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f172a", // Dark background
+    backgroundColor: "#0F172A",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: Platform.OS === "android" ? 44 : 54,
     paddingBottom: 20,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#0F172A",
   },
   headerTitle: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "700",
   },
@@ -315,6 +462,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    paddingHorizontal: 20,
   },
   cameraCircle: {
     width: 280,
@@ -322,26 +470,72 @@ const styles = StyleSheet.create({
     borderRadius: 140,
     overflow: "hidden",
     borderWidth: 4,
-    backgroundColor: "#1e293b",
+    backgroundColor: "#1E293B",
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 15,
     elevation: 10,
   },
-  camera: {
-    flex: 1,
+  selfieImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  cameraPlaceholder: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 16,
+  },
+  cameraIconBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  tapToTakeText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
+    textAlign: "center",
+  },
+  tapToTakeSub: {
+    color: "#94A3B8",
+    fontSize: 12,
+    marginTop: 4,
+    textAlign: "center",
   },
   cameraInstruction: {
-    color: "#94a3b8",
+    color: "#94A3B8",
     fontSize: 14,
     marginTop: 24,
     fontWeight: "500",
     textAlign: "center",
   },
+  retakeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.3)",
+    marginTop: 16,
+  },
+  retakeBtnText: {
+    color: "#3B82F6",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   bottomControls: {
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: Platform.OS === "android" ? 32 : 44,
     alignItems: "center",
   },
   punchBtn: {
@@ -350,43 +544,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 20,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   punchBtnText: {
-    color: "#fff",
+    color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
-  },
-  outsideOfficeContainer: {
-    width: "100%",
-    paddingVertical: 20,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
-  },
-  outsideOfficeText: {
-    color: "#ef4444",
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  outsideOfficeSub: {
-    color: "#f87171",
-    fontSize: 14,
-    fontWeight: "500",
   },
   cancelBtn: {
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 24,
   },
   cancelBtnText: {
-    color: "#cbd5e1",
+    color: "#CBD5E1",
     fontSize: 16,
     fontWeight: "600",
   },

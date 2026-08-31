@@ -5,6 +5,18 @@ module.exports = {
   },
   assets: ['./assets/fonts/'],
   dependencies: {
+    'expo': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
+    'expo-camera': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
     'expo-av': {
       platforms: {
         android: null,
