@@ -53,6 +53,14 @@ const buildHRSections = (hasPermission) => [
         module: null,
       },
       {
+        label: "All Projects",
+        screen: "HRProjectList",
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+        color: "#0891B2",
+        module: null,
+      },
+      {
         label: "Company Requests",
         screen: "CompanyRequests",
         icon: "chatbubbles-outline",
