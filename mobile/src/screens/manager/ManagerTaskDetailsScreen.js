@@ -30,7 +30,9 @@ import {
   updateTaskStatus as updateTaskStatusData,
   addTaskComment as addComment,
   deleteTask as removeTask,
-  toggleTaskTemplateApi
+  toggleTaskTemplateApi,
+  getManagerTeam,
+  shiftTaskApi,
 } from "../../api/managerApi";
 import * as WebBrowser from 'expo-web-browser';
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
@@ -93,9 +95,61 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   const [actionType, setActionType] = useState("");
   const [statusPickerModalVisible, setStatusPickerModalVisible] = useState(false);
 
+  // Shift Task State
+  const [shiftModalVisible, setShiftModalVisible] = useState(false);
+  const [shiftReason, setShiftReason] = useState("");
+  const [newAssigneeId, setNewAssigneeId] = useState("");
+  const [teamMembers, setTeamMembers] = useState([]);
+
+  useEffect(() => {
+    const loadTeam = async () => {
+      try {
+        const res = await getManagerTeam();
+        const list = res?.data?.members || res?.members || res?.data || (Array.isArray(res) ? res : []);
+        setTeamMembers(list);
+      } catch (e) {
+        console.log("Failed to load team for shift task:", e);
+      }
+    };
+    loadTeam();
+  }, []);
+
   const openActionModal = (type) => {
     setActionType(type);
     setActionModalVisible(true);
+  };
+
+  const executeShiftTask = async () => {
+    if (!newAssigneeId) {
+      Alert.alert("Required", "Please select a team member to shift this task to.");
+      return;
+    }
+    if (!shiftReason.trim()) {
+      Alert.alert("Required", "Please provide a reason for shifting this task.");
+      return;
+    }
+    try {
+      setSubmitting(true);
+      const res = await shiftTaskApi(taskId, {
+        newAssigneeId,
+        shiftReason: shiftReason.trim(),
+      });
+      if (res?.success || res?.data) {
+        Alert.alert("Success", "Task successfully shifted to new assignee.");
+        setShiftModalVisible(false);
+        setShiftReason("");
+        setNewAssigneeId("");
+        fetchTask();
+      } else {
+        Alert.alert("Success", "Task shift processed.");
+        setShiftModalVisible(false);
+        fetchTask();
+      }
+    } catch (err) {
+      Alert.alert("Error", err?.response?.data?.message || err.message || "Failed to shift task");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleToggleRecurring = async () => {
@@ -456,11 +510,13 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
 
-      {/* ── Premium Dark Hero Header ── */}
+      {/* ── Royal Blue Brand Header ── */}
       <LinearGradient
-        colors={['#0F172A', '#1E293B']}
+        colors={['#082B52', '#1268D9']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 12) + 8 }]}
       >
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
@@ -774,6 +830,32 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* ── Shift Task (Reassign) Button for Pending / Active Tasks ── */}
+            {!isCompleted && !isCancelled && (
+              <TouchableOpacity
+                style={styles.nativeShiftBtn}
+                onPress={() => setShiftModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.nativeShiftInner}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <View style={styles.nativeShiftIconCircle}>
+                      <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={styles.nativeActionBtnTitle}>
+                        Shift Task (Reassign)
+                      </Text>
+                      <Text style={styles.nativeActionBtnSub}>
+                        Shift pending work to another team member
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ── Native Attachments ── */}
@@ -1027,9 +1109,115 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                   <Ionicons name="chevron-forward" size={18} color="#B45309" />
                 </TouchableOpacity>
               )}
+
+              {/* Option: Shift Task / Reassign */}
+              {!isCompleted && !isCancelled && (
+                <TouchableOpacity
+                  style={[styles.statusOptionRow, { borderColor: "#DDD6FE", backgroundColor: "#F5F3FF" }]}
+                  onPress={() => {
+                    setStatusPickerModalVisible(false);
+                    setShiftModalVisible(true);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#EDE9FE" }]}>
+                    <Ionicons name="swap-horizontal" size={22} color="#7C3AED" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 12 }}>
+                    <Text style={[styles.statusOptionTitle, { color: "#7C3AED" }]}>Shift Task (Reassign)</Text>
+                    <Text style={styles.statusOptionDesc}>Transfer this pending task to another team member</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+                </TouchableOpacity>
+              )}
             </ScrollView>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* ── Shift Task Modal ── */}
+      <Modal visible={shiftModalVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={[styles.modalHeaderIconBox, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="swap-horizontal" size={18} color="#1268D9" />
+                </View>
+                <View style={{ marginLeft: 10 }}>
+                  <Text style={styles.modalTitle}>Shift Task Assignment</Text>
+                  <Text style={styles.modalSubTitle}>Select a team member to reassign</Text>
+                </View>
+              </View>
+              <TouchableOpacity onPress={() => setShiftModalVisible(false)} style={styles.modalCloseIconBtn}>
+                <Ionicons name="close" size={20} color="#0F172A" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>SELECT NEW ASSIGNEE *</Text>
+            <ScrollView style={{ maxHeight: 210, marginBottom: 12 }} showsVerticalScrollIndicator={false}>
+              {teamMembers && teamMembers.length > 0 ? (
+                teamMembers.map(emp => {
+                  const empId = emp._id || emp.id || emp.userId;
+                  const isSelected = newAssigneeId === empId;
+                  const empName = emp.firstName ? `${emp.firstName} ${emp.lastName || ''}`.trim() : (emp.name || "Team Member");
+                  const roleOrDept = emp.designation || emp.role || emp.departmentId?.name || "Staff";
+                  return (
+                    <TouchableOpacity
+                      key={empId}
+                      style={[styles.modalItemRow, isSelected && styles.modalItemRowSelected]}
+                      onPress={() => setNewAssigneeId(empId)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={styles.modalAvatarBox}>
+                        <Text style={styles.modalAvatarText}>{empName.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 10 }}>
+                        <Text style={[styles.modalItemTitle, isSelected && { color: "#1268D9", fontWeight: "800" }]}>
+                          {empName}
+                        </Text>
+                        <Text style={styles.modalItemSub}>{roleOrDept}</Text>
+                      </View>
+                      {isSelected ? (
+                        <Ionicons name="checkmark-circle" size={22} color="#1268D9" />
+                      ) : (
+                        <Ionicons name="ellipse-outline" size={20} color="#CBD5E1" />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <Text style={{ fontSize: 13, color: "#64748B", padding: 12, textAlign: "center" }}>
+                  No team members found
+                </Text>
+              )}
+            </ScrollView>
+
+            <Text style={styles.modalLabel}>REASON FOR SHIFTING *</Text>
+            <TextInput
+              style={styles.modalTextarea}
+              placeholder="Explain why this task is being reassigned..."
+              placeholderTextColor="#94A3B8"
+              value={shiftReason}
+              onChangeText={setShiftReason}
+              multiline
+              numberOfLines={3}
+            />
+
+            <TouchableOpacity
+              style={styles.modalSubmitBtn}
+              onPress={executeShiftTask}
+              disabled={submitting}
+              activeOpacity={0.8}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Confirm Shift Assignment</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       <TaskActionModal
@@ -1687,6 +1875,115 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontFamily: FONTS.bodyBold,
     color: "#B45309",
+    fontWeight: "800",
+  },
+  // ── Shift Task Button & Modal Styles ──
+  nativeShiftBtn: {
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#DDD6FE",
+    backgroundColor: "#F5F3FF",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    elevation: 2,
+    shadowColor: "#7C3AED",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  nativeShiftInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  nativeShiftIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#7C3AED",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalHeaderIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalLabel: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11,
+    color: "#475569",
+    letterSpacing: 0.5,
+    marginBottom: 6,
+    marginTop: 6,
+  },
+  modalItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 6,
+  },
+  modalItemRowSelected: {
+    backgroundColor: "#EFF6FF",
+    borderColor: "#BFDBFE",
+  },
+  modalAvatarBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#1268D9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalAvatarText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+    fontSize: 13,
+  },
+  modalItemTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  modalItemSub: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  modalTextarea: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
+    padding: 10,
+    fontFamily: FONTS.body,
+    fontSize: 13,
+    color: "#0F172A",
+    minHeight: 65,
+    textAlignVertical: "top",
+    marginBottom: 14,
+  },
+  modalSubmitBtn: {
+    backgroundColor: "#1268D9",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 4,
+  },
+  modalSubmitBtnText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+    fontSize: 13.5,
     fontWeight: "800",
   },
 });

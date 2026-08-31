@@ -17,10 +17,10 @@ import { FONTS } from "../../theme/tokens";
 
 const STATUS_CONFIG = {
   planning:   { bg: "#f8fafc", text: "#475569", border: "#e2e8f0", label: "Planning",   icon: "settings-outline" },
-  active:     { bg: "#f0fdfa", text: "#C2410C", border: "#ccfbf1", label: "Active",     icon: "play-outline" },
+  active:     { bg: "#EFF6FF", text: "#1268D9", border: "#BFDBFE", label: "Active",     icon: "play-outline" },
   working:    { bg: "#fffbeb", text: "#b45309", border: "#fef3c7", label: "Working",    icon: "hammer-outline" },
   review:     { bg: "#faf5ff", text: "#7e22ce", border: "#f3e8ff", label: "Review",     icon: "eye-outline" },
-  deployment: { bg: "#fff7ed", text: "#c2410c", border: "#ffedd5", label: "Deployment", icon: "rocket-outline" },
+  deployment: { bg: "#EFF6FF", text: "#1268D9", border: "#BFDBFE", label: "Deployment", icon: "rocket-outline" },
   completed:  { bg: "#f0fdf4", text: "#15803d", border: "#dcfce7", label: "Completed",  icon: "checkmark-outline" },
 };
 
@@ -540,7 +540,7 @@ const styles = StyleSheet.create({
   timeline: { paddingLeft: 4, marginTop: 4 },
   timelineRow: { flexDirection: "row", marginBottom: 16 },
   timelineDotBox: { width: 16, alignItems: "center", marginRight: 12 },
-  timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#C2410C", marginTop: 4 },
+  timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#1268D9", marginTop: 4 },
   timelineLine: { width: 2, flex: 1, backgroundColor: "#e2e8f0", marginTop: 4 },
   timelineContent: { flex: 1 },
   activityText: { fontSize: 13, color: "#0f172a", fontWeight: "500", lineHeight: 18 },

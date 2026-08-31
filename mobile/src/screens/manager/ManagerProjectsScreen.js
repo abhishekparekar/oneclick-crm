@@ -17,7 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import ManagerLayout from "../../components/ManagerLayout";
 import useManagerController from "../../controllers/managerController";
 
-const TEAL = "#C2410C";
+const THEME_COLOR = "#1268D9";
 
 const ManagerProjectsScreen = ({ navigation }) => {
   const { projects, loadingProjects, fetchProjects } = useManagerController();
@@ -40,20 +40,22 @@ const ManagerProjectsScreen = ({ navigation }) => {
     setRefreshing(false);
   };
 
-  const filteredProjects = projects.filter((p) => {
-    return p.name?.toLowerCase().includes(search.toLowerCase());
+  const safeProjects = Array.isArray(projects) ? projects : [];
+
+  const filteredProjects = safeProjects.filter((p) => {
+    return p && p.name?.toLowerCase().includes((search || "").toLowerCase());
   });
 
   // Calculate Metrics based on project status
-  const totalProjectsCount = projects.length;
-  const inProjectsCount = projects.filter(
-    (p) => p.status === "active" || p.status === "working" || p.status === "deployment" || p.status === "review"
+  const totalProjectsCount = safeProjects.length;
+  const inProjectsCount = safeProjects.filter(
+    (p) => p && (p.status === "active" || p.status === "working" || p.status === "deployment" || p.status === "review")
   ).length;
-  const completedProjectsCount = projects.filter(
-    (p) => p.status === "completed" || p.status === "done"
+  const completedProjectsCount = safeProjects.filter(
+    (p) => p && (p.status === "completed" || p.status === "done")
   ).length;
-  const onHoldProjectsCount = projects.filter(
-    (p) => p.status === "on-hold" || p.status === "planning"
+  const onHoldProjectsCount = safeProjects.filter(
+    (p) => p && (p.status === "on-hold" || p.status === "planning")
   ).length;
 
   const completedPercentage =
