@@ -16,7 +16,7 @@ import AppDatePicker from "../../components/AppDatePicker";
 import { createManagerProject, getManagerTeam } from "../../api/managerApi";
 import { parseDDMMYYYYToISO } from "../../utils/dateFormatter";
 
-const TEAL = "#C2410C";
+const TEAL = "#1268D9";
 const BORDER = "#e2e8f0";
 const TEXT_MAIN = "#0f172a";
 const TEXT_MUTED = "#64748b";
