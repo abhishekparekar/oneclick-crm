@@ -251,7 +251,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              tintColor={TEAL}
+              tintColor={THEME_COLOR}
             />
           }
         >
@@ -329,7 +329,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
                 <View style={styles.legendItem}>
                   <View style={[styles.legendDot, { backgroundColor: "#0284c7" }]} />
                   <Text style={styles.legendText}>
-                    In Progress:{" "}
+                    In Projects:{" "}
                     <Text style={styles.legendBold}>
                       {inProjectsCount} ({inProjectsPercentage}%)
                     </Text>
@@ -356,7 +356,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
           {/* Project List */}
           {loadingProjects && !refreshing ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator size="large" color={TEAL} />
+              <ActivityIndicator size="large" color={THEME_COLOR} />
               <Text style={styles.loadingText}>Loading project portfolio...</Text>
             </View>
           ) : (

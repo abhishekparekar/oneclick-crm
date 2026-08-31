@@ -149,31 +149,33 @@ const ManagerDrawerContent = (props) => {
     return route.name;
   };
 
-  const activeRouteName = getActiveRouteName(state) || "ManagerDashboard";
-
   const handleNavigate = (item) => {
-    const bottomTabs = ["ManagerDashboard", "LeadsEngine", "ManagerTasks", "ManagerTeam", "ManagerTeamLeaves"];
     const screenName = typeof item === "string" ? item : item.screen;
     const targetScreen = typeof item === "object" ? item.targetScreen : null;
+    navigation.closeDrawer();
 
     if (screenName === "LeadsEngine") {
       navigation.navigate("ManagerStack", {
         screen: "LeadsEngine",
         params: { screen: targetScreen || "LeadsDashboard" },
       });
-      navigation.closeDrawer();
       return;
     }
 
-    if (bottomTabs.includes(screenName)) {
-      navigation.navigate("MainTabs", {
-        screen: screenName,
-        params: targetScreen ? { screen: targetScreen } : undefined,
+    const tabScreens = ["ManagerDashboard", "ManagerTasks", "ManagerTeam", "ManagerTeamLeaves", "ManagerProfile"];
+    if (tabScreens.includes(screenName)) {
+      navigation.navigate("ManagerStack", {
+        screen: "ManagerTabs",
+        params: { screen: screenName },
       });
-    } else {
-      navigation.navigate("ManagerStack", { screen: screenName });
+      return;
     }
-    navigation.closeDrawer();
+
+    // Direct screen navigation in ManagerStack
+    navigation.navigate("ManagerStack", {
+      screen: screenName,
+      params: targetScreen ? { screen: targetScreen } : undefined,
+    });
   };
 
   const handleLogout = () => {
