@@ -56,7 +56,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
   const [selectedStatus, setSelectedStatus] = useState("all");
 
   // Modal States
-  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(route?.params?.openAddModal || false);
   const [selectedLead, setSelectedLead] = useState(null);
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [statusPickerVisible, setStatusPickerVisible] = useState(false);

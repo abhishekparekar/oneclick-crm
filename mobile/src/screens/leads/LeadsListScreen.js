@@ -79,6 +79,13 @@ export default function LeadsListScreen({ navigation, route }) {
 
   // Add Lead Modal State
   const [modalVisible, setModalVisible] = useState(route.params?.openAddModal || false);
+
+  useEffect(() => {
+    if (route.params?.openAddModal) {
+      setModalVisible(true);
+    }
+  }, [route.params?.openAddModal, route.params]);
+
   const [submitting, setSubmitting] = useState(false);
   const [products, setProducts] = useState([]);
   const [isCustomProduct, setIsCustomProduct] = useState(false);

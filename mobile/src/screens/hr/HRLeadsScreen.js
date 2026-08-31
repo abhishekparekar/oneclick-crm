@@ -85,7 +85,14 @@ export default function HRLeadsScreen({ navigation, route }) {
   const [stagePickerModal, setStagePickerModal] = useState(false);
 
   // Modal
-  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [addModalVisible, setAddModalVisible] = useState(route.params?.openAddModal || false);
+
+  useEffect(() => {
+    if (route.params?.openAddModal) {
+      setAddModalVisible(true);
+    }
+  }, [route.params?.openAddModal, route.params]);
+
   const [savingLead, setSavingLead] = useState(false);
 
   const currentUserId = user?._id || user?.id || "";

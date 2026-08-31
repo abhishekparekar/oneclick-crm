@@ -163,16 +163,22 @@ const AddNewForm = ({ type, departments, onSave, onCancel }) => {
       let res;
       if (type === "department") {
         res = await createDepartmentApi({ name: name.trim(), description: desc.trim() });
-        onSave(res.data.department, "department");
+        const created = res?.data?.department || res?.data?.data || res?.data;
+        if (!created) throw new Error("Could not create department");
+        onSave(created, "department");
       } else if (type === "designation") {
         res = await createDesignationApi({ name: name.trim(), description: desc.trim(), departmentId: deptId });
-        onSave(res.data.designation, "designation");
+        const created = res?.data?.designation || res?.data?.data || res?.data;
+        if (!created) throw new Error("Could not create designation");
+        onSave(created, "designation");
       } else if (type === "branch") {
         res = await createBranchApi({ branchName: name.trim(), city: city.trim(), address: address.trim() });
-        onSave(res.data.branch, "branch");
+        const created = res?.data?.branch || res?.data?.data || res?.data;
+        if (!created) throw new Error("Could not create branch");
+        onSave(created, "branch");
       }
     } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || `Failed to create ${type}`);
+      Alert.alert("Error", err.response?.data?.message || err.message || `Failed to create ${type}`);
     } finally {
       setSaving(false);
     }
@@ -349,23 +355,37 @@ const AddEmployeeScreen = ({ navigation }) => {
     : designations;
 
   const handleNewItemSaved = (item, type) => {
+    if (!item) return;
+    const itemId = item._id || item.id;
     if (type === "department") {
-      setDepartments((p) => [...p, item]);
-      setDepartmentId(item._id); setDepartmentName(item.name);
-      setDesignationId(""); setDesignationName("");
+      setDepartments((p) => [...p.filter(d => (d._id || d.id) !== itemId), item]);
+      setDepartmentId(itemId);
+      setDepartmentName(item.name);
+      setDepartmentIds((p) => [...p.filter(id => id !== itemId), itemId]);
+      setDepartmentNames((p) => [...p.filter(n => n !== item.name), item.name]);
+      setDesignationId("");
+      setDesignationName("");
     } else if (type === "designation") {
-      setDesignations((p) => [...p, item]);
-      setDesignationId(item._id); setDesignationName(item.name);
+      setDesignations((p) => [...p.filter(d => (d._id || d.id) !== itemId), item]);
+      setDesignationId(itemId);
+      setDesignationName(item.name);
       if (item.departmentId) {
-        const dId = item.departmentId._id || item.departmentId;
-        const dObj = departments.find((d) => d._id === dId);
-        if (dObj) { setDepartmentId(dObj._id); setDepartmentName(dObj.name); }
+        const dId = item.departmentId._id || item.departmentId.id || item.departmentId;
+        const dObj = departments.find((d) => (d._id || d.id) === dId);
+        if (dObj) {
+          setDepartmentId(dObj._id || dObj.id);
+          setDepartmentName(dObj.name);
+          setDepartmentIds((p) => (p.includes(dObj._id || dObj.id) ? p : [...p, dObj._id || dObj.id]));
+          setDepartmentNames((p) => (p.includes(dObj.name) ? p : [...p, dObj.name]));
+        }
       }
     } else if (type === "branch") {
-      setBranches((p) => [...p, item]);
-      setBranchId(item._id); setBranchName(item.branchName);
+      setBranches((p) => [...p.filter(b => (b._id || b.id) !== itemId), item]);
+      setBranchId(itemId);
+      setBranchName(item.branchName || item.name);
     }
-    setAddingNew(null); setModal(null);
+    setAddingNew(null);
+    setModal(null);
   };
 
   // ── Computed salary totals ────────────────────────────────────
