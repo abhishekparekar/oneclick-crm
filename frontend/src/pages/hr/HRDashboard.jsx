@@ -353,20 +353,23 @@ export default function HRDashboard() {
                     const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10b981" : sName.toLowerCase().includes("contact") ? "#8b5cf6" : "#06b6d4");
                     const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
 
+                    const leadId = lead.id || lead._id;
+
                     return (
                       <div
-                        key={lead.id || lead._id || Math.random().toString()}
-                        className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-orange-200 dark:hover:border-orange-500/30 transition-all"
+                        key={leadId || Math.random().toString()}
+                        onClick={() => leadId && navigate(`/hr/leads/${leadId}`)}
+                        className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-orange-300 dark:hover:border-orange-500/50 hover:bg-orange-50/30 dark:hover:bg-orange-950/20 transition-all cursor-pointer group"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div
-                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border"
+                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border group-hover:scale-105 transition-transform"
                             style={{ backgroundColor: `${sColor}15`, borderColor: `${sColor}30`, color: sColor }}
                           >
                             {(lead.name || "LD").slice(0, 2).toUpperCase()}
                           </div>
                           <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate">
+                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
                               {lead.name}
                             </div>
                             <div className="text-[10px] text-slate-400 truncate">

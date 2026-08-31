@@ -7,7 +7,7 @@ import {
   ChevronLeft, User, CalendarDays, BarChart, Flag, CheckSquare, ClipboardList,
   History, ArrowRight, Play, CheckCircle2, RotateCcw, Share2, HelpCircle,
   MessageSquare, Send, FileIcon, Plus, XCircle, Tag, Repeat, Trash2, Eye, Download,
-  Sparkles, ShieldCheck
+  Sparkles, ShieldCheck, Layers
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useState } from "react";
