@@ -1,8 +1,9 @@
 import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, StatusBar } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FONTS } from "../theme/tokens";
 
 const MONTHS = [
@@ -25,9 +26,11 @@ const YEARS = ["", "2024", "2025", "2026", "2027"];
 
 const ReportHeader = ({ title, month, year, setMonth, setYear, onDownload, downloading }) => {
   const navigation = useNavigation();
+  const insets = useSafeAreaInsets();
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
       <View style={styles.topRow}>
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }} style={styles.backButton}>
@@ -53,10 +56,17 @@ const ReportHeader = ({ title, month, year, setMonth, setYear, onDownload, downl
             selectedValue={month}
             onValueChange={(itemValue) => setMonth(itemValue)}
             style={styles.picker}
-            dropdownIconColor="#64748b"
+            dropdownIconColor="#475569"
+            mode="dropdown"
           >
             {MONTHS.map((m) => (
-              <Picker.Item key={m.label} label={m.label} value={m.value} style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
+              <Picker.Item
+                key={m.label}
+                label={m.label}
+                value={m.value}
+                color="#0f172a"
+                style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }}
+              />
             ))}
           </Picker>
         </View>
@@ -66,11 +76,12 @@ const ReportHeader = ({ title, month, year, setMonth, setYear, onDownload, downl
             selectedValue={year}
             onValueChange={(itemValue) => setYear(itemValue)}
             style={styles.picker}
-            dropdownIconColor="#64748b"
+            dropdownIconColor="#475569"
+            mode="dropdown"
           >
-            <Picker.Item label="All Years" value="" style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
+            <Picker.Item label="All Years" value="" color="#0f172a" style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
             {YEARS.filter(Boolean).map((y) => (
-              <Picker.Item key={y} label={y} value={y} style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
+              <Picker.Item key={y} label={y} value={y} color="#0f172a" style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
             ))}
           </Picker>
         </View>
@@ -81,22 +92,21 @@ const ReportHeader = ({ title, month, year, setMonth, setYear, onDownload, downl
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "#ffffff",
     paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1.5,
-    borderBottomColor: "rgba(226, 232, 240, 0.8)",
+    paddingBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
   },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   backButton: {
-    width: 32,
-    height: 32,
+    width: 34,
+    height: 34,
     borderRadius: 8,
     backgroundColor: "#f1f5f9",
     alignItems: "center",
@@ -104,12 +114,13 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: 17,
     fontFamily: FONTS.displayBold,
     color: "#0f172a",
+    fontWeight: "800",
   },
   downloadBtn: {
-    backgroundColor: "#2563eb", // Stitch Royal Blue
+    backgroundColor: "#2563eb",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 14,
@@ -125,23 +136,27 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 12,
     fontFamily: FONTS.bodyBold,
+    fontWeight: "700",
   },
   filterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    gap: 8,
   },
   pickerContainer: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    borderRadius: 8,
-    backgroundColor: "#f8fafc",
-    marginHorizontal: 4,
-    height: 38,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    backgroundColor: "#ffffff",
+    height: 46,
     justifyContent: "center",
+    overflow: "hidden",
   },
   picker: {
     width: "100%",
+    height: 46,
+    color: "#0f172a",
   },
 });
 

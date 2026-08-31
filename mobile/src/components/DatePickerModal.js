@@ -124,7 +124,7 @@ const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
               {/* Days Grid */}
               <View style={styles.daysGrid}>
                 {daysGrid.map((day, idx) => {
-                  const isSelected = day === selectedDay;
+                  const isSelected = !!day && day === selectedDay;
                   return (
                     <TouchableOpacity
                       key={idx}
@@ -132,7 +132,8 @@ const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
                       onPress={() => handleSelectDate(day)}
                       style={[
                         styles.dayCell,
-                        isSelected && styles.selectedDayCell
+                        isSelected && styles.selectedDayCell,
+                        !day && { backgroundColor: "transparent" }
                       ]}
                     >
                       <Text style={[
@@ -140,7 +141,7 @@ const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
                         !day && { color: "transparent" },
                         isSelected && styles.selectedDayCellText
                       ]}>
-                        {day}
+                        {day || ""}
                       </Text>
                     </TouchableOpacity>
                   );

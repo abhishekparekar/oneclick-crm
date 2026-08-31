@@ -8,9 +8,10 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  SafeAreaView,
+  StatusBar,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AppButton from "../../components/AppButton";
 import Loader from "../../components/Loader";
 import { getCompanyProfileApi, updateCompanyProfileApi } from "../../api/companyService";
@@ -38,6 +39,7 @@ const InputField = ({ label, value, onChangeText, icon, keyboardType = "default"
 );
 
 const CompanyProfileScreen = ({ navigation }) => {
+  const insets = useSafeAreaInsets();
   const [form, setForm] = useState({
     companyName: "",
     ownerName: "",
@@ -139,9 +141,28 @@ const CompanyProfileScreen = ({ navigation }) => {
   if (loading && !form.companyName) return <Loader />;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      
+      {/* Top Header */}
+      <View style={styles.topHeader}>
+        <TouchableOpacity
+          onPress={() => {
+            if (navigation && navigation.canGoBack()) {
+              navigation.goBack();
+            }
+          }}
+          style={styles.backBtn}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={22} color="#0f172a" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Company Profile</Text>
+        <View style={{ width: 36 }} />
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 40 }]}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
@@ -221,7 +242,7 @@ const CompanyProfileScreen = ({ navigation }) => {
           style={styles.saveBtn}
         />
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -229,6 +250,29 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
+  },
+  topHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: "#ffffff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  backBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0f172a",
   },
   scrollContent: {
     padding: 16,
