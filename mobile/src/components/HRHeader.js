@@ -76,7 +76,7 @@ const HRHeader = ({ title, showBack = false }) => {
         },
       ]}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
 
       <View style={styles.leftContainer}>
         <TouchableOpacity onPress={handleLeftPress} style={styles.iconBtn} activeOpacity={0.7}>
@@ -160,13 +160,13 @@ const HRHeader = ({ title, showBack = false }) => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: "#0F172A",
+    backgroundColor: "#082B52",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 14,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.08)",
+    borderBottomColor: "#1268D9",
     zIndex: 1000,
     elevation: 4,
     shadowColor: "#000",

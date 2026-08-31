@@ -27,10 +27,10 @@ import { COLORS, FONTS } from "../../theme/tokens";
 const { width } = Dimensions.get("window");
 
 const THEME = {
-  primary: "#EA580C",
-  primaryHover: "#C2410C",
-  darkNavy: "#0F172A",
-  navyCard: "#1E293B",
+  primary: "#1268D9",
+  primaryHover: "#082B52",
+  darkNavy: "#082B52",
+  navyCard: "#0B2346",
   bg: "#F8FAFC",
   card: "#FFFFFF",
   border: "#E2E8F0",
@@ -39,7 +39,7 @@ const THEME = {
   textSecondary: "#475569",
   textMuted: "#94A3B8",
   emerald: "#10B981", emeraldBg: "#ECFDF5",
-  blue: "#3B82F6", blueBg: "#EFF6FF",
+  blue: "#1268D9", blueBg: "#EFF6FF",
   indigo: "#6366F1", indigoBg: "#EEF2FF",
   amber: "#F59E0B", amberBg: "#FEF3C7",
   rose: "#EF4444", roseBg: "#FEE2E2",

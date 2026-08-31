@@ -77,6 +77,7 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const TEAL    = "#1268D9";
+const INACTIVE = "#64748B";
 const TEAL_INACTIVE = "#64748B";
 
 // ── Custom HR Tab Bar ──────────────────────────────────────────

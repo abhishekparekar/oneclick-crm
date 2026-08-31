@@ -198,25 +198,28 @@ const HRDrawerContent = (props) => {
     const bottomTabs = ["HRDashboard", "LeadsEngine", "HRTaskBoard", "HRLeaveRequests", "HRAttendance"];
     const screenName = typeof item === "string" ? item : item.screen;
     const targetScreen = typeof item === "object" ? item.targetScreen : null;
+    navigation.closeDrawer();
 
     if (screenName === "LeadsEngine") {
       navigation.navigate("HRStack", {
         screen: "LeadsEngine",
         params: { screen: targetScreen || "LeadsDashboard" },
       });
-      navigation.closeDrawer();
       return;
     }
 
     if (bottomTabs.includes(screenName)) {
-      navigation.navigate("MainTabs", {
-        screen: screenName,
-        params: targetScreen ? { screen: targetScreen } : undefined,
+      navigation.navigate("HRStack", {
+        screen: "MainTabs",
+        params: { screen: screenName, params: targetScreen ? { screen: targetScreen } : undefined },
       });
-    } else {
-      navigation.navigate("HRStack", { screen: screenName });
+      return;
     }
-    navigation.closeDrawer();
+
+    navigation.navigate("HRStack", {
+      screen: screenName,
+      params: targetScreen ? { screen: targetScreen } : undefined,
+    });
   };
 
   const handleLogout = () => {

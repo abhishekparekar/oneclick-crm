@@ -278,7 +278,7 @@ const HRDashboardScreen = ({ navigation }) => {
       <View style={styles.container}>
         <HRHeader title="HR Dashboard" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#C2410C" />
+          <ActivityIndicator size="large" color="#1268D9" />
           <Text style={styles.loadingText}>Loading HR Insights...</Text>
         </View>
       </View>
@@ -328,8 +328,8 @@ const HRDashboardScreen = ({ navigation }) => {
               fetchTodayAttendance();
               fetchLeads();
             }}
-            tintColor="#C2410C"
-            colors={["#C2410C"]}
+            tintColor="#1268D9"
+            colors={["#1268D9"]}
           />
         }
       >
@@ -343,13 +343,13 @@ const HRDashboardScreen = ({ navigation }) => {
         ) : null}
 
         <LinearGradient
-          colors={["#C2410C", "#9A3412"]}
+          colors={["#082B52", "#1268D9"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.checkInCard}
         >
           <Ionicons 
-            name="leaf-outline" 
+            name="time-outline" 
             size={130} 
             color="rgba(255, 255, 255, 0.05)" 
             style={styles.leafWatermark} 
@@ -391,8 +391,8 @@ const HRDashboardScreen = ({ navigation }) => {
               </>
             ) : (
               <>
-                <Ionicons name="log-in-outline" size={14} color="#C2410C" style={{ marginRight: 4 }} />
-                <Text style={styles.checkInBtnText}>Punch In</Text>
+                <Ionicons name="log-in-outline" size={14} color="#1268D9" style={{ marginRight: 4 }} />
+                <Text style={[styles.checkInBtnText, { color: "#1268D9" }]}>Punch In</Text>
               </>
             )}
           </TouchableOpacity>
