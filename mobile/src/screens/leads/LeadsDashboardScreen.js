@@ -546,7 +546,7 @@ export default function LeadsDashboardScreen({ navigation }) {
           <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </Layout>
+    </LayoutComponent>
   );
 }
 
@@ -697,6 +697,9 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#FFFFFF",
   },
+  heroStatsRow: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-around",
     backgroundColor: "rgba(0, 0, 0, 0.25)",
     borderRadius: 12,
