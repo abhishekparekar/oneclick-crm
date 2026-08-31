@@ -314,31 +314,37 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
                         : "checkmark-circle"
                       : "ellipse"
                 }
-                size={12}
+                size={11}
                 color={statusColor}
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 3 }}
               />
               <Text style={[styles.statusTagText, { color: statusColor }]}>{statusLabel}</Text>
+              {delayText ? (
+                <Text
+                  style={[
+                    styles.delayDetailInlineText,
+                    isOverdue ? { color: "#ef4444" } : isDone && item.status === "complete" ? { color: "#16a34a" } : { color: "#d97706" },
+                  ]}
+                  numberOfLines={1}
+                >
+                  {" "}{delayText.replace(" overdue", "")}
+                </Text>
+              ) : null}
             </View>
-            {delayText ? (
-              <Text style={[styles.delayDetailText, isOverdue ? { color: "#ef4444" } : isDone && item.status === "complete" ? { color: "#16a34a" } : { color: "#d97706" }]}>
-                {delayText}
-              </Text>
-            ) : null}
           </View>
 
           {/* Right Section: Assignee + View + Cancel */}
           <View style={styles.actionRightWrap}>
             {isBothType && (
               <View style={styles.bothBadgePill}>
-                <Text style={styles.bothBadgeText}>MYSELF & TEAM</Text>
+                <Text style={styles.bothBadgeText}>TEAM</Text>
               </View>
             )}
             <View style={styles.assigneeAvatarRow}>
               <View style={styles.assigneeAvatarCircle}>
                 <Text style={styles.assigneeAvatarText}>{assigneeInitial}</Text>
               </View>
-              <Text style={styles.assigneeNameText}>{assigneeName}</Text>
+              <Text style={styles.assigneeNameText} numberOfLines={1}>{assigneeName}</Text>
             </View>
 
             {/* View Button */}
@@ -346,7 +352,7 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
               style={styles.viewCardBtn}
               onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerTaskDetails", params: { taskId: item._id } })}
             >
-              <Ionicons name="eye-outline" size={13} color="#475569" />
+              <Ionicons name="eye-outline" size={12} color="#475569" />
               <Text style={styles.viewCardBtnText}>View</Text>
             </TouchableOpacity>
 
@@ -356,7 +362,7 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
                 style={styles.cancelCardBtn}
                 onPress={() => onCancel(item)}
               >
-                <Ionicons name="close-circle-outline" size={13} color="#ef4444" />
+                <Ionicons name="close-circle-outline" size={12} color="#ef4444" />
                 <Text style={styles.cancelCardBtnText}>Cancel</Text>
               </TouchableOpacity>
             )}
@@ -1992,39 +1998,45 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: "#f8fafc",
     borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     marginHorizontal: 10,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: "#f1f5f9",
+    flexWrap: "wrap",
+    gap: 6,
   },
   actionLeftWrap: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    flex: 1,
+    flexShrink: 1,
   },
   statusTag: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 7,
     paddingVertical: 3,
-    borderRadius: 8,
+    borderRadius: 6,
     borderWidth: 1,
   },
   statusTagText: {
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 9.5,
+    fontWeight: "800",
+  },
+  delayDetailInlineText: {
+    fontSize: 9.5,
+    fontWeight: "800",
   },
   delayDetailText: {
-    fontSize: 10,
+    fontSize: 9.5,
     fontWeight: "700",
   },
   actionRightWrap: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
+    flexShrink: 0,
   },
   bothBadgePill: {
     backgroundColor: "#f5f3ff",

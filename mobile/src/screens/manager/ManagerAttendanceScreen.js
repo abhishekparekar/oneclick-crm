@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Dimensions,
+  Modal,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -134,6 +135,8 @@ const ManagerAttendanceScreen = ({ navigation }) => {
     else setCurrentMonth((m) => m + 1);
   };
 
+  const [selectedDayRecord, setSelectedDayRecord] = useState(null);
+
   // ── Calendar Render ──────────────────────────────────────────
   const renderCalendar = () => {
     const days = monthlyData?.days || [];
@@ -149,7 +152,7 @@ const ManagerAttendanceScreen = ({ navigation }) => {
       grid.push(
         <TouchableOpacity
           key={`day-${index}`}
-          onPress={() => navigation.navigate("AttendanceDetails", { date: day.date })}
+          onPress={() => setSelectedDayRecord(day)}
           style={[
             styles.calendarDayCell,
             { backgroundColor: getStatusPastel(day.status) },
@@ -455,6 +458,71 @@ const ManagerAttendanceScreen = ({ navigation }) => {
           </ScrollView>
         )}
       </View>
+
+      {/* ── Day Details Inspection Modal ── */}
+      <Modal visible={!!selectedDayRecord} transparent animationType="fade" onRequestClose={() => setSelectedDayRecord(null)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="calendar-outline" size={20} color="#C2410C" style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>Attendance Details</Text>
+              </View>
+              <TouchableOpacity onPress={() => setSelectedDayRecord(null)} style={styles.closeBtn}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedDayRecord && (
+              <View style={{ marginTop: 12 }}>
+                <View style={styles.modalMetaRow}>
+                  <Text style={styles.modalDateText}>
+                    {selectedDayRecord.date ? new Date(selectedDayRecord.date).toLocaleDateString("en-US", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) : `Day ${selectedDayRecord.day}`}
+                  </Text>
+                  <View style={[styles.modalBadge, { backgroundColor: getStatusPastel(selectedDayRecord.status), borderColor: getStatusColor(selectedDayRecord.status) }]}>
+                    <Text style={[styles.modalBadgeText, { color: getStatusColor(selectedDayRecord.status) }]}>
+                      {(selectedDayRecord.status || "UNMARKED").toUpperCase().replace("_", " ")}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.modalStatsGrid}>
+                  <View style={styles.modalStatBox}>
+                    <Ionicons name="log-in-outline" size={16} color="#16A34A" />
+                    <Text style={styles.modalStatLbl}>Punch In</Text>
+                    <Text style={styles.modalStatVal}>
+                      {formatTime(selectedDayRecord.punchInTime || selectedDayRecord.inTime)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalStatBox}>
+                    <Ionicons name="log-out-outline" size={16} color="#DC2626" />
+                    <Text style={styles.modalStatLbl}>Punch Out</Text>
+                    <Text style={styles.modalStatVal}>
+                      {formatTime(selectedDayRecord.punchOutTime || selectedDayRecord.outTime)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.modalStatBox}>
+                    <Ionicons name="time-outline" size={16} color="#2563EB" />
+                    <Text style={styles.modalStatLbl}>Total Hours</Text>
+                    <Text style={styles.modalStatVal}>
+                      {selectedDayRecord.totalHours ? `${selectedDayRecord.totalHours} hrs` : "--"}
+                    </Text>
+                  </View>
+                </View>
+
+                {selectedDayRecord.remarks || selectedDayRecord.notes ? (
+                  <View style={styles.modalRemarksBox}>
+                    <Text style={styles.modalRemarksTitle}>Remarks / Notes:</Text>
+                    <Text style={styles.modalRemarksText}>{selectedDayRecord.remarks || selectedDayRecord.notes}</Text>
+                  </View>
+                ) : null}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ManagerLayout>
   );
 };
@@ -487,7 +555,7 @@ const styles = StyleSheet.create({
   loaderText:      { fontSize: 13, color: "#64748b", marginTop: 10 },
 
   scroll:       { flex: 1 },
-  scrollContent:{ padding: 16, paddingBottom: 60 },
+  scrollContent:{ padding: 16, paddingBottom: 110 },
 
   // Punch tab
   punchCard: { padding: 18, marginBottom: 16 },
@@ -580,6 +648,74 @@ const styles = StyleSheet.create({
   linkInfo:  { flex: 1 },
   linkTitle: { fontSize: 14, fontWeight: "700", color: "#0f172a" },
   linkSub:   { fontSize: 12, color: "#64748b", marginTop: 2 },
+
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 18,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  modalTitle: { fontSize: 15, fontWeight: "800", color: "#0F172A" },
+  closeBtn: { padding: 4 },
+  modalMetaRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  modalDateText: { fontSize: 13, fontWeight: "800", color: "#1E293B", flex: 1 },
+  modalBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  modalBadgeText: { fontSize: 10.5, fontWeight: "800" },
+  modalStatsGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 4,
+  },
+  modalStatBox: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+  },
+  modalStatLbl: { fontSize: 10, fontWeight: "700", color: "#64748B", marginTop: 4 },
+  modalStatVal: { fontSize: 13, fontWeight: "800", color: "#0F172A", marginTop: 2 },
+  modalRemarksBox: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  modalRemarksTitle: { fontSize: 10.5, fontWeight: "800", color: "#475569" },
+  modalRemarksText: { fontSize: 12, color: "#1E293B", marginTop: 2 },
 });
 
 export default ManagerAttendanceScreen;
