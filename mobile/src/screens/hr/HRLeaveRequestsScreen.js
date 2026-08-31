@@ -164,7 +164,7 @@ const HRLeaveRequestsScreen = () => {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.avatar}>
-            <Ionicons name="document-text-outline" size={20} color="#d97706" />
+            <Ionicons name="calendar-outline" size={18} color="#1268D9" />
           </View>
           <View style={styles.infoCol}>
             <Text style={styles.empName}>{empName}</Text>
@@ -366,11 +366,11 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: "#fffbeb",
+    backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#fde68a",
+    borderColor: "#BFDBFE",
   },
   infoCol: {
     marginLeft: 12,

@@ -19,9 +19,8 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../../context/AuthContext";
 import { getMyEmployeeApi, getEmployeesApi } from "../../api/employeeService";
-import api from "../../api/api";
+import HRHeader from "../../components/HRHeader";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
-import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import DashboardSkeleton from "../../components/DashboardSkeleton";
 
 const HRManageAttendanceScreen = ({ navigation }) => {
@@ -186,13 +185,15 @@ const HRManageAttendanceScreen = ({ navigation }) => {
   };
 
   return (
-    <CompanyAdminLayout navigation={navigation} activeTab="Attendance" showSearch={false} headerTitle="Staff Attendance" hideBottomNav={true}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+    <View style={styles.container}>
+      <HRHeader title="Staff Attendance" showBack={false} />
 
-      <View style={styles.container}>
-        {/* Top Dark Hero Banner */}
+      <View style={{ flex: 1 }}>
+        {/* Top Royal Blue Hero Banner */}
         <LinearGradient
-          colors={['#0F172A', '#1E293B']}
+          colors={['#082B52', '#1268D9']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
           style={styles.topBanner}
         >
           <View style={styles.bannerHeader}>
@@ -220,17 +221,17 @@ const HRManageAttendanceScreen = ({ navigation }) => {
             </View>
             <View style={styles.statSep} />
             <View style={styles.statBox}>
-              <Text style={[styles.statNum, { color: "#3B82F6" }]}>{outCount}</Text>
+              <Text style={[styles.statNum, { color: "#93C5FD" }]}>{outCount}</Text>
               <Text style={styles.statLabel}>On Leave</Text>
             </View>
             <View style={styles.statSep} />
             <View style={styles.statBox}>
-              <Text style={[styles.statNum, { color: "#EF4444" }]}>{noPunchCount}</Text>
+              <Text style={[styles.statNum, { color: "#FCA5A5" }]}>{noPunchCount}</Text>
               <Text style={styles.statLabel}>No Punch</Text>
             </View>
             <View style={styles.statSep} />
             <View style={styles.statBox}>
-              <Text style={[styles.statNum, { color: COLORS.primary }]}>{totalStaffCount}</Text>
+              <Text style={[styles.statNum, { color: "#FFFFFF" }]}>{totalStaffCount}</Text>
               <Text style={styles.statLabel}>Total Staff</Text>
             </View>
           </View>
@@ -240,18 +241,18 @@ const HRManageAttendanceScreen = ({ navigation }) => {
         <View style={styles.shortcutsRow}>
           <TouchableOpacity 
             style={styles.shortcutBtn} 
-            onPress={() => navigation.navigate("CompanyReportsDashboard")}
+            onPress={() => navigation.navigate("AttendanceReport")}
             activeOpacity={0.8}
           >
-            <View style={[styles.shortcutIconBox, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
-              <Ionicons name="document-text-outline" size={18} color={COLORS.primary} />
+            <View style={[styles.shortcutIconBox, { backgroundColor: "#EFF6FF" }]}>
+              <Ionicons name="document-text-outline" size={18} color="#1268D9" />
             </View>
             <Text style={styles.shortcutText}>Work Report</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.shortcutBtn} 
-            onPress={() => navigation.navigate("RegularizationApproval")}
+            onPress={() => navigation.navigate("HRRegularizationApproval")}
             activeOpacity={0.8}
           >
             <View style={[styles.shortcutIconBox, { backgroundColor: "#ECFDF5" }]}>
@@ -262,18 +263,18 @@ const HRManageAttendanceScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.shortcutBtn} 
-            onPress={() => navigation.navigate("LeaveRequests")}
+            onPress={() => navigation.navigate("HRLeaveRequests")}
             activeOpacity={0.8}
           >
             <View style={[styles.shortcutIconBox, { backgroundColor: "#EFF6FF" }]}>
-              <Ionicons name="calendar-outline" size={18} color="#2563EB" />
+              <Ionicons name="calendar-outline" size={18} color="#1268D9" />
             </View>
             <Text style={styles.shortcutText}>Leave Appr.</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.shortcutBtn} 
-            onPress={() => navigation.navigate("CompanyReportsDashboard")}
+            onPress={() => navigation.navigate("HRReportsDashboard")}
             activeOpacity={0.8}
           >
             <View style={[styles.shortcutIconBox, { backgroundColor: "#F5F3FF" }]}>
@@ -311,7 +312,7 @@ const HRManageAttendanceScreen = ({ navigation }) => {
             renderItem={renderRosterCard}
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
-            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={[COLORS.primary]} />}
+            refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={["#1268D9"]} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="people-outline" size={42} color="#CBD5E1" />
@@ -321,7 +322,7 @@ const HRManageAttendanceScreen = ({ navigation }) => {
           />
         )}
       </View>
-    </CompanyAdminLayout>
+    </View>
   );
 };
 

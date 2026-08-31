@@ -21,6 +21,8 @@ import {
 import { COLORS, FONTS, SHADOWS, ROUNDING, SPACING } from "../../theme/tokens";
 
 const LeaveBalanceScreen = ({ navigation }) => {
+  const { user } = useAuth();
+  const isHR = user?.role === "HR";
   const [balances, setBalances] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,23 +95,31 @@ const LeaveBalanceScreen = ({ navigation }) => {
 
   const renderBalanceItem = ({ item }) => {
     const employeeName = item.employeeId
-      ? `${item.employeeId.firstName} ${item.employeeId.lastName}`
+      ? `${item.employeeId.firstName || ""} ${item.employeeId.lastName || ""}`.trim() || "Employee"
       : "Unknown Employee";
     const employeeCode = item.employeeId?.employeeCode || "N/A";
+    const deptName = item.employeeId?.departmentId?.name || item.employeeId?.department || "General";
 
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <View>
-            <Text style={styles.employeeName}>{employeeName}</Text>
-            <Text style={styles.employeeCode}>Code: {employeeCode}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarInitials}>
+                {((item.employeeId?.firstName || "E")[0] + ((item.employeeId?.lastName || "")[0] || "")).toUpperCase()}
+              </Text>
+            </View>
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={styles.employeeName} numberOfLines={1}>{employeeName}</Text>
+              <Text style={styles.employeeCode}>Code: {employeeCode} • {deptName}</Text>
+            </View>
           </View>
           <TouchableOpacity
             style={styles.editBtn}
             onPress={() => handleEditPress(item)}
             activeOpacity={0.7}
           >
-            <Ionicons name="create-outline" size={14} color={COLORS.primary} />
+            <Ionicons name="create-outline" size={14} color="#1268D9" />
             <Text style={styles.editBtnText}>Edit</Text>
           </TouchableOpacity>
         </View>
@@ -119,19 +129,19 @@ const LeaveBalanceScreen = ({ navigation }) => {
         <View style={styles.gridContainer}>
           <View style={[styles.gridCell, styles.casualBg]}>
             <Text style={styles.cellLabel}>Casual</Text>
-            <Text style={[styles.cellValue, styles.casualText]}>{item.casual ?? 0}</Text>
+            <Text style={[styles.cellValue, styles.casualText]}>{item.casual ?? 0} <Text style={styles.unitText}>days</Text></Text>
           </View>
           <View style={[styles.gridCell, styles.sickBg]}>
             <Text style={styles.cellLabel}>Sick</Text>
-            <Text style={[styles.cellValue, styles.sickText]}>{item.sick ?? 0}</Text>
+            <Text style={[styles.cellValue, styles.sickText]}>{item.sick ?? 0} <Text style={styles.unitText}>days</Text></Text>
           </View>
           <View style={[styles.gridCell, styles.annualBg]}>
             <Text style={styles.cellLabel}>Annual</Text>
-            <Text style={[styles.cellValue, styles.annualText]}>{item.annual ?? 0}</Text>
+            <Text style={[styles.cellValue, styles.annualText]}>{item.annual ?? 0} <Text style={styles.unitText}>days</Text></Text>
           </View>
           <View style={[styles.gridCell, styles.lopBg]}>
             <Text style={styles.cellLabel}>LOP (Unpaid)</Text>
-            <Text style={[styles.cellValue, styles.lopText]}>{item.lop ?? 0}</Text>
+            <Text style={[styles.cellValue, styles.lopText]}>{item.lop ?? 0} <Text style={styles.unitText}>days</Text></Text>
           </View>
         </View>
       </View>
@@ -142,6 +152,7 @@ const LeaveBalanceScreen = ({ navigation }) => {
     <CompanyAdminLayout
       navigation={navigation}
       activeTab="Leaves"
+      hideBottomNav={isHR}
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search employee name or code..."
@@ -312,6 +323,26 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     marginTop: 1,
   },
+  avatarCircle: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1268D9",
+  },
+  unitText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#64748B",
+  },
   editBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -319,13 +350,13 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#ccfbf1",
-    backgroundColor: "#f0fdfa",
+    borderColor: "#BFDBFE",
+    backgroundColor: "#EFF6FF",
   },
   editBtnText: {
     fontSize: 12,
     fontFamily: FONTS.bodyBold,
-    color: COLORS.primary,
+    color: "#1268D9",
     marginLeft: 4,
   },
   divider: {
@@ -351,7 +382,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   cellValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FONTS.displayBold,
     marginTop: 4,
   },
@@ -429,7 +460,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   submitBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1268D9",
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderRadius: 12,

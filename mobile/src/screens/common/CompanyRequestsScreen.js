@@ -25,8 +25,8 @@ import { COLORS, FONTS } from "../../theme/tokens";
 const { width } = Dimensions.get("window");
 
 const THEME = {
-  primary: "#EA580C",
-  darkNavy: "#0F172A",
+  primary: "#1268D9",
+  darkNavy: "#082B52",
   bg: "#F8FAFC",
   card: "#FFFFFF",
   border: "#E2E8F0",
@@ -240,7 +240,7 @@ export default function CompanyRequestsScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
 
       {/* Header */}
       <View style={styles.topHeader}>
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: "#0F172A",
+    backgroundColor: "#082B52",
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

@@ -1062,6 +1062,7 @@ const TaskBoardScreen = ({ navigation }) => {
     <CompanyAdminLayout
       navigation={navigation}
       activeTab="Tasks"
+      hideBottomNav={isHR}
       searchValue={search}
       onSearchChange={setSearch}
       searchPlaceholder="Search tasks..."

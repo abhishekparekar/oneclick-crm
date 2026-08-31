@@ -75,6 +75,7 @@ export default function HRLeadsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [leadScope, setLeadScope] = useState("all"); // 'all' or 'my'
 
   // Staff Picker Modal for Add Lead
   const [staffPickerModal, setStaffPickerModal] = useState(false);
@@ -234,6 +235,14 @@ export default function HRLeadsScreen({ navigation, route }) {
   };
 
   // Filtered Leads
+  const myLeadsCount = useMemo(() => {
+    return leads.filter((item) => {
+      const assignedId = item.assignedTo?._id || item.assignedTo?.id || item.assignedTo;
+      const createdId = item.createdBy?._id || item.createdBy?.id || item.createdBy;
+      return assignedId === currentUserId || createdId === currentUserId;
+    }).length;
+  }, [leads, currentUserId]);
+
   const filteredLeads = useMemo(() => {
     return leads.filter((item) => {
       const name = (item.name || "").toLowerCase();
@@ -243,14 +252,22 @@ export default function HRLeadsScreen({ navigation, route }) {
       const query = searchQuery.toLowerCase().trim();
 
       const matchesSearch = !query || name.includes(query) || phone.includes(query) || company.includes(query) || req.includes(query);
-
       if (!matchesSearch) return false;
+
+      if (leadScope === "my") {
+        const assignedId = item.assignedTo?._id || item.assignedTo?.id || item.assignedTo;
+        const createdId = item.createdBy?._id || item.createdBy?.id || item.createdBy;
+        if (assignedId !== currentUserId && createdId !== currentUserId) {
+          return false;
+        }
+      }
+
       if (selectedStatus === "all") return true;
 
       const itemStatusId = item.statusId || item.status?.id || item.status?._id;
       return itemStatusId === selectedStatus;
     });
-  }, [leads, searchQuery, selectedStatus]);
+  }, [leads, searchQuery, selectedStatus, leadScope, currentUserId]);
 
   // Metrics
   const metrics = useMemo(() => {
@@ -453,11 +470,16 @@ export default function HRLeadsScreen({ navigation, route }) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
       <HRHeader title="Leads & CRM Pipeline" />
 
       {/* ══════════ 1. COMPACT KPI DASHBOARD HERO ══════════ */}
-      <LinearGradient colors={["#0F172A", "#1E293B"]} style={styles.kpiHeroBanner}>
+      <LinearGradient
+        colors={["#082B52", "#1268D9"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.kpiHeroBanner}
+      >
         <View style={styles.kpiGrid}>
           {/* Total Leads */}
           <TouchableOpacity
@@ -471,25 +493,76 @@ export default function HRLeadsScreen({ navigation, route }) {
 
           {/* Active Deals */}
           <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#38BDF8" }]}>{metrics.active}</Text>
+            <Text style={[styles.kpiNumber, { color: "#93C5FD" }]}>{metrics.active}</Text>
             <Text style={styles.kpiTitle}>ACTIVE DEALS</Text>
           </View>
 
           {/* Deals Won */}
           <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#34D399" }]}>{metrics.won}</Text>
+            <Text style={[styles.kpiNumber, { color: "#6EE7B7" }]}>{metrics.won}</Text>
             <Text style={styles.kpiTitle}>DEALS WON ({metrics.convRate}%)</Text>
           </View>
 
           {/* Pipeline Value */}
           <View style={styles.kpiCard}>
-            <Text style={[styles.kpiNumber, { color: "#FB923C" }]}>
+            <Text style={[styles.kpiNumber, { color: "#FDE047" }]}>
               ₹{metrics.totalVal >= 100000 ? `${(metrics.totalVal / 100000).toFixed(1)}L` : metrics.totalVal.toLocaleString()}
             </Text>
             <Text style={styles.kpiTitle}>VALUATION</Text>
           </View>
         </View>
       </LinearGradient>
+
+      {/* ══════════ 1.5 SCOPE TOGGLE: MY LEADS VS ALL LEADS ══════════ */}
+      <View style={{ flexDirection: "row", paddingHorizontal: 14, paddingTop: 10, gap: 8 }}>
+        <TouchableOpacity
+          style={[
+            {
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: leadScope === "all" ? "#1268D9" : "#FFFFFF",
+              borderWidth: 1,
+              borderColor: leadScope === "all" ? "#1268D9" : "#E2E8F0",
+              gap: 6,
+            },
+          ]}
+          onPress={() => setLeadScope("all")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="people-outline" size={14} color={leadScope === "all" ? "#FFFFFF" : "#64748B"} />
+          <Text style={{ fontSize: 12, fontWeight: "700", color: leadScope === "all" ? "#FFFFFF" : "#64748B" }}>
+            All Team Leads ({leads.length})
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            {
+              flex: 1,
+              flexDirection: "row",
+              alignItems: "center",
+              justifyContent: "center",
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: leadScope === "my" ? "#1268D9" : "#FFFFFF",
+              borderWidth: 1,
+              borderColor: leadScope === "my" ? "#1268D9" : "#E2E8F0",
+              gap: 6,
+            },
+          ]}
+          onPress={() => setLeadScope("my")}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="person-outline" size={14} color={leadScope === "my" ? "#FFFFFF" : "#64748B"} />
+          <Text style={{ fontSize: 12, fontWeight: "700", color: leadScope === "my" ? "#FFFFFF" : "#64748B" }}>
+            My Leads ({myLeadsCount})
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       {/* ══════════ 2. SEARCH BAR ══════════ */}
       <View style={styles.searchContainer}>

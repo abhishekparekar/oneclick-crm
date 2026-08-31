@@ -125,33 +125,39 @@ const UploadDocumentScreen = ({ navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={COLORS.text.dark} />
+          <Ionicons name="arrow-back" size={22} color="#FFFFFF" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Send Document</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.subtitle}>Upload and send official documents to an employee's profile.</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <Text style={styles.subtitle}>Upload and dispatch official documents to an employee's record.</Text>
 
         <View style={styles.card}>
           <Text style={styles.label}>Select Employee *</Text>
-          <TouchableOpacity style={styles.pickerBtn} onPress={() => setEmpModalVisible(true)}>
-            <Text style={[styles.pickerText, !selectedEmployee && styles.placeholderText]}>
-              {selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName} (${selectedEmployee.employeeCode})` : "Choose an employee..."}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={COLORS.text.muted} />
+          <TouchableOpacity style={styles.pickerBtn} onPress={() => setEmpModalVisible(true)} activeOpacity={0.8}>
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <Ionicons name="person-outline" size={16} color={selectedEmployee ? "#1268D9" : "#94A3B8"} style={{ marginRight: 8 }} />
+              <Text style={[styles.pickerText, !selectedEmployee && styles.placeholderText]} numberOfLines={1}>
+                {selectedEmployee ? `${selectedEmployee.firstName} ${selectedEmployee.lastName} (${selectedEmployee.employeeCode})` : "Choose an employee..."}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
           <Text style={styles.label}>Document Category *</Text>
-          <TouchableOpacity style={styles.pickerBtn} onPress={() => setCatModalVisible(true)}>
-            <Text style={[styles.pickerText, !selectedCategory && styles.placeholderText]}>
-              {selectedCategory ? selectedCategory.label : "Choose category..."}
-            </Text>
-            <Ionicons name="chevron-down" size={20} color={COLORS.text.muted} />
+          <TouchableOpacity style={styles.pickerBtn} onPress={() => setCatModalVisible(true)} activeOpacity={0.8}>
+            <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+              <Ionicons name="folder-outline" size={16} color={selectedCategory ? "#1268D9" : "#94A3B8"} style={{ marginRight: 8 }} />
+              <Text style={[styles.pickerText, !selectedCategory && styles.placeholderText]} numberOfLines={1}>
+                {selectedCategory ? selectedCategory.label : "Choose category..."}
+              </Text>
+            </View>
+            <Ionicons name="chevron-down" size={18} color="#94A3B8" />
           </TouchableOpacity>
 
           {selectedCategory?.value === "Other" && (
@@ -159,8 +165,8 @@ const UploadDocumentScreen = ({ navigation }) => {
               <Text style={styles.label}>Custom Document Title *</Text>
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Warning Letter"
-                placeholderTextColor={COLORS.text.muted}
+                placeholder="e.g. Warning Letter / Performance Note"
+                placeholderTextColor="#94A3B8"
                 value={customTitle}
                 onChangeText={setCustomTitle}
               />
@@ -168,20 +174,40 @@ const UploadDocumentScreen = ({ navigation }) => {
           )}
 
           <Text style={styles.label}>Document File *</Text>
-          <TouchableOpacity style={styles.fileBox} onPress={handleFileSelect} activeOpacity={0.7}>
-            <Ionicons name="cloud-upload-outline" size={32} color={COLORS.primary} />
-            <Text style={styles.fileBoxText}>
-              {selectedFile ? selectedFile.name : "Tap to browse and select file"}
-            </Text>
+          <TouchableOpacity style={styles.fileBox} onPress={handleFileSelect} activeOpacity={0.75}>
+            {selectedFile ? (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="document-text" size={32} color="#1268D9" />
+                <Text style={[styles.fileBoxText, { fontWeight: "700", color: "#0F172A", marginTop: 4 }]} numberOfLines={1}>
+                  {selectedFile.name}
+                </Text>
+                <Text style={{ fontSize: 11, color: "#10B981", marginTop: 2, fontWeight: "600" }}>✓ File Selected (Tap to change)</Text>
+              </View>
+            ) : (
+              <View style={{ alignItems: "center" }}>
+                <Ionicons name="cloud-upload-outline" size={32} color="#1268D9" />
+                <Text style={styles.fileBoxText}>Tap to browse & select PDF or Document</Text>
+                <Text style={{ fontSize: 11, color: "#94A3B8", marginTop: 2 }}>Supports PDF, DOC, Images</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </View>
 
-        <AppButton
-          title={submitting ? "Uploading..." : "Upload Document"}
+        <TouchableOpacity
+          style={[styles.uploadBtn, submitting && { opacity: 0.7 }]}
           onPress={handleSubmit}
-          loading={submitting}
-          style={{ marginTop: 20 }}
-        />
+          disabled={submitting}
+          activeOpacity={0.85}
+        >
+          {submitting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Ionicons name="paper-plane-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.uploadBtnText}>Upload & Dispatch Document</Text>
+            </>
+          )}
+        </TouchableOpacity>
       </ScrollView>
 
       {/* Employee Modal */}
@@ -248,7 +274,7 @@ const UploadDocumentScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -262,36 +288,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: SPACING.md,
-    paddingVertical: SPACING.sm,
-    backgroundColor: COLORS.white,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    paddingVertical: 14,
+    backgroundColor: "#082B52",
   },
   backBtn: {
     padding: SPACING.xs,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: FONTS.displayBold,
-    color: COLORS.text.dark,
+    color: "#FFFFFF",
   },
   scrollContent: {
     padding: SPACING.md,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.text.muted,
     fontFamily: FONTS.body,
-    marginBottom: SPACING.lg,
+    marginBottom: SPACING.md,
   },
   card: {
     backgroundColor: COLORS.white,
     borderRadius: ROUNDING.lg,
     padding: SPACING.lg,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     ...SHADOWS.sm,
   },
   label: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.bodyBold,
     color: COLORS.text.dark,
     marginBottom: SPACING.xs,
@@ -309,7 +335,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
   },
   pickerText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontFamily: FONTS.body,
     color: COLORS.text.dark,
   },
@@ -323,26 +349,46 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.md,
     height: 48,
     backgroundColor: "#f8fafc",
-    fontSize: 14,
+    fontSize: 13.5,
     fontFamily: FONTS.body,
     color: COLORS.text.dark,
   },
   fileBox: {
-    borderWidth: 1,
-    borderColor: COLORS.primary,
+    borderWidth: 1.5,
+    borderColor: "#1268D9",
     borderStyle: "dashed",
     borderRadius: ROUNDING.md,
-    height: 100,
-    backgroundColor: "#f0fdfa",
+    height: 110,
+    backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
     marginTop: SPACING.xs,
+    paddingHorizontal: 16,
   },
   fileBoxText: {
     marginTop: SPACING.sm,
     fontSize: 13,
     fontFamily: FONTS.bodyMedium,
-    color: COLORS.primary,
+    color: "#1268D9",
+  },
+  uploadBtn: {
+    backgroundColor: "#1268D9",
+    height: 48,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    marginTop: 24,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  uploadBtnText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,

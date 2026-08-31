@@ -117,10 +117,12 @@ const HREmployeeListScreen = ({ navigation }) => {
   };
 
   const renderEmployeeCard = ({ item }) => {
-    const empName = `${item.firstName} ${item.lastName}`;
-    const code = item.employeeCode || "N/A";
-    const deptName = item.departmentId?.name || "No Department";
-    const desigName = (item.role === "CompanyAdmin" || item.userId?.role === "CompanyAdmin") ? "" : (item.designationId?.name || "No Designation");
+    const empName = `${item.firstName || ""} ${item.lastName || ""}`.trim() || "Employee";
+    const code = item.employeeCode || "EMP";
+    const deptName = item.departmentId?.name || item.department || "General";
+    const desigName = item.designationId?.name || item.designation || item.role || "";
+    const phone = item.phone || item.mobileNumber || item.contactNumber || "";
+    const email = item.email || item.userId?.email || "";
 
     return (
       <View style={styles.card}>
@@ -132,13 +134,19 @@ const HREmployeeListScreen = ({ navigation }) => {
           <View style={styles.cardHeader}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
-                {item.firstName[0].toUpperCase()}
-                {item.lastName[0].toUpperCase()}
+                {((item.firstName || "E")[0] + ((item.lastName || "")[0] || "")).toUpperCase()}
               </Text>
             </View>
             <View style={styles.empInfo}>
-              <Text style={styles.empName}>{empName}</Text>
-              <Text style={styles.empCode}>Code: {code} • {item.employmentType}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Text style={styles.empName} numberOfLines={1}>{empName}</Text>
+                {item.status === "active" && (
+                  <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                )}
+              </View>
+              <Text style={styles.empCode}>
+                ID: {code} • {desigName ? desigName : deptName}
+              </Text>
             </View>
             {getStatusBadge(item.status)}
           </View>
@@ -150,23 +158,49 @@ const HREmployeeListScreen = ({ navigation }) => {
               <Text style={styles.detailLabel}>Department</Text>
               <Text style={styles.detailVal} numberOfLines={1}>{deptName}</Text>
             </View>
-            {desigName !== "" ? (
-              <View style={styles.detailCol}>
-                <Text style={styles.detailLabel}>Designation</Text>
-                <Text style={styles.detailVal} numberOfLines={1}>{desigName}</Text>
-              </View>
-            ) : null}
+            <View style={styles.detailCol}>
+              <Text style={styles.detailLabel}>Type</Text>
+              <Text style={styles.detailVal} numberOfLines={1}>
+                {item.employmentType || "Full-Time"}
+              </Text>
+            </View>
           </View>
+
+          {(email || phone) ? (
+            <View style={{ marginTop: 8, flexDirection: "row", alignItems: "center", gap: 12 }}>
+              {email ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flex: 1 }}>
+                  <Ionicons name="mail-outline" size={12} color="#64748B" />
+                  <Text style={{ fontSize: 11, color: "#64748B" }} numberOfLines={1}>{email}</Text>
+                </View>
+              ) : null}
+              {phone ? (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <Ionicons name="call-outline" size={12} color="#64748B" />
+                  <Text style={{ fontSize: 11, color: "#64748B" }}>{phone}</Text>
+                </View>
+              ) : null}
+            </View>
+          ) : null}
         </TouchableOpacity>
 
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.actionBtn}
+            onPress={() => navigation.navigate("HREmployeeDetails", { employeeId: item._id })}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="eye-outline" size={15} color="#1268D9" />
+            <Text style={[styles.actionBtnText, { color: "#1268D9" }]}>View</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionBtn}
             onPress={() => navigation.navigate("HREditEmployee", { employeeId: item._id })}
             activeOpacity={0.7}
           >
-            <Ionicons name="create-outline" size={16} color="#1268D9" />
-            <Text style={[styles.actionBtnText, { color: "#1268D9" }]}>Edit</Text>
+            <Ionicons name="create-outline" size={15} color="#64748B" />
+            <Text style={[styles.actionBtnText, { color: "#64748B" }]}>Edit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -176,11 +210,11 @@ const HREmployeeListScreen = ({ navigation }) => {
           >
             <Ionicons
               name={item.status === "active" ? "lock-closed-outline" : "lock-open-outline"}
-              size={16}
-              color={item.status === "active" ? "#dc2626" : "#16a34a"}
+              size={15}
+              color={item.status === "active" ? "#EF4444" : "#10B981"}
             />
-            <Text style={[styles.actionBtnText, { color: item.status === "active" ? "#dc2626" : "#16a34a" }]}>
-              {item.status === "active" ? "Deactivate" : "Activate"}
+            <Text style={[styles.actionBtnText, { color: item.status === "active" ? "#EF4444" : "#10B981" }]}>
+              {item.status === "active" ? "Disable" : "Enable"}
             </Text>
           </TouchableOpacity>
         </View>
