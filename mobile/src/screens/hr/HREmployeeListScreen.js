@@ -165,8 +165,8 @@ const HREmployeeListScreen = ({ navigation }) => {
             onPress={() => navigation.navigate("HREditEmployee", { employeeId: item._id })}
             activeOpacity={0.7}
           >
-            <Ionicons name="create-outline" size={16} color="#2563eb" />
-            <Text style={[styles.actionBtnText, { color: "#2563eb" }]}>Edit</Text>
+            <Ionicons name="create-outline" size={16} color="#1268D9" />
+            <Text style={[styles.actionBtnText, { color: "#1268D9" }]}>Edit</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -213,7 +213,7 @@ const HREmployeeListScreen = ({ navigation }) => {
 
       {loading && !refreshing ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
+          <ActivityIndicator size="large" color="#1268D9" />
           <Text style={styles.loadingText}>Loading employee roster...</Text>
         </View>
       ) : (
@@ -449,16 +449,16 @@ const styles = StyleSheet.create({
     position: "absolute",
     right: 20,
     bottom: 20,
-    backgroundColor: "#2563eb",
+    backgroundColor: "#1268D9",
     width: 56,
     height: 56,
     borderRadius: 28,
     alignItems: "center",
     justifyContent: "center",
     elevation: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 4 },
   },
   modalBgDim: {

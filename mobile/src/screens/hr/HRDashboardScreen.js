@@ -449,19 +449,19 @@ const HRDashboardScreen = ({ navigation }) => {
         {/* ── 3. Lead CRM & Pipeline Widget ───────────────── */}
         <View style={styles.sectionHeaderRow}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="magnet-outline" size={15} color="#f97316" />
+            <Ionicons name="magnet-outline" size={15} color="#1268D9" />
             <Text style={styles.sectionTitle}>Lead CRM &amp; Pipeline</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate("Leads")} style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={styles.seeAllText}>Pipeline</Text>
-            <Ionicons name="chevron-forward" size={12} color="#C2410C" />
+          <TouchableOpacity onPress={() => navigation.navigate("LeadsEngine")} style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={[styles.seeAllText, { color: "#1268D9" }]}>Pipeline</Text>
+            <Ionicons name="chevron-forward" size={12} color="#1268D9" />
           </TouchableOpacity>
         </View>
 
         <View style={styles.card}>
           <View style={styles.leadStatsRow}>
-            <View style={[styles.leadStatBox, { backgroundColor: "#fff7ed", borderColor: "#fed7aa" }]}>
-              <Text style={[styles.leadStatNum, { color: "#ea580c" }]}>{leadStats.total}</Text>
+            <View style={[styles.leadStatBox, { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }]}>
+              <Text style={[styles.leadStatNum, { color: "#1268D9" }]}>{leadStats.total}</Text>
               <Text style={styles.leadStatLabel}>Total</Text>
             </View>
             <View style={[styles.leadStatBox, { backgroundColor: "#faf5ff", borderColor: "#e9d5ff" }]}>
@@ -520,7 +520,7 @@ const HRDashboardScreen = ({ navigation }) => {
             </View>
           ) : (
             <TouchableOpacity onPress={() => setShowAddLeadModal(true)} style={styles.addLeadPromptBtn}>
-              <Ionicons name="add-circle-outline" size={16} color="#f97316" />
+              <Ionicons name="add-circle-outline" size={16} color="#1268D9" />
               <Text style={styles.addLeadPromptText}>+ Add First Lead / Prospect</Text>
             </TouchableOpacity>
           )}
@@ -1498,7 +1498,7 @@ const styles = StyleSheet.create({
   addLeadPromptText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "#f97316",
+    color: "#1268D9",
   },
 
   // ── Floating Action Button (FAB) ─
@@ -1509,11 +1509,11 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: "#f97316",
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     elevation: 8,
-    shadowColor: "#f97316",
+    shadowColor: "#1268D9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 6,

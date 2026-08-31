@@ -256,14 +256,14 @@ const HRNavigator = () => {
 // ── Tab Bar Styles ─────────────────────────────────────────────
 const tabStyles = StyleSheet.create({
   wrapper: {
-    backgroundColor: "#071A2F",
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "#1C3554",
-    shadowColor: "#000000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 12,
+    borderTopColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: -3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 10,
   },
   container: {
     flexDirection: "row",
@@ -286,16 +286,18 @@ const tabStyles = StyleSheet.create({
     marginBottom: 2,
   },
   iconPillActive: {
-    backgroundColor: "rgba(47, 139, 255, 0.18)",
+    backgroundColor: "rgba(18, 104, 217, 0.12)",
   },
   label: {
     fontSize: 10,
     fontFamily: FONTS.bodyMedium,
-    color: "#94A3B8",
+    color: "#64748B",
+    marginTop: 1,
   },
   labelActive: {
-    color: "#2F8BFF",
+    color: "#1268D9",
     fontFamily: FONTS.bodyBold,
+    fontWeight: "700",
   },
 });
 
