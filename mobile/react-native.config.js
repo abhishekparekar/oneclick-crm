@@ -47,6 +47,12 @@ module.exports = {
         ios: null,
       },
     },
+    'expo-font': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
     'expo-image-picker': {
       platforms: {
         android: null,
@@ -66,6 +72,12 @@ module.exports = {
       },
     },
     'expo-sharing': {
+      platforms: {
+        android: null,
+        ios: null,
+      },
+    },
+    'expo-status-bar': {
       platforms: {
         android: null,
         ios: null,

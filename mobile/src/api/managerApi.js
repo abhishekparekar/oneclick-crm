@@ -1,5 +1,5 @@
 import api, { getApiBaseUrl } from "./api";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 
 // ── Dashboard ──────────────────────────────────────────────
 export const getManagerDashboard = async (params = {}) => {

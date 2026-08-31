@@ -31,5 +31,3 @@ includeBuild(new File(
     commandLine("node", "--print", "require.resolve('@react-native/gradle-plugin/package.json', { paths: [require.resolve('react-native/package.json')] })")
   }.standardOutput.asText.get().trim()
 ).getParentFile().absolutePath)
-
-

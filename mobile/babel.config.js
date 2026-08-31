@@ -13,7 +13,6 @@ module.exports = {
           'expo-print': './src/shims/PrintShim.js',
           'expo-sharing': './src/shims/ShareShim.js',
           'expo-document-picker': './src/shims/DocumentPickerShim.js',
-          'expo-file-system/legacy': './src/shims/FileSystemShim.js',
           'expo-file-system': './src/shims/FileSystemShim.js',
           'expo-web-browser': './src/shims/WebBrowserShim.js',
           'expo-av': './src/shims/AudioShim.js',

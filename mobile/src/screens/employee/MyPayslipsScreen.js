@@ -15,7 +15,7 @@ import EmployeeLayout from "../../components/EmployeeLayout";
 import AppCard from "../../components/AppCard";
 import { getPayslipsApi } from "../../api/payslipService";
 import api from "../../api/api";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 const MyPayslipsScreen = ({ navigation }) => {

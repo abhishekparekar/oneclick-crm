@@ -14,7 +14,7 @@ import AppCard from "../../components/AppCard";
 import AppButton from "../../components/AppButton";
 import { getPayslipDetailsApi } from "../../api/payslipService";
 import api from "../../api/api";
-import * as FileSystem from "expo-file-system/legacy";
+import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
 const EmployeePayslipDetailsScreen = ({ route, navigation }) => {

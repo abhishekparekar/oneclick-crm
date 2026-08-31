@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useEffect } from "react";
+import React, { useCallback, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,11 +9,10 @@ import {
   Platform,
   PermissionsAndroid,
   StatusBar,
-  Image,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { launchCamera } from "react-native-image-picker";
+import { Camera, CameraType } from "react-native-camera-kit";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import useManagerController from "../../controllers/managerController";
@@ -42,83 +41,46 @@ const EmployeePunchScreen = ({ navigation }) => {
   const [capturingGps, setCapturingGps] = useState(false);
   const [isPunchDisabled, setIsPunchDisabled] = useState(false);
 
-  // Selfie State
-  const [capturedSelfie, setCapturedSelfie] = useState(null);
-  const [submittingPunch, setSubmittingPunch] = useState(false);
+  // Camera State
+  const [hasCameraPerm, setHasCameraPerm] = useState(false);
+  const [capturingSelfie, setCapturingSelfie] = useState(false);
+  const cameraRef = useRef(null);
 
-  const requestCameraPermission = async () => {
+  const requestPermissions = async () => {
     if (Platform.OS === "android") {
       try {
-        const granted = await PermissionsAndroid.request(
+        const cameraGranted = await PermissionsAndroid.request(
           PermissionsAndroid.PERMISSIONS.CAMERA,
           {
             title: "Camera Permission",
-            message: "One Click CRM needs camera access to take your punch selfie.",
+            message: "One Click CRM needs camera access to capture your selfie.",
             buttonPositive: "Allow",
             buttonNegative: "Cancel",
           }
         );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
+        const hasCamera = cameraGranted === PermissionsAndroid.RESULTS.GRANTED;
+        setHasCameraPerm(hasCamera);
+        return hasCamera;
       } catch (err) {
-        console.warn("Camera permission request error:", err);
+        console.warn("Permission error:", err);
         return false;
       }
     }
+    setHasCameraPerm(true);
     return true;
-  };
-
-  const handleCaptureSelfie = async (auto = false) => {
-    try {
-      const hasPerm = await requestCameraPermission();
-      if (!hasPerm) {
-        if (!auto) {
-          Alert.alert(
-            "Camera Permission Required",
-            "Please grant camera access to take your attendance selfie.",
-            [
-              { text: "Cancel", style: "cancel" },
-              { text: "Try Again", onPress: () => handleCaptureSelfie(false) },
-            ]
-          );
-        }
-        return;
-      }
-
-      const result = await launchCamera({
-        mediaType: "photo",
-        cameraType: "front",
-        quality: 0.6,
-        saveToPhotos: false,
-        includeBase64: false,
-      });
-
-      if (result.didCancel) {
-        return;
-      }
-
-      if (result.errorCode) {
-        console.warn("Camera error:", result.errorMessage);
-        if (!auto) {
-          Alert.alert("Camera Error", result.errorMessage || "Could not open camera");
-        }
-        return;
-      }
-
-      if (result.assets && result.assets.length > 0) {
-        const uri = result.assets[0].uri;
-        setCapturedSelfie(uri);
-      }
-    } catch (err) {
-      console.error("Failed to launch camera:", err);
-      if (!auto) {
-        Alert.alert("Error", "Could not start camera: " + (err.message || err));
-      }
-    }
   };
 
   const initData = async () => {
     try {
       setLoadingData(true);
+
+      // Check Camera Permission
+      const permitted = await requestPermissions();
+      if (!permitted) {
+        Alert.alert("Permission Denied", "Camera access is required for punch selfie.");
+        navigation.goBack();
+        return;
+      }
 
       // Fetch Today Record safely
       try {
@@ -197,32 +159,27 @@ const EmployeePunchScreen = ({ navigation }) => {
     }, [])
   );
 
-  // Auto trigger front camera once initial loading is done
-  useEffect(() => {
-    if (!loadingData && !capturedSelfie) {
-      const t = setTimeout(() => {
-        handleCaptureSelfie(true);
-      }, 400);
-      return () => clearTimeout(t);
-    }
-  }, [loadingData]);
-
   const executePunch = async () => {
-    let selfieToUse = capturedSelfie;
-
-    if (!selfieToUse) {
-      await handleCaptureSelfie(false);
-      return;
-    }
-
     try {
-      setSubmittingPunch(true);
+      setCapturingSelfie(true);
+      let finalSelfieUri = null;
+
+      if (cameraRef.current && typeof cameraRef.current.capture === "function") {
+        try {
+          const photo = await cameraRef.current.capture();
+          if (photo && photo.uri) {
+            finalSelfieUri = photo.uri;
+          }
+        } catch (captureErr) {
+          console.warn("Camera capture error:", captureErr);
+        }
+      }
 
       // Upload to Firebase if local file uri
-      if (selfieToUse && selfieToUse.startsWith("file://")) {
+      if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
         try {
-          selfieToUse = await uploadSelfieToFirebase(
-            selfieToUse,
+          finalSelfieUri = await uploadSelfieToFirebase(
+            finalSelfieUri,
             user?._id || "unknown"
           );
         } catch (fbErr) {
@@ -240,10 +197,10 @@ const EmployeePunchScreen = ({ navigation }) => {
         ...(action === "in"
           ? { punchInLocation: activeCoords }
           : { punchOutLocation: activeCoords }),
-        ...(selfieToUse
+        ...(finalSelfieUri
           ? action === "in"
-            ? { punchInSelfie: selfieToUse }
-            : { punchOutSelfie: selfieToUse }
+            ? { punchInSelfie: finalSelfieUri }
+            : { punchOutSelfie: finalSelfieUri }
           : {}),
       };
 
@@ -273,25 +230,16 @@ const EmployeePunchScreen = ({ navigation }) => {
         err.response?.data?.message || "Failed to complete punch. Please try again."
       );
     } finally {
-      setSubmittingPunch(false);
+      setCapturingSelfie(false);
     }
   };
 
   const handleCameraPunchConfirm = async () => {
     if (isPunchDisabled) {
       Alert.alert(
-        "Location Notice",
-        "You appear to be outside the authorized office boundary. Do you want to submit attendance anyway?",
-        [
-          { text: "Cancel", style: "cancel" },
-          { text: "Proceed", onPress: executePunch },
-        ]
+        "Locked",
+        "You are outside the authorized office boundary."
       );
-      return;
-    }
-
-    if (!capturedSelfie) {
-      handleCaptureSelfie(false);
       return;
     }
 
@@ -309,12 +257,12 @@ const EmployeePunchScreen = ({ navigation }) => {
     }
   };
 
-  if (loadingData) {
+  if (loadingData || !hasCameraPerm) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={{ color: "#FFFFFF", marginTop: 12, fontWeight: "600" }}>
-          Preparing Attendance System...
+          Preparing Camera...
         </Text>
       </View>
     );
@@ -335,9 +283,9 @@ const EmployeePunchScreen = ({ navigation }) => {
         <View style={{ width: 42 }} />
       </View>
 
-      {/* Circular Camera / Selfie Preview */}
+      {/* In-App Circular Live Camera Stream */}
       <View style={styles.cameraWrapper}>
-        <TouchableOpacity
+        <View
           style={[
             styles.cameraCircle,
             {
@@ -348,80 +296,61 @@ const EmployeePunchScreen = ({ navigation }) => {
                 : "#3B82F6",
             },
           ]}
-          onPress={() => handleCaptureSelfie(false)}
-          activeOpacity={0.9}
         >
-          {capturedSelfie ? (
-            <Image source={{ uri: capturedSelfie }} style={styles.selfieImage} />
-          ) : (
-            <View style={styles.cameraPlaceholder}>
-              <View style={styles.cameraIconBadge}>
-                <Ionicons name="camera" size={44} color="#3B82F6" />
-              </View>
-              <Text style={styles.tapToTakeText}>Tap to Take Selfie</Text>
-              <Text style={styles.tapToTakeSub}>Frame your face in the circle</Text>
-            </View>
-          )}
-        </TouchableOpacity>
+          <Camera
+            ref={cameraRef}
+            style={styles.camera}
+            cameraType={CameraType.Front}
+            flashMode="off"
+            resetFocusWhenMotionDetected={false}
+          />
+        </View>
 
         <Text style={styles.cameraInstruction}>
-          {capturedSelfie
-            ? "Please frame your face in the circle"
-            : "Please tap the circle to capture your selfie"}
+          Please frame your face in the circle
         </Text>
-
-        {capturedSelfie ? (
-          <TouchableOpacity
-            style={styles.retakeBtn}
-            onPress={() => handleCaptureSelfie(false)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="refresh-outline" size={16} color="#3B82F6" style={{ marginRight: 6 }} />
-            <Text style={styles.retakeBtnText}>Retake Photo</Text>
-          </TouchableOpacity>
-        ) : null}
       </View>
 
       {/* Bottom Controls */}
       <View style={styles.bottomControls}>
-        {submittingPunch || capturingGps || !gpsCaptured ? (
+        {capturingSelfie || capturingGps || !gpsCaptured ? (
           <View style={[styles.punchBtn, { backgroundColor: "#1E293B" }]}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <ActivityIndicator color="#3B82F6" size="small" style={{ marginRight: 12 }} />
               <Text style={[styles.punchBtnText, { color: "#94A3B8" }]}>
-                {submittingPunch ? "Submitting Attendance..." : "Validating Location..."}
+                {capturingSelfie ? "Capturing Selfie..." : "Getting Location..."}
               </Text>
             </View>
+          </View>
+        ) : isPunchDisabled ? (
+          <View style={styles.outsideOfficeContainer}>
+            <Ionicons name="warning" size={28} color="#EF4444" style={{ marginBottom: 8 }} />
+            <Text style={styles.outsideOfficeText}>You are not in the office</Text>
+            <Text style={styles.outsideOfficeSub}>
+              Punching is not allowed outside the authorized office boundary.
+            </Text>
           </View>
         ) : (
           <TouchableOpacity
             style={[
               styles.punchBtn,
               {
-                backgroundColor: !capturedSelfie
-                  ? "#2563EB"
-                  : action === "in"
-                  ? "#16A34A"
-                  : "#EA580C",
+                backgroundColor: action === "in" ? "#16A34A" : "#EA580C",
               },
             ]}
             onPress={handleCameraPunchConfirm}
-            disabled={submittingPunch || !gpsCaptured || capturingGps}
+            disabled={capturingSelfie || !gpsCaptured || capturingGps}
             activeOpacity={0.85}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Ionicons
-                name={!capturedSelfie ? "camera" : action === "in" ? "log-in" : "log-out"}
+                name={action === "in" ? "log-in" : "log-out"}
                 size={22}
                 color="#FFFFFF"
                 style={{ marginRight: 10 }}
               />
               <Text style={styles.punchBtnText}>
-                {!capturedSelfie
-                  ? "Take Selfie"
-                  : action === "in"
-                  ? "Clock In Now"
-                  : "Clock Out Now"}
+                {action === "in" ? "Clock In Now" : "Clock Out Now"}
               </Text>
             </View>
           </TouchableOpacity>
@@ -430,7 +359,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.cancelBtn}
           onPress={() => navigation.goBack()}
-          disabled={submittingPunch}
+          disabled={capturingSelfie}
         >
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
@@ -471,44 +400,16 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderWidth: 4,
     backgroundColor: "#1E293B",
-    alignItems: "center",
-    justifyContent: "center",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.5,
     shadowRadius: 15,
     elevation: 10,
   },
-  selfieImage: {
+  camera: {
+    flex: 1,
     width: "100%",
     height: "100%",
-    resizeMode: "cover",
-  },
-  cameraPlaceholder: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-  },
-  cameraIconBadge: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    backgroundColor: "rgba(59, 130, 246, 0.15)",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 12,
-  },
-  tapToTakeText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  tapToTakeSub: {
-    color: "#94A3B8",
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: "center",
   },
   cameraInstruction: {
     color: "#94A3B8",
@@ -516,22 +417,6 @@ const styles = StyleSheet.create({
     marginTop: 24,
     fontWeight: "500",
     textAlign: "center",
-  },
-  retakeBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "rgba(59, 130, 246, 0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(59, 130, 246, 0.3)",
-    marginTop: 16,
-  },
-  retakeBtnText: {
-    color: "#3B82F6",
-    fontSize: 13,
-    fontWeight: "700",
   },
   bottomControls: {
     padding: 24,
@@ -552,6 +437,28 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
+  },
+  outsideOfficeContainer: {
+    width: "100%",
+    paddingVertical: 20,
+    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.3)",
+  },
+  outsideOfficeText: {
+    color: "#EF4444",
+    fontSize: 18,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  outsideOfficeSub: {
+    color: "#F87171",
+    fontSize: 14,
+    fontWeight: "500",
   },
   cancelBtn: {
     paddingVertical: 10,
