@@ -18,6 +18,7 @@ import ManagerLayout from "../../components/ManagerLayout";
 import useManagerController from "../../controllers/managerController";
 
 const THEME_COLOR = "#1268D9";
+const TEAL = "#1268D9";
 
 const ManagerProjectsScreen = ({ navigation }) => {
   const { projects, loadingProjects, fetchProjects } = useManagerController();
