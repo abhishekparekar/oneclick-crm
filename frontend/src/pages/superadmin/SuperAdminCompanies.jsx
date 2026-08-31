@@ -443,7 +443,7 @@ const SuperAdminCompanies = () => {
             <Download size={14} />
             <span>Export CSV</span>
           </button>
-          <Link to="/superadmin/company-requests" className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold shadow-xs transition-all cursor-pointer">
+          <Link to="/superadmin/companies/add" className="flex items-center space-x-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold shadow-xs transition-all cursor-pointer">
             <Plus size={15} strokeWidth={2.5} />
             <span>Add Company</span>
           </Link>
