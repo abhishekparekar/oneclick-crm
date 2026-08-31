@@ -278,11 +278,13 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
 
-      {/* ── Premium Hero Header ── */}
+      {/* ── Royal Blue Theme Header ── */}
       <LinearGradient
-        colors={['#0F172A', '#1E293B']}
+        colors={['#082B52', '#1268D9']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 0 }}
         style={[styles.headerGradient, { paddingTop: Math.max(insets.top, 12) + 8 }]}
       >
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
@@ -300,7 +302,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
         {repeatEnabled ? (
           <View style={styles.headerRecurringBadge}>
-            <Ionicons name="repeat" size={18} color="#F97316" />
+            <Ionicons name="repeat" size={18} color="#FFFFFF" />
           </View>
         ) : (
           <View style={{ width: 36 }} />
@@ -1020,7 +1022,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   modeSwitchBtnActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1268D9',
   },
   modeSwitchText: {
     fontFamily: FONTS.bodyBold,
@@ -1086,7 +1088,7 @@ const styles = StyleSheet.create({
   countBadgeText: {
     fontSize: 10,
     fontFamily: FONTS.bodyBold,
-    color: '#1D4ED8',
+    color: '#1268D9',
   },
   priorityRow: {
     flexDirection: 'row',
@@ -1128,7 +1130,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#1E40AF',
+    backgroundColor: '#1268D9',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 6,
@@ -1152,7 +1154,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1E40AF',
+    backgroundColor: '#1268D9',
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 4,
@@ -1178,7 +1180,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   segmentBtnActive: {
-    backgroundColor: '#0F172A',
+    backgroundColor: '#1268D9',
   },
   segmentText: {
     fontFamily: FONTS.bodyBold,
@@ -1209,7 +1211,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 7,
-    backgroundColor: '#1E40AF',
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 8,

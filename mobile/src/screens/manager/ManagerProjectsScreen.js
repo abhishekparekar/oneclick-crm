@@ -14,7 +14,6 @@ import { Ionicons } from "@expo/vector-icons";
 import Svg, { Circle } from "react-native-svg";
 import { useFocusEffect } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import ManagerLayout from "../../components/ManagerLayout";
 import useManagerController from "../../controllers/managerController";
 
@@ -176,7 +175,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
           navigation.navigate("ManagerProjectDetails", { projectId: item._id })
         }
       >
-        <BlurView intensity={70} tint="light" style={styles.projectCard}>
+        <View style={styles.projectCard}>
         {/* Project Card Header */}
         <View style={styles.cardHeader}>
           <View style={[styles.projectIconContainer, { backgroundColor: iconConfig.bg }]}>
@@ -235,7 +234,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
             )}
           </View>
         </View>
-        </BlurView>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -309,7 +308,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
           </View>
 
           {/* Overall Progress donut section */}
-          <BlurView intensity={80} tint="light" style={styles.progressBox}>
+          <View style={styles.progressBox}>
             <Text style={styles.progressBoxTitle}>Overall Progress</Text>
             <View style={styles.progressBoxContent}>
               <View style={styles.chartContainer}>
@@ -345,7 +344,7 @@ const ManagerProjectsScreen = ({ navigation }) => {
                 </View>
               </View>
             </View>
-          </BlurView>
+          </View>
 
           {/* FlatList container title */}
           <View style={styles.listSectionHeader}>
