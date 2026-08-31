@@ -23,17 +23,20 @@ const MANAGER_AVATAR_BG = "#1268D9";
 // Map of screen names to which tab they "belong to"
 const SCREEN_TO_TAB = {
   ManagerDashboard: "Home",
+  ManagerDashboardScreen: "Home",
   ManagerTeam: "Home",
   ManagerTeamMemberDetails: "Home",
   ManagerTeamOrgView: "Home",
   LeadsEngine: "Leads",
   LeadsDashboard: "Leads",
+  LeadsDashboardScreen: "Leads",
   LeadsList: "Leads",
   LeadDetails: "Leads",
   LeadReminders: "Leads",
   LeadCampaigns: "Leads",
   LeadSettings: "Leads",
   ManagerTasks: "Tasks",
+  ManagerTasksScreen: "Tasks",
   ManagerMyTasks: "Tasks",
   ManagerTeamTasks: "Tasks",
   ManagerTaskDetails: "Tasks",
@@ -42,13 +45,19 @@ const SCREEN_TO_TAB = {
   ManagerProjectDetails: "My Projects",
   ManagerCreateProject: "My Projects",
   ManagerProfile: "Profile",
+  ManagerProfileScreen: "Profile",
   ManagerEditProfileScreen: "Profile",
   ManagerSettings: "Profile",
   ManagerAttendance: "Attendance",
+  ManagerAttendanceScreen: "Attendance",
   ManagerMyAttendance: "Attendance",
   ManagerTeamAttendance: "Attendance",
+  ManagerTeamAttendanceScreen: "Attendance",
+  ManagerTeamAttendanceDetails: "Attendance",
+  ManagerTeamAttendanceDetailsScreen: "Attendance",
   ManagerRegularization: "Attendance",
   ManagerTeamLeaves: "Attendance",
+  ManagerTeamLeavesScreen: "Attendance",
 };
 
 const BOTTOM_TABS = [
@@ -135,14 +144,26 @@ const ManagerLayout = ({
     currentRouteName = route?.name || null;
   } catch (_) { }
 
-  // Resolve the active tab label instead of the screen name, 
-  // so we can match it against the `label` in BOTTOM_TABS.
+  // Resolve the active tab label with full fallback & fuzzy detection
   let activeTabLabel = "Home";
   if (activeTabOverride) {
-    const overrideMatch = BOTTOM_TABS.find(t => t.screen === activeTabOverride);
-    if (overrideMatch) activeTabLabel = overrideMatch.label;
-  } else {
-    activeTabLabel = SCREEN_TO_TAB[currentRouteName] || "Home";
+    const overrideMatch = BOTTOM_TABS.find(
+      t => t.screen === activeTabOverride ||
+           t.label === activeTabOverride ||
+           t.label.toLowerCase() === String(activeTabOverride).toLowerCase() ||
+           t.screen.toLowerCase() === String(activeTabOverride).toLowerCase()
+    );
+    if (overrideMatch) {
+      activeTabLabel = overrideMatch.label;
+    } else {
+      activeTabLabel = SCREEN_TO_TAB[activeTabOverride] || activeTabOverride || "Home";
+    }
+  } else if (currentRouteName) {
+    activeTabLabel = SCREEN_TO_TAB[currentRouteName] ||
+      (currentRouteName.includes("Lead") ? "Leads" :
+       currentRouteName.includes("Task") ? "Tasks" :
+       currentRouteName.includes("Attendance") || currentRouteName.includes("Leave") ? "Attendance" :
+       currentRouteName.includes("Project") ? "Home" : "Home");
   }
 
   // Sync activeTabLabel to LayoutContext
@@ -166,6 +187,13 @@ const ManagerLayout = ({
       navigation.dispatch(DrawerActions.openDrawer());
       return;
     }
+    if (screen === "ManagerDashboard" || screen === "Home") {
+      navigation.navigate("ManagerStack", {
+        screen: "ManagerTabs",
+        params: { screen: "ManagerDashboard" },
+      });
+      return;
+    }
     if (screen === "LeadsEngine" || screen === "LeadsDashboard" || screen === "Leads") {
       navigation.navigate("ManagerStack", {
         screen: "LeadsEngine",
@@ -173,11 +201,35 @@ const ManagerLayout = ({
       });
       return;
     }
+    if (screen === "ManagerTasks" || screen === "Tasks") {
+      navigation.navigate("ManagerStack", {
+        screen: "ManagerTabs",
+        params: { screen: "ManagerTasks" },
+      });
+      return;
+    }
     if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
       navigation.navigate("ManagerStack", { screen: "ManagerTeamAttendance" });
       return;
     }
-    navigation.navigate("ManagerTabs", { screen });
+    if (screen === "ManagerTeam" || screen === "My Team") {
+      navigation.navigate("ManagerStack", {
+        screen: "ManagerTabs",
+        params: { screen: "ManagerTeam" },
+      });
+      return;
+    }
+    if (screen === "ManagerProfile" || screen === "Profile") {
+      navigation.navigate("ManagerStack", {
+        screen: "ManagerTabs",
+        params: { screen: "ManagerProfile" },
+      });
+      return;
+    }
+    navigation.navigate("ManagerStack", {
+      screen: "ManagerTabs",
+      params: { screen },
+    });
   };
 
   const navigateToScreen = (screen) => {

@@ -10,8 +10,8 @@ import {
   Dimensions,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
-import Svg, { Circle, G, Path, Polygon, Defs, LinearGradient as SvgGradient, Stop, Text as SvgText } from "react-native-svg";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import Svg, { Circle, G } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import ManagerLayout from "../../components/ManagerLayout";
 import { useAuth } from "../../context/AuthContext";
@@ -20,37 +20,45 @@ import { getMyTodayApi } from "../../api/attendanceService";
 import FollowUpPopup from "../../components/FollowUpPopup";
 
 const { width } = Dimensions.get("window");
-const HP = 14; // horizontal padding
+const HP = 14;
 
-// ─── SVG Donut ──────────────────────────────────────
-const DonutChart = ({ data, size = 78, stroke = 9, centerLabel, centerSub }) => {
+// ─── SVG Donut Chart ────────────────────────────────
+const DonutChart = ({ data, size = 80, stroke = 9, centerLabel, centerSub }) => {
   const r = (size - stroke) / 2;
   const cx = size / 2;
   const cy = size / 2;
   const circ = 2 * Math.PI * r;
-  const total = data.reduce((s, d) => s + d.value, 0);
+  const total = data.reduce((s, d) => s + (d.value || 0), 0);
   let acc = 0;
   return (
     <View style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Circle cx={cx} cy={cy} r={r} fill="none" stroke="#E2E8F0" strokeWidth={stroke} />
-        {total > 0 && data.map((seg, i) => {
-          if (!seg.value) return null;
-          const dash = (seg.value / total) * circ;
-          const rot = -90 + (acc / total) * 360;
-          acc += seg.value;
-          return (
-            <G key={i} rotation={rot} origin={`${cx},${cy}`}>
-              <Circle cx={cx} cy={cy} r={r} fill="none"
-                stroke={seg.color} strokeWidth={stroke}
-                strokeDasharray={`${dash} ${circ}`} strokeLinecap="round" />
-            </G>
-          );
-        })}
+        {total > 0 &&
+          data.map((seg, i) => {
+            if (!seg.value) return null;
+            const dash = (seg.value / total) * circ;
+            const rot = -90 + (acc / total) * 360;
+            acc += seg.value;
+            return (
+              <G key={i} rotation={rot} origin={`${cx},${cy}`}>
+                <Circle
+                  cx={cx}
+                  cy={cy}
+                  r={r}
+                  fill="none"
+                  stroke={seg.color}
+                  strokeWidth={stroke}
+                  strokeDasharray={`${dash} ${circ}`}
+                  strokeLinecap="round"
+                />
+              </G>
+            );
+          })}
       </Svg>
       <View style={[StyleSheet.absoluteFill, { justifyContent: "center", alignItems: "center" }]}>
-        <Text style={{ fontSize: 15, fontWeight: "900", color: "#0F172A" }}>{centerLabel}</Text>
-        <Text style={{ fontSize: 7, fontWeight: "800", color: "#94A3B8", letterSpacing: 0.5 }}>{centerSub}</Text>
+        <Text style={{ fontSize: 16, fontWeight: "900", color: "#0F172A" }}>{centerLabel}</Text>
+        <Text style={{ fontSize: 7.5, fontWeight: "800", color: "#94A3B8", letterSpacing: 0.5 }}>{centerSub}</Text>
       </View>
     </View>
   );
@@ -66,118 +74,10 @@ const formatHours = (h) => {
 
 const getGreeting = () => {
   const h = new Date().getHours();
-  if (h < 12) return "Good Morning,";
-  if (h < 17) return "Good Afternoon,";
-  return "Good Evening,";
+  if (h < 12) return "Good Morning";
+  if (h < 17) return "Good Afternoon";
+  return "Good Evening";
 };
-
-// ─── 3-column KPI Row ───────────────────────────────
-const KpiRow = ({ cards, navigation }) => {
-  const cw = (width - HP * 2 - 8 * 2) / 3;
-  return (
-    <View style={{ flexDirection: "row", marginBottom: 8 }}>
-      {cards.map((k, i) => (
-        <TouchableOpacity
-          key={k.label}
-          style={[styles.kpiCard, { width: cw, borderBottomColor: k.accent }, i > 0 && { marginLeft: 8 }]}
-          onPress={() => navigation.navigate(k.route)}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.kpiIconBox, { backgroundColor: k.iBg }]}>
-            <Ionicons name={k.icon} size={14} color={k.c} />
-          </View>
-          <Text style={styles.kpiVal}>{k.val}</Text>
-          <Text style={styles.kpiLbl}>{k.label}</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-};
-
-// ─── 3D Perspective Hero Graphic (matches reference design) ───
-function Hero3DGraphic() {
-  return (
-    <View style={{ width: 135, height: 95, justifyContent: "center", alignItems: "center" }}>
-      <Svg width={135} height={95} viewBox="0 0 135 95">
-        <Defs>
-          <SvgGradient id="cardBg" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor="#1E293B" stopOpacity="0.95" />
-            <Stop offset="1" stopColor="#0F172A" stopOpacity="0.98" />
-          </SvgGradient>
-          <SvgGradient id="orangeGrad" x1="0" y1="1" x2="0" y2="0">
-            <Stop offset="0" stopColor="#0D50B8" stopOpacity="1" />
-            <Stop offset="1" stopColor="#1268D9" stopOpacity="1" />
-          </SvgGradient>
-        </Defs>
-
-        {/* Ambient Sparkle / Glow Dots */}
-        <Circle cx="8" cy="22" r="1.8" fill="#1268D9" opacity="0.9" />
-        <Circle cx="128" cy="14" r="2.2" fill="#2F8BFF" opacity="0.8" />
-        <Circle cx="68" cy="4" r="1.5" fill="#1268D9" opacity="0.7" />
-        <Circle cx="132" cy="55" r="2" fill="#1268D9" opacity="0.85" />
-        <Circle cx="4" cy="68" r="2.5" fill="#2F8BFF" opacity="0.75" />
-        <Circle cx="120" cy="88" r="1.5" fill="#1268D9" opacity="0.9" />
-        <Circle cx="50" cy="90" r="1.2" fill="#2F8BFF" opacity="0.6" />
-
-        {/* Outer Glow Line */}
-        <Polygon
-          points="20,13 124,3 114,89 12,79"
-          fill="none"
-          stroke="#1268D9"
-          strokeWidth="3.5"
-          opacity="0.3"
-        />
-
-        {/* Main 3D Perspective Card */}
-        <Polygon
-          points="20,13 124,3 114,89 12,79"
-          fill="url(#cardBg)"
-          stroke="#1268D9"
-          strokeWidth="1.6"
-        />
-
-        {/* Top Accent Bar */}
-        <Path d="M 28,21 L 52,19" stroke="url(#orangeGrad)" strokeWidth="2.2" strokeLinecap="round" opacity="0.8" />
-
-        {/* Vertical Bar Chart */}
-        <Path d="M 30,52 L 30,42" stroke="url(#orangeGrad)" strokeWidth="4" strokeLinecap="round" />
-        <Path d="M 38,51 L 38,32" stroke="url(#orangeGrad)" strokeWidth="4" strokeLinecap="round" />
-        <Path d="M 46,50 L 46,38" stroke="url(#orangeGrad)" strokeWidth="4" strokeLinecap="round" />
-        <Path d="M 54,49 L 54,26" stroke="url(#orangeGrad)" strokeWidth="4" strokeLinecap="round" />
-
-        {/* 92% Ring Gauge */}
-        <G transform="translate(88, 38)">
-          <Circle cx="0" cy="0" r="16" fill="none" stroke="rgba(249,115,22,0.2)" strokeWidth="3" />
-          <Circle
-            cx="0" cy="0" r="16" fill="none"
-            stroke="url(#orangeGrad)" strokeWidth="3"
-            strokeDasharray="92 100"
-            strokeLinecap="round"
-            transform="rotate(-90)"
-          />
-          <SvgText
-            x="0" y="3.5"
-            fill="#FFFFFF"
-            fontSize="9.5"
-            fontWeight="bold"
-            textAnchor="middle"
-          >
-            92%
-          </SvgText>
-        </G>
-
-        {/* Bottom Wave Line */}
-        <Path
-          d="M 26,67 Q 45,78 68,62 T 104,70"
-          fill="none"
-          stroke="url(#orangeGrad)"
-          strokeWidth="2.2"
-          strokeLinecap="round"
-        />
-      </Svg>
-    </View>
-  );
-}
 
 // ─────────────────────────────────────────────────────
 const ManagerDashboardScreen = ({ navigation }) => {
@@ -198,7 +98,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
     try {
       const { data: res } = await getMyTodayApi();
       if (res?.success) setTodayRecord(res.attendance || null);
-    } catch (e) { console.log("Attendance:", e.message); }
+    } catch (e) {
+      console.log("Attendance:", e.message);
+    }
   };
 
   useFocusEffect(
@@ -211,8 +113,12 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    try { await refreshDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {}); }
-    finally { setRefreshing(false); }
+    try {
+      await refreshDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {});
+      await fetchTodayAttendance();
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const data = dashboardData || {};
@@ -224,15 +130,20 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const projectSummary = data.projectSummary || {};
   const recentTasks = data.recentTasks || [];
   const latestNotifs = data.latestNotifications || [];
-  const unreadCount = latestNotifs.filter(n => !n.isRead).length;
+  const unreadCount = latestNotifs.filter((n) => !n.isRead).length;
 
   const departmentsList = React.useMemo(() => {
     const list = [];
-    if (manager.departmentId) list.push({ _id: manager.departmentId._id || manager.departmentId, name: manager.department || "My Dept" });
-    manager.accessibleDepartments?.forEach(d => {
+    if (manager.departmentId) {
+      list.push({
+        _id: manager.departmentId._id || manager.departmentId,
+        name: manager.department || "My Dept",
+      });
+    }
+    manager.accessibleDepartments?.forEach((d) => {
       const id = typeof d === "object" ? d._id : d;
-      const name = typeof d === "object" ? (d.name || "Dept") : "Dept";
-      if (id && !list.some(x => x._id?.toString() === id.toString())) list.push({ _id: id, name });
+      const name = typeof d === "object" ? d.name || "Dept" : "Dept";
+      if (id && !list.some((x) => x._id?.toString() === id.toString())) list.push({ _id: id, name });
     });
     return list;
   }, [manager]);
@@ -242,7 +153,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
       <ManagerLayout navigation={navigation} title="Dashboard">
         <View style={styles.centerBox}>
           <ActivityIndicator size="large" color="#1268D9" />
-          <Text style={styles.loaderText}>Loading…</Text>
+          <Text style={styles.loaderText}>Loading dashboard metrics...</Text>
         </View>
       </ManagerLayout>
     );
@@ -262,7 +173,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
     );
   }
 
-  // Punch state
+  // ── Punch in state (Untouched as requested) ──
   let isPunchedIn = false;
   let punchInTimeStr = "--:--";
   let punchSub = "Not clocked in today";
@@ -283,13 +194,14 @@ const ManagerDashboardScreen = ({ navigation }) => {
     }
   }
 
-  // Donut data
-  const present = attendanceSummary.presentToday || 1;
-  const absent = attendanceSummary.absentToday || 2;
+  // ── Attendance Metrics ──
+  const present = attendanceSummary.presentToday || 0;
+  const absent = attendanceSummary.absentToday || 0;
   const halfDay = attendanceSummary.halfDayToday || 0;
   const onLeave = leaveSummary.onLeaveToday || 0;
-  const staffTotal = teamSummary.teamCount || (present + absent + halfDay + onLeave) || 3;
-  const pct = v => staffTotal > 0 ? `${Math.round((v / staffTotal) * 100)}%` : "0%";
+  const staffTotal = teamSummary.teamCount || (present + absent + halfDay + onLeave) || 0;
+  const pct = (v) => (staffTotal > 0 ? `${Math.round((v / staffTotal) * 100)}%` : "0%");
+  
   const donutData = [
     { label: "Present", value: present, color: "#10B981" },
     { label: "Absent", value: absent, color: "#EF4444" },
@@ -301,16 +213,8 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const dateString = liveTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   const clockStr = liveTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-  const kpiRow1 = [
-    { label: "My Tasks", val: taskSummary.myPendingTasks ?? 0, icon: "clipboard-outline", iBg: "#ECFDF5", c: "#10B981", accent: "#10B981", route: "ManagerTasks" },
-    { label: "Team Tasks", val: taskSummary.openTeamTasks ?? 13, icon: "file-tray-full-outline", iBg: "#F5F3FF", c: "#8B5CF6", accent: "#8B5CF6", route: "ManagerTasks" },
-    { label: "Projects", val: projectSummary.activeProjects ?? 1, icon: "folder-open-outline", iBg: "#EFF6FF", c: "#3B82F6", accent: "#3B82F6", route: "ManagerProjects" },
-  ];
-  const kpiRow2 = [
-    { label: "Overdue", val: taskSummary.overdueTeamTasks ?? 13, icon: "alert-circle-outline", iBg: "#FEF2F2", c: "#EF4444", accent: "#EF4444", route: "ManagerTasks" },
-    { label: "Completed", val: taskSummary.completedTeamTasks ?? 6, icon: "checkmark-circle-outline", iBg: "#ECFDF5", c: "#10B981", accent: "#10B981", route: "ManagerTasks" },
-    { label: "Team Members", val: teamSummary.teamCount ?? 3, icon: "people-outline", iBg: "#EFF6FF", c: "#1268D9", accent: "#1268D9", route: "ManagerTeam" },
-  ];
+  const pendingLeavesCount = leaveSummary.pendingLeaveRequests || 0;
+  const overdueTasksCount = taskSummary.overdueTeamTasks || 0;
 
   return (
     <ManagerLayout navigation={navigation} title="Dashboard" unreadCount={unreadCount}>
@@ -320,20 +224,29 @@ const ManagerDashboardScreen = ({ navigation }) => {
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
       >
-
-        {/* ════════════════════════════════════════════
-            TOP SECTION: Hero + Punch card
-            background = #F4F7FB (Clean Light)
-        ════════════════════════════════════════════ */}
-        <View style={styles.topDarkSection}>
-
-          {/* 1. GREETING + ANALYTICS GRAPHIC */}
-          <View style={styles.heroContent}>
+        {/* ── TOP SECTION: GREETING & UNTOUCHED PUNCH CARD ── */}
+        <View style={styles.topSection}>
+          {/* Greeting Header */}
+          <View style={styles.greetingRow}>
+            <View>
+              <Text style={styles.greetingText}>{getGreeting()}, {userName} 👋</Text>
+              <Text style={styles.dateSubText}>{dateString}</Text>
+            </View>
+            <View style={styles.roleBadge}>
+              <Ionicons name="shield-checkmark" size={12} color="#1268D9" />
+              <Text style={styles.roleBadgeText}>MANAGER</Text>
+            </View>
           </View>
 
-          {/* 2. ROYAL BLUE PUNCH CARD */}
-          <LinearGradient colors={["#082B52", "#1268D9", "#1D7DF2"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.punchCardFull}>
-            {/* Large dark navy semi-circle decorative background element on the right */}
+          {/* ═══════════════════════════════════════════════════════
+              ROYAL BLUE PUNCH CARD (PRESERVED AS REQUESTED)
+          ═══════════════════════════════════════════════════════ */}
+          <LinearGradient
+            colors={["#082B52", "#1268D9", "#1D7DF2"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.punchCardFull}
+          >
             <View
               style={{
                 position: "absolute",
@@ -361,16 +274,20 @@ const ManagerDashboardScreen = ({ navigation }) => {
               pointerEvents="none"
             />
 
-            {/* Watermark */}
             <View style={StyleSheet.absoluteFill} pointerEvents="none">
-              <Ionicons name="time" size={90} color="rgba(255,255,255,0.08)" style={{ position: "absolute", right: 10, top: 10 }} />
+              <Ionicons
+                name="time"
+                size={90}
+                color="rgba(255,255,255,0.08)"
+                style={{ position: "absolute", right: 10, top: 10 }}
+              />
             </View>
-            {/* Shift badge */}
+            
             <View style={styles.shiftBadge}>
               <View style={[styles.dot, { backgroundColor: isPunchedIn ? "#4ADE80" : "#fff" }]} />
               <Text style={styles.shiftText}>{isPunchedIn ? "ACTIVE SHIFT" : "SHIFT INACTIVE"}</Text>
             </View>
-            {/* Clock + Button */}
+
             <View style={styles.punchRow}>
               <View>
                 <Text style={styles.punchClock}>{clockStr}</Text>
@@ -387,7 +304,12 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("CheckInCheckOut")}
                   activeOpacity={0.85}
                 >
-                  <Ionicons name={isPunchedIn ? "log-out-outline" : "log-in-outline"} size={13} color="#1268D9" style={{ marginRight: 3 }} />
+                  <Ionicons
+                    name={isPunchedIn ? "log-out-outline" : "log-in-outline"}
+                    size={13}
+                    color="#1268D9"
+                    style={{ marginRight: 3 }}
+                  />
                   <Text style={styles.punchBtnText}>{isPunchedIn ? "Punch Out" : "Punch In"}</Text>
                 </TouchableOpacity>
               </View>
@@ -395,149 +317,353 @@ const ManagerDashboardScreen = ({ navigation }) => {
           </LinearGradient>
         </View>
 
-        {/* ════════════════════════════════════════════
-            LIGHT SECTION: Everything below punch card
-        ════════════════════════════════════════════ */}
-        <View style={styles.lightSection}>
-
-          {/* Dept filter */}
+        {/* ── MAIN DASHBOARD BODY ── */}
+        <View style={styles.bodySection}>
+          
+          {/* Department Filter Pills (if multiple accessible depts) */}
           {departmentsList.length > 1 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }} contentContainerStyle={{ gap: 6 }}>
-              {["All", ...departmentsList.map(d => d.name)].map((name, i) => {
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }} contentContainerStyle={{ gap: 6 }}>
+              {["All Departments", ...departmentsList.map((d) => d.name)].map((name, i) => {
                 const deptId = i === 0 ? "" : departmentsList[i - 1]._id;
                 const active = selectedDeptId === deptId;
                 return (
-                  <TouchableOpacity key={name} onPress={() => setSelectedDeptId(deptId)} style={[styles.pill, active && styles.pillA]}>
-                    <Text style={[styles.pillTxt, active && styles.pillTxtA]}>{name}</Text>
+                  <TouchableOpacity
+                    key={name}
+                    onPress={() => setSelectedDeptId(deptId)}
+                    style={[styles.deptPill, active && styles.deptPillActive]}
+                  >
+                    <Text style={[styles.deptPillText, active && styles.deptPillTextActive]}>{name}</Text>
                   </TouchableOpacity>
                 );
               })}
             </ScrollView>
           )}
 
-          {/* 3. QUICK ACTIONS */}
-          <View style={styles.secRow}>
-            <Text style={styles.secTitle}>Quick Actions</Text>
-            <TouchableOpacity activeOpacity={0.7} style={styles.linkBtn}>
-              <Text style={styles.linkTxt}>Customize</Text>
-              <Ionicons name="options-outline" size={11} color="#1268D9" style={{ marginLeft: 2 }} />
-            </TouchableOpacity>
-          </View>
-          <View style={{ flexDirection: "row", marginBottom: 16 }}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-              {[
-                { label: "Projects", icon: "folder-open-outline", bg: "#EFF6FF", iBg: "#DBEAFE", c: "#1268D9", r: "ManagerProjects" },
-                { label: "Attendance", icon: "calendar-outline", bg: "#EFF6FF", iBg: "#DBEAFE", c: "#1268D9", r: "ManagerTeamAttendance" },
-                { label: "My Tasks", icon: "checkbox-outline", bg: "#ECFDF5", iBg: "#A7F3D0", c: "#059669", r: "ManagerTasks" },
-                { label: "Leave", icon: "calendar-outline", bg: "#F5F3FF", iBg: "#DDD6FE", c: "#7C3AED", r: "ManagerTeamLeaves" },
-                { label: "Payslip", icon: "receipt-outline", bg: "#EFF6FF", iBg: "#BFDBFE", c: "#2563EB", r: "Payslips" },
-              ].map((q, i) => (
-                <TouchableOpacity
-                  key={q.label}
-                  style={[styles.quickCard, { backgroundColor: q.bg, minWidth: 80 }]}
-                  onPress={() => navigation.navigate(q.r)}
-                  activeOpacity={0.8}
-                >
-                  <View style={[styles.quickIconBox, { backgroundColor: q.iBg }]}>
-                    <Ionicons name={q.icon} size={18} color={q.c} />
-                  </View>
-                  <Text style={styles.quickLabel}>{q.label}</Text>
-                  <View style={[styles.quickArrow, { backgroundColor: q.c }]}>
-                    <Ionicons name="chevron-forward" size={9} color="#fff" />
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+          {/* ── 1. ACTION REQUIRED ALERTS (Pending leaves or overdue tasks) ── */}
+          {(pendingLeavesCount > 0 || overdueTasksCount > 0) && (
+            <View style={styles.alertBannerCard}>
+              <View style={styles.alertHeaderRow}>
+                <View style={styles.alertBadge}>
+                  <Ionicons name="alert-circle" size={14} color="#DC2626" />
+                  <Text style={styles.alertBadgeText}>ATTENTION REQUIRED</Text>
+                </View>
+                <Text style={styles.alertDateHint}>Today's Priority</Text>
+              </View>
+
+              <View style={styles.alertItemsRow}>
+                {pendingLeavesCount > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertActionChip}
+                    onPress={() => navigation.navigate("ManagerTeamLeaves")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.alertIconBox, { backgroundColor: "#FEF2F2" }]}>
+                      <Ionicons name="calendar-clear" size={14} color="#DC2626" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.alertChipTitle}>{pendingLeavesCount} Leave Request{pendingLeavesCount > 1 ? "s" : ""}</Text>
+                      <Text style={styles.alertChipSub}>Awaiting your review</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+
+                {overdueTasksCount > 0 && (
+                  <TouchableOpacity
+                    style={styles.alertActionChip}
+                    onPress={() => navigation.navigate("ManagerTasks")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[styles.alertIconBox, { backgroundColor: "#FFFBEB" }]}>
+                      <Ionicons name="time" size={14} color="#D97706" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.alertChipTitle}>{overdueTasksCount} Overdue Task{overdueTasksCount > 1 ? "s" : ""}</Text>
+                      <Text style={styles.alertChipSub}>Needs follow-up</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={14} color="#94A3B8" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          )}
+
+          {/* ── 2. QUICK SHORTCUTS GRID (COMPACT 1-TAP WORKFLOWS) ── */}
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Quick Shortcuts</Text>
+            <Text style={styles.sectionHint}>One-tap navigation</Text>
           </View>
 
-          {/* 5. TEAM ATTENDANCE */}
-          <View style={styles.card}>
-            <View style={styles.secRow}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="pulse-outline" size={13} color="#1268D9" style={{ marginRight: 4 }} />
-                <Text style={styles.secTitle}>Team Attendance Today</Text>
+          <View style={styles.shortcutsGrid}>
+            {[
+              {
+                label: "Assign Task",
+                icon: "add-circle",
+                c: "#1268D9",
+                bg: "#EFF6FF",
+                onPress: () => navigation.navigate("ManagerCreateTask"),
+              },
+              {
+                label: "Team Attendance",
+                icon: "calendar-outline",
+                c: "#10B981",
+                bg: "#ECFDF5",
+                onPress: () => navigation.navigate("ManagerTeamAttendance"),
+              },
+              {
+                label: "Lead Engine",
+                icon: "magnet-outline",
+                c: "#8B5CF6",
+                bg: "#F5F3FF",
+                onPress: () => navigation.navigate("LeadsEngine", { screen: "LeadsDashboard" }),
+              },
+              {
+                label: "Team Leaves",
+                icon: "airplane-outline",
+                c: "#F59E0B",
+                bg: "#FEF3C7",
+                onPress: () => navigation.navigate("ManagerTeamLeaves"),
+              },
+              {
+                label: "Projects",
+                icon: "folder-open-outline",
+                c: "#0284C7",
+                bg: "#E0F2FE",
+                onPress: () => navigation.navigate("ManagerProjects"),
+              },
+              {
+                label: "My Team",
+                icon: "people-outline",
+                c: "#EC4899",
+                bg: "#FDF2F8",
+                onPress: () => navigation.navigate("ManagerTeam"),
+              },
+              {
+                label: "Work Tracker",
+                icon: "analytics-outline",
+                c: "#6366F1",
+                bg: "#EEF2FF",
+                onPress: () => navigation.navigate("ManagerWorkTracker"),
+              },
+              {
+                label: "Reports",
+                icon: "bar-chart-outline",
+                c: "#475569",
+                bg: "#F1F5F9",
+                onPress: () => navigation.navigate("ManagerReports"),
+              },
+            ].map((sc) => (
+              <TouchableOpacity
+                key={sc.label}
+                style={styles.shortcutBtn}
+                onPress={sc.onPress}
+                activeOpacity={0.75}
+              >
+                <View style={[styles.shortcutIconBox, { backgroundColor: sc.bg }]}>
+                  <Ionicons name={sc.icon} size={20} color={sc.c} />
+                </View>
+                <Text style={styles.shortcutLabel} numberOfLines={1}>
+                  {sc.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* ── 3. WORK & PERFORMANCE METRIC MATRIX (COMPACT 2x3 TILES) ── */}
+          <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
+            <Text style={styles.sectionTitle}>Performance Overview</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} activeOpacity={0.7}>
+              <Text style={styles.sectionLink}>View All Tasks</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.kpiGrid}>
+            {/* My Tasks */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#10B981" }]}
+              onPress={() => navigation.navigate("ManagerTasks", { filter: "my" })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
+                <Text style={styles.kpiLabel}>My Tasks</Text>
               </View>
-              <TouchableOpacity onPress={() => navigation.navigate("ManagerTeamAttendance")} style={styles.linkBtn} activeOpacity={0.7}>
-                <Text style={styles.linkTxt}>View All</Text>
-                <Ionicons name="chevron-forward" size={11} color="#1268D9" style={{ marginLeft: 1 }} />
+              <Text style={styles.kpiValue}>{taskSummary.myPendingTasks ?? 0}</Text>
+              <Text style={styles.kpiSub}>Pending Action</Text>
+            </TouchableOpacity>
+
+            {/* Team Tasks */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
+              onPress={() => navigation.navigate("ManagerTasks")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
+                <Text style={styles.kpiLabel}>Team Tasks</Text>
+              </View>
+              <Text style={styles.kpiValue}>{taskSummary.openTeamTasks ?? 0}</Text>
+              <Text style={styles.kpiSub}>Active & Open</Text>
+            </TouchableOpacity>
+
+            {/* Overdue */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
+              onPress={() => navigation.navigate("ManagerTasks", { status: "overdue" })}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
+                <Text style={styles.kpiLabel}>Overdue</Text>
+              </View>
+              <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{taskSummary.overdueTeamTasks ?? 0}</Text>
+              <Text style={styles.kpiSub}>Urgent Followup</Text>
+            </TouchableOpacity>
+
+            {/* Team Present */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#059669" }]}
+              onPress={() => navigation.navigate("ManagerTeamAttendance")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#059669" }]} />
+                <Text style={styles.kpiLabel}>Present Today</Text>
+              </View>
+              <Text style={[styles.kpiValue, { color: "#059669" }]}>{present}</Text>
+              <Text style={styles.kpiSub}>Active at work</Text>
+            </TouchableOpacity>
+
+            {/* On Leave */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#3B82F6" }]}
+              onPress={() => navigation.navigate("ManagerTeamLeaves")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#3B82F6" }]} />
+                <Text style={styles.kpiLabel}>On Leave</Text>
+              </View>
+              <Text style={[styles.kpiValue, { color: "#2563EB" }]}>{onLeave}</Text>
+              <Text style={styles.kpiSub}>Approved today</Text>
+            </TouchableOpacity>
+
+            {/* Active Projects */}
+            <TouchableOpacity
+              style={[styles.kpiBox, { borderLeftColor: "#F59E0B" }]}
+              onPress={() => navigation.navigate("ManagerProjects")}
+              activeOpacity={0.8}
+            >
+              <View style={styles.kpiTopRow}>
+                <View style={[styles.kpiDot, { backgroundColor: "#F59E0B" }]} />
+                <Text style={styles.kpiLabel}>Projects</Text>
+              </View>
+              <Text style={styles.kpiValue}>{projectSummary.activeProjects ?? 0}</Text>
+              <Text style={styles.kpiSub}>In Execution</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* ── 4. TEAM ATTENDANCE TODAY PULSE CARD ── */}
+          <View style={styles.attendanceCard}>
+            <View style={styles.attendanceCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="pulse" size={16} color="#1268D9" style={{ marginRight: 6 }} />
+                <Text style={styles.attendanceCardTitle}>Team Attendance Today</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate("ManagerTeamAttendance")}
+                style={styles.cardHeaderBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cardHeaderBtnText}>Inspect Team</Text>
+                <Ionicons name="chevron-forward" size={12} color="#1268D9" />
               </TouchableOpacity>
             </View>
-            <View style={styles.donutRow}>
-              <DonutChart data={donutData} size={78} stroke={9} centerLabel={staffTotal} centerSub="STAFF" />
-              <View style={styles.legend}>
-                {donutData.map(d => (
-                  <View key={d.label} style={styles.legendRow}>
-                    <View style={styles.legendLeft}>
-                      <View style={[styles.legendDot, { backgroundColor: d.color }]} />
-                      <Text style={styles.legendLbl}>{d.label}</Text>
+
+            <View style={styles.donutContainer}>
+              <DonutChart data={donutData} size={84} stroke={10} centerLabel={staffTotal} centerSub="STAFF" />
+              <View style={styles.legendGrid}>
+                {donutData.map((d) => (
+                  <View key={d.label} style={styles.legendTile}>
+                    <View style={[styles.legendTileDot, { backgroundColor: d.color }]} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.legendTileLabel}>{d.label}</Text>
+                      <Text style={styles.legendTileValue}>
+                        {d.value} <Text style={styles.legendTilePct}>({pct(d.value)})</Text>
+                      </Text>
                     </View>
-                    <Text style={styles.legendVal}>{d.value} <Text style={styles.legendPct}>({pct(d.value)})</Text></Text>
                   </View>
                 ))}
               </View>
             </View>
           </View>
 
-          {/* 6. UPCOMING + RECENT ACTIVITY */}
-          <View style={{ flexDirection: "row" }}>
-            {/* Upcoming Deadlines */}
-            <View style={[styles.halfCard, { flex: 1, marginRight: 8 }]}>
-              <View style={styles.halfHdr}>
-                <Ionicons name="calendar-outline" size={11} color="#1268D9" style={{ marginRight: 3 }} />
-                <Text style={styles.halfTitle}>Upcoming Deadlines</Text>
-                <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center" }} activeOpacity={0.7}>
-                  <Text style={styles.linkTxt}>View All</Text>
-                  <Ionicons name="chevron-forward" size={10} color="#1268D9" />
-                </TouchableOpacity>
+          {/* ── 5. UPCOMING DEADLINES & TASK HIGHLIGHTS ── */}
+          <View style={styles.tasksSectionCard}>
+            <View style={styles.tasksCardHeader}>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <Ionicons name="calendar-outline" size={16} color="#1268D9" style={{ marginRight: 6 }} />
+                <Text style={styles.tasksCardTitle}>Upcoming Deadlines</Text>
               </View>
-              {(recentTasks.length > 0 ? recentTasks.slice(0, 2) : [
-                { _id: "1", title: "recurring", _pn: "General", _dt: "Jul 10" },
-                { _id: "2", title: "recurring task", _pn: "General", _dt: "Jul 15" },
-              ]).map((t, i) => (
-                <View key={t._id || i} style={styles.dlRow}>
-                  <View style={styles.dlIcon}><Ionicons name="refresh-outline" size={11} color="#10B981" /></View>
-                  <View style={{ flex: 1, marginRight: 4 }}>
-                    <Text style={styles.dlTitle} numberOfLines={1}>{t.title}</Text>
-                    <Text style={styles.dlSub}>{t._pn || t.projectId?.name || "General"}</Text>
-                  </View>
-                  <View style={{ alignItems: "flex-end" }}>
-                    <Text style={styles.dlDate}>{t._dt || (t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "—")}</Text>
-                    <View style={styles.medPill}><Text style={styles.medTxt}>Medium</Text></View>
-                  </View>
-                </View>
-              ))}
+              <TouchableOpacity
+                onPress={() => navigation.navigate("ManagerTasks")}
+                style={styles.cardHeaderBtn}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.cardHeaderBtnText}>View All ({recentTasks.length})</Text>
+                <Ionicons name="chevron-forward" size={12} color="#1268D9" />
+              </TouchableOpacity>
             </View>
 
-            {/* Recent Activity */}
-            <View style={[styles.halfCard, { flex: 1 }]}>
-              <View style={styles.halfHdr}>
-                <Ionicons name="pulse-outline" size={11} color="#1268D9" style={{ marginRight: 3 }} />
-                <Text style={styles.halfTitle}>Recent Activity</Text>
-                <TouchableOpacity style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center" }} activeOpacity={0.7}>
-                  <Text style={styles.linkTxt}>View All</Text>
-                  <Ionicons name="chevron-forward" size={10} color="#1268D9" />
-                </TouchableOpacity>
+            {recentTasks.length === 0 ? (
+              <View style={styles.emptyTasksBox}>
+                <Ionicons name="checkmark-done-circle-outline" size={32} color="#10B981" />
+                <Text style={styles.emptyTasksText}>All team deadlines are on track!</Text>
               </View>
-              {[
-                { icon: "checkmark-circle", bg: "#ECFDF5", c: "#10B981", text: "You completed \"UI Design\"", time: "2h ago" },
-                { icon: "person", bg: "#F5F3FF", c: "#8B5CF6", text: "Rohit submitted leave", time: "3h ago" },
-                { icon: "time-outline", bg: "#EFF6FF", c: "#3B82F6", text: "Meeting with Team", time: "10:30 AM" },
-              ].map((a, i) => (
-                <View key={i} style={styles.actRow}>
-                  <View style={[styles.actIcon, { backgroundColor: a.bg }]}>
-                    <Ionicons name={a.icon} size={11} color={a.c} />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.actText} numberOfLines={1}>{a.text}</Text>
-                    <Text style={styles.actTime}>{a.time}</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={10} color="#CBD5E1" />
-                </View>
-              ))}
-            </View>
+            ) : (
+              recentTasks.slice(0, 4).map((t, idx) => {
+                const isOverdue = t.isOverdue || (t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed");
+                return (
+                  <TouchableOpacity
+                    key={t._id || idx}
+                    style={styles.taskListItem}
+                    onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerTaskDetails", params: { taskId: t._id } })}
+                    activeOpacity={0.75}
+                  >
+                    <View style={[styles.taskIconBox, { backgroundColor: isOverdue ? "#FEF2F2" : "#EFF6FF" }]}>
+                      <Ionicons
+                        name={isOverdue ? "alert-circle" : "clipboard-outline"}
+                        size={16}
+                        color={isOverdue ? "#EF4444" : "#1268D9"}
+                      />
+                    </View>
+
+                    <View style={{ flex: 1, marginRight: 8 }}>
+                      <Text style={styles.taskItemTitle} numberOfLines={1}>
+                        {t.title || "Task Assignment"}
+                      </Text>
+                      <Text style={styles.taskItemProject} numberOfLines={1}>
+                        {t.projectId?.name || t.departmentName || "General Project"} • {t.assignedTo?.name || "Team"}
+                      </Text>
+                    </View>
+
+                    <View style={{ alignItems: "flex-end" }}>
+                      <Text style={[styles.taskItemDate, isOverdue && { color: "#DC2626", fontWeight: "800" }]}>
+                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Today"}
+                      </Text>
+                      <View style={[styles.priorityPill, { backgroundColor: t.priority === "high" ? "#FEF2F2" : "#F1F5F9" }]}>
+                        <Text style={[styles.priorityPillText, { color: t.priority === "high" ? "#DC2626" : "#64748B" }]}>
+                          {(t.priority || "Normal").toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
+            )}
           </View>
 
-        </View>{/* end lightSection */}
+        </View>
       </ScrollView>
 
       <FollowUpPopup />
@@ -545,45 +671,64 @@ const ManagerDashboardScreen = ({ navigation }) => {
   );
 };
 
-// ─── Styles ──────────────────────────────────────────
+// ─────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  // scroll bg = same as header → seamless dark hero transition
-  // scroll: { flex: 1, backgroundColor: "#0F172A" },
-  content: { paddingBottom: 30 },
+  scroll: { flex: 1, backgroundColor: "#F8FAFC" },
+  content: { paddingBottom: 110 },
 
   centerBox: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, minHeight: 300 },
-  loaderText: { marginTop: 12, fontSize: 12, color: "#64748B", fontWeight: "600" },
+  loaderText: { marginTop: 12, fontSize: 13, color: "#64748B", fontWeight: "600" },
   errorText: { marginTop: 12, fontSize: 13, color: "#EF4444", fontWeight: "700", textAlign: "center" },
-  retryBtn: { marginTop: 2, backgroundColor: "#1268D9", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8 },
+  retryBtn: { marginTop: 12, backgroundColor: "#1268D9", borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
   retryBtnText: { color: "#fff", fontWeight: "800", fontSize: 13 },
 
-  // // ── TOP LIGHT SECTION ──
-  topDarkSection: {
-    backgroundColor: "#F4F7FB",
+  // ── TOP SECTION ──
+  topSection: {
+    backgroundColor: "#F8FAFC",
+    paddingTop: 8,
   },
-
-  // ── Hero ──
-  heroContent: {
+  greetingRow: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: HP,
-    paddingTop: 10,
-    paddingBottom: 1,
+    marginBottom: 4,
   },
-  heroLeft: { flex: 1, paddingRight: 8 },
-  heroName: { fontSize: 24, fontWeight: "900", color: "#0F172A", marginBottom: 8 },
-  datePill: {
-    flexDirection: "row", alignItems: "center",
-    backgroundColor: "#E2E8F0",
-    paddingHorizontal: 8, paddingVertical: 5,
-    borderRadius: 15, alignSelf: "flex-start",
+  greetingText: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.2,
   },
-  datePillText: { fontSize: 11, fontWeight: "600", color: "#475569" },
-  // ── Punch Card ──
+  dateSubText: {
+    fontSize: 11.5,
+    fontWeight: "600",
+    color: "#64748B",
+    marginTop: 1,
+  },
+  roleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: "900",
+    color: "#1268D9",
+    letterSpacing: 0.5,
+  },
+
+  // ── PUNCH CARD (PRESERVED) ──
   punchCardFull: {
     marginHorizontal: HP,
     marginTop: 8,
-    marginBottom: 12,
+    marginBottom: 8,
     borderRadius: 20,
     paddingHorizontal: HP,
     paddingTop: 12,
@@ -596,122 +741,388 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   shiftBadge: {
-    flexDirection: "row", alignItems: "center",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.2)",
     alignSelf: "flex-start",
-    paddingHorizontal: 1, paddingVertical: 3,
-    borderRadius: 8, marginBottom: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginBottom: 4,
   },
   dot: { width: 6, height: 6, borderRadius: 3, marginRight: 5 },
   shiftText: { fontSize: 9, fontWeight: "800", color: "#fff", letterSpacing: 0.7 },
   punchRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  punchClock: { fontSize: 32, fontWeight: "900", color: "#fff", letterSpacing: -0.5 },
-  punchSub: { fontSize: 10.5, color: "rgba(255,255,255,0.75)", marginTop: 1 },
+  punchClock: { fontSize: 30, fontWeight: "900", color: "#fff", letterSpacing: -0.5 },
+  punchSub: { fontSize: 10.5, color: "rgba(255,255,255,0.85)", marginTop: 1 },
   punchRight: { alignItems: "flex-end" },
   punchInLbl: { fontSize: 10.5, color: "rgba(255,255,255,0.85)", fontWeight: "600" },
   punchInTime: { fontSize: 13.5, fontWeight: "800", color: "#fff", marginBottom: 7 },
   punchBtn: {
-    flexDirection: "row", alignItems: "center",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
-    paddingHorizontal: 14, paddingVertical: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     borderRadius: 18,
-    elevation: 3, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 4,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
   },
   punchBtnText: { fontSize: 12, fontWeight: "800", color: "#1268D9" },
 
-  // ── LIGHT SECTION ──
-  lightSection: {
-    backgroundColor: "#F1F5F9",
+  // ── BODY SECTION ──
+  bodySection: {
     paddingHorizontal: HP,
-    paddingTop: 14,
-    paddingBottom: 160,
+    paddingTop: 4,
   },
 
-  // ── Dept filter ──
-  pill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E2E8F0" },
-  pillA: { backgroundColor: "#1268D9", borderColor: "#1268D9" },
-  pillTxt: { fontSize: 11, fontWeight: "700", color: "#64748B" },
-  pillTxtA: { color: "#fff" },
-
-  // ── Section headers ──
-  secRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
-  secTitle: { fontSize: 14, fontWeight: "800", color: "#0F172A" },
-  linkBtn: { flexDirection: "row", alignItems: "center" },
-  linkTxt: { fontSize: 11, fontWeight: "700", color: "#1268D9" },
-
-  // ── Quick Actions ──
-  quickCard: {
-    flex: 1, borderRadius: 14,
-    paddingVertical: 11, paddingHorizontal: 5,
-    alignItems: "center",
-    elevation: 1, shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3,
+  // Dept filter
+  deptPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  quickIconBox: { width: 42, height: 42, borderRadius: 13, alignItems: "center", justifyContent: "center", marginBottom: 5 },
-  quickLabel: { fontSize: 10, fontWeight: "700", color: "#1E293B", textAlign: "center", marginBottom: 1 },
-  quickArrow: { width: 17, height: 17, borderRadius: 8.5, alignItems: "center", justifyContent: "center", marginTop: 4 },
+  deptPillActive: { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+  deptPillText: { fontSize: 11, fontWeight: "700", color: "#64748B" },
+  deptPillTextActive: { color: "#FFFFFF" },
 
-  // ── KPI Cards (width computed in KpiRow component) ──
-  kpiCard: {
-    backgroundColor: "#fff",
-    borderRadius: 12, padding: 11,
-    borderBottomWidth: 2.5,
-    elevation: 2, shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 5,
-  },
-  kpiIconBox: { width: 26, height: 26, borderRadius: 7, alignItems: "center", justifyContent: "center", marginBottom: 6 },
-  kpiVal: { fontSize: 20, fontWeight: "900", color: "#0F172A" },
-  kpiLbl: { fontSize: 9.5, fontWeight: "700", color: "#64748B", marginTop: 1 },
-
-  // ── Card ──
-  card: {
-    marginBottom: 10,
-    backgroundColor: "#fff", borderRadius: 14,
+  // ── Alert Banner ──
+  alertBannerCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 14,
     padding: 12,
-    elevation: 2, shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FEE2E2",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  alertHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  alertBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  alertBadgeText: {
+    fontSize: 10.5,
+    fontWeight: "900",
+    color: "#DC2626",
+    letterSpacing: 0.5,
+  },
+  alertDateHint: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  alertItemsRow: {
+    flexDirection: "column",
+    gap: 6,
+  },
+  alertActionChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  alertIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  alertChipTitle: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  alertChipSub: {
+    fontSize: 10,
+    color: "#64748B",
   },
 
-  // ── Donut ──
-  donutRow: { flexDirection: "row", alignItems: "center", paddingTop: 4 },
-  legend: { flex: 1, marginLeft: 14 },
-  legendRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
-  legendLeft: { flexDirection: "row", alignItems: "center" },
-  legendDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 5 },
-  legendLbl: { fontSize: 11, color: "#475569", fontWeight: "600" },
-  legendVal: { fontSize: 11, fontWeight: "800", color: "#0F172A" },
-  legendPct: { fontSize: 9.5, color: "#94A3B8" },
-
-  // ── Two-column bottom ──
-  halfCard: {
-    backgroundColor: "#fff", borderRadius: 12, padding: 10,
-    elevation: 2, shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6,
+  // ── Headers ──
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
   },
-  halfHdr: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  halfTitle: { fontSize: 11, fontWeight: "800", color: "#0F172A" },
-  dlRow: { flexDirection: "row", alignItems: "center", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: "#F8FAFC" },
-  dlIcon: { width: 22, height: 22, borderRadius: 6, backgroundColor: "#ECFDF5", alignItems: "center", justifyContent: "center", marginRight: 6 },
-  dlTitle: { fontSize: 10.5, fontWeight: "700", color: "#0F172A" },
-  dlSub: { fontSize: 9, color: "#94A3B8" },
-  dlDate: { fontSize: 9, fontWeight: "700", color: "#64748B", marginBottom: 2 },
-  medPill: { backgroundColor: "#FEF3C7", paddingHorizontal: 5, paddingVertical: 1, borderRadius: 4 },
-  medTxt: { fontSize: 8, fontWeight: "800", color: "#D97706" },
-  actRow: { flexDirection: "row", alignItems: "center", paddingVertical: 5, borderBottomWidth: 1, borderBottomColor: "#F8FAFC" },
-  actIcon: { width: 22, height: 22, borderRadius: 11, alignItems: "center", justifyContent: "center", marginRight: 6 },
-  actText: { fontSize: 10.5, fontWeight: "700", color: "#0F172A" },
-  actTime: { fontSize: 9, color: "#94A3B8" },
-
-  // ── FAB ──
-  fab: {
-    position: "absolute", bottom: 26, right: 18,
-    width: 50, height: 50, borderRadius: 25,
-    elevation: 8, shadowColor: "#1268D9",
-    shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
-    overflow: "hidden",
+  sectionTitle: {
+    fontSize: 13.5,
+    fontWeight: "900",
+    color: "#0F172A",
+    letterSpacing: -0.2,
   },
-  fabGrad: { flex: 1, alignItems: "center", justifyContent: "center" },
+  sectionHint: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#94A3B8",
+  },
+  sectionLink: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#1268D9",
+  },
+
+  // ── Shortcuts Grid (4 cols) ──
+  shortcutsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 4,
+  },
+  shortcutBtn: {
+    width: (width - HP * 2 - 24) / 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  shortcutIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 5,
+  },
+  shortcutLabel: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: "#1E293B",
+    textAlign: "center",
+  },
+
+  // ── KPI Grid (3 cols) ──
+  kpiGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginBottom: 12,
+  },
+  kpiBox: {
+    width: (width - HP * 2 - 16) / 3,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderLeftWidth: 3.5,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  kpiTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  kpiDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 4,
+  },
+  kpiLabel: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#64748B",
+  },
+  kpiValue: {
+    fontSize: 18,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  kpiSub: {
+    fontSize: 8.5,
+    fontWeight: "700",
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+
+  // ── Attendance Card ──
+  attendanceCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  attendanceCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  attendanceCardTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  cardHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  cardHeaderBtnText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#1268D9",
+  },
+  donutContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  legendGrid: {
+    flex: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    marginLeft: 14,
+    gap: 8,
+  },
+  legendTile: {
+    width: "46%",
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    padding: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  legendTileDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  legendTileLabel: {
+    fontSize: 9.5,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  legendTileValue: {
+    fontSize: 11,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  legendTilePct: {
+    fontSize: 9,
+    color: "#94A3B8",
+    fontWeight: "600",
+  },
+
+  // ── Tasks Deadlines Card ──
+  tasksSectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  tasksCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  tasksCardTitle: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#0F172A",
+  },
+  emptyTasksBox: {
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  emptyTasksText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#059669",
+    marginTop: 4,
+  },
+  taskListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+  },
+  taskIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  taskItemTitle: {
+    fontSize: 11.5,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  taskItemProject: {
+    fontSize: 10,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  taskItemDate: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  priorityPill: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    marginTop: 2,
+  },
+  priorityPillText: {
+    fontSize: 8,
+    fontWeight: "900",
+  },
 });
 
 export default ManagerDashboardScreen;

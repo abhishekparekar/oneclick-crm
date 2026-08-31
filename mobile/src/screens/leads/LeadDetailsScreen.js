@@ -178,10 +178,10 @@ export default function LeadDetailsScreen({ route, navigation }) {
       (tpl.headerType === "IMAGE"
         ? "https://images.unsplash.com/photo-1579389083078-4e7018379f7e?w=800"
         : tpl.headerType === "DOCUMENT"
-        ? "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
-        : tpl.headerType === "VIDEO"
-        ? "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
-        : "");
+          ? "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf"
+          : tpl.headerType === "VIDEO"
+            ? "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4"
+            : "");
     setMediaUrl(defaultMedia);
   };
 
@@ -229,7 +229,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
       try {
         const assignable = await leadsService.getAssignableUsers();
         setEmployees(Array.isArray(assignable) ? assignable : []);
-      } catch (_) {}
+      } catch (_) { }
     } catch (err) {
       console.warn("[LeadDetails] Fetch note:", err?.message || err);
     } finally {
@@ -513,7 +513,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   const sName = (lead.status?.name || "").toLowerCase();
                   const isWonLead = sName.includes("won") || sName.includes("converted") || sName.includes("selected");
                   const isLostLead = sName.includes("lost") || sName.includes("dropped") || sName.includes("rejected") || sName.includes("closed");
-                  
+
                   if (isWonLead || isLostLead) {
                     return (
                       <View style={[styles.stageBadgeDropdown, { backgroundColor: isWonLead ? "#064E3B" : "#881337", borderColor: isWonLead ? "#10B981" : "#F43F5E" }]}>
@@ -896,8 +896,8 @@ export default function LeadDetailsScreen({ route, navigation }) {
                                 selectedTemplate.headerType === "IMAGE"
                                   ? "image"
                                   : selectedTemplate.headerType === "DOCUMENT"
-                                  ? "document-attach"
-                                  : "videocam"
+                                    ? "document-attach"
+                                    : "videocam"
                               }
                               size={13}
                               color="#059669"

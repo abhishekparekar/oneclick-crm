@@ -9,7 +9,6 @@ import {
   ActivityIndicator,
   Linking,
   Dimensions,
-  Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -18,12 +17,6 @@ import ManagerLayout from "../../components/ManagerLayout";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import { useAuth } from "../../context/AuthContext";
 import leadsService from "../../api/leadsService";
-import {
-  getMyTodayApi,
-  punchInApi,
-  punchOutApi,
-} from "../../api/attendanceService";
-import { captureGPSLocation } from "../../utils/locationService";
 import { COLORS, FONTS, SPACING, ROUNDING, SHADOWS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
@@ -64,30 +57,8 @@ export default function LeadsDashboardScreen({ navigation }) {
     totalPipelineValue: 0,
   });
   const [statusCounts, setStatusCounts] = useState([]);
+  const [sourcesBreakdown, setSourcesBreakdown] = useState([]);
   const [recentLeads, setRecentLeads] = useState([]);
-
-  // Attendance Punch State
-  const [todayAttendance, setTodayAttendance] = useState(null);
-  const [punchLoading, setPunchLoading] = useState(false);
-  const [currentTimeStr, setCurrentTimeStr] = useState(
-    new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-  );
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTimeStr(new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }));
-    }, 10000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const fetchTodayAttendance = async () => {
-    try {
-      const res = await getMyTodayApi();
-      if (res.data?.success && res.data?.attendance) {
-        setTodayAttendance(res.data.attendance);
-      }
-    } catch (_) {}
-  };
 
   const fetchData = async () => {
     try {
@@ -99,19 +70,17 @@ export default function LeadsDashboardScreen({ navigation }) {
         leadsService.getSources().catch(() => []),
       ]);
 
-      await fetchTodayAttendance();
-
       const leads = Array.isArray(leadsRes?.data)
         ? leadsRes.data
         : Array.isArray(leadsRes)
-        ? leadsRes
-        : [];
+          ? leadsRes
+          : [];
       const statuses = Array.isArray(statusesRes) ? statusesRes : [];
       const reminders = Array.isArray(remindersRes?.reminders)
         ? remindersRes.reminders
         : Array.isArray(remindersRes)
-        ? remindersRes
-        : [];
+          ? remindersRes
+          : [];
 
       const totalLeads = leads.length;
       const todayStr = new Date().toISOString().split("T")[0];
@@ -141,6 +110,18 @@ export default function LeadsDashboardScreen({ navigation }) {
       });
       setStatusCounts(counts);
 
+      const srcMap = {};
+      leads.forEach((l) => {
+        const src = l.source || "Direct / Walk-in";
+        srcMap[src] = (srcMap[src] || 0) + 1;
+      });
+      const srcList = Object.keys(srcMap).map((k) => ({
+        name: k,
+        count: srcMap[k],
+        percentage: totalLeads ? Math.round((srcMap[k] / totalLeads) * 100) : 0,
+      }));
+      setSourcesBreakdown(srcList.slice(0, 4));
+
       setRecentLeads(leads.slice(0, 5));
     } catch (err) {
       console.warn("[LeadsDashboard] Fetch note:", err?.message || err);
@@ -164,7 +145,7 @@ export default function LeadsDashboardScreen({ navigation }) {
     let cleanPhone = phone.replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
     const msg = `Hello ${name || ""}, thank you for connecting with OneClick HRMS!`;
-    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {});
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => { });
   };
 
   const handleCall = (phone) => {
@@ -172,62 +153,15 @@ export default function LeadsDashboardScreen({ navigation }) {
     Linking.openURL(`tel:${phone}`);
   };
 
-  // Compute Punch Status
-  let isPunchedIn = false;
-  let punchInTimeStr = "--:--";
-  let workingHours = "--";
-
-  if (todayAttendance) {
-    if (todayAttendance.punchLog?.length > 0) {
-      const last = todayAttendance.punchLog[todayAttendance.punchLog.length - 1];
-      if (!last.punchOutTime) {
-        isPunchedIn = true;
-        punchInTimeStr = new Date(last.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      }
-    } else if (todayAttendance.punchInTime && !todayAttendance.punchOutTime) {
-      isPunchedIn = true;
-      punchInTimeStr = new Date(todayAttendance.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    }
-    if (todayAttendance.totalHours) {
-      workingHours = `${todayAttendance.totalHours} hrs`;
-    }
-  }
-
-  const handlePunchToggle = async () => {
-    try {
-      setPunchLoading(true);
-      const coords = await captureGPSLocation().catch(() => null);
-      if (isPunchedIn) {
-        await punchOutApi({ punchOutLocation: coords });
-        Alert.alert("Success", "Punched out successfully!");
-      } else {
-        await punchInApi({ punchInLocation: coords });
-        Alert.alert("Success", "Punched in successfully!");
-      }
-      await fetchTodayAttendance();
-    } catch (err) {
-      Alert.alert("Attendance Error", err.response?.data?.message || "Failed to update punch status");
-    } finally {
-      setPunchLoading(false);
-    }
-  };
-
-  const dateHeading = new Date().toLocaleDateString("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-
-  const LayoutComponent = isManager ? ManagerLayout : isEmployee ? EmployeeLayout : CompanyAdminLayout;
-  const layoutProps = isManager 
+  const Layout = isManager ? ManagerLayout : (isEmployee ? EmployeeLayout : CompanyAdminLayout);
+  const layoutProps = isManager
     ? { navigation, title: "Lead Engine", activeTabOverride: "Leads" }
-    : (isEmployee 
-        ? { navigation, title: "Lead CRM" } 
-        : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false });
+    : (isEmployee
+      ? { navigation, title: "Lead CRM" }
+      : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false });
 
   return (
-    <LayoutComponent
+    <Layout
       {...layoutProps}
       headerRightElement={
         <TouchableOpacity
@@ -249,76 +183,56 @@ export default function LeadsDashboardScreen({ navigation }) {
             showsVerticalScrollIndicator={false}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[THEME.primary]} />}
           >
-            {/* ── 1. Re-added Perfectly Working Punch In / Out Hero Module Card ── */}
+            {/* ── 1. Compact Hero Banner ── */}
             <LinearGradient
-              colors={isPunchedIn ? ["#0F172A", "#1E293B", "#064E3B"] : ["#0F172A", "#1E293B", "#1E3A8A"]}
+              colors={["#0F172A", "#1E293B", "#1268D9"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={styles.punchHeroBanner}
+              style={styles.heroBanner}
             >
-              <View style={styles.punchTopRow}>
+              <View style={styles.heroTopRow}>
                 <View>
-                  <View style={styles.punchLiveBadge}>
-                    <View style={[styles.liveDot, { backgroundColor: isPunchedIn ? "#10B981" : "#F59E0B" }]} />
-                    <Text style={styles.punchLiveBadgeText}>
-                      {isPunchedIn ? "CURRENTLY ACTIVE (PUNCHED IN)" : "NOT PUNCHED IN"}
-                    </Text>
+                  <View style={styles.heroBadge}>
+                    <Ionicons name="trending-up" size={12} color="#60A5FA" />
+                    <Text style={styles.heroPreTitle}>PIPELINE VALUATION</Text>
                   </View>
-                  <Text style={styles.punchClockText}>{currentTimeStr}</Text>
-                  <Text style={styles.punchDateSubtitle}>{dateHeading} • General Shift</Text>
+                  <Text style={styles.heroValuationText}>
+                    ₹{summary.totalPipelineValue.toLocaleString()}
+                  </Text>
                 </View>
 
-                {/* Main One-Tap Punch Action Button */}
                 <TouchableOpacity
-                  style={[
-                    styles.punchActionButton,
-                    { backgroundColor: isPunchedIn ? "#DC2626" : "#16A34A" }
-                  ]}
-                  activeOpacity={0.85}
-                  onPress={handlePunchToggle}
-                  disabled={punchLoading}
+                  style={styles.heroAddButton}
+                  activeOpacity={0.8}
+                  onPress={() => navigation.navigate("LeadsList", { openAddModal: true })}
                 >
-                  {punchLoading ? (
-                    <ActivityIndicator size="small" color="#FFF" />
-                  ) : (
-                    <>
-                      <Ionicons
-                        name={isPunchedIn ? "exit-outline" : "finger-print"}
-                        size={20}
-                        color="#FFF"
-                        style={{ marginRight: 6 }}
-                      />
-                      <Text style={styles.punchActionText}>
-                        {isPunchedIn ? "PUNCH OUT" : "PUNCH IN"}
-                      </Text>
-                    </>
-                  )}
+                  <Ionicons name="add" size={16} color="#FFF" />
+                  <Text style={styles.heroAddButtonText}>+ Add Lead</Text>
                 </TouchableOpacity>
               </View>
 
-              {/* Punch Stats Inset Strip */}
-              <View style={styles.punchStatsStrip}>
-                <View style={styles.punchStatItem}>
-                  <Text style={styles.punchStatLbl}>Punch In</Text>
-                  <Text style={styles.punchStatVal}>{isPunchedIn ? punchInTimeStr : "--:--"}</Text>
+              <View style={styles.heroStatsRow}>
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatNum}>{summary.totalLeads}</Text>
+                  <Text style={styles.heroStatLbl}>Contacts</Text>
                 </View>
-
-                <View style={styles.punchStatDivider} />
-
-                <View style={styles.punchStatItem}>
-                  <Text style={styles.punchStatLbl}>Work Hours</Text>
-                  <Text style={styles.punchStatVal}>{workingHours}</Text>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStatItem}>
+                  <Text style={styles.heroStatNum}>{summary.activeLeads}</Text>
+                  <Text style={styles.heroStatLbl}>Active Deals</Text>
                 </View>
-
-                <View style={styles.punchStatDivider} />
-
-                <TouchableOpacity
-                  style={styles.quickAddLeadBtn}
-                  onPress={() => navigation.navigate("LeadsList", { openAddModal: true })}
-                >
-                  <Ionicons name="person-add" size={13} color="#FFF" style={{ marginRight: 4 }} />
-                  <Text style={styles.quickAddLeadText}>+ Add Lead</Text>
-                </TouchableOpacity>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStatItem}>
+                  <Text style={[styles.heroStatNum, { color: "#34D399" }]}>{summary.conversionRate}%</Text>
+                  <Text style={styles.heroStatLbl}>Win Ratio</Text>
+                </View>
+                <View style={styles.heroStatDivider} />
+                <View style={styles.heroStatItem}>
+                  <Text style={[styles.heroStatNum, summary.dueReminders > 0 ? { color: "#F87171" } : { color: "#FFF" }]}>
+                    {summary.dueReminders}
+                  </Text>
+                  <Text style={styles.heroStatLbl}>Due Today</Text>
+                </View>
               </View>
             </LinearGradient>
 
@@ -546,7 +460,7 @@ export default function LeadsDashboardScreen({ navigation }) {
           <Ionicons name="add" size={28} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-    </LayoutComponent>
+    </Layout>
   );
 }
 
@@ -585,7 +499,7 @@ const styles = StyleSheet.create({
     padding: 6,
     marginRight: 6,
   },
-  punchHeroBanner: {
+  heroBanner: {
     borderRadius: 16,
     padding: 14,
     marginBottom: 10,
@@ -595,107 +509,55 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  punchTopRow: {
+  heroTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  punchLiveBadge: {
+  heroBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    gap: 4,
     backgroundColor: "rgba(255, 255, 255, 0.08)",
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
     alignSelf: "flex-start",
   },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  punchLiveBadgeText: {
-    fontSize: 8.5,
+  heroPreTitle: {
+    fontSize: 9,
     fontWeight: "900",
-    color: "#E2E8F0",
-    letterSpacing: 0.5,
+    color: "#93C5FD",
+    letterSpacing: 0.6,
   },
-  punchClockText: {
+  heroValuationText: {
     fontSize: 22,
     fontWeight: "900",
     color: "#FFFFFF",
     marginTop: 4,
     letterSpacing: 0.3,
   },
-  punchDateSubtitle: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    color: "#94A3B8",
-    marginTop: 1,
-  },
-  punchActionButton: {
+  heroAddButton: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    backgroundColor: "#1268D9",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.35)",
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    gap: 4,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  punchActionText: {
+  heroAddButtonText: {
     color: "#FFF",
     fontWeight: "900",
-    fontSize: 12,
-    letterSpacing: 0.5,
-  },
-  punchStatsStrip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "rgba(0, 0, 0, 0.25)",
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.06)",
-  },
-  punchStatItem: {
-    alignItems: "flex-start",
-  },
-  punchStatLbl: {
-    fontSize: 9,
-    fontWeight: "800",
-    color: "#94A3B8",
-    textTransform: "uppercase",
-  },
-  punchStatVal: {
-    fontSize: 12.5,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    marginTop: 1,
-  },
-  punchStatDivider: {
-    width: 1,
-    height: 22,
-    backgroundColor: "rgba(255, 255, 255, 0.12)",
-  },
-  quickAddLeadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.14)",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-  },
-  quickAddLeadText: {
-    fontSize: 10.5,
-    fontWeight: "800",
-    color: "#FFFFFF",
+    fontSize: 11.5,
   },
   heroStatsRow: {
     flexDirection: "row",
