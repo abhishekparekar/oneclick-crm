@@ -82,7 +82,11 @@ const EmployeeLayout = ({
       <View
         style={[
           styles.header,
-          { height: (isDashboard ? 72 : 60) + insets.top, paddingTop: insets.top },
+          {
+            minHeight: (isDashboard ? 72 : 62) + Math.max(insets.top, 12),
+            paddingTop: Math.max(insets.top, 12) + 4,
+            paddingBottom: 10,
+          },
         ]}
       >
         <View style={styles.headerLeft}>

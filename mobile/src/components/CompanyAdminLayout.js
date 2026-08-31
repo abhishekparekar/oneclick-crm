@@ -407,8 +407,9 @@ const CompanyAdminLayout = ({
         style={[
           styles.header,
           {
-            height: 60 + insets.top,
-            paddingTop: insets.top,
+            minHeight: 62 + Math.max(insets.top, 12),
+            paddingTop: Math.max(insets.top, 12) + 4,
+            paddingBottom: 10,
             backgroundColor: headerBg || "#FFFFFF",
           },
           headerStyle,
