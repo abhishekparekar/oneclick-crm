@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import ProjectCreateModal from "../../components/projects/ProjectCreateModal";
 import {
   getProjectsApi,
   createProjectApi,
@@ -1755,182 +1756,11 @@ const Projects = () => {
         </div>
       )}
 
-      {/* ── CREATE PROJECT CENTERED MODAL POPUP ─────────────────────────── */}
-      {isCreateModalOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/70 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white dark:bg-[#0D1B2E] rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden relative border border-slate-200 dark:border-[#1C3554] animate-scaleUp">
-            <div className="flex items-center justify-between p-4 sm:p-5 border-b border-slate-200/80 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F] z-10 relative">
-              <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center tracking-tight">
-                <Folder className="mr-2.5 text-[#1268D9]" size={20} /> Initiate New Project
-              </h2>
-              <button
-                type="button"
-                onClick={() => setIsCreateModalOpen(false)}
-                className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/[0.06] rounded-xl transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="overflow-y-auto custom-scrollbar flex-1 relative z-0">
-              <form onSubmit={handleCreateSubmit} className="flex flex-col min-h-full">
-
-                {/* Section 1: General Details */}
-                <div className="p-5 border-b border-ca-border dark:border-theme-3/50 bg-slate-50/40 dark:bg-theme-3/20">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Project Title *</label>
-                      <input
-                        type="text" required placeholder="e.g. Website Redesign..."
-                        value={projectForm.name} onChange={(e) => setProjectForm({ ...projectForm, name: e.target.value })}
-                        className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Client Name</label>
-                      <input
-                        type="text" placeholder="e.g. Acme Corp..."
-                        value={projectForm.clientName} onChange={(e) => setProjectForm({ ...projectForm, clientName: e.target.value })}
-                        className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all shadow-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Project Manager</label>
-                      <select
-                        value={projectForm.projectManager} onChange={(e) => setProjectForm({ ...projectForm, projectManager: e.target.value })}
-                        className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer shadow-sm"
-                      >
-                        <option value="">Select Manager...</option>
-                        {employees.map(emp => (
-                          <option key={emp._id} value={emp._id}>{emp.firstName} {emp.lastName}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="space-y-1.5 md:col-span-2">
-                      <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Description</label>
-                      <textarea
-                        rows="2" placeholder="Outline the project scope..."
-                        value={projectForm.description} onChange={(e) => setProjectForm({ ...projectForm, description: e.target.value })}
-                        className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-medium text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all resize-none shadow-sm"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Section 2: Timeline & Parameters */}
-                <div className="p-5 bg-slate-50/50 dark:bg-theme-2/50 flex-1 flex flex-col">
-                  <h3 className="text-base font-bold text-ca-text dark:text-slate-100 uppercase tracking-wider mb-4 flex items-center">
-                    <CalendarIcon className="mr-2 text-theme-4" size={16} /> Timeline & Parameters
-                  </h3>
-
-                  <div className="space-y-4 flex-1 flex flex-col">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Project Status</label>
-                        <select
-                          value={projectForm.status} onChange={(e) => setProjectForm({ ...projectForm, status: e.target.value })}
-                          className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer shadow-sm"
-                        >
-                          <option value="planning">Planning</option>
-                          <option value="active">Active</option>
-                          <option value="working">In Progress</option>
-                          <option value="review">Review</option>
-                          <option value="deployment">Deployment</option>
-                          <option value="completed">Completed</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Project Priority</label>
-                        <select
-                          value={projectForm.priority} onChange={(e) => setProjectForm({ ...projectForm, priority: e.target.value })}
-                          className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 cursor-pointer shadow-sm"
-                        >
-                          <option value="low">Low Priority</option>
-                          <option value="medium">Medium Priority</option>
-                          <option value="high">High Priority</option>
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Start Date</label>
-                        <input
-                          type="date" value={projectForm.startDate} onChange={(e) => setProjectForm({ ...projectForm, startDate: e.target.value })}
-                          className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">End Date</label>
-                        <input
-                          type="date" value={projectForm.endDate} onChange={(e) => setProjectForm({ ...projectForm, endDate: e.target.value })}
-                          className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400">Working Days</label>
-                        <input
-                          type="number" value={projectForm.estimatedWorkingDays} onChange={(e) => setProjectForm({ ...projectForm, estimatedWorkingDays: parseInt(e.target.value, 10) || 0 })}
-                          className="w-full px-3 py-2 border border-ca-border dark:border-theme-3 rounded-lg text-base font-semibold text-ca-text-secondary dark:text-slate-200 bg-ca-surface dark:bg-theme-1 focus:outline-none focus:ring-2 focus:ring-primary/40 shadow-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 flex-1 flex flex-col mt-1">
-                      <label className="text-[12px] font-bold uppercase tracking-wider text-ca-text-secondary dark:text-slate-400 flex justify-between items-center">
-                        <span>Select Project Team Members</span>
-                        <span className="bg-primary/30 dark:bg-primary text-primary  px-2 py-0.5 rounded-full">{projectForm.members.length} Selected</span>
-                      </label>
-                      <div className="border border-ca-border dark:border-theme-3 rounded-lg p-2 bg-ca-surface dark:bg-theme-1 flex-1 overflow-y-auto space-y-1 shadow-inner custom-scrollbar min-h-[120px]">
-                        {employees.map((emp) => {
-                          const isChecked = projectForm.members.includes(emp._id);
-                          return (
-                            <label key={emp._id} className={`flex items-center space-x-3 text-base font-semibold text-ca-text-secondary dark:text-slate-200 cursor-pointer hover:bg-ca-hover dark:hover:bg-theme-2 p-1.5 rounded-md transition-colors ${isChecked ? 'bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30' : 'border border-transparent'}`}>
-                              <input
-                                type="checkbox" checked={isChecked}
-                                onChange={() => {
-                                  const updated = isChecked
-                                    ? projectForm.members.filter(id => id !== emp._id)
-                                    : [...projectForm.members, emp._id];
-                                  setProjectForm({ ...projectForm, members: updated });
-                                }}
-                                className="rounded text-primary focus:ring-primary w-3.5 h-3.5 cursor-pointer"
-                              />
-                              <div className="flex items-center gap-2">
-                                <div className="w-5 h-5 rounded-full bg-ca-bg dark:bg-theme-3 flex items-center justify-center text-[11px] text-ca-text-secondary dark:text-slate-400 font-bold border border-ca-border dark:border-theme-4">
-                                  {emp.firstName.charAt(0)}{emp.lastName.charAt(0)}
-                                </div>
-                                <span>{emp.firstName} {emp.lastName} <span className="text-ca-text-secondary dark:text-slate-500 text-[12px] font-medium ml-1">({emp.employeeCode})</span></span>
-                              </div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Actions */}
-                <div className="p-4 border-t border-ca-border dark:border-theme-3/50 bg-ca-bg dark:bg-theme-2/50 flex justify-end gap-3 mt-auto sticky bottom-0 z-10">
-                  <button
-                    type="button" onClick={() => setIsCreateModalOpen(false)}
-                    className="px-4 py-2 border-2 border-ca-border dark:border-theme-3 hover:border-slate-300 dark:hover:border-theme-4 text-ca-text-secondary dark:text-slate-300 rounded-lg text-base font-bold transition-all cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit" disabled={submitting}
-                    className="px-6 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg text-base font-bold transition-all shadow-md cursor-pointer flex items-center justify-center min-w-[140px]"
-                  >
-                    {submitting ? "Initiating..." : "Create Project"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      {/* ── CREATE PROJECT POPUP (Ultra-Compact Professional Design) ────── */}
+      <ProjectCreateModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
 
     </div>
   );
