@@ -665,14 +665,8 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
     if (selectedEmployeeIds.length > 0) {
       tasksToUse = tasksToUse.filter(t => {
-        if (t.assignees && t.assignees.length > 0) {
-          return t.assignees.some(emp => selectedEmployeeIds.includes(emp._id || emp));
-        }
-        if (t.assignedTo) {
-          const assId = t.assignedTo._id || t.assignedTo;
-          return selectedEmployeeIds.includes(assId);
-        }
-        return false;
+        const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+        return assigneesArr.some(emp => selectedEmployeeIds.includes(emp?._id || emp?.id || emp));
       });
     }
     
@@ -806,14 +800,8 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
   if (selectedEmployeeIds.length > 0) {
     filteredData = filteredData.filter(t => {
-      if (t.assignees && t.assignees.length > 0) {
-        return t.assignees.some(emp => selectedEmployeeIds.includes(emp._id || emp));
-      }
-      if (t.assignedTo) {
-        const assId = t.assignedTo._id || t.assignedTo;
-        return selectedEmployeeIds.includes(assId);
-      }
-      return false;
+      const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+      return assigneesArr.some(emp => selectedEmployeeIds.includes(emp?._id || emp?.id || emp));
     });
   }
 
@@ -894,14 +882,8 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
     if (selectedEmployeeIds.length > 0) {
       base = base.filter(t => {
-        if (t.assignees && t.assignees.length > 0) {
-          return t.assignees.some(emp => selectedEmployeeIds.includes(emp._id || emp));
-        }
-        if (t.assignedTo) {
-          const assId = t.assignedTo._id || t.assignedTo;
-          return selectedEmployeeIds.includes(assId);
-        }
-        return false;
+        const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+        return assigneesArr.some(emp => selectedEmployeeIds.includes(emp?._id || emp?.id || emp));
       });
     }
     
@@ -977,14 +959,8 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
     if (selectedEmployeeIds.length > 0) {
       base = base.filter(t => {
-        if (t.assignees && t.assignees.length > 0) {
-          return t.assignees.some(emp => selectedEmployeeIds.includes(emp._id || emp));
-        }
-        if (t.assignedTo) {
-          const assId = t.assignedTo._id || t.assignedTo;
-          return selectedEmployeeIds.includes(assId);
-        }
-        return false;
+        const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+        return assigneesArr.some(emp => selectedEmployeeIds.includes(emp?._id || emp?.id || emp));
       });
     }
 

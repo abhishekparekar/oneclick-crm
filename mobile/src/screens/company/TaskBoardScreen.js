@@ -490,11 +490,11 @@ const TaskBoardScreen = ({ navigation }) => {
   };
 
   // ── Metrics Calculation (7 Flow Categories) ──────────────────────────────────
-  const tasksList = Array.isArray(tasksData) ? tasksData : [];
   const projTasks = tasksList.filter((t) => {
     if (t.isTemplate) return false;
     const matchDept = selectedDepts.length === 0 || selectedDepts.includes(t.departmentId?._id || t.departmentId);
-    const matchEmployee = selectedEmployeeIds.length === 0 || t.assignedTo?.some(a => selectedEmployeeIds.includes(a._id || a));
+    const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+    const matchEmployee = selectedEmployeeIds.length === 0 || assigneesArr.some(a => selectedEmployeeIds.includes(a?._id || a?.id || a));
     return matchDept && matchEmployee;
   });
 
@@ -615,14 +615,8 @@ const TaskBoardScreen = ({ navigation }) => {
 
   if (selectedEmployeeIds.length > 0) {
     filteredData = filteredData.filter((t) => {
-      if (t.assignees && t.assignees.length > 0) {
-        return t.assignees.some((emp) => selectedEmployeeIds.includes(emp._id || emp));
-      }
-      if (t.assignedTo) {
-        const assId = t.assignedTo._id || t.assignedTo;
-        return selectedEmployeeIds.includes(assId);
-      }
-      return false;
+      const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+      return assigneesArr.some((emp) => selectedEmployeeIds.includes(emp?._id || emp?.id || emp));
     });
   }
 

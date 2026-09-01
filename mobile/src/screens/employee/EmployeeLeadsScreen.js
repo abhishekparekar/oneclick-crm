@@ -20,7 +20,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import EmployeeLayout from "../../components/EmployeeLayout";
-import { leadsService } from "../../api/leadsService";
+import leadsService from "../../api/leadsService";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS, FONTS, SHADOWS, ROUNDING } from "../../theme/tokens";
 
@@ -199,7 +199,9 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       }
 
       if (selectedTimeframe !== "all") {
+        if (!l.createdAt) return false;
         const created = new Date(l.createdAt);
+        if (isNaN(created.getTime())) return false;
         const now = new Date();
         if (selectedTimeframe === "today") {
           const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());

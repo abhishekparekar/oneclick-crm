@@ -15,7 +15,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
-import { leadsService } from "../../api/leadsService";
+import leadsService from "../../api/leadsService";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");

@@ -916,4 +916,5 @@ export const leadsService = {
   },
 };
 
+export { leadsService };
 export default leadsService;

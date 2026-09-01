@@ -21,7 +21,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import HRHeader from "../../components/HRHeader";
 import { getHRDashboardApi } from "../../api/hrService";
 import { getMyTodayApi } from "../../api/attendanceService";
-import { leadsService } from "../../api/leadsService";
+import leadsService from "../../api/leadsService";
 import { FONTS } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
 import Svg, { G, Circle } from "react-native-svg";
