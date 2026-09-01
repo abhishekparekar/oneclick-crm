@@ -20,6 +20,10 @@ export default function HRLeads() {
 
   const [search, setSearch] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedAssignee, setSelectedAssignee] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedSource, setSelectedSource] = useState("all");
+  const [selectedDateTab, setSelectedDateTab] = useState("All Time");
   const [viewMode, setViewMode] = useState("list"); // 'cards' | 'list'
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -140,14 +144,53 @@ export default function HRLeads() {
     const comp = (lead.company || lead.productService || "").toLowerCase();
     const q = search.toLowerCase();
 
-    const matchesSearch = name.includes(q) || phone.includes(q) || email.includes(q) || comp.includes(q);
+    const matchesSearch = !q || name.includes(q) || phone.includes(q) || email.includes(q) || comp.includes(q);
+    if (!matchesSearch) return false;
+
     const leadStatId = lead.statusId || lead.status?.id || lead.status?._id;
     const matchesStatus =
       selectedStatus === "all" ||
       leadStatId === selectedStatus ||
       (lead.status?.name || "").toLowerCase() === selectedStatus.toLowerCase();
+    if (!matchesStatus) return false;
 
-    return matchesSearch && matchesStatus;
+    if (selectedAssignee !== "all") {
+      const assignedId = lead.assignedTo?._id || lead.assignedTo?.id || lead.assignedTo;
+      if (selectedAssignee === "unassigned") {
+        if (assignedId) return false;
+      } else if (assignedId !== selectedAssignee) {
+        return false;
+      }
+    }
+
+    if (selectedProduct !== "all") {
+      const req = (lead.productService || "").toLowerCase();
+      if (!req.includes(selectedProduct.toLowerCase())) return false;
+    }
+
+    if (selectedSource !== "all") {
+      const src = (lead.source || "").toLowerCase();
+      if (!src.includes(selectedSource.toLowerCase())) return false;
+    }
+
+    if (selectedDateTab !== "All Time") {
+      const created = new Date(lead.createdAt);
+      const now = new Date();
+      if (selectedDateTab === "Today") {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        if (created < start) return false;
+      } else if (selectedDateTab === "This Week") {
+        const start = new Date(now);
+        start.setDate(now.getDate() - now.getDay());
+        start.setHours(0, 0, 0, 0);
+        if (created < start) return false;
+      } else if (selectedDateTab === "This Month") {
+        const start = new Date(now.getFullYear(), now.getMonth(), 1);
+        if (created < start) return false;
+      }
+    }
+
+    return true;
   });
 
   // KPIs
@@ -327,56 +370,135 @@ export default function HRLeads() {
         </div>
       </div>
 
-      <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 shadow-2xs border border-slate-200/80 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
-        <div className="relative flex-1 max-w-md">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search by name, phone, email, or company..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:border-[#f97316]"
-          />
-        </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 oc-scroll">
-          <button
-            onClick={() => setSelectedStatus("all")}
-            className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
-              selectedStatus === "all" ? "bg-[#f97316] text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
-            }`}
-          >
-            All ({leadsList.length})
-          </button>
-          {statuses.map((st) => {
-            const stId = st.id || st._id;
-            const isSelected = selectedStatus === stId || selectedStatus.toLowerCase() === st.name.toLowerCase();
-            return (
+      <div className="bg-white dark:bg-[#111C24] rounded-xl p-3 shadow-2xs border border-slate-200/80 dark:border-slate-800 flex flex-col gap-2.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div className="relative flex-1 max-w-md">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, phone, email, or company..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-white focus:outline-none focus:border-[#f97316]"
+            />
+          </div>
+
+          {/* Timeframe Tabs */}
+          <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+            {["All Time", "Today", "This Week", "This Month"].map((tab) => (
               <button
-                key={stId}
-                onClick={() => setSelectedStatus(stId)}
-                className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
-                  isSelected ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                key={tab}
+                type="button"
+                onClick={() => setSelectedDateTab(tab)}
+                className={`px-2.5 py-1 text-xs font-bold rounded-md transition-all cursor-pointer ${
+                  selectedDateTab === tab
+                    ? "bg-white dark:bg-[#111C24] text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
                 }`}
               >
-                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color || "#f97316" }} />
-                {st.name}
+                {tab}
               </button>
-            );
-          })}
+            ))}
+          </div>
+
+          <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
+            <button
+              onClick={() => setViewMode("cards")}
+              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "cards" ? "bg-white dark:bg-slate-900 text-[#f97316] shadow-2xs font-bold" : "text-slate-500"}`}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              onClick={() => setViewMode("list")}
+              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-white dark:bg-slate-900 text-[#f97316] shadow-2xs font-bold" : "text-slate-500"}`}
+            >
+              <List size={14} />
+            </button>
+          </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg">
-          <button
-            onClick={() => setViewMode("cards")}
-            className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "cards" ? "bg-white dark:bg-slate-900 text-[#f97316] shadow-2xs font-bold" : "text-slate-500"}`}
-          >
-            <LayoutGrid size={14} />
-          </button>
-          <button
-            onClick={() => setViewMode("list")}
-            className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "list" ? "bg-white dark:bg-slate-900 text-[#f97316] shadow-2xs font-bold" : "text-slate-500"}`}
-          >
-            <List size={14} />
-          </button>
+
+        {/* Filters Row: Statuses + Staff + Product + Reset */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0 oc-scroll">
+            <button
+              onClick={() => setSelectedStatus("all")}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                selectedStatus === "all" ? "bg-[#f97316] text-white" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+              }`}
+            >
+              All ({leadsList.length})
+            </button>
+            {statuses.map((st) => {
+              const stId = st.id || st._id;
+              const isSelected = selectedStatus === stId || selectedStatus.toLowerCase() === st.name.toLowerCase();
+              return (
+                <button
+                  key={stId}
+                  onClick={() => setSelectedStatus(stId)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 flex items-center gap-1 cursor-pointer ${
+                    isSelected ? "bg-slate-900 dark:bg-white text-white dark:text-slate-900" : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300"
+                  }`}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color || "#f97316" }} />
+                  {st.name}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Staff Dropdown */}
+            {employees.length > 0 && (
+              <select
+                value={selectedAssignee}
+                onChange={(e) => setSelectedAssignee(e.target.value)}
+                className="h-8 px-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 outline-none max-w-[150px]"
+              >
+                <option value="all">All Staff</option>
+                <option value="unassigned">-- Unassigned --</option>
+                {employees.map((emp) => (
+                  <option key={emp.id || emp._id} value={emp.id || emp._id}>
+                    {emp.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Product Dropdown */}
+            {productsList.length > 0 && (
+              <select
+                value={selectedProduct}
+                onChange={(e) => setSelectedProduct(e.target.value)}
+                className="h-8 px-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 outline-none max-w-[150px]"
+              >
+                <option value="all">All Products</option>
+                {productsList.map((p) => (
+                  <option key={p._id || p.id} value={p.name}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {/* Reset Button */}
+            {(selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedDateTab !== "All Time" || search) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedStatus("all");
+                  setSelectedAssignee("all");
+                  setSelectedProduct("all");
+                  setSelectedDateTab("All Time");
+                  setSearch("");
+                }}
+                className="px-2 h-8 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold hover:bg-rose-100 transition-colors flex items-center gap-1 cursor-pointer"
+                title="Reset all filters"
+              >
+                <X size={12} />
+                <span>Reset</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

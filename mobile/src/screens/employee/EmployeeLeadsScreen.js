@@ -54,6 +54,9 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedSource, setSelectedSource] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("all");
 
   // Modal States
   const [addModalVisible, setAddModalVisible] = useState(route?.params?.openAddModal || false);
@@ -101,7 +104,13 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
         leadsService.getProducts(),
       ]);
 
-      const leadList = Array.isArray(leadsData) ? leadsData : leadsData?.data || [];
+      const leadList = Array.isArray(leadsData)
+        ? leadsData
+        : Array.isArray(leadsData?.data)
+        ? leadsData.data
+        : Array.isArray(leadsData?.leads)
+        ? leadsData.leads
+        : [];
       setLeads(leadList);
 
       if (Array.isArray(statusesData) && statusesData.length > 0) {
@@ -170,16 +179,49 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
         l.company?.toLowerCase().includes(q) ||
         l.productService?.toLowerCase().includes(q) ||
         l.email?.toLowerCase().includes(q);
+      if (!matchesSearch) return false;
 
       const statusKey = l.statusId || l.status?.id || l.status?._id || "";
       const matchesStatus =
         selectedStatus === "all" ||
         statusKey === selectedStatus ||
         l.status?.name?.toLowerCase() === selectedStatus.toLowerCase();
+      if (!matchesStatus) return false;
 
-      return matchesSearch && matchesStatus;
+      if (selectedSource !== "all") {
+        const src = (l.source || "").toLowerCase();
+        if (!src.includes(selectedSource.toLowerCase())) return false;
+      }
+
+      if (selectedProduct !== "all") {
+        const prod = (l.productService || "").toLowerCase();
+        if (!prod.includes(selectedProduct.toLowerCase())) return false;
+      }
+
+      if (selectedTimeframe !== "all") {
+        const created = new Date(l.createdAt);
+        const now = new Date();
+        if (selectedTimeframe === "today") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (created < s) return false;
+        } else if (selectedTimeframe === "yesterday") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (created < s || created >= e) return false;
+        } else if (selectedTimeframe === "this_week") {
+          const s = new Date(now);
+          s.setDate(now.getDate() - now.getDay());
+          s.setHours(0, 0, 0, 0);
+          if (created < s) return false;
+        } else if (selectedTimeframe === "this_month") {
+          const s = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (created < s) return false;
+        }
+      }
+
+      return true;
     });
-  }, [leads, searchQuery, selectedStatus]);
+  }, [leads, searchQuery, selectedStatus, selectedSource, selectedProduct, selectedTimeframe]);
 
   // Action Handlers
   const handleCall = (phone) => {
@@ -512,6 +554,34 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
               <Text style={styles.addBtnText}>Add Lead</Text>
             </TouchableOpacity>
           )}
+        </View>
+
+        {/* Timeframe Quick Filter Tabs */}
+        <View style={[styles.filterScrollWrapper, { paddingTop: 4, paddingBottom: 2 }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterTabsContent}>
+            {[
+              { id: "all", label: "All Time" },
+              { id: "today", label: "Today" },
+              { id: "this_week", label: "This Week" },
+              { id: "this_month", label: "This Month" },
+            ].map((tf) => {
+              const isSel = selectedTimeframe === tf.id;
+              return (
+                <TouchableOpacity
+                  key={tf.id}
+                  style={[
+                    styles.filterPill,
+                    isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" }
+                  ]}
+                  onPress={() => setSelectedTimeframe(tf.id)}
+                >
+                  <Text style={[styles.filterPillText, isSel && { color: "#FFFFFF", fontWeight: "700" }]}>
+                    {tf.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
         </View>
 
         {/* Status Filter Tabs */}

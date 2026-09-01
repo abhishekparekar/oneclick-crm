@@ -383,6 +383,8 @@ export default function Leads() {
   const [selectedOptIn, setSelectedOptIn] = useState('');
   const [selectedSource, setSelectedSource] = useState('');
   const [selectedTagId, setSelectedTagId] = useState('');
+  const [selectedAssignee, setSelectedAssignee] = useState('');
+  const [selectedProduct, setSelectedProduct] = useState('');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -744,7 +746,7 @@ export default function Leads() {
     }
   };
 
-  const fetchLeads = async (page = 1, overrideParams?: { search?: string; statusId?: string; optInState?: string; source?: string; tagId?: string; activeTab?: string }) => {
+  const fetchLeads = async (page = 1, overrideParams?: { search?: string; statusId?: string; optInState?: string; source?: string; tagId?: string; assignedTo?: string; productService?: string; activeTab?: string }) => {
     setLoading(true);
     try {
       const qSearch = overrideParams?.search !== undefined ? overrideParams.search : search;
@@ -752,6 +754,8 @@ export default function Leads() {
       const qOptIn = overrideParams?.optInState !== undefined ? overrideParams.optInState : selectedOptIn;
       const qSource = overrideParams?.source !== undefined ? overrideParams.source : selectedSource;
       const qTagId = overrideParams?.tagId !== undefined ? overrideParams.tagId : selectedTagId;
+      const qAssignee = overrideParams?.assignedTo !== undefined ? overrideParams.assignedTo : selectedAssignee;
+      const qProduct = overrideParams?.productService !== undefined ? overrideParams.productService : selectedProduct;
       const qTab = overrideParams?.activeTab !== undefined ? overrideParams.activeTab : activeTab;
 
       let url = `/api/leads?page=${page}&limit=${pagination.limit}`;
@@ -760,6 +764,8 @@ export default function Leads() {
       if (qOptIn) url += `&optInState=${qOptIn}`;
       if (qSource) url += `&source=${qSource}`;
       if (qTagId) url += `&tagId=${qTagId}`;
+      if (qAssignee) url += `&assignedTo=${encodeURIComponent(qAssignee)}`;
+      if (qProduct) url += `&productService=${encodeURIComponent(qProduct)}`;
 
       let computedStart = '';
       let computedEnd = '';
@@ -799,7 +805,7 @@ export default function Leads() {
   };
 
   useEffect(() => { fetchStatuses(); fetchSources(); fetchTags(); fetchProducts(); fetchEmployees(); fetchStats(); }, []);
-  useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, activeTab]);
+  useEffect(() => { fetchLeads(1); }, [search, selectedStatusId, selectedOptIn, selectedSource, selectedTagId, selectedAssignee, selectedProduct, activeTab]);
 
   // Checkbox helpers
   const allChecked = leads.length > 0 && leads.every(l => checkedIds.has(l.id));
@@ -1097,8 +1103,8 @@ export default function Leads() {
   };
 
   const activeCustomFiltersCount = useMemo(() => {
-    return [selectedStatusId, selectedOptIn, selectedSource, selectedTagId].filter(Boolean).length;
-  }, [selectedStatusId, selectedOptIn, selectedSource, selectedTagId]);
+    return [selectedStatusId, selectedOptIn, selectedSource, selectedTagId, selectedAssignee, selectedProduct].filter(Boolean).length;
+  }, [selectedStatusId, selectedOptIn, selectedSource, selectedTagId, selectedAssignee, selectedProduct]);
 
   // Stat calculations
   const totalLeadsCount = pagination.total || leads.length;
@@ -1305,13 +1311,78 @@ export default function Leads() {
             />
           </div>
 
-          <div className="flex items-center gap-2 w-full xl:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+            {/* Source */}
             <CustomSelect
               value={selectedSource}
               onChange={setSelectedSource}
               options={(Array.isArray(sources) ? sources : []).map(s => ({ value: s.name, label: s.name }))}
               defaultLabel="All Sources"
             />
+
+            {/* Assigned Staff */}
+            {employees.length > 0 && (
+              <CustomSelect
+                value={selectedAssignee}
+                onChange={setSelectedAssignee}
+                options={[
+                  { value: 'unassigned', label: 'Unassigned Pool' },
+                  ...employees.map(e => ({ value: e.id || e._id, label: e.name }))
+                ]}
+                defaultLabel="All Staff"
+              />
+            )}
+
+            {/* Products & Services */}
+            {products.length > 0 && (
+              <CustomSelect
+                value={selectedProduct}
+                onChange={setSelectedProduct}
+                options={products.map(p => ({ value: p.name, label: p.name }))}
+                defaultLabel="All Products"
+              />
+            )}
+
+            {/* WhatsApp Consent */}
+            <CustomSelect
+              value={selectedOptIn}
+              onChange={setSelectedOptIn}
+              options={[
+                { value: 'true', label: 'WhatsApp Opted In' },
+                { value: 'false', label: 'Not Opted In' }
+              ]}
+              defaultLabel="Consent: All"
+            />
+
+            {/* Tags */}
+            {tags.length > 0 && (
+              <CustomSelect
+                value={selectedTagId}
+                onChange={setSelectedTagId}
+                options={tags.map(t => ({ value: t.id || t._id, label: t.name }))}
+                defaultLabel="All Tags"
+              />
+            )}
+
+            {/* Reset Filter Button */}
+            {(selectedSource || selectedAssignee || selectedProduct || selectedOptIn || selectedTagId || selectedStatusId) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedSource('');
+                  setSelectedAssignee('');
+                  setSelectedProduct('');
+                  setSelectedOptIn('');
+                  setSelectedTagId('');
+                  setSelectedStatusId('');
+                }}
+                className="px-2.5 h-8 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                title="Reset all filters"
+              >
+                <X size={12} />
+                <span>Reset</span>
+              </button>
+            )}
           </div>
         </div>
 

@@ -350,13 +350,18 @@ const getLeads = async (req, res) => {
 
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 20;
-    const search = req.query.search || "";
+    const search = (req.query.search || "").trim();
     const statusId = req.query.statusId || undefined;
     const source = req.query.source || undefined;
     const tagId = req.query.tagId || undefined;
     const optInState = req.query.optInState === "true" ? true : req.query.optInState === "false" ? false : undefined;
     const startDate = req.query.startDate || undefined;
     const endDate = req.query.endDate || undefined;
+    const assignedTo = req.query.assignedTo || undefined;
+    const unassigned = req.query.unassigned === "true" || req.query.assignedTo === "unassigned";
+    const productService = req.query.productService || req.query.product || undefined;
+    const sortBy = req.query.sortBy || "createdAt";
+    const sortOrder = req.query.sortOrder === "asc" || req.query.sortOrder === "1" ? 1 : -1;
 
     const query = buildCompanyQuery(req, { deletedAt: null });
 
@@ -374,27 +379,81 @@ const getLeads = async (req, res) => {
       });
     }
 
+    // Search Filter with text & phone digit matching
     if (search) {
+      const cleanDigits = search.replace(/\D/g, "");
+      const searchConditions = [
+        { name: { $regex: search, $options: "i" } },
+        { whatsappPhone: { $regex: search, $options: "i" } },
+        { phone: { $regex: search, $options: "i" } },
+        { email: { $regex: search, $options: "i" } },
+        { productService: { $regex: search, $options: "i" } },
+        { company: { $regex: search, $options: "i" } },
+        { notes: { $regex: search, $options: "i" } },
+      ];
+      if (cleanDigits.length >= 4) {
+        searchConditions.push({ whatsappPhone: { $regex: cleanDigits, $options: "i" } });
+        searchConditions.push({ phone: { $regex: cleanDigits, $options: "i" } });
+      }
+      query.$and = query.$and || [];
+      query.$and.push({ $or: searchConditions });
+    }
+
+    if (statusId && statusId !== "all") query.statusId = statusId;
+    if (source && source !== "all") query.source = source;
+    if (tagId && tagId !== "all") query.tags = tagId;
+    if (optInState !== undefined) query.whatsappOptIn = optInState;
+
+    // Assigned / Unassigned Filter
+    if (unassigned) {
       query.$and = query.$and || [];
       query.$and.push({
         $or: [
-          { name: { $regex: search, $options: "i" } },
-          { whatsappPhone: { $regex: search, $options: "i" } },
-          { email: { $regex: search, $options: "i" } },
-          { productService: { $regex: search, $options: "i" } },
-          { company: { $regex: search, $options: "i" } },
+          { assignedTo: null },
+          { assignedTo: { $exists: false } },
+        ],
+      });
+    } else if (assignedTo && assignedTo !== "all") {
+      let candidateIds = [assignedTo];
+      if (mongoose.Types.ObjectId.isValid(assignedTo)) {
+        const emp = await Employee.findById(assignedTo).select("userId");
+        if (emp && emp.userId) {
+          candidateIds.push(emp.userId.toString());
+        }
+        const empByUser = await Employee.findOne({ userId: assignedTo }).select("_id");
+        if (empByUser) {
+          candidateIds.push(empByUser._id.toString());
+        }
+      }
+      query.$and = query.$and || [];
+      query.$and.push({
+        assignedTo: { $in: candidateIds },
+      });
+    }
+
+    // Product / Service Filter
+    if (productService && productService !== "all") {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { productService: { $regex: productService, $options: "i" } },
+          { company: { $regex: productService, $options: "i" } },
         ],
       });
     }
-    if (statusId) query.statusId = statusId;
-    if (source) query.source = source;
-    if (tagId) query.tags = tagId;
-    if (optInState !== undefined) query.whatsappOptIn = optInState;
 
+    // Date Range Filter
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
       if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const sortObj = {};
+    if (["createdAt", "updatedAt", "name", "estimatedValue", "nextFollowUpDate"].includes(sortBy)) {
+      sortObj[sortBy] = sortOrder;
+    } else {
+      sortObj.createdAt = -1;
     }
 
     const total = await Lead.countDocuments(query);
@@ -403,7 +462,7 @@ const getLeads = async (req, res) => {
       .populate("tags", "name color")
       .populate("assignedTo", "name email phone role")
       .populate("createdBy", "name email")
-      .sort({ createdAt: -1 })
+      .sort(sortObj)
       .skip((page - 1) * limit)
       .limit(limit)
       .lean();

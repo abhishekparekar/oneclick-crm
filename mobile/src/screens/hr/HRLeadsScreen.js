@@ -75,6 +75,11 @@ export default function HRLeadsScreen({ navigation, route }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
+  const [selectedAssignee, setSelectedAssignee] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedSource, setSelectedSource] = useState("all");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("all");
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [leadScope, setLeadScope] = useState("all"); // 'all' or 'my'
 
   // Staff Picker Modal for Add Lead
@@ -262,12 +267,54 @@ export default function HRLeadsScreen({ navigation, route }) {
         }
       }
 
-      if (selectedStatus === "all") return true;
+      if (selectedStatus !== "all") {
+        const itemStatusId = item.statusId || item.status?.id || item.status?._id;
+        if (itemStatusId !== selectedStatus) return false;
+      }
 
-      const itemStatusId = item.statusId || item.status?.id || item.status?._id;
-      return itemStatusId === selectedStatus;
+      if (selectedAssignee !== "all") {
+        const assignedId = item.assignedTo?._id || item.assignedTo?.id || item.assignedTo;
+        if (selectedAssignee === "unassigned") {
+          if (assignedId) return false;
+        } else if (assignedId !== selectedAssignee) {
+          return false;
+        }
+      }
+
+      if (selectedProduct !== "all") {
+        const pReq = (item.productService || "").toLowerCase();
+        if (!pReq.includes(selectedProduct.toLowerCase())) return false;
+      }
+
+      if (selectedSource !== "all") {
+        const sName = (item.source || "").toLowerCase();
+        if (!sName.includes(selectedSource.toLowerCase())) return false;
+      }
+
+      if (selectedTimeframe !== "all") {
+        const created = new Date(item.createdAt);
+        const now = new Date();
+        if (selectedTimeframe === "today") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (created < s) return false;
+        } else if (selectedTimeframe === "yesterday") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+          if (created < s || created >= e) return false;
+        } else if (selectedTimeframe === "this_week") {
+          const s = new Date(now);
+          s.setDate(now.getDate() - now.getDay());
+          s.setHours(0, 0, 0, 0);
+          if (created < s) return false;
+        } else if (selectedTimeframe === "this_month") {
+          const s = new Date(now.getFullYear(), now.getMonth(), 1);
+          if (created < s) return false;
+        }
+      }
+
+      return true;
     });
-  }, [leads, searchQuery, selectedStatus, leadScope, currentUserId]);
+  }, [leads, searchQuery, selectedStatus, leadScope, selectedAssignee, selectedProduct, selectedSource, selectedTimeframe, currentUserId]);
 
   // Metrics
   const metrics = useMemo(() => {
@@ -564,9 +611,9 @@ export default function HRLeadsScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      {/* ══════════ 2. SEARCH BAR ══════════ */}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchInnerBox}>
+      {/* ══════════ 2. SEARCH BAR & FILTER BUTTON ══════════ */}
+      <View style={{ flexDirection: "row", alignItems: "center", paddingHorizontal: 14, paddingTop: 10, gap: 8 }}>
+        <View style={[styles.searchInnerBox, { flex: 1, marginHorizontal: 0 }]}>
           <Ionicons name="search-outline" size={17} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
@@ -581,6 +628,29 @@ export default function HRLeadsScreen({ navigation, route }) {
             </TouchableOpacity>
           ) : null}
         </View>
+
+        <TouchableOpacity
+          style={[
+            {
+              width: 40,
+              height: 40,
+              borderRadius: 10,
+              backgroundColor: (selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedSource !== "all" || selectedTimeframe !== "all") ? "#1268D9" : "#FFFFFF",
+              borderWidth: 1,
+              borderColor: (selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedSource !== "all" || selectedTimeframe !== "all") ? "#1268D9" : "#E2E8F0",
+              alignItems: "center",
+              justifyContent: "center",
+            },
+          ]}
+          onPress={() => setFilterModalVisible(true)}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name="funnel-outline"
+            size={18}
+            color={(selectedStatus !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedSource !== "all" || selectedTimeframe !== "all") ? "#FFFFFF" : "#64748B"}
+          />
+        </TouchableOpacity>
       </View>
 
       {/* ══════════ 3. PIPELINE STAGE CHIPS STRIP ══════════ */}
@@ -658,6 +728,260 @@ export default function HRLeadsScreen({ navigation, route }) {
       >
         <Ionicons name="add" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* ══════════ MODAL: FILTER LEADS ══════════ */}
+      <Modal visible={filterModalVisible} animationType="slide" transparent onRequestClose={() => setFilterModalVisible(false)}>
+        <View style={styles.modalBackdrop}>
+          <View style={[styles.modalSheetContainer, { maxHeight: "80%" }]}>
+            {/* Header Banner */}
+            <View style={styles.modalHeaderBanner}>
+              <View style={styles.modalIconBadge}>
+                <Ionicons name="funnel" size={18} color="#FFFFFF" />
+              </View>
+              <View style={{ flex: 1, marginLeft: 10 }}>
+                <Text style={styles.modalHeadingText}>FILTER TEAM LEADS</Text>
+                <Text style={styles.modalSubheadingText}>Filter by timeframe, stage, staff member, and product</Text>
+              </View>
+              <TouchableOpacity onPress={() => setFilterModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalBodyScroll} showsVerticalScrollIndicator={false}>
+              {/* Timeframe */}
+              <View style={styles.formSectionBox}>
+                <Text style={styles.fieldLabel}>CREATION TIMEFRAME</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                  {[
+                    { id: "all", label: "All Time" },
+                    { id: "today", label: "Today" },
+                    { id: "yesterday", label: "Yesterday" },
+                    { id: "this_week", label: "This Week" },
+                    { id: "this_month", label: "This Month" },
+                  ].map((tf) => {
+                    const isSel = selectedTimeframe === tf.id;
+                    return (
+                      <TouchableOpacity
+                        key={tf.id}
+                        style={[
+                          styles.stageChip,
+                          isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                        ]}
+                        onPress={() => setSelectedTimeframe(tf.id)}
+                      >
+                        <Text style={[styles.stageChipText, isSel && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                          {tf.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Status / Stage */}
+              <View style={styles.formSectionBox}>
+                <Text style={styles.fieldLabel}>PIPELINE STAGE</Text>
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                  <TouchableOpacity
+                    style={[
+                      styles.stageChip,
+                      selectedStatus === "all" && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                    ]}
+                    onPress={() => setSelectedStatus("all")}
+                  >
+                    <Text style={[styles.stageChipText, selectedStatus === "all" && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                      All Stages ({leads.length})
+                    </Text>
+                  </TouchableOpacity>
+                  {statuses.map((st) => {
+                    const stId = st.id || st._id;
+                    const isSel = selectedStatus === stId;
+                    return (
+                      <TouchableOpacity
+                        key={stId}
+                        style={[
+                          styles.stageChip,
+                          isSel && { backgroundColor: `${st.color || "#1268D9"}20`, borderColor: st.color || "#1268D9", borderWidth: 1.5 },
+                        ]}
+                        onPress={() => setSelectedStatus(stId)}
+                      >
+                        <View style={[styles.stageDotSmall, { backgroundColor: st.color || "#1268D9" }]} />
+                        <Text style={[styles.stageChipText, isSel && { color: st.color || "#1268D9", fontFamily: FONTS.bodyBold }]}>
+                          {st.name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Assigned Staff */}
+              {employees.length > 0 && (
+                <View style={styles.formSectionBox}>
+                  <Text style={styles.fieldLabel}>ASSIGNED STAFF / SALES REP</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.stageChip,
+                        selectedAssignee === "all" && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                      ]}
+                      onPress={() => setSelectedAssignee("all")}
+                    >
+                      <Text style={[styles.stageChipText, selectedAssignee === "all" && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                        All Staff
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.stageChip,
+                        selectedAssignee === "unassigned" && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                      ]}
+                      onPress={() => setSelectedAssignee("unassigned")}
+                    >
+                      <Text style={[styles.stageChipText, selectedAssignee === "unassigned" && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                        Unassigned Pool
+                      </Text>
+                    </TouchableOpacity>
+
+                    {employees.map((emp) => {
+                      const empId = emp.id || emp._id;
+                      const isSel = selectedAssignee === empId;
+                      return (
+                        <TouchableOpacity
+                          key={empId}
+                          style={[
+                            styles.stageChip,
+                            isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                          ]}
+                          onPress={() => setSelectedAssignee(empId)}
+                        >
+                          <Text style={[styles.stageChipText, isSel && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                            {emp.name}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Products & Services */}
+              {products.length > 0 && (
+                <View style={styles.formSectionBox}>
+                  <Text style={styles.fieldLabel}>PRODUCT / SERVICE INTEREST</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.stageChip,
+                        selectedProduct === "all" && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                      ]}
+                      onPress={() => setSelectedProduct("all")}
+                    >
+                      <Text style={[styles.stageChipText, selectedProduct === "all" && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                        All Products
+                      </Text>
+                    </TouchableOpacity>
+                    {products.map((p, idx) => {
+                      const pName = p.name || p;
+                      const isSel = selectedProduct === pName;
+                      return (
+                        <TouchableOpacity
+                          key={p._id || p.id || idx}
+                          style={[
+                            styles.stageChip,
+                            isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                          ]}
+                          onPress={() => setSelectedProduct(pName)}
+                        >
+                          <Text style={[styles.stageChipText, isSel && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                            {pName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+
+              {/* Source Channel */}
+              {sources.length > 0 && (
+                <View style={styles.formSectionBox}>
+                  <Text style={styles.fieldLabel}>SOURCE CHANNEL</Text>
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.stageChip,
+                        selectedSource === "all" && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                      ]}
+                      onPress={() => setSelectedSource("all")}
+                    >
+                      <Text style={[styles.stageChipText, selectedSource === "all" && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                        All Sources
+                      </Text>
+                    </TouchableOpacity>
+                    {sources.map((src, idx) => {
+                      const sName = src.name || src;
+                      const isSel = selectedSource === sName;
+                      return (
+                        <TouchableOpacity
+                          key={idx}
+                          style={[
+                            styles.stageChip,
+                            isSel && { backgroundColor: "#1268D9", borderColor: "#1268D9" },
+                          ]}
+                          onPress={() => setSelectedSource(sName)}
+                        >
+                          <Text style={[styles.stageChipText, isSel && { color: "#FFFFFF", fontFamily: FONTS.bodyBold }]}>
+                            {sName}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Modal Footer */}
+            <View style={{ flexDirection: "row", padding: 14, gap: 10, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+              <TouchableOpacity
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 10,
+                  backgroundColor: "#F1F5F9",
+                }}
+                onPress={() => {
+                  setSelectedStatus("all");
+                  setSelectedAssignee("all");
+                  setSelectedProduct("all");
+                  setSelectedSource("all");
+                  setSelectedTimeframe("all");
+                }}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#64748B" }}>Reset All</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{
+                  flex: 2,
+                  paddingVertical: 10,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderRadius: 10,
+                  backgroundColor: "#1268D9",
+                }}
+                onPress={() => setFilterModalVisible(false)}
+              >
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#FFFFFF" }}>Apply Filters ({filteredLeads.length})</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* ══════════ MODAL: ADD NEW LEAD (Exact Match to Web Design) ══════════ */}
       <Modal visible={addModalVisible} animationType="slide" transparent onRequestClose={() => setAddModalVisible(false)}>

@@ -56,6 +56,11 @@ export default function LeadsListScreen({ navigation, route }) {
   const [selectedStatus, setSelectedStatus] = useState(route.params?.initialStatus || "all");
   const [selectedSource, setSelectedSource] = useState("all");
   const [selectedAssignee, setSelectedAssignee] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState("all");
+  const [selectedOptIn, setSelectedOptIn] = useState("all");
+  const [selectedTimeframe, setSelectedTimeframe] = useState("all");
+  const [tags, setTags] = useState([]);
+  const [selectedTag, setSelectedTag] = useState("all");
   const [filterModalVisible, setFilterModalVisible] = useState(false);
 
   // Bulk Actions
@@ -108,12 +113,13 @@ export default function LeadsListScreen({ navigation, route }) {
   const fetchMetadata = async () => {
     if (metadataLoadedRef.current) return;
     try {
-      const [statusesRes, sourcesRes, assignable, prods, depts] = await Promise.all([
+      const [statusesRes, sourcesRes, assignable, prods, depts, tagsRes] = await Promise.all([
         leadsService.getStatuses(),
         leadsService.getSources(),
         leadsService.getAssignableUsers().catch(() => []),
         leadsService.getProducts().catch(() => []),
         leadsService.getDepartments().catch(() => []),
+        leadsService.getTags ? leadsService.getTags().catch(() => []) : Promise.resolve([]),
       ]);
 
       let stList = Array.isArray(statusesRes) && statusesRes.length > 0 ? statusesRes : [];
@@ -137,6 +143,7 @@ export default function LeadsListScreen({ navigation, route }) {
       setEmployees(Array.isArray(assignable) ? assignable : []);
       setProducts(Array.isArray(prods) ? prods : []);
       setDepartments(Array.isArray(depts) ? depts : []);
+      setTags(Array.isArray(tagsRes) ? tagsRes : (tagsRes?.tags || []));
       metadataLoadedRef.current = true;
     } catch (_) {}
   };
@@ -144,15 +151,43 @@ export default function LeadsListScreen({ navigation, route }) {
   const fetchData = async (forceMetadata = false) => {
     try {
       setLoading(true);
-      const params = { limit: 100 };
+      const params = { limit: 150 };
       if (search) params.search = search;
       if (selectedStatus !== "all") params.statusId = selectedStatus;
       if (selectedSource !== "all") params.source = selectedSource;
+      if (selectedProduct !== "all") params.productService = selectedProduct;
+      if (selectedTag !== "all") params.tagId = selectedTag;
+      if (selectedOptIn !== "all") params.optInState = selectedOptIn;
+
       if (selectedAssignee !== "all") {
         if (selectedAssignee === "unassigned") {
           params.unassigned = true;
         } else {
           params.assignedTo = selectedAssignee;
+        }
+      }
+
+      // Timeframe calculations
+      if (selectedTimeframe !== "all") {
+        const now = new Date();
+        if (selectedTimeframe === "today") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+          params.startDate = s.toISOString();
+          params.endDate = e.toISOString();
+        } else if (selectedTimeframe === "yesterday") {
+          const s = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 0, 0, 0);
+          const e = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1, 23, 59, 59, 999);
+          params.startDate = s.toISOString();
+          params.endDate = e.toISOString();
+        } else if (selectedTimeframe === "this_week") {
+          const s = new Date(now);
+          s.setDate(now.getDate() - now.getDay());
+          s.setHours(0, 0, 0, 0);
+          params.startDate = s.toISOString();
+        } else if (selectedTimeframe === "this_month") {
+          const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+          params.startDate = s.toISOString();
         }
       }
 
@@ -166,12 +201,9 @@ export default function LeadsListScreen({ navigation, route }) {
         ? leadsRes.data
         : Array.isArray(leadsRes)
         ? leadsRes
+        : Array.isArray(leadsRes?.leads)
+        ? leadsRes.leads
         : [];
-      if (selectedAssignee === "unassigned") {
-        data = data.filter((l) => !l.assignedTo || (!l.assignedTo._id && !l.assignedTo.id && !l.assignedTo.name));
-      } else if (selectedAssignee !== "all") {
-        data = data.filter((l) => (l.assignedTo?._id === selectedAssignee || l.assignedTo?.id === selectedAssignee || l.assignedTo === selectedAssignee));
-      }
       setLeads(data);
     } catch (err) {
       console.warn("[LeadsList] Fetch note:", err?.message || err);
@@ -255,12 +287,12 @@ export default function LeadsListScreen({ navigation, route }) {
 
   useEffect(() => {
     fetchData();
-  }, [selectedStatus, selectedSource, selectedAssignee]);
+  }, [selectedStatus, selectedSource, selectedAssignee, selectedProduct, selectedOptIn, selectedTimeframe, selectedTag]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchData(true);
-  }, [selectedStatus, selectedSource, selectedAssignee, search]);
+  }, [selectedStatus, selectedSource, selectedAssignee, selectedProduct, selectedOptIn, selectedTimeframe, selectedTag, search]);
 
   const handleSearchSubmit = () => {
     fetchData();
@@ -534,14 +566,14 @@ export default function LeadsListScreen({ navigation, route }) {
           <TouchableOpacity
             style={[
               styles.filterButton,
-              (selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all") && styles.filterButtonActive
+              (selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedOptIn !== "all" || selectedTimeframe !== "all" || selectedTag !== "all") && styles.filterButtonActive
             ]}
             onPress={() => setFilterModalVisible(true)}
           >
             <Ionicons
               name="filter"
               size={16}
-              color={selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all" ? "#FFF" : THEME.textPrimary}
+              color={selectedStatus !== "all" || selectedSource !== "all" || selectedAssignee !== "all" || selectedProduct !== "all" || selectedOptIn !== "all" || selectedTimeframe !== "all" || selectedTag !== "all" ? "#FFF" : THEME.textPrimary}
             />
           </TouchableOpacity>
 
@@ -1391,7 +1423,38 @@ export default function LeadsListScreen({ navigation, route }) {
 
               {/* Scrollable Filter Content */}
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.filterModalScrollBody}>
-                {/* ── Section 1: Lead Pipeline Stage ── */}
+                {/* ── Section 1: Timeframe / Date Range ── */}
+                <View style={styles.filterSectionBox}>
+                  <View style={styles.filterSectionHeaderRow}>
+                    <Ionicons name="calendar-outline" size={14} color="#1268D9" />
+                    <Text style={styles.filterSectionHeaderText}>CREATION TIMEFRAME</Text>
+                  </View>
+                  <View style={styles.filterChipsWrap}>
+                    {[
+                      { id: "all", label: "All Time" },
+                      { id: "today", label: "Today" },
+                      { id: "yesterday", label: "Yesterday" },
+                      { id: "this_week", label: "This Week" },
+                      { id: "this_month", label: "This Month" },
+                    ].map((tf) => {
+                      const isSel = selectedTimeframe === tf.id;
+                      return (
+                        <TouchableOpacity
+                          key={tf.id}
+                          style={[styles.filterOptionChip, isSel && styles.filterOptionChipActive]}
+                          onPress={() => setSelectedTimeframe(tf.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.filterOptionChipText, isSel && styles.filterOptionChipTextActive]}>
+                            {tf.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* ── Section 2: Lead Pipeline Stage ── */}
                 <View style={styles.filterSectionBox}>
                   <View style={styles.filterSectionHeaderRow}>
                     <Ionicons name="git-commit-outline" size={14} color="#1268D9" />
@@ -1452,7 +1515,7 @@ export default function LeadsListScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {/* ── Section 2: Lead Acquisition Source ── */}
+                {/* ── Section 3: Lead Acquisition Source ── */}
                 <View style={styles.filterSectionBox}>
                   <View style={styles.filterSectionHeaderRow}>
                     <Ionicons name="compass-outline" size={14} color="#1268D9" />
@@ -1504,7 +1567,7 @@ export default function LeadsListScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {/* ── Section 3: Assigned Sales Representative ── */}
+                {/* ── Section 4: Assigned Sales Representative ── */}
                 {employees.length > 0 && (
                   <View style={styles.filterSectionBox}>
                     <View style={styles.filterSectionHeaderRow}>
@@ -1580,6 +1643,115 @@ export default function LeadsListScreen({ navigation, route }) {
                     </View>
                   </View>
                 )}
+
+                {/* ── Section 5: Products & Services ── */}
+                {products.length > 0 && (
+                  <View style={styles.filterSectionBox}>
+                    <View style={styles.filterSectionHeaderRow}>
+                      <Ionicons name="cube-outline" size={14} color="#1268D9" />
+                      <Text style={styles.filterSectionHeaderText}>PRODUCT / SERVICE INTEREST</Text>
+                    </View>
+                    <View style={styles.filterChipsWrap}>
+                      <TouchableOpacity
+                        style={[styles.filterOptionChip, selectedProduct === "all" && styles.filterOptionChipActive]}
+                        onPress={() => setSelectedProduct("all")}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.filterOptionChipText, selectedProduct === "all" && styles.filterOptionChipTextActive]}>
+                          All Products
+                        </Text>
+                      </TouchableOpacity>
+
+                      {products.map((p, idx) => {
+                        const pName = p.name || p;
+                        const isSel = selectedProduct === pName;
+                        return (
+                          <TouchableOpacity
+                            key={p._id || p.id || idx}
+                            style={[styles.filterOptionChip, isSel && styles.filterOptionChipActive]}
+                            onPress={() => setSelectedProduct(pName)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={[styles.filterOptionChipText, isSel && styles.filterOptionChipTextActive]}>
+                              {pName}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
+
+                {/* ── Section 6: WhatsApp Opt-in Status ── */}
+                <View style={styles.filterSectionBox}>
+                  <View style={styles.filterSectionHeaderRow}>
+                    <Ionicons name="logo-whatsapp" size={14} color="#10B981" />
+                    <Text style={styles.filterSectionHeaderText}>WHATSAPP BROADCAST CONSENT</Text>
+                  </View>
+                  <View style={styles.filterChipsWrap}>
+                    {[
+                      { id: "all", label: "All Contacts" },
+                      { id: "true", label: "WhatsApp Opted In" },
+                      { id: "false", label: "Not Opted In" },
+                    ].map((opt) => {
+                      const isSel = selectedOptIn === opt.id;
+                      return (
+                        <TouchableOpacity
+                          key={opt.id}
+                          style={[styles.filterOptionChip, isSel && styles.filterOptionChipActive]}
+                          onPress={() => setSelectedOptIn(opt.id)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.filterOptionChipText, isSel && styles.filterOptionChipTextActive]}>
+                            {opt.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+
+                {/* ── Section 7: Lead Tags ── */}
+                {tags.length > 0 && (
+                  <View style={styles.filterSectionBox}>
+                    <View style={styles.filterSectionHeaderRow}>
+                      <Ionicons name="pricetag-outline" size={14} color="#D97706" />
+                      <Text style={styles.filterSectionHeaderText}>CRM TAGS</Text>
+                    </View>
+                    <View style={styles.filterChipsWrap}>
+                      <TouchableOpacity
+                        style={[styles.filterOptionChip, selectedTag === "all" && styles.filterOptionChipActive]}
+                        onPress={() => setSelectedTag("all")}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.filterOptionChipText, selectedTag === "all" && styles.filterOptionChipTextActive]}>
+                          All Tags
+                        </Text>
+                      </TouchableOpacity>
+
+                      {tags.map((t) => {
+                        const tId = t._id || t.id;
+                        const isSel = selectedTag === tId;
+                        return (
+                          <TouchableOpacity
+                            key={tId}
+                            style={[
+                              styles.filterOptionChip,
+                              isSel && { backgroundColor: (t.color || "#D97706") + "20", borderColor: t.color || "#D97706", borderWidth: 1.5 }
+                            ]}
+                            onPress={() => setSelectedTag(tId)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.filterDot, { backgroundColor: t.color || "#D97706" }]} />
+                            <Text style={[styles.filterOptionChipText, isSel && { color: t.color || "#D97706", fontWeight: "800" }]}>
+                              {t.name}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                )}
               </ScrollView>
 
               {/* ── Footer Actions: Reset & Apply ── */}
@@ -1590,6 +1762,10 @@ export default function LeadsListScreen({ navigation, route }) {
                     setSelectedStatus("all");
                     setSelectedSource("all");
                     setSelectedAssignee("all");
+                    setSelectedProduct("all");
+                    setSelectedOptIn("all");
+                    setSelectedTimeframe("all");
+                    setSelectedTag("all");
                   }}
                   activeOpacity={0.7}
                 >
