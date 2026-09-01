@@ -4,7 +4,6 @@ import { api } from '../../utils/leads/api';
 import { useToast } from '../../components/leads/Toast';
 import { useActionLoader } from '../../components/leads/ActionLoader';
 import MediaUrlUploader from '../../components/leads/MediaUrlUploader';
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Bell, Plus, Trash2, Edit2, X, Loader2, Search,
   Calendar, Clock, ToggleLeft, ToggleRight, ChevronDown,
@@ -18,9 +17,7 @@ const REPEAT_LABELS: Record<string, string> = { NONE: 'One-time', MONTHLY: 'Mont
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }: {
   label: string; value: string | number; trend: string; isUp: boolean; period: string; strokeColor: string; Icon: any; iconBg: string; iconColor: string;
 }) => {
-  const sparkData = useMemo(() => [
-    { v: 10 }, { v: 18 }, { v: 14 }, { v: 24 }, { v: 20 }, { v: 32 }, { v: 26 }, { v: 38 },
-  ], []);
+  const gradId = `sk-rem-${label.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:p-3 flex items-center justify-between shadow-2xs hover:shadow-md transition-all duration-200 group">
@@ -41,15 +38,25 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-8 w-12 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
-        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+        <svg className="w-full h-full" viewBox="0 0 48 32" preserveAspectRatio="none" fill="none">
           <defs>
-            <linearGradient id={`sk-rem-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
               <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-rem-${label.replace(/\s+/g, '')})`}/>
-        </AreaChart>
+          <path
+            d="M0 26 C6 20, 10 24, 16 18 C22 12, 28 22, 34 10 C40 4, 44 8, 48 4 L48 32 L0 32 Z"
+            fill={`url(#${gradId})`}
+          />
+          <path
+            d="M0 26 C6 20, 10 24, 16 18 C22 12, 28 22, 34 10 C40 4, 44 8, 48 4"
+            stroke={strokeColor}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </div>
     </div>
   );

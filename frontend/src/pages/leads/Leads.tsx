@@ -7,9 +7,6 @@ import LeadDrawer from '../../components/leads/LeadDrawer';
 import { useToast } from '../../components/leads/Toast';
 import { useActionLoader } from '../../components/leads/ActionLoader';
 import {
-  AreaChart, Area, ResponsiveContainer
-} from "recharts";
-import {
   Search, Plus, UserPlus, Loader2,
   ChevronLeft, ChevronRight, X, ChevronDown, Check, Users,
   Upload, Download, AlertCircle, Trash2, Share2, Copy, ExternalLink, Link as LinkIcon, Tag,
@@ -45,9 +42,7 @@ const MiniAvatar = ({ name, idx = 0, size = "w-8 h-8", textSize = "text-[11px]" 
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }: {
   label: string; value: string | number; trend: string; isUp: boolean; period: string; strokeColor: string; Icon: any; iconBg: string; iconColor: string;
 }) => {
-  const sparkData = useMemo(() => [
-    { v: 14 }, { v: 22 }, { v: 18 }, { v: 28 }, { v: 24 }, { v: 36 }, { v: 30 }, { v: 42 },
-  ], []);
+  const gradId = `sk-lead-${label.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/90 dark:border-slate-800 p-3 flex items-center justify-between shadow-2xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 group">
@@ -68,15 +63,25 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         </div>
       </div>
       <div className="hidden sm:block h-8 w-12 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
-        <AreaChart width={48} height={32} data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+        <svg className="w-full h-full" viewBox="0 0 48 32" preserveAspectRatio="none" fill="none">
           <defs>
-            <linearGradient id={`sk-lead-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor={strokeColor} stopOpacity={0.4} />
               <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
             </linearGradient>
           </defs>
-          <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-lead-${label.replace(/\s+/g, '')})`} />
-        </AreaChart>
+          <path
+            d="M0 26 C6 20, 10 24, 16 18 C22 12, 28 22, 34 10 C40 4, 44 8, 48 4 L48 32 L0 32 Z"
+            fill={`url(#${gradId})`}
+          />
+          <path
+            d="M0 26 C6 20, 10 24, 16 18 C22 12, 28 22, 34 10 C40 4, 44 8, 48 4"
+            stroke={strokeColor}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
       </div>
     </div>
   );
@@ -406,7 +411,7 @@ export default function Leads() {
   const [employees, setEmployees] = useState<any[]>([]);
 
   // Inline status popover
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [statusPopoverLeadId, setStatusPopoverLeadId] = useState<string | null>(null);
   const [statusPopoverRect, setStatusPopoverRect] = useState<DOMRect | null>(null);
 
