@@ -412,7 +412,9 @@ export default function EmployeeTaskDetails() {
   const task = taskRes || {};
   const currentRawStatus = (task.myStatus || task.statusKey || task.status || "pending").toLowerCase();
   const normalizedSt = normalizeStatus(currentRawStatus);
-  const isCompleted = normalizedSt === "complete" || normalizedSt === "late_complete";
+  const isCompleted = normalizedSt === "complete" || normalizedSt === "late_complete" || currentRawStatus === "re_complete";
+  const isLateCompleted = normalizedSt === "late_complete" || currentRawStatus === "late_complete" || currentRawStatus === "re_late_complete";
+  const isCancelled = normalizedSt === "cancelled" || currentRawStatus === "cancelled";
 
   const isOverdueTime = !isCompleted && Boolean(task.dueDate || task.endDateTime) && new Date(task.dueDate || task.endDateTime) < new Date();
   const isOverdue = !isCompleted && (normalizedSt === "overdue" || isOverdueTime);
