@@ -68,33 +68,35 @@ export default function HRLeads() {
     notes: "",
   });
 
-  // Fetch Employees for assignment
+  // Fetch Employees for assignment (filtered for leads module)
   const { data: employeesData } = useQuery({
-    queryKey: ["hrEmployeesList"],
+    queryKey: ["hrEmployeesList", "leads"],
     queryFn: async () => {
       try {
-        const res = await api.get("/leads-engine/assignable-users");
-        return res?.data?.data || res?.data?.users || res?.data || [];
+        const res = await api.get("/company/employees?limit=1000&module=leads");
+        const rawList = Array.isArray(res?.data?.employees) ? res.data.employees : Array.isArray(res?.data) ? res.data : [];
+        return rawList.map((e) => ({
+          id: e.userId?._id || e._id,
+          _id: e.userId?._id || e._id,
+          name: e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.userId?.name || "Employee",
+          role: e.role || "Employee",
+          department: e.departmentId?.name || ""
+        }));
       } catch (_) {
-        try {
-          const res = await api.get("/employees");
-          return res?.data?.data || res?.data || [];
-        } catch (_) {
-          return [];
-        }
+        return [];
       }
     },
     staleTime: 60000,
   });
   const employees = Array.isArray(employeesData) ? employeesData : [];
 
-  // Fetch Leads for HR
-  const { data: leadsData, isLoading: leadsLoading, refetch } = useQuery({
+  // Fetch Leads for current HR
+  const { data: leadsData, isLoading: leadsLoading, refetch: refetchLeads } = useQuery({
     queryKey: ["hrMyLeads"],
     queryFn: async () => {
       try {
-        const res = await api.get("/leads-engine/leads?limit=500");
-        return res?.data?.data || res?.data || [];
+        const res = await api.get("/leads-engine/leads");
+        return res?.data?.data || res?.data?.leads || res?.data || [];
       } catch (_) {
         return [];
       }

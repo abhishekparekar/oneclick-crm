@@ -7,7 +7,8 @@ import {
   getCompanyAuditLogsApi, getDepartmentsApi, getDesignationsApi,
   getBranchesApi, getEmployeesApi,
   createDepartmentApi, createDesignationApi, createBranchApi,
-  getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi
+  getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi,
+  getModuleUsageApi
 } from "../../api/companyAdminApi";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
@@ -16,7 +17,7 @@ import {
   AlertTriangle, RefreshCw, Plus, Loader2, Building2, CalendarDays,
   Upload, Eye, ChevronRight, ChevronLeft, CheckCheck, Trash2,
   ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck,
-  Calendar
+  Calendar, Cpu
 } from "lucide-react";
 
 const getPhotoUrl = (rawPhoto) => {
@@ -267,15 +268,23 @@ export default function EditEmployee() {
   const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
   const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }) });
 
+  const { data: leaveRes } = useQuery({
+    queryKey: ["leaveBalance", id],
+    queryFn: () => getLeaveBalanceApi({ employeeId: id }),
+  });
+
+  const { data: moduleUsageRes } = useQuery({
+    queryKey: ["companyModuleUsage"],
+    queryFn: () => getModuleUsageApi().then((r) => r.data),
+  });
+
+  const moduleUsage = moduleUsageRes?.usage || {};
+  const subscribedModules = moduleUsageRes?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+
   const { data: auditRes, refetch: refetchAudit } = useQuery({
     queryKey: ["auditLogs", id],
     queryFn: () => getCompanyAuditLogsApi({ entityId: id, module: "Team Member" }),
     enabled: showAuditLog,
-  });
-
-  const { data: leaveRes } = useQuery({
-    queryKey: ["leaveBalance", id],
-    queryFn: () => getLeaveBalanceApi({ employeeId: id }),
   });
 
   // Populate form data
@@ -291,6 +300,11 @@ export default function EditEmployee() {
         confirmationDate: emp.confirmationDate ? emp.confirmationDate.split('T')[0] : "",
         managerAccessLevel: emp.managerAccessLevel || "team",
         allowRemotePunch: emp.allowRemotePunch || false,
+        assignedModules: emp.assignedModules && emp.assignedModules.length > 0
+          ? emp.assignedModules
+          : (emp.userId?.assignedModules && emp.userId.assignedModules.length > 0
+              ? emp.userId.assignedModules
+              : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"]),
         accessibleDepartments: emp.accessibleDepartments?.length
           ? emp.accessibleDepartments.map(d => typeof d === 'object' ? d._id : d)
           : (emp.departmentId ? [typeof emp.departmentId === 'object' ? emp.departmentId._id : emp.departmentId] : []),
@@ -517,6 +531,7 @@ export default function EditEmployee() {
       panNumber: formData.panNumber,
       documents: formData.documents,
 
+      assignedModules: formData.assignedModules,
       role: formData.role || formData.userId?.role,
       loginRole: formData.role || formData.userId?.role,
       salaryDetails: formData.salaryDetails,
@@ -650,9 +665,9 @@ export default function EditEmployee() {
             </button>
           </div>
         </div>
-
-        {/* ── Compact Step Bar ── */}
       </div>
+
+      {/* ── Compact Step Bar ── */}
       <div className="flex border-t border-slate-100 dark:border-slate-800/60 overflow-x-auto scrollbar-none">
         {STEPS.map((s) => {
           const Icon = s.icon;
@@ -694,7 +709,7 @@ export default function EditEmployee() {
                 <User size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Basic & Personal Information</h3>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Basic &amp; Personal Information</h3>
                 <p className="hidden">Core identification, personal contact, and avatar</p>
               </div>
             </div>
@@ -773,7 +788,7 @@ export default function EditEmployee() {
                 <Briefcase size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Job & Employment Details</h3>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Job &amp; Employment Details</h3>
                 <p className="hidden">Department, designation, role permissions, and branch</p>
               </div>
             </div>
@@ -816,7 +831,7 @@ export default function EditEmployee() {
                 }
               />
               <Select
-                label="System Role & Access"
+                label="System Role &amp; Access"
                 value={formData.role || formData.userId?.role || "Employee"}
                 onChange={(v) => handleChange("role", v)}
                 options={[
@@ -864,6 +879,91 @@ export default function EditEmployee() {
               <Input label="Confirmation Date" type="date" value={formData.confirmationDate} onChange={(v) => handleChange("confirmationDate", v)} />
             </div>
 
+            {/* Module License & Feature Access */}
+            <div className="bg-slate-50 dark:bg-[#0D1321] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                    <Cpu size={14} className="text-amber-500" />
+                    <span>Module License &amp; Feature Access</span>
+                  </h4>
+                  <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium">
+                    Allocate module access for this employee according to the active subscription quota.
+                  </p>
+                </div>
+                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  Plan Quota Enforced
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                {[
+                  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
+                  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+                  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
+                  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
+                  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
+                  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
+                ].map(m => {
+                  const isSubscribed = subscribedModules.includes(m.key);
+                  const usageInfo = moduleUsage[m.key];
+                  const isChecked = (formData.assignedModules || []).includes(m.key);
+                  const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+
+                  return (
+                    <div
+                      key={m.key}
+                      onClick={() => {
+                        if (!isSubscribed || (isFull && !isChecked)) return;
+                        const cur = formData.assignedModules || [];
+                        const next = isChecked ? cur.filter(x => x !== m.key) : [...cur, m.key];
+                        handleChange("assignedModules", next);
+                      }}
+                      className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                        !isSubscribed
+                          ? "opacity-40 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                          : isChecked
+                          ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
+                          : isFull
+                          ? "opacity-60 bg-rose-500/5 border-rose-300 dark:border-rose-900 cursor-not-allowed"
+                          : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-xs font-black text-slate-900 dark:text-white block">
+                            {m.label}
+                          </span>
+                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
+                            {m.desc}
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          disabled={!isSubscribed || (isFull && !isChecked)}
+                          onChange={() => {}}
+                          className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
+                        />
+                      </div>
+
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
+                        {!isSubscribed ? (
+                          <span className="text-slate-400">Not in plan</span>
+                        ) : usageInfo?.isUnlimited ? (
+                          <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
+                        ) : (
+                          <span className={isFull && !isChecked ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}>
+                            {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Remote Punch Option */}
             <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
               <input
@@ -874,7 +974,7 @@ export default function EditEmployee() {
                 className="w-4 h-4 text-amber-500 rounded border-slate-300 dark:border-slate-700 focus:ring-amber-500 cursor-pointer"
               />
               <label htmlFor="allowRemotePunch" className="text-xs font-bold text-slate-800 dark:text-slate-200 cursor-pointer">
-                Allow Remote Punch & Geofence Bypass (Ideal for Field Sales & Remote Executives)
+                Allow Remote Punch &amp; Geofence Bypass (Ideal for Field Sales &amp; Remote Executives)
               </label>
             </div>
           </div>
@@ -888,7 +988,7 @@ export default function EditEmployee() {
                 <MapPin size={11} strokeWidth={2.5} />
               </div>
               <div>
-                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Address & Emergency Contact</h3>
+                <h3 className="text-[10.5px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest">Address &amp; Emergency Contact</h3>
                 <p className="hidden">Residential address and designated emergency contact person</p>
               </div>
             </div>

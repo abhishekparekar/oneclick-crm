@@ -12,7 +12,7 @@ import {
 
 const MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects", 
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
 ];
 
 /* ─── Palette-Enforced Status Badge ────────────────────────────────────── */
@@ -69,6 +69,14 @@ const SuperAdminPlans = () => {
     trialDays: 14,
     features: "",
     modules: [],
+    moduleLimits: {
+      tasks: 0,
+      leads: 0,
+      attendance: 0,
+      payroll: 0,
+      projects: 0,
+      reports: 0,
+    },
     status: "active"
   });
 
@@ -90,6 +98,7 @@ const SuperAdminPlans = () => {
       trialDays: 14,
       features: "Core HR, Basic Attendance, 14-Day Free Access",
       modules: ["attendance", "leave"],
+      moduleLimits: { tasks: 0, leads: 0 },
       status: "active"
     },
     {
@@ -103,6 +112,7 @@ const SuperAdminPlans = () => {
       trialDays: 0,
       features: "Attendance, Leave Management, Payroll Processing, Basic Reports",
       modules: ["attendance", "leave", "payroll", "reports"],
+      moduleLimits: { tasks: 0, leads: 0 },
       status: "active"
     },
     {
@@ -114,8 +124,9 @@ const SuperAdminPlans = () => {
       employeeLimit: 200,
       storageLimit: 50,
       trialDays: 0,
-      features: "All Basic features + Performance Management, Recruitment ATS, WhatsApp Notifications",
-      modules: ["attendance", "leave", "payroll", "recruitment", "performance", "reports", "whatsapp"],
+      features: "All Basic features + Performance Management, Recruitment ATS, WhatsApp Notifications, Leads",
+      modules: ["attendance", "leave", "payroll", "tasks", "recruitment", "performance", "reports", "whatsapp", "leads"],
+      moduleLimits: { tasks: 50, leads: 50 },
       status: "active"
     },
     {
@@ -128,7 +139,8 @@ const SuperAdminPlans = () => {
       storageLimit: 500,
       trialDays: 0,
       features: "Unlimited modules, Dedicated Account Manager, Custom API Access, SLA 99.99%",
-      modules: ["attendance", "leave", "payroll", "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin"],
+      modules: ["attendance", "leave", "payroll", "tasks", "projects", "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"],
+      moduleLimits: { tasks: 0, leads: 0 },
       status: "active"
     }
   ];
@@ -185,6 +197,14 @@ const SuperAdminPlans = () => {
         trialDays: Number(plan.trialDays) || 0,
         features: plan.features ? (Array.isArray(plan.features) ? plan.features.join("\n") : plan.features) : "",
         modules: plan.modules || [],
+        moduleLimits: {
+          tasks: plan.moduleLimits?.tasks || 0,
+          leads: plan.moduleLimits?.leads || 0,
+          attendance: plan.moduleLimits?.attendance || 0,
+          payroll: plan.moduleLimits?.payroll || 0,
+          projects: plan.moduleLimits?.projects || 0,
+          reports: plan.moduleLimits?.reports || 0,
+        },
         status: plan.status || "active"
       });
     } else {
@@ -198,7 +218,15 @@ const SuperAdminPlans = () => {
         storageLimit: 5,
         trialDays: 14,
         features: "24/7 Priority Support\nCustom Workspace Domain\nAutomated Data Backups",
-        modules: ["attendance", "leave", "reports", "tasks"],
+        modules: ["attendance", "leave", "reports", "tasks", "leads"],
+        moduleLimits: {
+          tasks: 0,
+          leads: 0,
+          attendance: 0,
+          payroll: 0,
+          projects: 0,
+          reports: 0,
+        },
         status: "active"
       });
     }
@@ -216,6 +244,15 @@ const SuperAdminPlans = () => {
           return { ...prev, modules: prev.modules.filter(m => m !== moduleName) };
         }
       });
+    } else if (name.startsWith("moduleLimit_")) {
+      const modKey = name.replace("moduleLimit_", "");
+      setFormData(prev => ({
+        ...prev,
+        moduleLimits: {
+          ...prev.moduleLimits,
+          [modKey]: Math.max(0, Number(value) || 0)
+        }
+      }));
     } else {
       setFormData({ ...formData, [name]: type === 'number' ? Number(value) : value });
     }
@@ -426,12 +463,20 @@ const SuperAdminPlans = () => {
                     </h4>
                     <div className="flex flex-wrap gap-1.5">
                       {plan.modules && plan.modules.length > 0 ? (
-                        plan.modules.map(mod => (
-                          <span key={mod} className="inline-flex items-center space-x-1 px-2 py-1 bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/30 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                            <CheckCircle2 size={10} className="flex-shrink-0" />
-                            <span>{mod}</span>
-                          </span>
-                        ))
+                        plan.modules.map(mod => {
+                          const customLimit = plan.moduleLimits?.[mod];
+                          return (
+                            <span key={mod} className="inline-flex items-center space-x-1 px-2 py-1 bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/30 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                              <CheckCircle2 size={10} className="flex-shrink-0" />
+                              <span>{mod}</span>
+                              {customLimit > 0 && (
+                                <span className="ml-1 px-1 py-0.2 bg-[#f59e0b]/20 rounded text-[8.5px] text-[#f59e0b] font-mono">
+                                  {customLimit} seats
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })
                       ) : (
                         <span className="text-xs font-bold text-sa-text-secondary italic">No specific modules checked</span>
                       )}
@@ -585,16 +630,22 @@ const SuperAdminPlans = () => {
                 </div>
               </div>
 
-              {/* Section 4: Entitled Suite Modules */}
+              {/* Section 4: Entitled Suite Modules & Per-Module Seat Allocation */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-sa-border pb-2">
-                  <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
-                    <Cpu size={14} className="text-[#f59e0b]" />
-                    <span>Entitled Suite Modules</span>
-                  </h4>
+                  <div>
+                    <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
+                      <Cpu size={14} className="text-[#f59e0b]" />
+                      <span>Entitled Suite Modules & Seat Limits</span>
+                    </h4>
+                    <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
+                      Check modules for this plan and optionally set specific employee seat caps (0 = unlimited up to max plan seats).
+                    </p>
+                  </div>
                   <span className="text-xs font-mono font-bold text-[#f59e0b]">{formData.modules.length} / {MODULES.length} Selected</span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-4 rounded-xl bg-sa-bg/60 border border-sa-border">
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-sa-bg/60 border border-sa-border">
                   {MODULES.map(mod => {
                     const isChecked = formData.modules.includes(mod);
                     return (
@@ -624,6 +675,37 @@ const SuperAdminPlans = () => {
                     );
                   })}
                 </div>
+
+                {/* Granular Seat Allocation per Module */}
+                {formData.modules.some(m => ["tasks", "leads", "attendance", "payroll", "projects"].includes(m)) && (
+                  <div className="bg-sa-bg/40 border border-sa-border/80 rounded-xl p-3.5 space-y-2.5">
+                    <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
+                      <Users size={13} className="text-[#f59e0b]" />
+                      <span>Custom Employee Seat Quota per Module</span>
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {["tasks", "leads", "attendance", "payroll", "projects"].filter(m => formData.modules.includes(m)).map(mod => (
+                        <div key={mod} className="bg-sa-surface p-2.5 rounded-xl border border-sa-border/70">
+                          <label className="text-[10px] font-black text-sa-text-secondary uppercase tracking-wider block mb-1">
+                            {mod} Seat Cap (Max)
+                          </label>
+                          <input
+                            type="number"
+                            name={`moduleLimit_${mod}`}
+                            min="0"
+                            value={formData.moduleLimits?.[mod] || 0}
+                            onChange={handleChange}
+                            placeholder="0 = Full Plan Seats"
+                            className="w-full bg-sa-bg border border-sa-border rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
+                          />
+                          <p className="text-[9px] text-sa-text-secondary mt-1">
+                            {formData.moduleLimits?.[mod] > 0 ? `${formData.moduleLimits[mod]} seats max` : `Up to ${formData.employeeLimit} seats (all)`}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Section 5: Key Value Features */}

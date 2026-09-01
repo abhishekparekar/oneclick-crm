@@ -1,11 +1,11 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-hot-toast";
 import {
   createEmployeeApi, getDepartmentsApi, getDesignationsApi,
   getBranchesApi, getEmployeesApi, createDepartmentApi,
-  createDesignationApi, createBranchApi
+  createDesignationApi, createBranchApi, getModuleUsageApi
 } from "../../api/companyAdminApi";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
@@ -13,7 +13,7 @@ import {
   ChevronUp, CheckCircle2, X, Lock, Download, AlertTriangle, RefreshCw,
   Plus, Loader2, Building2, CalendarDays, Upload, Eye, ChevronRight,
   ChevronLeft, CheckCheck, Trash2, ExternalLink, Sparkles, Shield,
-  DollarSign, Users, AlertCircle, FileCheck, Calendar
+  DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu
 } from "lucide-react";
 
 const getPhotoUrl = (rawPhoto) => {
@@ -260,6 +260,7 @@ export default function AddEmployee() {
     aadhaarNumber: "",
     panNumber: "",
     documents: [],
+    assignedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
   });
 
   // Quick Create Modal States
@@ -272,6 +273,10 @@ export default function AddEmployee() {
   const { data: desigRes } = useQuery({ queryKey: ["designations"], queryFn: () => getDesignationsApi().then((r) => r.data) });
   const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: () => getBranchesApi().then((r) => r.data) });
   const { data: empRes } = useQuery({ queryKey: ["allEmployees"], queryFn: () => getEmployeesApi({ limit: 1000 }).then((r) => r.data) });
+  const { data: moduleUsageRes } = useQuery({ queryKey: ["companyModuleUsage"], queryFn: () => getModuleUsageApi().then((r) => r.data) });
+
+  const moduleUsage = moduleUsageRes?.usage || {};
+  const subscribedModules = moduleUsageRes?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
 
   const departments = deptRes?.departments || [];
   const designations = desigRes?.designations || [];
@@ -825,6 +830,95 @@ export default function AddEmployee() {
                   value={formData.joiningDate}
                   onChange={(v) => setFormData((p) => ({ ...p, joiningDate: v }))}
                 />
+              </div>
+
+              {/* Module License & Feature Access */}
+              <div className="bg-slate-50 dark:bg-[#0B101B] p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Cpu size={14} className="text-amber-500" />
+                      <span>Module License &amp; Feature Access</span>
+                    </h4>
+                    <p className="text-[10.5px] text-slate-500 dark:text-slate-400 font-medium">
+                      Select which suite modules this employee can access according to company plan seat limits.
+                    </p>
+                  </div>
+                  <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                    Plan Seat Limits Enforced
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {[
+                    { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
+                    { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+                    { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
+                    { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
+                    { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
+                    { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
+                  ].map(m => {
+                    const isSubscribed = subscribedModules.includes(m.key);
+                    const usageInfo = moduleUsage[m.key];
+                    const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+                    const isChecked = (formData.assignedModules || []).includes(m.key);
+
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() => {
+                          if (!isSubscribed || (isFull && !isChecked)) return;
+                          setFormData(p => {
+                            const cur = p.assignedModules || [];
+                            return {
+                              ...p,
+                              assignedModules: isChecked ? cur.filter(x => x !== m.key) : [...cur, m.key]
+                            };
+                          });
+                        }}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                          !isSubscribed
+                            ? "opacity-40 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
+                            : isChecked
+                            ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
+                            : isFull
+                            ? "opacity-60 bg-rose-500/5 border-rose-300 dark:border-rose-900 cursor-not-allowed"
+                            : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-xs font-black text-slate-900 dark:text-white block">
+                              {m.label}
+                            </span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
+                              {m.desc}
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={!isSubscribed || (isFull && !isChecked)}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
+                          />
+                        </div>
+
+                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
+                          {!isSubscribed ? (
+                            <span className="text-slate-400">Not in plan</span>
+                          ) : usageInfo?.isUnlimited ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
+                          ) : (
+                            <span className={isFull && !isChecked ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}>
+                              {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <Toggle

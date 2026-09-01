@@ -25,13 +25,15 @@ import {
 const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
   const { user, hasPermission } = useAuth();
-  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
 
   const { data: profileData } = useQuery({
     queryKey: ["employeeProfile"],
     queryFn: () => getMyProfileApi().then((r) => r.data),
     staleTime: 5 * 60 * 1000,
   });
+
+  const subscribedModules = profileData?.company?.subscribedModules || user?.company?.subscribedModules || [];
+  const assignedModules = profileData?.employee?.assignedModules || user?.assignedModules || [];
 
   const sections = [
     {
@@ -43,21 +45,21 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
     {
       title: "TASK",
       items: [
-        { label: "My Tasks", path: "/employee/my-tasks", icon: CheckSquare },
+        { label: "My Tasks", path: "/employee/my-tasks", icon: CheckSquare, module: "tasks" },
       ],
     },
-    ...(canAccessLeads ? [{
+    {
       title: "LEAD ENGINE",
       items: [
-        { label: "Leads Pipeline", path: "/employee/leads", icon: Magnet },
+        { label: "Leads Pipeline", path: "/employee/leads", icon: Magnet, module: "leads" },
       ],
-    }] : []),
+    },
     {
       title: "HRMS",
       items: [
-        { label: "My Attendance", path: "/employee/attendance", icon: CalendarCheck },
-        { label: "Leaves", path: "/employee/leaves", icon: File },
-        { label: "Payslips", path: "/employee/payslips", icon: Receipt },
+        { label: "My Attendance", path: "/employee/attendance", icon: CalendarCheck, module: "attendance" },
+        { label: "Leaves", path: "/employee/leaves", icon: File, module: "leave" },
+        { label: "Payslips", path: "/employee/payslips", icon: Receipt, module: "payroll" },
       ],
     },
     {
@@ -114,54 +116,65 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 
       {/* ── Navigation ── */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
-        {sections.map((section, idx) => (
-          <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
-            {!isCollapsed && section.title && (
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
-                {section.title}
-              </p>
-            )}
-            {isCollapsed && section.title && idx > 0 && (
-              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={onItemClick}
-                    title={item.label}
-                    className={`${
-                      isCollapsed
-                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                            active
-                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                          }`
-                        : `oc-nav-item ${active ? "active" : ""}`
-                    }`}
-                  >
-                    {isCollapsed ? (
-                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
-                    ) : (
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon
-                          size={15}
-                          strokeWidth={active ? 2 : 1.75}
-                          className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`}
-                        />
-                        <span className="truncate text-[13px]">{item.label}</span>
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+        {sections.map((section, idx) => {
+          const visibleItems = section.items.filter((item) => {
+            if (!item.module) return true;
+            if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
+            if (assignedModules.length > 0 && !assignedModules.includes(item.module)) return false;
+            return true;
+          });
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
+              {!isCollapsed && section.title && (
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
+                  {section.title}
+                </p>
+              )}
+              {isCollapsed && section.title && idx > 0 && (
+                <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onItemClick}
+                      title={item.label}
+                      className={`${
+                        isCollapsed
+                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
+                              active
+                                ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                                : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                            }`
+                          : `oc-nav-item ${active ? "active" : ""}`
+                      }`}
+                    >
+                      {isCollapsed ? (
+                        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                      ) : (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon
+                            size={15}
+                            strokeWidth={active ? 2 : 1.75}
+                            className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`}
+                          />
+                          <span className="truncate text-[13px]">{item.label}</span>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* ── Footer ── */}

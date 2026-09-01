@@ -32,37 +32,37 @@ const MANAGER_SECTIONS = [
     title: "DAILY WORKSPACE",
     items: [
       { label: "Dashboard", path: "/manager/dashboard", icon: LayoutDashboard },
-      { label: "Leads Pipeline", path: "/manager/leads", icon: Magnet },
-      { label: "My Tasks", path: "/manager/my-tasks", icon: ListTodo },
-      { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare },
-      { label: "My Attendance", path: "/manager/attendance", icon: CalendarCheck },
-      { label: "My Leaves", path: "/manager/my-leave", icon: FileText },
+      { label: "Leads Pipeline", path: "/manager/leads", icon: Magnet, module: "leads" },
+      { label: "My Tasks", path: "/manager/my-tasks", icon: ListTodo, module: "tasks" },
+      { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare, module: "tasks" },
+      { label: "My Attendance", path: "/manager/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "My Leaves", path: "/manager/my-leave", icon: FileText, module: "leave" },
       { label: "Company Requests", path: "/manager/requests", icon: MessageSquare },
-      { label: "My Payslips", path: "/manager/payslips", icon: Receipt },
+      { label: "My Payslips", path: "/manager/payslips", icon: Receipt, module: "payroll" },
     ],
   },
   {
     title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
-      { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck },
-      { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays },
+      { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },
   {
     title: "LEAD CRM & PROJECTS",
     items: [
-      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: Megaphone },
-      { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock },
-      { label: "Projects", path: "/manager/projects", icon: FolderKanban },
+      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: Megaphone, module: "leads" },
+      { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock, module: "leads" },
+      { label: "Projects", path: "/manager/projects", icon: FolderKanban, module: "projects" },
     ],
   },
   {
     title: "INSIGHTS & SETTINGS",
     items: [
-      { label: "Reports Hub", path: "/manager/reports", icon: BarChart2 },
+      { label: "Reports Hub", path: "/manager/reports", icon: BarChart2, module: "reports" },
       { label: "Announcements", path: "/manager/announcements", icon: Megaphone },
-      { label: "Lead Settings", path: "/manager/leads/settings", icon: Settings },
+      { label: "Lead Settings", path: "/manager/leads/settings", icon: Settings, module: "leads" },
     ],
   },
 ];
@@ -76,6 +76,9 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
     queryFn: () => getManagerProfileApi().then((r) => r.data),
     staleTime: 5 * 60 * 1000,
   });
+
+  const subscribedModules = profileData?.company?.subscribedModules || user?.company?.subscribedModules || [];
+  const assignedModules = profileData?.manager?.assignedModules || user?.assignedModules || [];
 
   const companyName =
     profileData?.company?.companyName ||
@@ -108,18 +111,29 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 
       {/* Navigation */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-2.5 py-2 space-y-2"} oc-scroll`}>
-        {MANAGER_SECTIONS.map((section, idx) => (
-          <div key={idx} className={isCollapsed ? "mb-1" : "space-y-0.5"}>
-            {!isCollapsed && section.title && (
-              <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500 px-2.5 pt-1 pb-1">
-                {section.title}
-              </p>
-            )}
-            {isCollapsed && section.title && idx > 0 && (
-              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
+        {MANAGER_SECTIONS.map((section, idx) => {
+          const visibleItems = section.items.filter((item) => {
+            if (!item.module) return true;
+            if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
+            // If assignedModules has specific values, verify member has it
+            if (assignedModules.length > 0 && !assignedModules.includes(item.module)) return false;
+            return true;
+          });
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={idx} className={isCollapsed ? "mb-1" : "space-y-0.5"}>
+              {!isCollapsed && section.title && (
+                <p className="text-[9.5px] font-bold uppercase tracking-wider text-slate-500 px-2.5 pt-1 pb-1">
+                  {section.title}
+                </p>
+              )}
+              {isCollapsed && section.title && idx > 0 && (
+                <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
@@ -157,9 +171,10 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                   </Link>
                 );
               })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer / User Profile */}

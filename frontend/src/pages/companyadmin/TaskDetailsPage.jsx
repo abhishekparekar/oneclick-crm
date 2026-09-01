@@ -225,8 +225,8 @@ export default function TaskDetailsPage() {
   });
 
   const { data: employeesRes } = useQuery({
-    queryKey: ["employees"],
-    queryFn: getEmployeesApi,
+    queryKey: ["employees", "tasks"],
+    queryFn: () => getEmployeesApi({ module: "tasks", limit: 1000 }),
   });
 
   const employees = employeesRes?.data?.employees || [];

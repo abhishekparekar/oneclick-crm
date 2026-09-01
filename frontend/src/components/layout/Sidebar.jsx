@@ -57,11 +57,11 @@ const COMPANY_SECTIONS = [
   {
     title: "LEAD ENGINE & WHATSAPP",
     items: [
-      { label: "Leads", path: "/company/leads", icon: Magnet },
-      { label: "WhatsApp Automation", path: "/company/leads/automation", icon: Sparkles },
-      { label: "WhatsApp Campaigns", path: "/company/leads/campaigns", icon: Megaphone },
-      { label: "Reminders", path: "/company/leads/reminders", icon: Bell },
-      { label: "Lead Settings", path: "/company/leads/settings", icon: Settings },
+      { label: "Leads", path: "/company/leads", icon: Magnet, module: "leads" },
+      { label: "WhatsApp Automation", path: "/company/leads/automation", icon: Sparkles, module: "leads" },
+      { label: "WhatsApp Campaigns", path: "/company/leads/campaigns", icon: Megaphone, module: "leads" },
+      { label: "Reminders", path: "/company/leads/reminders", icon: Bell, module: "leads" },
+      { label: "Lead Settings", path: "/company/leads/settings", icon: Settings, module: "leads" },
     ],
   },
   {
@@ -310,7 +310,11 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   });
 
   const subscription = subData?.subscription;
-  const planModules = subscription?.planId?.modules || [];
+  const planModules = (subscription?.planId?.modules && subscription.planId.modules.length > 0)
+    ? subscription.planId.modules
+    : (profileData?.company?.subscribedModules && profileData.company.subscribedModules.length > 0
+        ? profileData.company.subscribedModules
+        : []);
   const companyName = profileData?.company?.companyName || profileData?.company?.name || "One Click Solutions";
   const userName = user?.name || "Company Admin";
 
@@ -339,7 +343,7 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {COMPANY_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
-            if (!subscription) return true;
+            if (planModules.length === 0) return true;
             return planModules.includes(item.module);
           });
 

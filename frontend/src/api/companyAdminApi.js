@@ -7,6 +7,7 @@ export const getCompanyAuditLogsApi = (params) => api.get("/company/audit-logs",
 
 // ── Employees ─────────────────────────────────────────────────────────────
 export const getEmployeesApi = (params = {}) => api.get("/company/employees", { params });
+export const getModuleUsageApi = () => api.get("/company/module-usage");
 export const getEmployeeByIdApi = (id) => api.get(`/company/employees/${id}`);
 export const createEmployeeApi = (data) => api.post("/company/employees", data);
 export const updateEmployeeApi = (id, data) => api.put(`/company/employees/${id}`, data);

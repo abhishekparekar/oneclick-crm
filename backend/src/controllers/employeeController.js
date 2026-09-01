@@ -78,6 +78,7 @@ const buildEmployeeFilter = (req) => {
     branchId,
     employmentType,
     status,
+    module: moduleFilter,
   } = req.query;
 
   const filter = { companyId: req.companyId };
@@ -87,6 +88,7 @@ const buildEmployeeFilter = (req) => {
   if (branchId) filter.branchId = branchId;
   if (employmentType) filter.employmentType = employmentType;
   if (status) filter.status = status;
+  if (moduleFilter) filter.assignedModules = moduleFilter;
 
   if (search && String(search).trim()) {
     const q = String(search).trim();
@@ -102,6 +104,47 @@ const buildEmployeeFilter = (req) => {
   }
 
   return filter;
+};
+
+const getModuleUsage = async (req, res, next) => {
+  try {
+    const companyId = req.companyId || req.user.companyId;
+    const company = await Company.findById(companyId).lean();
+    if (!company) return res.status(404).json({ message: "Company not found" });
+
+    const totalActiveEmployees = await Employee.countDocuments({ companyId, status: "active" });
+
+    const subscribedModules = company.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const moduleLimits = company.moduleLimits || {};
+
+    const usage = {};
+    for (const mod of subscribedModules) {
+      const used = await Employee.countDocuments({
+        companyId,
+        status: "active",
+        assignedModules: mod
+      });
+      const limit = (moduleLimits[mod] && moduleLimits[mod] > 0) ? moduleLimits[mod] : (company.employeeLimit || 50);
+      usage[mod] = {
+        subscribed: true,
+        limit,
+        used,
+        remaining: Math.max(0, limit - used),
+        isUnlimited: !moduleLimits[mod] || moduleLimits[mod] === 0
+      };
+    }
+
+    res.json({
+      success: true,
+      companyLimit: company.employeeLimit || 50,
+      totalActiveEmployees,
+      subscribedModules,
+      moduleLimits,
+      usage
+    });
+  } catch (error) {
+    next(error);
+  }
 };
 
 const getMyEmployee = async (req, res, next) => {
@@ -128,9 +171,9 @@ const getEmployees = async (req, res, next) => {
     console.log("DB QUERY: getEmployees");
     const filter = buildEmployeeFilter(req);
     const employees = await Employee.find(filter)
-      .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions joiningDate createdAt")
+      .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions assignedModules joiningDate createdAt")
       .populate([
-        { path: "userId", select: "role profileImage name email" },
+        { path: "userId", select: "role profileImage name email assignedModules" },
         { path: "departmentId", select: "name" },
         { path: "designationId", select: "name" },
         { path: "branchId", select: "branchName" },
@@ -319,6 +362,35 @@ const createEmployee = async (req, res, next) => {
       : tempPasswordFromPhone(phone || "000000");
     const employeeCode = await generateNextEmployeeCode(companyId);
 
+    // Module allocation check against plan limits
+    const subscribed = company.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const limits = company.moduleLimits || {};
+
+    let finalAssignedModules = req.body.assignedModules;
+    if (!Array.isArray(finalAssignedModules) || finalAssignedModules.length === 0) {
+      finalAssignedModules = subscribed;
+    }
+
+    for (const mod of finalAssignedModules) {
+      if (!subscribed.includes(mod)) {
+        return res.status(400).json({
+          message: `Module "${mod}" is not included in the company's active subscription plan.`
+        });
+      }
+      if (limits[mod] && limits[mod] > 0) {
+        const usedCount = await Employee.countDocuments({
+          companyId,
+          status: "active",
+          assignedModules: mod
+        });
+        if (usedCount >= limits[mod]) {
+          return res.status(400).json({
+            message: `Seat quota for ${mod} module reached (${limits[mod]}). Please upgrade plan to assign more employees to ${mod}.`
+          });
+        }
+      }
+    }
+
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     const user = await User.create({
@@ -329,6 +401,7 @@ const createEmployee = async (req, res, next) => {
       role,
       companyId,
       isPasswordResetRequired: true,
+      assignedModules: finalAssignedModules,
     });
 
     let finalPermissions = permissions;
@@ -371,6 +444,7 @@ const createEmployee = async (req, res, next) => {
         photo,
         gender,
         role,
+        assignedModules: finalAssignedModules,
         dateOfBirth: dateOfBirth || null,
         joiningDate: joiningDate || null,
         departmentId: effectiveDeptId || null,
@@ -667,6 +741,43 @@ const updateEmployee = async (req, res, next) => {
       }
     }
 
+    if (req.body.assignedModules !== undefined && Array.isArray(req.body.assignedModules)) {
+      const Company = require("../models/Company");
+      const company = await Company.findById(req.companyId).lean();
+      const subscribed = company?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+      const limits = company?.moduleLimits || {};
+
+      for (const mod of req.body.assignedModules) {
+        if (!subscribed.includes(mod)) {
+          return res.status(400).json({
+            message: `Module "${mod}" is not included in the company's active subscription plan.`
+          });
+        }
+        if (limits[mod] && limits[mod] > 0) {
+          const usedCount = await Employee.countDocuments({
+            companyId: req.companyId,
+            status: "active",
+            _id: { $ne: employee._id },
+            assignedModules: mod
+          });
+          if (usedCount >= limits[mod]) {
+            return res.status(400).json({
+              message: `Seat quota for ${mod} module reached (${limits[mod]}). Please upgrade plan to assign more employees to ${mod}.`
+            });
+          }
+        }
+      }
+
+      const oldModules = employee.assignedModules || [];
+      if (JSON.stringify(oldModules.sort()) !== JSON.stringify([...req.body.assignedModules].sort())) {
+        oldData.assignedModules = oldModules;
+        newData.assignedModules = req.body.assignedModules;
+        employee.assignedModules = req.body.assignedModules;
+        user.assignedModules = req.body.assignedModules;
+        hasChanges = true;
+      }
+    }
+
     if (!hasChanges) {
       console.log("NO CHANGES DETECTED: updateEmployee");
       const populated = await Employee.findById(employee._id).populate(populateEmployee).lean();
@@ -850,6 +961,7 @@ module.exports = {
   getMyEmployee,
   getEmployees,
   getEmployeeById,
+  getModuleUsage,
   createEmployee,
   updateEmployee,
   patchEmployeeStatus,

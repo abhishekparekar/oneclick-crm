@@ -8,6 +8,7 @@ const { getHRDashboard } = require("../controllers/hrController");
 const {
   getEmployees,
   getEmployeeById,
+  getModuleUsage,
   createEmployee,
   updateEmployee,
   patchEmployeeStatus,
@@ -64,6 +65,7 @@ router.use(authorize("HR", "CompanyAdmin")); // HR-level (or CompanyAdmin fallba
 router.get("/dashboard", getHRDashboard);
 
 // Employees
+router.get("/module-usage", getModuleUsage);
 router.post("/employees/basic-create", employeeCreateRules, createEmployee);
 router.get("/employees", getEmployees);
 router.get("/employees/:id", getEmployeeById);

@@ -63,6 +63,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    assignedModules: {
+      type: [String],
+      default: ["attendance", "leave", "tasks", "leads", "payroll", "projects", "reports"],
+    },
   },
   {
     timestamps: true,

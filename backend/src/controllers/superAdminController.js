@@ -61,6 +61,11 @@ const createCompany = async (req, res, next) => {
     let company = null;
 
     try {
+      let selectedPlan = null;
+      if (planId) {
+        selectedPlan = await Plan.findById(planId);
+      }
+
       company = await Company.create({
         companyName,
         ownerName,
@@ -73,9 +78,13 @@ const createCompany = async (req, res, next) => {
         state,
         pincode,
         industryType,
-        planName,
-        planId,
-        employeeLimit,
+        planName: selectedPlan?.planName || planName || "Custom",
+        planId: selectedPlan?._id || planId || null,
+        employeeLimit: employeeLimit || selectedPlan?.employeeLimit || 50,
+        subscribedModules: (selectedPlan?.modules && selectedPlan.modules.length > 0)
+          ? selectedPlan.modules
+          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+        moduleLimits: selectedPlan?.moduleLimits || {},
         createdBy: req.user._id,
       });
 
@@ -711,7 +720,15 @@ const assignSubscription = async (req, res, next) => {
       paymentStatus: billingCycle === 'trial' ? 'paid' : 'pending'
     });
 
-    await Company.findByIdAndUpdate(companyId, { planId: plan._id, planName: plan.planName, employeeLimit: plan.employeeLimit });
+    await Company.findByIdAndUpdate(companyId, {
+      planId: plan._id,
+      planName: plan.planName,
+      employeeLimit: plan.employeeLimit,
+      subscribedModules: (plan.modules && plan.modules.length > 0)
+        ? plan.modules
+        : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+      moduleLimits: plan.moduleLimits || {},
+    });
 
     // Log audit
     await AuditLog.create({
@@ -1363,9 +1380,10 @@ const convertCompanyRequest = async (req, res, next) => {
     const existingUser = await User.findOne({ email: adminEmail.toLowerCase() });
     if (existingUser) return res.status(400).json({ message: "Admin email already registered" });
 
+    let plan = null;
     let planName = "Custom";
     if (planId) {
-      const plan = await Plan.findById(planId);
+      plan = await Plan.findById(planId);
       if (plan) planName = plan.planName;
     }
 
@@ -1380,9 +1398,13 @@ const convertCompanyRequest = async (req, res, next) => {
       city: request.city,
       state: request.state,
       industryType: request.industryType,
-      planId,
+      planId: plan?._id || planId || null,
       planName,
-      employeeLimit: employeeLimit || 10,
+      employeeLimit: employeeLimit || plan?.employeeLimit || 10,
+      subscribedModules: (plan?.modules && plan.modules.length > 0)
+        ? plan.modules
+        : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+      moduleLimits: plan?.moduleLimits || {},
       createdBy: req.user._id,
       status: "active"
     });

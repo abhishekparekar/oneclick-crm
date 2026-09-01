@@ -407,7 +407,7 @@ export default function TaskBoard() {
 
   // Data Queries
   const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const { data: empRes } = useQuery({ queryKey: ["employees"], queryFn: getEmployeesApi });
+  const { data: empRes } = useQuery({ queryKey: ["employees", "tasks"], queryFn: () => getEmployeesApi({ module: "tasks", limit: 1000 }) });
 
   const apiFilters = { departmentId: filters.departmentId, assignedTo: filters.assignedTo };
 

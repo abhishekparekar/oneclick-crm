@@ -492,7 +492,7 @@ export default function Leads() {
     } catch (_) {}
 
     try {
-      const res = await api.get('/api/company/employees?limit=1000');
+      const res = await api.get('/api/company/employees?limit=1000&module=leads');
       const rawList = Array.isArray(res?.employees) ? res.employees : Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       const mapped = rawList
         .filter((e: any) => {

@@ -37,11 +37,11 @@ const HR_NAV_SECTIONS = [
     title: "DAILY WORKSPACE",
     items: [
       { label: "Dashboard", path: "/hr/dashboard", icon: LayoutDashboard },
-      { label: "Leads Pipeline", path: "/hr/leads", icon: Magnet },
-      { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare },
-      { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck },
-      { label: "Leave Requests", path: "/hr/leaves", icon: FileText },
-      { label: "Regularization", path: "/hr/regularization", icon: UserCheck },
+      { label: "Leads Pipeline", path: "/hr/leads", icon: Magnet, module: "leads" },
+      { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare, module: "tasks" },
+      { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },
+      { label: "Regularization", path: "/hr/regularization", icon: UserCheck, module: "attendance" },
       { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
       { label: "Employee Roster", path: "/hr/employees", icon: Users },
     ],
@@ -49,11 +49,11 @@ const HR_NAV_SECTIONS = [
   {
     title: "PAYROLL & COMPENSATION",
     items: [
-      { label: "Generate Payroll", path: "/hr/payroll/generate", icon: Receipt },
-      { label: "Payroll History", path: "/hr/payroll/history", icon: FileText },
-      { label: "Salary Structures", path: "/hr/payroll/salary", icon: DollarSign },
-      { label: "Salary Advances", path: "/hr/payroll/advances", icon: Award },
-      { label: "My Payslips", path: "/hr/payslips", icon: Receipt },
+      { label: "Generate Payroll", path: "/hr/payroll/generate", icon: Receipt, module: "payroll" },
+      { label: "Payroll History", path: "/hr/payroll/history", icon: FileText, module: "payroll" },
+      { label: "Salary Structures", path: "/hr/payroll/salary", icon: DollarSign, module: "payroll" },
+      { label: "Salary Advances", path: "/hr/payroll/advances", icon: Award, module: "payroll" },
+      { label: "My Payslips", path: "/hr/payslips", icon: Receipt, module: "payroll" },
     ],
   },
   {
@@ -61,16 +61,16 @@ const HR_NAV_SECTIONS = [
     items: [
       { label: "Add Employee", path: "/hr/employees/add", icon: UserPlus },
       { label: "Document Management", path: "/hr/upload-document", icon: FileUp },
-      { label: "Leave Balances", path: "/hr/leave-balance", icon: Clock },
-      { label: "Holidays Calendar", path: "/hr/holidays", icon: CalendarDays },
+      { label: "Leave Balances", path: "/hr/leave-balance", icon: Clock, module: "leave" },
+      { label: "Holidays Calendar", path: "/hr/holidays", icon: CalendarDays, module: "leave" },
       { label: "Departments", path: "/hr/departments", icon: GitBranch },
     ],
   },
   {
     title: "ANALYTICS & ENGAGEMENT",
     items: [
-      { label: "HR Analytics", path: "/hr/reports", icon: BarChart2 },
-      { label: "Performance", path: "/hr/performance", icon: Award },
+      { label: "HR Analytics", path: "/hr/reports", icon: BarChart2, module: "reports" },
+      { label: "Performance", path: "/hr/performance", icon: Award, module: "performance" },
       { label: "Announcements", path: "/hr/announcements", icon: Megaphone },
     ],
   },
@@ -94,6 +94,9 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
   });
 
   const empProfile = profileRes?.data?.employee || profileRes?.data || {};
+  const subscribedModules = empProfile?.companyId?.subscribedModules || user?.company?.subscribedModules || [];
+  const assignedModules = empProfile?.assignedModules || user?.assignedModules || [];
+
   const companyName =
     empProfile?.companyId?.companyName ||
     empProfile?.companyId?.name ||
@@ -127,18 +130,27 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
 
       {/* ── Navigation ── */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
-        {HR_NAV_SECTIONS.map((section, idx) => (
-          <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
-            {!isCollapsed && section.title && (
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
-                {section.title}
-              </p>
-            )}
-            {isCollapsed && section.title && idx > 0 && (
-              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
+        {HR_NAV_SECTIONS.map((section, idx) => {
+          const visibleItems = section.items.filter((item) => {
+            if (!item.module) return true;
+            if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
+            return true;
+          });
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
+              {!isCollapsed && section.title && (
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
+                  {section.title}
+                </p>
+              )}
+              {isCollapsed && section.title && idx > 0 && (
+                <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
                 return (
@@ -172,9 +184,10 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
                   </Link>
                 );
               })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* ── Footer ── */}

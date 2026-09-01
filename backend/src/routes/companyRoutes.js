@@ -77,6 +77,7 @@ const {
     getMyEmployee,
     getEmployees,
     getEmployeeById,
+    getModuleUsage,
     createEmployee,
     updateEmployee,
     patchEmployeeStatus,
@@ -112,6 +113,12 @@ router.get(
     "/subscription/active",
     requireCompany,
     getActiveSubscription
+);
+
+router.get(
+    "/module-usage",
+    requireCompany,
+    getModuleUsage
 );
 
 // Employees: CompanyAdmin, HR, Manager (list/view); Employee (own only); mutations: Admin/HR only

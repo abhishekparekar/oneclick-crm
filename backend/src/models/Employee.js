@@ -142,6 +142,10 @@ const employeeSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
+    assignedModules: {
+      type: [String],
+      default: ["attendance", "leave", "tasks", "leads", "payroll", "projects", "reports"],
+    },
     departmentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Department",
