@@ -74,4 +74,13 @@ router.post("/company-requests/:id/notes", controller.addCompanyRequestNote);
 router.post("/company-requests/:id/convert", controller.convertCompanyRequest);
 router.delete("/company-requests/:id", controller.deleteCompanyRequest);
 
+// Company Subscription Requests (SaaS Licensing & Upgrades)
+const {
+  getSuperAdminSubscriptionRequests,
+  updateSubscriptionRequestStatus,
+} = require("../controllers/subscriptionRequestController");
+
+router.get("/subscription-requests", getSuperAdminSubscriptionRequests);
+router.patch("/subscription-requests/:id/status", updateSubscriptionRequestStatus);
+
 module.exports = router;

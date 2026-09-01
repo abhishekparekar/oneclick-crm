@@ -158,6 +158,9 @@ export const getBIDepartmentDrillDownApi = (id) => api.get(`/company/reports/bi/
 
 // ── Subscription ──────────────────────────────────────────────────────────
 export const getActiveSubscriptionApi = () => api.get("/company/subscription/active");
+export const getAvailablePlansApi = () => api.get("/company/available-plans");
+export const createCompanySubscriptionRequestApi = (data) => api.post("/company/subscription-requests", data);
+export const getCompanySubscriptionRequestsApi = () => api.get("/company/subscription-requests");
 
 // ── Task Media Upload ──────────────────────────────────────────────────────
 export const uploadTaskMediaApi = (file) => {

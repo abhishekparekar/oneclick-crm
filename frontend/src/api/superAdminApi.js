@@ -80,3 +80,7 @@ export const updateCompanyRequestStatusApi = (id, data) => api.patch(`/superadmi
 export const addCompanyRequestNoteApi = (id, note) => api.post(`/superadmin/company-requests/${id}/notes`, { note });
 export const convertCompanyRequestApi = (id, data) => api.post(`/superadmin/company-requests/${id}/convert`, data);
 export const deleteCompanyRequestApi = (id) => api.delete(`/superadmin/company-requests/${id}`);
+
+// Company Subscription Requests (SaaS Plan Upgrades, Seat Extensions, Renewals)
+export const getSuperAdminSubscriptionRequestsApi = (params) => api.get("/superadmin/subscription-requests", { params });
+export const updateSubscriptionRequestStatusApi = (id, data) => api.patch(`/superadmin/subscription-requests/${id}/status`, data);

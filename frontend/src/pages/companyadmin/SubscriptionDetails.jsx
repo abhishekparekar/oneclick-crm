@@ -1,17 +1,43 @@
-import React from "react";
+import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getActiveSubscriptionApi } from "../../api/companyAdminApi";
+import { getActiveSubscriptionApi, getCompanySubscriptionRequestsApi } from "../../api/companyAdminApi";
+import CompanySubscriptionRequestModal from "../../components/subscription/CompanySubscriptionRequestModal";
 import {
   Sparkles, Calendar, CreditCard, Users, ShieldCheck,
   AlertOctagon, CheckCircle2, ShieldAlert, BadgeInfo, Layers,
-  Mail, Clock, ArrowUpRight, HelpCircle
+  Mail, Clock, ArrowUpRight, HelpCircle, Send, Plus, RefreshCw
 } from "lucide-react";
 
+const RequestStatusBadge = ({ status }) => {
+  const badgeMap = {
+    pending: { label: "Pending Review", bg: "bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800" },
+    in_review: { label: "In Review", bg: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border-cyan-300 dark:border-cyan-800" },
+    approved: { label: "Approved", bg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800" },
+    provisioned: { label: "Provisioned & Active", bg: "bg-emerald-600 text-white border-emerald-600" },
+    rejected: { label: "Declined", bg: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-300 dark:border-rose-800" },
+  };
+  const b = badgeMap[status] || badgeMap.pending;
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider border ${b.bg}`}>
+      {b.label}
+    </span>
+  );
+};
+
 const SubscriptionDetails = () => {
-  const { data, isLoading, error } = useQuery({
+  const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
+
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["activeSubscription"],
     queryFn: () => getActiveSubscriptionApi().then(res => res.data),
   });
+
+  const { data: requestsData, refetch: refetchRequests } = useQuery({
+    queryKey: ["companySubscriptionRequests"],
+    queryFn: () => getCompanySubscriptionRequestsApi().then(res => res.data),
+  });
+
+  const myRequests = requestsData?.data || [];
 
   if (isLoading) {
     return (
@@ -32,16 +58,23 @@ const SubscriptionDetails = () => {
         </div>
         <h2 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">No Active Subscription</h2>
         <p className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-          We couldn't detect an active subscription package for your organization. Everything remains visible, but write actions may be restricted.
+          We couldn't detect an active subscription package for your organization. You can send a direct provisioning request to Super Admin below.
         </p>
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 text-left text-xs text-slate-800 dark:text-slate-200 space-y-1.5 max-w-lg mx-auto">
-          <p className="font-bold flex items-center text-amber-600 dark:text-amber-400">
-            <BadgeInfo size={15} className="mr-1.5 shrink-0" /> How to activate or extend?
-          </p>
-          <p className="text-slate-600 dark:text-slate-300 font-medium">
-            Please contact the system Super Administrator to assign a SaaS package or extend your organization trial period.
-          </p>
+        <div className="pt-2">
+          <button
+            type="button"
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 mx-auto shadow-md cursor-pointer"
+          >
+            <Send size={14} /> Send Plan Request to Super Admin
+          </button>
         </div>
+
+        <CompanySubscriptionRequestModal
+          isOpen={isRequestModalOpen}
+          onClose={() => { setIsRequestModalOpen(false); refetch(); refetchRequests(); }}
+          currentPlan={null}
+        />
       </div>
     );
   }
@@ -69,62 +102,82 @@ const SubscriptionDetails = () => {
 
       {/* ── Alert Banners ── */}
       {isExpired && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
-          <AlertOctagon className="text-rose-500 shrink-0 mt-0.5" size={18} />
-          <div>
-            <h4 className="text-xs font-bold text-rose-700 dark:text-rose-300">Subscription Package Expired</h4>
-            <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400 mt-0.5">
-              Your organization's subscription ended on {formatDate(subscription.endDate)}. Restricted write features require package renewal. Please contact Super Admin immediately.
-            </p>
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 rounded-2xl p-3.5 sm:p-4 flex items-start justify-between space-x-3 shadow-2xs">
+          <div className="flex items-start space-x-3">
+            <AlertOctagon className="text-rose-500 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-bold text-rose-700 dark:text-rose-300">Subscription Package Expired</h4>
+              <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400 mt-0.5">
+                Your organization's subscription ended on {formatDate(subscription.endDate)}. Send an instant renewal request to Super Admin.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shrink-0 cursor-pointer shadow-xs"
+          >
+            Request Renewal
+          </button>
         </div>
       )}
 
       {!isExpired && daysRemaining <= 1 && (
-        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs animate-pulse">
-          <AlertOctagon className="text-rose-600 shrink-0 mt-0.5" size={18} />
-          <div>
-            <h4 className="text-xs font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider">🔴 Final Notice: Subscription Expires Tomorrow!</h4>
-            <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
-              Urgent: Your plan ({subscription.planName}) expires tomorrow on {formatDate(subscription.endDate)}. Renew now to prevent service suspension.
-            </p>
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-2xl p-3.5 sm:p-4 flex items-start justify-between space-x-3 shadow-2xs animate-pulse">
+          <div className="flex items-start space-x-3">
+            <AlertOctagon className="text-rose-600 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider">🔴 Final Notice: Subscription Expires Tomorrow!</h4>
+              <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
+                Urgent: Your plan ({subscription.planName}) expires tomorrow on {formatDate(subscription.endDate)}. Renew now to prevent service suspension.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs shrink-0 cursor-pointer shadow-xs"
+          >
+            Request Urgent Renewal
+          </button>
         </div>
       )}
 
       {!isExpired && daysRemaining > 1 && daysRemaining <= 7 && (
-        <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
-          <AlertOctagon className="text-orange-500 shrink-0 mt-0.5" size={18} />
-          <div>
-            <h4 className="text-xs font-black text-orange-700 dark:text-orange-300 uppercase tracking-wider">🚨 Subscription Expiring in {daysRemaining} Days (Action Required)</h4>
-            <p className="text-[11px] font-medium text-orange-600 dark:text-orange-400 mt-0.5">
-              Your plan ({subscription.planName}) expires on {formatDate(subscription.endDate)}. Renew in advance to keep all employee seats and CRM modules active.
-            </p>
+        <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-2xl p-3.5 sm:p-4 flex items-start justify-between space-x-3 shadow-2xs">
+          <div className="flex items-start space-x-3">
+            <AlertOctagon className="text-orange-500 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-black text-orange-700 dark:text-orange-300 uppercase tracking-wider">🚨 Subscription Expiring in {daysRemaining} Days (Action Required)</h4>
+              <p className="text-[11px] font-medium text-orange-600 dark:text-orange-400 mt-0.5">
+                Your plan ({subscription.planName}) expires on {formatDate(subscription.endDate)}. Request renewal in advance to keep seats active.
+              </p>
+            </div>
           </div>
+          <button
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-3 py-1.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-lg text-xs shrink-0 cursor-pointer shadow-xs"
+          >
+            Renew Now
+          </button>
         </div>
       )}
 
       {!isExpired && daysRemaining > 7 && daysRemaining <= 15 && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
-          <Clock className="text-amber-500 shrink-0 mt-0.5" size={18} />
-          <div>
-            <h4 className="text-xs font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">⚠️ Subscription Renewal Notice ({daysRemaining} Days Left)</h4>
-            <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
-              Your organization's subscription plan ({subscription.planName}) will expire on {formatDate(subscription.endDate)}.
-            </p>
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-3.5 sm:p-4 flex items-start justify-between space-x-3 shadow-2xs">
+          <div className="flex items-start space-x-3">
+            <Clock className="text-amber-500 shrink-0 mt-0.5" size={18} />
+            <div>
+              <h4 className="text-xs font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">⚠️ Subscription Renewal Notice ({daysRemaining} Days Left)</h4>
+              <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+                Your organization's subscription plan ({subscription.planName}) will expire on {formatDate(subscription.endDate)}.
+              </p>
+            </div>
           </div>
-        </div>
-      )}
-
-      {isTrial && !isExpired && daysRemaining > 15 && (
-        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
-          <Sparkles className="text-amber-500 shrink-0 mt-0.5 animate-pulse" size={18} />
-          <div>
-            <h4 className="text-xs font-bold text-amber-700 dark:text-amber-300">Free Trial Active</h4>
-            <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
-              Your organization is currently evaluating on a Free Trial package. You have <span className="font-extrabold">{daysRemaining} days remaining</span>.
-            </p>
-          </div>
+          <button
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs shrink-0 cursor-pointer shadow-xs"
+          >
+            Send Renewal Request
+          </button>
         </div>
       )}
 
@@ -140,6 +193,15 @@ const SubscriptionDetails = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsRequestModalOpen(true)}
+            className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-extrabold rounded-xl text-xs flex items-center gap-1.5 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-95"
+          >
+            <Send size={13} />
+            <span>Send Request to Super Admin</span>
+          </button>
+
           <span className={`px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider rounded-xl border ${
             isExpired
               ? "bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 border-rose-200 dark:border-rose-800"
@@ -148,9 +210,6 @@ const SubscriptionDetails = () => {
               : "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800"
           }`}>
             Status: {subscription.status}
-          </span>
-          <span className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider rounded-xl border bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300">
-            Cycle: {subscription.billingCycle}
           </span>
         </div>
       </div>
@@ -204,15 +263,24 @@ const SubscriptionDetails = () => {
 
       {/* ── Plan Entitlements & Support ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-
         {/* Left 2 Cols: Plan entitlements */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-3">
           <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs p-4 sm:p-5 space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <Layers className="text-amber-500" size={18} />
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
-                Plan Entitlements & Features
-              </h3>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Layers className="text-amber-500" size={18} />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+                  Plan Entitlements & Features
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsRequestModalOpen(true)}
+                className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>Request Upgrade</span>
+                <ArrowUpRight size={12} />
+              </button>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -269,38 +337,125 @@ const SubscriptionDetails = () => {
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <ShieldCheck className="text-amber-500" size={18} />
                 <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
-                  License & Upgrade Support
+                  License & Upgrade Desk
                 </h3>
               </div>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium mt-3">
-                To upgrade your SaaS tier, increase employee seat limits, or extend billing cycles, contact the Super Admin platform desk.
+                Need more employee seats, plan upgrade, or custom CRM add-ons? Send a direct request to Super Admin.
               </p>
               
               <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 rounded-xl p-3.5 mt-4 space-y-2">
                 <p className="text-[10px] font-extrabold uppercase tracking-wider text-amber-500 flex items-center gap-1">
-                  <Mail size={12} /> Super Admin Support Desk
+                  <Mail size={12} /> Super Admin Platform Desk
                 </p>
-                <p className="text-xs font-bold text-slate-900 dark:text-white m-0">Email: superadmin@icoded.com</p>
+                <p className="text-xs font-bold text-slate-900 dark:text-white m-0">Direct Licensing Response System</p>
                 <p className="text-[11px] font-medium text-slate-400 m-0 flex items-center gap-1">
-                  <Clock size={12} /> SLA Response: Within 24 Hours
+                  <Clock size={12} /> Super Admin Notified in Real-Time
                 </p>
               </div>
             </div>
 
             <div className="pt-2">
-              <a
-                href="mailto:superadmin@icoded.com?subject=SaaS%20Subscription%20Upgrade%20Request"
+              <button
+                type="button"
+                onClick={() => setIsRequestModalOpen(true)}
                 className="w-full py-2.5 px-4 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer"
               >
-                <span>Request Tier Upgrade</span>
-                <ArrowUpRight size={14} />
-              </a>
+                <Send size={14} />
+                <span>Submit Subscription Request</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* ── My Submitted Subscription Requests Table ── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs p-4 sm:p-5 space-y-3">
+        <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+          <div>
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0 flex items-center gap-2">
+              <Clock size={16} className="text-amber-500" /> My Subscription & Licensing Requests
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">Track the status and Super Admin responses to your requested upgrades.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => refetchRequests()}
+            className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 transition-colors cursor-pointer"
+            title="Refresh Requests"
+          >
+            <RefreshCw size={13} />
+          </button>
+        </div>
+
+        {myRequests.length === 0 ? (
+          <div className="text-center py-8 text-xs text-slate-400 space-y-2">
+            <p className="font-semibold">No subscription requests submitted yet.</p>
+            <button
+              onClick={() => setIsRequestModalOpen(true)}
+              className="text-amber-600 dark:text-amber-400 font-bold hover:underline"
+            >
+              Click here to send your first request to Super Admin
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase text-[10px] tracking-wider text-left">
+                  <th className="pb-2">Request Code</th>
+                  <th className="pb-2">Request Type</th>
+                  <th className="pb-2">Requested Details</th>
+                  <th className="pb-2">Submitted Date</th>
+                  <th className="pb-2">Status</th>
+                  <th className="pb-2">Super Admin Notes</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium text-slate-700 dark:text-slate-300">
+                {myRequests.map((req) => (
+                  <tr key={req._id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                    <td className="py-2.5 font-mono font-bold text-amber-600 dark:text-amber-400">
+                      {req.requestCode}
+                    </td>
+                    <td className="py-2.5 font-semibold capitalize">
+                      {req.requestType?.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2.5">
+                      <span className="font-bold text-slate-900 dark:text-white">
+                        {req.requestedPlanName || req.requestedPlanId?.planName || "Custom Requirements"}
+                      </span>
+                      {req.requestedSeats > 0 && (
+                        <span className="text-[10px] text-slate-400 block">
+                          Seats: {req.requestedSeats} Staff ({req.billingCycle})
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-2.5 text-slate-500">
+                      {formatDate(req.createdAt)}
+                    </td>
+                    <td className="py-2.5">
+                      <RequestStatusBadge status={req.status} />
+                    </td>
+                    <td className="py-2.5 text-slate-500 italic max-w-xs truncate">
+                      {req.adminResponseNotes || "Pending review..."}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* ── Modal ── */}
+      <CompanySubscriptionRequestModal
+        isOpen={isRequestModalOpen}
+        onClose={() => { setIsRequestModalOpen(false); refetch(); refetchRequests(); }}
+        currentPlan={subscription?.planId}
+      />
     </div>
   );
 };
 
 export default SubscriptionDetails;
+

@@ -363,4 +363,15 @@ router.patch("/attendance/regularization/:id/reject", ...adminHr, rejectRegulari
 router.get("/attendance-settings", ...adminHr, getSettings);
 router.put("/attendance-settings", ...adminHr, updateSettings);
 
+// Subscription Requests (Company Admin to Super Admin)
+const {
+  getAvailablePlans,
+  createCompanySubscriptionRequest,
+  getCompanySubscriptionRequests,
+} = require("../controllers/subscriptionRequestController");
+
+router.get("/available-plans", ...adminOnly, getAvailablePlans);
+router.post("/subscription-requests", ...adminOnly, createCompanySubscriptionRequest);
+router.get("/subscription-requests", ...adminOnly, getCompanySubscriptionRequests);
+
 module.exports = router;

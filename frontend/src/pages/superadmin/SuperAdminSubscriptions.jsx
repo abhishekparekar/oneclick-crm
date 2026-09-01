@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getSubscriptionsApi, getPlansApi, getCompaniesApi,
   assignSubscriptionApi, renewSubscriptionApi, cancelSubscriptionApi,
-  extendTrialApi, deleteSubscriptionApi
+  extendTrialApi, deleteSubscriptionApi, getSuperAdminSubscriptionRequestsApi
 } from "../../api/superAdminApi";
 import DataTable from "../../components/common/DataTable";
+import SuperAdminSubscriptionRequestsModal from "../../components/subscription/SuperAdminSubscriptionRequestsModal";
 import {
   Search, Plus, MoreVertical, ExternalLink, RefreshCw, Ban,
   Calendar, AlertCircle, CheckCircle, XCircle, CreditCard,
@@ -150,15 +151,19 @@ const SuperAdminSubscriptions = () => {
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
+  const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
   
   const [assignData, setAssignData] = useState({ companyId: "", planId: "", billingCycle: "monthly" });
   const [extendDays, setExtendDays] = useState(7);
 
-  const { data, isLoading } = useQuery({ queryKey: ["superAdminSubscriptions"], queryFn: () => getSubscriptionsApi() });
+  const { data, isLoading, refetch } = useQuery({ queryKey: ["superAdminSubscriptions"], queryFn: () => getSubscriptionsApi() });
   const { data: plansData } = useQuery({ queryKey: ["superAdminPlans"], queryFn: () => getPlansApi() });
   const { data: companiesData } = useQuery({ queryKey: ["superAdminCompanies"], queryFn: () => getCompaniesApi() });
+  const { data: reqsData } = useQuery({ queryKey: ["superAdminSubscriptionRequestsCount"], queryFn: () => getSuperAdminSubscriptionRequestsApi() });
+
+  const pendingRequestsCount = reqsData?.data?.stats?.pending || reqsData?.data?.filter?.(r => r.status === "pending")?.length || 0;
 
   const rawSubscriptions = Array.isArray(data?.data) ? data?.data : (data?.data?.subscriptions || []);
   const subscriptions = rawSubscriptions;
@@ -384,17 +389,34 @@ const SuperAdminSubscriptions = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Enterprise Subscriptions</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Monitor active tenant tiers, free trials, recurring renewals, and billing lifecycles.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Enterprise Subscriptions & Licensing</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Monitor active tenant tiers, free trials, recurring renewals, and incoming company upgrade requests.</p>
         </div>
-        <button 
-          onClick={() => setIsAssignModalOpen(true)} 
-          className="px-4 py-2.5 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90 flex items-center space-x-2 cursor-pointer active:scale-95"
-          style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
-        >
-          <Plus size={15} />
-          <span>Assign New Plan</span>
-        </button>
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <button 
+            type="button"
+            onClick={() => setIsRequestsModalOpen(true)} 
+            className="px-4 py-2.5 rounded-xl text-xs font-black text-amber-950 dark:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 transition-all flex items-center space-x-2 cursor-pointer shadow-xs active:scale-95"
+          >
+            <Sparkles size={15} className="text-amber-500" />
+            <span>Company Requests</span>
+            {pendingRequestsCount > 0 && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white shadow-2xs animate-pulse">
+                {pendingRequestsCount}
+              </span>
+            )}
+          </button>
+
+          <button 
+            type="button"
+            onClick={() => setIsAssignModalOpen(true)} 
+            className="px-4 py-2.5 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90 flex items-center space-x-2 cursor-pointer active:scale-95"
+            style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
+          >
+            <Plus size={15} />
+            <span>Assign New Plan</span>
+          </button>
+        </div>
       </div>
 
       {/* Analytics KPI Row (4 Cards) */}
@@ -641,6 +663,15 @@ const SuperAdminSubscriptions = () => {
           </div>
         </div>
       )}
+
+      {/* ── Company Subscription Requests Review Drawer / Modal ── */}
+      <SuperAdminSubscriptionRequestsModal
+        isOpen={isRequestsModalOpen}
+        onClose={() => {
+          setIsRequestsModalOpen(false);
+          refetch();
+        }}
+      />
     </div>
   );
 };
