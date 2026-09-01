@@ -26,6 +26,9 @@ const SuperAdminAddCompany = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   
+  const [isCustomIndustry, setIsCustomIndustry] = useState(false);
+  const [customIndustryText, setCustomIndustryText] = useState("");
+
   const [formData, setFormData] = useState({
     companyName: "",
     ownerName: "",
@@ -113,7 +116,11 @@ const SuperAdminAddCompany = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    mutation.mutate(formData);
+    const finalPayload = {
+      ...formData,
+      industryType: isCustomIndustry ? (customIndustryText.trim() || "Other") : formData.industryType
+    };
+    mutation.mutate(finalPayload);
   };
 
   const copyToClipboard = (text, field) => {
@@ -285,18 +292,72 @@ const SuperAdminAddCompany = () => {
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Industry Classification</label>
-                <div className="relative">
-                  <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary pointer-events-none" />
-                  <select name="industryType" value={formData.industryType} onChange={handleChange}
-                    className="w-full bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all cursor-pointer">
-                    <option value="Technology">Technology & Software</option>
-                    <option value="Finance">Banking & Finance</option>
-                    <option value="Healthcare">Healthcare & Life Sciences</option>
-                    <option value="Retail">Retail & E-Commerce</option>
-                    <option value="Manufacturing">Manufacturing & Logistics</option>
-                    <option value="Other">Other Industry</option>
-                  </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Industry Classification *</label>
+                  {isCustomIndustry && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomIndustry(false);
+                        setFormData(prev => ({ ...prev, industryType: "Technology" }));
+                      }}
+                      className="text-[10.5px] font-bold text-sa-primary hover:underline cursor-pointer"
+                    >
+                      Choose from presets
+                    </button>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="relative">
+                    <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary pointer-events-none" />
+                    <select
+                      name="industryType"
+                      value={isCustomIndustry ? "Other" : formData.industryType}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "Other") {
+                          setIsCustomIndustry(true);
+                          setFormData(prev => ({ ...prev, industryType: customIndustryText || "" }));
+                        } else {
+                          setIsCustomIndustry(false);
+                          setFormData(prev => ({ ...prev, industryType: val }));
+                        }
+                      }}
+                      className="w-full bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all cursor-pointer"
+                    >
+                      <option value="Technology">Technology & Software</option>
+                      <option value="Finance">Banking & Finance</option>
+                      <option value="Healthcare">Healthcare & Life Sciences</option>
+                      <option value="Retail">Retail & E-Commerce</option>
+                      <option value="Manufacturing">Manufacturing & Logistics</option>
+                      <option value="Education">Education & EdTech</option>
+                      <option value="Real Estate">Real Estate & Construction</option>
+                      <option value="Hospitality">Hospitality & Tourism</option>
+                      <option value="Consulting">Consulting & Professional Services</option>
+                      <option value="Other">+ Add Custom Industry Classification</option>
+                    </select>
+                  </div>
+
+                  {isCustomIndustry && (
+                    <div className="space-y-1 animate-fadeIn">
+                      <input
+                        type="text"
+                        required
+                        value={customIndustryText}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setCustomIndustryText(val);
+                          setFormData(prev => ({ ...prev, industryType: val }));
+                        }}
+                        placeholder="Enter custom Industry (e.g., Solar & Renewable Energy)"
+                        className="w-full bg-sa-bg/80 border-2 border-sa-primary/50 dark:border-sa-primary/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/30 transition-all shadow-2xs"
+                        autoFocus
+                      />
+                      <p className="text-[10px] text-sa-primary font-bold">
+                        ✨ Custom classification will be saved directly for this company.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
