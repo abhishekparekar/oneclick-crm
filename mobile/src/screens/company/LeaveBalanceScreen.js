@@ -19,6 +19,7 @@ import {
   updateLeaveBalanceApi,
 } from "../../api/companyService";
 import { COLORS, FONTS, SHADOWS, ROUNDING, SPACING } from "../../theme/tokens";
+import { useAuth } from "../../context/AuthContext";
 
 const LeaveBalanceScreen = ({ navigation }) => {
   const { user } = useAuth();

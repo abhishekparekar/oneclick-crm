@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import ManagerLayout from "../../components/ManagerLayout";
+import HRHeader from "../../components/HRHeader";
 import { useAuth } from "../../context/AuthContext";
 import { isEmployeeRole } from "../../utils/roleHelpers";
 import { useAppData } from "../../context/AppDataContext";

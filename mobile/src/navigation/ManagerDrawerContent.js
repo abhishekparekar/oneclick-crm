@@ -149,6 +149,8 @@ const ManagerDrawerContent = (props) => {
     return route.name;
   };
 
+  const activeRouteName = getActiveRouteName(state);
+
   const handleNavigate = (item) => {
     const screenName = typeof item === "string" ? item : item.screen;
     const targetScreen = typeof item === "object" ? item.targetScreen : null;

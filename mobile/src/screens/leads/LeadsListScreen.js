@@ -12,6 +12,7 @@ import {
   Alert,
   ScrollView,
   RefreshControl,
+  Platform,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";

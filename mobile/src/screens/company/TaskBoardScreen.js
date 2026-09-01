@@ -521,7 +521,7 @@ const TaskBoardScreen = ({ navigation }) => {
   };
 
   // ── Metrics Calculation (7 Flow Categories) ──────────────────────────────────
-  const projTasks = tasksList.filter((t) => {
+  const projTasks = (tasksData || []).filter((t) => {
     if (t.isTemplate) return false;
     const matchDept = selectedDepts.length === 0 || selectedDepts.includes(t.departmentId?._id || t.departmentId);
     const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);

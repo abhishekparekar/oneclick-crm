@@ -56,6 +56,7 @@ import EmployeeAttendanceDetailsScreen from "../screens/attendance/EmployeeAtten
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
 import EmployeeRegularizationRequestScreen from "../screens/attendance/EmployeeRegularizationRequestScreen";
 import { HRAddEmployeeScreen, HREditEmployeeScreen } from "../screens/hr/HRWrappers";
+import LeadsNavigator from "./LeadsNavigator";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -129,8 +130,6 @@ const ManagerBottomTabs = () => {
     </Tab.Navigator>
   );
 };
-
-import LeadsNavigator from "./LeadsNavigator";
 
 // ── 2. Stack Navigator (wraps bottom tabs + secondary screens) ─
 const ManagerStackScreen = () => {
