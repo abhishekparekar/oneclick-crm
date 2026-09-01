@@ -80,13 +80,14 @@ if (process.env.NODE_ENV !== "production") {
 
 app.use(
   rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: process.env.NODE_ENV === "production" ? 100 : 5000,
+    windowMs: (parseInt(process.env.RATE_LIMIT_WINDOW_MINUTES, 10) || 1) * 60 * 1000, // 1 minute window
+    max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 5000, // 5000 requests per minute
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.method === "OPTIONS" || req.path === "/" || req.path === "/api/health",
     message: {
       success: false,
-      message: "Too many requests. Please try again later.",
+      message: "Too many requests. Please try again after 1 minute.",
     },
   })
 );

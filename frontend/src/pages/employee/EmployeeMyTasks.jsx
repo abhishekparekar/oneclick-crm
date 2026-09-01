@@ -157,7 +157,7 @@ export default function EmployeeMyTasks() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
-  const [filters, setFilters] = useState({ departmentId: "", startDate: "", endDate: "", status: "", overdue: false });
+  const [filters, setFilters] = useState({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false });
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
 
   // Date Formatting & Range Helpers
@@ -393,26 +393,25 @@ export default function EmployeeMyTasks() {
       all: baseTabTasks.length,
       pending: 0,
       in_process: 0,
+      re_pending: 0,
+      re_in_process: 0,
       complete: 0,
+      re_complete: 0,
+      late_complete: 0,
+      re_late_complete: 0,
       overdue: 0,
+      cancelled: 0,
     };
 
     baseTabTasks.forEach(t => {
       const s = (t.status || "pending").toLowerCase();
-      if (checkIsOverdue(t) && s !== "overdue") {
-        map.overdue += 1;
-      }
-
-      if (["pending", "todo", "open", "re_pending"].includes(s)) {
-        map.pending += 1;
-      } else if (s.includes("process") || s.includes("progress") || s === "working" || s === "re_in_process") {
-        map.in_process += 1;
-      } else if (["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes(s)) {
-        map.complete += 1;
-      } else if (s === "overdue") {
-        map.overdue += 1;
+      if (map[s] !== undefined) {
+        map[s] += 1;
       } else {
         map.pending += 1;
+      }
+      if (checkIsOverdue(t) && s !== "overdue") {
+        map.overdue += 1;
       }
     });
 
@@ -422,12 +421,14 @@ export default function EmployeeMyTasks() {
   const activeFiltersCount = useMemo(() => {
     let count = 0;
     if (filters.departmentId) count++;
+    if (filters.deadlineFilter) count++;
     if (filters.startDate) count++;
     if (filters.endDate) count++;
     if (filters.status) count++;
     if (filters.overdue) count++;
+    if (priorityFilter && priorityFilter !== "all") count++;
     return count;
-  }, [filters]);
+  }, [filters, priorityFilter]);
 
   // Filtered Tasks
   const filteredTasks = useMemo(() => {
@@ -445,13 +446,33 @@ export default function EmployeeMyTasks() {
         return false;
       }
 
+      // Deadline Filter
+      if (filters.deadlineFilter) {
+        const raw = t.endDateTime || t.endDate || t.dueDate;
+        const d = raw ? new Date(raw) : null;
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
+
+        if (filters.deadlineFilter === "today") {
+          if (!d || d < startOfToday || d > endOfToday) return false;
+        } else if (filters.deadlineFilter === "tomorrow") {
+          if (!d || d < startOfTomorrow || d > endOfTomorrow) return false;
+        } else if (filters.deadlineFilter === "overdue") {
+          if (!checkIsOverdue(t)) return false;
+        }
+      }
+
       // Status Filter
       if (statusFilter !== "all") {
         const s = (t.status || "pending").toLowerCase();
-        if (statusFilter === "pending" && !["pending", "todo", "open", "re_pending"].includes(s)) return false;
-        if (statusFilter === "in_process" && !(s.includes("progress") || s.includes("process") || s === "working" || s === "re_in_process")) return false;
-        if (statusFilter === "completed" && !["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"].includes(s)) return false;
-        if (statusFilter === "overdue" && !checkIsOverdue(t)) return false;
+        if (statusFilter === "overdue") {
+          if (!checkIsOverdue(t)) return false;
+        } else if (s !== statusFilter.toLowerCase()) {
+          return false;
+        }
       }
 
       // Search Query
@@ -584,12 +605,57 @@ export default function EmployeeMyTasks() {
               badgeActive: "bg-white/20 text-white"
             },
             {
-              id: "completed",
+              id: "re_pending",
+              label: "Re-Pending",
+              count: statusCounts.re_pending,
+              pillInactive: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 hover:bg-indigo-100/80 shadow-2xs",
+              pillActive: "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/30",
+              badgeInactive: "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "re_in_process",
+              label: "Re-In Process",
+              count: statusCounts.re_in_process,
+              pillInactive: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800 hover:bg-cyan-100/80 shadow-2xs",
+              pillActive: "bg-cyan-600 text-white border-cyan-600 shadow-xs ring-2 ring-cyan-500/30",
+              badgeInactive: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "complete",
               label: "Completed",
               count: statusCounts.complete,
               pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
               pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
               badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "re_complete",
+              label: "Re-Completed",
+              count: statusCounts.re_complete,
+              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
+              pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30",
+              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "late_complete",
+              label: "Late Completed",
+              count: statusCounts.late_complete,
+              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
+              pillActive: "bg-teal-700 text-white border-teal-700 shadow-xs ring-2 ring-teal-600/30",
+              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
+              badgeActive: "bg-white/20 text-white"
+            },
+            {
+              id: "re_late_complete",
+              label: "Re-Late Completed",
+              count: statusCounts.re_late_complete,
+              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
+              pillActive: "bg-teal-800 text-white border-teal-800 shadow-xs ring-2 ring-teal-700/30",
+              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
               badgeActive: "bg-white/20 text-white"
             },
             {
@@ -600,7 +666,16 @@ export default function EmployeeMyTasks() {
               pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
               badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
               badgeActive: "bg-white/20 text-white"
-            }
+            },
+            {
+              id: "cancelled",
+              label: "Cancelled",
+              count: statusCounts.cancelled,
+              pillInactive: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700 hover:bg-slate-200 shadow-2xs",
+              pillActive: "bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-500/30",
+              badgeInactive: "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200",
+              badgeActive: "bg-white/20 text-white"
+            },
           ].map(st => {
             const active = statusFilter === st.id;
             return (
@@ -647,6 +722,7 @@ export default function EmployeeMyTasks() {
           </div>
 
           {/* Department Filter — inline */}
+          {/* Department Filter — inline */}
           <select
             className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
             value={filters.departmentId}
@@ -656,6 +732,30 @@ export default function EmployeeMyTasks() {
             {filteredEmployeeDepartments.map(d => (
               <option key={d._id} value={d._id}>{d.name || d.departmentName}</option>
             ))}
+          </select>
+
+          {/* Priority Filter */}
+          <select
+            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+            value={priorityFilter}
+            onChange={e => setPriorityFilter(e.target.value)}
+          >
+            <option value="all">All Priorities</option>
+            <option value="high">High Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="low">Low Priority</option>
+          </select>
+
+          {/* Deadline Filter */}
+          <select
+            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
+            value={filters.deadlineFilter}
+            onChange={e => setFilters({ ...filters, deadlineFilter: e.target.value })}
+          >
+            <option value="">All Deadlines</option>
+            <option value="today">Due Today</option>
+            <option value="tomorrow">Due Tomorrow</option>
+            <option value="overdue">Overdue</option>
           </select>
 
           {/* From Date with label */}
@@ -683,7 +783,7 @@ export default function EmployeeMyTasks() {
           {/* Reset Filters */}
           {activeFiltersCount > 0 && (
             <button
-              onClick={() => setFilters({ departmentId: "", startDate: "", endDate: "", status: "", overdue: false })}
+              onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); }}
               className="h-7 px-2 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 dark:border-rose-800 dark:hover:bg-rose-950/30 transition-all cursor-pointer flex items-center gap-1"
             >
               <X size={11} /> Reset
@@ -730,6 +830,24 @@ export default function EmployeeMyTasks() {
             </span>
           )}
 
+          {priorityFilter !== "all" && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs capitalize">
+              Priority: {priorityFilter}
+              <button onClick={() => setPriorityFilter("all")} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
+          {filters.deadlineFilter && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs capitalize">
+              Deadline: {filters.deadlineFilter.replace(/_/g, " ")}
+              <button onClick={() => setFilters(prev => ({ ...prev, deadlineFilter: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={12} />
+              </button>
+            </span>
+          )}
+
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs">
               From: {filters.startDate}
@@ -749,7 +867,7 @@ export default function EmployeeMyTasks() {
           )}
 
           <button
-            onClick={() => setFilters({ departmentId: "", startDate: "", endDate: "", status: "", overdue: false })}
+            onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); }}
             className="text-xs font-black text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
           >
             Reset All
