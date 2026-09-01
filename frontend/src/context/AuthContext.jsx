@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { getMe, login as apiLogin, registerCompany as apiRegisterCompany } from "../api/authApi";
 import { getTodayPendingUpdatesApi } from "../api/companyAdminApi";
 import DailyReportModal from "../components/tasks/DailyReportModal";
+import ForcePasswordResetModal from "../components/auth/ForcePasswordResetModal";
 
 const AuthContext = createContext();
 
@@ -134,6 +135,14 @@ export const AuthProvider = ({ children }) => {
     <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, hasPermission }}>
       {children}
       
+      {/* First-Time Login Password Reset Modal */}
+      <ForcePasswordResetModal
+        isOpen={Boolean(user?.isPasswordResetRequired)}
+        user={user}
+        onPasswordSet={(updated) => updateUser(updated)}
+        onLogout={executeLogout}
+      />
+
       {/* End of Day Report Blocker */}
       <DailyReportModal 
         isOpen={isLogoutPending} 

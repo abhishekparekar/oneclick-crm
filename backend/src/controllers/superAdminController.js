@@ -88,6 +88,8 @@ const createCompany = async (req, res, next) => {
         password: temporaryPassword,
         role: "CompanyAdmin",
         companyId: company._id,
+        isPrimaryAdmin: true,
+        isPasswordResetRequired: true,
       });
 
       res.status(201).json({
@@ -1213,6 +1215,7 @@ const createCompanyAdmin = async (req, res, next) => {
       role: "CompanyAdmin",
       companyId,
       isPrimaryAdmin: isPrimaryAdmin || false,
+      isPasswordResetRequired: true,
     });
 
     await AuditLog.create({ action: `Created CompanyAdmin ${email}`, module: 'CompanyAdmins', performedBy: req.user._id, companyId });
@@ -1393,7 +1396,8 @@ const convertCompanyRequest = async (req, res, next) => {
       password: temporaryPassword,
       role: "CompanyAdmin",
       companyId: company._id,
-      isPrimaryAdmin: true
+      isPrimaryAdmin: true,
+      isPasswordResetRequired: true,
     });
 
     request.status = "converted";
