@@ -12,9 +12,9 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions, useRoute } from "@react-navigation/native";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
-import useManagerController from "../controllers/managerController";
-
+import { getMyNotificationsApi } from "../api/notificationService";
 import { useLayout } from "../context/LayoutContext";
 
 const MANAGER_PRIMARY = "#1268D9";
@@ -107,36 +107,23 @@ const ManagerLayout = ({
   const insets = useSafeAreaInsets();
   const hookNavigation = useNavigation();
   const navigation = propNavigation || hookNavigation;
-  const { notifications, fetchNotifications, announcements, fetchAnnouncements } = useManagerController();
   const parentLayout = useLayout();
 
   const [fabVisible, setFabVisible] = useState(false);
-  const [localUnread, setLocalUnread] = useState(0);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
 
-  React.useEffect(() => {
-    if (unreadCount === 0) {
-      fetchNotifications();
-      fetchAnnouncements();
-    }
-  }, []);
+  // Cached notification query (zero re-render thrashing on route changes)
+  const { data: notifData } = useQuery({
+    queryKey: ["myNotifications"],
+    queryFn: async () => {
+      const res = await getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } }));
+      return res.data || { unreadCount: 0 };
+    },
+    staleTime: 60000,
+  });
 
-  React.useEffect(() => {
-    const unsubscribe = navigation.addListener("focus", () => {
-      fetchNotifications();
-      fetchAnnouncements();
-    });
-    return unsubscribe;
-  }, [navigation, fetchNotifications, fetchAnnouncements]);
-
-  React.useEffect(() => {
-    if (notifications) {
-      setLocalUnread(notifications.filter(n => !n.isRead).length);
-    }
-  }, [notifications]);
-
-  const displayUnread = unreadCount > 0 ? unreadCount : localUnread;
-  const unreadAnnouncementsCount = announcements?.filter(a => !a.isRead)?.length || 0;
+  const displayUnread = unreadCount > 0 ? unreadCount : (notifData?.unreadCount || 0);
+  const unreadAnnouncementsCount = notifData?.unreadAnnouncements || 0;
 
   let currentRouteName = null;
   try {
@@ -166,12 +153,12 @@ const ManagerLayout = ({
        currentRouteName.includes("Project") ? "Home" : "Home");
   }
 
-  // Sync activeTabLabel to LayoutContext
+  // Sync activeTabLabel to LayoutContext safely
   React.useEffect(() => {
-    if (parentLayout?.updateConfig) {
+    if (parentLayout?.updateConfig && parentLayout.activeTab !== activeTabLabel) {
       parentLayout.updateConfig({ activeTab: activeTabLabel });
     }
-  }, [activeTabLabel, parentLayout?.updateConfig]);
+  }, [activeTabLabel]);
 
   const getInitials = (name) => {
     if (!name) return "MG";
@@ -188,48 +175,30 @@ const ManagerLayout = ({
       return;
     }
     if (screen === "ManagerDashboard" || screen === "Home") {
-      navigation.navigate("ManagerStack", {
-        screen: "ManagerTabs",
-        params: { screen: "ManagerDashboard" },
-      });
+      navigation.navigate("ManagerDashboard");
       return;
     }
     if (screen === "LeadsEngine" || screen === "LeadsDashboard" || screen === "Leads") {
-      navigation.navigate("ManagerStack", {
-        screen: "LeadsEngine",
-        params: { screen: "LeadsDashboard" },
-      });
+      navigation.navigate("LeadsEngine", { screen: "LeadsDashboard" });
       return;
     }
     if (screen === "ManagerTasks" || screen === "Tasks") {
-      navigation.navigate("ManagerStack", {
-        screen: "ManagerTabs",
-        params: { screen: "ManagerTasks" },
-      });
+      navigation.navigate("ManagerTasks");
       return;
     }
     if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
-      navigation.navigate("ManagerStack", { screen: "ManagerTeamAttendance" });
+      navigation.navigate("ManagerTeamAttendance");
       return;
     }
     if (screen === "ManagerTeam" || screen === "My Team") {
-      navigation.navigate("ManagerStack", {
-        screen: "ManagerTabs",
-        params: { screen: "ManagerTeam" },
-      });
+      navigation.navigate("ManagerTeam");
       return;
     }
     if (screen === "ManagerProfile" || screen === "Profile") {
-      navigation.navigate("ManagerStack", {
-        screen: "ManagerTabs",
-        params: { screen: "ManagerProfile" },
-      });
+      navigation.navigate("ManagerProfile");
       return;
     }
-    navigation.navigate("ManagerStack", {
-      screen: "ManagerTabs",
-      params: { screen },
-    });
+    navigation.navigate(screen);
   };
 
   const navigateToScreen = (screen) => {
