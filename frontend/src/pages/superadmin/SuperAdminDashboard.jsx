@@ -74,22 +74,22 @@ function ProgressRing({ pct = 0, color = "#10B981", size = 38 }) {
   );
 }
 
-/* ─── Compact Low-Height KPI Stat Card ────────────────────────────────────── */
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, extraClass = "" }) => {
+/* ─── Compact Low-Height KPI Stat Card (Interactive with Redirection) ── */
+const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, to, extraClass = "" }) => {
   const sparkData = useMemo(() => [
     { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
   ], []);
 
-  return (
-    <div className={`bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-all duration-200 group ${extraClass}`}>
+  const cardContent = (
+    <div className={`bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:border-amber-500/50 dark:hover:border-amber-500/40 transition-all duration-200 group cursor-pointer ${extraClass}`}>
       <div className="flex-1 min-w-0 pr-1 sm:pr-2">
         <div className="flex items-center gap-1 sm:gap-1.5 mb-1">
-          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} flex-shrink-0`}>
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} flex-shrink-0 group-hover:scale-110 transition-transform`}>
             <Icon size={12} style={{ color: iconColor }} strokeWidth={2.2} />
           </div>
-          <span className="text-[9px] sm:text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider truncate">{label}</span>
+          <span className="text-[9px] sm:text-[9.5px] font-semibold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 uppercase tracking-wider truncate transition-colors">{label}</span>
         </div>
-        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1">{value}</h3>
+        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{value}</h3>
         <div className="flex items-center gap-1 text-[9px] sm:text-[10px]">
           <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600" : "text-rose-500"}`}>
             {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
@@ -113,6 +113,16 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
       </div>
     </div>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className="block no-underline">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 };
 
 export default function SuperAdminDashboard() {
@@ -246,13 +256,13 @@ export default function SuperAdminDashboard() {
         </div>
       </div>
 
-      {/* ── Row 1: Top 5 Compact Stat Cards ────────────────────────────────── */}
+      {/* ── Row 1: Top 5 Compact Stat Cards (Interactive with Redirection) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        <KPICard label="Monthly Revenue"  value={monthlyRevenue} trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={Wallet}    iconBg="bg-amber-500/10"  iconColor="#D97706"/>
-        <KPICard label="Total Companies"  value={totalCompanies}            trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
-        <KPICard label="Active Subscriptions" value={activeSubscriptions}   trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Archive}   iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
-        <KPICard label="Global Users"     value={totalUsers}                trend="9.3%" isUp period="last month" strokeColor="#EC4899" Icon={Users}     iconBg="bg-pink-500/10"   iconColor="#DB2777"/>
-        <KPICard label="Open Support Tickets" value={openTicketsCount}      trend="Resolved" isUp={true} period="today" strokeColor="#F97316" Icon={ShieldAlert} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1"/>
+        <KPICard label="Monthly Revenue"  value={monthlyRevenue} trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={Wallet}    iconBg="bg-amber-500/10"  iconColor="#D97706" to="/superadmin/payments"/>
+        <KPICard label="Total Companies"  value={totalCompanies}            trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2" to="/superadmin/companies"/>
+        <KPICard label="Active Subscriptions" value={activeSubscriptions}   trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Archive}   iconBg="bg-purple-500/10" iconColor="#7C3AED" to="/superadmin/subscriptions"/>
+        <KPICard label="Tenant Companies" value={totalCompanies}            trend="Live" isUp period="active" strokeColor="#EC4899" Icon={Building2} iconBg="bg-pink-500/10"   iconColor="#DB2777" to="/superadmin/companies"/>
+        <KPICard label="Open Support Tickets" value={openTicketsCount}      trend="Resolved" isUp={true} period="today" strokeColor="#F97316" Icon={ShieldAlert} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1" to="/superadmin/support-tickets"/>
       </div>
 
       {/* ── Row 2: Revenue Overview · Subscriptions · Tickets · Infrastructure ─── */}

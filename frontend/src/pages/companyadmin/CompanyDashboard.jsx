@@ -49,22 +49,22 @@ function ProgressRing({ pct, color, size = 38 }) {
   );
 }
 
-/* ─── Compact Low-Height KPI Stat Card ────────────────────────────────────── */
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, extraClass = "" }) => {
+/* ─── Compact Low-Height KPI Stat Card (Interactive with Redirection) ── */
+const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, to, extraClass = "" }) => {
   const sparkData = useMemo(() => [
     { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
   ], []);
 
-  return (
-    <div className={`bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] transition-all duration-200 group ${extraClass}`}>
+  const cardContent = (
+    <div className={`bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:border-amber-500/50 dark:hover:border-amber-500/40 transition-all duration-200 group cursor-pointer ${extraClass}`}>
       <div className="flex-1 min-w-0 pr-1 sm:pr-2">
         <div className="flex items-center gap-1 sm:gap-1.5 mb-1">
-          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} flex-shrink-0`}>
+          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} flex-shrink-0 group-hover:scale-110 transition-transform`}>
             <Icon size={12} style={{ color: iconColor }} strokeWidth={2.2} />
           </div>
-          <span className="text-[9px] sm:text-[9.5px] font-semibold text-slate-400 uppercase tracking-wider truncate">{label}</span>
+          <span className="text-[9px] sm:text-[9.5px] font-semibold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 uppercase tracking-wider truncate transition-colors">{label}</span>
         </div>
-        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1">{value}</h3>
+        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{value}</h3>
         <div className="flex items-center gap-1 text-[9px] sm:text-[10px]">
           <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600" : "text-rose-500"}`}>
             {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
@@ -88,6 +88,16 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
       </div>
     </div>
   );
+
+  if (to) {
+    return (
+      <Link to={to} className="block no-underline">
+        {cardContent}
+      </Link>
+    );
+  }
+
+  return cardContent;
 };
 
 export default function CompanyDashboard() {
@@ -389,30 +399,34 @@ export default function CompanyDashboard() {
         </div>
       </div>
 
-      {/* ── Row 1: Top 5 Compact Stat Cards (100% Real API Data) ────────────────── */}
+      {/* ── Row 1: Top 5 Compact Stat Cards (100% Real API Data with Redirection) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        <KPICard label="Total Revenue"    value={revenueValue} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={DollarSign}   iconBg="bg-amber-500/10"  iconColor="#D97706"/>
-        <KPICard label="Total Employees"  value={totalEmployees} trend="Live" isUp period="database" strokeColor="#06B6D4" Icon={Users}        iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
-        <KPICard label="Open Leads"       value={openLeadsCount} trend="Live" isUp period="database" strokeColor="#8B5CF6" Icon={Zap}          iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
-        <KPICard label="Active Projects"  value={activeProjectsCount} trend="Live" isUp period="database" strokeColor="#EC4899" Icon={Folder}       iconBg="bg-pink-500/10"   iconColor="#DB2777"/>
-        <KPICard label="Tasks Due Today"  value={tasksDueTodayCount} trend="Live" isUp={false} period="database" strokeColor="#F97316" Icon={CheckSquare} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1"/>
+        <KPICard label="Total Revenue"    value={revenueValue} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={DollarSign}   iconBg="bg-amber-500/10"  iconColor="#D97706" to="/company/payroll"/>
+        <KPICard label="Total Employees"  value={totalEmployees} trend="Live" isUp period="database" strokeColor="#06B6D4" Icon={Users}        iconBg="bg-cyan-500/10"   iconColor="#0891B2" to="/company/employees"/>
+        <KPICard label="Open Leads"       value={openLeadsCount} trend="Live" isUp period="database" strokeColor="#8B5CF6" Icon={Zap}          iconBg="bg-purple-500/10" iconColor="#7C3AED" to="/company/leads"/>
+        <KPICard label="Active Projects"  value={activeProjectsCount} trend="Live" isUp period="database" strokeColor="#EC4899" Icon={Folder}       iconBg="bg-pink-500/10"   iconColor="#DB2777" to="/company/projects"/>
+        <KPICard label="Tasks Due Today"  value={tasksDueTodayCount} trend="Live" isUp={false} period="database" strokeColor="#F97316" Icon={CheckSquare} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1" to="/company/tasks"/>
       </div>
 
       {/* ── Row 2: Revenue · Lead Pipeline · Task Completion · HRMS Overview ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         
         {/* Revenue Overview */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-amber-500/40 transition-colors">
           <div>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Revenue Overview</h3>
-              <span className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md">Live Payroll Cost</span>
+              <Link to="/company/payroll" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors">
+                Revenue Overview <ArrowRight size={12} className="opacity-70"/>
+              </Link>
+              <Link to="/company/payroll" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md hover:bg-amber-500/20 transition-colors">
+                Live Payroll Cost
+              </Link>
             </div>
             <div className="flex items-center gap-2.5 mb-2">
               <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{revenueFullStr}</span>
             </div>
           </div>
-          <div className="h-[155px] w-full flex items-center justify-center">
+          <Link to="/company/payroll" className="h-[155px] w-full flex items-center justify-center block cursor-pointer">
             {revenueSeries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <AreaChart data={revenueSeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
@@ -435,17 +449,21 @@ export default function CompanyDashboard() {
                 <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No Revenue Logged</p>
               </div>
             )}
-          </div>
+          </Link>
         </div>
 
         {/* Lead Pipeline Donut */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-purple-500/40 transition-colors">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Lead Pipeline</h3>
-            <span className="text-[10px] bg-slate-100 dark:bg-slate-800 font-medium text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-md">Live</span>
+            <Link to="/company/leads" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors">
+              Lead Pipeline <ArrowRight size={12} className="opacity-70"/>
+            </Link>
+            <Link to="/company/leads" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold px-2 py-0.5 rounded-md hover:bg-purple-500/20 transition-colors">
+              View CRM
+            </Link>
           </div>
           {leadPipeline.length > 0 ? (
-            <div className="flex items-center gap-3 my-auto">
+            <Link to="/company/leads" className="flex items-center gap-3 my-auto block no-underline cursor-pointer">
               <div className="relative w-22 h-22 flex-shrink-0">
                 <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <PieChart>
@@ -470,7 +488,7 @@ export default function CompanyDashboard() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Link>
           ) : (
             <div className="text-center my-auto py-4">
               <Inbox size={24} className="mx-auto text-slate-400 mb-1" />
@@ -480,10 +498,14 @@ export default function CompanyDashboard() {
         </div>
 
         {/* Task Completion Donut */}
-        <div className="lg:col-span-2 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-          <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 mb-2">Task Completion</h3>
+        <div className="lg:col-span-2 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-orange-500/40 transition-colors">
+          <div className="flex items-center justify-between mb-2">
+            <Link to="/company/tasks" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400 flex items-center gap-1 transition-colors">
+              Task Status <ArrowRight size={12} className="opacity-70"/>
+            </Link>
+          </div>
           {taskCompletion.length > 0 ? (
-            <>
+            <Link to="/company/tasks" className="block no-underline cursor-pointer">
               <div className="relative mx-auto my-auto" style={{ width: 80, height: 80 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <PieChart>
@@ -506,7 +528,7 @@ export default function CompanyDashboard() {
                   </div>
                 ))}
               </div>
-            </>
+            </Link>
           ) : (
             <div className="text-center my-auto py-4">
               <Inbox size={24} className="mx-auto text-slate-400 mb-1" />
@@ -517,21 +539,24 @@ export default function CompanyDashboard() {
 
         {/* Vibrant High-Contrast HRMS Overview */}
         <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-          <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 mb-2">HRMS Overview</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">HRMS Overview</h3>
+            <Link to="/company/attendance" className="text-[10px] text-cyan-600 hover:text-cyan-700 font-bold">Live</Link>
+          </div>
           <div className="space-y-2">
             {[
-              { icon: UserCheck,   label: "Present",        val: presentCount, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200", bc: "bg-emerald-600 text-white font-black" },
-              { icon: UserX,       label: "Absent",         val: absentCount,  ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200",             bc: "bg-rose-600 text-white font-black" },
-              { icon: CalendarOff, label: "On Leave",       val: leaveCount,   ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200",         bc: "bg-amber-600 text-white font-black" },
-              { icon: Clock,       label: "Late",           val: lateCount,    ib: "bg-yellow-50/90 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-800/60 text-yellow-900 dark:text-yellow-200",   bc: "bg-yellow-600 text-white font-black" },
-              { icon: Users,       label: "Work From Home", val: wfhCount,     ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200",   bc: "bg-indigo-600 text-white font-black" },
+              { icon: UserCheck,   label: "Present",        val: presentCount, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 hover:border-emerald-400", bc: "bg-emerald-600 text-white font-black", to: "/company/attendance" },
+              { icon: UserX,       label: "Absent",         val: absentCount,  ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200 hover:border-rose-400",             bc: "bg-rose-600 text-white font-black", to: "/company/leaves" },
+              { icon: CalendarOff, label: "On Leave",       val: leaveCount,   ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 hover:border-amber-400",         bc: "bg-amber-600 text-white font-black", to: "/company/leaves" },
+              { icon: Clock,       label: "Late",           val: lateCount,    ib: "bg-yellow-50/90 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-800/60 text-yellow-900 dark:text-yellow-200 hover:border-yellow-400",   bc: "bg-yellow-600 text-white font-black", to: "/company/attendance" },
+              { icon: Users,       label: "Work From Home", val: wfhCount,     ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200 hover:border-indigo-400",   bc: "bg-indigo-600 text-white font-black", to: "/company/attendance" },
             ].map(r => {
               const I = r.icon;
               return (
-                <div key={r.label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs font-semibold ${r.ib}`}>
+                <Link key={r.label} to={r.to} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${r.ib}`}>
                   <div className="flex items-center gap-2"><I size={14} className="stroke-[2.2]"/>{r.label}</div>
                   <span className={`${r.bc} px-2.5 py-0.5 rounded-md text-[11px] shadow-xs`}>{r.val}</span>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -552,7 +577,7 @@ export default function CompanyDashboard() {
           {tasksList.length > 0 ? (
             <div className="space-y-2.5">
               {tasksList.map(task => (
-                <div key={task.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 hover:border-slate-300 transition-colors">
+                <Link to="/company/tasks" key={task.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 hover:border-amber-500/60 transition-colors block no-underline cursor-pointer">
                   <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0 ml-0.5" />
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{task.title}</p>
@@ -568,7 +593,7 @@ export default function CompanyDashboard() {
                     </div>
                     <ProgressRing pct={task.pct} color={task.color} size={38} />
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -591,19 +616,19 @@ export default function CompanyDashboard() {
             {kanbanBoard.map(col => (
               <div key={col.title} className="flex flex-col bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden">
                 {/* Column Header */}
-                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/70 dark:bg-slate-800/90">
+                <Link to="/company/leads" className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/70 dark:bg-slate-800/90 hover:bg-slate-100/80 transition-colors">
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${col.dotColor}`}/>
                     <p className="text-xs font-bold text-slate-800 dark:text-white">{col.title}</p>
                     <span className="text-[9.5px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded-md">{col.sub}</span>
                   </div>
                   <ChevronDown size={11} className="text-slate-400"/>
-                </div>
+                </Link>
                 {/* Cards */}
                 <div className="p-2 space-y-2 flex-1">
                   {col.items.length > 0 ? (
                     col.items.map((item, i) => (
-                      <div key={i} className="bg-white dark:bg-[#1E293B] p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700 shadow-2xs hover:border-slate-300 transition-colors">
+                      <Link to="/company/leads" key={i} className="bg-white dark:bg-[#1E293B] p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700 shadow-2xs hover:border-purple-400 transition-colors block no-underline cursor-pointer">
                         <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{item.c}</p>
                         <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.p}</p>
                         <div className="flex items-center justify-between gap-1 mt-2 min-w-0">
@@ -613,7 +638,7 @@ export default function CompanyDashboard() {
                             <span className="text-[9.5px] text-slate-400 whitespace-nowrap flex-shrink-0">{item.t}</span>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     ))
                   ) : (
                     <div className="text-center py-4">
@@ -621,7 +646,7 @@ export default function CompanyDashboard() {
                     </div>
                   )}
                 </div>
-                {col.more && <p className="text-[9.5px] font-semibold text-cyan-600 py-1.5 text-center cursor-pointer hover:underline">{col.more}</p>}
+                {col.more && <Link to="/company/leads" className="text-[9.5px] font-semibold text-cyan-600 py-1.5 text-center cursor-pointer hover:underline block">{col.more}</Link>}
               </div>
             ))}
           </div>
@@ -640,13 +665,13 @@ export default function CompanyDashboard() {
               {upcomingEvents.map(ev => {
                 const I = ev.Icon;
                 return (
-                  <div key={ev.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
+                  <Link to="/company/announcements" key={ev.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group block no-underline">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ev.ic}`}><I size={14}/></div>
                     <div className="min-w-0">
                       <p className="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 transition-colors">{ev.title}</p>
                       <p className="text-[9.5px] text-slate-400 mt-0.5">{ev.date}</p>
                     </div>
-                  </div>
+                  </Link>
                 );
               })}
             </div>
