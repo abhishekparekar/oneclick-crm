@@ -134,17 +134,19 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
   const departmentsList = React.useMemo(() => {
     const list = [];
-    if (manager.departmentId) {
+    if (manager?.departmentId) {
       list.push({
-        _id: manager.departmentId._id || manager.departmentId,
-        name: manager.department || "My Dept",
+        _id: manager.departmentId?._id || manager.departmentId,
+        name: manager.departmentId?.name || manager.department || "My Dept",
       });
     }
-    manager.accessibleDepartments?.forEach((d) => {
-      const id = typeof d === "object" ? d._id : d;
-      const name = typeof d === "object" ? d.name || "Dept" : "Dept";
-      if (id && !list.some((x) => x._id?.toString() === id.toString())) list.push({ _id: id, name });
-    });
+    if (Array.isArray(manager?.accessibleDepartments)) {
+      manager.accessibleDepartments.forEach((d) => {
+        const id = typeof d === "object" ? d?._id : d;
+        const name = typeof d === "object" ? d?.name || "Dept" : "Dept";
+        if (id && !list.some((x) => x._id?.toString() === id.toString())) list.push({ _id: id, name });
+      });
+    }
     return list;
   }, [manager]);
 

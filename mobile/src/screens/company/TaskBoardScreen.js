@@ -88,6 +88,37 @@ const getDurationString = (startDate, endDate) => {
   return parts.join(" ");
 };
 
+// Helper for deadline coming filter
+const matchesDeadlineComingFilter = (task, filterKey) => {
+  if (!filterKey) return true;
+  const deadlineStr = task.endDateTime || task.endDate || task.deadlineTime;
+  if (!deadlineStr) return false;
+
+  const now = new Date();
+  const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+  const today = startOfDay(now);
+  const targetDate = startOfDay(new Date(deadlineStr));
+
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  switch (filterKey) {
+    case "yesterday":
+      return targetDate.getTime() === yesterday.getTime();
+    case "today":
+      return targetDate.getTime() === today.getTime();
+    case "tomorrow":
+      return targetDate.getTime() === tomorrow.getTime();
+    case "all":
+    default:
+      return true;
+  }
+};
+
 // ─── Animated Task Card (Premium Redesign) ───────────────────────────────────
 const TaskCard = ({ item, onPress, onEdit, onDelete, onToggle, isSelected, onSelect, canEdit = true, canCancel = true, canShift = true }) => {
   const scale = useRef(new Animated.Value(1)).current;

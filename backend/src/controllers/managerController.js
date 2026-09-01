@@ -1,7 +1,10 @@
 const Employee = require("../models/Employee");
 const Attendance = require("../models/Attendance");
 const Task = require("../models/Task");
+const TaskTemplate = require("../models/TaskTemplate");
+const TaskActivity = require("../models/TaskActivity");
 const Project = require("../models/Project");
+const ProjectChangeRequest = require("../models/ProjectChangeRequest");
 const Leave = require("../models/Leave");
 const LeaveBalance = require("../models/LeaveBalance");
 const Notification = require("../models/Notification");
@@ -12,6 +15,10 @@ const CompanyAttendanceSettings = require("../models/CompanyAttendanceSettings")
 const CompanyTaskSettings = require("../models/CompanyTaskSettings");
 const CompanyLeaveSettings = require("../models/CompanyLeaveSettings");
 const Timesheet = require("../models/Timesheet");
+const Department = require("../models/Department");
+const Designation = require("../models/Designation");
+const Branch = require("../models/Branch");
+const User = require("../models/User");
 const mongoose = require("mongoose");
 const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors } = require("../utils/notificationHelper");
 
@@ -111,12 +118,15 @@ const getManagerTeamEmployeeIds = async (managerOrId, companyId) => {
  * Falls back to userId lookup if employeeId not on JWT.
  */
 const resolveManagerEmployee = async (req) => {
-  const { companyId } = req;
-  const { _id: userId, employeeId } = req.user;
+  const companyId = req.companyId || req.user?.companyId;
+  const userId = req.user?._id;
+  const employeeId = req.user?.employeeId;
 
   let manager = null;
+  const filter = companyId ? { companyId } : {};
+
   if (employeeId) {
-    manager = await Employee.findOne({ _id: employeeId, companyId })
+    manager = await Employee.findOne({ _id: employeeId, ...filter })
       .populate([
         { path: "departmentId", select: "name" },
         { path: "departmentIds", select: "name" },
@@ -126,8 +136,8 @@ const resolveManagerEmployee = async (req) => {
       ])
       .lean();
   }
-  if (!manager) {
-    manager = await Employee.findOne({ userId, companyId })
+  if (!manager && userId) {
+    manager = await Employee.findOne({ userId, ...filter })
       .populate([
         { path: "departmentId", select: "name" },
         { path: "departmentIds", select: "name" },
@@ -137,8 +147,8 @@ const resolveManagerEmployee = async (req) => {
       ])
       .lean();
   }
-  if (!manager && req.user.email) {
-    manager = await Employee.findOne({ email: new RegExp(`^${req.user.email}$`, "i"), companyId })
+  if (!manager && req.user?.email) {
+    manager = await Employee.findOne({ email: new RegExp(`^${req.user.email}$`, "i"), ...filter })
       .populate([
         { path: "departmentId", select: "name" },
         { path: "departmentIds", select: "name" },
@@ -147,7 +157,7 @@ const resolveManagerEmployee = async (req) => {
         { path: "accessibleDepartments", select: "name" },
       ])
       .lean();
-    if (manager && !manager.userId) {
+    if (manager && !manager.userId && userId) {
       await Employee.updateOne({ _id: manager._id }, { $set: { userId } });
     }
   }
@@ -165,7 +175,7 @@ const getDateKey = (d = new Date()) => {
 const getManagerDashboardSummary = async (req, res, next) => {
   try {
     const userId = req.user._id;
-    const companyId = req.companyId;
+    const companyId = req.companyId || req.user?.companyId;
     const TaskTemplate = require("../models/TaskTemplate");
 
     const manager = await resolveManagerEmployee(req);

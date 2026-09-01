@@ -59,8 +59,11 @@ const FollowUpPopup = () => {
     // Schedule a reminder before shift ends if not cleared
     let timer;
     if (!visible && tasks.length > 0) {
-      const now = new Date();
-      const [hours, minutes] = shiftEndTime.split(':').map(Number);
+      const timeParts = typeof shiftEndTime === "string" && shiftEndTime.includes(":")
+        ? shiftEndTime.split(":").map(Number)
+        : [18, 30];
+      const hours = !isNaN(timeParts[0]) ? timeParts[0] : 18;
+      const minutes = !isNaN(timeParts[1]) ? timeParts[1] : 30;
       const shiftDate = new Date();
       shiftDate.setHours(hours, minutes, 0, 0);
 

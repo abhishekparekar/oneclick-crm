@@ -45,38 +45,232 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
     daysArray.push(d);
   }
 
-  const isToday = (day) => {
-    if (!day) return false;
-    const now = new Date();
-    return (
-      now.getDate() === day &&
-      now.getMonth() === month &&
-      now.getFullYear() === year
-    );
+  const now = new Date();
+  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  let joiningDate = null;
+  if (employee?.joiningDate || employee?.dateOfJoining || employee?.createdAt) {
+    const rawJoin = employee.joiningDate || employee.dateOfJoining || employee.createdAt;
+    const parsed = new Date(rawJoin);
+    if (!isNaN(parsed.getTime())) {
+      joiningDate = new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
+    }
+  }
+
+  // Evaluate month relation to joining date
+  const firstOfMonth = new Date(year, month, 1);
+  const lastOfMonth = new Date(year, month + 1, 0);
+  const isEntireMonthBeforeJoining = joiningDate ? lastOfMonth < joiningDate : false;
+  const joiningDateFormatted = joiningDate
+    ? joiningDate.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+    : "";
+
+  const getDayStatusData = (day) => {
+    if (!day) return null;
+    const currentDayDate = new Date(year, month, day);
+    const isFuture = currentDayDate > todayDate;
+    const isTodayDay = currentDayDate.getTime() === todayDate.getTime();
+    const isBeforeJoin = joiningDate ? currentDayDate < joiningDate : false;
+    const isSunday = currentDayDate.getDay() === 0;
+
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const record = attendanceRecords.find((r) => r.date && r.date.startsWith(dateStr));
+
+    let statusKey = "";
+    let label = "";
+    let bgStyle = "#F8FAFC";
+    let borderStyle = "#E2E8F0";
+    let textColor = COLORS.darkNavy;
+    let dotColor = null;
+
+    if (record?.status) {
+      statusKey = record.status;
+      switch (record.status) {
+        case "present":
+          label = "Present";
+          bgStyle = "#ECFDF5";
+          borderStyle = "#A7F3D0";
+          textColor = "#059669";
+          dotColor = "#10B981";
+          break;
+        case "absent":
+          label = "Absent";
+          bgStyle = "#FEF2F2";
+          borderStyle = "#FCA5A5";
+          textColor = "#DC2626";
+          dotColor = "#EF4444";
+          break;
+        case "half_day":
+        case "late":
+          label = "Half Day / Late";
+          bgStyle = "#FFFBEB";
+          borderStyle = "#FDE68A";
+          textColor = "#D97706";
+          dotColor = "#F59E0B";
+          break;
+        case "paid_leave":
+          label = "Paid Leave";
+          bgStyle = "#EFF6FF";
+          borderStyle = "#BFDBFE";
+          textColor = "#2563EB";
+          dotColor = "#2563EB";
+          break;
+        case "unpaid_leave":
+          label = "Unpaid Leave";
+          bgStyle = "#FDF2F8";
+          borderStyle = "#FBCFE8";
+          textColor = "#EC4899";
+          dotColor = "#EC4899";
+          break;
+        case "holiday":
+          label = "Holiday";
+          bgStyle = "#EEF2FF";
+          borderStyle = "#C7D2FE";
+          textColor = "#6366F1";
+          dotColor = "#6366F1";
+          break;
+        case "week_off":
+          label = "Week Off";
+          bgStyle = "#F8FAFC";
+          borderStyle = "#E2E8F0";
+          textColor = "#64748B";
+          dotColor = "#94A3B8";
+          break;
+        default:
+          label = record.status.replace(/_/g, " ");
+          bgStyle = "#F8FAFC";
+          borderStyle = "#E2E8F0";
+          textColor = "#475569";
+          dotColor = "#94A3B8";
+      }
+    } else if (isFuture) {
+      statusKey = "future";
+      label = "Upcoming";
+      bgStyle = "#F8FAFC";
+      borderStyle = "#E2E8F0";
+      textColor = "#94A3B8";
+      dotColor = null;
+    } else if (isBeforeJoin) {
+      statusKey = "before_joining";
+      label = "Not Joined Yet";
+      bgStyle = "#F1F5F9";
+      borderStyle = "#E2E8F0";
+      textColor = "#94A3B8";
+      dotColor = null;
+    } else if (isSunday) {
+      statusKey = "week_off";
+      label = "Week Off";
+      bgStyle = "#F8FAFC";
+      borderStyle = "#E2E8F0";
+      textColor = "#64748B";
+      dotColor = "#94A3B8";
+    } else {
+      // Past working day without record -> ABSENT RED
+      statusKey = "absent";
+      label = "Absent";
+      bgStyle = "#FEF2F2";
+      borderStyle = "#FCA5A5";
+      textColor = "#DC2626";
+      dotColor = "#EF4444";
+    }
+
+    if (isTodayDay) {
+      bgStyle = COLORS.primary;
+      borderStyle = COLORS.primary;
+      textColor = "#FFFFFF";
+      dotColor = "#FFFFFF";
+    }
+
+    return {
+      day,
+      dateStr,
+      record,
+      statusKey,
+      label,
+      bgStyle,
+      borderStyle,
+      textColor,
+      dotColor,
+      isTodayDay,
+      isFuture,
+      isBeforeJoin,
+    };
   };
 
-  const presentCount = attendanceRecords.filter(r => r.status === "present").length;
-  const absentCount = attendanceRecords.filter(r => r.status === "absent").length;
-  const halfDayCount = attendanceRecords.filter(r => r.status === "half_day" || r.status === "late").length;
-  const paidCount = presentCount + (halfDayCount * 0.5);
+  const summaryCounts = React.useMemo(() => {
+    let present = 0;
+    let absent = 0;
+    let halfLate = 0;
+    let paidDays = 0;
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const data = getDayStatusData(d);
+      if (!data) continue;
+
+      if (data.statusKey === "present") {
+        present += 1;
+        paidDays += 1;
+      } else if (data.statusKey === "absent") {
+        absent += 1;
+      } else if (data.statusKey === "half_day" || data.statusKey === "late") {
+        halfLate += 1;
+        paidDays += 0.5;
+      } else if (data.statusKey === "paid_leave") {
+        paidDays += 1;
+      } else if (data.statusKey === "unpaid_leave") {
+        absent += 1;
+      }
+    }
+
+    return {
+      present,
+      absent,
+      halfLate,
+      paidDays,
+    };
+  }, [attendanceRecords, currentDate, employee]);
 
   const generateHtml = () => {
     let rows = "";
-    daysArray.forEach(day => {
+    daysArray.forEach((day) => {
       if (!day) return;
-      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-      const record = attendanceRecords.find(r => r.date && r.date.startsWith(dateStr));
-      const status = record ? record.status : "No Record";
+      const data = getDayStatusData(day);
+      if (!data) return;
 
       let badgeColor = "#64748B";
-      let statusText = "Absent / No Record";
-      if (status === "present") { badgeColor = "#10B981"; statusText = "Present"; }
-      else if (status === "absent") { badgeColor = "#EF4444"; statusText = "Absent"; }
-      else if (status === "half_day" || status === "late") { badgeColor = "#F59E0B"; statusText = "Half Day / Late"; }
+      let statusText = data.label;
+      if (data.statusKey === "present") {
+        badgeColor = "#10B981";
+        statusText = "Present";
+      } else if (data.statusKey === "absent") {
+        badgeColor = "#EF4444";
+        statusText = "Absent";
+      } else if (data.statusKey === "half_day" || data.statusKey === "late") {
+        badgeColor = "#F59E0B";
+        statusText = "Half Day / Late";
+      } else if (data.statusKey === "paid_leave") {
+        badgeColor = "#2563EB";
+        statusText = "Paid Leave";
+      } else if (data.statusKey === "unpaid_leave") {
+        badgeColor = "#EC4899";
+        statusText = "Unpaid Leave";
+      } else if (data.statusKey === "week_off") {
+        badgeColor = "#94A3B8";
+        statusText = "Week Off";
+      } else if (data.statusKey === "holiday") {
+        badgeColor = "#6366F1";
+        statusText = "Holiday";
+      } else if (data.statusKey === "before_joining") {
+        badgeColor = "#94A3B8";
+        statusText = "Not Joined Yet";
+      } else if (data.statusKey === "future") {
+        badgeColor = "#CBD5E1";
+        statusText = "Upcoming";
+      }
 
       rows += `
         <tr>
-          <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; color: #334155;">${dateStr}</td>
+          <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0; color: #334155;">${data.dateStr}</td>
           <td style="padding: 12px 10px; border-bottom: 1px solid #E2E8F0;">
             <span style="background-color: ${badgeColor}; color: white; padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: bold;">
               ${statusText}
@@ -103,24 +297,24 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
         </head>
         <body>
           <h1>Attendance Report</h1>
-          <h3>Employee: ${employee?.firstName || ''} ${employee?.lastName || ''} | Month: ${displayMonth}</h3>
+          <h3>Employee: ${employee?.firstName || ""} ${employee?.lastName || ""} | Month: ${displayMonth}</h3>
           
           <div class="stats-container">
             <div class="stat-box">
               <div class="stat-label">Present</div>
-              <div class="stat-value" style="color: #10B981;">${presentCount}</div>
+              <div class="stat-value" style="color: #10B981;">${summaryCounts.present}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">Absent</div>
-              <div class="stat-value" style="color: #EF4444;">${absentCount}</div>
+              <div class="stat-value" style="color: #EF4444;">${summaryCounts.absent}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">Half Day / Late</div>
-              <div class="stat-value" style="color: #F59E0B;">${halfDayCount}</div>
+              <div class="stat-value" style="color: #F59E0B;">${summaryCounts.halfLate}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">Paid Days</div>
-              <div class="stat-value" style="color: #0F172A;">${paidCount}</div>
+              <div class="stat-value" style="color: #0F172A;">${summaryCounts.paidDays}</div>
             </div>
           </div>
 
@@ -148,9 +342,9 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
 
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
+          mimeType: "application/pdf",
           dialogTitle: `Attendance_Report_${employee?.firstName}_${displayMonth}.pdf`,
-          UTI: 'com.adobe.pdf'
+          UTI: "com.adobe.pdf",
         });
       } else {
         Alert.alert("Report Generated", `Saved PDF to: ${uri}`);
@@ -180,8 +374,8 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
       const { data } = await api.get(endpoint, {
         params: {
           month: currentDate.getMonth() + 1,
-          year: currentDate.getFullYear()
-        }
+          year: currentDate.getFullYear(),
+        },
       });
 
       if (data && data.attendance) {
@@ -204,20 +398,20 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
 
   const handleDayPress = (dayNumber) => {
     if (!dayNumber) return;
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(dayNumber).padStart(2, '0')}`;
-    const record = attendanceRecords.find(r => r.date && r.date.startsWith(dateStr));
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(dayNumber).padStart(2, "0")}`;
+    const record = attendanceRecords.find((r) => r.date && r.date.startsWith(dateStr));
 
     navigation.navigate("EmployeeDailyAttendance", {
       employee,
       date: dateStr,
-      record
+      record,
     });
   };
 
   return (
     <CompanyAdminLayout
       navigation={navigation}
-      headerTitle={`${employee?.firstName || ''} ${employee?.lastName || ''}`}
+      headerTitle={`${employee?.firstName || ""} ${employee?.lastName || ""}`}
       showSearch={false}
       activeTab="Attendance"
     >
@@ -243,26 +437,36 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
         </View>
 
         <ScrollView style={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* Joining Date Banner if entire month before joining */}
+          {isEntireMonthBeforeJoining && (
+            <View style={styles.joiningNoticeBanner}>
+              <Ionicons name="information-circle-outline" size={16} color="#64748B" style={{ marginRight: 6 }} />
+              <Text style={styles.joiningNoticeText}>
+                Employee joined on {joiningDateFormatted}. Records before this date are not applicable.
+              </Text>
+            </View>
+          )}
+
           {/* Metrics Summary Card */}
           <View style={styles.statsCard}>
             <View style={styles.statCol}>
-              <Text style={[styles.statLabel, { color: "#10B981" }]}>Present</Text>
-              <Text style={[styles.statNum, { color: "#10B981" }]}>{presentCount}</Text>
+              <Text style={[styles.statLabel, { color: "#10B981" }]}>PRESENT</Text>
+              <Text style={[styles.statNum, { color: "#10B981" }]}>{summaryCounts.present}</Text>
             </View>
             <View style={styles.statSep} />
             <View style={styles.statCol}>
-              <Text style={[styles.statLabel, { color: "#EF4444" }]}>Absent</Text>
-              <Text style={[styles.statNum, { color: "#EF4444" }]}>{absentCount}</Text>
+              <Text style={[styles.statLabel, { color: "#EF4444" }]}>ABSENT</Text>
+              <Text style={[styles.statNum, { color: "#EF4444" }]}>{summaryCounts.absent}</Text>
             </View>
             <View style={styles.statSep} />
             <View style={styles.statCol}>
-              <Text style={[styles.statLabel, { color: "#F59E0B" }]}>Half / Late</Text>
-              <Text style={[styles.statNum, { color: "#F59E0B" }]}>{halfDayCount}</Text>
+              <Text style={[styles.statLabel, { color: "#F59E0B" }]}>HALF / LATE</Text>
+              <Text style={[styles.statNum, { color: "#F59E0B" }]}>{summaryCounts.halfLate}</Text>
             </View>
             <View style={styles.statSep} />
             <View style={styles.statCol}>
-              <Text style={[styles.statLabel, { color: COLORS.primary }]}>Paid Days</Text>
-              <Text style={[styles.statNum, { color: COLORS.primary }]}>{paidCount}</Text>
+              <Text style={[styles.statLabel, { color: COLORS.primary }]}>PAID DAYS</Text>
+              <Text style={[styles.statNum, { color: COLORS.primary }]}>{summaryCounts.paidDays}</Text>
             </View>
           </View>
 
@@ -287,37 +491,8 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
                     return <View key={idx} style={styles.dayCellContainer} />;
                   }
 
-                  const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  const record = attendanceRecords.find(r => r.date && r.date.startsWith(dateStr));
-                  const isCurrentDay = isToday(day);
-
-                  let bgStyle = "#F8FAFC";
-                  let borderStyle = "#E2E8F0";
-                  let textColor = COLORS.darkNavy;
-                  let dotColor = null;
-
-                  if (record?.status === "present") {
-                    bgStyle = "#ECFDF5";
-                    borderStyle = "#A7F3D0";
-                    textColor = "#059669";
-                    dotColor = "#10B981";
-                  } else if (record?.status === "absent") {
-                    bgStyle = "#FEF2F2";
-                    borderStyle = "#FCA5A5";
-                    textColor = "#DC2626";
-                    dotColor = "#EF4444";
-                  } else if (record?.status === "half_day" || record?.status === "late") {
-                    bgStyle = "#FFFBEB";
-                    borderStyle = "#FDE68A";
-                    textColor = "#D97706";
-                    dotColor = "#F59E0B";
-                  }
-
-                  if (isCurrentDay) {
-                    bgStyle = COLORS.primary;
-                    borderStyle = COLORS.primary;
-                    textColor = "#FFFFFF";
-                  }
+                  const dayData = getDayStatusData(day);
+                  const isCurrentDay = dayData?.isTodayDay;
 
                   return (
                     <TouchableOpacity
@@ -326,11 +501,11 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
                       onPress={() => handleDayPress(day)}
                       activeOpacity={0.75}
                     >
-                      <View style={[styles.dayCircle, { backgroundColor: bgStyle, borderColor: borderStyle }]}>
-                        <Text style={[styles.dayNumText, { color: textColor }]}>{day}</Text>
+                      <View style={[styles.dayCircle, { backgroundColor: dayData.bgStyle, borderColor: dayData.borderStyle }]}>
+                        <Text style={[styles.dayNumText, { color: dayData.textColor }]}>{day}</Text>
                       </View>
-                      {dotColor && !isCurrentDay ? (
-                        <View style={[styles.statusDot, { backgroundColor: dotColor }]} />
+                      {dayData.dotColor && !isCurrentDay ? (
+                        <View style={[styles.statusDot, { backgroundColor: dayData.dotColor }]} />
                       ) : null}
                     </TouchableOpacity>
                   );
@@ -367,7 +542,7 @@ const EmployeeAttendanceCalendarScreen = ({ route, navigation }) => {
             activeOpacity={0.85}
           >
             <LinearGradient
-              colors={['#F97316', '#EA580C']}
+              colors={["#082B52", "#1268D9"]}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.downloadBtnGradient}
@@ -560,6 +735,23 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.bodyBold,
     fontSize: 14,
     color: "#FFFFFF",
+  },
+  joiningNoticeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  joiningNoticeText: {
+    flex: 1,
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 12,
+    color: "#64748B",
   },
 });
 

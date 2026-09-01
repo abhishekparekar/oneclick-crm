@@ -683,14 +683,17 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
               {assignees.length > 0 ? (
                 <View style={styles.nativeAssigneeRow}>
                   {assignees.map((a, idx) => {
-                    const initials = ((a.firstName || "S")[0] + (a.lastName || "")[0]).toUpperCase();
+                    if (!a) return null;
+                    const fName = typeof a === "object" ? (a.firstName || a.name || a.fullName || "Staff") : "Staff";
+                    const lName = typeof a === "object" ? (a.lastName || "") : "";
+                    const initials = ((fName[0] || "S") + (lName[0] || "")).toUpperCase();
                     return (
                       <View key={idx} style={styles.nativeAssigneeChip}>
                         <View style={styles.nativeAvatarBadge}>
                           <Text style={styles.nativeAvatarText}>{initials}</Text>
                         </View>
                         <Text style={styles.nativeAssigneeName} numberOfLines={1}>
-                          {a.firstName} {a.lastName}
+                          {fName} {lName}
                         </Text>
                       </View>
                     );
