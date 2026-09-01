@@ -419,19 +419,20 @@ export default function ManagerTeamTasks() {
             </div>
 
             {/* Advanced Filters Trigger */}
-            <div className="relative z-20 shrink-0">
+            <div className="relative z-30 shrink-0">
               <button
                 onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
-                className={`flex items-center gap-1 px-2.5 py-1.5 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3 h-8 border rounded-xl text-xs font-extrabold shadow-2xs transition-all shrink-0 cursor-pointer ${
                   showFiltersDropdown || activeCustomFiltersCount > 0
-                    ? "bg-amber-500/15 text-amber-800 dark:text-amber-300 border-amber-500/40"
-                    : "bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-100"
+                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs"
+                    : "bg-white dark:bg-[#111C24] border-slate-200/90 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
                 }`}
+                title="Filter Tasks"
               >
-                <Filter size={12} className="text-amber-600 dark:text-amber-400" />
-                <span className="hidden xs:inline">Filters</span>
+                <SlidersHorizontal size={13} className={showFiltersDropdown || activeCustomFiltersCount > 0 ? "text-slate-950" : "text-amber-600 dark:text-amber-400"} />
+                <span>Filters</span>
                 {activeCustomFiltersCount > 0 && (
-                  <span className="flex items-center justify-center min-w-[15px] h-[15px] px-1 bg-slate-900 text-white dark:bg-amber-600 dark:text-white text-[9px] rounded-full font-black ml-0.5">
+                  <span className="flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-slate-900 text-white dark:bg-slate-900 dark:text-white text-[9.5px] rounded-full font-black ml-0.5">
                     {activeCustomFiltersCount}
                   </span>
                 )}
@@ -439,7 +440,7 @@ export default function ManagerTeamTasks() {
 
               {/* Filters Dropdown Card */}
               {showFiltersDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-30 space-y-3.5 shadow-2xl rounded-2xl animate-fadeIn">
+                <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-50 space-y-3.5 shadow-2xl rounded-2xl animate-fadeIn">
                   <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
                     <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
                     <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
