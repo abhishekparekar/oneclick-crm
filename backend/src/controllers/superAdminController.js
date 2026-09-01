@@ -250,47 +250,6 @@ const deleteCompany = async (req, res, next) => {
 const getDashboardStats = async (req, res, next) => {
   try {
     const { timeRange } = req.query;
-    let dateFilter = {};
-
-    if (timeRange && timeRange !== "all") {
-      const now = new Date();
-      let startDate = new Date();
-      let endDate = new Date();
-
-      switch (timeRange) {
-        case "today":
-          startDate.setHours(0, 0, 0, 0);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case "yesterday":
-          startDate.setDate(startDate.getDate() - 1);
-          startDate.setHours(0, 0, 0, 0);
-          endDate = new Date(startDate);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        case "last_7_days":
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case "last_15_days":
-          startDate.setDate(startDate.getDate() - 15);
-          break;
-        case "this_month":
-          startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-          break;
-        case "last_month":
-          startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-          endDate = new Date(now.getFullYear(), now.getMonth(), 0);
-          endDate.setHours(23, 59, 59, 999);
-          break;
-        default:
-          break;
-      }
-
-      if (timeRange !== "all") {
-        dateFilter = { createdAt: { $gte: startDate, $lte: endDate } };
-      }
-    }
-
     const now = new Date();
     const firstDayThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const firstDayThisYear = new Date(now.getFullYear(), 0, 1);
@@ -307,33 +266,46 @@ const getDashboardStats = async (req, res, next) => {
       expiredSubscriptions,
       trialSubscriptions,
       expiringSubscriptions,
+      pendingRequestsCount,
+      approvedRequestsCount,
       monthlyPayments,
       yearlyPayments,
       supportTickets,
       companiesList,
+      plansList,
+      pendingReqs,
+      approvedReqs,
+      announcementsList,
+      recentLogs
     ] = await Promise.all([
-      Company.countDocuments({ ...dateFilter }),
-      Company.countDocuments({ status: "active", ...dateFilter }),
-      User.countDocuments({ role: "CompanyAdmin", ...dateFilter }),
-      User.countDocuments({ ...dateFilter }),
-      Employee.countDocuments({ ...dateFilter }),
-      Plan.countDocuments({ ...dateFilter }),
-      Payment.countDocuments({ ...dateFilter }),
-      Subscription.countDocuments({ status: "active", ...dateFilter }),
-      Subscription.countDocuments({ status: "expired", ...dateFilter }),
-      Subscription.countDocuments({ status: "trial", ...dateFilter }),
+      Company.countDocuments(),
+      Company.countDocuments({ status: "active" }),
+      User.countDocuments({ role: "CompanyAdmin" }),
+      User.countDocuments(),
+      Employee.countDocuments(),
+      Plan.countDocuments(),
+      Payment.countDocuments(),
+      Subscription.countDocuments({ status: "active" }),
+      Subscription.countDocuments({ status: "expired" }),
+      Subscription.countDocuments({ status: "trial" }),
       Subscription.countDocuments({
         status: "active",
         endDate: { $gte: now, $lte: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) },
-        ...dateFilter
       }),
+      CompanyRequest.countDocuments({ status: "pending" }),
+      CompanyRequest.countDocuments({ status: { $in: ["approved", "converted"] } }),
       Payment.find({ status: "completed", createdAt: { $gte: firstDayThisMonth } }),
       Payment.find({ status: "completed", createdAt: { $gte: firstDayThisYear } }),
-      SupportTicket.find({ ...dateFilter }),
-      Company.find({ ...dateFilter }).sort({ employeeLimit: -1 }).limit(10),
+      SupportTicket.find(),
+      Company.find().sort({ createdAt: -1 }).limit(6).lean(),
+      Plan.find({ isActive: true }).lean(),
+      CompanyRequest.find({ status: "pending" }).sort({ createdAt: -1 }).limit(4).lean(),
+      CompanyRequest.find({ status: { $in: ["approved", "converted"] } }).sort({ createdAt: -1 }).limit(4).lean(),
+      Announcement.find({ isActive: true }).sort({ createdAt: -1 }).limit(5).lean(),
+      AuditLog.find().populate("performedBy", "name email role").populate("companyId", "companyName").sort({ createdAt: -1 }).limit(5).lean()
     ]);
 
-    const inactiveCompanies = totalCompanies - activeCompanies;
+    const inactiveCompanies = Math.max(0, totalCompanies - activeCompanies);
 
     // Calculate revenue
     const monthlyRevenueVal = monthlyPayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
@@ -348,7 +320,6 @@ const getDashboardStats = async (req, res, next) => {
       barDataMap[idx] = { name: m, monthly: 0, annual: 0 };
     });
 
-    // Populate areaData from companies createdAt
     const allCompaniesYear = await Company.find({ createdAt: { $gte: firstDayThisYear } });
     allCompaniesYear.forEach((c) => {
       const m = new Date(c.createdAt).getMonth();
@@ -356,7 +327,6 @@ const getDashboardStats = async (req, res, next) => {
     });
     const areaData = Object.values(areaDataMap);
 
-    // Populate barData from completed payments
     yearlyPayments.forEach((p) => {
       const m = new Date(p.createdAt || p.paymentDate).getMonth();
       if (barDataMap[m]) {
@@ -366,43 +336,158 @@ const getDashboardStats = async (req, res, next) => {
     });
     const barData = Object.values(barDataMap);
 
-    // Pie chart (subscriptions breakdown)
-    const pieData = [
-      { name: "Active", value: activeSubscriptions, color: "#3D0E61" },
-      { name: "Expiring", value: expiringSubscriptions, color: "#613DC1" },
-      { name: "Expired", value: expiredSubscriptions, color: "#858AE3" },
-      { name: "Trial", value: trialSubscriptions, color: "#97DFFC" }
-    ];
+    // Subscription Tiers Breakdown
+    const tierColors = ["#EAB308", "#10B981", "#06B6D4", "#8B5CF6", "#EC4899"];
+    let subscriptionPipeline = [];
+    if (plansList.length > 0) {
+      subscriptionPipeline = await Promise.all(
+        plansList.map(async (p, idx) => {
+          const count = await Subscription.countDocuments({ planId: p._id, status: "active" });
+          const pct = activeSubscriptions > 0 ? Math.round((count / activeSubscriptions) * 100) : 0;
+          return {
+            name: p.name || p.planName || `Plan ${idx + 1}`,
+            value: count || (idx === 0 ? activeCompanies : 0),
+            pct: `(${pct}%)`,
+            color: tierColors[idx % tierColors.length]
+          };
+        })
+      );
+    } else {
+      subscriptionPipeline = [
+        { name: "Active Plan", value: activeSubscriptions || activeCompanies || 1, pct: "(100%)", color: "#10B981" }
+      ];
+    }
 
-    // Donut chart (support tickets status)
-    let openCount = 0, inProgCount = 0, resolvedCount = 0, closedCount = 0;
+    // Support ticket status
+    let openCount = 0, inProgCount = 0, resolvedCount = 0;
     supportTickets.forEach((t) => {
       const st = (t.status || "").toLowerCase();
       if (st === "open") openCount++;
       else if (st === "in progress" || st === "in_progress") inProgCount++;
-      else if (st === "resolved") resolvedCount++;
-      else if (st === "closed") closedCount++;
+      else if (st === "resolved" || st === "closed") resolvedCount++;
       else openCount++;
     });
-    const donutData = [
-      { name: "Open", value: openCount, color: "#3D0E61" },
-      { name: "In Progress", value: inProgCount, color: "#613DC1" },
-      { name: "Resolved", value: resolvedCount, color: "#858AE3" },
-      { name: "Closed", value: closedCount, color: "#97DFFC" }
+    const totalT = openCount + inProgCount + resolvedCount || 1;
+    const ticketStatus = [
+      { name: "Resolved", value: Math.round((resolvedCount / totalT) * 100) || 0, count: resolvedCount, color: "#10B981" },
+      { name: "In Progress", value: Math.round((inProgCount / totalT) * 100) || 0, count: inProgCount, color: "#EAB308" },
+      { name: "Open", value: Math.round((openCount / totalT) * 100) || 0, count: openCount, color: "#F43F5E" }
     ];
 
-    // Top companies
+    // Helper for relative time
+    const formatTimeAgo = (d) => {
+      if (!d) return "Recently";
+      const diffHrs = Math.round((new Date() - new Date(d)) / (1000 * 60 * 60));
+      if (diffHrs < 1) return "Just now";
+      if (diffHrs < 24) return `${diffHrs}h ago`;
+      return `${Math.round(diffHrs / 24)}d ago`;
+    };
+
+    // Top Companies
     const topCompanies = await Promise.all(
-      companiesList.map(async (c) => {
+      companiesList.map(async (c, i) => {
         const empCount = await Employee.countDocuments({ companyId: c._id });
-        const pct = c.employeeLimit ? Math.min(100, Math.round((empCount / c.employeeLimit) * 100)) : 50;
+        const limit = c.employeeLimit || 50;
+        const pct = Math.min(100, Math.round((empCount / limit) * 100));
+        const colors = ["#10B981", "#EAB308", "#EC4899", "#06B6D4", "#8B5CF6"];
         return {
-          name: c.companyName,
+          id: c._id,
+          name: c.companyName || "Unnamed Company",
+          tier: c.planName || "Enterprise Tier",
+          tag: c.status === "active" ? "Active" : c.status || "Pending",
+          pColor: c.status === "active" 
+            ? "text-emerald-700 bg-emerald-500/10 border-emerald-200/80 dark:border-emerald-900/40"
+            : "text-amber-700 bg-amber-500/10 border-amber-200/80 dark:border-amber-900/40",
+          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(c.companyName || "C")}&background=random`,
+          owner: c.ownerName || c.ownerEmail?.split("@")[0] || "Admin",
           emp: empCount.toLocaleString("en-IN"),
-          pct: pct > 0 ? pct : 10,
+          pct: pct > 0 ? pct : 25,
+          color: colors[i % colors.length]
         };
       })
     );
+
+    // Company Requests Kanban
+    const kanbanBoard = [
+      {
+        title: "Pending Requests",
+        sub: `${pendingRequestsCount} Requests`,
+        dotColor: "bg-amber-500",
+        items: pendingReqs.map(r => ({
+          c: r.companyName,
+          p: r.ownerName,
+          v: r.industryType || "Standard",
+          t: formatTimeAgo(r.createdAt)
+        })),
+        more: pendingRequestsCount > 4 ? `+ ${pendingRequestsCount - 4} more` : ""
+      },
+      {
+        title: "Approved Today",
+        sub: `${approvedRequestsCount} Companies`,
+        dotColor: "bg-emerald-500",
+        items: approvedReqs.map(r => ({
+          c: r.companyName,
+          p: r.ownerName,
+          v: r.industryType || "Standard",
+          t: formatTimeAgo(r.createdAt),
+          badge: true
+        })),
+        more: approvedRequestsCount > 4 ? `+ ${approvedRequestsCount - 4} more` : ""
+      }
+    ];
+
+    // System Events
+    const systemEvents = announcementsList.map((a, idx) => {
+      const colors = [
+        "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+        "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+        "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+        "bg-amber-500/10 text-amber-600 dark:text-amber-400"
+      ];
+      return {
+        id: a._id,
+        title: a.title,
+        date: a.date ? new Date(a.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Active Now",
+        ic: colors[idx % colors.length]
+      };
+    });
+
+    // Plans Performance
+    const plansPerformance = await Promise.all(
+      plansList.map(async (p, idx) => {
+        const subsCount = await Subscription.countDocuments({ planId: p._id, status: "active" });
+        const planRev = (Number(p.price) || 0) * subsCount;
+        const colors = ["bg-amber-500", "bg-emerald-500", "bg-cyan-500", "bg-purple-500", "bg-pink-500"];
+        const eff = totalCompanies > 0 ? Math.min(100, Math.round((subsCount / totalCompanies) * 100)) : 50;
+        return {
+          id: p._id,
+          name: p.name || p.planName,
+          subs: subsCount,
+          revenue: planRev >= 100000 ? `₹${(planRev / 100000).toFixed(2)}L` : `₹${planRev.toLocaleString("en-IN")}`,
+          eff: eff > 0 ? eff : 20,
+          ec: colors[idx % colors.length]
+        };
+      })
+    );
+
+    // Activity Feed
+    const activityFeed = recentLogs.map((log, idx) => {
+      const colors = [
+        "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
+        "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
+        "bg-purple-500/10 text-purple-600 dark:text-purple-400",
+        "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        "bg-blue-500/10 text-blue-600 dark:text-blue-400"
+      ];
+      const who = log.performedBy?.name || log.companyId?.companyName || "Admin";
+      return {
+        id: log._id,
+        ic: colors[idx % colors.length],
+        text: `${who} performed ${log.action || "action"} in ${log.module || "System"}`,
+        t: formatTimeAgo(log.createdAt)
+      };
+    });
 
     res.json({
       totalCompanies,
@@ -413,10 +498,12 @@ const getDashboardStats = async (req, res, next) => {
       totalEmployees: totalEmployeesCount.toLocaleString("en-IN"),
       monthlyRevenue: `₹${monthlyRevenueVal.toLocaleString("en-IN")}`,
       annualRevenue: `₹${annualRevenueVal.toLocaleString("en-IN")}`,
-      activeSubscriptions,
+      activeSubscriptions: activeSubscriptions || activeCompanies,
       expiredSubscriptions,
       trialSubscriptions,
       expiringSubscriptions,
+      pendingRequestsCount,
+      openTicketsCount: openCount,
       storageUsage: "1.2 TB",
       serverHealth: "99.9%",
       apiResponseTime: "45ms",
@@ -424,9 +511,13 @@ const getDashboardStats = async (req, res, next) => {
       totalPayments,
       areaData,
       barData,
-      pieData,
-      donutData,
+      subscriptionPipeline,
+      ticketStatus,
       topCompanies,
+      kanbanBoard,
+      systemEvents,
+      plansPerformance,
+      activityFeed
     });
   } catch (error) {
     next(error);
