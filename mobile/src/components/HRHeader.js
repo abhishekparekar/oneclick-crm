@@ -6,7 +6,7 @@ import { DrawerActions, useNavigation } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { getHRAnnouncementsApi } from "../api/hrService";
 import { getMyNotificationsApi } from "../api/notificationService";
-import { COLORS, FONTS } from "../theme/tokens";
+import { COLORS, FONTS, SHADOWS } from "../theme/tokens";
 
 const HRHeader = ({ title, showBack = false }) => {
   const insets = useSafeAreaInsets();
@@ -37,12 +37,7 @@ const HRHeader = ({ title, showBack = false }) => {
 
   useEffect(() => {
     fetchHRData();
-
-    const unsubscribe = navigation.addListener("focus", () => {
-      fetchHRData();
-    });
-    return unsubscribe;
-  }, [navigation, user?._id]);
+  }, [user?._id]);
 
   const handleLeftPress = () => {
     if (showBack) {
@@ -65,6 +60,8 @@ const HRHeader = ({ title, showBack = false }) => {
     return name.slice(0, 2).toUpperCase();
   };
 
+  const isDashboard = title === "HR Dashboard" || title === "Dashboard" || !title;
+
   return (
     <View
       style={[
@@ -76,46 +73,41 @@ const HRHeader = ({ title, showBack = false }) => {
         },
       ]}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#082B52" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
       <View style={styles.leftContainer}>
-        <TouchableOpacity onPress={handleLeftPress} style={styles.iconBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleLeftPress}
+          style={styles.menuBtn}
+          activeOpacity={0.7}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
           <Ionicons
-            name={showBack ? "arrow-back-outline" : "menu-outline"}
+            name={showBack ? "arrow-back" : "menu-outline"}
             size={26}
-            color="#FFFFFF"
+            color="#0F172A"
           />
         </TouchableOpacity>
-        
-        {!showBack && title === "HR Dashboard" ? (
-          <View style={styles.titleBlock}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {user?.companyName || "One Click Business HRMS"}
-            </Text>
-            <Text style={styles.companySubtitle} numberOfLines={1}>
-              HR Operations Hub
-            </Text>
-          </View>
-        ) : (
-          <View style={styles.titleBlock}>
-            <Text style={styles.headerTitle} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={styles.companySubtitle} numberOfLines={1}>
-              {user?.companyName || "HR Operations Hub"}
-            </Text>
-          </View>
-        )}
+
+        <View style={styles.titleBlock}>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {isDashboard ? "Dashboard" : title}
+          </Text>
+          <Text style={styles.companySubtitle} numberOfLines={1}>
+            {user?.companyName || "Oneclick"}
+          </Text>
+        </View>
       </View>
 
       <View style={styles.rightContainer}>
         {unreadAnnouncements > 0 && (
           <TouchableOpacity
-            style={[styles.notificationBtn, { marginRight: 6 }]}
+            style={styles.actionBtn}
             onPress={() => navigation.navigate("HRAnnouncements")}
             activeOpacity={0.7}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
-            <Ionicons name="megaphone-outline" size={22} color="#FFFFFF" />
+            <Ionicons name="megaphone-outline" size={22} color="#0F172A" />
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
                 {unreadAnnouncements > 9 ? "9+" : unreadAnnouncements}
@@ -125,11 +117,12 @@ const HRHeader = ({ title, showBack = false }) => {
         )}
 
         <TouchableOpacity
-          style={styles.notificationBtn}
+          style={styles.actionBtn}
           onPress={() => navigation.navigate("Notifications")}
           activeOpacity={0.7}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
-          <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
+          <Ionicons name="notifications-outline" size={23} color="#0F172A" />
           {unreadNotifications > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>
@@ -160,17 +153,17 @@ const HRHeader = ({ title, showBack = false }) => {
 
 const styles = StyleSheet.create({
   header: {
-    backgroundColor: "#082B52",
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "#1268D9",
+    borderBottomColor: "#F1F5F9",
     zIndex: 1000,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.15,
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
   },
@@ -180,37 +173,38 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 10,
   },
-  iconBtn: {
+  menuBtn: {
     padding: 6,
     marginRight: 6,
+    marginLeft: -4,
   },
   titleBlock: {
     flex: 1,
     justifyContent: "center",
   },
   headerTitle: {
-    color: "#FFFFFF",
-    fontSize: 15,
+    color: "#0F172A",
+    fontSize: 16,
     fontFamily: FONTS.displayBold,
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
   },
   companySubtitle: {
-    color: "#94A3B8",
-    fontSize: 10,
+    color: "#64748B",
+    fontSize: 11,
     fontFamily: FONTS.bodyMedium,
-    marginTop: -1,
+    marginTop: 1,
   },
   rightContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 10,
   },
-  notificationBtn: {
+  actionBtn: {
     position: "relative",
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.08)",
+    backgroundColor: "#F8FAFC",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -226,7 +220,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 3,
     borderWidth: 1.5,
-    borderColor: "#0F172A",
+    borderColor: "#FFFFFF",
   },
   badgeText: {
     color: "#FFFFFF",
@@ -237,12 +231,12 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: COLORS.primary,
+    backgroundColor: "#1268D9",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 2,
-    borderWidth: 1.5,
-    borderColor: "rgba(255, 255, 255, 0.3)",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
     overflow: "hidden",
   },
   avatarImage: {
