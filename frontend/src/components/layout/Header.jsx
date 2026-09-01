@@ -45,7 +45,6 @@ const SUPERADMIN_PAGES = [
   { label: "Companies",           path: "/superadmin/companies",      icon: Building2 },
   { label: "Company Requests",    path: "/superadmin/company-requests", icon: Building2 },
   { label: "Company Admins",      path: "/superadmin/company-admins", icon: Users },
-  { label: "Users",               path: "/superadmin/users",          icon: Users },
   { label: "Plans",               path: "/superadmin/plans",          icon: DollarSign },
   { label: "Subscriptions",       path: "/superadmin/subscriptions",  icon: DollarSign },
   { label: "Payments",            path: "/superadmin/payments",       icon: DollarSign },

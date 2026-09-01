@@ -154,7 +154,6 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
     {
       title: "USERS & CONTENT",
       items: [
-        { label: "Global Users", path: "/superadmin/users", icon: Users },
         { label: "Announcements", path: "/superadmin/announcements", icon: Megaphone },
         { label: "Support Tickets", path: "/superadmin/support-tickets", icon: MessageSquare },
       ],
