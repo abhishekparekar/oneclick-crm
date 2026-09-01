@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,16 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  Dimensions,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useFocusEffect } from "@react-navigation/native";
 import ManagerLayout from "../../components/ManagerLayout";
 import { getMyLeavesApi, getLeaveBalanceApi, cancelLeaveApi } from "../../api/leaveService";
+import { COLORS, FONTS, SHADOWS, ROUNDING, SPACING } from "../../theme/tokens";
+
+const { width } = Dimensions.get("window");
 
 const STATUS_FILTERS = [
   { label: "All", value: "" },
@@ -23,43 +28,42 @@ const STATUS_FILTERS = [
 
 const ManagerMyLeaveScreen = ({ navigation }) => {
   const [leaves, setLeaves] = useState([]);
-  const [balance, setBalance] = useState({ casual: 10, sick: 8, annual: 15, lop: 0 });
-  
+  const [balance, setBalance] = useState({ casual: 10, sick: 8, annual: 15, lop: 0, used: 0, totalAllowed: 33 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState("");
   const [cancellingId, setCancellingId] = useState(null);
 
   const remainingLeaves = (balance?.casual || 0) + (balance?.sick || 0) + (balance?.annual || 0);
-  const totalLeaves = balance?.totalAllowed || balance?.total || (remainingLeaves > 0 ? remainingLeaves + (balance?.used || 0) : 24);
+  const totalLeaves = balance?.totalAllowed || balance?.total || 33;
+  const usedLeaves = balance?.used || Math.max(0, totalLeaves - remainingLeaves);
+  const usedPct = totalLeaves > 0 ? Math.min(100, Math.round((usedLeaves / totalLeaves) * 100)) : 0;
 
   const isFetchingRef = useRef(false);
-  const hasFetchedBalanceRef = useRef(false);
 
-  const loadLeaveData = async (showLoading = true, forceBalance = false) => {
+  const loadLeaveData = async (showLoading = true) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
       if (showLoading) setLoading(true);
-      
-      const promises = [
+
+      const [leavesRes, balanceRes] = await Promise.all([
         getMyLeavesApi().catch(() => ({ data: { leaves: [], success: false } })),
-      ];
+        getLeaveBalanceApi().catch(() => ({ data: { balance: null, success: false } })),
+      ]);
 
-      if (!hasFetchedBalanceRef.current || forceBalance) {
-        promises.push(getLeaveBalanceApi().catch(() => ({ data: { balance: null, success: false } })));
+      if (leavesRes?.data?.leaves) {
+        setLeaves(leavesRes.data.leaves);
+      } else if (Array.isArray(leavesRes?.data)) {
+        setLeaves(leavesRes.data);
+      } else if (leavesRes?.data?.data && Array.isArray(leavesRes.data.data)) {
+        setLeaves(leavesRes.data.data);
       }
 
-      const results = await Promise.all(promises);
-      const leavesRes = results[0];
-      const balanceRes = results[1];
-
-      if (leavesRes?.data?.success) {
-        setLeaves(leavesRes.data.leaves || []);
-      }
-      if (balanceRes?.data?.success) {
-        hasFetchedBalanceRef.current = true;
-        setBalance(balanceRes.data.balance || balanceRes.data);
+      if (balanceRes?.data?.balance) {
+        setBalance(balanceRes.data.balance);
+      } else if (balanceRes?.data?.data) {
+        setBalance(balanceRes.data.data);
       }
     } catch (error) {
       console.error("Failed to load manager my leaves data:", error);
@@ -70,19 +74,34 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
     }
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadLeaveData(false);
+    }, [])
+  );
+
   useEffect(() => {
-    loadLeaveData();
+    loadLeaveData(true);
   }, []);
 
   const handleRefresh = () => {
     setRefreshing(true);
-    loadLeaveData(false, true);
+    loadLeaveData(false);
   };
 
   const displayedLeaves = useMemo(() => {
     if (!activeFilter) return leaves;
     return leaves.filter((l) => l.status?.toLowerCase() === activeFilter.toLowerCase());
   }, [leaves, activeFilter]);
+
+  const counts = useMemo(() => {
+    return {
+      all: leaves.length,
+      pending: leaves.filter((l) => l.status?.toLowerCase() === "pending").length,
+      approved: leaves.filter((l) => l.status?.toLowerCase() === "approved").length,
+      rejected: leaves.filter((l) => l.status?.toLowerCase() === "rejected").length,
+    };
+  }, [leaves]);
 
   const handleCancelLeave = (id) => {
     Alert.alert("Cancel Leave", "Are you sure you want to cancel this leave application?", [
@@ -95,8 +114,8 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
             setCancellingId(id);
             const res = await cancelLeaveApi(id);
             if (res.data && res.data.success) {
-              Alert.alert("Success", "Leave request cancelled.");
-              loadLeaveData(false, true);
+              Alert.alert("Success", "Leave request cancelled successfully.");
+              loadLeaveData(false);
             } else {
               Alert.alert("Error", res.data?.message || "Failed to cancel leave.");
             }
@@ -111,15 +130,47 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
     ]);
   };
 
-  const getStatusColor = (status) => {
+  const getStatusBadge = (status) => {
     switch (status?.toLowerCase()) {
       case "approved":
-        return { bg: "#ECFDF5", text: "#10B981", icon: "checkmark-circle" };
+        return {
+          bg: "#ECFDF5",
+          border: "#A7F3D0",
+          text: "#059669",
+          icon: "checkmark-circle",
+          label: "Approved",
+        };
       case "rejected":
-        return { bg: "#FEF2F2", text: "#EF4444", icon: "close-circle" };
+        return {
+          bg: "#FEF2F2",
+          border: "#FECACA",
+          text: "#DC2626",
+          icon: "close-circle",
+          label: "Rejected",
+        };
       default:
-        return { bg: "#FFFBEB", text: "#F59E0B", icon: "time-outline" };
+        return {
+          bg: "#FFFBEB",
+          border: "#FDE68A",
+          text: "#D97706",
+          icon: "time",
+          label: "Pending",
+        };
     }
+  };
+
+  const getLeaveTypeDetails = (type) => {
+    const t = (type || "").toLowerCase();
+    if (t.includes("sick")) {
+      return { label: "Sick Leave", color: "#10B981", bg: "#ECFDF5", icon: "medical" };
+    }
+    if (t.includes("annual")) {
+      return { label: "Annual Leave", color: "#8B5CF6", bg: "#F5F3FF", icon: "ribbon" };
+    }
+    if (t.includes("lop") || t.includes("unpaid")) {
+      return { label: "Unpaid Leave", color: "#EC4899", bg: "#FDF2F8", icon: "alert-circle" };
+    }
+    return { label: "Casual Leave", color: "#3B82F6", bg: "#EFF6FF", icon: "briefcase" };
   };
 
   return (
@@ -128,61 +179,118 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#1268D9"]}
+              tintColor="#1268D9"
+            />
+          }
         >
-          {/* ── 1. Top Compact Hero KPI Card ── */}
+          {/* ── 1. Executive Royal Blue Hero KPI Card ── */}
           <LinearGradient
-            colors={["#082B52", "#1268D9", "#1D7DF2"]}
+            colors={["#061A36", "#0B3C7A", "#1268D9"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.heroCard}
           >
+            {/* Background ambient decorative shapes */}
+            <View style={styles.heroDecoCircle1} />
+            <View style={styles.heroDecoCircle2} />
+
             <View style={styles.heroHeaderRow}>
               <View style={styles.heroIconBox}>
-                <Ionicons name="calendar" size={28} color="#FFFFFF" />
+                <Ionicons name="calendar" size={24} color="#FFFFFF" />
               </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
+              <View style={styles.heroTitleGroup}>
                 <Text style={styles.heroTitle}>Leave Entitlement</Text>
                 <Text style={styles.heroSubtitle}>Overview of your allocated balance</Text>
               </View>
+              <TouchableOpacity
+                style={styles.holidayPillBtn}
+                onPress={() => navigation.navigate("EmployeeHolidayCalendar")}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="sunny-outline" size={13} color="#FDE047" />
+                <Text style={styles.holidayPillText}>Holidays</Text>
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.heroKpiRow}>
-              <View style={styles.heroKpiCol}>
-                <View style={styles.heroKpiLabelRow}>
-                  <Ionicons name="pie-chart-outline" size={13} color="#FFFFFF" />
-                  <Text style={styles.heroKpiLabel}>Remaining</Text>
+            {/* KPI Cards Row */}
+            <View style={styles.kpiContainer}>
+              <View style={styles.kpiCard}>
+                <View style={styles.kpiCardHeader}>
+                  <View style={[styles.kpiDot, { backgroundColor: "#60A5FA" }]} />
+                  <Text style={styles.kpiCardLabel}>REMAINING</Text>
                 </View>
-                <Text style={styles.heroKpiValue}>{remainingLeaves} Days</Text>
+                <View style={styles.kpiValueRow}>
+                  <Text style={styles.kpiNumber}>{remainingLeaves}</Text>
+                  <Text style={styles.kpiUnit}>Days</Text>
+                </View>
+                <Text style={styles.kpiHint}>Available to use</Text>
               </View>
 
-              <View style={styles.heroKpiDivider} />
+              <View style={styles.kpiDivider} />
 
-              <View style={styles.heroKpiCol}>
-                <View style={styles.heroKpiLabelRow}>
-                  <Ionicons name="calendar-outline" size={13} color="#FFFFFF" />
-                  <Text style={styles.heroKpiLabel}>Total Allowed</Text>
+              <View style={styles.kpiCard}>
+                <View style={styles.kpiCardHeader}>
+                  <View style={[styles.kpiDot, { backgroundColor: "#34D399" }]} />
+                  <Text style={styles.kpiCardLabel}>TOTAL ALLOCATED</Text>
                 </View>
-                <Text style={styles.heroKpiValue}>{totalLeaves} Days</Text>
+                <View style={styles.kpiValueRow}>
+                  <Text style={styles.kpiNumber}>{totalLeaves}</Text>
+                  <Text style={styles.kpiUnit}>Days</Text>
+                </View>
+                <Text style={styles.kpiHint}>Annual entitlement</Text>
+              </View>
+            </View>
+
+            {/* Utilization Bar */}
+            <View style={styles.progressContainer}>
+              <View style={styles.progressLabelRow}>
+                <Text style={styles.progressLabel}>Annual Balance Utilized</Text>
+                <Text style={styles.progressValue}>{usedPct}% ({usedLeaves} used)</Text>
+              </View>
+              <View style={styles.progressBarTrack}>
+                <View style={[styles.progressBarFill, { width: `${usedPct}%` }]} />
               </View>
             </View>
           </LinearGradient>
 
-          {/* ── 2. Status Filter Tabs ── */}
-          <View style={styles.statusTabsWrapper}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.statusTabsScroll}>
-              {STATUS_FILTERS.map((pill) => {
-                const isActive = activeFilter === pill.value;
+          {/* ── 2. Segmented Status Filter Tabs ── */}
+          <View style={styles.filterSection}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filterScroll}
+            >
+              {STATUS_FILTERS.map((tab) => {
+                const isActive = activeFilter === tab.value;
+                const count =
+                  tab.value === ""
+                    ? counts.all
+                    : tab.value === "pending"
+                    ? counts.pending
+                    : tab.value === "approved"
+                    ? counts.approved
+                    : counts.rejected;
+
                 return (
                   <TouchableOpacity
-                    key={pill.value}
-                    onPress={() => setActiveFilter(pill.value)}
-                    style={[styles.statusPillTab, isActive && styles.statusPillTabActive]}
+                    key={tab.value}
+                    onPress={() => setActiveFilter(tab.value)}
+                    style={[styles.filterPill, isActive && styles.filterPillActive]}
                     activeOpacity={0.8}
                   >
-                    <Text style={[styles.statusPillText, isActive && styles.statusPillTextActive]}>
-                      {pill.label}
+                    <Text style={[styles.filterPillText, isActive && styles.filterPillTextActive]}>
+                      {tab.label}
                     </Text>
+                    <View style={[styles.filterCountBadge, isActive && styles.filterCountBadgeActive]}>
+                      <Text style={[styles.filterCountText, isActive && styles.filterCountTextActive]}>
+                        {count}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -190,189 +298,225 @@ const ManagerMyLeaveScreen = ({ navigation }) => {
           </View>
 
           {/* ── 3. Summary Balances Section ── */}
-          <View style={styles.summaryHeaderRow}>
-            <Text style={styles.sectionTitle}>Summary Balances</Text>
-            <View style={styles.asOnDateGroup}>
-              <Text style={styles.asOnDateText}>As on {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</Text>
-              <Ionicons name="calendar-outline" size={12} color="#94A3B8" style={{ marginLeft: 4 }} />
+          <View style={styles.sectionHeaderRow}>
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={styles.sectionTitle}>Summary Balances</Text>
+            </View>
+            <View style={styles.asOnBadge}>
+              <Ionicons name="time-outline" size={12} color="#64748B" style={{ marginRight: 4 }} />
+              <Text style={styles.asOnDateText}>
+                As on {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.balanceGrid}>
+          <View style={styles.balanceRow}>
             {/* Casual Leaves */}
-            <View style={[styles.balanceCard, { borderBottomColor: "#3B82F6", borderBottomWidth: 3 }]}>
-              <View style={styles.balanceCardTop}>
-                <View style={[styles.balanceIconBox, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="briefcase" size={16} color="#3B82F6" />
-                </View>
-                <Text style={[styles.balanceNum, { color: "#3B82F6" }]}>{balance.casual ?? 10}</Text>
+            <View style={[styles.balanceCard, { borderTopColor: "#3B82F6" }]}>
+              <View style={[styles.balanceIconWrap, { backgroundColor: "#EFF6FF" }]}>
+                <Ionicons name="briefcase" size={17} color="#3B82F6" />
               </View>
-              <Text style={styles.balanceName}>Casual Leaves</Text>
+              <Text style={[styles.balanceNumber, { color: "#1E3A8A" }]}>{balance.casual ?? 10}</Text>
+              <Text style={styles.balanceTitle}>Casual Leaves</Text>
+              <Text style={styles.balanceSub}>Short breaks</Text>
             </View>
 
             {/* Sick Leaves */}
-            <View style={[styles.balanceCard, { borderBottomColor: "#10B981", borderBottomWidth: 3 }]}>
-              <View style={styles.balanceCardTop}>
-                <View style={[styles.balanceIconBox, { backgroundColor: "#ECFDF5" }]}>
-                  <Ionicons name="medical" size={16} color="#10B981" />
-                </View>
-                <Text style={[styles.balanceNum, { color: "#10B981" }]}>{balance.sick ?? 8}</Text>
+            <View style={[styles.balanceCard, { borderTopColor: "#10B981" }]}>
+              <View style={[styles.balanceIconWrap, { backgroundColor: "#ECFDF5" }]}>
+                <Ionicons name="medical" size={17} color="#10B981" />
               </View>
-              <Text style={styles.balanceName}>Sick Leaves</Text>
+              <Text style={[styles.balanceNumber, { color: "#065F46" }]}>{balance.sick ?? 8}</Text>
+              <Text style={styles.balanceTitle}>Sick Leaves</Text>
+              <Text style={styles.balanceSub}>Medical recovery</Text>
             </View>
 
             {/* Annual Leaves */}
-            <View style={[styles.balanceCard, { borderBottomColor: "#8B5CF6", borderBottomWidth: 3 }]}>
-              <View style={styles.balanceCardTop}>
-                <View style={[styles.balanceIconBox, { backgroundColor: "#F5F3FF" }]}>
-                  <Ionicons name="ribbon" size={16} color="#8B5CF6" />
-                </View>
-                <Text style={[styles.balanceNum, { color: "#8B5CF6" }]}>{balance.annual ?? 15}</Text>
+            <View style={[styles.balanceCard, { borderTopColor: "#8B5CF6" }]}>
+              <View style={[styles.balanceIconWrap, { backgroundColor: "#F5F3FF" }]}>
+                <Ionicons name="ribbon" size={17} color="#8B5CF6" />
               </View>
-              <Text style={styles.balanceName}>Annual Leaves</Text>
+              <Text style={[styles.balanceNumber, { color: "#5B21B6" }]}>{balance.annual ?? 15}</Text>
+              <Text style={styles.balanceTitle}>Annual Leaves</Text>
+              <Text style={styles.balanceSub}>Vacation / Planned</Text>
             </View>
           </View>
 
           {/* ── 4. Primary Request Time Off Button ── */}
           <TouchableOpacity
-            style={styles.requestButton}
+            style={styles.requestCtaTouch}
             onPress={() => navigation.navigate("ManagerApplyLeave")}
-            activeOpacity={0.85}
+            activeOpacity={0.9}
           >
-            <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.requestButtonGradient}>
-              <Ionicons name="send" size={15} color="#FFFFFF" style={{ marginRight: 8 }} />
-              <Text style={styles.requestButtonText}>Request Time Off</Text>
+            <LinearGradient
+              colors={["#082B52", "#1268D9"]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.requestCtaGradient}
+            >
+              <View style={styles.requestCtaIconBox}>
+                <Ionicons name="send" size={16} color="#FFFFFF" />
+              </View>
+              <Text style={styles.requestCtaText}>Request Time Off</Text>
+              <Ionicons name="arrow-forward" size={18} color="#93C5FD" style={{ marginLeft: 6 }} />
             </LinearGradient>
           </TouchableOpacity>
 
           {/* ── 5. My Leave Applications History Stream ── */}
           <View style={styles.historyHeaderRow}>
-            <Text style={styles.sectionTitle}>My Leave Applications History</Text>
-            <TouchableOpacity onPress={() => setActiveFilter("")} activeOpacity={0.7} style={styles.viewAllBtn}>
-              <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={12} color="#1268D9" />
-            </TouchableOpacity>
+            <View style={styles.sectionHeaderLeft}>
+              <Text style={styles.sectionTitle}>Leave Applications History</Text>
+              <View style={styles.historyCountChip}>
+                <Text style={styles.historyCountChipText}>{displayedLeaves.length}</Text>
+              </View>
+            </View>
+            {activeFilter !== "" && (
+              <TouchableOpacity
+                onPress={() => setActiveFilter("")}
+                activeOpacity={0.7}
+                style={styles.clearFilterBtn}
+              >
+                <Text style={styles.clearFilterText}>Show All</Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {loading ? (
-            <ActivityIndicator size="small" color="#1268D9" style={{ marginTop: 20 }} />
+            <View style={styles.loadingBox}>
+              <ActivityIndicator size="small" color="#1268D9" />
+              <Text style={styles.loadingText}>Fetching leave applications...</Text>
+            </View>
           ) : displayedLeaves.length === 0 ? (
-            <View style={styles.emptyContainer}>
+            <View style={styles.emptyStateCard}>
               <View style={styles.emptyIconCircle}>
-                <Ionicons name="document-text-outline" size={32} color="#94A3B8" />
+                <Ionicons name="calendar-outline" size={36} color="#94A3B8" />
               </View>
-              <Text style={styles.emptyText}>No leave records found</Text>
-              <Text style={styles.emptySubtext}>Try selecting another status filter tab</Text>
+              <Text style={styles.emptyStateTitle}>No Leave Applications</Text>
+              <Text style={styles.emptyStateSub}>
+                {activeFilter
+                  ? `There are no ${activeFilter} leave requests to show.`
+                  : "You haven't submitted any leave requests yet."}
+              </Text>
+              <TouchableOpacity
+                style={styles.emptyApplyBtn}
+                onPress={() => navigation.navigate("ManagerApplyLeave")}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.emptyApplyBtnText}>Apply Now</Text>
+              </TouchableOpacity>
             </View>
           ) : (
             displayedLeaves.map((leave, idx) => {
-              const statusColors = getStatusColor(leave.status);
-              const leaveTypeLower = leave.leaveType?.toLowerCase() || "";
-              let cardAccentColor = "#10B981";
-              let iconName = "leaf";
-              let iconBg = "#ECFDF5";
-              let iconColor = "#10B981";
+              const statusInfo = getStatusBadge(leave.status);
+              const typeInfo = getLeaveTypeDetails(leave.leaveType);
+              const isPending = leave.status?.toLowerCase() === "pending";
+              const isCancelling = cancellingId === leave._id;
 
-              if (leaveTypeLower.includes("sick")) {
-                cardAccentColor = "#F97316";
-                iconName = "thermometer";
-                iconBg = "#FFF7ED";
-                iconColor = "#F97316";
-              } else if (leaveTypeLower.includes("annual")) {
-                cardAccentColor = "#3B82F6";
-                iconName = "airplane";
-                iconBg = "#EFF6FF";
-                iconColor = "#3B82F6";
-              }
+              const startDateStr = leave.startDate
+                ? new Date(leave.startDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                : "N/A";
+              const endDateStr = leave.endDate
+                ? new Date(leave.endDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                : "N/A";
 
               return (
-                <View
-                  key={leave._id || `leave-${idx}`}
-                  style={[styles.historyCard, { borderLeftColor: cardAccentColor, borderLeftWidth: 4 }]}
-                >
-                  {/* Top Row */}
-                  <View style={styles.cardTopRow}>
-                    <View style={styles.cardLeftInfo}>
-                      <View style={[styles.cardIconBox, { backgroundColor: iconBg }]}>
-                        <Ionicons name={iconName} size={18} color={iconColor} />
+                <View key={leave._id || `leave-${idx}`} style={styles.historyCard}>
+                  {/* Card Top Row */}
+                  <View style={styles.historyCardTop}>
+                    <View style={styles.historyTypeGroup}>
+                      <View style={[styles.historyTypeIconBox, { backgroundColor: typeInfo.bg }]}>
+                        <Ionicons name={typeInfo.icon} size={18} color={typeInfo.color} />
                       </View>
-                      <View style={styles.cardTitleGroup}>
-                        <Text style={styles.leaveTypeName}>{leave.leaveType} Leave</Text>
-                        <Text style={styles.leaveDaysMeta}>
-                          {leave.numberOfDays} Day{leave.numberOfDays > 1 ? "s" : ""} · Leave ID: {leave.leaveCode || `LV-2026-0${120 + idx}`}
+                      <View>
+                        <Text style={styles.historyTypeName}>{typeInfo.label}</Text>
+                        <Text style={styles.historyMetaId}>
+                          {leave.numberOfDays || 1} {leave.numberOfDays === 1 ? "Day" : "Days"} • ID: {leave.leaveCode || `LV-${String(idx + 1).padStart(3, "0")}`}
                         </Text>
                       </View>
                     </View>
 
-                    <View style={[styles.statusBadge, { backgroundColor: statusColors.bg }]}>
-                      <Ionicons name={statusColors.icon} size={11} color={statusColors.text} style={{ marginRight: 3 }} />
-                      <Text style={[styles.statusText, { color: statusColors.text }]}>
-                        {leave.status?.toUpperCase()}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Date Container */}
-                  <View style={styles.dateContainer}>
-                    <View style={styles.dateCol}>
-                      <Text style={styles.dateLabel}>START DATE</Text>
-                      <Text style={styles.dateVal}>
-                        {new Date(leave.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </View>
-                    <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
-                    <View style={styles.dateCol}>
-                      <Text style={styles.dateLabel}>END DATE</Text>
-                      <Text style={styles.dateVal}>
-                        {new Date(leave.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Footer Row */}
-                  <View style={styles.cardFooterRow}>
-                    <Text style={styles.reasonText} numberOfLines={1}>
-                      💬 Reason: {leave.reason || "N/A"}
-                    </Text>
-                    <Text style={styles.appliedDateText}>
-                      Applied on {new Date(leave.createdAt || leave.startDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
-                    </Text>
-                  </View>
-
-                  {/* Cancel Button if Pending */}
-                  {leave.status === "pending" && (
-                    <TouchableOpacity
-                      style={styles.cancelRowBtn}
-                      onPress={() => handleCancelLeave(leave._id)}
-                      disabled={cancellingId === leave._id}
-                      activeOpacity={0.8}
+                    <View
+                      style={[
+                        styles.statusBadge,
+                        { backgroundColor: statusInfo.bg, borderColor: statusInfo.border },
+                      ]}
                     >
-                      {cancellingId === leave._id ? (
-                        <ActivityIndicator size="small" color="#EF4444" />
-                      ) : (
-                        <>
-                          <Ionicons name="trash-outline" size={13} color="#EF4444" style={{ marginRight: 4 }} />
-                          <Text style={styles.cancelRowBtnText}>Cancel Leave</Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  )}
+                      <Ionicons
+                        name={statusInfo.icon}
+                        size={12}
+                        color={statusInfo.text}
+                        style={{ marginRight: 4 }}
+                      />
+                      <Text style={[styles.statusBadgeText, { color: statusInfo.text }]}>
+                        {statusInfo.label}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Dates Box */}
+                  <View style={styles.dateRangeBox}>
+                    <View style={styles.dateCol}>
+                      <Text style={styles.dateRangeLabel}>FROM DATE</Text>
+                      <Text style={styles.dateRangeValue}>{startDateStr}</Text>
+                    </View>
+
+                    <View style={styles.dateArrowWrap}>
+                      <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
+                    </View>
+
+                    <View style={styles.dateCol}>
+                      <Text style={styles.dateRangeLabel}>TO DATE</Text>
+                      <Text style={styles.dateRangeValue}>{endDateStr}</Text>
+                    </View>
+                  </View>
+
+                  {/* Reason & Meta */}
+                  {leave.reason ? (
+                    <View style={styles.reasonWrap}>
+                      <Ionicons name="chatbox-outline" size={13} color="#64748B" style={{ marginTop: 2, marginRight: 6 }} />
+                      <Text style={styles.reasonText} numberOfLines={2}>
+                        {leave.reason}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {/* Footer Action / Date */}
+                  <View style={styles.historyCardFooter}>
+                    <Text style={styles.appliedTimestamp}>
+                      Applied on{" "}
+                      {new Date(leave.createdAt || leave.startDate).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+
+                    {isPending && (
+                      <TouchableOpacity
+                        style={styles.cancelActionBtn}
+                        onPress={() => handleCancelLeave(leave._id)}
+                        disabled={isCancelling}
+                        activeOpacity={0.8}
+                      >
+                        {isCancelling ? (
+                          <ActivityIndicator size="small" color="#DC2626" />
+                        ) : (
+                          <>
+                            <Ionicons name="close-circle-outline" size={14} color="#DC2626" style={{ marginRight: 4 }} />
+                            <Text style={styles.cancelActionBtnText}>Cancel</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
             })
           )}
-        </ScrollView>
 
-        {/* Floating Action Button */}
-        <TouchableOpacity
-          style={styles.fab}
-          onPress={() => navigation.navigate("ManagerApplyLeave")}
-          activeOpacity={0.85}
-        >
-          <LinearGradient colors={["#1268D9", "#0D50B8"]} style={styles.fabGradient}>
-            <Ionicons name="add" size={28} color="#FFFFFF" />
-          </LinearGradient>
-        </TouchableOpacity>
+          <View style={{ height: 40 }} />
+        </ScrollView>
       </View>
     </ManagerLayout>
   );
@@ -384,261 +528,391 @@ const styles = StyleSheet.create({
     backgroundColor: "#F8FAFC",
   },
   scrollContent: {
-    padding: 14,
-    paddingBottom: 100,
+    padding: 16,
+    paddingBottom: 60,
   },
 
-  // ── Hero Card ──
+  // ── Hero KPI Card ──
   heroCard: {
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 14,
+    borderRadius: 24,
+    padding: 18,
+    marginBottom: 16,
+    position: "relative",
+    overflow: "hidden",
+    ...SHADOWS.md,
     borderWidth: 1,
-    borderColor: "#1E293B",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 10,
-    elevation: 6,
+    borderColor: "rgba(255, 255, 255, 0.15)",
   },
-  heroTopRow: {
+  heroDecoCircle1: {
+    position: "absolute",
+    top: -40,
+    right: -40,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: "rgba(255, 255, 255, 0.05)",
+  },
+  heroDecoCircle2: {
+    position: "absolute",
+    bottom: -50,
+    left: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(18, 104, 217, 0.25)",
+  },
+  heroHeaderRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    marginBottom: 16,
   },
-  heroCalendarIconWrap: {
-    width: 52,
-    height: 52,
+  heroIconBox: {
+    width: 44,
+    height: 44,
     borderRadius: 14,
-    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
     borderWidth: 1,
-    borderColor: "rgba(249, 115, 22, 0.3)",
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
+    borderColor: "rgba(255, 255, 255, 0.25)",
   },
-  heroCheckBadge: {
-    position: "absolute",
-    bottom: -2,
-    right: -2,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: "#1268D9",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: "#0B132B",
-  },
-  heroMiddleContent: {
+  heroTitleGroup: {
     flex: 1,
   },
   heroTitle: {
-    fontSize: 15,
-    fontWeight: "800",
+    fontFamily: FONTS.headerBold,
+    fontSize: 17,
     color: "#FFFFFF",
     letterSpacing: -0.2,
   },
   heroSubtitle: {
-    fontSize: 10.5,
-    color: "#E0F2FE",
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 11.5,
+    color: "#BAE6FD",
     marginTop: 2,
   },
-  heroActionsCol: {
-    gap: 6,
-  },
-  heroPillBtn: {
+  holidayPillBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: "#1E293B",
+    borderColor: "rgba(255, 255, 255, 0.2)",
     gap: 4,
   },
-  heroPillBtnText: {
+  holidayPillText: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 11,
-    fontWeight: "700",
     color: "#FFFFFF",
   },
 
-  // ── Status Pill Tabs ──
-  statusTabsWrapper: {
+  // KPI Grid inside Hero
+  kpiContainer: {
+    flexDirection: "row",
+    backgroundColor: "rgba(7, 26, 47, 0.45)",
+    borderRadius: 16,
+    padding: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
     marginBottom: 14,
   },
-  statusTabsScroll: {
-    gap: 8,
-    flexDirection: "row",
+  kpiCard: {
+    flex: 1,
+    paddingHorizontal: 6,
   },
-  statusPillTab: {
+  kpiCardHeader: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 18,
+    marginBottom: 4,
+  },
+  kpiDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 6,
+  },
+  kpiCardLabel: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 10,
+    color: "#E2E8F0",
+    letterSpacing: 0.5,
+  },
+  kpiValueRow: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 4,
+  },
+  kpiNumber: {
+    fontFamily: FONTS.headerBold,
+    fontSize: 24,
+    color: "#FFFFFF",
+  },
+  kpiUnit: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 12,
+    color: "#93C5FD",
+  },
+  kpiHint: {
+    fontFamily: FONTS.bodyRegular,
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 2,
+  },
+  kpiDivider: {
+    width: 1,
+    height: 38,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    marginHorizontal: 8,
+  },
+
+  // Progress Bar
+  progressContainer: {
+    marginTop: 2,
+  },
+  progressLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 11,
+    color: "#E2E8F0",
+  },
+  progressValue: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11,
+    color: "#93C5FD",
+  },
+  progressBarTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#38BDF8",
+    borderRadius: 3,
+  },
+
+  // ── Filter Section ──
+  filterSection: {
+    marginBottom: 16,
+  },
+  filterScroll: {
+    gap: 8,
+  },
+  filterPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    gap: 6,
   },
-  statusPillTabActive: {
+  filterPillActive: {
     backgroundColor: "#1268D9",
     borderColor: "#1268D9",
+    ...SHADOWS.sm,
   },
-  statusPillText: {
+  filterPillText: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 12,
-    fontWeight: "700",
-    color: "#475569",
+    color: "#64748B",
   },
-  statusPillTextActive: {
+  filterPillTextActive: {
+    color: "#FFFFFF",
+  },
+  filterCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 10,
+    backgroundColor: "#F1F5F9",
+  },
+  filterCountBadgeActive: {
+    backgroundColor: "rgba(255, 255, 255, 0.25)",
+  },
+  filterCountText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 10,
+    color: "#64748B",
+  },
+  filterCountTextActive: {
     color: "#FFFFFF",
   },
 
-  // ── Summary Balances ──
-  summaryHeaderRow: {
+  // ── Section Header ──
+  sectionHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 10,
   },
+  sectionHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   sectionTitle: {
+    fontFamily: FONTS.headerBold,
     fontSize: 14,
-    fontWeight: "800",
     color: "#0F172A",
   },
-  asOnDateGroup: {
+  asOnBadge: {
     flexDirection: "row",
     alignItems: "center",
   },
   asOnDateText: {
+    fontFamily: FONTS.bodyMedium,
     fontSize: 11,
     color: "#64748B",
-    fontWeight: "500",
   },
-  balanceGrid: {
+
+  // ── Balance Cards Row ──
+  balanceRow: {
     flexDirection: "row",
-    gap: 8,
-    marginBottom: 14,
+    gap: 10,
+    marginBottom: 16,
   },
   balanceCard: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    elevation: 2,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    borderColor: "#E2E8F0",
+    borderTopWidth: 3,
+    ...SHADOWS.sm,
   },
-  balanceCardTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 6,
-  },
-  balanceIconBox: {
+  balanceIconWrap: {
     width: 32,
     height: 32,
     borderRadius: 10,
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 8,
   },
-  balanceNum: {
+  balanceNumber: {
+    fontFamily: FONTS.headerBold,
     fontSize: 22,
-    fontWeight: "800",
+    lineHeight: 26,
   },
-  balanceName: {
-    fontSize: 10.5,
-    fontWeight: "700",
-    color: "#64748B",
+  balanceTitle: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11,
+    color: "#1E293B",
+    marginTop: 2,
+  },
+  balanceSub: {
+    fontFamily: FONTS.bodyRegular,
+    fontSize: 9.5,
+    color: "#94A3B8",
+    marginTop: 1,
   },
 
-  // ── Request Time Off Button ──
-  requestButton: {
-    borderRadius: 14,
+  // ── Request CTA Button ──
+  requestCtaTouch: {
+    borderRadius: 16,
     overflow: "hidden",
-    marginBottom: 16,
-    elevation: 4,
-    shadowColor: "#1268D9",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    marginBottom: 20,
+    ...SHADOWS.md,
   },
-  requestButtonGradient: {
+  requestCtaGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 14,
+    paddingHorizontal: 20,
   },
-  requestButtonText: {
+  requestCtaIconBox: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  requestCtaText: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 14,
-    fontWeight: "800",
     color: "#FFFFFF",
     letterSpacing: 0.2,
   },
 
-  // ── Leave Applications History Stream ──
+  // ── History Header & Stream ──
   historyHeaderRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
-  viewAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
+  historyCountChip: {
+    paddingHorizontal: 7,
+    paddingVertical: 1.5,
+    borderRadius: 8,
+    backgroundColor: "#E2E8F0",
   },
-  viewAllText: {
+  historyCountChipText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 11,
+    color: "#334155",
+  },
+  clearFilterBtn: {
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+  },
+  clearFilterText: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 11.5,
-    fontWeight: "700",
     color: "#1268D9",
   },
+
+  // History Card
   historyCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 14,
-    padding: 12,
+    borderRadius: 18,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#F1F5F9",
-    elevation: 2,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
+    borderColor: "#E2E8F0",
+    ...SHADOWS.sm,
   },
-  cardTopRow: {
+  historyCardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 10,
+    alignItems: "center",
+    marginBottom: 12,
   },
-  cardLeftInfo: {
+  historyTypeGroup: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     flex: 1,
   },
-  cardIconBox: {
+  historyTypeIconBox: {
     width: 36,
     height: 36,
     borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  cardTitleGroup: {
-    flex: 1,
-  },
-  leaveTypeName: {
+  historyTypeName: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 14,
-    fontWeight: "800",
     color: "#0F172A",
   },
-  leaveDaysMeta: {
+  historyMetaId: {
+    fontFamily: FONTS.bodyRegular,
     fontSize: 11,
     color: "#64748B",
     marginTop: 1,
@@ -646,118 +920,152 @@ const styles = StyleSheet.create({
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
     borderRadius: 10,
+    borderWidth: 1,
   },
-  statusText: {
-    fontSize: 9.5,
-    fontWeight: "800",
+  statusBadgeText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 10.5,
   },
-  dateContainer: {
+
+  // Date Range Box
+  dateRangeBox: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     backgroundColor: "#F8FAFC",
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 8,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
   },
   dateCol: {
-    alignItems: "center",
     flex: 1,
   },
-  dateLabel: {
-    fontSize: 8.5,
-    fontWeight: "700",
-    color: "#94A3B8",
-    letterSpacing: 0.4,
+  dateArrowWrap: {
+    paddingHorizontal: 8,
   },
-  dateVal: {
-    fontSize: 12,
-    fontWeight: "800",
+  dateRangeLabel: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 9,
+    color: "#94A3B8",
+    letterSpacing: 0.5,
+  },
+  dateRangeValue: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 12.5,
     color: "#1E293B",
     marginTop: 2,
   },
-  cardFooterRow: {
+
+  // Reason
+  reasonWrap: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#F1F5F9",
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  reasonText: {
+    flex: 1,
+    fontFamily: FONTS.bodyRegular,
+    fontSize: 11.5,
+    color: "#475569",
+    lineHeight: 16,
+  },
+
+  // Footer
+  historyCardFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingTop: 4,
   },
-  reasonText: {
-    fontSize: 11,
-    color: "#64748B",
-    flex: 1,
-    marginRight: 6,
-  },
-  appliedDateText: {
-    fontSize: 10,
+  appliedTimestamp: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 10.5,
     color: "#94A3B8",
-    fontWeight: "500",
   },
-  cancelRowBtn: {
+  cancelActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginTop: 8,
-    paddingVertical: 6,
-    borderRadius: 8,
     backgroundColor: "#FEF2F2",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "#FECACA",
   },
-  cancelRowBtnText: {
+  cancelActionBtnText: {
+    fontFamily: FONTS.bodyBold,
     fontSize: 11,
-    fontWeight: "700",
-    color: "#EF4444",
+    color: "#DC2626",
   },
 
-  // ── Loading / Empty ──
-  emptyContainer: {
+  // Empty & Loading States
+  loadingBox: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
+    paddingVertical: 36,
+  },
+  loadingText: {
+    fontFamily: FONTS.bodyMedium,
+    fontSize: 12,
+    color: "#64748B",
+    marginTop: 8,
+  },
+  emptyStateCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 6,
+    ...SHADOWS.sm,
   },
   emptyIconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: "#F1F5F9",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     marginBottom: 12,
   },
-  emptyText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#334155",
+  emptyStateTitle: {
+    fontFamily: FONTS.headerBold,
+    fontSize: 15,
+    color: "#0F172A",
   },
-  emptySubtext: {
-    fontSize: 11,
+  emptyStateSub: {
+    fontFamily: FONTS.bodyRegular,
+    fontSize: 12,
     color: "#64748B",
+    textAlign: "center",
     marginTop: 4,
+    paddingHorizontal: 16,
+    lineHeight: 18,
   },
-
-  // ── FAB ──
-  fab: {
-    position: "absolute",
-    bottom: 24,
-    right: 20,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    elevation: 8,
-    shadowColor: "#1268D9",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    overflow: "hidden",
-  },
-  fabGradient: {
-    flex: 1,
+  emptyApplyBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: "#1268D9",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  emptyApplyBtnText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 12,
+    color: "#FFFFFF",
   },
 });
 
