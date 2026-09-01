@@ -372,12 +372,16 @@ const TaskCard = ({ item, onPress, onEdit, onDelete, onToggle, isSelected, onSel
   );
 };
 
-// ─── Main Screen ─────────────────────────────────────────────────────────────
 const TaskBoardScreen = ({ navigation }) => {
   const { user, hasPermission } = useAuth();
-  const isHR = user?.role === "HR";
+  const userRole = (user?.role || "").toLowerCase();
+  const isCompanyAdmin = userRole === "companyadmin" || userRole === "superadmin" || userRole === "admin";
+  const isHR = userRole === "hr" || user?.role === "HR";
+  const hasFullTaskAccess = isCompanyAdmin || isHR || hasPermission("tasks", "view_all") || hasPermission("tasks", "manage") || hasPermission("tasks");
+
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
+  const [scopeFilter, setScopeFilter] = useState(hasFullTaskAccess ? "all" : "my"); // "all" = company-wide, "my" = assigned to me
   const [selectedDepts, setSelectedDepts] = useState([]);
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [selectedTaskIds, setSelectedTaskIds] = useState([]);
@@ -387,7 +391,7 @@ const TaskBoardScreen = ({ navigation }) => {
   const [bulkShifting, setBulkShifting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-    const [dateFilter, setDateFilter] = useState("today"); // Date period filter inside collapsible panel
+  const [dateFilter, setDateFilter] = useState("today"); // Date period filter inside collapsible panel
   const [showFilter, setShowFilter] = useState(false);
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
@@ -520,8 +524,29 @@ const TaskBoardScreen = ({ navigation }) => {
     }
   };
 
+  // ── User Scope Check (Assigned to Me / Created by Me) ─────────────────────
+  const myUserId = user?._id?.toString();
+  const myEmployeeId = (user?.employeeId?._id || user?.employeeId)?.toString();
+
+  const isAssignedToMe = (t) => {
+    const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+    const matchAssignee = assigneesArr.some((a) => {
+      const aId = (a?._id || a?.id || a)?.toString();
+      return aId === myUserId || (myEmployeeId && aId === myEmployeeId);
+    });
+    const matchCreator = (t.createdBy?._id || t.createdBy)?.toString() === myUserId;
+    return matchAssignee || matchCreator;
+  };
+
+  const baseScopedTasks = (tasksData || []).filter((t) => {
+    if (scopeFilter === "my") {
+      return isAssignedToMe(t);
+    }
+    return true;
+  });
+
   // ── Metrics Calculation (7 Flow Categories) ──────────────────────────────────
-  const projTasks = (tasksData || []).filter((t) => {
+  const projTasks = baseScopedTasks.filter((t) => {
     if (t.isTemplate) return false;
     const matchDept = selectedDepts.length === 0 || selectedDepts.includes(t.departmentId?._id || t.departmentId);
     const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
@@ -606,8 +631,6 @@ const TaskBoardScreen = ({ navigation }) => {
     return candidateDates.some(checkSingleDate);
   };
 
-  // ── Status Tabs List ───────────────────────────────────────────────────────
-  
   // ── Date Filters List inside collapsible panel ──────────────────────────────
   const dateFilters = [
     { key: "all_time", label: "All Time" },
@@ -621,7 +644,7 @@ const TaskBoardScreen = ({ navigation }) => {
   ];
 
   // ── Filtered List ───────────────────────────────────────────────────────────
-  let filteredData = tasksData;
+  let filteredData = baseScopedTasks;
 
   if (search.trim() !== "") {
     const q = search.toLowerCase();
@@ -705,7 +728,7 @@ const TaskBoardScreen = ({ navigation }) => {
   });
 
   const getStatusCount = (statusKey) => {
-    let base = tasksData;
+    let base = baseScopedTasks;
     if (deadlineComingFilter) {
       const seen = new Set();
       base = base.filter(t => {
@@ -790,7 +813,7 @@ const TaskBoardScreen = ({ navigation }) => {
   };
 
   const getDateTabCount = (tabKey) => {
-    let base = tasksData;
+    let base = baseScopedTasks;
     if (deadlineComingFilter) {
       const seen = new Set();
       base = base.filter(t => {
@@ -921,38 +944,84 @@ const TaskBoardScreen = ({ navigation }) => {
   }, [selectedEmployeeIds, filteredData, selectedTaskIds, navigation, hasPermission]);
 
   const renderListHeader = useCallback(() => (
-    <View>
-      {/* ── Gradient Stats Header ─────────────────────────────────────── */}
+    <View style={styles.listHeaderWrapper}>
+      {/* ── Executive Royal Navy Hero KPI Card ────────────────────────── */}
       <LinearGradient
-        colors={['#082B52', '#1268D9']}
+        colors={['#061A36', '#0B3C7A', '#1268D9']}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        style={styles.statsHeader}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroCard}
       >
-        <View style={styles.statsRow}>
-          <View style={styles.statCell}>
-            <Text style={[styles.statVal, { color: "#FFFFFF" }]}>{totalActiveTasks}</Text>
-            <Text style={styles.statLbl}>All Tasks</Text>
+        {/* Top Hub Bar */}
+        <View style={styles.heroTopRow}>
+          <View style={styles.heroTitleBlock}>
+            <View style={styles.heroBadge}>
+              <Ionicons name="layers" size={12} color="#93C5FD" style={{ marginRight: 4 }} />
+              <Text style={styles.heroBadgeText}>OPERATIONS HUB</Text>
+            </View>
+            <Text style={styles.heroMainTitle}>Task Management</Text>
           </View>
-          <View style={styles.statSep} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statVal, { color: "#6EE7B7" }]}>{completeCount + lateCompleteCount}</Text>
-            <Text style={styles.statLbl}>Finished</Text>
+
+          {/* Scope Selector Pills */}
+          {hasFullTaskAccess ? (
+            <View style={styles.scopeContainer}>
+              <TouchableOpacity
+                style={[styles.scopeBtn, scopeFilter === "all" && styles.scopeBtnActive]}
+                onPress={() => setScopeFilter("all")}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="business-outline" size={13} color={scopeFilter === "all" ? "#FFFFFF" : "#94A3B8"} style={{ marginRight: 4 }} />
+                <Text style={[styles.scopeBtnText, scopeFilter === "all" && styles.scopeBtnTextActive]}>
+                  Company
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.scopeBtn, scopeFilter === "my" && styles.scopeBtnActive]}
+                onPress={() => setScopeFilter("my")}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-outline" size={13} color={scopeFilter === "my" ? "#FFFFFF" : "#94A3B8"} style={{ marginRight: 4 }} />
+                <Text style={[styles.scopeBtnText, scopeFilter === "my" && styles.scopeBtnTextActive]}>
+                  My Tasks
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.singleScopeBadge}>
+              <Ionicons name="person" size={12} color="#93C5FD" style={{ marginRight: 4 }} />
+              <Text style={styles.singleScopeText}>Assigned to Me</Text>
+            </View>
+          )}
+        </View>
+
+        {/* 4 Metric KPI Cards Grid */}
+        <View style={styles.kpiGrid}>
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiVal, { color: "#FFFFFF" }]}>{totalActiveTasks}</Text>
+            <Text style={styles.kpiLbl}>Total Active</Text>
           </View>
-          <View style={styles.statSep} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statVal, { color: "#93C5FD" }]}>{inProcessCount + rePendingCount}</Text>
-            <Text style={styles.statLbl}>Working</Text>
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiVal, { color: "#34D399" }]}>{completeCount + lateCompleteCount}</Text>
+            <Text style={styles.kpiLbl}>Finished</Text>
           </View>
-          <View style={styles.statSep} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statVal, { color: "#FCA5A5" }]}>{overdueCount}</Text>
-            <Text style={styles.statLbl}>Overdue</Text>
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiVal, { color: "#60A5FA" }]}>{inProcessCount + rePendingCount}</Text>
+            <Text style={styles.kpiLbl}>Working</Text>
           </View>
-          <View style={styles.statSep} />
-          <View style={styles.statCell}>
-            <Text style={[styles.statVal, { color: "#FDE047" }]}>{progress}%</Text>
-            <Text style={styles.statLbl}>Progress</Text>
+          <View style={styles.kpiCard}>
+            <Text style={[styles.kpiVal, { color: "#F87171" }]}>{overdueCount}</Text>
+            <Text style={styles.kpiLbl}>Overdue</Text>
+          </View>
+        </View>
+
+        {/* Progress Bar Row */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressHeader}>
+            <Text style={styles.progressLabel}>Completion Rate</Text>
+            <Text style={styles.progressPercent}>{progress}%</Text>
+          </View>
+          <View style={styles.progressBarTrack}>
+            <View style={[styles.progressBarFill, { width: `${Math.min(100, Math.max(0, progress))}%` }]} />
           </View>
         </View>
       </LinearGradient>
@@ -984,7 +1053,7 @@ const TaskBoardScreen = ({ navigation }) => {
         </ScrollView>
       </View>
 
-      {/* ── Date Filter Tabs (Moved below status) ── */}
+      {/* ── Date Filter Tabs ── */}
       <View style={styles.tabsWrapper}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabsScroll}>
           {dateFilters.map((df) => {
@@ -995,6 +1064,7 @@ const TaskBoardScreen = ({ navigation }) => {
                 key={df.key}
                 style={[styles.tab, isActive && styles.tabActive]}
                 onPress={() => setDateFilter(df.key)}
+                activeOpacity={0.7}
               >
                 <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{df.label}</Text>
                 <View style={[styles.tabBadge, isActive && styles.tabBadgeActive]}>
@@ -1060,7 +1130,7 @@ const TaskBoardScreen = ({ navigation }) => {
     </View>
   ), [
     totalActiveTasks, completeCount, lateCompleteCount, inProcessCount, rePendingCount, overdueCount, progress,
-    taskFilter, dateFilter, isFilterActive, selectedDepts, selectedEmployeeIds, deadlineComingFilter, filteredData.length
+    taskFilter, dateFilter, scopeFilter, hasFullTaskAccess, isFilterActive, selectedDepts, selectedEmployeeIds, deadlineComingFilter, filteredData.length
   ]);
 
   const renderEmptyComponent = useCallback(() => {
@@ -1531,37 +1601,155 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // ── Stats Header ──────────────────────────────────────────────────────────
-  statsHeader: {
-    paddingVertical: 14,
-    paddingHorizontal: 8,
+  // ── Executive Hero Card & Scope Styles ────────────────────────────
+  listHeaderWrapper: {
+    paddingBottom: 4,
   },
-  statsRow: {
+  heroCard: {
+    marginHorizontal: 12,
+    marginTop: 12,
+    marginBottom: 10,
+    borderRadius: 18,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  heroTopRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
   },
-  statCell: {
+  heroTitleBlock: {
     flex: 1,
-    alignItems: "center",
   },
-  statVal: {
-    fontSize: 20,
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 3,
+  },
+  heroBadgeText: {
+    color: "#93C5FD",
+    fontSize: 10,
     fontWeight: "800",
-    color: "#ffffff",
+    letterSpacing: 0.8,
+  },
+  heroMainTitle: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontFamily: FONTS.displayBold,
+    letterSpacing: -0.3,
+  },
+  scopeContainer: {
+    flexDirection: "row",
+    backgroundColor: "rgba(0, 0, 0, 0.25)",
+    borderRadius: 20,
+    padding: 3,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.12)",
+  },
+  scopeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+  },
+  scopeBtnActive: {
+    backgroundColor: "#1268D9",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  scopeBtnText: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+  },
+  scopeBtnTextActive: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.displayBold,
+  },
+  singleScopeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  singleScopeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+  },
+  kpiGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 12,
+  },
+  kpiCard: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.09)",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  kpiVal: {
+    fontSize: 18,
+    fontFamily: FONTS.displayBold,
     letterSpacing: -0.5,
   },
-  statLbl: {
-    fontSize: 9,
-    fontWeight: "600",
-    color: "rgba(255,255,255,0.65)",
+  kpiLbl: {
+    fontSize: 9.5,
+    fontFamily: FONTS.bodyMedium,
+    color: "rgba(255, 255, 255, 0.75)",
     marginTop: 2,
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
+    textAlign: "center",
   },
-  statSep: {
-    width: 1,
-    height: 32,
-    backgroundColor: "rgba(255,255,255,0.18)",
+  progressContainer: {
+    backgroundColor: "rgba(0, 0, 0, 0.18)",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.08)",
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  progressLabel: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  progressPercent: {
+    fontSize: 12,
+    fontFamily: FONTS.displayBold,
+    color: "#34D399",
+  },
+  progressBarTrack: {
+    height: 6,
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  progressBarFill: {
+    height: "100%",
+    backgroundColor: "#34D399",
+    borderRadius: 3,
   },
 
   // ── Dept Filter ───────────────────────────────────────────────────────────
