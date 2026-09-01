@@ -15,123 +15,158 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../theme/tokens";
 
-const buildManagerSections = (hasPermission) => [
-  {
-    title: "Operations & Work",
-    items: [
-      {
-        label: "Dashboard",
-        screen: "ManagerDashboard",
-        icon: "grid-outline",
-        activeIcon: "grid",
-        color: "#2563EB",
-      },
-      {
-        label: "My Tasks",
-        screen: "ManagerTasks",
-        icon: "albums-outline",
-        activeIcon: "albums",
-        color: "#059669",
-        module: "tasks",
-      },
-      {
-        label: "Lead Engine CRM",
-        screen: "LeadsEngine",
-        targetScreen: "LeadsDashboard",
-        icon: "magnet-outline",
-        activeIcon: "magnet",
-        color: "#7C3AED",
-      },
-      {
-        label: "All Projects",
-        screen: "ManagerProjects",
-        icon: "folder-open-outline",
-        activeIcon: "folder-open",
-        color: "#0891B2",
-      },
-      {
-        label: "Company Requests",
-        screen: "CompanyRequests",
-        icon: "chatbubbles-outline",
-        activeIcon: "chatbubbles",
-        color: "#6366F1",
-      },
-    ],
-  },
-  {
-    title: "Team & Attendance",
-    items: [
-      {
-        label: "My Team",
-        screen: "ManagerTeam",
-        icon: "people-outline",
-        activeIcon: "people",
-        color: "#4F46E5",
-      },
-      {
-        label: "Team Attendance",
-        screen: "ManagerTeamAttendance",
-        icon: "calendar-outline",
-        activeIcon: "calendar",
-        color: "#D97706",
-        module: "attendance",
-      },
-      {
-        label: "Regularization",
-        screen: "ManagerRegularization",
-        icon: "create-outline",
-        activeIcon: "create",
-        color: "#0D9488",
-        module: "attendance",
-      },
-      {
-        label: "My Attendance",
-        screen: "ManagerAttendance",
-        icon: "time-outline",
-        activeIcon: "time",
-        color: "#0284C7",
-        module: "attendance",
-      },
-    ],
-  },
-  {
-    title: "Leaves & Reports",
-    items: [
-      {
-        label: "Team Leave Requests",
-        screen: "ManagerTeamLeaves",
-        icon: "document-text-outline",
-        activeIcon: "document-text",
-        color: "#EA580C",
-        module: "leave",
-        permission: { module: "leaves", action: "approveReject" },
-      },
-      {
-        label: "My Leave",
-        screen: "ManagerMyLeave",
-        icon: "calendar-clear-outline",
-        activeIcon: "calendar-clear",
-        color: "#E11D48",
-        module: "leave",
-      },
-      {
-        label: "Reports & Analytics",
-        screen: "ManagerReports",
-        icon: "bar-chart-outline",
-        activeIcon: "bar-chart",
-        color: "#8B5CF6",
-        module: "reports",
-      },
-      {
-        label: "Announcements",
-        screen: "ManagerAnnouncements",
-        icon: "megaphone-outline",
-        activeIcon: "megaphone",
-        color: "#DB2777",
-      },
-    ],
-  },
-];
+const buildManagerSections = (hasPermission) => {
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+
+  return [
+    {
+      title: "Operations & Work",
+      items: [
+        {
+          label: "Dashboard",
+          screen: "ManagerDashboard",
+          icon: "grid-outline",
+          activeIcon: "grid",
+          color: "#2563EB",
+        },
+        ...(canAccessTasks
+          ? [
+              {
+                label: "My Tasks",
+                screen: "ManagerTasks",
+                icon: "albums-outline",
+                activeIcon: "albums",
+                color: "#059669",
+                module: "tasks",
+              },
+            ]
+          : []),
+        ...(canAccessLeads
+          ? [
+              {
+                label: "Lead Engine CRM",
+                screen: "LeadsEngine",
+                targetScreen: "LeadsDashboard",
+                icon: "magnet-outline",
+                activeIcon: "magnet",
+                color: "#7C3AED",
+                module: "leads",
+              },
+            ]
+          : []),
+        ...(canAccessProjects
+          ? [
+              {
+                label: "All Projects",
+                screen: "ManagerProjects",
+                icon: "folder-open-outline",
+                activeIcon: "folder-open",
+                color: "#0891B2",
+                module: "projects",
+              },
+            ]
+          : []),
+        {
+          label: "Company Requests",
+          screen: "CompanyRequests",
+          icon: "chatbubbles-outline",
+          activeIcon: "chatbubbles",
+          color: "#6366F1",
+        },
+      ],
+    },
+    {
+      title: "Team & Attendance",
+      items: [
+        {
+          label: "My Team",
+          screen: "ManagerTeam",
+          icon: "people-outline",
+          activeIcon: "people",
+          color: "#4F46E5",
+        },
+        ...(canAccessAttendance
+          ? [
+              {
+                label: "Team Attendance",
+                screen: "ManagerTeamAttendance",
+                icon: "calendar-outline",
+                activeIcon: "calendar",
+                color: "#D97706",
+                module: "attendance",
+              },
+              {
+                label: "Regularization",
+                screen: "ManagerRegularization",
+                icon: "create-outline",
+                activeIcon: "create",
+                color: "#0D9488",
+                module: "attendance",
+              },
+              {
+                label: "My Attendance",
+                screen: "ManagerAttendance",
+                icon: "time-outline",
+                activeIcon: "time",
+                color: "#0284C7",
+                module: "attendance",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: "Leaves & Reports",
+      items: [
+        ...(canAccessLeaves
+          ? [
+              {
+                label: "Team Leave Requests",
+                screen: "ManagerTeamLeaves",
+                icon: "document-text-outline",
+                activeIcon: "document-text",
+                color: "#EA580C",
+                module: "leave",
+                permission: { module: "leaves", action: "approveReject" },
+              },
+              {
+                label: "My Leave",
+                screen: "ManagerMyLeave",
+                icon: "calendar-clear-outline",
+                activeIcon: "calendar-clear",
+                color: "#E11D48",
+                module: "leave",
+              },
+            ]
+          : []),
+        ...(canAccessReports
+          ? [
+              {
+                label: "Reports & Analytics",
+                screen: "ManagerReports",
+                icon: "bar-chart-outline",
+                activeIcon: "bar-chart",
+                color: "#8B5CF6",
+                module: "reports",
+              },
+            ]
+          : []),
+        {
+          label: "Announcements",
+          screen: "ManagerAnnouncements",
+          icon: "megaphone-outline",
+          activeIcon: "megaphone",
+          color: "#DB2777",
+        },
+      ],
+    },
+  ];
+};
 
 const ManagerDrawerContent = (props) => {
   const { state, navigation } = props;

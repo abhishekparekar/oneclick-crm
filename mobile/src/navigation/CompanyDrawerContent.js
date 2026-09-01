@@ -36,6 +36,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "albums",
         color: "#059669",
         roles: ["CompanyAdmin", "HR"],
+        module: "tasks",
       },
       {
         label: "Lead Engine",
@@ -45,6 +46,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "magnet",
         color: "#7C3AED",
         roles: ["CompanyAdmin", "HR"],
+        module: "leads",
       },
       {
         label: "All Projects",
@@ -53,6 +55,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "folder-open",
         color: "#0891B2",
         roles: ["CompanyAdmin", "HR"],
+        module: "projects",
       },
       {
         label: "Company Requests",
@@ -74,6 +77,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "people",
         color: "#4F46E5",
         roles: ["CompanyAdmin", "HR"],
+        module: "teamMembers",
       },
       {
         label: "Attendance Tracker",
@@ -82,6 +86,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "calendar",
         color: "#D97706",
         roles: ["CompanyAdmin", "HR"],
+        module: "attendance",
       },
       {
         label: "Leave Management",
@@ -90,6 +95,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "time",
         color: "#EA580C",
         roles: ["CompanyAdmin", "HR"],
+        module: "leaves",
       },
       {
         label: "Regularization",
@@ -98,6 +104,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "checkmark-done-circle",
         color: "#0D9488",
         roles: ["CompanyAdmin", "HR"],
+        module: "attendance",
       },
       {
         label: "Holiday Calendar",
@@ -119,6 +126,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "receipt",
         color: "#16A34A",
         roles: ["CompanyAdmin", "HR"],
+        module: "payroll",
       },
       {
         label: "Salary Structures",
@@ -127,6 +135,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "cash",
         color: "#0891B2",
         roles: ["CompanyAdmin", "HR"],
+        module: "payroll",
       },
     ],
   },
@@ -164,6 +173,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "pie-chart",
         color: "#8B5CF6",
         roles: ["CompanyAdmin", "HR"],
+        module: "reports",
       },
       {
         label: "Office Geo-fencing",
@@ -172,6 +182,7 @@ const NATIVE_SECTIONS = [
         activeIcon: "locate",
         color: "#059669",
         roles: ["CompanyAdmin", "HR"],
+        module: "attendance",
       },
       {
         label: "System Settings",
@@ -187,7 +198,7 @@ const NATIVE_SECTIONS = [
 
 const CompanyDrawerContent = (props) => {
   const { navigation } = props;
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const layout = useLayout();
   const insets = useSafeAreaInsets();
 
@@ -291,9 +302,13 @@ const CompanyDrawerContent = (props) => {
         showsVerticalScrollIndicator={false}
       >
         {NATIVE_SECTIONS.map((section) => {
-          const visibleItems = section.items.filter((item) =>
-            item.roles.includes(userRole)
-          );
+          const visibleItems = section.items.filter((item) => {
+            if (!item.roles.includes(userRole)) return false;
+            if (item.module) {
+              return hasPermission(item.module, "view") || hasPermission(item.module);
+            }
+            return true;
+          });
           if (visibleItems.length === 0) return null;
 
           return (

@@ -158,32 +158,68 @@ export const AuthProvider = ({ children }) => {
 
   const hasPermission = (category, action) => {
     if (!user) return false;
-    if (user.role === "CompanyAdmin" || user.role === "SuperAdmin") return true;
-    
+    const roleLower = (user.role || "").toLowerCase();
+    if (roleLower === "companyadmin" || roleLower === "superadmin" || roleLower === "admin") return true;
+
+    // Check company subscribed modules (if defined)
+    const subscribedModules = user.company?.subscribedModules || user.subscribedModules || [];
+    if (subscribedModules.length > 0 && category) {
+      const catLower = category.toLowerCase();
+      const normCat = catLower === "leave" ? "leaves" : catLower === "lead" ? "leads" : catLower === "task" ? "tasks" : catLower;
+      const isSubscribed = subscribedModules.some(m => {
+        const mLower = String(m).toLowerCase();
+        return mLower === normCat || mLower === catLower;
+      });
+      if (!isSubscribed) return false;
+    }
+
+    // Check employee assigned modules (if defined)
+    const assignedModules = user.assignedModules || user.employee?.assignedModules || [];
+    if (assignedModules.length > 0 && category) {
+      const catLower = category.toLowerCase();
+      const normCat = catLower === "leave" ? "leaves" : catLower === "lead" ? "leads" : catLower === "task" ? "tasks" : catLower;
+      const isAssigned = assignedModules.some(m => {
+        const mLower = String(m).toLowerCase();
+        return mLower === normCat || mLower === catLower;
+      });
+      if (!isAssigned) return false;
+    }
+
     const perm = user.permissions || {};
-    const hasCustomized = Object.keys(perm).length > 0;
-    
-    if (hasCustomized) {
+    const catPerm = perm[category] || perm[category?.toLowerCase()] || (category === "leave" ? perm.leaves : category === "leaves" ? perm.leave : undefined);
+
+    if (catPerm !== undefined) {
       if (action) {
-        return perm[category]?.[action] === true || (action === "view" && (perm[category] === true || perm[category]?.read === true));
+        return catPerm[action] === true || (action === "view" && (catPerm === true || catPerm.read === true || catPerm.view === true));
       } else {
-        return perm[category] === true || (typeof perm[category] === "object" && Object.values(perm[category]).some(v => v === true));
+        return catPerm === true || (typeof catPerm === "object" && Object.values(catPerm).some(v => v === true));
       }
     }
-    
-    // Fallback defaults
-    if (user.role === "HR") return true;
-    if (user.role === "Manager") {
-      if (category === "tasks") {
+
+    // Fallback defaults by role
+    if (roleLower === "hr") return true;
+    if (roleLower === "manager") {
+      if (category === "tasks" || category === "task") {
         if (action === "cancel") return false;
         return true;
       }
-      if (category === "leaves") return true;
-      if (category === "leads") {
+      if (category === "leaves" || category === "leave") return true;
+      if (category === "leads" || category === "lead") {
         if (action === "delete") return false;
         return true;
       }
+      if (category === "attendance") return true;
+      if (category === "projects" || category === "project") return true;
       return false;
+    }
+    if (roleLower === "employee" || roleLower === "team member") {
+      if (category === "attendance" || category === "leaves" || category === "leave" || category === "payroll" || category === "projects") return true;
+      if (category === "tasks" || category === "task") {
+        return true;
+      }
+      if (category === "leads" || category === "lead") {
+        return false;
+      }
     }
     return false;
   };

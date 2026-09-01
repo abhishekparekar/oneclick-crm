@@ -122,7 +122,7 @@ const CompanyAdminLayout = ({
 }) => {
   const [isSearchExpanded, setIsSearchExpanded] = React.useState(false);
   const [fabVisible, setFabVisible] = React.useState(false);
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const insets = useSafeAreaInsets();
   const hookNavigation = useNavigation();
   const navigation = propNavigation || hookNavigation;
@@ -527,7 +527,10 @@ const CompanyAdminLayout = ({
             { height: 62 + insets.bottom, paddingBottom: insets.bottom },
           ]}
         >
-          {ADMIN_NAV_ITEMS.map((item) => {
+          {ADMIN_NAV_ITEMS.filter((item) => {
+            if (!item.module) return true;
+            return hasPermission(item.module, "view") || hasPermission(item.module);
+          }).map((item) => {
             if (item.isCenter) {
               return (
                 <TouchableOpacity
@@ -581,65 +584,73 @@ const CompanyAdminLayout = ({
             <View style={styles.modalHeaderIndicator} />
             <Text style={styles.modalTitle}>Admin Quick Actions</Text>
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleQuickNav("LeadsEngine", { screen: "LeadsList", params: { openAddModal: true } })}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="person-add-outline" size={20} color="#1268D9" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Lead</Text>
-                <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+            {(hasPermission("leads", "create") || hasPermission("leads")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleQuickNav("LeadsEngine", { screen: "LeadsList", params: { openAddModal: true } })}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="person-add-outline" size={20} color="#1268D9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Lead</Text>
+                  <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleQuickNav("AddEmployee")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="people-outline" size={20} color="#1268D9" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Employee</Text>
-                <Text style={styles.modalOptionSub}>Onboard new staff or manager</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+            {(hasPermission("teamMembers", "add") || hasPermission("employees", "create") || isCompanyAdmin) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleQuickNav("AddEmployee")}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="people-outline" size={20} color="#1268D9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Employee</Text>
+                  <Text style={styles.modalOptionSub}>Onboard new staff or manager</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleQuickNav("CompanyCreateTask")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Create New Task</Text>
-                <Text style={styles.modalOptionSub}>Assign task to staff or department</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+            {(hasPermission("tasks", "create") || hasPermission("tasks")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleQuickNav("CompanyCreateTask")}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Create New Task</Text>
+                  <Text style={styles.modalOptionSub}>Assign task to staff or department</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => handleQuickNav("CompanyCreateProject")}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#F5F3FF" }]}>
-                <Ionicons name="briefcase-outline" size={20} color="#7C3AED" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Project</Text>
-                <Text style={styles.modalOptionSub}>Create project milestone or workspace</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+            {(hasPermission("projects", "create") || hasPermission("projects")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => handleQuickNav("CompanyCreateProject")}
+                activeOpacity={0.8}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#F5F3FF" }]}>
+                  <Ionicons name="folder-open-outline" size={20} color="#1268D9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Project</Text>
+                  <Text style={styles.modalOptionSub}>Initialize strategic workspace</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.modalOption}

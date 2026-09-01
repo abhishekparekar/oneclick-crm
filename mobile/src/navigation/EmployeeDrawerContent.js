@@ -17,6 +17,11 @@ import { FONTS } from "../theme/tokens";
 
 const buildEmployeeSections = (hasPermission) => {
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
 
   return [
     {
@@ -29,21 +34,29 @@ const buildEmployeeSections = (hasPermission) => {
           activeIcon: "grid",
           color: "#2563EB",
         },
-        {
-          label: "My Tasks",
-          screen: "Tasks",
-          icon: "albums-outline",
-          activeIcon: "albums",
-          color: "#059669",
-          module: "tasks",
-        },
-        {
-          label: "My Projects",
-          screen: "MyProjects",
-          icon: "folder-open-outline",
-          activeIcon: "folder-open",
-          color: "#2563EB",
-        },
+        ...(canAccessTasks
+          ? [
+              {
+                label: "My Tasks",
+                screen: "Tasks",
+                icon: "albums-outline",
+                activeIcon: "albums",
+                color: "#059669",
+                module: "tasks",
+              },
+            ]
+          : []),
+        ...(canAccessProjects
+          ? [
+              {
+                label: "My Projects",
+                screen: "MyProjects",
+                icon: "folder-open-outline",
+                activeIcon: "folder-open",
+                color: "#2563EB",
+              },
+            ]
+          : []),
         ...(canAccessLeads
           ? [
               {
@@ -67,30 +80,42 @@ const buildEmployeeSections = (hasPermission) => {
     {
       title: "Attendance & Time Off",
       items: [
-        {
-          label: "My Attendance",
-          screen: "Attendance",
-          icon: "calendar-outline",
-          activeIcon: "calendar",
-          color: "#D97706",
-          module: "attendance",
-        },
-        {
-          label: "Leave Applications",
-          screen: "Leave",
-          icon: "time-outline",
-          activeIcon: "time",
-          color: "#EA580C",
-          module: "leave",
-        },
-        {
-          label: "My Payslips",
-          screen: "Payslips",
-          icon: "receipt-outline",
-          activeIcon: "receipt",
-          color: "#16A34A",
-          module: "payroll",
-        },
+        ...(canAccessAttendance
+          ? [
+              {
+                label: "My Attendance",
+                screen: "Attendance",
+                icon: "calendar-outline",
+                activeIcon: "calendar",
+                color: "#D97706",
+                module: "attendance",
+              },
+            ]
+          : []),
+        ...(canAccessLeaves
+          ? [
+              {
+                label: "Leave Applications",
+                screen: "Leave",
+                icon: "time-outline",
+                activeIcon: "time",
+                color: "#EA580C",
+                module: "leave",
+              },
+            ]
+          : []),
+        ...(canAccessPayroll
+          ? [
+              {
+                label: "My Payslips",
+                screen: "Payslips",
+                icon: "receipt-outline",
+                activeIcon: "receipt",
+                color: "#16A34A",
+                module: "payroll",
+              },
+            ]
+          : []),
       ],
     },
     {

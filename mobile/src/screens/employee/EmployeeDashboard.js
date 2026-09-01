@@ -68,6 +68,12 @@ const SectionHeader = ({ title, icon, onViewAll }) => (
 export default function EmployeeDashboard({ navigation }) {
   const { user, hasPermission } = useAuth();
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canCreateTask = hasPermission("tasks", "create") || hasPermission("tasks");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
   const {
     employeeDashboard,
     loading,
@@ -456,63 +462,73 @@ export default function EmployeeDashboard({ navigation }) {
           </View>
         </LinearGradient>
 
-        {/* ── Today's Overview (Oneclick 4-Column Grid) ────────── */}
-        <View style={styles.card}>
-          <SectionHeader
-            title="Today's Overview"
-            icon="stats-chart"
-            onViewAll={() => navigation.navigate("Tasks")}
-          />
-          <View style={styles.overviewGrid}>
-            <TouchableOpacity
-              style={styles.overviewTile}
-              onPress={() => navigation.navigate("Tasks")}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.overviewLabel}>Tasks</Text>
-              <Text style={styles.overviewNumber}>{taskSummary.pending ?? 28}</Text>
-              <View style={[styles.trendPill, { backgroundColor: "#ECFDF5" }]}>
-                <Text style={[styles.trendText, { color: "#10B981" }]}>+15%</Text>
-              </View>
-            </TouchableOpacity>
+        {/* ── Today's Overview (Oneclick Grid) ────────── */}
+        {(canAccessTasks || canAccessAttendance || canAccessProjects || canAccessLeaves) && (
+          <View style={styles.card}>
+            <SectionHeader
+              title="Today's Overview"
+              icon="stats-chart"
+              onViewAll={canAccessTasks ? () => navigation.navigate("Tasks") : undefined}
+            />
+            <View style={styles.overviewGrid}>
+              {canAccessTasks && (
+                <TouchableOpacity
+                  style={styles.overviewTile}
+                  onPress={() => navigation.navigate("Tasks")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.overviewLabel}>Tasks</Text>
+                  <Text style={styles.overviewNumber}>{taskSummary.pending ?? 28}</Text>
+                  <View style={[styles.trendPill, { backgroundColor: "#ECFDF5" }]}>
+                    <Text style={[styles.trendText, { color: "#10B981" }]}>+15%</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
-            <TouchableOpacity
-              style={styles.overviewTile}
-              onPress={() => navigation.navigate("Attendance")}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.overviewLabel}>Attendance</Text>
-              <Text style={styles.overviewNumber}>{attendanceSummary.present ?? 96}</Text>
-              <View style={[styles.trendPill, { backgroundColor: "#ECFDF5" }]}>
-                <Text style={[styles.trendText, { color: "#10B981" }]}>+18%</Text>
-              </View>
-            </TouchableOpacity>
+              {canAccessAttendance && (
+                <TouchableOpacity
+                  style={styles.overviewTile}
+                  onPress={() => navigation.navigate("Attendance")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.overviewLabel}>Attendance</Text>
+                  <Text style={styles.overviewNumber}>{attendanceSummary.present ?? 96}</Text>
+                  <View style={[styles.trendPill, { backgroundColor: "#ECFDF5" }]}>
+                    <Text style={[styles.trendText, { color: "#10B981" }]}>+18%</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
-            <TouchableOpacity
-              style={styles.overviewTile}
-              onPress={() => navigation.navigate("Projects")}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.overviewLabel}>Projects</Text>
-              <Text style={styles.overviewNumber}>{projectSummary.activeProjects ?? 14}</Text>
-              <View style={[styles.trendPill, { backgroundColor: "#EFF6FF" }]}>
-                <Text style={[styles.trendText, { color: "#3B82F6" }]}>+3%</Text>
-              </View>
-            </TouchableOpacity>
+              {canAccessProjects && (
+                <TouchableOpacity
+                  style={styles.overviewTile}
+                  onPress={() => navigation.navigate("Projects")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.overviewLabel}>Projects</Text>
+                  <Text style={styles.overviewNumber}>{projectSummary.activeProjects ?? 14}</Text>
+                  <View style={[styles.trendPill, { backgroundColor: "#EFF6FF" }]}>
+                    <Text style={[styles.trendText, { color: "#3B82F6" }]}>+3%</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
 
-            <TouchableOpacity
-              style={styles.overviewTile}
-              onPress={() => navigation.navigate("Leave")}
-              activeOpacity={0.75}
-            >
-              <Text style={styles.overviewLabel}>Leaves</Text>
-              <Text style={styles.overviewNumber}>{leaveSummary.leaveBalance?.casual ?? 12}</Text>
-              <View style={[styles.trendPill, { backgroundColor: "#FEF3C7" }]}>
-                <Text style={[styles.trendText, { color: "#F59E0B" }]}>Bal</Text>
-              </View>
-            </TouchableOpacity>
+              {canAccessLeaves && (
+                <TouchableOpacity
+                  style={styles.overviewTile}
+                  onPress={() => navigation.navigate("Leave")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.overviewLabel}>Leaves</Text>
+                  <Text style={styles.overviewNumber}>{leaveSummary.leaveBalance?.casual ?? 12}</Text>
+                  <View style={[styles.trendPill, { backgroundColor: "#FEF3C7" }]}>
+                    <Text style={[styles.trendText, { color: "#F59E0B" }]}>Bal</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
-        </View>
+        )}
 
         {/* ── Oneclick Quick Actions Grid ────────────────────── */}
         <View style={styles.card}>
@@ -532,40 +548,50 @@ export default function EmployeeDashboard({ navigation }) {
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="folder-open" size={20} color="#1268D9" />
-                </View>
-                <Text style={styles.quickLabel}>Projects</Text>
-              </TouchableOpacity>
+              {canAccessProjects && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="folder-open" size={20} color="#1268D9" />
+                  </View>
+                  <Text style={styles.quickLabel}>Projects</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="briefcase" size={20} color="#1268D9" />
-                </View>
-                <Text style={styles.quickLabel}>Add Task</Text>
-              </TouchableOpacity>
+              {canCreateTask && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="briefcase" size={20} color="#1268D9" />
+                  </View>
+                  <Text style={styles.quickLabel}>Add Task</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CheckInCheckOut")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
-                  <Ionicons name="time" size={20} color="#10B981" />
-                </View>
-                <Text style={styles.quickLabel}>Attendance</Text>
-              </TouchableOpacity>
+              {canAccessAttendance && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CheckInCheckOut")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
+                    <Ionicons name="time" size={20} color="#10B981" />
+                  </View>
+                  <Text style={styles.quickLabel}>Attendance</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="receipt" size={20} color="#3B82F6" />
-                </View>
-                <Text style={styles.quickLabel}>Payslip</Text>
-              </TouchableOpacity>
+              {canAccessPayroll && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="receipt" size={20} color="#3B82F6" />
+                  </View>
+                  <Text style={styles.quickLabel}>Payslip</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#F5F3FF" }]}>
-                  <Ionicons name="calendar" size={20} color="#8B5CF6" />
-                </View>
-                <Text style={styles.quickLabel}>Apply Leave</Text>
-              </TouchableOpacity>
+              {canAccessLeaves && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#F5F3FF" }]}>
+                    <Ionicons name="calendar" size={20} color="#8B5CF6" />
+                  </View>
+                  <Text style={styles.quickLabel}>Apply Leave</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -669,47 +695,49 @@ export default function EmployeeDashboard({ navigation }) {
         )}
 
         {/* ── Leave Balance (Compact Card) ─────────────────── */}
-        <View style={styles.card}>
-          <SectionHeader
-            title="Leave Balance"
-            icon="document-text-outline"
-            onViewAll={() => navigation.navigate("Leave")}
-          />
-          <View style={styles.kpiGrid}>
-            <View style={styles.kpiCard}>
-              <View style={[styles.kpiIconBox, { backgroundColor: "#ecfdf5" }]}>
-                <Ionicons name="leaf-outline" size={14} color="#10b981" />
+        {canAccessLeaves && (
+          <View style={styles.card}>
+            <SectionHeader
+              title="Leave Balance"
+              icon="document-text-outline"
+              onViewAll={() => navigation.navigate("Leave")}
+            />
+            <View style={styles.kpiGrid}>
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBox, { backgroundColor: "#ecfdf5" }]}>
+                  <Ionicons name="leaf-outline" size={14} color="#10b981" />
+                </View>
+                <Text style={styles.kpiValue}>
+                  {leaveSummary.leaveBalance?.casual ?? 12}
+                  <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.casual ?? 12}</Text>
+                </Text>
+                <Text style={styles.kpiLabel}>Casual</Text>
               </View>
-              <Text style={styles.kpiValue}>
-                {leaveSummary.leaveBalance?.casual ?? 12}
-                <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.casual ?? 12}</Text>
-              </Text>
-              <Text style={styles.kpiLabel}>Casual</Text>
-            </View>
 
-            <View style={styles.kpiCard}>
-              <View style={[styles.kpiIconBox, { backgroundColor: "#fef2f2" }]}>
-                <Ionicons name="medical-outline" size={14} color="#ef4444" />
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBox, { backgroundColor: "#fef2f2" }]}>
+                  <Ionicons name="medical-outline" size={14} color="#ef4444" />
+                </View>
+                <Text style={styles.kpiValue}>
+                  {leaveSummary.leaveBalance?.sick ?? 10}
+                  <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.sick ?? 10}</Text>
+                </Text>
+                <Text style={styles.kpiLabel}>Sick</Text>
               </View>
-              <Text style={styles.kpiValue}>
-                {leaveSummary.leaveBalance?.sick ?? 10}
-                <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.sick ?? 10}</Text>
-              </Text>
-              <Text style={styles.kpiLabel}>Sick</Text>
-            </View>
 
-            <View style={styles.kpiCard}>
-              <View style={[styles.kpiIconBox, { backgroundColor: "#f5f3ff" }]}>
-                <Ionicons name="briefcase-outline" size={14} color="#8b5cf6" />
+              <View style={styles.kpiCard}>
+                <View style={[styles.kpiIconBox, { backgroundColor: "#f5f3ff" }]}>
+                  <Ionicons name="briefcase-outline" size={14} color="#8b5cf6" />
+                </View>
+                <Text style={styles.kpiValue}>
+                  {leaveSummary.leaveBalance?.annual ?? 15}
+                  <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.annual ?? 15}</Text>
+                </Text>
+                <Text style={styles.kpiLabel}>Earned</Text>
               </View>
-              <Text style={styles.kpiValue}>
-                {leaveSummary.leaveBalance?.annual ?? 15}
-                <Text style={styles.kpiValueSub}>/{leaveSummary.leaveLimits?.annual ?? 15}</Text>
-              </Text>
-              <Text style={styles.kpiLabel}>Earned</Text>
             </View>
           </View>
-        </View>
+        )}
 
         {/* ── Upcoming Events / Announcements (Compact) ───── */}
         <View style={[styles.card, { marginBottom: 24 }]}>

@@ -62,10 +62,10 @@ const SCREEN_TO_TAB = {
 
 const BOTTOM_TABS = [
   { label: "Home", screen: "ManagerDashboard", icon: "home-outline", activeIcon: "home" },
-  { label: "Leads", screen: "LeadsEngine", icon: "magnet-outline", activeIcon: "magnet" },
+  { label: "Leads", screen: "LeadsEngine", icon: "magnet-outline", activeIcon: "magnet", module: "leads" },
   { label: "CenterAdd", isCenter: true },
-  { label: "Tasks", screen: "ManagerTasks", icon: "checkbox-outline", activeIcon: "checkbox" },
-  { label: "Attendance", screen: "ManagerTeamAttendance", icon: "calendar-outline", activeIcon: "calendar" }
+  { label: "Tasks", screen: "ManagerTasks", icon: "checkbox-outline", activeIcon: "checkbox", module: "tasks" },
+  { label: "Attendance", screen: "ManagerTeamAttendance", icon: "calendar-outline", activeIcon: "calendar", module: "attendance" }
 ];
 
 const HIDE_BOTTOM_NAV_SCREENS = [
@@ -377,7 +377,10 @@ const ManagerLayout = ({
             { height: 60 + insets.bottom, paddingBottom: insets.bottom }
           ]}
         >
-          {BOTTOM_TABS.map((item, index) => {
+          {BOTTOM_TABS.filter((item) => {
+            if (!item.module) return true;
+            return hasPermission(item.module, "view") || hasPermission(item.module);
+          }).map((item, index) => {
             if (item.isCenter) {
               return (
                 <TouchableOpacity
@@ -442,27 +445,29 @@ const ManagerLayout = ({
             <View style={styles.modalHeaderIndicator} />
             <Text style={styles.modalTitle}>Manager Quick Actions</Text>
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabVisible(false);
-                navigation.navigate("ManagerStack", {
-                  screen: "LeadsEngine",
-                  params: { screen: "LeadsList", params: { openAddModal: true } },
-                });
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="person-add-outline" size={20} color="#1268D9" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Lead</Text>
-                <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
-            </TouchableOpacity>
+            {(hasPermission("leads", "create") || hasPermission("leads")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabVisible(false);
+                  navigation.navigate("ManagerStack", {
+                    screen: "LeadsEngine",
+                    params: { screen: "LeadsList", params: { openAddModal: true } },
+                  });
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="person-add-outline" size={20} color="#1268D9" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Lead</Text>
+                  <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
 
-            {hasPermission("tasks", "create") && (
+            {(hasPermission("tasks", "create") || hasPermission("tasks")) && (
               <TouchableOpacity
                 style={styles.modalOption}
                 onPress={() => navigateToScreen("ManagerCreateTask")}
@@ -474,17 +479,19 @@ const ManagerLayout = ({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => navigateToScreen("ManagerCreateProject")}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
-                <Ionicons name="folder-open-outline" size={20} color="#1268D9" />
-              </View>
-              <Text style={styles.modalOptionText}>Add New Project</Text>
-            </TouchableOpacity>
+            {(hasPermission("projects", "create") || hasPermission("projects")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => navigateToScreen("ManagerCreateProject")}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
+                  <Ionicons name="folder-open-outline" size={20} color="#1268D9" />
+                </View>
+                <Text style={styles.modalOptionText}>Add New Project</Text>
+              </TouchableOpacity>
+            )}
 
-            {hasPermission("tasks", "create") && (
+            {(hasPermission("tasks", "create") || hasPermission("tasks")) && (
               <TouchableOpacity
                 style={styles.modalOption}
                 onPress={() => {
@@ -499,15 +506,17 @@ const ManagerLayout = ({
               </TouchableOpacity>
             )}
 
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => navigateToScreen("ManagerRegularization")}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: '#f0fdf4' }]}>
-                <Ionicons name="time-outline" size={20} color="#16a34a" />
-              </View>
-              <Text style={styles.modalOptionText}>Regularize Attendance</Text>
-            </TouchableOpacity>
+            {(hasPermission("attendance", "regularize") || hasPermission("attendance")) && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => navigateToScreen("ManagerRegularization")}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: '#f0fdf4' }]}>
+                  <Ionicons name="time-outline" size={20} color="#16a34a" />
+                </View>
+                <Text style={styles.modalOptionText}>Regularize Attendance</Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity
               style={styles.modalCancelButton}

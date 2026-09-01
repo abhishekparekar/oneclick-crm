@@ -15,166 +15,240 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
 import { FONTS } from "../theme/tokens";
 
-const buildHRSections = (hasPermission) => [
-  {
-    title: "Operations & Work",
-    items: [
-      {
-        label: "Dashboard",
-        screen: "HRDashboard",
-        icon: "grid-outline",
-        activeIcon: "grid",
-        color: "#2563EB",
-        module: null,
-      },
-      {
-        label: "My Tasks",
-        screen: "HRMyTasks",
-        icon: "checkmark-circle-outline",
-        activeIcon: "checkmark-circle",
-        color: "#059669",
-        module: "tasks",
-      },
-      {
-        label: "Team Task Board",
-        screen: "HRTaskBoard",
-        icon: "albums-outline",
-        activeIcon: "albums",
-        color: "#10B981",
-        module: "tasks",
-      },
-      {
-        label: "Lead Engine CRM",
-        screen: "LeadsEngine",
-        targetScreen: "LeadsDashboard",
-        icon: "magnet-outline",
-        activeIcon: "magnet",
-        color: "#7C3AED",
-        module: null,
-      },
-      {
-        label: "All Projects",
-        screen: "HRProjectList",
-        icon: "folder-open-outline",
-        activeIcon: "folder-open",
-        color: "#0891B2",
-        module: null,
-      },
-      {
-        label: "Company Requests",
-        screen: "CompanyRequests",
-        icon: "chatbubbles-outline",
-        activeIcon: "chatbubbles",
-        color: "#0284C7",
-        module: null,
-      },
-    ],
-  },
-  {
-    title: "Staff & Attendance",
-    items: [
-      {
-        label: "Team Members",
-        screen: "HREmployeeList",
-        icon: "people-outline",
-        activeIcon: "people",
-        color: "#4F46E5",
-        module: null,
-        permission: null,
-      },
-      {
-        label: "Add Employee",
-        screen: "HRAddEmployee",
-        icon: "person-add-outline",
-        activeIcon: "person-add",
-        color: "#2563EB",
-        permission: { module: "teamMembers", action: "add" },
-      },
-      {
-        label: "Team Attendance",
-        screen: "HRAttendance",
-        icon: "calendar-outline",
-        activeIcon: "calendar",
-        color: "#D97706",
-        module: "attendance",
-      },
-      {
-        label: "Regularization",
-        screen: "HRRegularizationApproval",
-        icon: "checkmark-done-circle-outline",
-        activeIcon: "checkmark-done-circle",
-        color: "#0D9488",
-        module: "attendance",
-      },
-    ],
-  },
-  {
-    title: "Leaves & Time Off",
-    items: [
-      {
-        label: "Leave Requests",
-        screen: "HRLeaveRequests",
-        icon: "document-text-outline",
-        activeIcon: "document-text",
-        color: "#EA580C",
-        permission: { module: "leaves", action: "approveReject" },
-      },
-      {
-        label: "Leave Balance",
-        screen: "HRLeaveBalance",
-        icon: "hourglass-outline",
-        activeIcon: "hourglass",
-        color: "#E11D48",
-        module: "leave",
-      },
-      {
-        label: "Holiday Calendar",
-        screen: "HRHolidayList",
-        icon: "flag-outline",
-        activeIcon: "flag",
-        color: "#DC2626",
-        permission: { module: "announcementsHolidays" },
-      },
-    ],
-  },
-  {
-    title: "Communication",
-    items: [
-      {
-        label: "Announcements",
-        screen: "HRAnnouncements",
-        icon: "megaphone-outline",
-        activeIcon: "megaphone",
-        color: "#DB2777",
-        module: null,
-      },
-      {
-        label: "Send Document",
-        screen: "UploadDocument",
-        icon: "document-attach-outline",
-        activeIcon: "document-attach",
-        color: "#6366F1",
-        module: null,
-      },
-      {
-        label: "Reports & Analytics",
-        screen: "HRReportsDashboard",
-        icon: "bar-chart-outline",
-        activeIcon: "bar-chart",
-        color: "#8B5CF6",
-        module: "reports",
-      },
-      {
-        label: "HR Profile",
-        screen: "HRProfile",
-        icon: "person-outline",
-        activeIcon: "person",
-        color: "#475569",
-        module: null,
-      },
-    ],
-  },
-];
+const buildHRSections = (hasPermission) => {
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessEmployees = hasPermission("employees", "view") || hasPermission("employees") || hasPermission("teamMembers");
+  const canAddEmployee = hasPermission("employees", "create") || hasPermission("teamMembers", "add");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+  const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+
+  return [
+    {
+      title: "Operations & Work",
+      items: [
+        {
+          label: "Dashboard",
+          screen: "HRDashboard",
+          icon: "grid-outline",
+          activeIcon: "grid",
+          color: "#2563EB",
+          module: null,
+        },
+        ...(canAccessTasks
+          ? [
+              {
+                label: "My Tasks",
+                screen: "HRMyTasks",
+                icon: "checkmark-circle-outline",
+                activeIcon: "checkmark-circle",
+                color: "#059669",
+                module: "tasks",
+              },
+              {
+                label: "Team Task Board",
+                screen: "HRTaskBoard",
+                icon: "albums-outline",
+                activeIcon: "albums",
+                color: "#10B981",
+                module: "tasks",
+              },
+            ]
+          : []),
+        ...(canAccessLeads
+          ? [
+              {
+                label: "Lead Engine CRM",
+                screen: "LeadsEngine",
+                targetScreen: "LeadsDashboard",
+                icon: "magnet-outline",
+                activeIcon: "magnet",
+                color: "#7C3AED",
+                module: "leads",
+              },
+            ]
+          : []),
+        ...(canAccessProjects
+          ? [
+              {
+                label: "All Projects",
+                screen: "HRProjectList",
+                icon: "folder-open-outline",
+                activeIcon: "folder-open",
+                color: "#0891B2",
+                module: "projects",
+              },
+            ]
+          : []),
+        {
+          label: "Company Requests",
+          screen: "CompanyRequests",
+          icon: "chatbubbles-outline",
+          activeIcon: "chatbubbles",
+          color: "#0284C7",
+          module: null,
+        },
+      ],
+    },
+    {
+      title: "Staff & Attendance",
+      items: [
+        ...(canAccessEmployees
+          ? [
+              {
+                label: "Team Members",
+                screen: "HREmployeeList",
+                icon: "people-outline",
+                activeIcon: "people",
+                color: "#4F46E5",
+                module: "teamMembers",
+              },
+            ]
+          : []),
+        ...(canAddEmployee
+          ? [
+              {
+                label: "Add Employee",
+                screen: "HRAddEmployee",
+                icon: "person-add-outline",
+                activeIcon: "person-add",
+                color: "#2563EB",
+              },
+            ]
+          : []),
+        ...(canAccessAttendance
+          ? [
+              {
+                label: "Team Attendance",
+                screen: "HRAttendance",
+                icon: "calendar-outline",
+                activeIcon: "calendar",
+                color: "#D97706",
+                module: "attendance",
+              },
+              {
+                label: "Regularization",
+                screen: "HRRegularizationApproval",
+                icon: "checkmark-done-circle-outline",
+                activeIcon: "checkmark-done-circle",
+                color: "#0D9488",
+                module: "attendance",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: "Leaves & Time Off",
+      items: [
+        ...(canAccessLeaves
+          ? [
+              {
+                label: "Leave Requests",
+                screen: "HRLeaveRequests",
+                icon: "document-text-outline",
+                activeIcon: "document-text",
+                color: "#EA580C",
+                permission: { module: "leaves", action: "approveReject" },
+              },
+              {
+                label: "Leave Balance",
+                screen: "HRLeaveBalance",
+                icon: "hourglass-outline",
+                activeIcon: "hourglass",
+                color: "#E11D48",
+                module: "leave",
+              },
+              {
+                label: "Holiday Calendar",
+                screen: "HRHolidayList",
+                icon: "flag-outline",
+                activeIcon: "flag",
+                color: "#DC2626",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: "Payroll & Finance",
+      items: [
+        ...(canAccessPayroll
+          ? [
+              {
+                label: "Payroll History",
+                screen: "HRPayrollList",
+                icon: "receipt-outline",
+                activeIcon: "receipt",
+                color: "#16A34A",
+                module: "payroll",
+              },
+              {
+                label: "Generate Payroll",
+                screen: "HRPayrollGenerate",
+                icon: "calculator-outline",
+                activeIcon: "calculator",
+                color: "#059669",
+                module: "payroll",
+              },
+              {
+                label: "Salary Structure",
+                screen: "HRSalaryStructure",
+                icon: "cash-outline",
+                activeIcon: "cash",
+                color: "#0891B2",
+                module: "payroll",
+              },
+            ]
+          : []),
+      ],
+    },
+    {
+      title: "Communication",
+      items: [
+        {
+          label: "Announcements",
+          screen: "HRAnnouncements",
+          icon: "megaphone-outline",
+          activeIcon: "megaphone",
+          color: "#DB2777",
+          module: null,
+        },
+        {
+          label: "Send Document",
+          screen: "UploadDocument",
+          icon: "document-attach-outline",
+          activeIcon: "document-attach",
+          color: "#6366F1",
+          module: null,
+        },
+        ...(canAccessReports
+          ? [
+              {
+                label: "Reports & Analytics",
+                screen: "HRReportsDashboard",
+                icon: "bar-chart-outline",
+                activeIcon: "bar-chart",
+                color: "#8B5CF6",
+                module: "reports",
+              },
+            ]
+          : []),
+        {
+          label: "HR Profile",
+          screen: "HRProfile",
+          icon: "person-outline",
+          activeIcon: "person",
+          color: "#475569",
+          module: null,
+        },
+      ],
+    },
+  ];
+};
 
 const HRDrawerContent = (props) => {
   const { state, navigation } = props;

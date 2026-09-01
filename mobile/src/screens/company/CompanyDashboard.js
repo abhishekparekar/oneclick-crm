@@ -36,10 +36,15 @@ import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 import { useFocusEffect } from "@react-navigation/native";
 
 const CompanyDashboard = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { width } = useWindowDimensions();
   const queryClient = useQueryClient();
   const isCompanyAdmin = user?.role === "CompanyAdmin";
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
 
   const [punchLoading, setPunchLoading] = useState(false);
   const [timeRange, setTimeRange] = useState("this_month");
@@ -438,132 +443,136 @@ const CompanyDashboard = ({ navigation }) => {
             </View>
 
             {/* Task Overview Card */}
-            <View style={styles.cardContainer}>
-              <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="albums-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
-                  <Text style={styles.cardHeaderTitle}>Task Progress Summary</Text>
+            {canAccessTasks && (
+              <View style={styles.cardContainer}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons name="albums-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
+                    <Text style={styles.cardHeaderTitle}>Task Progress Summary</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "TaskBoard" })}>
+                    <Text style={styles.cardHeaderLink}>View Board</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "TaskBoard" })}>
-                  <Text style={styles.cardHeaderLink}>View Board</Text>
-                </TouchableOpacity>
-              </View>
 
-              <View style={styles.taskStatsRow}>
-                <View style={styles.taskStatCell}>
-                  <Text style={styles.taskStatVal}>{taskStatsObj?.totalTasks || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Total Tasks</Text>
-                </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#10B981" }]}>{taskStatsObj?.completedTasks || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Completed</Text>
-                </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#2563EB" }]}>{taskStatsObj?.pendingTasks || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Pending</Text>
-                </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#EF4444" }]}>{taskStatsObj?.overdueTasks || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Overdue</Text>
+                <View style={styles.taskStatsRow}>
+                  <View style={styles.taskStatCell}>
+                    <Text style={styles.taskStatVal}>{taskStatsObj?.totalTasks || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Total Tasks</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#10B981" }]}>{taskStatsObj?.completedTasks || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Completed</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#2563EB" }]}>{taskStatsObj?.pendingTasks || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Pending</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#EF4444" }]}>{taskStatsObj?.overdueTasks || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Overdue</Text>
+                  </View>
                 </View>
               </View>
-            </View>
+            )}
 
             {/* Lead CRM Pipeline & Recent Inquiries Card */}
-            <View style={styles.cardContainer}>
-              <View style={styles.cardHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <Ionicons name="magnet-outline" size={18} color="#1268D9" style={{ marginRight: 6 }} />
-                  <Text style={styles.cardHeaderTitle}>Lead Pipeline Summary</Text>
+            {canAccessLeads && (
+              <View style={styles.cardContainer}>
+                <View style={styles.cardHeaderRow}>
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons name="magnet-outline" size={18} color="#1268D9" style={{ marginRight: 6 }} />
+                    <Text style={styles.cardHeaderTitle}>Lead Pipeline Summary</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}>
+                    <Text style={styles.cardHeaderLink}>View CRM →</Text>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}>
-                  <Text style={styles.cardHeaderLink}>View CRM →</Text>
-                </TouchableOpacity>
-              </View>
 
-              {/* Lead 4-Stat Metric Row */}
-              <View style={styles.taskStatsRow}>
-                <View style={styles.taskStatCell}>
-                  <Text style={styles.taskStatVal}>{leadStatsObj?.totalLeads || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Total Leads</Text>
+                {/* Lead 4-Stat Metric Row */}
+                <View style={styles.taskStatsRow}>
+                  <View style={styles.taskStatCell}>
+                    <Text style={styles.taskStatVal}>{leadStatsObj?.totalLeads || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Total Leads</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#10B981" }]}>{leadStatsObj?.wonLeads || 0}</Text>
+                    <Text style={styles.taskStatLbl}>Won Deals</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#B45309" }]}>
+                      {leadStatsObj?.pipelineVal ? `₹${(leadStatsObj.pipelineVal / 100000).toFixed(1)}L` : "₹0"}
+                    </Text>
+                    <Text style={styles.taskStatLbl}>Valuation</Text>
+                  </View>
+                  <View style={styles.taskStatCell}>
+                    <Text style={[styles.taskStatVal, { color: "#8B5CF6" }]}>{leadStatsObj?.winRatio || 0}%</Text>
+                    <Text style={styles.taskStatLbl}>Win Ratio</Text>
+                  </View>
                 </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#10B981" }]}>{leadStatsObj?.wonLeads || 0}</Text>
-                  <Text style={styles.taskStatLbl}>Won Deals</Text>
-                </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#B45309" }]}>
-                    {leadStatsObj?.pipelineVal ? `₹${(leadStatsObj.pipelineVal / 100000).toFixed(1)}L` : "₹0"}
-                  </Text>
-                  <Text style={styles.taskStatLbl}>Valuation</Text>
-                </View>
-                <View style={styles.taskStatCell}>
-                  <Text style={[styles.taskStatVal, { color: "#8B5CF6" }]}>{leadStatsObj?.winRatio || 0}%</Text>
-                  <Text style={styles.taskStatLbl}>Win Ratio</Text>
-                </View>
-              </View>
 
-              {/* Recent Inquiries Feed */}
-              {recentLeads.length === 0 ? (
-                <Text style={styles.emptyText}>No leads recorded yet.</Text>
-              ) : (
-                <View style={{ marginTop: 10, gap: 6 }}>
-                  {recentLeads.map((l, idx) => {
-                    const statusColor = l.status?.color || "#F97316";
-                    return (
-                      <TouchableOpacity
-                        key={l.id || l._id || idx}
-                        style={styles.compactDashLeadCard}
-                        activeOpacity={0.85}
-                        onPress={() =>
-                          navigation.navigate("LeadDetails", {
-                            leadId: l.id || l._id,
-                            lead: l,
-                          })
-                        }
-                      >
-                        <View style={[styles.dashLeadStrip, { backgroundColor: statusColor }]} />
-                        <View style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 8 }}>
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                            <Text style={styles.dashLeadName} numberOfLines={1}>{l.name}</Text>
-                            {l.estimatedValue ? (
-                              <Text style={styles.dashLeadValue}>₹{Number(l.estimatedValue).toLocaleString()}</Text>
-                            ) : null}
-                          </View>
-                          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
-                            <Text style={styles.dashLeadMeta} numberOfLines={1}>
-                              {l.company ? `${l.company} • ` : ""}{l.source || "Direct"}
-                            </Text>
-                            <View style={[styles.dashLeadBadge, { backgroundColor: statusColor + "15", borderColor: statusColor }]}>
-                              <Text style={[styles.dashLeadBadgeText, { color: statusColor }]}>{l.status?.name || "New"}</Text>
+                {/* Recent Inquiries Feed */}
+                {recentLeads.length === 0 ? (
+                  <Text style={styles.emptyText}>No leads recorded yet.</Text>
+                ) : (
+                  <View style={{ marginTop: 10, gap: 6 }}>
+                    {recentLeads.map((l, idx) => {
+                      const statusColor = l.status?.color || "#F97316";
+                      return (
+                        <TouchableOpacity
+                          key={l.id || l._id || idx}
+                          style={styles.compactDashLeadCard}
+                          activeOpacity={0.85}
+                          onPress={() =>
+                            navigation.navigate("LeadDetails", {
+                              leadId: l.id || l._id,
+                              lead: l,
+                            })
+                          }
+                        >
+                          <View style={[styles.dashLeadStrip, { backgroundColor: statusColor }]} />
+                          <View style={{ flex: 1, paddingVertical: 6, paddingHorizontal: 8 }}>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                              <Text style={styles.dashLeadName} numberOfLines={1}>{l.name}</Text>
+                              {l.estimatedValue ? (
+                                <Text style={styles.dashLeadValue}>₹{Number(l.estimatedValue).toLocaleString()}</Text>
+                              ) : null}
+                            </View>
+                            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 3 }}>
+                              <Text style={styles.dashLeadMeta} numberOfLines={1}>
+                                {l.company ? `${l.company} • ` : ""}{l.source || "Direct"}
+                              </Text>
+                              <View style={[styles.dashLeadBadge, { backgroundColor: statusColor + "15", borderColor: statusColor }]}>
+                                <Text style={[styles.dashLeadBadgeText, { color: statusColor }]}>{l.status?.name || "New"}</Text>
+                              </View>
                             </View>
                           </View>
-                        </View>
-                        {l.whatsappPhone ? (
-                          <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 6, gap: 4 }}>
-                            <TouchableOpacity
-                              style={styles.dashLeadChatBtn}
-                              onPress={() => {
-                                const clean = l.whatsappPhone.replace(/[^0-9]/g, "");
-                                Linking.openURL(`https://wa.me/${clean}?text=${encodeURIComponent("Hello " + (l.name || "") + ", thank you for connecting with OneClick HRMS!")}`);
-                              }}
-                            >
-                              <Ionicons name="logo-whatsapp" size={12} color="#FFF" />
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                              style={styles.dashLeadCallBtn}
-                              onPress={() => Linking.openURL(`tel:${l.whatsappPhone}`)}
-                            >
-                              <Ionicons name="call" size={12} color="#2563EB" />
-                            </TouchableOpacity>
-                          </View>
-                        ) : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-            </View>
+                          {l.whatsappPhone ? (
+                            <View style={{ flexDirection: "row", alignItems: "center", paddingRight: 6, gap: 4 }}>
+                              <TouchableOpacity
+                                style={styles.dashLeadChatBtn}
+                                onPress={() => {
+                                  const clean = l.whatsappPhone.replace(/[^0-9]/g, "");
+                                  Linking.openURL(`https://wa.me/${clean}?text=${encodeURIComponent("Hello " + (l.name || "") + ", thank you for connecting with OneClick HRMS!")}`);
+                                }}
+                              >
+                                <Ionicons name="logo-whatsapp" size={12} color="#FFF" />
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                style={styles.dashLeadCallBtn}
+                                onPress={() => Linking.openURL(`tel:${l.whatsappPhone}`)}
+                              >
+                                <Ionicons name="call" size={12} color="#2563EB" />
+                              </TouchableOpacity>
+                            </View>
+                          ) : null}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+            )}
 
             {/* Recent Audit Logs / System Activities */}
             <View style={styles.cardContainer}>

@@ -129,7 +129,11 @@ const formatWorkingHours = (hours) => {
 };
 
 const HRDashboardScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessEmployees = hasPermission("employees", "view") || hasPermission("employees") || hasPermission("teamMembers");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -168,6 +172,7 @@ const HRDashboardScreen = ({ navigation }) => {
   };
 
   const fetchLeads = async () => {
+    if (!canAccessLeads) return;
     try {
       const [leadsRes, statusesRes] = await Promise.allSettled([
         leadsService.getLeads(),
@@ -210,8 +215,10 @@ const HRDashboardScreen = ({ navigation }) => {
     useCallback(() => {
       fetchDashboard();
       fetchTodayAttendance();
-      fetchLeads();
-    }, [])
+      if (canAccessLeads) {
+        fetchLeads();
+      }
+    }, [canAccessLeads])
   );
 
   const stats = data?.stats;
@@ -447,123 +454,131 @@ const HRDashboardScreen = ({ navigation }) => {
         </View>
 
         {/* ── 3. Lead CRM & Pipeline Widget ───────────────── */}
-        <View style={styles.sectionHeaderRow}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="magnet-outline" size={15} color="#1268D9" />
-            <Text style={styles.sectionTitle}>Lead CRM &amp; Pipeline</Text>
-          </View>
-          <TouchableOpacity onPress={() => navigation.navigate("LeadsEngine")} style={{ flexDirection: "row", alignItems: "center" }}>
-            <Text style={[styles.seeAllText, { color: "#1268D9" }]}>Pipeline</Text>
-            <Ionicons name="chevron-forward" size={12} color="#1268D9" />
-          </TouchableOpacity>
-        </View>
+        {canAccessLeads && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="magnet-outline" size={15} color="#1268D9" />
+                <Text style={styles.sectionTitle}>Lead CRM &amp; Pipeline</Text>
+              </View>
+              <TouchableOpacity onPress={() => navigation.navigate("LeadsEngine")} style={{ flexDirection: "row", alignItems: "center" }}>
+                <Text style={[styles.seeAllText, { color: "#1268D9" }]}>Pipeline</Text>
+                <Ionicons name="chevron-forward" size={12} color="#1268D9" />
+              </TouchableOpacity>
+            </View>
 
-        <View style={styles.card}>
-          <View style={styles.leadStatsRow}>
-            <View style={[styles.leadStatBox, { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }]}>
-              <Text style={[styles.leadStatNum, { color: "#1268D9" }]}>{leadStats.total}</Text>
-              <Text style={styles.leadStatLabel}>Total</Text>
-            </View>
-            <View style={[styles.leadStatBox, { backgroundColor: "#faf5ff", borderColor: "#e9d5ff" }]}>
-              <Text style={[styles.leadStatNum, { color: "#7c3aed" }]}>{leadStats.contacted}</Text>
-              <Text style={styles.leadStatLabel}>Contacted</Text>
-            </View>
-            <View style={[styles.leadStatBox, { backgroundColor: "#fffbeb", borderColor: "#fde68a" }]}>
-              <Text style={[styles.leadStatNum, { color: "#d97706" }]}>{leadStats.inProgress}</Text>
-              <Text style={styles.leadStatLabel}>In Progress</Text>
-            </View>
-            <View style={[styles.leadStatBox, { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }]}>
-              <Text style={[styles.leadStatNum, { color: "#059669" }]}>{leadStats.won}</Text>
-              <Text style={styles.leadStatLabel}>Won</Text>
-            </View>
-          </View>
+            <View style={styles.card}>
+              <View style={styles.leadStatsRow}>
+                <View style={[styles.leadStatBox, { backgroundColor: "#eff6ff", borderColor: "#bfdbfe" }]}>
+                  <Text style={[styles.leadStatNum, { color: "#1268D9" }]}>{leadStats.total}</Text>
+                  <Text style={styles.leadStatLabel}>Total</Text>
+                </View>
+                <View style={[styles.leadStatBox, { backgroundColor: "#faf5ff", borderColor: "#e9d5ff" }]}>
+                  <Text style={[styles.leadStatNum, { color: "#7c3aed" }]}>{leadStats.contacted}</Text>
+                  <Text style={styles.leadStatLabel}>Contacted</Text>
+                </View>
+                <View style={[styles.leadStatBox, { backgroundColor: "#fffbeb", borderColor: "#fde68a" }]}>
+                  <Text style={[styles.leadStatNum, { color: "#d97706" }]}>{leadStats.inProgress}</Text>
+                  <Text style={styles.leadStatLabel}>In Progress</Text>
+                </View>
+                <View style={[styles.leadStatBox, { backgroundColor: "#ecfdf5", borderColor: "#a7f3d0" }]}>
+                  <Text style={[styles.leadStatNum, { color: "#059669" }]}>{leadStats.won}</Text>
+                  <Text style={styles.leadStatLabel}>Won</Text>
+                </View>
+              </View>
 
-          {leadsList.length > 0 ? (
-            <View style={{ marginTop: 10 }}>
-              <Text style={styles.recentProspectsHeader}>Recent Prospects (1-Click Contact)</Text>
-              {leadsList.slice(0, 3).map((lead, lIdx) => {
-                const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
+              {leadsList.length > 0 ? (
+                <View style={{ marginTop: 10 }}>
+                  <Text style={styles.recentProspectsHeader}>Recent Prospects (1-Click Contact)</Text>
+                  {leadsList.slice(0, 3).map((lead, lIdx) => {
+                    const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
 
-                return (
-                  <View key={lIdx} style={styles.prospectItem}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.prospectName}>{lead.name}</Text>
-                      <Text style={styles.prospectCompany} numberOfLines={1}>
-                        {lead.company || lead.productService || "General Lead"}
-                      </Text>
-                    </View>
+                    return (
+                      <View key={lIdx} style={styles.prospectItem}>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.prospectName}>{lead.name}</Text>
+                          <Text style={styles.prospectCompany} numberOfLines={1}>
+                            {lead.company || lead.productService || "General Lead"}
+                          </Text>
+                        </View>
 
-                    <View style={styles.prospectActions}>
-                      {lead.estimatedValue && (
-                        <Text style={styles.prospectValue}>₹{Number(lead.estimatedValue).toLocaleString("en-IN")}</Text>
-                      )}
-                      {cleanPhone ? (
-                        <TouchableOpacity
-                          style={styles.actionIconBtn}
-                          onPress={() => Linking.openURL(`https://wa.me/${cleanPhone}?text=Hello ${encodeURIComponent(lead.name || "")}, connecting from HR.`)}
-                        >
-                          <Ionicons name="logo-whatsapp" size={14} color="#10b981" />
-                        </TouchableOpacity>
-                      ) : null}
-                      {cleanPhone ? (
-                        <TouchableOpacity
-                          style={[styles.actionIconBtn, { backgroundColor: "#eff6ff" }]}
-                          onPress={() => Linking.openURL(`tel:${cleanPhone}`)}
-                        >
-                          <Ionicons name="call" size={13} color="#3b82f6" />
-                        </TouchableOpacity>
-                      ) : null}
-                    </View>
-                  </View>
-                );
-              })}
+                        <View style={styles.prospectActions}>
+                          {lead.estimatedValue && (
+                            <Text style={styles.prospectValue}>₹{Number(lead.estimatedValue).toLocaleString("en-IN")}</Text>
+                          )}
+                          {cleanPhone ? (
+                            <TouchableOpacity
+                              style={styles.actionIconBtn}
+                              onPress={() => Linking.openURL(`https://wa.me/${cleanPhone}?text=Hello ${encodeURIComponent(lead.name || "")}, connecting from HR.`)}
+                            >
+                              <Ionicons name="logo-whatsapp" size={14} color="#10b981" />
+                            </TouchableOpacity>
+                          ) : null}
+                          {cleanPhone ? (
+                            <TouchableOpacity
+                              style={[styles.actionIconBtn, { backgroundColor: "#eff6ff" }]}
+                              onPress={() => Linking.openURL(`tel:${cleanPhone}`)}
+                            >
+                              <Ionicons name="call" size={13} color="#3b82f6" />
+                            </TouchableOpacity>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => setShowAddLeadModal(true)} style={styles.addLeadPromptBtn}>
+                  <Ionicons name="add-circle-outline" size={16} color="#1268D9" />
+                  <Text style={styles.addLeadPromptText}>+ Add First Lead / Prospect</Text>
+                </TouchableOpacity>
+              )}
             </View>
-          ) : (
-            <TouchableOpacity onPress={() => setShowAddLeadModal(true)} style={styles.addLeadPromptBtn}>
-              <Ionicons name="add-circle-outline" size={16} color="#1268D9" />
-              <Text style={styles.addLeadPromptText}>+ Add First Lead / Prospect</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          </>
+        )}
 
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Attendance Distribution</Text>
-        </View>
+        {canAccessAttendance && (
+          <>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Attendance Distribution</Text>
+            </View>
 
-        <View style={[styles.card, styles.attendanceOverviewCard]}>
-          <DonutChart 
-            total={stats?.activeEmployees || stats?.totalEmployees || 0}
-            present={stats?.presentToday || 0}
-            absent={stats?.absentToday || 0}
-            leave={stats?.approvedLeavesThisMonth || 0}
-            halfDay={stats?.lateToday || 0}
-          />
+            <View style={[styles.card, styles.attendanceOverviewCard]}>
+              <DonutChart 
+                total={stats?.activeEmployees || stats?.totalEmployees || 0}
+                present={stats?.presentToday || 0}
+                absent={stats?.absentToday || 0}
+                leave={stats?.approvedLeavesThisMonth || 0}
+                halfDay={stats?.lateToday || 0}
+              />
 
-          <View style={styles.legendContainer}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: "#10b981" }]} />
-              <Text style={styles.legendLabel} numberOfLines={1}>Present</Text>
-              <Text style={styles.legendValue}>
-                {stats?.presentToday || 0} ({stats?.activeEmployees || stats?.totalEmployees ? (((stats?.presentToday || 0) / (stats?.activeEmployees || stats?.totalEmployees || 1)) * 100).toFixed(0) + "%" : "0%"})
-              </Text>
+              <View style={styles.legendContainer}>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#10b981" }]} />
+                  <Text style={styles.legendLabel} numberOfLines={1}>Present</Text>
+                  <Text style={styles.legendValue}>
+                    {stats?.presentToday || 0} ({stats?.activeEmployees || stats?.totalEmployees ? (((stats?.presentToday || 0) / (stats?.activeEmployees || stats?.totalEmployees || 1)) * 100).toFixed(0) + "%" : "0%"})
+                  </Text>
+                </View>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#ef4444" }]} />
+                  <Text style={styles.legendLabel} numberOfLines={1}>Absent</Text>
+                  <Text style={styles.legendValue}>{stats?.absentToday || 0}</Text>
+                </View>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#f59e0b" }]} />
+                  <Text style={styles.legendLabel} numberOfLines={1}>Leave</Text>
+                  <Text style={styles.legendValue}>{stats?.approvedLeavesThisMonth || 0}</Text>
+                </View>
+                <View style={styles.legendRow}>
+                  <View style={[styles.legendDot, { backgroundColor: "#8b5cf6" }]} />
+                  <Text style={styles.legendLabel} numberOfLines={1}>Late/Half</Text>
+                  <Text style={styles.legendValue}>{stats?.lateToday || 0}</Text>
+                </View>
+              </View>
             </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: "#ef4444" }]} />
-              <Text style={styles.legendLabel} numberOfLines={1}>Absent</Text>
-              <Text style={styles.legendValue}>{stats?.absentToday || 0}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: "#f59e0b" }]} />
-              <Text style={styles.legendLabel} numberOfLines={1}>Leave</Text>
-              <Text style={styles.legendValue}>{stats?.approvedLeavesThisMonth || 0}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendDot, { backgroundColor: "#8b5cf6" }]} />
-              <Text style={styles.legendLabel} numberOfLines={1}>Late/Half</Text>
-              <Text style={styles.legendValue}>{stats?.lateToday || 0}</Text>
-            </View>
-          </View>
-        </View>
+          </>
+        )}
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Departments Overview</Text>

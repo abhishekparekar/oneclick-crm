@@ -81,7 +81,7 @@ const getGreeting = () => {
 
 // ─────────────────────────────────────────────────────
 const ManagerDashboardScreen = ({ navigation }) => {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const { dashboardData, loadingDashboard, dashboardError, fetchDashboard, refreshDashboard } = useManagerController();
 
   const [selectedDeptId, setSelectedDeptId] = useState("");
@@ -404,6 +404,8 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#1268D9",
                 bg: "#EFF6FF",
                 border: "#BFDBFE",
+                module: "tasks",
+                action: "create",
                 onPress: () => navigation.navigate("ManagerCreateTask"),
               },
               {
@@ -412,6 +414,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#10B981",
                 bg: "#ECFDF5",
                 border: "#A7F3D0",
+                module: "attendance",
                 onPress: () => navigation.navigate("ManagerTeamAttendance"),
               },
               {
@@ -420,6 +423,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#8B5CF6",
                 bg: "#F5F3FF",
                 border: "#DDD6FE",
+                module: "leads",
                 onPress: () => navigation.navigate("LeadsEngine", { screen: "LeadsDashboard" }),
               },
               {
@@ -428,6 +432,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#F59E0B",
                 bg: "#FEF3C7",
                 border: "#FDE68A",
+                module: "leaves",
                 onPress: () => navigation.navigate("ManagerTeamLeaves"),
               },
               {
@@ -436,6 +441,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#0284C7",
                 bg: "#E0F2FE",
                 border: "#BAE6FD",
+                module: "projects",
                 onPress: () => navigation.navigate("ManagerProjects"),
               },
               {
@@ -452,6 +458,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#6366F1",
                 bg: "#EEF2FF",
                 border: "#C7D2FE",
+                module: "attendance",
                 onPress: () => navigation.navigate("ManagerRegularization"),
               },
               {
@@ -460,23 +467,29 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 c: "#475569",
                 bg: "#F1F5F9",
                 border: "#CBD5E1",
+                module: "reports",
                 onPress: () => navigation.navigate("ManagerReports"),
               },
-            ].map((sc) => (
-              <TouchableOpacity
-                key={sc.label}
-                style={[styles.shortcutBtn, { borderColor: sc.border }]}
-                onPress={sc.onPress}
-                activeOpacity={0.75}
-              >
-                <View style={[styles.shortcutIconBox, { backgroundColor: sc.bg }]}>
-                  <Ionicons name={sc.icon} size={20} color={sc.c} />
-                </View>
-                <Text style={styles.shortcutLabel} numberOfLines={1}>
-                  {sc.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            ]
+              .filter((sc) => {
+                if (!sc.module) return true;
+                return hasPermission(sc.module, sc.action || "view") || hasPermission(sc.module);
+              })
+              .map((sc) => (
+                <TouchableOpacity
+                  key={sc.label}
+                  style={[styles.shortcutBtn, { borderColor: sc.border }]}
+                  onPress={sc.onPress}
+                  activeOpacity={0.75}
+                >
+                  <View style={[styles.shortcutIconBox, { backgroundColor: sc.bg }]}>
+                    <Ionicons name={sc.icon} size={20} color={sc.c} />
+                  </View>
+                  <Text style={styles.shortcutLabel} numberOfLines={1}>
+                    {sc.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
           </View>
 
           {/* ── 3. WORK & PERFORMANCE METRIC MATRIX (COMPACT 2x3 TILES) ── */}
