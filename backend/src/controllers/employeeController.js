@@ -119,18 +119,25 @@ const getModuleUsage = async (req, res, next) => {
 
     const usage = {};
     for (const mod of subscribedModules) {
-      const used = await Employee.countDocuments({
-        companyId,
-        status: "active",
-        assignedModules: mod
-      });
-      const limit = (moduleLimits[mod] && moduleLimits[mod] > 0) ? moduleLimits[mod] : (company.employeeLimit || 50);
+      let used = 0;
+      if (["attendance", "leave", "payroll", "reports"].includes(mod)) {
+        used = totalActiveEmployees;
+      } else {
+        used = await Employee.countDocuments({
+          companyId,
+          status: "active",
+          assignedModules: mod
+        });
+      }
+
+      const isCustomLimit = moduleLimits[mod] && moduleLimits[mod] > 0;
+      const limit = isCustomLimit ? moduleLimits[mod] : (company.employeeLimit || 50);
       usage[mod] = {
         subscribed: true,
         limit,
         used,
         remaining: Math.max(0, limit - used),
-        isUnlimited: !moduleLimits[mod] || moduleLimits[mod] === 0
+        isUnlimited: !isCustomLimit
       };
     }
 
