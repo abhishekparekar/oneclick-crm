@@ -32,37 +32,37 @@ const AVATAR_COLORS = [
   "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900",
   "bg-gray-800 text-white dark:bg-gray-100 dark:text-gray-900",
 ];
-const MiniAvatar = ({ name, idx = 0, size = "w-8 h-8", textSize = "text-[11px]" }: { name: string; idx?: number; size?: string; textSize?: string }) => (
-  <div className={`${size} rounded-full ${AVATAR_COLORS[(name?.charCodeAt(0) || idx) % AVATAR_COLORS.length]} flex items-center justify-center font-black ${textSize} flex-shrink-0 shadow-xs ring-2 ring-white dark:ring-[#111C24]`}>
+const MiniAvatar = ({ name, idx = 0, size = "w-6 h-6", textSize = "text-[10px]" }: { name: string; idx?: number; size?: string; textSize?: string }) => (
+  <div className={`${size} rounded-full ${AVATAR_COLORS[(name?.charCodeAt(0) || idx) % AVATAR_COLORS.length]} flex items-center justify-center font-black ${textSize} flex-shrink-0 shadow-xs ring-1.5 ring-white dark:ring-[#111C24]`}>
     {(name || "?").charAt(0).toUpperCase()}
   </div>
 );
 
-// ── Top KPI Stat Card (Ultra-Compact, Professional SaaS Style) ────────────────
+// ── Top KPI Stat Card (Ultra-Compact, High-Density SaaS Style) ────────────────
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }: {
   label: string; value: string | number; trend: string; isUp: boolean; period: string; strokeColor: string; Icon: any; iconBg: string; iconColor: string;
 }) => {
   const gradId = `sk-lead-${label.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/90 dark:border-slate-800 p-3 flex items-center justify-between shadow-2xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 group">
-      <div className="flex-1 min-w-0 pr-1.5">
-        <div className="flex items-center gap-1.5 mb-1">
-          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} shrink-0`}>
-            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.5} />
+    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/90 dark:border-slate-800 p-2 sm:p-2.5 flex items-center justify-between shadow-2xs hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 group">
+      <div className="flex-1 min-w-0 pr-1">
+        <div className="flex items-center gap-1.5 mb-0.5">
+          <div className={`w-4 h-4 rounded flex items-center justify-center ${iconBg} shrink-0`}>
+            <Icon size={10} style={{ color: iconColor }} strokeWidth={2.5} />
           </div>
-          <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400 truncate">{label}</span>
+          <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 truncate uppercase tracking-wider">{label}</span>
         </div>
-        <h3 className="text-lg font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1 truncate">{value}</h3>
-        <div className="flex items-center gap-1 text-[10px]">
-          <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={9} strokeWidth={2.5} /> : <ArrowDown size={9} strokeWidth={2.5} />}
+        <h3 className="text-base font-black text-slate-900 dark:text-white tracking-tight leading-tight mb-0.5 truncate">{value}</h3>
+        <div className="flex items-center gap-1 text-[9.5px]">
+          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+            {isUp ? <ArrowUp size={8} strokeWidth={2.5} /> : <ArrowDown size={8} strokeWidth={2.5} />}
             {trend}
           </span>
           <span className="text-slate-400 text-[9px] truncate">vs {period}</span>
         </div>
       </div>
-      <div className="hidden sm:block h-8 w-12 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
+      <div className="hidden sm:block h-6 w-10 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none shrink-0">
         <svg className="w-full h-full" viewBox="0 0 48 32" preserveAspectRatio="none" fill="none">
           <defs>
             <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
@@ -87,7 +87,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
   );
 };
 
-// ── Custom Select Dropdown ───────────────────────────────────────────────────
+// ── Custom Select Dropdown (Compact) ──────────────────────────────────────────
 const CustomSelect = ({ value, onChange, options, defaultLabel }: {
   value: string; onChange: (v: string) => void; options: { value: string; label: string }[]; defaultLabel: string;
 }) => {
@@ -100,10 +100,10 @@ const CustomSelect = ({ value, onChange, options, defaultLabel }: {
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center justify-between gap-2 px-3 h-8 bg-white dark:bg-[#111C24] border rounded-xl text-xs font-bold transition-all w-full min-w-0 sm:min-w-[120px] shadow-2xs ${isOpen ? "border-amber-500 ring-2 ring-amber-500/10 text-amber-600 dark:text-amber-400" : "border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
+        className={`flex items-center justify-between gap-1.5 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border rounded-lg text-xs font-semibold transition-all w-full min-w-0 sm:min-w-[110px] shadow-2xs cursor-pointer ${isOpen ? "border-amber-500 ring-2 ring-amber-500/10 text-amber-600 dark:text-amber-400" : "border-slate-200/80 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"}`}
       >
         <span className="truncate">{label}</span>
-        <ChevronDown size={13} className={`transition-transform duration-200 text-slate-400 shrink-0 ${isOpen ? "rotate-180 text-amber-500" : ""}`} />
+        <ChevronDown size={11} className={`transition-transform duration-200 text-slate-400 shrink-0 ${isOpen ? "rotate-180 text-amber-500" : ""}`} />
       </button>
       {isOpen && (
         <>
@@ -1119,64 +1119,64 @@ export default function Leads() {
   const dateTabs: ('All Time' | 'Today' | 'Yesterday' | 'This Week' | 'This Month')[] = ["All Time", "Today", "Yesterday", "This Week", "This Month"];
 
   return (
-    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pt-1 pb-10 font-sans text-slate-900 dark:text-slate-100">
+    <div className="animate-fadeIn space-y-2.5 max-w-[1440px] mx-auto pt-0 pb-8 font-sans text-slate-900 dark:text-slate-100">
       
-      {/* ── Page Header (Matching Dashboard & Task Management Header Exactly) ────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1 sm:pt-2">
+      {/* ── Page Header (Ultra-Compact SaaS Header) ────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
         <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+          <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
             Contacts & Leads Pipeline
           </h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+          <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
             Manage customer profiles, lead stages, tags, and automated workflows
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 relative z-30">
+        <div className="flex flex-wrap items-center gap-1.5 relative z-30">
           <button 
             type="button"
             onClick={() => setShowMapPlacesModal(true)} 
-            className="flex items-center gap-1.5 px-3 h-8 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2.5 h-7.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
-            <MapPin size={13} className="text-blue-600 dark:text-blue-400" /> Map Leads
+            <MapPin size={12} className="text-blue-600 dark:text-blue-400" /> Map Leads
           </button>
 
           <button 
             type="button"
             onClick={() => setShowManageProductsModal(true)} 
-            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
-            <Package size={13} className="text-amber-500" /> Products & Services ({products.length})
+            <Package size={12} className="text-amber-500" /> Products & Services ({products.length})
           </button>
 
           <button 
             type="button"
             onClick={() => { setImportStep(1); setShowImportModal(true); }} 
-            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
-            <Upload size={13} className="text-slate-400" /> Import Leads
+            <Upload size={12} className="text-slate-400" /> Import Leads
           </button>
 
           <button
             type="button"
             onClick={fetchPublicToken}
-            className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            className="flex items-center gap-1 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
-            <Share2 size={13} className="text-amber-500" /> Share Form Link
+            <Share2 size={12} className="text-amber-500" /> Share Form Link
           </button>
           
           <button 
             type="button"
             onClick={() => setShowAddModal(true)} 
-            className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
+            className="flex items-center gap-1.5 px-3 h-7.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
           >
-            <UserPlus size={14} strokeWidth={2.5} /> Add Contact
+            <UserPlus size={13} strokeWidth={2.5} /> Add Contact
           </button>
         </div>
       </div>
 
-      {/* ── Top 5 KPI Stat Cards (100% Real-Time Database Metrics) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5 pt-1">
+      {/* ── Top 5 KPI Stat Cards (Compact Real-Time Database Metrics) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         <KPICard label="Total Contacts" value={leadStats.totalContacts || pagination.total || leads.length} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={Users} iconBg="bg-amber-500/10" iconColor="#D97706" />
         <KPICard label="WhatsApp Leads" value={leadStats.optedInCount} trend="Verified" isUp period="database" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
         <KPICard label="New Inquiries" value={leadStats.newLeadsCount} trend="Recent" isUp period="database" strokeColor="#06B6D4" Icon={UserPlus} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
@@ -1184,12 +1184,12 @@ export default function Leads() {
         <KPICard label="Active Tags" value={leadStats.activeTagsCount || (Array.isArray(tags) ? tags.length : 0)} trend="Labels" isUp period="registry" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
       </div>
 
-      {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER ─────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
+      {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER (Compact) ──────────────── */}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 space-y-2 shadow-2xs">
         
         {/* ── Row 1: Time Boundary Date Pill Tabs + View Switcher ───────────── */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar flex-1 min-w-0">
             {dateTabs.map((tabName) => {
               const isActive = activeTab === tabName;
               return (
@@ -1199,7 +1199,7 @@ export default function Leads() {
                     setActiveTab(tabName);
                     setSelectedStatusId("");
                   }}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
                     isActive
                       ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
                       : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
@@ -1212,55 +1212,55 @@ export default function Leads() {
           </div>
 
           {/* View Switcher Pills */}
-          <div className="flex items-center bg-slate-100 dark:bg-[#1E293B] p-0.5 rounded-xl border border-slate-200/60 dark:border-slate-700/80 shadow-2xs gap-0.5 h-8 shrink-0 self-end sm:self-auto">
+          <div className="flex items-center bg-slate-100 dark:bg-[#1E293B] p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-700/80 shadow-2xs gap-0.5 h-7 shrink-0 self-end sm:self-auto">
             <button
               onClick={() => setViewMode("cards")}
               title="Grid Cards View"
-              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "cards"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <LayoutGrid size={13} /> <span>Cards</span>
+              <LayoutGrid size={12} /> <span>Cards</span>
             </button>
             <button
               onClick={() => setViewMode("kanban")}
               title="Kanban Board View"
-              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "kanban"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <Kanban size={13} /> <span>Kanban</span>
+              <Kanban size={12} /> <span>Kanban</span>
             </button>
             <button
               onClick={() => setViewMode("list")}
               title="Table List View"
-              className={`flex items-center justify-center gap-1 px-2.5 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 viewMode === "list"
                   ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
                   : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
               }`}
             >
-              <List size={13} /> <span>List</span>
+              <List size={12} /> <span>List</span>
             </button>
           </div>
         </div>
 
         {/* ── Row 2: Pipeline Status Filter Pills ───────────────────────────── */}
-        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pt-1.5 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={() => setSelectedStatusId("")}
-            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+            className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
               !selectedStatusId
                 ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
                 : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
             }`}
           >
             <span>All Contacts</span>
-            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+            <span className={`px-1 py-0.1 rounded text-[9px] font-black ${
               !selectedStatusId
                 ? "bg-white/20 text-white"
                 : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
@@ -1280,14 +1280,14 @@ export default function Leads() {
               <button
                 key={st.id}
                 onClick={() => setSelectedStatusId(prev => prev === st.id ? "" : st.id)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
                   isSelected
                     ? chipCfg.pillActive
                     : chipCfg.pillInactive
                 }`}
               >
                 <span>{st.name}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
+                <span className={`px-1 py-0.1 rounded text-[9px] font-black ${
                   isSelected
                     ? chipCfg.badgeActive
                     : chipCfg.badgeInactive
@@ -1301,22 +1301,22 @@ export default function Leads() {
       </div>
 
       {/* ── MAIN WORKSPACE CONTAINER (UNIFIED SAAS CARD FOR TOOLBAR & CONTENT) ── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col overflow-hidden">
+      <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col overflow-hidden">
         
         {/* Table/Cards Integrated Toolbar Row */}
-        <div className="bg-slate-50/60 dark:bg-slate-900/40 border-b border-slate-200/80 dark:border-slate-800 p-3 flex flex-wrap xl:flex-nowrap items-center gap-2.5">
-          <div className="relative flex-1 min-w-[180px] group">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors pointer-events-none" />
+        <div className="bg-slate-50/70 dark:bg-[#0D1321]/60 border-b border-slate-200/80 dark:border-slate-800 p-2 sm:p-2.5 flex flex-wrap xl:flex-nowrap items-center gap-2">
+          <div className="relative flex-1 min-w-[160px] group">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors pointer-events-none" />
             <input
               type="text"
               placeholder="Search team member or contact..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 h-8 bg-white dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 focus:border-amber-500 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
+              className="w-full pl-8 pr-3 h-7.5 bg-white dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 focus:border-amber-500 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full xl:w-auto">
+          <div className="flex flex-wrap items-center gap-1.5 w-full xl:w-auto">
             {/* Source */}
             <CustomSelect
               value={selectedSource}
@@ -1381,10 +1381,10 @@ export default function Leads() {
                   setSelectedTagId('');
                   setSelectedStatusId('');
                 }}
-                className="px-2.5 h-8 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 rounded-xl text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
+                className="px-2 h-7.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-rose-600 dark:text-rose-400 rounded-lg text-xs font-bold hover:bg-rose-100 dark:hover:bg-rose-900/50 transition-colors flex items-center gap-1 cursor-pointer shrink-0"
                 title="Reset all filters"
               >
-                <X size={12} />
+                <X size={11} />
                 <span>Reset</span>
               </button>
             )}
@@ -1393,18 +1393,18 @@ export default function Leads() {
 
         {/* ── Bulk Action Bar ────────────────────────────────────────────────── */}
         {someChecked && (
-          <div className="bg-amber-500/10 border-b border-amber-500/20 p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <Users size={16} className="text-amber-600 dark:text-amber-400" />
+          <div className="bg-amber-500/10 border-b border-amber-500/20 p-2 sm:p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5">
+              <Users size={14} className="text-amber-600 dark:text-amber-400" />
               <span className="font-extrabold text-slate-900 dark:text-white">{checkedIds.size} contacts selected</span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
               {/* Bulk Assign Employee */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-bold text-[11px]">Assign To:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500 font-bold text-[10.5px]">Assign:</span>
                 <select
-                  className="h-8 px-2.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none max-w-[210px]"
+                  className="h-7 px-2 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none max-w-[180px]"
                   value={bulkAssignEmpId}
                   onChange={e => setBulkAssignEmpId(e.target.value)}
                 >
@@ -1419,19 +1419,19 @@ export default function Leads() {
                 <button
                   onClick={handleBulkAssign}
                   disabled={!bulkAssignEmpId || isLoading('bulk-assign')}
-                  className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl transition-all flex items-center gap-1 cursor-pointer"
+                  className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
                 >
-                  {isLoading('bulk-assign') ? <Loader2 size={13} className="animate-spin" /> : <UserCheck size={13} />}
+                  {isLoading('bulk-assign') ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
                   Assign
                 </button>
               </div>
 
-              <div className="w-[1px] h-5 bg-slate-300 dark:bg-slate-700 mx-1" />
+              <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-0.5" />
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-bold text-[11px]">Move Status:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500 font-bold text-[10.5px]">Status:</span>
                 <select
-                  className="h-8 px-2.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none"
+                  className="h-7 px-2 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
                   value={bulkStatusId}
                   onChange={e => setBulkStatusId(e.target.value)}
                 >
@@ -1441,18 +1441,18 @@ export default function Leads() {
                 <button
                   onClick={handleBulkStatus}
                   disabled={!bulkStatusId || isLoading('bulk-status')}
-                  className="h-8 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 text-white font-extrabold rounded-xl transition-all cursor-pointer"
+                  className="h-7 px-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 text-white font-extrabold rounded-lg transition-all cursor-pointer"
                 >
-                  {isLoading('bulk-status') ? <Loader2 size={13} className="animate-spin" /> : "Apply"}
+                  {isLoading('bulk-status') ? <Loader2 size={12} className="animate-spin" /> : "Apply"}
                 </button>
               </div>
 
-              <div className="w-[1px] h-5 bg-slate-300 dark:bg-slate-700 mx-1" />
+              <div className="w-[1px] h-4 bg-slate-300 dark:bg-slate-700 mx-0.5" />
 
-              <div className="flex items-center gap-1.5">
-                <span className="text-slate-500 font-bold text-[11px]">Tag:</span>
+              <div className="flex items-center gap-1">
+                <span className="text-slate-500 font-bold text-[10.5px]">Tag:</span>
                 <select
-                  className="h-8 px-2.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none"
+                  className="h-7 px-2 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none"
                   value={bulkTagId}
                   onChange={e => setBulkTagId(e.target.value)}
                 >
@@ -1462,7 +1462,7 @@ export default function Leads() {
                 <button
                   onClick={() => handleBulkTag('add')}
                   disabled={!bulkTagId || isLoading('bulk-tag')}
-                  className="h-8 px-3 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 text-white font-extrabold rounded-xl transition-all cursor-pointer"
+                  className="h-7 px-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 text-white font-extrabold rounded-lg transition-all cursor-pointer"
                 >
                   Apply
                 </button>
@@ -1471,40 +1471,40 @@ export default function Leads() {
               <button
                 onClick={handleBulkDelete}
                 disabled={isLoading('bulk-delete')}
-                className="h-8 px-3 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-xl transition-all flex items-center gap-1 ml-2 cursor-pointer"
+                className="h-7 px-2.5 bg-rose-600 hover:bg-rose-700 text-white font-extrabold rounded-lg transition-all flex items-center gap-1 ml-1 cursor-pointer"
               >
-                <Trash2 size={13} /> Delete
+                <Trash2 size={12} /> Delete
               </button>
 
               <button
                 onClick={() => setCheckedIds(new Set())}
-                className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
+                className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer"
               >
-                <X size={16} />
+                <X size={14} />
               </button>
             </div>
           </div>
         )}
 
         {/* ── Main View Content Area (Cards vs Kanban vs List) ──────────────── */}
-        <div className="p-4">
+        <div>
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 py-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-44 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
+                <div key={i} className="h-36 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
               ))}
             </div>
           ) : leads.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-20">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-3 border border-amber-500/20">
-                <UserPlus size={26} strokeWidth={2} />
+            <div className="flex flex-col items-center justify-center py-16 px-4">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mb-2.5 border border-amber-500/20">
+                <UserPlus size={22} strokeWidth={2} />
               </div>
-              <p className="text-slate-900 dark:text-white font-extrabold text-base">No contacts found</p>
-              <p className="text-slate-500 dark:text-slate-400 text-xs mt-1 font-medium">{activeCustomFiltersCount > 0 ? 'Try adjusting your status filter or search' : 'Add your first contact to get started'}</p>
+              <p className="text-slate-900 dark:text-white font-extrabold text-sm">No contacts found</p>
+              <p className="text-slate-500 dark:text-slate-400 text-xs mt-0.5 font-medium">{activeCustomFiltersCount > 0 ? 'Try adjusting your status filter or search' : 'Add your first contact to get started'}</p>
             </div>
           ) : viewMode === "cards" ? (
             /* ── GRID CARDS VIEW ── */
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 p-2.5">
               {leads.map(lead => (
                 <ContactCard 
                   key={lead.id} 
@@ -1522,7 +1522,7 @@ export default function Leads() {
             </div>
           ) : viewMode === "kanban" ? (
             /* ── KANBAN PIPELINE BOARD VIEW ── */
-            <div className="flex overflow-x-auto gap-3.5 pb-4 custom-scrollbar snap-x">
+            <div className="flex overflow-x-auto gap-3 p-3 custom-scrollbar snap-x">
               {(Array.isArray(statuses) ? statuses : []).map(status => {
                 const stageLeads = (Array.isArray(leads) ? leads : []).filter(l => 
                   (l.statusId && (String(l.statusId) === String(status.id) || String(l.statusId) === String(status._id))) ||
@@ -1531,19 +1531,19 @@ export default function Leads() {
                   (l.status?.name && status.name && String(l.status.name).toLowerCase() === String(status.name).toLowerCase())
                 );
                 return (
-                  <div key={status.id} className="w-[280px] sm:w-[310px] shrink-0 snap-center flex flex-col bg-slate-50/80 dark:bg-slate-900/60 rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 min-h-[480px]">
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-200/80 dark:border-slate-800 mb-3 px-1">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: status.color || '#EAB308' }} />
+                  <div key={status.id} className="w-[260px] sm:w-[290px] shrink-0 snap-center flex flex-col bg-slate-50/80 dark:bg-slate-900/60 rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 min-h-[460px]">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200/80 dark:border-slate-800 mb-2 px-1">
+                      <div className="flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: status.color || '#EAB308' }} />
                         <h3 className="font-extrabold text-xs text-slate-900 dark:text-white tracking-tight">{status.name}</h3>
                       </div>
-                      <span className="text-[10px] font-black text-slate-500 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                      <span className="text-[9.5px] font-black text-slate-500 bg-white dark:bg-[#111C24] px-1.5 py-0.2 rounded border border-slate-200/80 dark:border-slate-800 shadow-2xs">
                         {stageLeads.length}
                       </span>
                     </div>
-                    <div className="space-y-3 flex-1 overflow-y-auto max-h-[750px] hide-scrollbar pr-0.5">
+                    <div className="space-y-2 flex-1 overflow-y-auto max-h-[700px] hide-scrollbar pr-0.5">
                       {stageLeads.length === 0 ? (
-                        <div className="h-28 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center text-[11px] font-medium text-slate-400">
+                        <div className="h-24 border border-dashed border-slate-200 dark:border-slate-800 rounded-lg flex items-center justify-center text-[10.5px] font-medium text-slate-400">
                           No contacts in {status.name}
                         </div>
                       ) : (
@@ -1568,34 +1568,34 @@ export default function Leads() {
               })}
             </div>
           ) : (
-            /* ── ENTERPRISE TABLE LIST VIEW ── */
+            /* ── ENTERPRISE COMPACT TABLE LIST VIEW ── */
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse text-xs min-w-[1000px]">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-50/80 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-[10.5px] font-black uppercase tracking-wider text-slate-400">
-                    <th className="px-4 py-3 w-10">
+                  <tr className="bg-slate-50/90 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 select-none">
+                    <th className="px-2.5 py-2 w-8">
                       <input type="checkbox" checked={allChecked} onChange={toggleAll} className="rounded accent-amber-500 cursor-pointer" />
                     </th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Contact Name</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">WhatsApp Number</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Assigned Rep</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Pipeline Stage</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Product Interest</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Source</th>
-                    <th className="px-4 py-3 font-bold whitespace-nowrap">Date Added</th>
-                    <th className="px-4 py-3 font-bold text-right whitespace-nowrap">Actions</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Contact Name</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">WhatsApp Number</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Assigned Rep</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Pipeline Stage</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Product Interest</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Source</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Date Added</th>
+                    <th className="px-3 py-2 font-bold text-right whitespace-nowrap w-24">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {leads.map(lead => (
                     <tr 
                       key={lead.id} 
                       onClick={() => setSelectedLeadId(lead.id)} 
-                      className={`hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/80 ${
+                      className={`hover:bg-amber-500/[0.03] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/60 ${
                         checkedIds.has(lead.id) ? "bg-amber-500/5 dark:bg-amber-500/10" : ""
                       }`}
                     >
-                      <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                      <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
                         <input 
                           type="checkbox" 
                           checked={checkedIds.has(lead.id)} 
@@ -1604,25 +1604,27 @@ export default function Leads() {
                         />
                       </td>
 
-                      <td className="px-4 py-3">
-                        <div className="flex items-center space-x-3">
+                      <td className="px-2.5 py-1.5">
+                        <div className="flex items-center gap-2 min-w-[160px]">
                           <MiniAvatar name={lead.name} />
-                          <div>
-                            <p className="font-extrabold text-slate-900 dark:text-white text-[13px] leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{lead.name}</p>
-                            {lead.email && <p className="text-[11px] text-slate-400 font-medium">{lead.email}</p>}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-slate-900 dark:text-white text-xs leading-snug group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors truncate">
+                              {lead.name}
+                            </p>
+                            {lead.email && <p className="text-[10px] text-slate-400 font-normal truncate">{lead.email}</p>}
                             {lead.tags && lead.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-1">
+                              <div className="flex flex-wrap gap-0.5 mt-0.5">
                                 {lead.tags.map((tag: any) => (
                                   <span 
                                     key={tag.id} 
-                                    className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-md text-[9.5px] font-extrabold border"
+                                    className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[8.5px] font-bold border"
                                     style={{
                                       backgroundColor: `${tag.color || '#D97706'}15`,
                                       color: tag.color || '#D97706',
                                       borderColor: `${tag.color || '#D97706'}30`
                                     }}
                                   >
-                                    <Tag size={9} />
+                                    <Tag size={8} />
                                     {tag.name}
                                   </span>
                                 ))}
@@ -1632,18 +1634,18 @@ export default function Leads() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
-                        {lead.whatsappPhone}
+                      <td className="px-2.5 py-1.5 font-mono text-[11px] font-bold text-slate-700 dark:text-slate-300 whitespace-nowrap">
+                        {lead.whatsappPhone || lead.phone || "—"}
                       </td>
 
-                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md border border-indigo-200/60 dark:border-indigo-800">
-                          <UserCheck size={11} className="text-indigo-500 shrink-0" />
-                          <span className="truncate max-w-[120px]">{lead.assignedTo?.name || "Unassigned"}</span>
+                      <td className="px-2.5 py-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60">
+                          <UserCheck size={10} className="text-indigo-500 shrink-0" />
+                          <span className="truncate max-w-[100px]">{lead.assignedTo?.name || "Unassigned"}</span>
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                      <td className="px-2.5 py-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="inline-block">
                           <button
                             onClick={(e) => {
@@ -1655,10 +1657,10 @@ export default function Leads() {
                                 setStatusPopoverLeadId(lead.id);
                               }
                             }}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10.5px] font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors shadow-2xs cursor-pointer"
                           >
                             <StatusBadge name={lead.status?.name} color={lead.status?.color} />
-                            <ChevronDown size={11} className="text-slate-400" />
+                            <ChevronDown size={10} className="text-slate-400" />
                           </button>
                           {statusPopoverLeadId === lead.id && statusPopoverRect && (
                             <StatusPopover
@@ -1679,35 +1681,35 @@ export default function Leads() {
                         </div>
                       </td>
 
-                      <td className="px-4 py-3 text-xs font-semibold text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-[11px] font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap max-w-[130px] truncate">
                         {lead.productService || <span className="text-slate-300 dark:text-slate-600">—</span>}
                       </td>
 
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="inline-flex items-center text-[10px] font-black uppercase px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
-                          {lead.source}
+                      <td className="px-2.5 py-1.5 whitespace-nowrap">
+                        <span className="inline-flex items-center text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 max-w-[120px] truncate">
+                          {lead.source || "Direct"}
                         </span>
                       </td>
 
-                      <td className="px-4 py-3 text-xs text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">
+                      <td className="px-2.5 py-1.5 text-[10px] text-slate-400 dark:text-slate-500 font-mono whitespace-nowrap">
                         {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : "—"}
                       </td>
 
-                      <td className="px-4 py-3 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="px-3 py-1.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
                           <button 
                             onClick={() => setSelectedLeadId(lead.id)} 
-                            className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer inline-flex items-center gap-1"
+                            className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold transition-all shadow-2xs cursor-pointer inline-flex items-center gap-1"
                           >
-                            <Eye size={12} /> Open
+                            <Eye size={11} /> Open
                           </button>
                           <button
                             onClick={() => handleDeleteOne(lead.id, lead.name)}
                             disabled={isLoading(`delete-${lead.id}`)}
-                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
                             title="Delete Contact"
                           >
-                            {isLoading(`delete-${lead.id}`) ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                            {isLoading(`delete-${lead.id}`) ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
                           </button>
                         </div>
                       </td>
@@ -1721,24 +1723,24 @@ export default function Leads() {
 
         {/* Pagination Footer */}
         {pagination.totalPages > 1 && (
-          <div className="bg-slate-50/50 dark:bg-slate-900/40 px-4 py-3 border-t border-slate-200/80 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-medium">
+          <div className="bg-slate-50/70 dark:bg-[#0D1321]/60 px-3 py-2 border-t border-slate-200/80 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span>Showing <span className="font-bold text-slate-900 dark:text-white">{leads.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{pagination.total}</span> contacts</span>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
               <button 
                 disabled={pagination.page === 1} 
                 onClick={() => fetchLeads(pagination.page - 1)} 
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
+                className="p-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
               >
-                <ChevronLeft size={14} />
+                <ChevronLeft size={13} />
               </button>
-              <span className="font-bold text-slate-700 dark:text-slate-300">{pagination.page} / {pagination.totalPages}</span>
+              <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">{pagination.page} / {pagination.totalPages}</span>
               <button 
                 disabled={pagination.page === pagination.totalPages} 
                 onClick={() => fetchLeads(pagination.page + 1)} 
-                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
+                className="p-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
               >
-                <ChevronRight size={14} />
+                <ChevronRight size={13} />
               </button>
             </div>
           </div>
