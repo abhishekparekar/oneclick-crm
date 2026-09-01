@@ -135,8 +135,7 @@ const CompanyAdminLayout = ({
       const res = await getMyNotificationsApi().catch(() => ({ data: { unreadCount: 0 } }));
       return res.data || { unreadCount: 0 };
     },
-    staleTime: 10000,
-    refetchInterval: 15000,
+    staleTime: 60000,
   });
 
   const effectiveUnread = unreadNotifications > 0 ? unreadNotifications : (notifData?.unreadCount || 0);
