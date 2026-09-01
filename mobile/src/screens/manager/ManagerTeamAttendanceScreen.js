@@ -183,14 +183,7 @@ const ManagerTeamAttendanceScreen = ({ navigation }) => {
   };
 
   return (
-    <ManagerLayout navigation={navigation} title="Team Attendance">
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Daily Attendance</Text>
-      </View>
-
+    <ManagerLayout navigation={navigation} title="Team Attendance" showBack={true}>
       <View style={styles.container}>
         <View style={styles.searchWrap}>
           <View style={styles.searchBox}>

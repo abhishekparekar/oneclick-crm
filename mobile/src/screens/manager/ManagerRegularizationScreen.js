@@ -140,14 +140,7 @@ const ManagerRegularizationScreen = ({ navigation }) => {
   };
 
   return (
-    <ManagerLayout navigation={navigation} title="Regularization">
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pending Requests</Text>
-      </View>
-
+    <ManagerLayout navigation={navigation} title="Regularization" showBack={true}>
       <View style={styles.container}>
         {loadingRegularization && !refreshing ? (
           <View style={styles.center}>

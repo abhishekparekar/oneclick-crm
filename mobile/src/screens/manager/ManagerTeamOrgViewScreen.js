@@ -93,14 +93,7 @@ const ManagerTeamOrgViewScreen = ({ navigation }) => {
   };
 
   return (
-    <ManagerLayout navigation={navigation} title="Team Hierarchy">
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Organization Chart</Text>
-      </View>
-
+    <ManagerLayout navigation={navigation} title="Team Hierarchy" showBack={true}>
       {loadingTeamOrg && !refreshing ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={TEAL} />

@@ -185,14 +185,7 @@ const ManagerTeamMemberDetailsScreen = ({ route, navigation }) => {
   };
 
   return (
-    <ManagerLayout navigation={navigation} title="Team Member">
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profile Details</Text>
-      </View>
-
+    <ManagerLayout navigation={navigation} title="Team Member" showBack={true}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}

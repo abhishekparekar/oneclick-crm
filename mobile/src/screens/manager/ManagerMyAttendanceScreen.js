@@ -134,14 +134,7 @@ const ManagerMyAttendanceScreen = ({ navigation }) => {
   };
 
   return (
-    <ManagerLayout navigation={navigation} title="My Attendance">
-      <View style={styles.headerBar}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#0f172a" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Monthly Calendar</Text>
-      </View>
-
+    <ManagerLayout navigation={navigation} title="My Attendance" showBack={true}>
       <View style={styles.dateSelectorPanel}>
         <TouchableOpacity onPress={handlePrevMonth} style={styles.monthArrow}>
           <Ionicons name="chevron-back" size={20} color={TEAL} />
