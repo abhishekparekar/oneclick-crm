@@ -74,13 +74,49 @@ const SubscriptionDetails = () => {
           <div>
             <h4 className="text-xs font-bold text-rose-700 dark:text-rose-300">Subscription Package Expired</h4>
             <p className="text-[11px] font-medium text-rose-600 dark:text-rose-400 mt-0.5">
-              Your organization's subscription ended on {formatDate(subscription.endDate)}. Restricted write features require package renewal. Please contact Super Admin.
+              Your organization's subscription ended on {formatDate(subscription.endDate)}. Restricted write features require package renewal. Please contact Super Admin immediately.
             </p>
           </div>
         </div>
       )}
 
-      {isTrial && !isExpired && (
+      {!isExpired && daysRemaining <= 1 && (
+        <div className="bg-rose-50 dark:bg-rose-950/40 border border-rose-300 dark:border-rose-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs animate-pulse">
+          <AlertOctagon className="text-rose-600 shrink-0 mt-0.5" size={18} />
+          <div>
+            <h4 className="text-xs font-black text-rose-700 dark:text-rose-300 uppercase tracking-wider">🔴 Final Notice: Subscription Expires Tomorrow!</h4>
+            <p className="text-[11px] font-semibold text-rose-600 dark:text-rose-400 mt-0.5">
+              Urgent: Your plan ({subscription.planName}) expires tomorrow on {formatDate(subscription.endDate)}. Renew now to prevent service suspension.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isExpired && daysRemaining > 1 && daysRemaining <= 7 && (
+        <div className="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
+          <AlertOctagon className="text-orange-500 shrink-0 mt-0.5" size={18} />
+          <div>
+            <h4 className="text-xs font-black text-orange-700 dark:text-orange-300 uppercase tracking-wider">🚨 Subscription Expiring in {daysRemaining} Days (Action Required)</h4>
+            <p className="text-[11px] font-medium text-orange-600 dark:text-orange-400 mt-0.5">
+              Your plan ({subscription.planName}) expires on {formatDate(subscription.endDate)}. Renew in advance to keep all employee seats and CRM modules active.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {!isExpired && daysRemaining > 7 && daysRemaining <= 15 && (
+        <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
+          <Clock className="text-amber-500 shrink-0 mt-0.5" size={18} />
+          <div>
+            <h4 className="text-xs font-black text-amber-700 dark:text-amber-300 uppercase tracking-wider">⚠️ Subscription Renewal Notice ({daysRemaining} Days Left)</h4>
+            <p className="text-[11px] font-medium text-amber-600 dark:text-amber-400 mt-0.5">
+              Your organization's subscription plan ({subscription.planName}) will expire on {formatDate(subscription.endDate)}.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {isTrial && !isExpired && daysRemaining > 15 && (
         <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 rounded-2xl p-3.5 sm:p-4 flex items-start space-x-3 shadow-2xs">
           <Sparkles className="text-amber-500 shrink-0 mt-0.5 animate-pulse" size={18} />
           <div>

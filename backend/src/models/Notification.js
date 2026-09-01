@@ -42,7 +42,10 @@ const notificationSchema = new mongoose.Schema(
                 "lead_status",
                 "lead_follow_up",
                 "lead_created",
-                "lead_note"
+                "lead_note",
+                "subscription",
+                "subscription_expiry",
+                "subscription_renewed"
             ],
             default: "system",
         },

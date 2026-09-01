@@ -20,11 +20,13 @@ if (!isVercel) {
   const initReminderCron = require("./utils/reminderCron");
   const { initCron } = require("./cron/dailyNotifications");
   const { initMissingCheckoutCron } = require("./cron/missingCheckoutCron");
+  const { initSubscriptionCron } = require("./cron/subscriptionCron");
   initCronJobs();
   initAttendanceCron();
   initReminderCron();
   initCron();
   initMissingCheckoutCron();
+  initSubscriptionCron();
 }
 
 
