@@ -14,6 +14,7 @@ import {
   markNotificationReadApi,
   markAllNotificationsReadApi,
 } from "../../api/notificationApi";
+import { playNotificationSound } from "../../utils/soundHelper";
 
 // ── Quick-nav links shown in search results ────────────────────────────────────
 const COMPANY_PAGES = [
@@ -169,6 +170,14 @@ const Header = ({ onMenuClick }) => {
 
   const notifications = notifRes?.data?.notifications || [];
   const unreadCount   = notifRes?.data?.unreadCount   || 0;
+  const prevUnreadRef = useRef(null);
+
+  useEffect(() => {
+    if (prevUnreadRef.current !== null && unreadCount > prevUnreadRef.current) {
+      playNotificationSound();
+    }
+    prevUnreadRef.current = unreadCount;
+  }, [unreadCount]);
 
   const markReadMutation = useMutation({
     mutationFn: markNotificationReadApi,

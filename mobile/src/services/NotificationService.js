@@ -29,12 +29,27 @@ class NotificationService {
       }
     } else if (Platform.OS === 'android') {
       await notifee.requestPermission();
-      // Create a default channel for Android
+      // Create high importance notification channel with custom chime sound
       await notifee.createChannel({
         id: 'notice11-sound',
-        name: 'Alerts',
+        name: 'HRMS Notifications & Alerts',
         importance: AndroidImportance.HIGH,
-        sound: 'notice11'
+        sound: 'notice11',
+        vibration: true,
+        vibrationPattern: [300, 500],
+        lights: true,
+        badge: true,
+      });
+
+      await notifee.createChannel({
+        id: 'hrms_alerts_v2',
+        name: 'High Priority Alerts',
+        importance: AndroidImportance.HIGH,
+        sound: 'notice11',
+        vibration: true,
+        vibrationPattern: [300, 500],
+        lights: true,
+        badge: true,
       });
     }
     return true;
@@ -97,21 +112,27 @@ class NotificationService {
    * Display a local notification using Notifee (typically used when app is in foreground)
    */
   static async displayNotification(remoteMessage) {
-    const { notification, data } = remoteMessage;
+    const { notification, data } = remoteMessage || {};
     
-    if (notification) {
+    if (notification || data?.title) {
+      const title = notification?.title || data?.title || 'New HRMS Notification';
+      const body = notification?.body || data?.body || '';
+
       await notifee.displayNotification({
-        title: notification.title,
-        body: notification.body,
+        title,
+        body,
         data: data || {},
         android: {
           channelId: 'notice11-sound',
           importance: AndroidImportance.HIGH,
-          sound: 'notice11', // Use the custom notice11 sound
-          // smallIcon: 'ic_launcher', // Optional, if you have a custom icon
+          sound: 'notice11', // Distinctive HRMS sound chime
+          vibrationPattern: [300, 500],
           pressAction: {
             id: 'default',
           },
+        },
+        ios: {
+          sound: 'notice11.wav',
         },
       });
     }
