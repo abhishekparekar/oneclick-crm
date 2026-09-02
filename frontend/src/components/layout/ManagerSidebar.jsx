@@ -22,6 +22,7 @@ import {
   LogOut,
   ChevronDown,
   Hexagon,
+  Navigation,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ const MANAGER_SECTIONS = [
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Live Location Radar", path: "/manager/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },
