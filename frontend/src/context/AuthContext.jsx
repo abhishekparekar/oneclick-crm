@@ -169,12 +169,29 @@ export const AuthProvider = ({ children }) => {
     return false;
   };
 
+  const syncCompanyProfile = (companyData) => {
+    if (!companyData) return;
+    setUser(prev => {
+      if (!prev) return prev;
+      const nextSubs = Array.isArray(companyData.subscribedModules) ? companyData.subscribedModules : prev.subscribedModules;
+      return {
+        ...prev,
+        subscribedModules: nextSubs,
+        company: {
+          ...(prev.company || {}),
+          ...companyData,
+          subscribedModules: nextSubs,
+        }
+      };
+    });
+  };
+
   const updateUser = (updatedFields) => {
     setUser((prev) => (prev ? { ...prev, ...updatedFields } : prev));
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, hasPermission }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, syncCompanyProfile, hasPermission }}>
       {children}
       
       {/* First-Time Login Password Reset Modal */}

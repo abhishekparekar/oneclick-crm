@@ -109,8 +109,14 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
       {/* Navigation */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-2.5 py-2 space-y-2"} oc-scroll`}>
         {MANAGER_SECTIONS.map((section, idx) => {
+          const liveSubscribed = profileData?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            if (Array.isArray(liveSubscribed)) {
+              const norm = String(item.module).toLowerCase().trim();
+              const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
+              if (!subs.includes(norm)) return false;
+            }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 

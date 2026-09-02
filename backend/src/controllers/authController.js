@@ -159,18 +159,18 @@ const login = async (req, res, next) => {
     if (user.companyId) {
       const company = await Company.findById(user.companyId).lean();
       if (company) {
-        let subscribedModules = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+        let subscribedModules = Array.isArray(company.subscribedModules)
           ? company.subscribedModules
           : null;
 
         let moduleLimits = company.moduleLimits || {};
         let planName = company.planName;
 
-        // If subscribedModules is not directly set on company, resolve from Plan or active Subscription
-        if (!subscribedModules) {
+        // Only fallback if subscribedModules is null or undefined on company
+        if (subscribedModules === null || subscribedModules === undefined) {
           if (company.planId) {
             const plan = await Plan.findById(company.planId).lean();
-            if (plan && Array.isArray(plan.modules) && plan.modules.length > 0) {
+            if (plan && Array.isArray(plan.modules)) {
               subscribedModules = plan.modules;
               moduleLimits = plan.moduleLimits || moduleLimits;
               planName = plan.planName || planName;
@@ -181,7 +181,7 @@ const login = async (req, res, next) => {
               companyId: company._id,
               status: { $in: ["active", "trial"] }
             }).populate("planId").lean();
-            if (sub && sub.planId && Array.isArray(sub.planId.modules) && sub.planId.modules.length > 0) {
+            if (sub && sub.planId && Array.isArray(sub.planId.modules)) {
               subscribedModules = sub.planId.modules;
               moduleLimits = sub.planId.moduleLimits || moduleLimits;
               planName = sub.planName || sub.planId.planName || planName;
@@ -249,17 +249,18 @@ const getMe = async (req, res) => {
   if (req.user.companyId) {
     const company = await Company.findById(req.user.companyId).lean();
     if (company) {
-      let subscribedModules = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+      let subscribedModules = Array.isArray(company.subscribedModules)
         ? company.subscribedModules
         : null;
 
       let moduleLimits = company.moduleLimits || {};
       let planName = company.planName;
 
-      if (!subscribedModules) {
+      // Only fallback if subscribedModules is null or undefined on company
+      if (subscribedModules === null || subscribedModules === undefined) {
         if (company.planId) {
           const plan = await Plan.findById(company.planId).lean();
-          if (plan && Array.isArray(plan.modules) && plan.modules.length > 0) {
+          if (plan && Array.isArray(plan.modules)) {
             subscribedModules = plan.modules;
             moduleLimits = plan.moduleLimits || moduleLimits;
             planName = plan.planName || planName;
@@ -270,7 +271,7 @@ const getMe = async (req, res) => {
             companyId: company._id,
             status: { $in: ["active", "trial"] }
           }).populate("planId").lean();
-          if (sub && sub.planId && Array.isArray(sub.planId.modules) && sub.planId.modules.length > 0) {
+          if (sub && sub.planId && Array.isArray(sub.planId.modules)) {
             subscribedModules = sub.planId.modules;
             moduleLimits = sub.planId.moduleLimits || moduleLimits;
             planName = sub.planName || sub.planId.planName || planName;

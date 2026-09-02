@@ -294,19 +294,28 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 // ─── Company Admin Sidebar ────────────────────────────────────────────────
 const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, syncCompanyProfile } = useAuth();
 
   const { data: profileData } = useQuery({
     queryKey: ["companyProfile"],
     queryFn: () => getCompanyProfileApi().then((res) => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
   });
 
   const { data: subData } = useQuery({
     queryKey: ["activeSubscription"],
     queryFn: () => getActiveSubscriptionApi().then((res) => res.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
+
+  const liveSubscribed = profileData?.company?.subscribedModules ?? user?.company?.subscribedModules ?? user?.subscribedModules;
+
+  useEffect(() => {
+    if (profileData?.company && Array.isArray(profileData.company.subscribedModules)) {
+      syncCompanyProfile(profileData.company);
+    }
+  }, [profileData?.company]);
 
   const companyName = profileData?.company?.companyName || profileData?.company?.name || "One Click Solutions";
   const userName = user?.name || "Company Admin";
@@ -336,6 +345,11 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {COMPANY_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            if (Array.isArray(liveSubscribed)) {
+              const norm = String(item.module).toLowerCase().trim();
+              const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
+              if (!subs.includes(norm)) return false;
+            }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 

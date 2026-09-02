@@ -119,6 +119,11 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {sections.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            if (Array.isArray(subscribedModules)) {
+              const norm = String(item.module).toLowerCase().trim();
+              const subs = subscribedModules.map(m => String(m).toLowerCase().trim());
+              if (!subs.includes(norm)) return false;
+            }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 
