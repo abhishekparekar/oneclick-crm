@@ -196,6 +196,8 @@ const updateCompany = async (req, res, next) => {
       "planName",
       "planId",
       "employeeLimit",
+      "subscribedModules",
+      "moduleLimits",
     ];
 
     fields.forEach((field) => {
@@ -206,6 +208,16 @@ const updateCompany = async (req, res, next) => {
             : req.body[field];
       }
     });
+
+    if (req.body.planId && req.body.subscribedModules === undefined) {
+      const plan = await Plan.findById(req.body.planId);
+      if (plan) {
+        company.planName = plan.planName;
+        company.employeeLimit = plan.employeeLimit || company.employeeLimit;
+        company.subscribedModules = Array.isArray(plan.modules) && plan.modules.length > 0 ? plan.modules : company.subscribedModules;
+        company.moduleLimits = plan.moduleLimits || company.moduleLimits;
+      }
+    }
 
     await company.save();
 

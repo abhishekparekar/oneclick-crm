@@ -157,16 +157,48 @@ const login = async (req, res, next) => {
     if (user.companyId) {
       const company = await Company.findById(user.companyId).lean();
       if (company) {
+        let subscribedModules = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+          ? company.subscribedModules
+          : null;
+
+        let moduleLimits = company.moduleLimits || {};
+        let planName = company.planName;
+
+        // If subscribedModules is not directly set on company, resolve from Plan or active Subscription
+        if (!subscribedModules) {
+          if (company.planId) {
+            const plan = await Plan.findById(company.planId).lean();
+            if (plan && Array.isArray(plan.modules) && plan.modules.length > 0) {
+              subscribedModules = plan.modules;
+              moduleLimits = plan.moduleLimits || moduleLimits;
+              planName = plan.planName || planName;
+            }
+          }
+          if (!subscribedModules) {
+            const sub = await Subscription.findOne({
+              companyId: company._id,
+              status: { $in: ["active", "trial"] }
+            }).populate("planId").lean();
+            if (sub && sub.planId && Array.isArray(sub.planId.modules) && sub.planId.modules.length > 0) {
+              subscribedModules = sub.planId.modules;
+              moduleLimits = sub.planId.moduleLimits || moduleLimits;
+              planName = sub.planName || sub.planId.planName || planName;
+            }
+          }
+        }
+
+        subscribedModules = subscribedModules || [];
+
         userObj.company = {
           _id: company._id,
           companyName: company.companyName || company.name,
           name: company.name || company.companyName,
-          subscribedModules: company.subscribedModules || [],
-          moduleLimits: company.moduleLimits || {},
-          planName: company.planName,
+          subscribedModules,
+          moduleLimits,
+          planName,
           status: company.status,
         };
-        userObj.subscribedModules = company.subscribedModules || [];
+        userObj.subscribedModules = subscribedModules;
       }
     }
 
@@ -180,7 +212,7 @@ const login = async (req, res, next) => {
     }).lean();
 
     if (employee) {
-      userObj.assignedModules = Array.isArray(employee.assignedModules) ? employee.assignedModules : [];
+      userObj.assignedModules = Array.isArray(employee.assignedModules) ? employee.assignedModules : (userObj.subscribedModules || []);
       userObj.departmentId = employee.departmentId;
       userObj.accessibleDepartments = employee.accessibleDepartments || [];
       userObj.profileImage = employee.photo || userObj.profileImage;
@@ -215,16 +247,47 @@ const getMe = async (req, res) => {
   if (req.user.companyId) {
     const company = await Company.findById(req.user.companyId).lean();
     if (company) {
+      let subscribedModules = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+        ? company.subscribedModules
+        : null;
+
+      let moduleLimits = company.moduleLimits || {};
+      let planName = company.planName;
+
+      if (!subscribedModules) {
+        if (company.planId) {
+          const plan = await Plan.findById(company.planId).lean();
+          if (plan && Array.isArray(plan.modules) && plan.modules.length > 0) {
+            subscribedModules = plan.modules;
+            moduleLimits = plan.moduleLimits || moduleLimits;
+            planName = plan.planName || planName;
+          }
+        }
+        if (!subscribedModules) {
+          const sub = await Subscription.findOne({
+            companyId: company._id,
+            status: { $in: ["active", "trial"] }
+          }).populate("planId").lean();
+          if (sub && sub.planId && Array.isArray(sub.planId.modules) && sub.planId.modules.length > 0) {
+            subscribedModules = sub.planId.modules;
+            moduleLimits = sub.planId.moduleLimits || moduleLimits;
+            planName = sub.planName || sub.planId.planName || planName;
+          }
+        }
+      }
+
+      subscribedModules = subscribedModules || [];
+
       userObj.company = {
         _id: company._id,
         companyName: company.companyName || company.name,
         name: company.name || company.companyName,
-        subscribedModules: company.subscribedModules || [],
-        moduleLimits: company.moduleLimits || {},
-        planName: company.planName,
+        subscribedModules,
+        moduleLimits,
+        planName,
         status: company.status,
       };
-      userObj.subscribedModules = company.subscribedModules || [];
+      userObj.subscribedModules = subscribedModules;
     }
   }
 
@@ -238,7 +301,7 @@ const getMe = async (req, res) => {
   }).lean();
 
   if (employeeObj) {
-    userObj.assignedModules = Array.isArray(employeeObj.assignedModules) ? employeeObj.assignedModules : [];
+    userObj.assignedModules = Array.isArray(employeeObj.assignedModules) ? employeeObj.assignedModules : (userObj.subscribedModules || []);
     userObj.departmentId = employeeObj.departmentId;
     userObj.accessibleDepartments = employeeObj.accessibleDepartments || [];
     userObj.profileImage = employeeObj.photo || userObj.profileImage;
