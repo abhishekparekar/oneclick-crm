@@ -813,21 +813,92 @@ export default function TaskBoard() {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
-              <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.departmentId} onChange={e => setTempFilters(prev => ({ ...prev, departmentId: e.target.value }))}>
+              <select
+                className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs"
+                value={tempFilters.departmentId}
+                onChange={e => {
+                  const newDeptId = e.target.value;
+                  setTempFilters(prev => {
+                    let updatedAssignedTo = prev.assignedTo;
+                    if (newDeptId && prev.assignedTo) {
+                      const emp = employees.find(em => String(em._id) === String(prev.assignedTo));
+                      const empDeptId = emp?.departmentId?._id || emp?.departmentId?.id || emp?.departmentId;
+                      if (String(empDeptId) !== String(newDeptId)) {
+                        updatedAssignedTo = "";
+                      }
+                    }
+                    return { ...prev, departmentId: newDeptId, assignedTo: updatedAssignedTo };
+                  });
+                }}
+              >
                 <option value="">All Departments</option>
                 {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
               </select>
             </div>
 
             <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Assigned To / Member</label>
-              <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.assignedTo} onChange={e => setTempFilters(prev => ({ ...prev, assignedTo: e.target.value }))}>
+              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
+                Assigned To / Member {tempFilters.departmentId ? "(Filtered by Dept)" : "(Dept Wise)"}
+              </label>
+              <select
+                className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs"
+                value={tempFilters.assignedTo}
+                onChange={e => setTempFilters(prev => ({ ...prev, assignedTo: e.target.value }))}
+              >
                 <option value="">All Members {employees.length > 0 ? `(${employees.length})` : ""}</option>
-                {employees.map(e => {
-                  const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
-                  const code = e.employeeCode ? ` (${e.employeeCode})` : "";
-                  return <option key={e._id} value={e._id}>{name}{code}</option>;
-                })}
+                {tempFilters.departmentId ? (
+                  (() => {
+                    const deptEmps = employees.filter(e => {
+                      const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
+                      return String(dId) === String(tempFilters.departmentId);
+                    });
+                    const deptName = departments.find(d => String(d._id) === String(tempFilters.departmentId))?.name || "Department";
+                    return (
+                      <optgroup label={`${deptName} (${deptEmps.length})`}>
+                        {deptEmps.map(e => {
+                          const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
+                          const code = e.employeeCode ? ` (${e.employeeCode})` : "";
+                          return <option key={e._id} value={e._id}>{name}{code}</option>;
+                        })}
+                      </optgroup>
+                    );
+                  })()
+                ) : (
+                  <>
+                    {departments.map(d => {
+                      const deptEmps = employees.filter(e => {
+                        const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
+                        return String(dId) === String(d._id);
+                      });
+                      if (deptEmps.length === 0) return null;
+                      return (
+                        <optgroup key={d._id} label={`${d.name} (${deptEmps.length})`}>
+                          {deptEmps.map(e => {
+                            const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
+                            const code = e.employeeCode ? ` (${e.employeeCode})` : "";
+                            return <option key={e._id} value={e._id}>{name}{code}</option>;
+                          })}
+                        </optgroup>
+                      );
+                    })}
+                    {(() => {
+                      const unassignedDeptEmps = employees.filter(e => {
+                        const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
+                        return !dId || !departments.some(d => String(d._id) === String(dId));
+                      });
+                      if (unassignedDeptEmps.length === 0) return null;
+                      return (
+                        <optgroup label={`Other / General (${unassignedDeptEmps.length})`}>
+                          {unassignedDeptEmps.map(e => {
+                            const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
+                            const code = e.employeeCode ? ` (${e.employeeCode})` : "";
+                            return <option key={e._id} value={e._id}>{name}{code}</option>;
+                          })}
+                        </optgroup>
+                      );
+                    })()}
+                  </>
+                )}
               </select>
             </div>
 
