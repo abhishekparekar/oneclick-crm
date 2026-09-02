@@ -13,7 +13,7 @@ import {
   ChevronUp, CheckCircle2, X, Lock, Download, AlertTriangle, RefreshCw,
   Plus, Loader2, Building2, CalendarDays, Upload, Eye, ChevronRight,
   ChevronLeft, CheckCheck, Trash2, ExternalLink, Sparkles, Shield,
-  DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu
+  DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu, Zap, ArrowUpRight
 } from "lucide-react";
 
 const getPhotoUrl = (rawPhoto) => {
@@ -186,6 +186,8 @@ export default function AddEmployee() {
 
   const [activeStep, setActiveStep] = useState(1);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  // Upgrade Plan Popup
+  const [upgradePlanModal, setUpgradePlanModal] = useState(null); // { moduleName, label, used, limit }
 
   // Initial Form State
   const [formData, setFormData] = useState({
@@ -867,7 +869,17 @@ export default function AddEmployee() {
                       <div
                         key={m.key}
                         onClick={() => {
-                          if (!isSubscribed || (isFull && !isChecked)) return;
+                          if (!isSubscribed) return;
+                          if (isFull && !isChecked) {
+                            // Show upgrade plan popup
+                            setUpgradePlanModal({
+                              moduleName: m.key,
+                              label: m.label,
+                              used: usageInfo?.used || 0,
+                              limit: usageInfo?.limit || 0,
+                            });
+                            return;
+                          }
                           setFormData(p => {
                             const cur = p.assignedModules || [];
                             return {
@@ -882,7 +894,7 @@ export default function AddEmployee() {
                             : isChecked
                             ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
                             : isFull
-                            ? "opacity-60 bg-rose-500/5 border-rose-300 dark:border-rose-900 cursor-not-allowed"
+                            ? "bg-rose-500/5 border-rose-300 dark:border-rose-900 hover:border-rose-400 cursor-pointer"
                             : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
                         }`}
                       >
@@ -895,13 +907,17 @@ export default function AddEmployee() {
                               {m.desc}
                             </span>
                           </div>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            disabled={!isSubscribed || (isFull && !isChecked)}
-                            onChange={() => {}}
-                            className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
-                          />
+                          {isFull && !isChecked ? (
+                            <Zap size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={!isSubscribed}
+                              onChange={() => {}}
+                              className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
+                            />
+                          )}
                         </div>
 
                         <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
@@ -909,8 +925,12 @@ export default function AddEmployee() {
                             <span className="text-slate-400">Not in plan</span>
                           ) : usageInfo?.isUnlimited ? (
                             <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
+                          ) : isFull && !isChecked ? (
+                            <span className="text-rose-500 flex items-center gap-1">
+                              <Zap size={9} /> Limit full — Upgrade Plan
+                            </span>
                           ) : (
-                            <span className={isFull && !isChecked ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}>
+                            <span className="text-amber-600 dark:text-amber-400">
                               {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
                             </span>
                           )}
@@ -1351,6 +1371,105 @@ export default function AddEmployee() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Upgrade Plan Popup Modal ─────────────────────────────────────── */}
+      {upgradePlanModal && (
+        <div
+          className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
+          onClick={() => setUpgradePlanModal(null)}
+        >
+          <div
+            className="bg-white dark:bg-[#0D1321] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 w-full max-w-md overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Top gradient bar */}
+            <div className="h-1.5 w-full" style={{ background: "linear-gradient(90deg, #f43f5e, #f97316, #f59e0b)" }} />
+
+            {/* Header */}
+            <div className="px-6 pt-5 pb-4 flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-200 dark:border-rose-900 flex items-center justify-center flex-shrink-0">
+                  <Zap size={18} className="text-rose-500" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white leading-tight">
+                    Module Seat Limit Reached
+                  </h3>
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium mt-0.5">
+                    {upgradePlanModal.label} module
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setUpgradePlanModal(null)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            {/* Usage Stats */}
+            <div className="mx-6 mb-4 p-4 rounded-xl bg-rose-50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-900/40">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider">
+                  {upgradePlanModal.label} Seat Usage
+                </span>
+                <span className="text-xs font-black text-rose-600 dark:text-rose-400 font-mono">
+                  {upgradePlanModal.used} / {upgradePlanModal.limit}
+                </span>
+              </div>
+              {/* Progress bar */}
+              <div className="w-full h-2 rounded-full bg-rose-200 dark:bg-rose-900/40 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-rose-500 to-rose-400 transition-all"
+                  style={{ width: "100%" }}
+                />
+              </div>
+              <p className="text-[10px] text-rose-600 dark:text-rose-400 font-semibold mt-1.5">
+                All {upgradePlanModal.limit} seats are allocated. No remaining seats for <strong>{upgradePlanModal.label}</strong>.
+              </p>
+            </div>
+
+            {/* Body */}
+            <div className="px-6 pb-4 space-y-3">
+              <p className="text-xs text-slate-600 dark:text-slate-300 font-medium leading-relaxed">
+                Your current plan has a limit of{" "}
+                <strong className="text-slate-900 dark:text-white">{upgradePlanModal.limit} employee seats</strong> for the{" "}
+                <strong className="text-slate-900 dark:text-white">{upgradePlanModal.label}</strong> module.
+                To assign this module to more employees, please upgrade your subscription plan.
+              </p>
+
+              <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-900/40 flex items-start gap-2">
+                <Sparkles size={13} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <p className="text-[10.5px] text-amber-700 dark:text-amber-400 font-semibold leading-snug">
+                  Upgrading your plan will increase the seat cap for all modules including{" "}
+                  {upgradePlanModal.label}, Attendance, Tasks, Leads and more.
+                </p>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="px-6 pb-5 flex gap-2.5">
+              <button
+                type="button"
+                onClick={() => setUpgradePlanModal(null)}
+                className="flex-1 py-2.5 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800/60 transition-all"
+              >
+                Cancel
+              </button>
+              <a
+                href="/company/requests"
+                className="flex-1 py-2.5 rounded-xl text-xs font-extrabold text-white flex items-center justify-center gap-1.5 transition-all hover:opacity-90 shadow-sm"
+                style={{ background: "linear-gradient(135deg, #f43f5e, #f97316)" }}
+              >
+                <Zap size={13} />
+                <span>Request Plan Upgrade</span>
+                <ArrowUpRight size={12} />
+              </a>
+            </div>
           </div>
         </div>
       )}
