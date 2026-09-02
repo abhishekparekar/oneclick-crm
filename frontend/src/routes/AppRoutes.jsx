@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate, Outlet } from "react-router-dom";
 import ProtectedRoute from "../components/layout/ProtectedRoute";
 import RoleRoute from "../components/layout/RoleRoute";
+import ModuleRoute from "../components/layout/ModuleRoute";
 import DashboardLayout from "../components/layout/DashboardLayout";
 
 // Auth
@@ -170,10 +171,12 @@ const AppRoutes = () => {
             <Route path="dashboard" element={<CompanyDashboard />} />
             <Route path="profile" element={<CompanyProfile />} />
 
-            {/* Attendance */}
-            <Route path="attendance" element={<CompanyAttendance />} />
-            <Route path="regularization" element={<RegularizationApprovals />} />
-            <Route path="attendance-settings" element={<CompanyAttendanceSettings />} />
+            {/* Attendance Module */}
+            <Route element={<ModuleRoute module="attendance" />}>
+              <Route path="attendance" element={<CompanyAttendance />} />
+              <Route path="regularization" element={<RegularizationApprovals />} />
+              <Route path="attendance-settings" element={<CompanyAttendanceSettings />} />
+            </Route>
 
             {/* Organization Setup */}
             <Route path="departments" element={<Departments />} />
@@ -187,48 +190,65 @@ const AppRoutes = () => {
             <Route path="employees/edit/:id" element={<EditEmployee />} />
             <Route path="employees/:id/edit" element={<EditEmployee />} />
 
-            {/* Time Off */}
-            <Route path="leaves" element={<LeaveRequests />} />
-            <Route path="leave-balance" element={<LeaveBalance />} />
-            <Route path="holidays" element={<Holidays />} />
+            {/* Time Off / Leaves Module */}
+            <Route element={<ModuleRoute module="leave" />}>
+              <Route path="leaves" element={<LeaveRequests />} />
+              <Route path="leave-balance" element={<LeaveBalance />} />
+              <Route path="holidays" element={<Holidays />} />
+            </Route>
 
-            {/* Work */}
-            <Route path="tasks" element={<TaskBoard />} />
-            <Route path="tasks/:id" element={<TaskDetailsPage />} />
-            <Route path="tasks/statuses" element={<TaskStatuses />} />
-            <Route path="projects" element={<Projects />} />
+            {/* Work & Tasks Module */}
+            <Route element={<ModuleRoute module="tasks" />}>
+              <Route path="tasks" element={<TaskBoard />} />
+              <Route path="tasks/:id" element={<TaskDetailsPage />} />
+              <Route path="tasks/statuses" element={<TaskStatuses />} />
+            </Route>
+
+            {/* Projects Module */}
+            <Route element={<ModuleRoute module="projects" />}>
+              <Route path="projects" element={<Projects />} />
+            </Route>
+
             <Route path="announcements" element={<Announcements />} />
 
-            {/* Payroll */}
-            <Route path="payroll/settings" element={<PayrollSettingsPage />} />
-            <Route path="payroll/salary" element={<SalaryStructurePage />} />
-            <Route path="payroll/generate" element={<GeneratePayroll />} />
-            <Route path="payroll/history" element={<PayrollHistory />} />
-            <Route path="payroll/advances" element={<SalaryAdvancesPage />} />
-            <Route path="payroll/attendance-summary" element={<AttendanceSummaryPage />} />
+            {/* Payroll Module */}
+            <Route element={<ModuleRoute module="payroll" />}>
+              <Route path="payroll/settings" element={<PayrollSettingsPage />} />
+              <Route path="payroll/salary" element={<SalaryStructurePage />} />
+              <Route path="payroll/generate" element={<GeneratePayroll />} />
+              <Route path="payroll/history" element={<PayrollHistory />} />
+              <Route path="payroll/advances" element={<SalaryAdvancesPage />} />
+              <Route path="payroll/attendance-summary" element={<AttendanceSummaryPage />} />
+            </Route>
 
             {/* Logs & Reports */}
             <Route path="settings" element={<Settings />} />
             <Route path="access-control" element={<AccessControl />} />
             <Route path="audit-logs" element={<AuditLogs />} />
             <Route path="subscription" element={<SubscriptionDetails />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="reports/attendance" element={<Reports />} />
-            <Route path="reports/leave" element={<Reports />} />
-            <Route path="reports/payroll" element={<Reports />} />
-            <Route path="reports/employee" element={<Reports />} />
-            <Route path="reports/performance" element={<Reports />} />
-            <Route path="performance" element={<Performance />} />
+
+            {/* Reports Module */}
+            <Route element={<ModuleRoute module="reports" />}>
+              <Route path="reports" element={<Reports />} />
+              <Route path="reports/attendance" element={<Reports />} />
+              <Route path="reports/leave" element={<Reports />} />
+              <Route path="reports/payroll" element={<Reports />} />
+              <Route path="reports/employee" element={<Reports />} />
+              <Route path="reports/performance" element={<Reports />} />
+              <Route path="performance" element={<Performance />} />
+            </Route>
 
             {/* AI Business Intelligence */}
             <Route path="ai-intelligence" element={<AIDashboard />} />
 
-            {/* Lead Engine & WhatsApp Automations */}
-            <Route path="leads" element={<Leads />} />
-            <Route path="leads/automation" element={<Flows />} />
-            <Route path="leads/campaigns" element={<Campaigns />} />
-            <Route path="leads/reminders" element={<Reminders />} />
-            <Route path="leads/settings" element={<LeadSettings />} />
+            {/* Lead Engine & WhatsApp Automations Module */}
+            <Route element={<ModuleRoute module="leads" />}>
+              <Route path="leads" element={<Leads />} />
+              <Route path="leads/automation" element={<Flows />} />
+              <Route path="leads/campaigns" element={<Campaigns />} />
+              <Route path="leads/reminders" element={<Reminders />} />
+              <Route path="leads/settings" element={<LeadSettings />} />
+            </Route>
 
             {/* Company Requests & Query Hub */}
             <Route path="requests" element={<CompanyRequestsPage role="admin" />} />
