@@ -134,6 +134,9 @@ const HRDashboardScreen = ({ navigation }) => {
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
   const canAccessEmployees = hasPermission("employees", "view") || hasPermission("employees") || hasPermission("teamMembers");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -670,114 +673,144 @@ const HRDashboardScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>HR Quick Actions</Text>
 
             {/* Option 1: Add New Lead */}
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabOpen(false);
-                setShowAddLeadModal(true);
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#fff7ed" }]}>
-                <Ionicons name="magnet-outline" size={20} color="#f97316" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Lead</Text>
-                <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+            {canAccessLeads && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  setShowAddLeadModal(true);
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#fff7ed" }]}>
+                  <Ionicons name="magnet-outline" size={20} color="#f97316" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Lead</Text>
+                  <Text style={styles.modalOptionSub}>Register new client inquiry or deal</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
             {/* Option 2: Create New Task */}
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabOpen(false);
-                navigation.navigate("HRCreateTask");
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#eff6ff" }]}>
-                <Ionicons name="checkbox-outline" size={20} color="#2563eb" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Create New Task</Text>
-                <Text style={styles.modalOptionSub}>Assign work to employees & track progress</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+            {canAccessTasks && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  navigation.navigate("HRCreateTask");
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#eff6ff" }]}>
+                  <Ionicons name="checkbox-outline" size={20} color="#2563eb" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Create New Task</Text>
+                  <Text style={styles.modalOptionSub}>Assign work to employees & track progress</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
             {/* Option 3: Add New Employee */}
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabOpen(false);
-                navigation.navigate("HRAddEmployee");
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#f0fdfa" }]}>
-                <Ionicons name="person-add-outline" size={20} color="#0d9488" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Add New Employee</Text>
-                <Text style={styles.modalOptionSub}>Onboard staff member with profile & salary</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+            {canAccessEmployees && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  navigation.navigate("HRAddEmployee");
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#f0fdfa" }]}>
+                  <Ionicons name="person-add-outline" size={20} color="#0d9488" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Add New Employee</Text>
+                  <Text style={styles.modalOptionSub}>Onboard staff member with profile & salary</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
             {/* Option 4: Leave Requests */}
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabOpen(false);
-                navigation.navigate("Leaves");
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#fdf2f8" }]}>
-                <Ionicons name="calendar-clear-outline" size={20} color="#db2777" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Review Leave Requests</Text>
-                <Text style={styles.modalOptionSub}>Approve or reject time-off applications</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+            {canAccessLeaves && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  navigation.navigate("Leaves");
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#fdf2f8" }]}>
+                  <Ionicons name="calendar-clear-outline" size={20} color="#db2777" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Review Leave Requests</Text>
+                  <Text style={styles.modalOptionSub}>Approve or reject time-off applications</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
             {/* Option 5: Regularization */}
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={() => {
-                setFabOpen(false);
-                navigation.navigate("HRRegularizationApproval");
-              }}
-            >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#f0fdf4" }]}>
-                <Ionicons name="time-outline" size={20} color="#16a34a" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Regularize Attendance</Text>
-                <Text style={styles.modalOptionSub}>Review attendance correction requests</Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
-            </TouchableOpacity>
+            {canAccessAttendance && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  navigation.navigate("HRRegularizationApproval");
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#f0fdf4" }]}>
+                  <Ionicons name="time-outline" size={20} color="#16a34a" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Regularize Attendance</Text>
+                  <Text style={styles.modalOptionSub}>Review attendance correction requests</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
 
             {/* Option 6: Generate Payroll */}
+            {canAccessPayroll && (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => {
+                  setFabOpen(false);
+                  navigation.navigate("HRPayrollGenerate");
+                }}
+              >
+                <View style={[styles.modalOptionIcon, { backgroundColor: "#f5f3ff" }]}>
+                  <Ionicons name="cash-outline" size={20} color="#7c3aed" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.modalOptionText}>Generate Salary & Payroll</Text>
+                  <Text style={styles.modalOptionSub}>Process monthly payroll cycle & slips</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
+              </TouchableOpacity>
+            )}
+
+            {/* Option 7: Company Requests (Always accessible) */}
             <TouchableOpacity
               style={styles.modalOption}
               onPress={() => {
                 setFabOpen(false);
-                navigation.navigate("HRPayrollGenerate");
+                navigation.navigate("CompanyRequests");
               }}
             >
-              <View style={[styles.modalOptionIcon, { backgroundColor: "#f5f3ff" }]}>
-                <Ionicons name="cash-outline" size={20} color="#7c3aed" />
+              <View style={[styles.modalOptionIcon, { backgroundColor: "#eef2ff" }]}>
+                <Ionicons name="chatbubbles-outline" size={20} color="#6366f1" />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalOptionText}>Generate Salary & Payroll</Text>
-                <Text style={styles.modalOptionSub}>Process monthly payroll cycle & slips</Text>
+                <Text style={styles.modalOptionText}>Company Requests</Text>
+                <Text style={styles.modalOptionSub}>Review employee queries & tickets</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
             </TouchableOpacity>
 
-            {/* Option 7: Post Announcement */}
+            {/* Option 8: Post Announcement */}
             <TouchableOpacity
               style={styles.modalOption}
               onPress={() => {
@@ -790,7 +823,7 @@ const HRDashboardScreen = ({ navigation }) => {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.modalOptionText}>Post Announcement</Text>
-                <Text style={styles.modalOptionSub}>Broadcast notices to all employees</Text>
+                <Text style={styles.modalOptionSub}>Broadcast update to entire workforce</Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#94a3b8" />
             </TouchableOpacity>

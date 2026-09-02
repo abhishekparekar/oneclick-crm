@@ -317,27 +317,31 @@ const CompanyDashboard = ({ navigation }) => {
 
             {/* Quick Action Shortcuts Grid */}
             <View style={styles.shortcutsRow}>
-              <TouchableOpacity
-                style={styles.shortcutBtn}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "rgba(18, 104, 217, 0.1)" }]}>
-                  <Ionicons name="magnet-outline" size={18} color="#1268D9" />
-                </View>
-                <Text style={styles.shortcutText} numberOfLines={1}>Lead CRM</Text>
-              </TouchableOpacity>
+              {canAccessLeads && (
+                <TouchableOpacity
+                  style={styles.shortcutBtn}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.shortcutIconBox, { backgroundColor: "rgba(18, 104, 217, 0.1)" }]}>
+                    <Ionicons name="magnet-outline" size={18} color="#1268D9" />
+                  </View>
+                  <Text style={styles.shortcutText} numberOfLines={1}>Lead CRM</Text>
+                </TouchableOpacity>
+              )}
 
-              <TouchableOpacity
-                style={styles.shortcutBtn}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="folder-open-outline" size={18} color="#1268D9" />
-                </View>
-                <Text style={styles.shortcutText} numberOfLines={1}>Projects</Text>
-              </TouchableOpacity>
+              {canAccessProjects && (
+                <TouchableOpacity
+                  style={styles.shortcutBtn}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.shortcutIconBox, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="folder-open-outline" size={18} color="#1268D9" />
+                  </View>
+                  <Text style={styles.shortcutText} numberOfLines={1}>Projects</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.shortcutBtn}
@@ -350,26 +354,41 @@ const CompanyDashboard = ({ navigation }) => {
                 <Text style={styles.shortcutText} numberOfLines={1}>Add Staff</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.shortcutBtn}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyCreateTask" })}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "#F5F3FF" }]}>
-                  <Ionicons name="checkbox-outline" size={18} color="#7C3AED" />
-                </View>
-                <Text style={styles.shortcutText} numberOfLines={1}>New Task</Text>
-              </TouchableOpacity>
+              {canAccessTasks && (
+                <TouchableOpacity
+                  style={styles.shortcutBtn}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyCreateTask" })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.shortcutIconBox, { backgroundColor: "#F5F3FF" }]}>
+                    <Ionicons name="checkbox-outline" size={18} color="#7C3AED" />
+                  </View>
+                  <Text style={styles.shortcutText} numberOfLines={1}>New Task</Text>
+                </TouchableOpacity>
+              )}
+
+              {canAccessAttendance && (
+                <TouchableOpacity
+                  style={styles.shortcutBtn}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyAttendance" })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.shortcutIconBox, { backgroundColor: "#ECFDF5" }]}>
+                    <Ionicons name="calendar-outline" size={18} color="#10B981" />
+                  </View>
+                  <Text style={styles.shortcutText} numberOfLines={1}>Attendance</Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={styles.shortcutBtn}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyAttendance" })}
+                onPress={() => navigation.navigate("DashboardStack", { screen: "CompanyRequests" })}
                 activeOpacity={0.8}
               >
-                <View style={[styles.shortcutIconBox, { backgroundColor: "#ECFDF5" }]}>
-                  <Ionicons name="calendar-outline" size={18} color="#10B981" />
+                <View style={[styles.shortcutIconBox, { backgroundColor: "#EEF2FF" }]}>
+                  <Ionicons name="chatbubbles-outline" size={18} color="#6366F1" />
                 </View>
-                <Text style={styles.shortcutText} numberOfLines={1}>Attendance</Text>
+                <Text style={styles.shortcutText} numberOfLines={1}>Requests</Text>
               </TouchableOpacity>
             </View>
 
@@ -394,52 +413,76 @@ const CompanyDashboard = ({ navigation }) => {
               </TouchableOpacity>
 
               {/* Present Today */}
-              <TouchableOpacity
-                style={styles.metricCard}
-                onPress={() => setAttendanceModal({ visible: true, status: "present" })}
-                activeOpacity={0.85}
-              >
-                <View style={styles.metricTopRow}>
-                  <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
-                    <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+              {canAccessAttendance && (
+                <TouchableOpacity
+                  style={styles.metricCard}
+                  onPress={() => setAttendanceModal({ visible: true, status: "present" })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.metricTopRow}>
+                    <View style={[styles.metricIconBox, { backgroundColor: "#ECFDF5" }]}>
+                      <Ionicons name="checkmark-circle-outline" size={20} color="#10B981" />
+                    </View>
+                    <Text style={[styles.metricValue, { color: "#10B981" }]}>{presentEmp}</Text>
                   </View>
-                  <Text style={[styles.metricValue, { color: "#10B981" }]}>{presentEmp}</Text>
-                </View>
-                <Text style={styles.metricLabel}>Present Today</Text>
-                <Text style={styles.metricSub}>Clocked-in employees</Text>
-              </TouchableOpacity>
+                  <Text style={styles.metricLabel}>Present Today</Text>
+                  <Text style={styles.metricSub}>Clocked-in employees</Text>
+                </TouchableOpacity>
+              )}
 
               {/* On Leave */}
-              <TouchableOpacity
-                style={styles.metricCard}
-                onPress={() => navigation.navigate("DashboardStack", { screen: "LeaveRequests" })}
-                activeOpacity={0.85}
-              >
-                <View style={styles.metricTopRow}>
-                  <View style={[styles.metricIconBox, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="airplane-outline" size={20} color="#2563EB" />
+              {canAccessLeaves && (
+                <TouchableOpacity
+                  style={styles.metricCard}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "LeaveRequests" })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.metricTopRow}>
+                    <View style={[styles.metricIconBox, { backgroundColor: "#EFF6FF" }]}>
+                      <Ionicons name="airplane-outline" size={20} color="#2563EB" />
+                    </View>
+                    <Text style={[styles.metricValue, { color: "#2563EB" }]}>{leaveEmp}</Text>
                   </View>
-                  <Text style={[styles.metricValue, { color: "#2563EB" }]}>{leaveEmp}</Text>
-                </View>
-                <Text style={styles.metricLabel}>On Leave</Text>
-                <Text style={styles.metricSub}>{pendingLeaves} pending approvals</Text>
-              </TouchableOpacity>
+                  <Text style={styles.metricLabel}>On Leave</Text>
+                  <Text style={styles.metricSub}>{pendingLeaves} pending approvals</Text>
+                </TouchableOpacity>
+              )}
 
               {/* Absent Today */}
-              <TouchableOpacity
-                style={styles.metricCard}
-                onPress={() => setAttendanceModal({ visible: true, status: "absent" })}
-                activeOpacity={0.85}
-              >
-                <View style={styles.metricTopRow}>
-                  <View style={[styles.metricIconBox, { backgroundColor: "#FEF2F2" }]}>
-                    <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+              {canAccessAttendance && (
+                <TouchableOpacity
+                  style={styles.metricCard}
+                  onPress={() => setAttendanceModal({ visible: true, status: "absent" })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.metricTopRow}>
+                    <View style={[styles.metricIconBox, { backgroundColor: "#FEF2F2" }]}>
+                      <Ionicons name="close-circle-outline" size={20} color="#EF4444" />
+                    </View>
+                    <Text style={[styles.metricValue, { color: "#EF4444" }]}>{absentEmp}</Text>
                   </View>
-                  <Text style={[styles.metricValue, { color: "#EF4444" }]}>{absentEmp}</Text>
-                </View>
-                <Text style={styles.metricLabel}>Absent Today</Text>
-                <Text style={styles.metricSub}>Unaccounted staff</Text>
-              </TouchableOpacity>
+                  <Text style={styles.metricLabel}>Absent Today</Text>
+                  <Text style={styles.metricSub}>Unaccounted staff</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Projects Tile (if projects accessible) */}
+              {canAccessProjects && (
+                <TouchableOpacity
+                  style={styles.metricCard}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "ProjectList" })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.metricTopRow}>
+                    <View style={[styles.metricIconBox, { backgroundColor: "#E0F2FE" }]}>
+                      <Ionicons name="folder-open-outline" size={20} color="#0284C7" />
+                    </View>
+                    <Text style={[styles.metricValue, { color: "#0284C7" }]}>{totalFilteredProjects}</Text>
+                  </View>
+                  <Text style={styles.metricLabel}>Projects</Text>
+                  <Text style={styles.metricSub}>Active portfolio</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Task Overview Card */}

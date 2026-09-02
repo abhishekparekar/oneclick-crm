@@ -594,6 +594,20 @@ export default function EmployeeDashboard({ navigation }) {
                   <Text style={styles.quickLabel}>Apply Leave</Text>
                 </TouchableOpacity>
               )}
+
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CompanyRequests")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#EEF2FF" }]}>
+                  <Ionicons name="chatbubbles-outline" size={20} color="#6366F1" />
+                </View>
+                <Text style={styles.quickLabel}>Requests</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeDocuments")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#F0FDFA" }]}>
+                  <Ionicons name="document-text-outline" size={20} color="#0D9488" />
+                </View>
+                <Text style={styles.quickLabel}>Docs</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

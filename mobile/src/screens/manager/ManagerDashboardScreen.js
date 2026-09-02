@@ -502,98 +502,130 @@ const ManagerDashboardScreen = ({ navigation }) => {
           </View>
 
           {/* ── 3. WORK & PERFORMANCE METRIC MATRIX (COMPACT 2x3 TILES) ── */}
-          <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
-            <Text style={styles.sectionTitle}>Performance Overview</Text>
-            <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} activeOpacity={0.7}>
-              <Text style={styles.sectionLink}>View All Tasks</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.kpiGrid}>
-            {/* My Tasks */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#10B981" }]}
-              onPress={() => navigation.navigate("ManagerTasks", { filter: "my" })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
-                <Text style={styles.kpiLabel}>My Tasks</Text>
+          {(canAccessTasks || canAccessAttendance || canAccessLeaves || canAccessProjects) && (
+            <>
+              <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
+                <Text style={styles.sectionTitle}>Performance Overview</Text>
+                {canAccessTasks && (
+                  <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} activeOpacity={0.7}>
+                    <Text style={styles.sectionLink}>View All Tasks</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-              <Text style={styles.kpiValue}>{taskSummary.myPendingTasks ?? 0}</Text>
-              <Text style={styles.kpiSub}>Pending Action</Text>
-            </TouchableOpacity>
 
-            {/* Team Tasks */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
-              onPress={() => navigation.navigate("ManagerTasks")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
-                <Text style={styles.kpiLabel}>Team Tasks</Text>
-              </View>
-              <Text style={styles.kpiValue}>{taskSummary.openTeamTasks ?? 0}</Text>
-              <Text style={styles.kpiSub}>Active & Open</Text>
-            </TouchableOpacity>
+              <View style={styles.kpiGrid}>
+                {/* My Tasks */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#10B981" }]}
+                    onPress={() => navigation.navigate("ManagerTasks", { filter: "my" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
+                      <Text style={styles.kpiLabel}>My Tasks</Text>
+                    </View>
+                    <Text style={styles.kpiValue}>{taskSummary.myPendingTasks ?? 0}</Text>
+                    <Text style={styles.kpiSub}>Pending Action</Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* Overdue */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
-              onPress={() => navigation.navigate("ManagerTasks", { status: "overdue" })}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
-                <Text style={styles.kpiLabel}>Overdue</Text>
-              </View>
-              <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{taskSummary.overdueTeamTasks ?? 0}</Text>
-              <Text style={styles.kpiSub}>Urgent Followup</Text>
-            </TouchableOpacity>
+                {/* Team Tasks */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#8B5CF6" }]}
+                    onPress={() => navigation.navigate("ManagerTasks")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
+                      <Text style={styles.kpiLabel}>Team Tasks</Text>
+                    </View>
+                    <Text style={styles.kpiValue}>{taskSummary.openTeamTasks ?? 0}</Text>
+                    <Text style={styles.kpiSub}>Active & Open</Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* Team Present */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#059669" }]}
-              onPress={() => navigation.navigate("ManagerTeamAttendance")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#059669" }]} />
-                <Text style={styles.kpiLabel}>Present Today</Text>
-              </View>
-              <Text style={[styles.kpiValue, { color: "#059669" }]}>{present}</Text>
-              <Text style={styles.kpiSub}>Active at work</Text>
-            </TouchableOpacity>
+                {/* Overdue */}
+                {canAccessTasks && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
+                    onPress={() => navigation.navigate("ManagerTasks", { status: "overdue" })}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
+                      <Text style={styles.kpiLabel}>Overdue</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{taskSummary.overdueTeamTasks ?? 0}</Text>
+                    <Text style={styles.kpiSub}>Urgent Followup</Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* On Leave */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#3B82F6" }]}
-              onPress={() => navigation.navigate("ManagerTeamLeaves")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#3B82F6" }]} />
-                <Text style={styles.kpiLabel}>On Leave</Text>
-              </View>
-              <Text style={[styles.kpiValue, { color: "#2563EB" }]}>{onLeave}</Text>
-              <Text style={styles.kpiSub}>Approved today</Text>
-            </TouchableOpacity>
+                {/* Team Present */}
+                {canAccessAttendance && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#059669" }]}
+                    onPress={() => navigation.navigate("ManagerTeamAttendance")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#059669" }]} />
+                      <Text style={styles.kpiLabel}>Present Today</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{present}</Text>
+                    <Text style={styles.kpiSub}>Active at work</Text>
+                  </TouchableOpacity>
+                )}
 
-            {/* Active Projects */}
-            <TouchableOpacity
-              style={[styles.kpiBox, { borderLeftColor: "#F59E0B" }]}
-              onPress={() => navigation.navigate("ManagerProjects")}
-              activeOpacity={0.8}
-            >
-              <View style={styles.kpiTopRow}>
-                <View style={[styles.kpiDot, { backgroundColor: "#F59E0B" }]} />
-                <Text style={styles.kpiLabel}>Projects</Text>
+                {/* On Leave */}
+                {canAccessLeaves && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#3B82F6" }]}
+                    onPress={() => navigation.navigate("ManagerTeamLeaves")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#3B82F6" }]} />
+                      <Text style={styles.kpiLabel}>On Leave</Text>
+                    </View>
+                    <Text style={[styles.kpiValue, { color: "#2563EB" }]}>{onLeave}</Text>
+                    <Text style={styles.kpiSub}>Approved today</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Active Projects */}
+                {canAccessProjects && (
+                  <TouchableOpacity
+                    style={[styles.kpiBox, { borderLeftColor: "#F59E0B" }]}
+                    onPress={() => navigation.navigate("ManagerProjects")}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.kpiTopRow}>
+                      <View style={[styles.kpiDot, { backgroundColor: "#F59E0B" }]} />
+                      <Text style={styles.kpiLabel}>Projects</Text>
+                    </View>
+                    <Text style={styles.kpiValue}>{projectSummary.activeProjects ?? 0}</Text>
+                    <Text style={styles.kpiSub}>In Execution</Text>
+                  </TouchableOpacity>
+                )}
+
+                {/* Fallback / Always Accessible Team Metric */}
+                <TouchableOpacity
+                  style={[styles.kpiBox, { borderLeftColor: "#6366F1" }]}
+                  onPress={() => navigation.navigate("ManagerTeam")}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.kpiTopRow}>
+                    <View style={[styles.kpiDot, { backgroundColor: "#6366F1" }]} />
+                    <Text style={styles.kpiLabel}>My Team</Text>
+                  </View>
+                  <Text style={[styles.kpiValue, { color: "#4F46E5" }]}>{staffTotal}</Text>
+                  <Text style={styles.kpiSub}>Total Members</Text>
+                </TouchableOpacity>
               </View>
-              <Text style={styles.kpiValue}>{projectSummary.activeProjects ?? 0}</Text>
-              <Text style={styles.kpiSub}>In Execution</Text>
-            </TouchableOpacity>
-          </View>
+            </>
+          )}
 
           {/* ── 4. TEAM ATTENDANCE TODAY PULSE CARD ── */}
           {canAccessAttendance && (
