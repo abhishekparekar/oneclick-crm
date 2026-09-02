@@ -34,6 +34,8 @@ export const updatePlanApi = (id, data) =>
 export const updatePlanStatusApi = (id, status) =>
   api.patch(`/superadmin/plans/${id}/status`, { status });
 
+export const deletePlanApi = (id) => api.delete(`/superadmin/plans/${id}`);
+
 export const getSubscriptionsApi = () => api.get("/superadmin/subscriptions");
 
 export const updateSubscriptionApi = (id, data) =>
