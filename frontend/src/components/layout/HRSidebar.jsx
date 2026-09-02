@@ -85,7 +85,7 @@ const HR_NAV_SECTIONS = [
 
 export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   const { data: profileRes } = useQuery({
     queryKey: ["hrProfile"],
@@ -94,8 +94,6 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
   });
 
   const empProfile = profileRes?.data?.employee || profileRes?.data || {};
-  const subscribedModules = empProfile?.companyId?.subscribedModules || user?.company?.subscribedModules || [];
-  const assignedModules = empProfile?.assignedModules || user?.assignedModules || [];
 
   const companyName =
     empProfile?.companyId?.companyName ||
@@ -133,10 +131,7 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
         {HR_NAV_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
-            if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
-            // Also check employee's own assignedModules
-            if (assignedModules.length > 0 && !assignedModules.includes(item.module)) return false;
-            return true;
+            return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 
           if (visibleItems.length === 0) return null;

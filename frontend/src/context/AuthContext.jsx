@@ -114,23 +114,34 @@ export const AuthProvider = ({ children }) => {
     if (roleLower === "superadmin") return true;
 
     const normMod = normalizeModule(category);
+    if (!normMod) return true;
 
-    // 1. Check Company Active Subscription Plan Modules
-    const subscribedModules = (user.company?.subscribedModules || user.subscribedModules || []).map(normalizeModule);
-    if (subscribedModules.length > 0 && normMod) {
-      if (!subscribedModules.includes(normMod)) {
-        return false; // Not included in company's purchased plan
+    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access)
+    const rawSubscribed = 
+      user.company?.subscribedModules ?? 
+      user.subscribedModules ?? 
+      (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+
+    if (Array.isArray(rawSubscribed)) {
+      const subscribed = rawSubscribed.map(normalizeModule);
+      if (!subscribed.includes(normMod)) {
+        return false; // Company did not purchase this module in their plan!
       }
     }
 
     // CompanyAdmin has full access to all company subscribed modules
     if (roleLower === "companyadmin" || roleLower === "admin") return true;
 
-    // 2. Check Employee/Manager/HR Assigned Modules Quota
-    const assignedModules = (user.assignedModules || user.employee?.assignedModules || []).map(normalizeModule);
-    if (assignedModules.length > 0 && normMod) {
-      if (!assignedModules.includes(normMod)) {
-        return false; // Not assigned to this employee
+    // 2. Check Employee/Manager/HR Assigned Modules Quota (Seat-Level Access)
+    const rawAssigned = 
+      user.assignedModules ?? 
+      user.employee?.assignedModules ?? 
+      (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+
+    if (Array.isArray(rawAssigned)) {
+      const assigned = rawAssigned.map(normalizeModule);
+      if (!assigned.includes(normMod)) {
+        return false; // Not assigned to this specific employee/manager/HR!
       }
     }
 
@@ -145,7 +156,7 @@ export const AuthProvider = ({ children }) => {
       }
     }
     
-    // Fallback defaults by role (if module is allowed)
+    // Fallback defaults by role (if module is allowed by subscription & assignment)
     if (roleLower === "hr") return true;
     if (roleLower === "manager") {
       if (normMod === "tasks" && action === "cancel") return false;

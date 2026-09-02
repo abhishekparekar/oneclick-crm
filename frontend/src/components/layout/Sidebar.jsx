@@ -294,7 +294,7 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 // ─── Company Admin Sidebar ────────────────────────────────────────────────
 const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   const { data: profileData } = useQuery({
     queryKey: ["companyProfile"],
@@ -308,12 +308,6 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
     staleTime: 5 * 60 * 1000,
   });
 
-  const subscription = subData?.subscription;
-  const planModules = (subscription?.planId?.modules && subscription.planId.modules.length > 0)
-    ? subscription.planId.modules
-    : (profileData?.company?.subscribedModules && profileData.company.subscribedModules.length > 0
-        ? profileData.company.subscribedModules
-        : []);
   const companyName = profileData?.company?.companyName || profileData?.company?.name || "One Click Solutions";
   const userName = user?.name || "Company Admin";
 
@@ -342,8 +336,7 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {COMPANY_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
-            if (planModules.length === 0) return true;
-            return planModules.includes(item.module);
+            return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 
           if (visibleItems.length === 0) return null;

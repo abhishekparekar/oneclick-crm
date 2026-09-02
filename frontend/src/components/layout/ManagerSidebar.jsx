@@ -69,16 +69,13 @@ const MANAGER_SECTIONS = [
 
 const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   const { data: profileData } = useQuery({
     queryKey: ["managerProfile"],
     queryFn: () => getManagerProfileApi().then((r) => r.data),
     staleTime: 5 * 60 * 1000,
   });
-
-  const subscribedModules = profileData?.company?.subscribedModules || user?.company?.subscribedModules || [];
-  const assignedModules = profileData?.manager?.assignedModules || user?.assignedModules || [];
 
   const companyName =
     profileData?.company?.companyName ||
@@ -114,10 +111,7 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {MANAGER_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
-            if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
-            // If assignedModules has specific values, verify member has it
-            if (assignedModules.length > 0 && !assignedModules.includes(item.module)) return false;
-            return true;
+            return hasPermission(item.module, "view") || hasPermission(item.module);
           });
 
           if (visibleItems.length === 0) return null;
