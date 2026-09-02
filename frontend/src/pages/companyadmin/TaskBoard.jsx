@@ -364,7 +364,26 @@ export default function TaskBoard() {
       return { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false };
     }
   });
+  const [tempFilters, setTempFilters] = useState(filters);
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
+
+  const handleOpenFilters = () => {
+    setTempFilters({ ...filters });
+    setShowFiltersDropdown(true);
+  };
+
+  const handleApplyFilters = () => {
+    setFilters({ ...tempFilters });
+    setShowFiltersDropdown(false);
+  };
+
+  const handleClearFilters = () => {
+    const empty = { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false };
+    setTempFilters(empty);
+    setFilters(empty);
+    setStatusFilter("");
+    setShowFiltersDropdown(false);
+  };
 
   useEffect(() => { sessionStorage.setItem("tb_activeTab", activeTab); }, [activeTab]);
   useEffect(() => { sessionStorage.setItem("tb_statusFilter", statusFilter); }, [statusFilter]);
@@ -745,7 +764,7 @@ export default function TaskBoard() {
             {/* Advanced Filters Trigger */}
             <div className="relative z-30 shrink-0">
               <button
-                onClick={() => setShowFiltersDropdown(!showFiltersDropdown)}
+                onClick={handleOpenFilters}
                 className={`flex items-center gap-1.5 px-3 h-8 border rounded-xl text-xs font-extrabold shadow-2xs transition-all shrink-0 cursor-pointer ${
                   showFiltersDropdown || activeCustomFiltersCount > 0
                     ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs"
@@ -765,63 +784,66 @@ export default function TaskBoard() {
               {/* Filters Dropdown Card with Click Outside Backdrop */}
               {showFiltersDropdown && (
                 <>
-                  <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowFiltersDropdown(false)} />
-                  <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-50 space-y-4 shadow-2xl rounded-2xl animate-fadeIn">
+                  <div className="fixed inset-0 z-40 cursor-default bg-black/20 backdrop-blur-[1px]" onClick={() => setShowFiltersDropdown(false)} />
+                  <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-84 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-50 space-y-4 shadow-2xl rounded-2xl animate-fadeIn">
                     <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                      <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
-                      <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={14}/></button>
+                      <div className="flex items-center gap-2">
+                        <SlidersHorizontal size={14} className="text-amber-500" />
+                        <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
+                      </div>
+                      <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"><X size={14}/></button>
                     </div>
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Department</label>
-                    <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl" value={filters.departmentId} onChange={e => setFilters({ ...filters, departmentId: e.target.value })}>
-                      <option value="">All Departments</option>
-                      {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Assigned To</label>
-                    <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl" value={filters.assignedTo} onChange={e => setFilters({ ...filters, assignedTo: e.target.value })}>
-                      <option value="">All Members</option>
-                      {employees.map(e => <option key={e._id} value={e._id}>{e.firstName} {e.lastName}</option>)}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
-                      <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-2.5 outline-none rounded-xl" value={filters.priority} onChange={e => setFilters({ ...filters, priority: e.target.value })}>
-                        <option value="">All Priorities</option>
-                        <option value="high">High Priority</option>
-                        <option value="medium">Medium Priority</option>
-                        <option value="low">Low Priority</option>
+                      <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
+                      <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.departmentId} onChange={e => setTempFilters(prev => ({ ...prev, departmentId: e.target.value }))}>
+                        <option value="">All Departments</option>
+                        {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Deadline</label>
-                      <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-2.5 outline-none rounded-xl" value={filters.deadlineFilter} onChange={e => setFilters({ ...filters, deadlineFilter: e.target.value })}>
-                        <option value="">All Deadlines</option>
-                        <option value="today">Due Today</option>
-                        <option value="tomorrow">Due Tomorrow</option>
-                        <option value="overdue">Overdue</option>
+                      <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Assigned To</label>
+                      <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.assignedTo} onChange={e => setTempFilters(prev => ({ ...prev, assignedTo: e.target.value }))}>
+                        <option value="">All Members</option>
+                        {employees.map(e => <option key={e._id} value={e._id}>{e.firstName} {e.lastName}</option>)}
                       </select>
                     </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Start Date</label>
-                      <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs py-2 px-2 outline-none rounded-xl" value={filters.startDate} onChange={e => setFilters({ ...filters, startDate: e.target.value })} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Priority</label>
+                        <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.priority} onChange={e => setTempFilters(prev => ({ ...prev, priority: e.target.value }))}>
+                          <option value="">All Priorities</option>
+                          <option value="high">High Priority</option>
+                          <option value="medium">Medium Priority</option>
+                          <option value="low">Low Priority</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Deadline</label>
+                        <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.deadlineFilter} onChange={e => setTempFilters(prev => ({ ...prev, deadlineFilter: e.target.value }))}>
+                          <option value="">All Deadlines</option>
+                          <option value="today">Due Today</option>
+                          <option value="tomorrow">Due Tomorrow</option>
+                          <option value="overdue">Overdue</option>
+                        </select>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">End Date</label>
-                      <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs py-2 px-2 outline-none rounded-xl" value={filters.endDate} onChange={e => setFilters({ ...filters, endDate: e.target.value })} />
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Start Date</label>
+                        <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.startDate} onChange={e => setTempFilters(prev => ({ ...prev, startDate: e.target.value }))} />
+                      </div>
+                      <div>
+                        <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">End Date</label>
+                        <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.endDate} onChange={e => setTempFilters(prev => ({ ...prev, endDate: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
+                      <button onClick={handleClearFilters} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl transition-colors cursor-pointer">Reset</button>
+                      <button onClick={handleApplyFilters} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-xs px-3 py-2 rounded-xl transition-colors cursor-pointer">Apply Filters</button>
                     </div>
                   </div>
-                  <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2">
-                    <button onClick={() => { setFilters({ departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setStatusFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-xl transition-colors">Clear</button>
-                    <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-xs px-3 py-2 rounded-xl transition-colors">Apply</button>
-                  </div>
-                </div>
-              </>
-            )}
+                </>
+              )}
             </div>
 
             {/* Refresh Data */}
