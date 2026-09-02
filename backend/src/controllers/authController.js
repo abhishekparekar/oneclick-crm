@@ -1,6 +1,7 @@
 const { validationResult } = require("express-validator");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
+const Company = require("../models/Company");
 const generateToken = require("../utils/generateToken");
 const formatUser = require("../utils/formatUser");
 const { getUserPermissions } = require("../utils/permissionCheck");
@@ -152,6 +153,48 @@ const login = async (req, res, next) => {
     const userObj = formatUser(user);
     userObj.permissions = await getUserPermissions(user._id, user.companyId, user.role);
 
+    // Attach Company subscription modules & details
+    if (user.companyId) {
+      const company = await Company.findById(user.companyId).lean();
+      if (company) {
+        userObj.company = {
+          _id: company._id,
+          companyName: company.companyName || company.name,
+          name: company.name || company.companyName,
+          subscribedModules: company.subscribedModules || [],
+          moduleLimits: company.moduleLimits || {},
+          planName: company.planName,
+          status: company.status,
+        };
+        userObj.subscribedModules = company.subscribedModules || [];
+      }
+    }
+
+    // Attach Employee assigned modules & department
+    const employee = await Employee.findOne({
+      $or: [
+        { userId: user._id },
+        { email: user.email?.toLowerCase() }
+      ],
+      companyId: user.companyId
+    }).lean();
+
+    if (employee) {
+      userObj.assignedModules = Array.isArray(employee.assignedModules) ? employee.assignedModules : [];
+      userObj.departmentId = employee.departmentId;
+      userObj.accessibleDepartments = employee.accessibleDepartments || [];
+      userObj.profileImage = employee.photo || userObj.profileImage;
+      userObj.employee = {
+        _id: employee._id,
+        assignedModules: userObj.assignedModules,
+        photo: employee.photo,
+        designation: employee.designationName || employee.designation,
+        employeeCode: employee.employeeCode,
+      };
+    } else if (user.role === "CompanyAdmin" && userObj.company) {
+      userObj.assignedModules = userObj.subscribedModules || [];
+    }
+
     res.json({
       success: true,
       message: "Login successful",
@@ -167,10 +210,47 @@ const login = async (req, res, next) => {
 const getMe = async (req, res) => {
   const userObj = formatUser(req.user);
   userObj.permissions = await getUserPermissions(req.user._id, req.user.companyId, req.user.role);
-  const employeeObj = await Employee.findOne({ userId: req.user._id, companyId: req.user.companyId }).lean();
+
+  // Attach Company subscription details
+  if (req.user.companyId) {
+    const company = await Company.findById(req.user.companyId).lean();
+    if (company) {
+      userObj.company = {
+        _id: company._id,
+        companyName: company.companyName || company.name,
+        name: company.name || company.companyName,
+        subscribedModules: company.subscribedModules || [],
+        moduleLimits: company.moduleLimits || {},
+        planName: company.planName,
+        status: company.status,
+      };
+      userObj.subscribedModules = company.subscribedModules || [];
+    }
+  }
+
+  // Attach Employee assigned modules & department
+  const employeeObj = await Employee.findOne({
+    $or: [
+      { userId: req.user._id },
+      { email: req.user.email?.toLowerCase() }
+    ],
+    companyId: req.user.companyId
+  }).lean();
+
   if (employeeObj) {
+    userObj.assignedModules = Array.isArray(employeeObj.assignedModules) ? employeeObj.assignedModules : [];
     userObj.departmentId = employeeObj.departmentId;
     userObj.accessibleDepartments = employeeObj.accessibleDepartments || [];
+    userObj.profileImage = employeeObj.photo || userObj.profileImage;
+    userObj.employee = {
+      _id: employeeObj._id,
+      assignedModules: userObj.assignedModules,
+      photo: employeeObj.photo,
+      designation: employeeObj.designationName || employeeObj.designation,
+      employeeCode: employeeObj.employeeCode,
+    };
+  } else if (req.user.role === "CompanyAdmin" && userObj.company) {
+    userObj.assignedModules = userObj.subscribedModules || [];
   }
 
   res.json({

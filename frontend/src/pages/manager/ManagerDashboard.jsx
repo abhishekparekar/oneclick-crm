@@ -15,7 +15,14 @@ import {
 } from "lucide-react";
 
 export default function ManagerDashboard() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("this_month");
   const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
@@ -154,135 +161,137 @@ export default function ManagerDashboard() {
       </div>
 
       {/* ── 2. TASKS TRACKER SECTION ──────────────────────────────────────── */}
-      <div className="space-y-1.5">
-        <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
-          Tasks Tracker
-        </h2>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
-          {/* 1. ALL TASKS */}
-          <Link
-            to="/manager/team-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200/40">
-                <CheckSquare size={13} strokeWidth={2.5} />
+      {canAccessTasks && (
+        <div className="space-y-1.5">
+          <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+            Tasks Tracker
+          </h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2.5">
+            {/* 1. ALL TASKS */}
+            <Link
+              to="/manager/team-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-teal-50 dark:bg-teal-950/40 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200/40">
+                  <CheckSquare size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ALL TASKS</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ALL TASKS</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{totalTasks}</p>
-            <p className="text-[10px] font-medium text-slate-400 truncate mb-2">Total Tasks</p>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-teal-500 rounded-full w-2/5" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{totalTasks}</p>
+              <p className="text-[10px] font-medium text-slate-400 truncate mb-2">Total Tasks</p>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-teal-500 rounded-full w-2/5" />
+              </div>
+            </Link>
 
-          {/* 2. PENDING */}
-          <Link
-            to="/manager/my-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/40">
-                <Clock size={13} strokeWidth={2.5} />
+            {/* 2. PENDING */}
+            <Link
+              to="/manager/my-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-200/40">
+                  <Clock size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">PENDING</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">PENDING</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{pendingTasks}</p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
-              <span className="truncate">75% of total</span>
-              <span className="font-mono text-blue-600 font-bold">30%</span>
-            </div>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full w-3/4" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{pendingTasks}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
+                <span className="truncate">75% of total</span>
+                <span className="font-mono text-blue-600 font-bold">30%</span>
+              </div>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 rounded-full w-3/4" />
+              </div>
+            </Link>
 
-          {/* 3. IN PROCESS */}
-          <Link
-            to="/manager/team-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-200/40">
-                <RefreshCw size={13} strokeWidth={2.5} />
+            {/* 3. IN PROCESS */}
+            <Link
+              to="/manager/team-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 flex items-center justify-center border border-orange-200/40">
+                  <RefreshCw size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">IN PROCESS</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">IN PROCESS</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{inProcessTasks}</p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
-              <span className="truncate">0% of total</span>
-              <span className="font-mono text-orange-600 font-bold">15%</span>
-            </div>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-orange-500 rounded-full w-1/6" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{inProcessTasks}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
+                <span className="truncate">0% of total</span>
+                <span className="font-mono text-orange-600 font-bold">15%</span>
+              </div>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-orange-500 rounded-full w-1/6" />
+              </div>
+            </Link>
 
-          {/* 4. OVERDUE */}
-          <Link
-            to="/manager/team-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200/40">
-                <AlertCircle size={13} strokeWidth={2.5} />
+            {/* 4. OVERDUE */}
+            <Link
+              to="/manager/team-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 flex items-center justify-center border border-rose-200/40">
+                  <AlertCircle size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">OVERDUE</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">OVERDUE</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{overdueTasks}</p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
-              <span className="truncate">25% of total</span>
-              <span className="font-mono text-rose-600 font-bold">25%</span>
-            </div>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-rose-500 rounded-full w-1/4" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{overdueTasks}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
+                <span className="truncate">25% of total</span>
+                <span className="font-mono text-rose-600 font-bold">25%</span>
+              </div>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-rose-500 rounded-full w-1/4" />
+              </div>
+            </Link>
 
-          {/* 5. COMPLETED */}
-          <Link
-            to="/manager/team-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/40">
-                <CheckCircle2 size={13} strokeWidth={2.5} />
+            {/* 5. COMPLETED */}
+            <Link
+              to="/manager/team-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center border border-emerald-200/40">
+                  <CheckCircle2 size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">COMPLETED</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">COMPLETED</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{completedTasks}</p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
-              <span className="truncate">25% of total</span>
-              <span className="font-mono text-emerald-600 font-bold">15%</span>
-            </div>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-emerald-500 rounded-full w-1/4" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{completedTasks}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
+                <span className="truncate">25% of total</span>
+                <span className="font-mono text-emerald-600 font-bold">15%</span>
+              </div>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-emerald-500 rounded-full w-1/4" />
+              </div>
+            </Link>
 
-          {/* 6. TEAM TASKS */}
-          <Link
-            to="/manager/team-tasks"
-            className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-200/40">
-                <Users size={13} strokeWidth={2.5} />
+            {/* 6. TEAM TASKS */}
+            <Link
+              to="/manager/team-tasks"
+              className="group bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between"
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 dark:text-cyan-400 flex items-center justify-center border border-cyan-200/40">
+                  <Users size={13} strokeWidth={2.5} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">TEAM TASKS</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">TEAM TASKS</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{openTeamTasks}</p>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
-              <span className="truncate">75% of total</span>
-              <span className="font-mono text-cyan-600 font-bold">15%</span>
-            </div>
-            <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-              <div className="h-full bg-cyan-500 rounded-full w-3/4" />
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-tight my-0.5">{openTeamTasks}</p>
+              <div className="flex items-center justify-between text-[10px] text-slate-400 font-medium mb-2">
+                <span className="truncate">75% of total</span>
+                <span className="font-mono text-cyan-600 font-bold">15%</span>
+              </div>
+              <div className="h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="h-full bg-cyan-500 rounded-full w-3/4" />
+              </div>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── 3. TEAM METRICS SECTION ───────────────────────────────────────── */}
       <div className="space-y-1.5">
@@ -307,84 +316,94 @@ export default function ManagerDashboard() {
           </Link>
 
           {/* 2. PRESENT TODAY */}
-          <Link to="/manager/team-attendance" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
-                <UserCheck size={13} />
+          {canAccessAttendance && (
+            <Link to="/manager/team-attendance" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 flex items-center justify-center">
+                  <UserCheck size={13} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">PRESENT TODAY</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">PRESENT TODAY</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{presentCount}</p>
-            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
-              <TrendingUp size={11} strokeWidth={2.5} />
-              <span>8.1%</span>
-              <span className="text-slate-400 font-medium">vs average</span>
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{presentCount}</p>
+              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
+                <TrendingUp size={11} strokeWidth={2.5} />
+                <span>8.1%</span>
+                <span className="text-slate-400 font-medium">vs average</span>
+              </div>
+            </Link>
+          )}
 
           {/* 3. ABSENT TODAY */}
-          <Link to="/manager/team-attendance" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
-                <UserX size={13} />
+          {canAccessAttendance && (
+            <Link to="/manager/team-attendance" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
+                  <UserX size={13} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ABSENT TODAY</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ABSENT TODAY</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{absentCount}</p>
-            <div className="flex items-center gap-1 text-[10px] text-rose-600 font-extrabold mt-1">
-              <TrendingDown size={11} strokeWidth={2.5} />
-              <span>-3.2%</span>
-              <span className="text-slate-400 font-medium">vs average</span>
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{absentCount}</p>
+              <div className="flex items-center gap-1 text-[10px] text-rose-600 font-extrabold mt-1">
+                <TrendingDown size={11} strokeWidth={2.5} />
+                <span>-3.2%</span>
+                <span className="text-slate-400 font-medium">vs average</span>
+              </div>
+            </Link>
+          )}
 
           {/* 4. ON LEAVE */}
-          <Link to="/manager/team-leaves" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
-                <CalendarOff size={13} />
+          {canAccessLeaves && (
+            <Link to="/manager/team-leaves" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                  <CalendarOff size={13} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ON LEAVE</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ON LEAVE</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{onLeaveToday}</p>
-            <div className="flex items-center gap-1 text-[10px] text-rose-600 font-extrabold mt-1">
-              <TrendingDown size={11} strokeWidth={2.5} />
-              <span>-5%</span>
-              <span className="text-slate-400 font-medium">vs average</span>
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{onLeaveToday}</p>
+              <div className="flex items-center gap-1 text-[10px] text-rose-600 font-extrabold mt-1">
+                <TrendingDown size={11} strokeWidth={2.5} />
+                <span>-5%</span>
+                <span className="text-slate-400 font-medium">vs average</span>
+              </div>
+            </Link>
+          )}
 
           {/* 5. OPEN TASKS */}
-          <Link to="/manager/team-tasks" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center">
-                <CheckSquare size={13} />
+          {canAccessTasks && (
+            <Link to="/manager/team-tasks" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-600 flex items-center justify-center">
+                  <CheckSquare size={13} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">OPEN TASKS</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">OPEN TASKS</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{openTeamTasks}</p>
-            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
-              <TrendingUp size={11} strokeWidth={2.5} />
-              <span>15.3%</span>
-              <span className="text-slate-400 font-medium">vs last week</span>
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{openTeamTasks}</p>
+              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
+                <TrendingUp size={11} strokeWidth={2.5} />
+                <span>15.3%</span>
+                <span className="text-slate-400 font-medium">vs last week</span>
+              </div>
+            </Link>
+          )}
 
           {/* 6. ACTIVE PROJECTS */}
-          <Link to="/manager/projects" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-7 h-7 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 flex items-center justify-center">
-                <Folder size={13} />
+          {canAccessProjects && (
+            <Link to="/manager/projects" className="bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-7 h-7 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-600 flex items-center justify-center">
+                  <Folder size={13} />
+                </div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ACTIVE PROJECTS</span>
               </div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 truncate">ACTIVE PROJECTS</span>
-            </div>
-            <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{projects.activeProjects ?? 1}</p>
-            <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
-              <TrendingUp size={11} strokeWidth={2.5} />
-              <span>1%</span>
-              <span className="text-slate-400 font-medium">new this month</span>
-            </div>
-          </Link>
+              <p className="text-xl font-black text-slate-900 dark:text-white font-mono my-0.5">{projects.activeProjects ?? 1}</p>
+              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-extrabold mt-1">
+                <TrendingUp size={11} strokeWidth={2.5} />
+                <span>1%</span>
+                <span className="text-slate-400 font-medium">new this month</span>
+              </div>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -392,148 +411,154 @@ export default function ManagerDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 items-stretch">
 
         {/* 1. ATTENDANCE STATUS (4 cols) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-black text-slate-900 dark:text-white">Attendance Status</h3>
-            <Link
-              to="/manager/team-attendance"
-              className="text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              View Details
-            </Link>
-          </div>
+        {canAccessAttendance && (
+          <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white">Attendance Status</h3>
+              <Link
+                to="/manager/team-attendance"
+                className="text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                View Details
+              </Link>
+            </div>
 
-          <div className="flex items-center justify-between my-3">
-            {/* Donut Chart */}
-            <div className="w-24 h-24 relative flex-shrink-0">
-              <ResponsiveContainer width={96} height={96}>
-                <PieChart>
-                  <Pie
-                    data={attendancePie}
-                    cx="50%" cy="50%"
-                    innerRadius={30} outerRadius={44}
-                    paddingAngle={2} dataKey="value"
-                    startAngle={90} endAngle={-270}
-                  >
-                    {attendancePie.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-sm font-black text-slate-900 dark:text-white font-mono leading-none">
-                  {presentPct}%
-                </span>
-                <span className="text-[7.5px] font-black text-slate-400 mt-0.5 uppercase tracking-wider">PRESENT</span>
+            <div className="flex items-center justify-between my-3">
+              {/* Donut Chart */}
+              <div className="w-24 h-24 relative flex-shrink-0">
+                <ResponsiveContainer width={96} height={96}>
+                  <PieChart>
+                    <Pie
+                      data={attendancePie}
+                      cx="50%" cy="50%"
+                      innerRadius={30} outerRadius={44}
+                      paddingAngle={2} dataKey="value"
+                      startAngle={90} endAngle={-270}
+                    >
+                      {attendancePie.map((entry, i) => (
+                        <Cell key={i} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-sm font-black text-slate-900 dark:text-white font-mono leading-none">
+                    {presentPct}%
+                  </span>
+                  <span className="text-[7.5px] font-black text-slate-400 mt-0.5 uppercase tracking-wider">PRESENT</span>
+                </div>
+              </div>
+
+              {/* Legend Stats */}
+              <div className="flex-1 pl-4 space-y-1.5 text-xs">
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span>Present</span>
+                  </span>
+                  <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
+                    {presentCount} <span className="text-slate-400 font-normal">({presentPct}%)</span>
+                  </span>
+                </div>
+
+                <div className="flex items-center justify-between font-semibold">
+                  <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                    <span className="w-2 h-2 rounded-full bg-rose-500" />
+                    <span>Absent</span>
+                  </span>
+                  <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
+                    {absentCount} <span className="text-slate-400 font-normal">({absentPct}%)</span>
+                  </span>
+                </div>
+
+                {canAccessLeaves && (
+                  <div className="flex items-center justify-between font-semibold">
+                    <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-amber-500" />
+                      <span>On Leave</span>
+                    </span>
+                    <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
+                      {onLeaveToday} <span className="text-slate-400 font-normal">({onLeavePct}%)</span>
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Legend Stats */}
-            <div className="flex-1 pl-4 space-y-1.5 text-xs">
-              <div className="flex items-center justify-between font-semibold">
-                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                  <span>Present</span>
-                </span>
-                <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
-                  {presentCount} <span className="text-slate-400 font-normal">({presentPct}%)</span>
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between font-semibold">
-                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-rose-500" />
-                  <span>Absent</span>
-                </span>
-                <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
-                  {absentCount} <span className="text-slate-400 font-normal">({absentPct}%)</span>
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between font-semibold">
-                <span className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>On Leave</span>
-                </span>
-                <span className="font-mono text-slate-900 dark:text-white font-bold text-[11px]">
-                  {onLeaveToday} <span className="text-slate-400 font-normal">({onLeavePct}%)</span>
-                </span>
-              </div>
+            <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
+              <span className="font-bold">Total Employees</span>
+              <span className="font-mono font-black text-slate-900 dark:text-white">{teamCount}</span>
             </div>
           </div>
-
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px] text-slate-500">
-            <span className="font-bold">Total Employees</span>
-            <span className="font-mono font-black text-slate-900 dark:text-white">{teamCount}</span>
-          </div>
-        </div>
+        )}
 
         {/* 2. TASK PERFORMANCE (4 cols) */}
-        <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs flex flex-col justify-between">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="text-xs font-black text-slate-900 dark:text-white">Task Performance</h3>
-            <Link
-              to="/manager/team-tasks"
-              className="text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-            >
-              View Report
-            </Link>
+        {canAccessTasks && (
+          <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="text-xs font-black text-slate-900 dark:text-white">Task Performance</h3>
+              <Link
+                to="/manager/team-tasks"
+                className="text-[10px] font-bold text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-md hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+              >
+                View Report
+              </Link>
+            </div>
+
+            {/* 4 Micro Stat Badges */}
+            <div className="grid grid-cols-4 gap-1.5 my-2">
+              <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
+                <p className="text-[9px] font-bold text-slate-400 uppercase">On Time</p>
+                <div className="flex items-baseline justify-between mt-0.5">
+                  <span className="text-xs font-black font-mono">1</span>
+                  <span className="text-[8.5px] font-bold text-emerald-600">25%</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
+                <p className="text-[9px] font-bold text-slate-400 uppercase">Late</p>
+                <div className="flex items-baseline justify-between mt-0.5">
+                  <span className="text-xs font-black font-mono">0</span>
+                  <span className="text-[8.5px] font-bold text-amber-600">0%</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
+                <p className="text-[9px] font-bold text-slate-400 uppercase">Overdue</p>
+                <div className="flex items-baseline justify-between mt-0.5">
+                  <span className="text-xs font-black font-mono">1</span>
+                  <span className="text-[8.5px] font-bold text-rose-600">25%</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
+                <p className="text-[9px] font-bold text-slate-400 uppercase truncate">Total Completed</p>
+                <div className="flex items-baseline justify-between mt-0.5">
+                  <span className="text-xs font-black font-mono">{completedTasks}</span>
+                  <span className="text-[8.5px] font-bold text-teal-600">25%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Area Chart with Teal Gradient */}
+            <div className="h-24 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={taskChartData} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
+                  <defs>
+                    <linearGradient id="tealWaveGlow" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#0d9488" stopOpacity={0.4} />
+                      <stop offset="100%" stopColor="#0d9488" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#88888815" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 8.5, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 8.5, fill: "#94a3b8" }} axisLine={false} tickLine={false} domain={[0, 1.5]} ticks={[0, 0.5, 1, 1.5]} />
+                  <Area type="monotone" dataKey="count" stroke="#0d9488" strokeWidth={2} fillOpacity={1} fill="url(#tealWaveGlow)" dot={{ r: 2.5, fill: "#0d9488" }} />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-
-          {/* 4 Micro Stat Badges */}
-          <div className="grid grid-cols-4 gap-1.5 my-2">
-            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
-              <p className="text-[9px] font-bold text-slate-400 uppercase">On Time</p>
-              <div className="flex items-baseline justify-between mt-0.5">
-                <span className="text-xs font-black font-mono">1</span>
-                <span className="text-[8.5px] font-bold text-emerald-600">25%</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
-              <p className="text-[9px] font-bold text-slate-400 uppercase">Late</p>
-              <div className="flex items-baseline justify-between mt-0.5">
-                <span className="text-xs font-black font-mono">0</span>
-                <span className="text-[8.5px] font-bold text-amber-600">0%</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
-              <p className="text-[9px] font-bold text-slate-400 uppercase">Overdue</p>
-              <div className="flex items-baseline justify-between mt-0.5">
-                <span className="text-xs font-black font-mono">1</span>
-                <span className="text-[8.5px] font-bold text-rose-600">25%</span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 dark:bg-[#0B101B] border border-slate-100 dark:border-slate-800 p-1.5 rounded-lg">
-              <p className="text-[9px] font-bold text-slate-400 uppercase truncate">Total Completed</p>
-              <div className="flex items-baseline justify-between mt-0.5">
-                <span className="text-xs font-black font-mono">{completedTasks}</span>
-                <span className="text-[8.5px] font-bold text-teal-600">25%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Area Chart with Teal Gradient */}
-          <div className="h-24 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={taskChartData} margin={{ top: 5, right: 5, bottom: 0, left: -25 }}>
-                <defs>
-                  <linearGradient id="tealWaveGlow" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0d9488" stopOpacity={0.4} />
-                    <stop offset="100%" stopColor="#0d9488" stopOpacity={0.0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#88888815" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 8.5, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 8.5, fill: "#94a3b8" }} axisLine={false} tickLine={false} domain={[0, 1.5]} ticks={[0, 0.5, 1, 1.5]} />
-                <Area type="monotone" dataKey="count" stroke="#0d9488" strokeWidth={2} fillOpacity={1} fill="url(#tealWaveGlow)" dot={{ r: 2.5, fill: "#0d9488" }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
+        )}
 
         {/* 3. QUICK OPERATIONS (4 cols) */}
         <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3.5 shadow-2xs flex flex-col justify-between">
@@ -543,31 +568,33 @@ export default function ManagerDashboard() {
 
           <div className="grid grid-cols-3 gap-2 my-auto pt-1">
             {[
-              { label: "Lead CRM", icon: LinkIcon, path: "/manager/leads", color: "#06b6d4", bg: "bg-cyan-500/10" },
-              { label: "My Tasks", icon: CheckSquare, path: "/manager/my-tasks", color: "#3b82f6", bg: "bg-blue-500/10" },
-              { label: "Team Leaves", icon: CalendarOff, path: "/manager/team-leaves", color: "#8b5cf6", bg: "bg-purple-500/10" },
-              { label: "Attendance", icon: UserCheck, path: "/manager/team-attendance", color: "#10b981", bg: "bg-emerald-500/10" },
+              { label: "Lead CRM", icon: LinkIcon, path: "/manager/leads", color: "#06b6d4", bg: "bg-cyan-500/10", module: "leads" },
+              { label: "My Tasks", icon: CheckSquare, path: "/manager/my-tasks", color: "#3b82f6", bg: "bg-blue-500/10", module: "tasks" },
+              { label: "Team Leaves", icon: CalendarOff, path: "/manager/team-leaves", color: "#8b5cf6", bg: "bg-purple-500/10", module: "leaves" },
+              { label: "Attendance", icon: UserCheck, path: "/manager/team-attendance", color: "#10b981", bg: "bg-emerald-500/10", module: "attendance" },
               { label: "Announcements", icon: Megaphone, path: "/manager/announcements", color: "#f97316", bg: "bg-orange-500/10" },
-              { label: "Reports Hub", icon: BarChart2, path: "/manager/reports", color: "#0284c7", bg: "bg-sky-500/10" },
-            ].map((action) => {
-              const Icon = action.icon;
-              return (
-                <Link
-                  key={action.path}
-                  to={action.path}
-                  className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-2xs transition-all group"
-                >
-                  <div
-                    className={`w-8 h-8 rounded-full ${action.bg} flex items-center justify-center mb-1 group-hover:scale-105 transition-transform`}
+              { label: "Reports Hub", icon: BarChart2, path: "/manager/reports", color: "#0284c7", bg: "bg-sky-500/10", module: "reports" },
+            ]
+              .filter((action) => !action.module || hasPermission(action.module))
+              .map((action) => {
+                const Icon = action.icon;
+                return (
+                  <Link
+                    key={action.path}
+                    to={action.path}
+                    className="flex flex-col items-center justify-center p-2 rounded-xl border border-slate-100 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 hover:shadow-2xs transition-all group"
                   >
-                    <Icon size={14} style={{ color: action.color }} strokeWidth={2.5} />
-                  </div>
-                  <span className="text-[9.5px] font-bold text-slate-700 dark:text-slate-300 text-center leading-tight tracking-tight">
-                    {action.label}
-                  </span>
-                </Link>
-              );
-            })}
+                    <div
+                      className={`w-8 h-8 rounded-full ${action.bg} flex items-center justify-center mb-1 group-hover:scale-105 transition-transform`}
+                    >
+                      <Icon size={14} style={{ color: action.color }} strokeWidth={2.5} />
+                    </div>
+                    <span className="text-[9.5px] font-bold text-slate-700 dark:text-slate-300 text-center leading-tight tracking-tight">
+                      {action.label}
+                    </span>
+                  </Link>
+                );
+              })}
           </div>
         </div>
       </div>

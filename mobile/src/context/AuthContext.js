@@ -156,37 +156,47 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
+  const normalizeModule = (category) => {
+    if (!category) return "";
+    const cat = String(category).toLowerCase().trim();
+    if (cat === "leave" || cat === "leaves") return "leave";
+    if (cat === "lead" || cat === "leads") return "leads";
+    if (cat === "task" || cat === "tasks") return "tasks";
+    if (cat === "project" || cat === "projects") return "projects";
+    if (cat === "report" || cat === "reports") return "reports";
+    if (cat === "attendance") return "attendance";
+    if (cat === "payroll" || cat === "payslips") return "payroll";
+    return cat;
+  };
+
   const hasPermission = (category, action) => {
     if (!user) return false;
     const roleLower = (user.role || "").toLowerCase();
-    if (roleLower === "companyadmin" || roleLower === "superadmin" || roleLower === "admin") return true;
+    if (roleLower === "superadmin") return true;
 
-    // Check company subscribed modules (if defined)
-    const subscribedModules = user.company?.subscribedModules || user.subscribedModules || [];
-    if (subscribedModules.length > 0 && category) {
-      const catLower = category.toLowerCase();
-      const normCat = catLower === "leave" ? "leaves" : catLower === "lead" ? "leads" : catLower === "task" ? "tasks" : catLower;
-      const isSubscribed = subscribedModules.some(m => {
-        const mLower = String(m).toLowerCase();
-        return mLower === normCat || mLower === catLower;
-      });
-      if (!isSubscribed) return false;
+    const normCat = normalizeModule(category);
+
+    // 1. Check Company Active Subscription Plan Modules
+    const subscribedModules = (user.company?.subscribedModules || user.subscribedModules || []).map(normalizeModule);
+    if (subscribedModules.length > 0 && normCat) {
+      if (!subscribedModules.includes(normCat)) {
+        return false; // Not in company's purchased plan
+      }
     }
 
-    // Check employee assigned modules (if defined)
-    const assignedModules = user.assignedModules || user.employee?.assignedModules || [];
-    if (assignedModules.length > 0 && category) {
-      const catLower = category.toLowerCase();
-      const normCat = catLower === "leave" ? "leaves" : catLower === "lead" ? "leads" : catLower === "task" ? "tasks" : catLower;
-      const isAssigned = assignedModules.some(m => {
-        const mLower = String(m).toLowerCase();
-        return mLower === normCat || mLower === catLower;
-      });
-      if (!isAssigned) return false;
+    // CompanyAdmin gets full access to all subscribed modules in plan
+    if (roleLower === "companyadmin" || roleLower === "admin") return true;
+
+    // 2. Check Employee Assigned Modules (for Employee, Manager, HR)
+    const assignedModules = (user.assignedModules || user.employee?.assignedModules || []).map(normalizeModule);
+    if (assignedModules.length > 0 && normCat) {
+      if (!assignedModules.includes(normCat)) {
+        return false; // Not allocated to this employee
+      }
     }
 
     const perm = user.permissions || {};
-    const catPerm = perm[category] || perm[category?.toLowerCase()] || (category === "leave" ? perm.leaves : category === "leaves" ? perm.leave : undefined);
+    const catPerm = perm[category] || perm[category?.toLowerCase()] || (normCat ? perm[normCat] : undefined);
 
     if (catPerm !== undefined) {
       if (action) {
@@ -199,27 +209,12 @@ export const AuthProvider = ({ children }) => {
     // Fallback defaults by role
     if (roleLower === "hr") return true;
     if (roleLower === "manager") {
-      if (category === "tasks" || category === "task") {
-        if (action === "cancel") return false;
-        return true;
-      }
-      if (category === "leaves" || category === "leave") return true;
-      if (category === "leads" || category === "lead") {
-        if (action === "delete") return false;
-        return true;
-      }
-      if (category === "attendance") return true;
-      if (category === "projects" || category === "project") return true;
-      return false;
+      if (normCat === "tasks" && action === "cancel") return false;
+      if (normCat === "leads" && action === "delete") return false;
+      return true;
     }
     if (roleLower === "employee" || roleLower === "team member") {
-      if (category === "attendance" || category === "leaves" || category === "leave" || category === "payroll" || category === "projects") return true;
-      if (category === "tasks" || category === "task") {
-        return true;
-      }
-      if (category === "leads" || category === "lead") {
-        return false;
-      }
+      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normCat)) return true;
     }
     return false;
   };

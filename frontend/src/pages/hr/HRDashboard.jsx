@@ -17,6 +17,13 @@ import {
 
 export default function HRDashboard() {
   const { user, hasPermission } = useAuth();
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessEmployees = hasPermission("employees", "view") || hasPermission("employees");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
@@ -201,12 +208,16 @@ export default function HRDashboard() {
             <Link to="/hr/employees/add" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-teal-300 flex items-center justify-center text-slate-600 hover:text-[#00D4C8] shadow-2xs transition-all" title="Add Employee">
               <UserPlus size={14} />
             </Link>
-            <Link to="/hr/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-purple-300 flex items-center justify-center text-slate-600 hover:text-purple-600 shadow-2xs transition-all" title="Attendance">
-              <CalendarCheck size={14} />
-            </Link>
-            <Link to="/hr/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-pink-300 flex items-center justify-center text-slate-600 hover:text-pink-600 shadow-2xs transition-all" title="Leaves">
-              <FileText size={14} />
-            </Link>
+            {canAccessAttendance && (
+              <Link to="/hr/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-purple-300 flex items-center justify-center text-slate-600 hover:text-purple-600 shadow-2xs transition-all" title="Attendance">
+                <CalendarCheck size={14} />
+              </Link>
+            )}
+            {canAccessLeaves && (
+              <Link to="/hr/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-pink-300 flex items-center justify-center text-slate-600 hover:text-pink-600 shadow-2xs transition-all" title="Leaves">
+                <FileText size={14} />
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -239,31 +250,35 @@ export default function HRDashboard() {
           </Link>
         </div>
 
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <CalendarCheck size={12} className="text-[#A855F7]" /> Attendance
+        {canAccessAttendance && (
+          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                <CalendarCheck size={12} className="text-[#A855F7]" /> Attendance
+              </div>
+              <div className="text-lg font-black text-[#7c3aed] leading-tight">98.4%</div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Geofence Verified</span>
             </div>
-            <div className="text-lg font-black text-[#7c3aed] leading-tight">98.4%</div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Geofence Verified</span>
+            <Link to="/hr/attendance" className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#A855F7] hover:bg-[#A855F7] hover:text-white flex items-center justify-center transition-colors">
+              <ChevronRight size={13} />
+            </Link>
           </div>
-          <Link to="/hr/attendance" className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-[#A855F7] hover:bg-[#A855F7] hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
-          </Link>
-        </div>
+        )}
 
-        <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
-              <FileText size={12} className="text-[#E91E8C]" /> Leave Review
+        {canAccessLeaves && (
+          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-1 text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">
+                <FileText size={12} className="text-[#E91E8C]" /> Leave Review
+              </div>
+              <div className="text-lg font-black text-[#db2777] leading-tight">Pending</div>
+              <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold">Requires Action</span>
             </div>
-            <div className="text-lg font-black text-[#db2777] leading-tight">Pending</div>
-            <span className="text-[10px] text-pink-600 dark:text-pink-400 font-semibold">Requires Action</span>
+            <Link to="/hr/leaves" className="w-7 h-7 rounded-lg bg-pink-50 dark:bg-pink-950/40 text-[#E91E8C] hover:bg-[#E91E8C] hover:text-white flex items-center justify-center transition-colors">
+              <ChevronRight size={13} />
+            </Link>
           </div>
-          <Link to="/hr/leaves" className="w-7 h-7 rounded-lg bg-pink-50 dark:bg-pink-950/40 text-[#E91E8C] hover:bg-[#E91E8C] hover:text-white flex items-center justify-center transition-colors">
-            <ChevronRight size={13} />
-          </Link>
-        </div>
+        )}
       </div>
 
       {/* ── Main Two-Column Grid ────────────────────────────────────────────── */}
@@ -273,145 +288,147 @@ export default function HRDashboard() {
         <div className="lg:col-span-2 space-y-3.5">
           
           {/* ── Lead Management CRM (Compact Interactive Section) ── */}
-          <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-[#f97316]">
-                  <Magnet size={14} />
+          {canAccessLeads && (
+            <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center text-[#f97316]">
+                    <Magnet size={14} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
+                    <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Assigned Leads &amp; Candidate Pipeline</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-extrabold text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
-                  <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Assigned Leads &amp; Candidate Pipeline</p>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setShowAddLeadModal(true)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus size={12} /> Add Lead
+                  </button>
+                  <Link
+                    to="/hr/leads"
+                    className="text-[11px] font-bold text-[#f97316] hover:text-[#ea580c] flex items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
+                  >
+                    View All <ChevronRight size={12} />
+                  </Link>
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={() => setShowAddLeadModal(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
-                >
-                  <Plus size={12} /> Add Lead
-                </button>
-                <Link
-                  to="/hr/leads"
-                  className="text-[11px] font-bold text-[#f97316] hover:text-[#ea580c] flex items-center gap-0.5 px-2 py-1 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-colors"
-                >
-                  View All <ChevronRight size={12} />
-                </Link>
-              </div>
-            </div>
-
-            {/* 4 KPI Grid Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div className="bg-orange-50/60 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Total</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+              {/* 4 KPI Grid Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                <div className="bg-orange-50/60 dark:bg-orange-950/20 border border-orange-100 dark:border-orange-900/30 rounded-lg p-2.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-orange-700 dark:text-orange-400 uppercase">Total</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#f97316]" />
+                  </div>
+                  <div className="text-lg font-black text-[#ea580c] leading-tight">{leadStats.total}</div>
+                  <span className="text-[9px] text-orange-600/80 font-medium">All Leads</span>
                 </div>
-                <div className="text-lg font-black text-[#ea580c] leading-tight">{leadStats.total}</div>
-                <span className="text-[9px] text-orange-600/80 font-medium">All Leads</span>
-              </div>
 
-              <div className="bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 uppercase">Contacted</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+                <div className="bg-purple-50/60 dark:bg-purple-950/20 border border-purple-100 dark:border-purple-900/30 rounded-lg p-2.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-purple-700 dark:text-purple-400 uppercase">Contacted</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#8b5cf6]" />
+                  </div>
+                  <div className="text-lg font-black text-[#7c3aed] leading-tight">{leadStats.contacted}</div>
+                  <span className="text-[9px] text-purple-600/80 font-medium">Follow-ups</span>
                 </div>
-                <div className="text-lg font-black text-[#7c3aed] leading-tight">{leadStats.contacted}</div>
-                <span className="text-[9px] text-purple-600/80 font-medium">Follow-ups</span>
-              </div>
 
-              <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase">In Progress</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+                <div className="bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 rounded-lg p-2.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase">In Progress</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+                  </div>
+                  <div className="text-lg font-black text-[#d97706] leading-tight">{leadStats.inProgress}</div>
+                  <span className="text-[9px] text-amber-600/80 font-medium">Active</span>
                 </div>
-                <div className="text-lg font-black text-[#d97706] leading-tight">{leadStats.inProgress}</div>
-                <span className="text-[9px] text-amber-600/80 font-medium">Active</span>
+
+                <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-2.5">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Won</span>
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
+                  </div>
+                  <div className="text-lg font-black text-[#059669] leading-tight">{leadStats.won}</div>
+                  <span className="text-[9px] text-emerald-600/80 font-medium">Deals Closed</span>
+                </div>
               </div>
 
-              <div className="bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/30 rounded-lg p-2.5">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 uppercase">Won</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-[#10b981]" />
-                </div>
-                <div className="text-lg font-black text-[#059669] leading-tight">{leadStats.won}</div>
-                <span className="text-[9px] text-emerald-600/80 font-medium">Deals Closed</span>
-              </div>
-            </div>
+              {/* Recent Prospects List */}
+              {leadsList.length > 0 ? (
+                <div className="space-y-1.5">
+                  <div className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Recent Prospects</span>
+                    <span>1-Click Contact</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {leadsList.slice(0, 4).map((lead) => {
+                      const sName = lead.status?.name || "New";
+                      const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10b981" : sName.toLowerCase().includes("contact") ? "#8b5cf6" : "#06b6d4");
+                      const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
 
-            {/* Recent Prospects List */}
-            {leadsList.length > 0 ? (
-              <div className="space-y-1.5">
-                <div className="text-[10.5px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Recent Prospects</span>
-                  <span>1-Click Contact</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {leadsList.slice(0, 4).map((lead) => {
-                    const sName = lead.status?.name || "New";
-                    const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10b981" : sName.toLowerCase().includes("contact") ? "#8b5cf6" : "#06b6d4");
-                    const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
+                      const leadId = lead.id || lead._id;
 
-                    const leadId = lead.id || lead._id;
-
-                    return (
-                      <div
-                        key={leadId || Math.random().toString()}
-                        onClick={() => leadId && navigate(`/hr/leads/${leadId}`)}
-                        className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-orange-300 dark:hover:border-orange-500/50 hover:bg-orange-50/30 dark:hover:bg-orange-950/20 transition-all cursor-pointer group"
-                      >
-                        <div className="flex items-center gap-2 min-w-0">
-                          <div
-                            className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border group-hover:scale-105 transition-transform"
-                            style={{ backgroundColor: `${sColor}15`, borderColor: `${sColor}30`, color: sColor }}
-                          >
-                            {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                      return (
+                        <div
+                          key={leadId || Math.random().toString()}
+                          onClick={() => leadId && navigate(`/hr/leads/${leadId}`)}
+                          className="flex items-center justify-between p-2 rounded-lg border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/30 hover:border-orange-300 dark:hover:border-orange-500/50 hover:bg-orange-50/30 dark:hover:bg-orange-950/20 transition-all cursor-pointer group"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div
+                              className="w-7 h-7 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border group-hover:scale-105 transition-transform"
+                              style={{ backgroundColor: `${sColor}15`, borderColor: `${sColor}30`, color: sColor }}
+                            >
+                              {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-bold text-slate-800 dark:text-white truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
+                                {lead.name}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {lead.company || lead.productService || "Prospect"}
+                              </div>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <div className="text-xs font-bold text-slate-800 dark:text-white truncate group-hover:text-orange-600 dark:group-hover:text-orange-400 transition-colors">
-                              {lead.name}
-                            </div>
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {lead.company || lead.productService || "Prospect"}
-                            </div>
+
+                          <div className="flex items-center gap-1 shrink-0 ml-1.5">
+                            {lead.estimatedValue && (
+                              <span className="text-[9.5px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded">
+                                ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
+                              </span>
+                            )}
+                            {cleanPhone && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.name || ""}, connecting from One Click regarding your inquiry.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-6 h-6 rounded-md bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageSquare size={11} />
+                              </a>
+                            )}
+                            {cleanPhone && (
+                              <a
+                                href={`tel:${cleanPhone}`}
+                                className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all"
+                                title="Call"
+                              >
+                                <Phone size={11} />
+                              </a>
+                            )}
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-1 shrink-0 ml-1.5">
-                          {lead.estimatedValue && (
-                            <span className="text-[9.5px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-1 py-0.2 rounded">
-                              ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                          {cleanPhone && (
-                            <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.name || ""}, connecting from One Click regarding your inquiry.`)}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="w-6 h-6 rounded-md bg-emerald-50 hover:bg-emerald-500 text-emerald-600 hover:text-white flex items-center justify-center transition-all"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageSquare size={11} />
-                            </a>
-                          )}
-                          {cleanPhone && (
-                            <a
-                              href={`tel:${cleanPhone}`}
-                              className="w-6 h-6 rounded-md bg-blue-50 hover:bg-blue-600 text-blue-600 hover:text-white flex items-center justify-center transition-all"
-                              title="Call"
-                            >
-                              <Phone size={11} />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ) : null}
-          </div>
+              ) : null}
+            </div>
+          )}
 
           {/* ── Employee Directory & Workforce Roster Table ── */}
           <div className="bg-white dark:bg-[#111C24] rounded-xl p-4 shadow-2xs border border-slate-200/80 dark:border-slate-800 space-y-3">
@@ -532,28 +549,30 @@ export default function HRDashboard() {
               {[
                 { title: "Employee Directory", desc: "Manage profiles & info", path: "/hr/employees", icon: Users, color: "#00D4C8" },
                 { title: "Add New Employee", desc: "Onboard new staff member", path: "/hr/employees/add", icon: UserPlus, color: "#F5A623" },
-                { title: "Leave Approvals", desc: "Review time-off requests", path: "/hr/leaves", icon: FileText, color: "#E91E8C" },
-                { title: "Attendance Logs", desc: "GPS punch verification", path: "/hr/attendance", icon: CalendarCheck, color: "#A855F7" },
-                { title: "Generate Salary Slips", desc: "Monthly payroll cycle", path: "/hr/payroll/generate", icon: DollarSign, color: "#00D4C8" },
+                { title: "Leave Approvals", desc: "Review time-off requests", path: "/hr/leaves", icon: FileText, color: "#E91E8C", module: "leaves" },
+                { title: "Attendance Logs", desc: "GPS punch verification", path: "/hr/attendance", icon: CalendarCheck, color: "#A855F7", module: "attendance" },
+                { title: "Generate Salary Slips", desc: "Monthly payroll cycle", path: "/hr/payroll/generate", icon: DollarSign, color: "#00D4C8", module: "payroll" },
                 { title: "Post Announcements", desc: "Broadcast updates to staff", path: "/hr/announcements", icon: Megaphone, color: "#F5A623" },
-              ].map((item, i) => (
-                <Link
-                  key={i}
-                  to={item.path}
-                  className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${item.color}15`, color: item.color }}>
-                      <item.icon size={14} />
+              ]
+                .filter((item) => !item.module || hasPermission(item.module))
+                .map((item, i) => (
+                  <Link
+                    key={i}
+                    to={item.path}
+                    className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-all group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: `${item.color}15`, color: item.color }}>
+                        <item.icon size={14} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-[#00D4C8] transition-colors">{item.title}</p>
+                        <p className="text-[9.5px] text-slate-400">{item.desc}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-800 dark:text-white group-hover:text-[#00D4C8] transition-colors">{item.title}</p>
-                      <p className="text-[9.5px] text-slate-400">{item.desc}</p>
-                    </div>
-                  </div>
-                  <ChevronRight size={13} className="text-slate-300 dark:text-slate-600 group-hover:text-[#00D4C8] transition-colors" />
-                </Link>
-              ))}
+                    <ChevronRight size={13} className="text-slate-300 dark:text-slate-600 group-hover:text-[#00D4C8] transition-colors" />
+                  </Link>
+                ))}
             </div>
           </div>
 

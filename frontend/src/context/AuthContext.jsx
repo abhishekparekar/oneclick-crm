@@ -95,34 +95,65 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const normalizeModule = (category) => {
+    if (!category) return "";
+    const cat = String(category).toLowerCase().trim();
+    if (cat === "leave" || cat === "leaves") return "leave";
+    if (cat === "lead" || cat === "leads") return "leads";
+    if (cat === "task" || cat === "tasks") return "tasks";
+    if (cat === "project" || cat === "projects") return "projects";
+    if (cat === "report" || cat === "reports") return "reports";
+    if (cat === "attendance") return "attendance";
+    if (cat === "payroll" || cat === "payslips") return "payroll";
+    return cat;
+  };
+
   const hasPermission = (category, action) => {
     if (!user) return false;
-    if (user.role === "CompanyAdmin" || user.role === "SuperAdmin") return true;
-    
+    const roleLower = (user.role || "").toLowerCase();
+    if (roleLower === "superadmin") return true;
+
+    const normMod = normalizeModule(category);
+
+    // 1. Check Company Active Subscription Plan Modules
+    const subscribedModules = (user.company?.subscribedModules || user.subscribedModules || []).map(normalizeModule);
+    if (subscribedModules.length > 0 && normMod) {
+      if (!subscribedModules.includes(normMod)) {
+        return false; // Not included in company's purchased plan
+      }
+    }
+
+    // CompanyAdmin has full access to all company subscribed modules
+    if (roleLower === "companyadmin" || roleLower === "admin") return true;
+
+    // 2. Check Employee/Manager/HR Assigned Modules Quota
+    const assignedModules = (user.assignedModules || user.employee?.assignedModules || []).map(normalizeModule);
+    if (assignedModules.length > 0 && normMod) {
+      if (!assignedModules.includes(normMod)) {
+        return false; // Not assigned to this employee
+      }
+    }
+
     const perm = user.permissions || {};
-    const hasCustomized = Object.keys(perm).length > 0;
+    const catPerm = perm[category] || perm[category?.toLowerCase()] || (normMod ? perm[normMod] : undefined);
     
-    if (hasCustomized) {
+    if (catPerm !== undefined) {
       if (action) {
-        return perm[category]?.[action] === true || (action === "view" && (perm[category] === true || perm[category]?.read === true));
+        return catPerm[action] === true || (action === "view" && (catPerm === true || catPerm.read === true || catPerm.view === true));
       } else {
-        return perm[category] === true || (typeof perm[category] === "object" && Object.values(perm[category]).some(v => v === true));
+        return catPerm === true || (typeof catPerm === "object" && Object.values(catPerm).some(v => v === true));
       }
     }
     
-    // Fallback defaults
-    if (user.role === "HR") return true;
-    if (user.role === "Manager") {
-      if (category === "tasks") {
-        if (action === "cancel") return false;
-        return true;
-      }
-      if (category === "leaves") return true;
-      if (category === "leads") {
-        if (action === "delete") return false;
-        return true;
-      }
-      return false;
+    // Fallback defaults by role (if module is allowed)
+    if (roleLower === "hr") return true;
+    if (roleLower === "manager") {
+      if (normMod === "tasks" && action === "cancel") return false;
+      if (normMod === "leads" && action === "delete") return false;
+      return true;
+    }
+    if (roleLower === "employee" || roleLower === "team member") {
+      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normMod)) return true;
     }
     return false;
   };

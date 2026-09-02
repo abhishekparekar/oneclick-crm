@@ -197,10 +197,15 @@ const LeaveBar = ({ label, used, total, color }) => {
   );
 };
 
-// ─── Main Component ───────────────────────────────────────────────────
 const EmployeeDashboard = () => {
   const { user, hasPermission } = useAuth();
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+
   const userName = user?.firstName || user?.fullName || user?.name || "Employee";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -549,152 +554,168 @@ const EmployeeDashboard = () => {
           </div>
 
           <div className="hidden md:flex items-center gap-1 pl-1">
-            <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Tasks">
-              <ListTodo size={14} />
-            </Link>
-            <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Attendance">
-              <CalendarCheck size={14} />
-            </Link>
-            <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Leaves">
-              <Calendar size={14} />
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Top Hero: Royal Corporate Blue Active Shift & Punch Bar ────────── */}
-      <div className="bg-gradient-to-r from-[#082B52] via-[#1268D9] to-[#1D7DF2] rounded-2xl p-5 shadow-lg shadow-[#1268D9]/20 text-white relative overflow-hidden">
-        {/* Decorative Wave/Circle Overlays */}
-        <div className="absolute right-0 top-0 bottom-0 w-72 bg-white/[0.06] rounded-l-full pointer-events-none" />
-        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/[0.08] rounded-full pointer-events-none" />
-
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          {/* Left: Active Shift & Live Clock */}
-          <div className="flex items-center gap-4">
-            <div>
-              <div className="flex items-center gap-1.5 mb-1">
-                <span className={`w-2 h-2 rounded-full ${isPunchedIn ? "bg-emerald-400 animate-pulse" : "bg-slate-300"}`} />
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">
-                  {isPunchedIn ? "ACTIVE SHIFT" : "SHIFT INACTIVE"}
-                </span>
-              </div>
-              <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-none text-white font-mono">
-                {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </h2>
-              <p className="text-xs text-blue-100/80 font-medium mt-1">
-                {punchInTimeRaw ? `In since ${formatTime(punchInTimeRaw)}` : "No active check-in logged today"}
-              </p>
-            </div>
-
-            {/* Vertical Divider */}
-            <div className="hidden sm:block w-px h-12 bg-white/20 mx-2" />
-
-            {/* Productivity Metric */}
-            <div className="hidden lg:block space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-blue-100">Productivity Score:</span>
-                <span className="text-sm font-black text-white">{productivityScore}%</span>
-              </div>
-              <div className="w-36 h-1.5 bg-black/20 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${productivityScore}%` }} />
-              </div>
-              <p className="text-[10px] text-blue-100/70">Target: 95% efficiency</p>
-            </div>
-          </div>
-
-          {/* Right: Shift Stats & Action Button */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <div className="text-right pr-2">
-              <div className="flex items-center justify-end gap-1 text-[11px] text-blue-100 font-bold">
-                <Clock size={12} />
-                <span>Punch In</span>
-              </div>
-              <p className="text-base font-black text-white font-mono leading-tight">
-                {punchInTimeRaw ? formatTime(punchInTimeRaw) : "--:--"}
-              </p>
-            </div>
-
-            {/* Punch Action Button */}
-            {isPunchedIn ? (
-              <button
-                onClick={() => punchOutMutation.mutate()}
-                disabled={punchOutMutation.isPending}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
-              >
-                <LogOut size={15} strokeWidth={2.5} />
-                <span>{punchOutMutation.isPending ? "Punching Out..." : "Punch Out"}</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => punchInMutation.mutate()}
-                disabled={punchInMutation.isPending}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
-              >
-                <LogIn size={15} strokeWidth={2.5} />
-                <span>{punchInMutation.isPending ? "Punching In..." : "Punch In"}</span>
-              </button>
+            {canAccessTasks && (
+              <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Tasks">
+                <ListTodo size={14} />
+              </Link>
+            )}
+            {canAccessAttendance && (
+              <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Attendance">
+                <CalendarCheck size={14} />
+              </Link>
+            )}
+            {canAccessLeaves && (
+              <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:border-amber-400 flex items-center justify-center text-slate-600 hover:text-amber-600 shadow-2xs transition-all" title="Leaves">
+                <Calendar size={14} />
+              </Link>
             )}
           </div>
         </div>
       </div>
 
+      {/* ── Top Hero: Royal Corporate Blue Active Shift & Punch Bar ────────── */}
+      {canAccessAttendance && (
+        <div className="bg-gradient-to-r from-[#082B52] via-[#1268D9] to-[#1D7DF2] rounded-2xl p-5 shadow-lg shadow-[#1268D9]/20 text-white relative overflow-hidden">
+          {/* Decorative Wave/Circle Overlays */}
+          <div className="absolute right-0 top-0 bottom-0 w-72 bg-white/[0.06] rounded-l-full pointer-events-none" />
+          <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/[0.08] rounded-full pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            {/* Left: Active Shift & Live Clock */}
+            <div className="flex items-center gap-4">
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <span className={`w-2 h-2 rounded-full ${isPunchedIn ? "bg-emerald-400 animate-pulse" : "bg-slate-300"}`} />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-100">
+                    {isPunchedIn ? "ACTIVE SHIFT" : "SHIFT INACTIVE"}
+                  </span>
+                </div>
+                <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-none text-white font-mono">
+                  {currentTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </h2>
+                <p className="text-xs text-blue-100/80 font-medium mt-1">
+                  {punchInTimeRaw ? `In since ${formatTime(punchInTimeRaw)}` : "No active check-in logged today"}
+                </p>
+              </div>
+
+              {/* Vertical Divider */}
+              <div className="hidden sm:block w-px h-12 bg-white/20 mx-2" />
+
+              {/* Productivity Metric */}
+              <div className="hidden lg:block space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-blue-100">Productivity Score:</span>
+                  <span className="text-sm font-black text-white">{productivityScore}%</span>
+                </div>
+                <div className="w-36 h-1.5 bg-black/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-emerald-400 rounded-full" style={{ width: `${productivityScore}%` }} />
+                </div>
+                <p className="text-[10px] text-blue-100/70">Target: 95% efficiency</p>
+              </div>
+            </div>
+
+            {/* Right: Shift Stats & Action Button */}
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="text-right pr-2">
+                <div className="flex items-center justify-end gap-1 text-[11px] text-blue-100 font-bold">
+                  <Clock size={12} />
+                  <span>Punch In</span>
+                </div>
+                <p className="text-base font-black text-white font-mono leading-tight">
+                  {punchInTimeRaw ? formatTime(punchInTimeRaw) : "--:--"}
+                </p>
+              </div>
+
+              {/* Punch Action Button */}
+              {isPunchedIn ? (
+                <button
+                  onClick={() => punchOutMutation.mutate()}
+                  disabled={punchOutMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogOut size={15} strokeWidth={2.5} />
+                  <span>{punchOutMutation.isPending ? "Punching Out..." : "Punch Out"}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => punchInMutation.mutate()}
+                  disabled={punchInMutation.isPending}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
+                >
+                  <LogIn size={15} strokeWidth={2.5} />
+                  <span>{punchInMutation.isPending ? "Punching In..." : "Punch In"}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── 4 Top KPI Mini-Tiles (Executive Clean Style) ────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {/* Card 1: Tasks */}
-        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
-          <div>
-            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
-              <ListTodo size={13} className="text-amber-600 dark:text-amber-400" /> Tasks
+        {canAccessTasks && (
+          <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+                <ListTodo size={13} className="text-amber-600 dark:text-amber-400" /> Tasks
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{taskSummary.assignedTasks || 0}</div>
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{taskSummary.pending || 0} pending</span>
             </div>
-            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{taskSummary.assignedTasks || 0}</div>
-            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{taskSummary.pending || 0} pending</span>
+            <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+              <ChevronRight size={14} />
+            </Link>
           </div>
-          <Link to="/employee/my-tasks" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
-            <ChevronRight size={14} />
-          </Link>
-        </div>
+        )}
 
         {/* Card 2: Lead CRM */}
-        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
-          <div>
-            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
-              <Magnet size={13} className="text-amber-600 dark:text-amber-400" /> Lead CRM
+        {canAccessLeads && (
+          <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+                <Magnet size={13} className="text-amber-600 dark:text-amber-400" /> Lead CRM
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{leadStats.won} deals won</span>
             </div>
-            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">{leadStats.won} deals won</span>
+            <Link to="/employee/leads" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+              <ChevronRight size={14} />
+            </Link>
           </div>
-          <Link to="/employee/leads" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
-            <ChevronRight size={14} />
-          </Link>
-        </div>
+        )}
 
         {/* Card 3: Attendance */}
-        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
-          <div>
-            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
-              <CalendarCheck size={13} className="text-emerald-600 dark:text-emerald-400" /> Attendance
+        {canAccessAttendance && (
+          <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+                <CalendarCheck size={13} className="text-emerald-600 dark:text-emerald-400" /> Attendance
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{attSummary.present || 0}</div>
+              <span className="text-[10px] text-slate-500 font-bold">{attSummary.absent || 0} absent</span>
             </div>
-            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{attSummary.present || 0}</div>
-            <span className="text-[10px] text-slate-500 font-bold">{attSummary.absent || 0} absent</span>
+            <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-emerald-600 hover:text-white dark:bg-slate-800 dark:hover:bg-emerald-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+              <ChevronRight size={14} />
+            </Link>
           </div>
-          <Link to="/employee/attendance" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-emerald-600 hover:text-white dark:bg-slate-800 dark:hover:bg-emerald-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
-            <ChevronRight size={14} />
-          </Link>
-        </div>
+        )}
 
         {/* Card 4: Leaves */}
-        <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
-          <div>
-            <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
-              <Calendar size={13} className="text-amber-600 dark:text-amber-400" /> Leaves
+        {canAccessLeaves && (
+          <div className="bg-white dark:bg-[#111C24] p-3.5 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between hover:border-amber-500/30 transition-all">
+            <div>
+              <div className="flex items-center gap-1 text-[10px] font-black text-slate-500 uppercase tracking-wider mb-0.5">
+                <Calendar size={13} className="text-amber-600 dark:text-amber-400" /> Leaves
+              </div>
+              <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leavesRemaining}</div>
+              <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{pendingLeaveRequests} pending</span>
             </div>
-            <div className="text-xl font-black text-slate-900 dark:text-white leading-tight">{leavesRemaining}</div>
-            <span className="text-[10px] text-amber-700 dark:text-amber-400 font-bold">{pendingLeaveRequests} pending</span>
+            <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
+              <ChevronRight size={14} />
+            </Link>
           </div>
-          <Link to="/employee/leaves" className="w-8 h-8 rounded-xl bg-slate-50 hover:bg-amber-500 hover:text-white dark:bg-slate-800 dark:hover:bg-amber-600 text-slate-600 dark:text-slate-300 flex items-center justify-center transition-all shadow-2xs">
-            <ChevronRight size={14} />
-          </Link>
-        </div>
+        )}
       </div>
 
       {/* ── Main Two-Column Grid ────────────────────────────────────────────── */}
@@ -704,60 +725,6 @@ const EmployeeDashboard = () => {
         <div className="lg:col-span-2 space-y-3.5">
           
           {/* ── Lead Management CRM (Clean Professional Card) ── */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-500/30">
-                  <Magnet size={16} />
-                </div>
-                <div>
-                  <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
-                  <p className="text-[10.5px] text-slate-500 font-semibold mt-0.5">Sales Opportunities &amp; Pipeline</p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setShowAddLeadModal(true)}
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
-                >
-                  <Plus size={13} /> Add Lead
-                </button>
-                <Link
-                  to="/employee/leads"
-                  className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 px-2 py-1.5"
-                >
-                  View All <ChevronRight size={13} />
-                </Link>
-              </div>
-            </div>
-
-            {/* 4 Neutral KPI Grid Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
-              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Total</span>
-                  <div className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-300" />
-                </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
-                <span className="text-[9.5px] text-slate-500 font-bold">All Leads</span>
-              </div>
-
-              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Contacted</span>
-                  <div className="w-2 h-2 rounded-full bg-amber-500" />
-                </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.contacted}</div>
-                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold">Follow-ups</span>
-              </div>
-
-              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">In Progress</span>
-                  <div className="w-2 h-2 rounded-full bg-amber-600" />
-                </div>
-                <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.inProgress}</div>
                 <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold">Active</span>
               </div>
 
@@ -840,46 +807,48 @@ const EmployeeDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             
             {/* Col 1: Tasks Summary */}
-            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                  <ListTodo size={14} className="text-amber-600 dark:text-amber-400" /> Tasks Progress
+            {canAccessTasks && (
+              <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    <ListTodo size={14} className="text-amber-600 dark:text-amber-400" /> Tasks Progress
+                  </div>
+                  <Link to="/employee/my-tasks" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                    View Tasks
+                  </Link>
                 </div>
-                <Link to="/employee/my-tasks" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
-                  View Tasks
-                </Link>
-              </div>
 
-              <div className="flex items-center gap-4">
-                <div className="w-20 shrink-0">
-                  <DonutChart
-                    completed={taskSummary.completed || 0}
-                    inProgress={taskSummary.inProgress || 0}
-                    pending={taskSummary.pending || 0}
-                  />
-                </div>
-                <div className="space-y-2 flex-1 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Completed
-                    </span>
-                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.completed || 0}</strong>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 shrink-0">
+                    <DonutChart
+                      completed={taskSummary.completed || 0}
+                      inProgress={taskSummary.inProgress || 0}
+                      pending={taskSummary.pending || 0}
+                    />
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress
-                    </span>
-                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.inProgress || 0}</strong>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <span className="w-2.5 h-2.5 rounded-full bg-slate-500" /> Pending
-                    </span>
-                    <strong className="font-black text-slate-900 dark:text-white">{taskSummary.pending || 0}</strong>
+                  <div className="space-y-2 flex-1 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Completed
+                      </span>
+                      <strong className="font-black text-slate-900 dark:text-white">{taskSummary.completed || 0}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> In Progress
+                      </span>
+                      <strong className="font-black text-slate-900 dark:text-white">{taskSummary.inProgress || 0}</strong>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-500" /> Pending
+                      </span>
+                      <strong className="font-black text-slate-900 dark:text-white">{taskSummary.pending || 0}</strong>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Col 2: Quick Actions (Clean Monochromatic Suite) */}
             <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between">
@@ -888,45 +857,55 @@ const EmployeeDashboard = () => {
               </div>
 
               <div className="grid grid-cols-3 gap-2">
-                <Link
-                  to="/employee/leads"
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
-                >
-                  <Magnet size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black truncate w-full">Lead CRM</span>
-                </Link>
+                {canAccessLeads && (
+                  <Link
+                    to="/employee/leads"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
+                  >
+                    <Magnet size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black truncate w-full">Lead CRM</span>
+                  </Link>
+                )}
 
-                <Link
-                  to="/employee/my-tasks"
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
-                >
-                  <Briefcase size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black truncate w-full">Add Task</span>
-                </Link>
+                {canAccessTasks && (
+                  <Link
+                    to="/employee/my-tasks"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
+                  >
+                    <Briefcase size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black truncate w-full">Add Task</span>
+                  </Link>
+                )}
 
-                <Link
-                  to="/employee/attendance"
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
-                >
-                  <CalendarCheck size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black truncate w-full">Attendance</span>
-                </Link>
+                {canAccessAttendance && (
+                  <Link
+                    to="/employee/attendance"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
+                  >
+                    <CalendarCheck size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black truncate w-full">Attendance</span>
+                  </Link>
+                )}
 
-                <Link
-                  to="/employee/payslips"
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
-                >
-                  <Receipt size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black truncate w-full">Payslips</span>
-                </Link>
+                {canAccessPayroll && (
+                  <Link
+                    to="/employee/payslips"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
+                  >
+                    <Receipt size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black truncate w-full">Payslips</span>
+                  </Link>
+                )}
 
-                <Link
-                  to="/employee/leaves"
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
-                >
-                  <Calendar size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
-                  <span className="text-[10px] font-black truncate w-full">Apply Leave</span>
-                </Link>
+                {canAccessLeaves && (
+                  <Link
+                    to="/employee/leaves"
+                    className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-slate-50 hover:bg-amber-50 dark:bg-slate-900/60 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-800 hover:border-amber-500 text-slate-800 dark:text-slate-200 hover:text-amber-600 transition-all group text-center shadow-2xs"
+                  >
+                    <Calendar size={16} className="mb-1 text-amber-600 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-black truncate w-full">Apply Leave</span>
+                  </Link>
+                )}
 
                 <Link
                   to="/employee/documents"
@@ -957,40 +936,42 @@ const EmployeeDashboard = () => {
         <div className="space-y-3.5">
           
           {/* Time Off Balance */}
-          <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                <CalendarDays size={14} className="text-amber-600 dark:text-amber-400" /> Time Off Balance
+          {canAccessLeaves && (
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  <CalendarDays size={14} className="text-amber-600 dark:text-amber-400" /> Time Off Balance
+                </div>
+                <Link to="/employee/leaves" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                  Apply Leave
+                </Link>
               </div>
-              <Link to="/employee/leaves" className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline">
-                Apply Leave
-              </Link>
-            </div>
 
-            <div className="space-y-2.5">
-              {leaveTypes.map((lt) => {
-                const remaining = leaveBalance[lt.key] !== undefined ? leaveBalance[lt.key] : lt.limit;
-                const used = lt.limit > 0 ? Math.max(0, lt.limit - remaining) : 0;
-                const pct = lt.limit > 0 ? Math.min(100, (remaining / lt.limit) * 100) : 0;
+              <div className="space-y-2.5">
+                {leaveTypes.map((lt) => {
+                  const remaining = leaveBalance[lt.key] !== undefined ? leaveBalance[lt.key] : lt.limit;
+                  const used = lt.limit > 0 ? Math.max(0, lt.limit - remaining) : 0;
+                  const pct = lt.limit > 0 ? Math.min(100, (remaining / lt.limit) * 100) : 0;
 
-                return (
-                  <div key={lt.key} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
-                    <div className="flex items-center justify-between text-xs mb-1">
-                      <span className="font-bold text-slate-800 dark:text-slate-200">{lt.label}</span>
-                      <span className="font-black text-slate-900 dark:text-white">{remaining} left</span>
+                  return (
+                    <div key={lt.key} className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 shadow-2xs">
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-bold text-slate-800 dark:text-slate-200">{lt.label}</span>
+                        <span className="font-black text-slate-900 dark:text-white">{remaining} left</span>
+                      </div>
+                      <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
+                        <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: lt.color }} />
+                      </div>
+                      <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
+                        <span>Used: {used}</span>
+                        <span>Total: {lt.limit}</span>
+                      </div>
                     </div>
-                    <div className="w-full h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-1">
-                      <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, backgroundColor: lt.color }} />
-                    </div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-500 font-medium">
-                      <span>Used: {used}</span>
-                      <span>Total: {lt.limit}</span>
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Announcements */}
           <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">

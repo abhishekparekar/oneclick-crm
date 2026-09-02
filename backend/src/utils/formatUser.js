@@ -60,9 +60,9 @@ const formatUser = (user) => {
     obj.isPasswordResetRequired = false;
   }
 
-  // ── Ensure assignedModules exists ─────────────────────────────────────────
-  if (!Array.isArray(obj.assignedModules) || obj.assignedModules.length === 0) {
-    obj.assignedModules = ["attendance", "leave", "tasks", "leads", "payroll", "projects", "reports"];
+  // ── Preserve assignedModules if present ───────────────────────────────────
+  if (Array.isArray(obj.assignedModules)) {
+    // Keep as is
   }
 
   return obj;
