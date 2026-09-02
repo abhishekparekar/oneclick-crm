@@ -120,9 +120,13 @@ const getModuleUsage = async (req, res, next) => {
     const usage = {};
     for (const mod of subscribedModules) {
       let used = 0;
-      if (["attendance", "leave", "payroll", "reports"].includes(mod)) {
+      const isCustomLimit = moduleLimits[mod] && moduleLimits[mod] > 0;
+
+      if (!isCustomLimit && ["attendance", "leave", "payroll", "reports"].includes(mod)) {
+        // No specific limit set → these modules apply to all active employees
         used = totalActiveEmployees;
       } else {
+        // Either a custom limit is set, OR it's a dynamic module (tasks/leads/projects)
         used = await Employee.countDocuments({
           companyId,
           status: "active",
@@ -130,7 +134,6 @@ const getModuleUsage = async (req, res, next) => {
         });
       }
 
-      const isCustomLimit = moduleLimits[mod] && moduleLimits[mod] > 0;
       const limit = isCustomLimit ? moduleLimits[mod] : (company.employeeLimit || 50);
       usage[mod] = {
         subscribed: true,
@@ -384,6 +387,7 @@ const createEmployee = async (req, res, next) => {
           message: `Module "${mod}" is not included in the company's active subscription plan.`
         });
       }
+      // Check per-module seat cap if a custom limit is set (0 = unlimited)
       if (limits[mod] && limits[mod] > 0) {
         const usedCount = await Employee.countDocuments({
           companyId,
@@ -392,7 +396,7 @@ const createEmployee = async (req, res, next) => {
         });
         if (usedCount >= limits[mod]) {
           return res.status(400).json({
-            message: `Seat quota for ${mod} module reached (${limits[mod]}). Please upgrade plan to assign more employees to ${mod}.`
+            message: `Seat quota for "${mod}" module reached (${limits[mod]} seats). Please upgrade your plan to assign more employees to this module.`
           });
         }
       }
@@ -760,6 +764,7 @@ const updateEmployee = async (req, res, next) => {
             message: `Module "${mod}" is not included in the company's active subscription plan.`
           });
         }
+        // Check per-module seat cap (0 = unlimited)
         if (limits[mod] && limits[mod] > 0) {
           const usedCount = await Employee.countDocuments({
             companyId: req.companyId,
@@ -769,7 +774,7 @@ const updateEmployee = async (req, res, next) => {
           });
           if (usedCount >= limits[mod]) {
             return res.status(400).json({
-              message: `Seat quota for ${mod} module reached (${limits[mod]}). Please upgrade plan to assign more employees to ${mod}.`
+              message: `Seat quota for "${mod}" module reached (${limits[mod]} seats). Please upgrade your plan to assign more employees to this module.`
             });
           }
         }

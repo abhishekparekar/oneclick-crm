@@ -58,12 +58,13 @@ const planSchema = new mongoose.Schema(
       default: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
     },
     moduleLimits: {
-      tasks: { type: Number, default: 0 },       // 0 = up to overall employeeLimit
-      leads: { type: Number, default: 0 },       // 0 = up to overall employeeLimit
+      tasks:      { type: Number, default: 0 },  // 0 = up to overall employeeLimit
+      leads:      { type: Number, default: 0 },  // 0 = up to overall employeeLimit
       attendance: { type: Number, default: 0 },
-      payroll: { type: Number, default: 0 },
-      projects: { type: Number, default: 0 },
-      reports: { type: Number, default: 0 },
+      leave:      { type: Number, default: 0 },
+      payroll:    { type: Number, default: 0 },
+      projects:   { type: Number, default: 0 },
+      reports:    { type: Number, default: 0 },
     },
     status: {
       type: String,

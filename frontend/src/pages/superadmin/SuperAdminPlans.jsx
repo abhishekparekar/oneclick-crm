@@ -73,6 +73,7 @@ const SuperAdminPlans = () => {
       tasks: 0,
       leads: 0,
       attendance: 0,
+      leave: 0,
       payroll: 0,
       projects: 0,
       reports: 0,
@@ -201,6 +202,7 @@ const SuperAdminPlans = () => {
           tasks: plan.moduleLimits?.tasks || 0,
           leads: plan.moduleLimits?.leads || 0,
           attendance: plan.moduleLimits?.attendance || 0,
+          leave: plan.moduleLimits?.leave || 0,
           payroll: plan.moduleLimits?.payroll || 0,
           projects: plan.moduleLimits?.projects || 0,
           reports: plan.moduleLimits?.reports || 0,
@@ -223,6 +225,7 @@ const SuperAdminPlans = () => {
           tasks: 0,
           leads: 0,
           attendance: 0,
+          leave: 0,
           payroll: 0,
           projects: 0,
           reports: 0,
@@ -677,21 +680,30 @@ const SuperAdminPlans = () => {
                   })}
                 </div>
 
-                {/* Granular Seat Allocation per Module (Tasks, Leads, Projects) */}
-                {formData.modules.some(m => ["tasks", "leads", "projects"].includes(m)) && (
+                {/* Granular Seat Allocation per Module */}
+                {formData.modules.some(m => ["tasks", "leads", "projects", "attendance", "leave", "payroll"].includes(m)) && (
                   <div className="bg-sa-bg/40 border border-sa-border/80 rounded-xl p-3.5 space-y-2.5">
                     <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                       <Users size={13} className="text-[#f59e0b]" />
-                      <span>Specialized Feature License Seat Caps (Optional Sub-Quota)</span>
+                      <span>Per-Module Employee Seat Caps (Optional Sub-Quota — 0 = All Seats)</span>
                     </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
+                      Set how many employees can access each module. Leave 0 to allow all company seats.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                       {[
-                        { key: "tasks", label: "Tasks Module Seat Cap" },
-                        { key: "leads", label: "Leads Engine & CRM Seat Cap" },
-                        { key: "projects", label: "Projects Workspace Seat Cap" }
+                        { key: "attendance", label: "Attendance & Bio-Punch", color: "#10b981" },
+                        { key: "leave",      label: "Leave Management",       color: "#06B6D4" },
+                        { key: "payroll",    label: "Payroll & Salary",       color: "#8b5cf6" },
+                        { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
+                        { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
+                        { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
                       ].filter(m => formData.modules.includes(m.key)).map(m => (
                         <div key={m.key} className="bg-sa-surface p-2.5 rounded-xl border border-sa-border/70">
-                          <label className="text-[10px] font-black text-sa-text-secondary uppercase tracking-wider block mb-1">
+                          <label
+                            className="text-[10px] font-black uppercase tracking-wider block mb-1"
+                            style={{ color: m.color }}
+                          >
                             {m.label}
                           </label>
                           <input
@@ -704,7 +716,9 @@ const SuperAdminPlans = () => {
                             className="w-full bg-sa-bg border border-sa-border rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
                           />
                           <p className="text-[9px] text-sa-text-secondary mt-1">
-                            {formData.moduleLimits?.[m.key] > 0 ? `${formData.moduleLimits[m.key]} seats max` : `Up to ${formData.employeeLimit} seats (all employees)`}
+                            {formData.moduleLimits?.[m.key] > 0
+                              ? `Max ${formData.moduleLimits[m.key]} employee seats`
+                              : `Up to ${formData.employeeLimit} seats (all employees)`}
                           </p>
                         </div>
                       ))}
