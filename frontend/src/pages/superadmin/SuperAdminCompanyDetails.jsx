@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getCompanyByIdApi } from "../../api/superAdminApi";
 import StatusBadge from "../../components/common/StatusBadge";
+import SuperAdminEditCompanyModal from "../../components/company/SuperAdminEditCompanyModal";
 import { 
   Building2, ArrowLeft, Mail, Phone, MapPin, Briefcase, CreditCard, 
   Users, Shield, History, Server, Activity, CheckCircle, Lock, 
@@ -13,6 +14,7 @@ const SuperAdminCompanyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("overview");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["superAdminCompanyDetails", id],
@@ -117,8 +119,8 @@ const SuperAdminCompanyDetails = () => {
           </button>
           <button 
             type="button" 
-            onClick={() => alert("Edit company details modal coming soon")} 
-            className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center space-x-2"
+            onClick={() => setIsEditModalOpen(true)} 
+            className="btn-primary px-5 py-2.5 rounded-xl text-sm font-bold shadow-md hover:shadow-lg transition-all flex items-center space-x-2 cursor-pointer"
           >
             <Settings size={15} />
             <span>Edit Company</span>
@@ -457,6 +459,15 @@ const SuperAdminCompanyDetails = () => {
           </div>
         )}
       </div>
+
+      {/* Edit Company Details Modal */}
+      {isEditModalOpen && (
+        <SuperAdminEditCompanyModal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          company={company}
+        />
+      )}
     </div>
   );
 };

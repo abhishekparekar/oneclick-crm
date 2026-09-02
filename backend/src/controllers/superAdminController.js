@@ -208,6 +208,7 @@ const updateCompany = async (req, res, next) => {
       "planName",
       "planId",
       "employeeLimit",
+      "storageLimit",
       "subscribedModules",
       "moduleLimits",
     ];
