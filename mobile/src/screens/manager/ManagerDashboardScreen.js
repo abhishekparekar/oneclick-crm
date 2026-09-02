@@ -80,6 +80,7 @@ const getGreeting = () => {
 };
 
 // ─────────────────────────────────────────────────────
+const ManagerDashboardScreen = ({ navigation }) => {
   const { user, hasPermission } = useAuth();
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
