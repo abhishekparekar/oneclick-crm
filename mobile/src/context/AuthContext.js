@@ -175,11 +175,17 @@ export const AuthProvider = ({ children }) => {
     if (roleLower === "superadmin") return true;
 
     const normCat = normalizeModule(category);
+    if (!normCat) return true;
 
-    // 1. Check Company Active Subscription Plan Modules
-    const subscribedModules = (user.company?.subscribedModules || user.subscribedModules || []).map(normalizeModule);
-    if (subscribedModules.length > 0 && normCat) {
-      if (!subscribedModules.includes(normCat)) {
+    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access)
+    const rawSubscribed = 
+      user.company?.subscribedModules ?? 
+      user.subscribedModules ?? 
+      (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+
+    if (Array.isArray(rawSubscribed)) {
+      const subscribed = rawSubscribed.map(normalizeModule);
+      if (!subscribed.includes(normCat)) {
         return false; // Not in company's purchased plan
       }
     }
@@ -188,9 +194,14 @@ export const AuthProvider = ({ children }) => {
     if (roleLower === "companyadmin" || roleLower === "admin") return true;
 
     // 2. Check Employee Assigned Modules (for Employee, Manager, HR)
-    const assignedModules = (user.assignedModules || user.employee?.assignedModules || []).map(normalizeModule);
-    if (assignedModules.length > 0 && normCat) {
-      if (!assignedModules.includes(normCat)) {
+    const rawAssigned = 
+      user.assignedModules ?? 
+      user.employee?.assignedModules ?? 
+      (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+
+    if (Array.isArray(rawAssigned)) {
+      const assigned = rawAssigned.map(normalizeModule);
+      if (!assigned.includes(normCat)) {
         return false; // Not allocated to this employee
       }
     }
