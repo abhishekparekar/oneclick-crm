@@ -154,6 +154,150 @@ const CompanyAdminLayout = ({
     }
   }, [navigation, isFocused]);
 
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+
+  const dynamicAdminTabs = useMemo(() => {
+    const list = [];
+    // Tab 1: Dashboard
+    list.push({
+      label: "Dashboard",
+      shortLabel: "Home",
+      screen: "CompanyDashboard",
+      icon: "grid-outline",
+      activeIcon: "grid",
+    });
+
+    // Tab 2: Primary Work (Leads -> Tasks -> Projects -> Staff)
+    if (canAccessLeads) {
+      list.push({
+        label: "Leads",
+        shortLabel: "Leads",
+        screen: "LeadsEngine",
+        icon: "magnet-outline",
+        activeIcon: "magnet",
+      });
+    } else if (canAccessTasks) {
+      list.push({
+        label: "Tasks",
+        shortLabel: "Tasks",
+        screen: "TaskBoard",
+        icon: "albums-outline",
+        activeIcon: "albums",
+      });
+    } else if (canAccessProjects) {
+      list.push({
+        label: "Projects",
+        shortLabel: "Projects",
+        screen: "ProjectList",
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+      });
+    } else {
+      list.push({
+        label: "Team Members",
+        shortLabel: "Staff",
+        screen: "EmployeeList",
+        icon: "people-outline",
+        activeIcon: "people",
+      });
+    }
+
+    // Tab 3: Center Add FAB
+    list.push({ isCenter: true });
+
+    // Tab 4: Secondary Work (Tasks -> Attendance -> Leaves -> Projects -> Staff -> Requests)
+    const hasLeads = list.some((t) => t.screen === "LeadsEngine");
+    const hasTasks = list.some((t) => t.screen === "TaskBoard");
+    const hasProjects = list.some((t) => t.screen === "ProjectList");
+    const hasStaff = list.some((t) => t.screen === "EmployeeList");
+
+    if (canAccessTasks && !hasTasks) {
+      list.push({
+        label: "Tasks",
+        shortLabel: "Tasks",
+        screen: "TaskBoard",
+        icon: "albums-outline",
+        activeIcon: "albums",
+      });
+    } else if (canAccessAttendance) {
+      list.push({
+        label: "Attendance",
+        shortLabel: "Attend",
+        screen: "CompanyAttendance",
+        icon: "calendar-outline",
+        activeIcon: "calendar",
+      });
+    } else if (canAccessLeaves) {
+      list.push({
+        label: "Leaves",
+        shortLabel: "Leaves",
+        screen: "LeaveRequests",
+        icon: "time-outline",
+        activeIcon: "time",
+      });
+    } else if (canAccessProjects && !hasProjects) {
+      list.push({
+        label: "Projects",
+        shortLabel: "Projects",
+        screen: "ProjectList",
+        icon: "folder-open-outline",
+        activeIcon: "folder-open",
+      });
+    } else if (!hasStaff) {
+      list.push({
+        label: "Team Members",
+        shortLabel: "Staff",
+        screen: "EmployeeList",
+        icon: "people-outline",
+        activeIcon: "people",
+      });
+    } else {
+      list.push({
+        label: "Company Requests",
+        shortLabel: "Requests",
+        screen: "CompanyRequests",
+        icon: "chatbubbles-outline",
+        activeIcon: "chatbubbles",
+      });
+    }
+
+    // Tab 5: Right Action (Attendance -> Leaves -> Settings)
+    const hasAttendance = list.some((t) => t.screen === "CompanyAttendance");
+    const hasLeaves = list.some((t) => t.screen === "LeaveRequests");
+
+    if (canAccessAttendance && !hasAttendance) {
+      list.push({
+        label: "Attendance",
+        shortLabel: "Attend",
+        screen: "CompanyAttendance",
+        icon: "calendar-outline",
+        activeIcon: "calendar",
+      });
+    } else if (canAccessLeaves && !hasLeaves) {
+      list.push({
+        label: "Leaves",
+        shortLabel: "Leaves",
+        screen: "LeaveRequests",
+        icon: "time-outline",
+        activeIcon: "time",
+      });
+    } else {
+      list.push({
+        label: "Settings",
+        shortLabel: "Settings",
+        screen: "CompanySettings",
+        icon: "settings-outline",
+        activeIcon: "settings",
+      });
+    }
+
+    return list;
+  }, [canAccessLeads, canAccessTasks, canAccessAttendance, canAccessLeaves, canAccessProjects]);
+
   const activeTabVal = useMemo(() => {
     if (activeTab) return activeTab;
     if (currentRouteName && ROUTE_TO_TAB[currentRouteName]) {
@@ -527,10 +671,7 @@ const CompanyAdminLayout = ({
             { height: 62 + insets.bottom, paddingBottom: insets.bottom },
           ]}
         >
-          {ADMIN_NAV_ITEMS.filter((item) => {
-            if (!item.module) return true;
-            return hasPermission(item.module, "view") || hasPermission(item.module);
-          }).map((item) => {
+          {dynamicAdminTabs.map((item) => {
             if (item.isCenter) {
               return (
                 <TouchableOpacity

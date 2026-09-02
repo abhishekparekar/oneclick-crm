@@ -85,21 +85,29 @@ const HRCustomTabBar = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
 
   const icons = {
-    HRDashboard:    ["grid",         "grid-outline"],
-    LeadsEngine:    ["magnet",       "magnet-outline"],
-    HRTaskBoard:    ["albums",       "albums-outline"],
-    // HRProjects:     ["folder-open",  "folder-open-outline"],
-    HRLeaveRequests: ["calendar-clear", "calendar-clear-outline"],
-    HRAttendance:   ["time",         "time-outline"],
+    HRDashboard:     ["grid",                           "grid-outline"],
+    LeadsEngine:     ["magnet",                         "magnet-outline"],
+    HRTaskBoard:     ["albums",                         "albums-outline"],
+    HRProjectList:   ["folder-open",                    "folder-open-outline"],
+    HREmployeeList:  ["people",                         "people-outline"],
+    HRAttendance:    ["time",                           "time-outline"],
+    HRLeaveRequests: ["calendar-clear",                 "calendar-clear-outline"],
+    CompanyRequests: ["chatbubbles",                    "chatbubbles-outline"],
+    HRAnnouncements: ["megaphone",                      "megaphone-outline"],
+    HRSettings:      ["ellipsis-horizontal-circle",     "ellipsis-horizontal-circle-outline"],
   };
 
   const labels = {
-    HRDashboard:    "Dashboard",
-    LeadsEngine:    "Leads",
-    HRTaskBoard:    "Tasks",
-    // HRProjects:     "Projects",
+    HRDashboard:     "Dashboard",
+    LeadsEngine:     "Leads",
+    HRTaskBoard:     "Tasks",
+    HRProjectList:   "Projects",
+    HREmployeeList:  "Staff",
+    HRAttendance:    "Attendance",
     HRLeaveRequests: "Leaves",
-    HRAttendance:   "Attendance",
+    CompanyRequests: "Requests",
+    HRAnnouncements: "Updates",
+    HRSettings:      "More",
   };
 
   return (
@@ -154,25 +162,62 @@ const HRBottomTabs = () => {
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+
+  const tabs = [];
+  // 1. Dashboard
+  tabs.push({ name: "HRDashboard", component: HRDashboardScreen, label: "Dashboard" });
+
+  // 2. Work (Leads -> Tasks -> Projects -> Staff)
+  if (canAccessLeads) {
+    tabs.push({ name: "LeadsEngine", component: HRLeadsScreen, label: "Leads" });
+  } else if (canAccessTasks) {
+    tabs.push({ name: "HRTaskBoard", component: HRTaskBoardScreen, label: "Tasks" });
+  } else if (canAccessProjects) {
+    tabs.push({ name: "HRProjectList", component: HRProjectListScreen, label: "Projects" });
+  } else {
+    tabs.push({ name: "HREmployeeList", component: HREmployeeDetailsScreen, label: "Staff" });
+  }
+
+  // 3. Attendance / Leaves / Requests
+  if (canAccessAttendance) {
+    tabs.push({ name: "HRAttendance", component: HRAttendanceScreen, label: "Attendance" });
+  } else if (canAccessLeaves) {
+    tabs.push({ name: "HRLeaveRequests", component: HRLeaveRequestsScreen, label: "Leaves" });
+  } else {
+    tabs.push({ name: "CompanyRequests", component: CompanyRequestsScreen, label: "Requests" });
+  }
+
+  // 4. Secondary Work (Tasks -> Leaves -> Projects -> Requests -> Announcements)
+  const hasLeads = tabs.some((t) => t.name === "LeadsEngine");
+  const hasTasks = tabs.some((t) => t.name === "HRTaskBoard");
+  const hasLeaves = tabs.some((t) => t.name === "HRLeaveRequests");
+  const hasProjects = tabs.some((t) => t.name === "HRProjectList");
+  const hasRequests = tabs.some((t) => t.name === "CompanyRequests");
+
+  if (canAccessTasks && !hasTasks) {
+    tabs.push({ name: "HRTaskBoard", component: HRTaskBoardScreen, label: "Tasks" });
+  } else if (canAccessLeaves && !hasLeaves) {
+    tabs.push({ name: "HRLeaveRequests", component: HRLeaveRequestsScreen, label: "Leaves" });
+  } else if (canAccessProjects && !hasProjects) {
+    tabs.push({ name: "HRProjectList", component: HRProjectListScreen, label: "Projects" });
+  } else if (!hasRequests) {
+    tabs.push({ name: "CompanyRequests", component: CompanyRequestsScreen, label: "Requests" });
+  } else {
+    tabs.push({ name: "HRAnnouncements", component: HRAnnouncementsScreen, label: "Updates" });
+  }
+
+  // 5. Settings / More
+  tabs.push({ name: "HRSettings", component: HRSettingsScreen, label: "More" });
 
   return (
     <Tab.Navigator
       tabBar={(props) => <HRCustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="HRDashboard"     component={HRDashboardScreen} />
-      {canAccessLeads && (
-        <Tab.Screen name="LeadsEngine"   component={HRLeadsScreen} />
-      )}
-      {canAccessTasks && (
-        <Tab.Screen name="HRTaskBoard"   component={HRTaskBoardScreen} />
-      )}
-      {canAccessLeaves && (
-        <Tab.Screen name="HRLeaveRequests" component={HRLeaveRequestsScreen} />
-      )}
-      {canAccessAttendance && (
-        <Tab.Screen name="HRAttendance"  component={HRAttendanceScreen} />
-      )}
+      {tabs.map((tab) => (
+        <Tab.Screen key={tab.name} name={tab.name} component={tab.component} />
+      ))}
     </Tab.Navigator>
   );
 };

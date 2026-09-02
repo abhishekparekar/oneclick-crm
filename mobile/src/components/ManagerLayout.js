@@ -131,10 +131,73 @@ const ManagerLayout = ({
     currentRouteName = route?.name || null;
   } catch (_) { }
 
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+
+  const dynamicTabs = React.useMemo(() => {
+    const list = [];
+    // Tab 1: Home
+    list.push({ label: "Home", screen: "ManagerDashboard", icon: "home-outline", activeIcon: "home" });
+
+    // Tab 2: Primary Work (Leads -> Tasks -> Projects -> Team)
+    if (canAccessLeads) {
+      list.push({ label: "Leads", screen: "LeadsEngine", icon: "magnet-outline", activeIcon: "magnet" });
+    } else if (canAccessTasks) {
+      list.push({ label: "Tasks", screen: "ManagerTasks", icon: "checkbox-outline", activeIcon: "checkbox" });
+    } else if (canAccessProjects) {
+      list.push({ label: "Projects", screen: "ManagerProjects", icon: "folder-open-outline", activeIcon: "folder-open" });
+    } else {
+      list.push({ label: "Team", screen: "ManagerTeam", icon: "people-outline", activeIcon: "people" });
+    }
+
+    // Tab 3: Center Add / Action
+    list.push({ label: "CenterAdd", isCenter: true });
+
+    // Tab 4: Secondary Work (Tasks -> Attendance -> Leaves -> Projects -> Team -> Requests)
+    const hasLeads = list.some((t) => t.screen === "LeadsEngine");
+    const hasTasks = list.some((t) => t.screen === "ManagerTasks");
+    const hasProjects = list.some((t) => t.screen === "ManagerProjects");
+    const hasTeam = list.some((t) => t.screen === "ManagerTeam");
+
+    if (canAccessTasks && !hasTasks) {
+      list.push({ label: "Tasks", screen: "ManagerTasks", icon: "checkbox-outline", activeIcon: "checkbox" });
+    } else if (canAccessAttendance) {
+      list.push({ label: "Attendance", screen: "ManagerTeamAttendance", icon: "calendar-outline", activeIcon: "calendar" });
+    } else if (canAccessLeaves) {
+      list.push({ label: "Leaves", screen: "ManagerTeamLeaves", icon: "time-outline", activeIcon: "time" });
+    } else if (canAccessProjects && !hasProjects) {
+      list.push({ label: "Projects", screen: "ManagerProjects", icon: "folder-open-outline", activeIcon: "folder-open" });
+    } else if (!hasTeam) {
+      list.push({ label: "Team", screen: "ManagerTeam", icon: "people-outline", activeIcon: "people" });
+    } else {
+      list.push({ label: "Requests", screen: "CompanyRequests", icon: "chatbubbles-outline", activeIcon: "chatbubbles" });
+    }
+
+    // Tab 5: Right Action (Attendance -> Leaves -> Reports -> Profile)
+    const hasAttendance = list.some((t) => t.screen === "ManagerTeamAttendance");
+    const hasLeaves = list.some((t) => t.screen === "ManagerTeamLeaves");
+
+    if (canAccessAttendance && !hasAttendance) {
+      list.push({ label: "Attendance", screen: "ManagerTeamAttendance", icon: "calendar-outline", activeIcon: "calendar" });
+    } else if (canAccessLeaves && !hasLeaves) {
+      list.push({ label: "Leaves", screen: "ManagerTeamLeaves", icon: "time-outline", activeIcon: "time" });
+    } else if (canAccessReports) {
+      list.push({ label: "Reports", screen: "ManagerReports", icon: "bar-chart-outline", activeIcon: "bar-chart" });
+    } else {
+      list.push({ label: "Profile", screen: "ManagerProfile", icon: "person-outline", activeIcon: "person" });
+    }
+
+    return list;
+  }, [canAccessLeads, canAccessTasks, canAccessAttendance, canAccessLeaves, canAccessProjects, canAccessReports]);
+
   // Resolve the active tab label with full fallback & fuzzy detection
   let activeTabLabel = "Home";
   if (activeTabOverride) {
-    const overrideMatch = BOTTOM_TABS.find(
+    const overrideMatch = dynamicTabs.find(
       t => t.screen === activeTabOverride ||
            t.label === activeTabOverride ||
            t.label.toLowerCase() === String(activeTabOverride).toLowerCase() ||
@@ -149,8 +212,10 @@ const ManagerLayout = ({
     activeTabLabel = SCREEN_TO_TAB[currentRouteName] ||
       (currentRouteName.includes("Lead") ? "Leads" :
        currentRouteName.includes("Task") ? "Tasks" :
-       currentRouteName.includes("Attendance") || currentRouteName.includes("Leave") ? "Attendance" :
-       currentRouteName.includes("Project") ? "Home" : "Home");
+       currentRouteName.includes("Attendance") ? "Attendance" :
+       currentRouteName.includes("Leave") ? "Leaves" :
+       currentRouteName.includes("Project") ? "Projects" :
+       currentRouteName.includes("Team") ? "Team" : "Home");
   }
 
   // Sync activeTabLabel to LayoutContext safely
@@ -188,6 +253,34 @@ const ManagerLayout = ({
     }
     if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
       navigation.navigate("ManagerTeamAttendance");
+      return;
+    }
+    if (screen === "ManagerTeamLeaves" || screen === "Leaves") {
+      navigation.navigate("ManagerTeamLeaves");
+      return;
+    }
+    if (screen === "ManagerProjects" || screen === "Projects") {
+      navigation.navigate("ManagerProjects");
+      return;
+    }
+    if (screen === "ManagerTeam" || screen === "Team") {
+      navigation.navigate("ManagerTeam");
+      return;
+    }
+    if (screen === "ManagerReports" || screen === "Reports") {
+      navigation.navigate("ManagerReports");
+      return;
+    }
+    if (screen === "CompanyRequests" || screen === "Requests") {
+      navigation.navigate("CompanyRequests");
+      return;
+    }
+    if (screen === "ManagerProfile" || screen === "Profile") {
+      navigation.navigate("ManagerProfile");
+      return;
+    }
+    navigation.navigate(screen);
+  };
       return;
     }
     if (screen === "ManagerTeam" || screen === "My Team") {
@@ -377,10 +470,7 @@ const ManagerLayout = ({
             { height: 60 + insets.bottom, paddingBottom: insets.bottom }
           ]}
         >
-          {BOTTOM_TABS.filter((item) => {
-            if (!item.module) return true;
-            return hasPermission(item.module, "view") || hasPermission(item.module);
-          }).map((item, index) => {
+          {dynamicTabs.map((item, index) => {
             if (item.isCenter) {
               return (
                 <TouchableOpacity

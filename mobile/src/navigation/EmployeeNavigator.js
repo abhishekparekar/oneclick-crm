@@ -68,10 +68,145 @@ const EmployeeBottomTabs = () => {
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+
+  // Dynamically assemble an exact 5-tab balanced layout
+  const tabs = [];
+
+  // Tab 1: Dashboard (Always Left)
+  tabs.push({
+    name: "EmployeeDashboard",
+    label: "Dashboard",
+    component: EmployeeDashboard,
+    icon: "home-outline",
+    activeIcon: "home",
+  });
+
+  // Tab 2: Work (Tasks -> Leads -> Projects -> Announcements)
+  if (canAccessTasks) {
+    tabs.push({
+      name: "Tasks",
+      label: "Tasks",
+      component: MyTasksScreen,
+      icon: "checkmark-done-circle-outline",
+      activeIcon: "checkmark-done-circle",
+    });
+  } else if (canAccessLeads) {
+    tabs.push({
+      name: "LeadsEngine",
+      label: "Leads",
+      component: EmployeeLeadsScreen,
+      icon: "magnet-outline",
+      activeIcon: "magnet",
+    });
+  } else if (canAccessProjects) {
+    tabs.push({
+      name: "MyProjects",
+      label: "Projects",
+      component: MyProjectsScreen,
+      icon: "folder-open-outline",
+      activeIcon: "folder-open",
+    });
+  } else {
+    tabs.push({
+      name: "Announcements",
+      label: "Updates",
+      component: AnnouncementsScreen,
+      icon: "megaphone-outline",
+      activeIcon: "megaphone",
+    });
+  }
+
+  // Tab 3: Center Action Button (Attendance -> Leaves -> Requests)
+  if (canAccessAttendance) {
+    tabs.push({
+      name: "Attendance",
+      label: "Attendance",
+      component: EmployeeMonthlyAttendanceScreen,
+      icon: "leaf",
+      activeIcon: "leaf",
+      isCenter: true,
+    });
+  } else if (canAccessLeaves) {
+    tabs.push({
+      name: "Leave",
+      label: "Leaves",
+      component: MyLeavesScreen,
+      icon: "calendar-clear-outline",
+      activeIcon: "calendar-clear",
+      isCenter: true,
+    });
+  } else {
+    tabs.push({
+      name: "CompanyRequests",
+      label: "Requests",
+      component: CompanyRequestsScreen,
+      icon: "chatbubbles-outline",
+      activeIcon: "chatbubbles",
+      isCenter: true,
+    });
+  }
+
+  // Tab 4: Secondary Work (Leads -> Leaves -> Projects -> Requests -> Documents)
+  const hasLeads = tabs.some((t) => t.name === "LeadsEngine");
+  const hasLeaves = tabs.some((t) => t.name === "Leave");
+  const hasProjects = tabs.some((t) => t.name === "MyProjects");
+  const hasRequests = tabs.some((t) => t.name === "CompanyRequests");
+
+  if (canAccessLeads && !hasLeads) {
+    tabs.push({
+      name: "LeadsEngine",
+      label: "Leads",
+      component: EmployeeLeadsScreen,
+      icon: "magnet-outline",
+      activeIcon: "magnet",
+    });
+  } else if (canAccessLeaves && !hasLeaves) {
+    tabs.push({
+      name: "Leave",
+      label: "Leaves",
+      component: MyLeavesScreen,
+      icon: "calendar-clear-outline",
+      activeIcon: "calendar-clear",
+    });
+  } else if (canAccessProjects && !hasProjects) {
+    tabs.push({
+      name: "MyProjects",
+      label: "Projects",
+      component: MyProjectsScreen,
+      icon: "folder-open-outline",
+      activeIcon: "folder-open",
+    });
+  } else if (!hasRequests) {
+    tabs.push({
+      name: "CompanyRequests",
+      label: "Requests",
+      component: CompanyRequestsScreen,
+      icon: "chatbubbles-outline",
+      activeIcon: "chatbubbles",
+    });
+  } else {
+    tabs.push({
+      name: "EmployeeDocuments",
+      label: "Docs",
+      component: EmployeeDocumentsScreen,
+      icon: "document-text-outline",
+      activeIcon: "document-text",
+    });
+  }
+
+  // Tab 5: More / Profile (Always Right)
+  tabs.push({
+    name: "EmployeeProfile",
+    label: "More",
+    component: EmployeeProfileScreen,
+    icon: "grid-outline",
+    activeIcon: "grid",
+  });
 
   return (
     <Tab.Navigator
-      screenOptions={({ route }) => ({
+      screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#1268D9",
         tabBarInactiveTintColor: "#64748B",
@@ -93,92 +228,37 @@ const EmployeeBottomTabs = () => {
           fontFamily: FONTS.bodyMedium,
           marginTop: 2,
         },
-        tabBarIcon: ({ color, size, focused }) => {
-          let iconName;
-
-          if (route.name === "EmployeeDashboard") {
-            iconName = focused ? "home" : "home-outline";
-          } else if (route.name === "LeadsEngine") {
-            iconName = focused ? "magnet" : "magnet-outline";
-          } else if (route.name === "Tasks") {
-            iconName = focused ? "list" : "list-outline";
-          } else if (route.name === "Leave") {
-            iconName = focused ? "calendar-clear" : "calendar-clear-outline";
-          } else if (route.name === "EmployeeProfile") {
-            iconName = focused ? "grid" : "grid-outline";
-          } else if (route.name === "Attendance") {
-            iconName = "leaf";
-          }
-
-          if (route.name === "Attendance") {
-            return (
-              <View style={styles.customTabButtonContainer}>
-                <View style={styles.customTabButton}>
-                  <Ionicons name="leaf" size={24} color="#ffffff" />
-                </View>
-              </View>
-            );
-          }
-
-          return <Ionicons name={iconName} size={22} color={color} />;
-        },
-      })}
+      }}
     >
-      <Tab.Screen
-        name="EmployeeDashboard"
-        component={EmployeeDashboard}
-        options={{ tabBarLabel: "Dashboard", headerShown: false }}
-      />
-      {canAccessLeads ? (
+      {tabs.map((tab) => (
         <Tab.Screen
-          name="LeadsEngine"
-          component={EmployeeLeadsScreen}
-          options={{ tabBarLabel: "Leads", headerShown: false }}
-        />
-      ) : canAccessTasks ? (
-        <Tab.Screen
-          name="Tasks"
-          component={MyTasksScreen}
-          options={{ tabBarLabel: "Tasks", headerShown: false }}
-        />
-      ) : null}
-
-      {canAccessAttendance && (
-        <Tab.Screen
-          name="Attendance"
-          component={EmployeeMonthlyAttendanceScreen}
+          key={tab.name}
+          name={tab.name}
+          component={tab.component}
           options={{
-            tabBarLabel: () => null,
+            tabBarLabel: tab.isCenter && tab.name === "Attendance" ? () => null : tab.label,
+            headerShown: false,
+            tabBarIcon: ({ color, focused }) => {
+              if (tab.isCenter && tab.name === "Attendance") {
+                return (
+                  <View style={styles.customTabButtonContainer}>
+                    <View style={styles.customTabButton}>
+                      <Ionicons name="leaf" size={24} color="#ffffff" />
+                    </View>
+                  </View>
+                );
+              }
+              return (
+                <Ionicons
+                  name={focused ? tab.activeIcon : tab.icon}
+                  size={22}
+                  color={color}
+                />
+              );
+            },
           }}
         />
-      )}
-
-      {canAccessLeads && canAccessTasks ? (
-        <Tab.Screen
-          name="Tasks"
-          component={MyTasksScreen}
-          options={{ tabBarLabel: "Tasks", headerShown: false }}
-        />
-      ) : !canAccessLeads && !canAccessTasks && canAccessLeaves ? (
-        <Tab.Screen
-          name="Leave"
-          component={MyLeavesScreen}
-          options={{ tabBarLabel: "Leaves", headerShown: false }}
-        />
-      ) : canAccessLeads && !canAccessTasks && canAccessLeaves ? (
-        <Tab.Screen
-          name="Leave"
-          component={MyLeavesScreen}
-          options={{ tabBarLabel: "Leaves", headerShown: false }}
-        />
-      ) : null}
-
-      <Tab.Screen
-        name="EmployeeProfile"
-        component={EmployeeProfileScreen}
-        options={{ tabBarLabel: "More", headerShown: false }}
-      />
-
+      ))}
     </Tab.Navigator>
   );
 };
