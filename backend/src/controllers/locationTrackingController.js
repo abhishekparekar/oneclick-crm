@@ -1,6 +1,8 @@
 const EmployeeLocation = require("../models/EmployeeLocation");
 const Employee = require("../models/Employee");
+const Attendance = require("../models/Attendance");
 const User = require("../models/User");
+const mongoose = require("mongoose");
 
 /**
  * Sync batch of employee GPS locations from mobile device
@@ -14,10 +16,13 @@ const syncBatchLocations = async (req, res) => {
       return res.status(400).json({ success: false, message: "No location points provided" });
     }
 
-    // Determine employeeId and companyId
+    const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
+    const userId = req.user._id;
+
+    // Determine employeeId
     let employeeId = req.user.employeeId;
     if (!employeeId) {
-      const emp = await Employee.findOne({ userId: req.user._id, companyId: req.user.companyId }).select("_id");
+      const emp = await Employee.findOne({ userId, companyId }).select("_id");
       if (emp) {
         employeeId = emp._id;
       }
@@ -26,9 +31,6 @@ const syncBatchLocations = async (req, res) => {
     if (!employeeId) {
       return res.status(400).json({ success: false, message: "No associated employee record found for user" });
     }
-
-    const companyId = req.user.companyId;
-    const userId = req.user._id;
 
     // Filter and sanitize valid points
     const validPoints = [];
@@ -100,45 +102,99 @@ const syncBatchLocations = async (req, res) => {
  */
 const getLiveEmployeeLocations = async (req, res) => {
   try {
-    const companyId = req.user.companyId;
-    const isManager = req.user.role === "Manager";
+    const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
+    const isManager = req.user.role === "Manager" || req.user.role === "manager";
 
-    let employeeQuery = { companyId, status: "active" };
+    if (!companyId) {
+      return res.status(400).json({ success: false, message: "Company ID not found in user session" });
+    }
 
-    // If Manager, filter to department employees
+    let employeeQuery = {
+      companyId: new mongoose.Types.ObjectId(companyId.toString()),
+      status: { $ne: "terminated" },
+    };
+
+    // If Manager, filter to their managed department or team if applicable
     if (isManager) {
       const managerEmp = await Employee.findOne({ userId: req.user._id, companyId });
-      if (managerEmp && managerEmp.department) {
-        employeeQuery.department = managerEmp.department;
+      if (managerEmp) {
+        if (managerEmp.departmentId) {
+          employeeQuery.departmentId = managerEmp.departmentId;
+        } else if (managerEmp.departmentName) {
+          employeeQuery.departmentName = managerEmp.departmentName;
+        }
       }
     }
 
     const employees = await Employee.find(employeeQuery)
-      .select("name email phone designation department avatar profilePicture lastLocation employeeCode")
+      .select(
+        "firstName lastName fullName email phone designationName departmentName photo avatar employeeCode lastLocation status"
+      )
       .lean();
+
+    // Fetch today's attendance for these employees to get punch in/out coords as backup
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const employeeIds = employees.map((e) => e._id);
+
+    const attendances = await Attendance.find({
+      employeeId: { $in: employeeIds },
+      date: todayStr,
+    }).lean();
+
+    const attendanceMap = new Map();
+    attendances.forEach((att) => {
+      attendanceMap.set(att.employeeId.toString(), att);
+    });
 
     // Map into clean live tracking format
     const liveTrackList = employees.map((emp) => {
       const lastLoc = emp.lastLocation || {};
-      const isRecent = lastLoc.updatedAt && (new Date() - new Date(lastLoc.updatedAt)) < 15 * 60 * 1000; // within 15 min
+      const todayAtt = attendanceMap.get(emp._id.toString());
+
+      // Check if location is from GPS tracking (recent ping)
+      const isRecent =
+        lastLoc.updatedAt && new Date() - new Date(lastLoc.updatedAt) < 20 * 60 * 1000; // within 20 min
+
+      let latitude = lastLoc.latitude || null;
+      let longitude = lastLoc.longitude || null;
+      let lastUpdated = lastLoc.updatedAt || null;
+      let speed = lastLoc.speed || 0;
+      let accuracy = lastLoc.accuracy || 0;
+
+      // Fallback to today's punch location if no continuous GPS yet
+      if (!latitude && todayAtt) {
+        const punchLoc = todayAtt.punchInLocation || todayAtt.punchOutLocation;
+        if (punchLoc && punchLoc.latitude && punchLoc.longitude) {
+          latitude = punchLoc.latitude;
+          longitude = punchLoc.longitude;
+          lastUpdated = todayAtt.punchInTime || todayAtt.createdAt;
+        }
+      }
+
+      const displayName =
+        emp.fullName ||
+        (emp.firstName && emp.lastName ? `${emp.firstName} ${emp.lastName}` : emp.firstName || "Employee");
+
+      const isOnline = Boolean(isRecent && latitude);
 
       return {
         _id: emp._id,
-        name: emp.name,
+        name: displayName,
         email: emp.email,
         phone: emp.phone,
-        department: emp.department,
-        designation: emp.designation,
-        avatar: emp.profilePicture || emp.avatar,
-        employeeCode: emp.employeeCode,
-        latitude: lastLoc.latitude || null,
-        longitude: lastLoc.longitude || null,
-        accuracy: lastLoc.accuracy || 0,
-        speed: lastLoc.speed || 0,
+        department: emp.departmentName || "General",
+        designation: emp.designationName || "Staff",
+        avatar: emp.photo || emp.avatar || "",
+        employeeCode: emp.employeeCode || "",
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
+        accuracy: accuracy,
+        speed: speed,
         heading: lastLoc.heading || 0,
-        lastUpdated: lastLoc.updatedAt || null,
-        isOnline: Boolean(isRecent && lastLoc.latitude),
+        lastUpdated: lastUpdated,
+        isOnline: isOnline,
         isTrackingActive: Boolean(lastLoc.isTrackingActive && isRecent),
+        attendanceStatus: todayAtt ? todayAtt.status : "absent",
       };
     });
 
@@ -160,6 +216,7 @@ const getEmployeeLocationTrail = async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { date } = req.query; // YYYY-MM-DD or today
+    const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
 
     const targetDate = date ? new Date(date) : new Date();
     const startOfDay = new Date(targetDate);
@@ -170,7 +227,7 @@ const getEmployeeLocationTrail = async (req, res) => {
 
     const trail = await EmployeeLocation.find({
       employeeId,
-      companyId: req.user.companyId,
+      companyId: new mongoose.Types.ObjectId(companyId.toString()),
       timestamp: { $gte: startOfDay, $lte: endOfDay },
     })
       .sort({ timestamp: 1 })
@@ -192,7 +249,8 @@ const getEmployeeLocationTrail = async (req, res) => {
           Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const dist = 6371 * c; // Earth radius in KM
-      if (dist > 0.01 && dist < 10) { // filter out GPS jumps
+      if (dist > 0.01 && dist < 10) {
+        // filter out GPS jumps
         totalDistanceKm += dist;
       }
     }
