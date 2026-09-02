@@ -449,11 +449,13 @@ export default function ManagerMyTasks() {
 
               {/* Filters Dropdown Card */}
               {showFiltersDropdown && (
-                <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-50 space-y-3.5 shadow-2xl rounded-2xl animate-fadeIn">
-                  <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-                    <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
-                    <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600"><X size={14}/></button>
-                  </div>
+                <>
+                  <div className="fixed inset-0 z-40 cursor-default" onClick={() => setShowFiltersDropdown(false)} />
+                  <div className="absolute top-full right-0 mt-2 w-[calc(100vw-32px)] sm:w-80 max-w-sm bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-4 sm:p-5 z-50 space-y-3.5 shadow-2xl rounded-2xl animate-fadeIn">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+                      <span className="text-xs font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Filters</span>
+                      <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={14}/></button>
+                    </div>
                   <div>
                     <label className="block text-[10.5px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">Department</label>
                     <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white text-xs font-medium py-2 px-3 outline-none rounded-xl" value={filters.departmentId} onChange={e => setFilters({ ...filters, departmentId: e.target.value })}>
@@ -496,7 +498,8 @@ export default function ManagerMyTasks() {
                     <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-xs px-3 py-2 rounded-xl transition-colors cursor-pointer">Apply</button>
                   </div>
                 </div>
-              )}
+              </>
+            )}
             </div>
 
             <button
@@ -604,74 +607,6 @@ export default function ManagerMyTasks() {
               </button>
             );
           })}
-        </div>
-
-        {/* ── Row 3: Quick Filter Selects (Dept, Priority, Deadline, Dates) ────── */}
-        <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-          {/* Department Select */}
-          <select
-            value={filters.departmentId}
-            onChange={e => setFilters(prev => ({ ...prev, departmentId: e.target.value }))}
-            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-          >
-            <option value="">All Departments</option>
-            {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-          </select>
-
-          {/* Priority Select */}
-          <select
-            value={filters.priority}
-            onChange={e => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-          >
-            <option value="">All Priorities</option>
-            <option value="high">High Priority</option>
-            <option value="medium">Medium Priority</option>
-            <option value="low">Low Priority</option>
-          </select>
-
-          {/* Deadline Select */}
-          <select
-            value={filters.deadlineFilter}
-            onChange={e => setFilters(prev => ({ ...prev, deadlineFilter: e.target.value }))}
-            className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-          >
-            <option value="">All Deadlines</option>
-            <option value="today">Due Today</option>
-            <option value="tomorrow">Due Tomorrow</option>
-            <option value="overdue">Overdue</option>
-          </select>
-
-          {/* From Date */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">From</span>
-            <input
-              type="date"
-              value={filters.startDate}
-              onChange={e => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-              className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-            />
-          </div>
-
-          {/* To Date */}
-          <div className="flex items-center gap-1">
-            <span className="text-[10.5px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider shrink-0">To</span>
-            <input
-              type="date"
-              value={filters.endDate}
-              onChange={e => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-              className="h-7 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 text-xs font-semibold px-2 rounded-lg outline-none focus:border-amber-500 shadow-2xs cursor-pointer"
-            />
-          </div>
-
-          {activeCustomFiltersCount > 0 && (
-            <button
-              onClick={() => { setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", overdue: false }); setStatusFilter(""); }}
-              className="h-7 px-2.5 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 dark:border-rose-800 dark:hover:bg-rose-950/30 transition-all cursor-pointer flex items-center gap-1 shrink-0"
-            >
-              <X size={11} /> Reset
-            </button>
-          )}
         </div>
       </div>
 
