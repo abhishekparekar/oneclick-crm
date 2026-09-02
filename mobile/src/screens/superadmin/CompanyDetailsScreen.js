@@ -173,10 +173,33 @@ const CompanyDetailsScreen = ({ route, navigation }) => {
 
         {/* Subscription Plan details */}
         <AppCard style={styles.card}>
-          <Text style={styles.sectionTitle}>SaaS Subscription</Text>
+          <Text style={styles.sectionTitle}>SaaS Subscription & Module Licensing</Text>
           <DetailRow icon="card-outline" label="Active Plan" value={company.planName} />
-          <DetailRow icon="people-outline" label="Employee Limit" value={`${company.employeeLimit} employees`} />
-          <DetailRow icon="analytics-outline" label="Module Access" value="Managed globally via Access Control" />
+          <DetailRow icon="people-outline" label="Seat Quota" value={`${company.employeeLimit || 50} employees`} />
+          <DetailRow icon="cloud-outline" label="Storage Allowance" value={`${company.storageLimit || 5} GB`} />
+          
+          <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6" }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <Text style={styles.label}>Entitled Suite Modules</Text>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#f59e0b" }}>
+                {(company.subscribedModules || []).length} Active
+              </Text>
+            </View>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {(company.subscribedModules || ["attendance", "leave", "payroll", "tasks"]).map((mod) => {
+                const cap = company.moduleLimits?.[mod];
+                return (
+                  <View key={mod} style={styles.modBadge}>
+                    <Ionicons name="checkmark-circle" size={12} color="#f59e0b" />
+                    <Text style={styles.modBadgeText}>{mod.toUpperCase()}</Text>
+                    {cap > 0 && (
+                      <Text style={styles.modCapText}>({cap} seats)</Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
 
           {/* Quick shortcuts */}
           <View style={styles.shortcutsRow}>
@@ -184,7 +207,7 @@ const CompanyDetailsScreen = ({ route, navigation }) => {
               style={styles.shortcutBtn}
               onPress={() => navigation.navigate("CompanyAdmins", { search: company.companyName })}
             >
-              <Ionicons name="people" size={16} color="#2563eb" />
+              <Ionicons name="people" size={16} color="#f59e0b" />
               <Text style={styles.shortcutText}>View Admins</Text>
             </TouchableOpacity>
 
@@ -192,7 +215,7 @@ const CompanyDetailsScreen = ({ route, navigation }) => {
               style={styles.shortcutBtn}
               onPress={() => navigation.navigate("Payments", { search: company.companyName })}
             >
-              <Ionicons name="cash" size={16} color="#2563eb" />
+              <Ionicons name="cash" size={16} color="#f59e0b" />
               <Text style={styles.shortcutText}>View Payments</Text>
             </TouchableOpacity>
           </View>
@@ -362,14 +385,35 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     fontSize: 12,
     fontWeight: "600",
-    color: "#2563eb",
+    color: "#f59e0b",
+  },
+  modBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: "rgba(245, 158, 11, 0.1)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.3)",
+    gap: 4,
+  },
+  modBadgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#f59e0b",
+  },
+  modCapText: {
+    fontSize: 9,
+    color: "#94a3b8",
+    fontWeight: "600",
   },
   actionsContainer: {
     marginTop: 8,
     marginBottom: 20,
   },
   actionBtn: {
-    marginBottom: 10,
+    marginBottom: 8,
   },
   statusButtonsRow: {
     flexDirection: "row",
@@ -379,7 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deleteBtn: {
-    marginTop: 10,
+    marginTop: 8,
   },
   error: { color: "#ef4444", textAlign: "center", fontSize: 16 },
 });

@@ -334,32 +334,8 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                   </View>
                 </View>
 
-                <Text style={styles.modulesLabel}>SaaS Modules Access Control:</Text>
-                <View style={styles.checkboxContainer}>
-                  {AVAILABLE_MODULES.map((mod) => {
-                    const isChecked = form.modules.includes(mod);
-                    return (
-                      <TouchableOpacity
-                        key={mod}
-                        onPress={() => handleToggleModule(mod)}
-                        style={[styles.checkboxItem, isChecked && styles.checkboxItemChecked]}
-                      >
-                        <Ionicons
-                          name={isChecked ? "checkbox" : "square-outline"}
-                          size={18}
-                          color={isChecked ? "#2563eb" : "#64748b"}
-                          style={{ marginRight: 6 }}
-                        />
-                        <Text style={[styles.checkboxText, isChecked && styles.checkboxTextChecked]}>
-                          {mod}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
                 <AppButton
-                  title={editingPlan ? "Update Plan" : "Create Plan"}
+                  title={formLoading ? "Submitting..." : editingPlan ? "Update Plan" : "Create Plan"}
                   onPress={handleFormSubmit}
                   loading={formLoading}
                   style={styles.formSubmitBtn}
