@@ -134,6 +134,8 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
             if (subscribedModules.length > 0 && !subscribedModules.includes(item.module)) return false;
+            // Also check employee's own assignedModules
+            if (assignedModules.length > 0 && !assignedModules.includes(item.module)) return false;
             return true;
           });
 
