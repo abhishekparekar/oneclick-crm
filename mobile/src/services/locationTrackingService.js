@@ -1,7 +1,7 @@
 import Geolocation from "@react-native-community/geolocation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PermissionsAndroid, Platform, AppState } from "react-native";
-import notifee, { AndroidImportance } from "@notifee/react-native";
+import notifee, { AndroidImportance, AndroidForegroundServiceType } from "@notifee/react-native";
 import api from "../api/api";
 import { isValidGpsPoint } from "../utils/locationUtils";
 
@@ -10,18 +10,36 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-const BATCH_SYNC_INTERVAL_MS = 30000; // 30 seconds
+const BATCH_SYNC_INTERVAL_MS = 20000; // 20 seconds
+const GPS_HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds active hardware poll
+
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 15000,
-  maximumAge: 10000,
+  timeout: 20000,
+  maximumAge: 5000,
   distanceFilter: 5, // Meters
+  interval: 10000, // Android interval
+  fastestInterval: 5000, // Android fastest interval
 };
+
+// Register Notifee Foreground Service task at file load
+// This keeps the React Native JS thread awake when screen is off or app is minimized
+try {
+  notifee.registerForegroundService((notification) => {
+    return new Promise(() => {
+      // Intentionally never resolved while foreground service is active
+      console.log("[LocationService] Native foreground service worker running in background");
+    });
+  });
+} catch (err) {
+  console.log("[LocationService] Foreground service registration notice:", err.message);
+}
 
 class LocationTrackingService {
   constructor() {
     this.watchId = null;
     this.syncIntervalId = null;
+    this.heartbeatIntervalId = null;
     this.isTracking = false;
     this.lastAcceptedPoint = null;
     this.isSyncing = false;
@@ -45,7 +63,7 @@ class LocationTrackingService {
         PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
         {
           title: "Location Permission",
-          message: "One Click needs high accuracy location to track work travel and attendance.",
+          message: "One Click needs high accuracy location to track work travel and duty routes.",
           buttonPositive: "Allow",
         }
       );
@@ -62,15 +80,14 @@ class LocationTrackingService {
         );
 
         if (!bgGranted) {
-          const bgRequest = await PermissionsAndroid.request(
+          await PermissionsAndroid.request(
             PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
             {
               title: "Background Location Access",
-              message: "Allow background location so attendance and route tracking works when the app is minimized.",
+              message: "Please choose 'Allow all the time' so travel routes are recorded when screen is locked.",
               buttonPositive: "Allow All The Time",
             }
           );
-          console.log("[LocationService] Background location result:", bgRequest);
         }
       }
 
@@ -94,14 +111,21 @@ class LocationTrackingService {
         lights: false,
       });
 
+      const foregroundTypes = [];
+      if (AndroidForegroundServiceType && AndroidForegroundServiceType.LOCATION) {
+        foregroundTypes.push(AndroidForegroundServiceType.LOCATION);
+      }
+
       await notifee.displayNotification({
         id: NOTIFICATION_ID,
-        title: "Employee Location Tracking Active",
-        body: "One Click is recording your real-time travel and duty location.",
+        title: "Location Tracking Active",
+        body: "Recording your real-time travel and duty location.",
         android: {
           channelId: NOTIFICATION_CHANNEL_ID,
           asForegroundService: true,
           ongoing: true,
+          autoCancel: false,
+          foregroundServiceTypes: foregroundTypes,
           pressAction: {
             id: "default",
           },
@@ -140,36 +164,69 @@ class LocationTrackingService {
     this.isTracking = true;
     await AsyncStorage.setItem(TRACKING_STATE_KEY, "true");
 
-    // Display persistent notification
+    // Display persistent notification with foreground service
     await this.showForegroundNotification();
 
-    // Start GPS Watcher
-    this.watchId = Geolocation.watchPosition(
-      (position) => {
-        this.handleNewGpsPoint(position.coords);
-      },
-      (error) => {
-        console.warn("[LocationService] GPS watch error:", error.message);
-      },
-      GPS_HIGH_ACCURACY_OPTIONS
-    );
+    // 1. Immediately poll current position
+    this.pollCurrentGpsLocation();
 
-    // Start periodic batch sync timer
+    // 2. Start GPS Continuous Watcher
+    try {
+      this.watchId = Geolocation.watchPosition(
+        (position) => {
+          this.handleNewGpsPoint(position.coords);
+        },
+        (error) => {
+          console.warn("[LocationService] GPS watch error:", error.message);
+        },
+        GPS_HIGH_ACCURACY_OPTIONS
+      );
+    } catch (watchErr) {
+      console.warn("[LocationService] watchPosition init error:", watchErr);
+    }
+
+    // 3. Active Heartbeat Poller: Force-poll hardware GPS every 15 seconds
+    // This guarantees points are captured even if watchPosition hangs in deep sleep
+    this.heartbeatIntervalId = setInterval(() => {
+      this.pollCurrentGpsLocation();
+    }, GPS_HEARTBEAT_INTERVAL_MS);
+
+    // 4. Start periodic batch sync timer
     this.syncIntervalId = setInterval(() => {
       this.syncQueuedLocations();
     }, BATCH_SYNC_INTERVAL_MS);
 
-    // Handle AppState changes
+    // 5. Handle AppState changes
     if (!this.appStateSubscription) {
       this.appStateSubscription = AppState.addEventListener("change", (nextState) => {
         if (nextState === "active" && this.isTracking) {
+          this.pollCurrentGpsLocation();
           this.syncQueuedLocations();
         }
       });
     }
 
-    console.log("[LocationService] Location tracking started successfully");
+    console.log("[LocationService] Location tracking engine started successfully");
     return { success: true };
+  }
+
+  /**
+   * Force-poll hardware GPS chip
+   */
+  pollCurrentGpsLocation() {
+    if (!this.isTracking) return;
+
+    Geolocation.getCurrentPosition(
+      (pos) => {
+        if (pos && pos.coords) {
+          this.handleNewGpsPoint(pos.coords);
+        }
+      },
+      (err) => {
+        console.log("[LocationService] GPS poll heartbeat notice:", err.message);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+    );
   }
 
   /**
@@ -183,6 +240,11 @@ class LocationTrackingService {
     if (this.watchId !== null) {
       Geolocation.clearWatch(this.watchId);
       this.watchId = null;
+    }
+
+    if (this.heartbeatIntervalId !== null) {
+      clearInterval(this.heartbeatIntervalId);
+      this.heartbeatIntervalId = null;
     }
 
     if (this.syncIntervalId !== null) {
@@ -214,6 +276,21 @@ class LocationTrackingService {
   }
 
   /**
+   * Auto-resume tracking if it was running before app was killed
+   */
+  async autoResumeTrackingIfActive() {
+    try {
+      const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+      if (active === "true" && !this.isTracking) {
+        console.log("[LocationService] Resuming background tracking session from storage state...");
+        await this.startLocationTracking();
+      }
+    } catch (err) {
+      console.warn("[LocationService] Auto-resume check error:", err);
+    }
+  }
+
+  /**
    * Get Current Location on-demand
    */
   async getCurrentLocation() {
@@ -221,7 +298,7 @@ class LocationTrackingService {
       Geolocation.getCurrentPosition(
         (pos) => resolve(pos.coords),
         (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 5000 }
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
       );
     });
   }
@@ -250,7 +327,7 @@ class LocationTrackingService {
     this.lastAcceptedPoint = point;
     await this.enqueuePoint(point);
 
-    console.log(`[LocationService] Queued GPS point: ${point.latitude}, ${point.longitude} (acc: ${point.accuracy}m)`);
+    console.log(`[LocationService] Queued GPS point: ${point.latitude}, ${point.longitude} (acc: ${point.accuracy}m, spd: ${point.speed})`);
   }
 
   /**
@@ -262,15 +339,15 @@ class LocationTrackingService {
       const queue = raw ? JSON.parse(raw) : [];
       queue.push(point);
 
-      // Keep max 200 points in local storage if offline for hours
-      if (queue.length > 200) {
+      // Keep max 500 points in local storage if offline for hours
+      if (queue.length > 500) {
         queue.shift();
       }
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
 
-      // If queue has 5 or more points, trigger immediate sync
-      if (queue.length >= 5 && !this.isSyncing) {
+      // If queue has 3 or more points, trigger immediate sync
+      if (queue.length >= 3 && !this.isSyncing) {
         this.syncQueuedLocations();
       }
     } catch (err) {
@@ -292,7 +369,7 @@ class LocationTrackingService {
       if (!Array.isArray(queue) || queue.length === 0) return;
 
       this.isSyncing = true;
-      const batchToSend = queue.slice(0, 30); // Send up to 30 points per batch
+      const batchToSend = queue.slice(0, 40); // Send up to 40 points per batch
 
       const response = await api.post("/locations/sync", {
         locations: batchToSend,

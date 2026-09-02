@@ -46,8 +46,8 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (reject poor accuracy > 65 meters)
-  if (!isNaN(accuracy) && accuracy > 65) {
+  // 2. Accuracy check (reject poor accuracy > 100 meters)
+  if (!isNaN(accuracy) && accuracy > 100) {
     console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m`);
     return false;
   }

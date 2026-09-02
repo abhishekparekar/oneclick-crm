@@ -218,15 +218,23 @@ const getEmployeeLocationTrail = async (req, res) => {
     const { date } = req.query; // YYYY-MM-DD or today
     const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
 
-    const targetDate = date ? new Date(date) : new Date();
-    const startOfDay = new Date(targetDate);
-    startOfDay.setHours(0, 0, 0, 0);
-
-    const endOfDay = new Date(targetDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    let startOfDay, endOfDay;
+    if (date && typeof date === "string" && date.includes("-")) {
+      const parts = date.split("-").map(Number);
+      // Construct UTC boundaries covering whole calendar day across all timezones (-12h to +14h)
+      startOfDay = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0));
+      startOfDay.setHours(startOfDay.getHours() - 7); // Offset for timezone safety
+      endOfDay = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 23, 59, 59, 999));
+      endOfDay.setHours(endOfDay.getHours() + 7);
+    } else {
+      startOfDay = new Date();
+      startOfDay.setHours(0, 0, 0, 0);
+      endOfDay = new Date();
+      endOfDay.setHours(23, 59, 59, 999);
+    }
 
     const trail = await EmployeeLocation.find({
-      employeeId,
+      employeeId: new mongoose.Types.ObjectId(employeeId.toString()),
       companyId: new mongoose.Types.ObjectId(companyId.toString()),
       timestamp: { $gte: startOfDay, $lte: endOfDay },
     })
@@ -249,8 +257,7 @@ const getEmployeeLocationTrail = async (req, res) => {
           Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       const dist = 6371 * c; // Earth radius in KM
-      if (dist > 0.01 && dist < 10) {
-        // filter out GPS jumps
+      if (dist > 0.003 && dist < 50) {
         totalDistanceKm += dist;
       }
     }

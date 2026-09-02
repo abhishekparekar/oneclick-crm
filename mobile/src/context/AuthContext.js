@@ -67,6 +67,12 @@ export const AuthProvider = ({ children }) => {
       console.error("[AuthContext] Failed to load auth:", error);
     } finally {
       setIsLoading(false);
+      try {
+        const locationTrackingService = require("../services/locationTrackingService").default;
+        if (locationTrackingService) {
+          locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
+        }
+      } catch (_) {}
     }
   };
 
