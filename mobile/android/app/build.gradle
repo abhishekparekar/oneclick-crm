@@ -48,8 +48,8 @@ android {
         applicationId 'com.oneclick.hrms'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion 35
-        versionCode 5
-        versionName "5.0.0"
+        versionCode 1
+        versionName "1.0.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
         externalNativeBuild {
