@@ -281,18 +281,6 @@ const ManagerLayout = ({
     }
     navigation.navigate(screen);
   };
-      return;
-    }
-    if (screen === "ManagerTeam" || screen === "My Team") {
-      navigation.navigate("ManagerTeam");
-      return;
-    }
-    if (screen === "ManagerProfile" || screen === "Profile") {
-      navigation.navigate("ManagerProfile");
-      return;
-    }
-    navigation.navigate(screen);
-  };
 
   const navigateToScreen = (screen) => {
     setFabVisible(false);
