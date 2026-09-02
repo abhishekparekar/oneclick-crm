@@ -426,7 +426,7 @@ export default function TaskBoard() {
 
   // Data Queries
   const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const { data: empRes } = useQuery({ queryKey: ["employees", "tasks"], queryFn: () => getEmployeesApi({ module: "tasks", limit: 1000 }) });
+  const { data: empRes } = useQuery({ queryKey: ["employees", "allMembers"], queryFn: () => getEmployeesApi({ limit: 1000 }) });
 
   const apiFilters = { departmentId: filters.departmentId, assignedTo: filters.assignedTo };
 
@@ -443,8 +443,9 @@ export default function TaskBoard() {
     }
   });
 
-  const departments = deptRes?.data?.departments || [];
-  const employees = empRes?.data?.employees || [];
+  const departments = deptRes?.data?.departments || deptRes?.data || [];
+  const rawEmployees = empRes?.data?.employees || empRes?.data || [];
+  const employees = Array.isArray(rawEmployees) ? rawEmployees : [];
   const allTasks = useMemo(() => {
     const raw = tasksRes?.tasks || [];
     return raw.map(t => {
@@ -821,8 +822,12 @@ export default function TaskBoard() {
             <div>
               <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Assigned To / Member</label>
               <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.assignedTo} onChange={e => setTempFilters(prev => ({ ...prev, assignedTo: e.target.value }))}>
-                <option value="">All Members</option>
-                {employees.map(e => <option key={e._id} value={e._id}>{e.firstName} {e.lastName}</option>)}
+                <option value="">All Members {employees.length > 0 ? `(${employees.length})` : ""}</option>
+                {employees.map(e => {
+                  const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
+                  const code = e.employeeCode ? ` (${e.employeeCode})` : "";
+                  return <option key={e._id} value={e._id}>{name}{code}</option>;
+                })}
               </select>
             </div>
 
@@ -1066,7 +1071,7 @@ export default function TaskBoard() {
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
               Assignee: {(() => {
                 const emp = employees.find(e => String(e._id) === String(filters.assignedTo));
-                return emp ? `${emp.firstName} ${emp.lastName || ""}`.trim() : "Selected";
+                return emp ? (emp.fullName || emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.email || "Selected") : "Selected";
               })()}
               <button onClick={() => setFilters(prev => ({ ...prev, assignedTo: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
