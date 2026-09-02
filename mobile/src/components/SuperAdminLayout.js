@@ -104,9 +104,9 @@ const SuperAdminLayout = ({
           <View style={styles.sidebar}>
             {/* Brand Header */}
             <View style={styles.sidebarBrand}>
-              <Ionicons name="shield-checkmark" size={24} color="#2563eb" />
+              <Ionicons name="shield-checkmark" size={24} color="#f59e0b" />
               <Text style={styles.sidebarBrandText} numberOfLines={1}>
-                iCoded Admin
+                One Click Admin
               </Text>
             </View>
 
@@ -139,7 +139,7 @@ const SuperAdminLayout = ({
                     <Ionicons
                       name={isActive ? item.activeIcon : item.icon}
                       size={20}
-                      color={isActive ? "#2563eb" : "#64748b"}
+                      color={isActive ? "#f59e0b" : "#94a3b8"}
                       style={styles.sidebarNavIcon}
                     />
                     <Text style={[styles.sidebarNavText, isActive && styles.sidebarNavTextActive]}>
@@ -169,13 +169,13 @@ const SuperAdminLayout = ({
                   style={styles.menuBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="menu-outline" size={26} color="#ffffff" />
+                  <Ionicons name="menu-outline" size={26} color="#f8fafc" />
                 </TouchableOpacity>
               ) : (
                 <View style={{ width: 8 }} />
               )}
               <Text style={styles.headerTitle} numberOfLines={1}>
-                One Click Panel
+                One Click SuperAdmin
               </Text>
             </View>
 
@@ -212,7 +212,7 @@ const SuperAdminLayout = ({
                     <Ionicons
                       name={isActive ? item.activeIcon : item.icon}
                       size={22}
-                      color={isActive ? "#2563eb" : "#64748b"}
+                      color={isActive ? "#f59e0b" : "#94a3b8"}
                     />
                     <Text style={[styles.bottomNavText, isActive && styles.bottomNavTextActive]}>
                       {item.label}
@@ -231,10 +231,11 @@ const SuperAdminLayout = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
+    backgroundColor: "#0f172a",
   },
   nestedContainer: {
     flex: 1,
+    backgroundColor: "#0f172a",
   },
   layoutWrapper: {
     flex: 1,
@@ -244,12 +245,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     flexDirection: "column",
+    backgroundColor: "#0f172a",
   },
   sidebar: {
     width: 240,
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1e293b",
     borderRightWidth: 1,
-    borderRightColor: "#e2e8f0",
+    borderRightColor: "#334155",
     height: "100%",
     paddingTop: 20,
     display: Platform.OS === "web" ? "flex" : "none",
@@ -263,7 +265,7 @@ const styles = StyleSheet.create({
   sidebarBrandText: {
     fontSize: 17,
     fontWeight: "800",
-    color: "#1e293b",
+    color: "#f8fafc",
     marginLeft: 10,
     flex: 1,
   },
@@ -273,18 +275,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f5f9",
+    borderBottomColor: "#334155",
     marginBottom: 20,
   },
   sidebarAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#ef4444",
+    backgroundColor: "#f59e0b",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#e2e8f0",
+    borderColor: "#334155",
   },
   sidebarAvatarText: {
     color: "#ffffff",
@@ -298,11 +300,11 @@ const styles = StyleSheet.create({
   sidebarUserName: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#1e293b",
+    color: "#f8fafc",
   },
   sidebarUserRole: {
     fontSize: 11,
-    color: "#64748b",
+    color: "#94a3b8",
     marginTop: 1,
     fontWeight: "600",
   },
@@ -319,7 +321,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   sidebarNavItemActive: {
-    backgroundColor: "#eff6ff",
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
   },
   sidebarNavIcon: {
     marginRight: 12,
@@ -327,50 +329,44 @@ const styles = StyleSheet.create({
   sidebarNavText: {
     fontSize: 13.5,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#94a3b8",
   },
   sidebarNavTextActive: {
-    color: "#2563eb",
+    color: "#f59e0b",
     fontWeight: "700",
   },
   header: {
-    backgroundColor: Platform.OS === "web" ? "rgba(37, 99, 235, 0.92)" : "#2563eb",
-    // Premium Glassmorphism styling on web
-    ...Platform.select({
-      web: {
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
-      },
-    }),
+    backgroundColor: "#1e293b",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     zIndex: 1000,
-    // Premium shadow styling
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
     shadowColor: "#000",
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
     elevation: 5,
   },
   desktopHeaderAdjustment: {
     borderBottomWidth: 1,
-    borderBottomColor: "#1d4ed8",
+    borderBottomColor: "#334155",
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    maxWidth: "35%",
+    maxWidth: "50%",
   },
   menuBtn: {
     padding: 6,
     marginRight: 6,
   },
   headerTitle: {
-    color: "#ffffff",
+    color: "#f8fafc",
     fontSize: 16,
-    fontWeight: "700",
+    fontWeight: "800",
     letterSpacing: 0.2,
   },
   headerRight: {
@@ -381,12 +377,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#ef4444",
+    backgroundColor: "#f59e0b",
     alignItems: "center",
     justifyContent: "center",
     marginLeft: 10,
     borderWidth: 1.5,
-    borderColor: "#ffffff",
+    borderColor: "#334155",
   },
   avatarText: {
     color: "#ffffff",
@@ -395,14 +391,14 @@ const styles = StyleSheet.create({
   },
   bottomNavContainer: {
     flexDirection: "row",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#1e293b",
     borderTopWidth: 1,
-    borderTopColor: "#e2e8f0",
+    borderTopColor: "#334155",
     alignItems: "center",
     justifyContent: "space-around",
     elevation: 10,
     shadowColor: "#000",
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.2,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: -3 },
   },
@@ -415,15 +411,16 @@ const styles = StyleSheet.create({
   bottomNavText: {
     fontSize: 10,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#94a3b8",
     marginTop: 4,
   },
   bottomNavTextActive: {
-    color: "#2563eb",
+    color: "#f59e0b",
     fontWeight: "700",
   },
   content: {
     flex: 1,
+    backgroundColor: "#0f172a",
   },
 });
 

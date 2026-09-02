@@ -30,7 +30,7 @@ const DashboardStatCard = ({ title, value, color, icon }) => (
 const QuickActionCard = ({ title, icon, onPress }) => (
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.7}>
     <View style={styles.actionIconWrapper}>
-      <Ionicons name={icon} size={22} color="#2563eb" />
+      <Ionicons name={icon} size={22} color="#f59e0b" />
     </View>
     <Text style={styles.actionTitle}>{title}</Text>
   </TouchableOpacity>
@@ -85,52 +85,62 @@ const SuperAdminDashboard = ({ navigation }) => {
                 </View>
                 <View style={styles.statusBadge}>
                   <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>System Operational</Text>
+                  <Text style={styles.statusText}>Live Telemetry</Text>
                 </View>
               </View>
             </View>
 
             {errorMsg ? (
               <View style={styles.errorContainer}>
-                <Ionicons name="warning" size={20} color="#dc2626" />
+                <Ionicons name="warning" size={20} color="#ef4444" />
                 <Text style={styles.error}>{errorMsg}</Text>
               </View>
             ) : null}
 
             {/* Compact Statistics Grid */}
-            <Text style={styles.sectionTitle}>Overview</Text>
+            <Text style={styles.sectionTitle}>Overview &amp; Metrics</Text>
             <View style={styles.statsGrid}>
               <DashboardStatCard
                 title="Total Companies"
                 value={stats?.totalCompanies ?? 0}
-                color="#2563eb"
+                color="#f59e0b"
                 icon="business"
               />
               <DashboardStatCard
                 title="Active Companies"
                 value={stats?.activeCompanies ?? 0}
-                color="#16a34a"
+                color="#10b981"
                 icon="checkmark-circle"
               />
               <DashboardStatCard
                 title="Inactive / Suspended"
                 value={stats?.inactiveCompanies ?? 0}
-                color="#dc2626"
+                color="#ef4444"
                 icon="close-circle"
               />
               <DashboardStatCard
                 title="Company Admins"
                 value={stats?.totalCompanyAdmins ?? 0}
-                color="#7c3aed"
+                color="#8b5cf6"
                 icon="people"
               />
             </View>
 
             {/* Quick Actions Matrix */}
-            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <Text style={styles.sectionTitle}>Quick Management Hub</Text>
             <View style={styles.actionsGrid}>
               <QuickActionCard
-                title="Reports"
+                title="Add Company"
+                icon="add-circle"
+                onPress={() => navigation.navigate("AddCompany")}
+              />
+              <QuickActionCard
+                title="Subscription Plans"
+                icon="card"
+                onPress={() => navigation.navigate("SubscriptionPlans")}
+              />
+              <QuickActionCard
+                title="Reports & Analytics"
                 icon="analytics"
                 onPress={() => navigation.navigate("ReportsDashboard")}
               />
@@ -145,7 +155,7 @@ const SuperAdminDashboard = ({ navigation }) => {
                 onPress={() => navigation.navigate("AuditLogs")}
               />
               <QuickActionCard
-                title="Settings"
+                title="System Settings"
                 icon="settings"
                 onPress={() => navigation.navigate("SystemSettings")}
               />
@@ -160,7 +170,7 @@ const SuperAdminDashboard = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
+    backgroundColor: "#0f172a",
   },
   content: {
     padding: 16,
@@ -170,10 +180,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#1e293b",
     borderRadius: 16,
     padding: 20,
-    marginBottom: 24,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: "#334155",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.25,
     shadowRadius: 10,
     elevation: 8,
   },
@@ -183,64 +195,66 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   dateText: {
-    color: "#94a3b8",
-    fontSize: 13,
-    fontWeight: "600",
+    color: "#f59e0b",
+    fontSize: 12,
+    fontWeight: "700",
     marginBottom: 6,
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
   greeting: {
-    color: "#ffffff",
-    fontSize: 22,
+    color: "#f8fafc",
+    fontSize: 20,
     fontWeight: "800",
   },
   statusBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(22, 163, 74, 0.2)",
+    backgroundColor: "rgba(16, 185, 129, 0.15)",
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "rgba(22, 163, 74, 0.4)",
+    borderColor: "rgba(16, 185, 129, 0.3)",
   },
   statusDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: "#4ade80",
+    backgroundColor: "#10b981",
     marginRight: 6,
   },
   statusText: {
-    color: "#4ade80",
+    color: "#10b981",
     fontSize: 11,
     fontWeight: "700",
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#1e293b",
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#f8fafc",
     marginBottom: 12,
-    marginLeft: 4,
+    marginLeft: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statCard: {
     width: "48%",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
+    backgroundColor: "#1e293b",
+    borderRadius: 14,
     padding: 16,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#f1f5f9",
-    shadowColor: "#64748b",
+    borderColor: "#334155",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 2,
   },
@@ -248,7 +262,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   iconContainer: {
     width: 36,
@@ -258,13 +272,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   statValue: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "800",
   },
   statTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "600",
-    color: "#64748b",
+    color: "#94a3b8",
   },
   actionsGrid: {
     flexDirection: "row",
@@ -272,49 +286,51 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   actionCard: {
-    width: "48%",
-    backgroundColor: "#ffffff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    width: "31%",
+    backgroundColor: "#1e293b",
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 12,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "#f1f5f9",
-    shadowColor: "#64748b",
+    borderColor: "#334155",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 2,
   },
   actionIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#eff6ff",
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(245, 158, 11, 0.3)",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 10,
+    marginBottom: 8,
   },
   actionTitle: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#334155",
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#f8fafc",
     textAlign: "center",
   },
   errorContainer: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fef2f2",
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
+    borderRadius: 10,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: "#fecaca",
+    borderColor: "rgba(239, 68, 68, 0.3)",
   },
   error: {
-    color: "#dc2626",
-    fontSize: 14,
-    fontWeight: "500",
+    color: "#f87171",
+    fontSize: 12,
+    fontWeight: "600",
     marginLeft: 8,
   },
 });
