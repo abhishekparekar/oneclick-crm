@@ -156,6 +156,27 @@ export const AuthProvider = ({ children }) => {
     return null;
   };
 
+  const syncCompanyProfile = (companyData) => {
+    if (!companyData || !user) return;
+    const freshModules = companyData.subscribedModules;
+    if (Array.isArray(freshModules)) {
+      setUser((prev) => {
+        if (!prev) return prev;
+        const updated = {
+          ...prev,
+          subscribedModules: freshModules,
+          company: {
+            ...(prev.company || {}),
+            ...companyData,
+            subscribedModules: freshModules,
+          },
+        };
+        AsyncStorage.setItem(USER_KEY, JSON.stringify(updated)).catch(() => {});
+        return updated;
+      });
+    }
+  };
+
   const normalizeModule = (category) => {
     if (!category) return "";
     const cat = String(category).toLowerCase().trim();
@@ -240,6 +261,7 @@ export const AuthProvider = ({ children }) => {
     register,
     updateUser,
     refreshUserProfile,
+    syncCompanyProfile,
     hasPermission,
   };
 
