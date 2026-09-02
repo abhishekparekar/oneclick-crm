@@ -191,22 +191,14 @@ const SuperAdminPlans = () => {
       setFormData({
         planName: plan.planName || "",
         planCode: plan.planCode || "",
-        priceMonthly: Number(plan.priceMonthly) || 0,
-        priceYearly: Number(plan.priceYearly) || 0,
-        employeeLimit: Number(plan.employeeLimit) || 50,
-        storageLimit: Number(plan.storageLimit) || 5,
-        trialDays: Number(plan.trialDays) || 0,
-        features: plan.features ? (Array.isArray(plan.features) ? plan.features.join("\n") : plan.features) : "",
-        modules: plan.modules || [],
-        moduleLimits: {
-          tasks: plan.moduleLimits?.tasks || 0,
-          leads: plan.moduleLimits?.leads || 0,
-          attendance: plan.moduleLimits?.attendance || 0,
-          leave: plan.moduleLimits?.leave || 0,
-          payroll: plan.moduleLimits?.payroll || 0,
-          projects: plan.moduleLimits?.projects || 0,
-          reports: plan.moduleLimits?.reports || 0,
-        },
+        priceMonthly: plan.priceMonthly || 0,
+        priceYearly: plan.priceYearly || 0,
+        employeeLimit: plan.employeeLimit || 50,
+        storageLimit: plan.storageLimit || 5,
+        trialDays: plan.trialDays || 0,
+        features: Array.isArray(plan.features) ? plan.features.join("\n") : (plan.features || ""),
+        modules: Array.isArray(plan.modules) && plan.modules.length > 0 ? plan.modules : MODULES,
+        moduleLimits: plan.moduleLimits || {},
         status: plan.status || "active"
       });
     } else {
@@ -219,8 +211,8 @@ const SuperAdminPlans = () => {
         employeeLimit: 50,
         storageLimit: 5,
         trialDays: 14,
-        features: "24/7 Priority Support\nCustom Workspace Domain\nAutomated Data Backups",
-        modules: ["attendance", "leave", "reports", "tasks", "leads"],
+        features: "",
+        modules: MODULES,
         moduleLimits: {
           tasks: 0,
           leads: 0,
@@ -458,40 +450,12 @@ const SuperAdminPlans = () => {
                     </div>
                   </div>
 
-                  {/* Entitled Modules */}
-                  <div>
-                    <h4 className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-2.5 flex items-center justify-between">
-                      <span>Included Suite Modules</span>
-                      <span className="text-[#f59e0b] font-mono font-black">{plan.modules?.length || 0} Entitled</span>
-                    </h4>
-                    <div className="flex flex-wrap gap-1.5">
-                      {plan.modules && plan.modules.length > 0 ? (
-                        plan.modules.map(mod => {
-                          const customLimit = plan.moduleLimits?.[mod];
-                          return (
-                            <span key={mod} className="inline-flex items-center space-x-1 px-2 py-1 bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/30 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                              <CheckCircle2 size={10} className="flex-shrink-0" />
-                              <span>{mod}</span>
-                              {customLimit > 0 && (
-                                <span className="ml-1 px-1 py-0.2 bg-[#f59e0b]/20 rounded text-[8.5px] text-[#f59e0b] font-mono">
-                                  {customLimit} seats
-                                </span>
-                              )}
-                            </span>
-                          );
-                        })
-                      ) : (
-                        <span className="text-xs font-bold text-sa-text-secondary italic">No specific modules checked</span>
-                      )}
-                    </div>
-                  </div>
-
                   {/* Key Features List */}
                   {plan.features && plan.features.length > 0 && (
                     <div className="pt-2 border-t border-sa-border/60">
                       <h4 className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-2">Key Value Features</h4>
                       <ul className="space-y-1.5 text-xs font-semibold text-sa-text">
-                        {(Array.isArray(plan.features) ? plan.features : plan.features.split("\n")).slice(0, 4).map((feat, idx) => (
+                        {(Array.isArray(plan.features) ? plan.features : plan.features.split("\n")).slice(0, 5).map((feat, idx) => (
                           <li key={idx} className="flex items-start space-x-2">
                             <Check size={13} className="text-[#fbbf24] flex-shrink-0 mt-0.5" />
                             <span className="truncate">{feat}</span>
@@ -508,7 +472,7 @@ const SuperAdminPlans = () => {
                     <button 
                       type="button" 
                       onClick={() => handleOpenModal(plan)} 
-                      className="px-3 py-1.5 rounded-xl bg-sa-surface border border-sa-border text-xs font-black text-sa-text hover:border-[#f59e0b] hover:text-[#f59e0b] transition-all flex items-center space-x-1"
+                      className="px-3 py-1.5 rounded-xl bg-sa-surface border border-sa-border text-xs font-black text-sa-text hover:border-[#f59e0b] hover:text-[#f59e0b] transition-all flex items-center space-x-1 cursor-pointer"
                     >
                       <Edit size={13} />
                       <span>Configure</span>
@@ -516,23 +480,23 @@ const SuperAdminPlans = () => {
                     <button 
                       type="button" 
                       onClick={() => toggleStatus(plan._id, plan.status)} 
-                      className={`p-1.5 rounded-xl border transition-all ${
+                      className={`p-1.5 rounded-xl border transition-all cursor-pointer ${
                         plan.status === 'active' 
-                          ? "bg-sa-surface border-sa-border text-sa-text-secondary hover:text-rose-500" 
-                          : "bg-[#f59e0b]/10 border-[#f59e0b]/30 text-[#f59e0b] hover:bg-[#f59e0b]/20"
+                          ? "bg-amber-500/10 text-amber-600 border-amber-500/30 hover:bg-amber-500/20" 
+                          : "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 hover:bg-emerald-500/20"
                       }`}
-                      title={plan.status === 'active' ? "Deactivate Tier" : "Publish & Activate Tier"}
+                      title={plan.status === 'active' ? "Archive Plan" : "Publish Plan"}
                     >
-                      {plan.status === 'active' ? <Ban size={15} /> : <CheckCircle2 size={15} />}
+                      {plan.status === 'active' ? <EyeOff size={13} /> : <Eye size={13} />}
                     </button>
                   </div>
                   <button 
                     type="button" 
                     onClick={() => handleDelete(plan._id)} 
-                    className="p-1.5 rounded-xl bg-sa-surface border border-sa-border text-sa-text-secondary hover:text-rose-600 hover:border-rose-300 transition-all"
-                    title="Delete Plan Tier"
+                    className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 hover:bg-rose-500/20 transition-all cursor-pointer"
+                    title="Delete Tier"
                   >
-                    <Trash2 size={15} />
+                    <Trash2 size={13} />
                   </button>
                 </div>
               </div>
@@ -541,41 +505,55 @@ const SuperAdminPlans = () => {
         </div>
       )}
 
-      {/* ─── Glassmorphic Add / Edit Plan Modal Configuration Suite ─────── */}
+      {/* Plan Configuration Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto animate-fade-in">
-          <div className="bg-sa-surface rounded-2xl shadow-2xl border border-sa-border w-full max-w-3xl my-4 overflow-hidden flex flex-col max-h-[90vh]">
-            
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs overflow-y-auto">
+          <div className="bg-sa-surface border border-sa-border rounded-2xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-sa-border flex justify-between items-center bg-sa-bg/80 sticky top-0 z-10 backdrop-blur-md">
-              <div className="flex items-center space-x-2.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+            <div className="px-6 py-4 border-b border-sa-border flex items-center justify-between bg-sa-bg/50">
+              <div className="flex items-center space-x-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}>
+                  <Package size={18} className="text-white" />
+                </div>
                 <div>
-                  <h2 className="text-base font-black text-sa-text tracking-tight">{editingPlan ? "Modify SaaS Pricing Tier" : "Architect New SaaS Plan Tier"}</h2>
-                  <p className="text-[10px] font-bold text-sa-text-secondary">Set exact limits, entitlements, and subscription pricing.</p>
+                  <h3 className="text-base font-black text-sa-text tracking-tight">
+                    {editingPlan ? `Configure Tier: ${editingPlan.planName}` : "Create New Subscription Plan"}
+                  </h3>
+                  <p className="text-xs text-sa-text-secondary mt-0.5">
+                    Define subscription pricing, employee seat capacity, storage allowance, and marketing points
+                  </p>
                 </div>
               </div>
-              <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
+              <button 
+                type="button" 
+                onClick={() => setIsModalOpen(false)} 
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-sa-text-secondary hover:text-sa-text hover:bg-sa-border transition-all cursor-pointer"
+              >
+                <X size={18} />
+              </button>
             </div>
-            
-            <form onSubmit={handleSubmit} className="p-6 overflow-y-auto flex-1 space-y-3 hide-scrollbar">
-              
-              {/* Section 1: Core Tier Identity */}
+
+            {/* Modal Form Scrollable Body */}
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Section 1: Tier Identity */}
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border pb-2 flex items-center gap-1.5">
-                  <Package size={14} className="text-[#f59e0b]" />
-                  <span>Tier Identity & Status</span>
+                  <Sparkles size={14} className="text-[#f59e0b]" />
+                  <span>Core Tier Identity &amp; Lifecycle</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Tier Name</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Plan Name *</label>
                     <input type="text" name="planName" required value={formData.planName} onChange={handleChange}
-                      className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" placeholder="e.g. Enterprise Pro" />
+                      className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
+                      placeholder="e.g. Growth Accelerator" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Plan Code Identifier</label>
-                    <input type="text" name="planCode" required value={formData.planCode} onChange={handleChange}
-                      className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-[#f59e0b] focus:outline-none focus:border-[#f59e0b] transition-all uppercase" placeholder="e.g. ENT-PRO" />
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Tier Code Tag</label>
+                    <input type="text" name="planCode" value={formData.planCode} onChange={handleChange}
+                      className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-[#f59e0b] focus:outline-none focus:border-[#f59e0b] transition-all uppercase"
+                      placeholder="e.g. GROW-100" />
                   </div>
                   <div>
                     <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Publish Status</label>
@@ -612,14 +590,14 @@ const SuperAdminPlans = () => {
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border pb-2 flex items-center gap-1.5">
                   <Users size={14} className="text-[#fbbf24]" />
-                  <span>Total Company Capacity & Evaluation Trial</span>
+                  <span>Total Company Capacity &amp; Evaluation Trial</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Total Company Employee Seats</label>
                     <input type="number" name="employeeLimit" required min="1" value={formData.employeeLimit} onChange={handleChange}
                       className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">All employees receive attendance &amp; leave access.</p>
+                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default seats allocated.</p>
                   </div>
                   <div>
                     <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Storage Allowance (GB)</label>
@@ -634,104 +612,11 @@ const SuperAdminPlans = () => {
                 </div>
               </div>
 
-              {/* Section 4: Entitled Suite Modules & Per-Module Seat Allocation */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between border-b border-sa-border pb-2">
-                  <div>
-                    <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
-                      <Cpu size={14} className="text-[#f59e0b]" />
-                      <span>Entitled Suite Modules &amp; Feature Licenses</span>
-                    </h4>
-                    <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
-                      Select enabled modules. Attendance &amp; Leave apply to all total employee seats. Optionally set custom sub-caps for Tasks and Leads.
-                    </p>
-                  </div>
-                  <span className="text-xs font-mono font-bold text-[#f59e0b]">{formData.modules.length} / {MODULES.length} Selected</span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-sa-bg/60 border border-sa-border">
-                  {MODULES.map(mod => {
-                    const isChecked = formData.modules.includes(mod);
-                    return (
-                      <label 
-                        key={mod} 
-                        className={`flex items-center space-x-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
-                          isChecked 
-                            ? "bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b] shadow-2xs" 
-                            : "bg-sa-surface border-sa-border text-sa-text-secondary hover:text-sa-text hover:border-sa-border/80"
-                        }`}
-                      >
-                        <input 
-                          type="checkbox" 
-                          name="modules"
-                          value={mod}
-                          checked={isChecked}
-                          onChange={handleChange}
-                          className="sr-only"
-                        />
-                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
-                          isChecked ? "bg-[#f59e0b] border-transparent text-white" : "border-sa-border bg-sa-bg"
-                        }`}>
-                          {isChecked && <Check size={11} strokeWidth={3} />}
-                        </div>
-                        <span className="text-xs font-black uppercase tracking-wider truncate">{mod}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                {/* Granular Seat Allocation per Module */}
-                {formData.modules.some(m => ["tasks", "leads", "projects", "attendance", "leave", "payroll"].includes(m)) && (
-                  <div className="bg-sa-bg/40 border border-sa-border/80 rounded-xl p-3.5 space-y-2.5">
-                    <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
-                      <Users size={13} className="text-[#f59e0b]" />
-                      <span>Per-Module Employee Seat Caps (Optional Sub-Quota — 0 = All Seats)</span>
-                    </p>
-                    <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
-                      Set how many employees can access each module. Leave 0 to allow all company seats.
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {[
-                        { key: "attendance", label: "Attendance & Bio-Punch", color: "#10b981" },
-                        { key: "leave",      label: "Leave Management",       color: "#06B6D4" },
-                        { key: "payroll",    label: "Payroll & Salary",       color: "#8b5cf6" },
-                        { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
-                        { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
-                        { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
-                      ].filter(m => formData.modules.includes(m.key)).map(m => (
-                        <div key={m.key} className="bg-sa-surface p-2.5 rounded-xl border border-sa-border/70">
-                          <label
-                            className="text-[10px] font-black uppercase tracking-wider block mb-1"
-                            style={{ color: m.color }}
-                          >
-                            {m.label}
-                          </label>
-                          <input
-                            type="number"
-                            name={`moduleLimit_${m.key}`}
-                            min="0"
-                            value={formData.moduleLimits?.[m.key] || 0}
-                            onChange={handleChange}
-                            placeholder="0 = All Company Seats"
-                            className="w-full bg-sa-bg border border-sa-border rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
-                          />
-                          <p className="text-[9px] text-sa-text-secondary mt-1">
-                            {formData.moduleLimits?.[m.key] > 0
-                              ? `Max ${formData.moduleLimits[m.key]} employee seats`
-                              : `Up to ${formData.employeeLimit} seats (all employees)`}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Section 5: Key Value Features */}
+              {/* Section 4: Key Value Features */}
               <div className="space-y-2">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
                   <Sparkles size={14} className="text-[#fbbf24]" />
-                  <span>Key Value Features & Selling Points (One bullet per line)</span>
+                  <span>Key Value Features &amp; Selling Points (One bullet per line)</span>
                 </h4>
                 <textarea 
                   name="features" 
@@ -739,7 +624,7 @@ const SuperAdminPlans = () => {
                   value={formData.features} 
                   onChange={handleChange} 
                   className="w-full bg-sa-bg border border-sa-border rounded-xl p-3.5 text-xs font-semibold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all leading-relaxed" 
-                  placeholder="24/7 Priority VIP Support&#10;Custom Workspace Domain & Branding&#10;Unlimited API & Webhook Access&#10;Dedicated Success Manager" 
+                  placeholder="24/7 Priority VIP Support&#10;Custom Workspace Domain &amp; Branding&#10;Unlimited API &amp; Webhook Access&#10;Dedicated Success Manager" 
                 />
               </div>
             </form>
