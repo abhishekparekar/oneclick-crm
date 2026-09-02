@@ -7,20 +7,23 @@ import {
   ScrollView,
   Platform,
   useWindowDimensions,
+  StatusBar,
+  Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, useNavigationState, DrawerActions } from "@react-navigation/native";
 import { useLayout } from "../context/LayoutContext";
+import { FONTS, COLORS } from "../theme/tokens";
 import NotificationBell from "./NotificationBell";
 
 const BOTTOM_NAV_ITEMS = [
-  { label: "Dashboard", screen: "SuperAdminDashboard", icon: "home-outline", activeIcon: "home" },
-  { label: "Companies", screen: "Companies", icon: "business-outline", activeIcon: "business" },
-  { label: "Plans", screen: "SubscriptionPlans", icon: "card-outline", activeIcon: "card" },
-  { label: "Payments", screen: "Payments", icon: "cash-outline", activeIcon: "cash" },
-  { label: "Reports", screen: "ReportsDashboard", icon: "analytics-outline", activeIcon: "analytics" },
+  { label: "Dashboard", shortLabel: "Home", screen: "SuperAdminDashboard", icon: "home-outline", activeIcon: "home" },
+  { label: "Companies", shortLabel: "Companies", screen: "Companies", icon: "business-outline", activeIcon: "business" },
+  { label: "Plans", shortLabel: "Plans", screen: "SubscriptionPlans", icon: "card-outline", activeIcon: "card" },
+  { label: "Payments", shortLabel: "Payments", screen: "Payments", icon: "cash-outline", activeIcon: "cash" },
+  { label: "Reports", shortLabel: "Reports", screen: "ReportsDashboard", icon: "stats-chart-outline", activeIcon: "stats-chart" },
 ];
 
 const ROUTE_TO_TAB = {
@@ -35,6 +38,11 @@ const SuperAdminLayout = ({
   children,
   navigation: propNavigation,
   activeTab,
+  headerTitle,
+  headerBg = "#FFFFFF",
+  headerStyle,
+  unreadNotifications = 0,
+  hideBottomNav = false,
   isOuterShell = false,
 }) => {
   const { user } = useAuth();
@@ -55,10 +63,10 @@ const SuperAdminLayout = ({
       parentLayout.updateConfig({
         activeTab,
         showSearch: false,
-        unreadNotifications: 0,
+        unreadNotifications,
       });
     }
-  }, [isNested, activeTab]);
+  }, [isNested, activeTab, unreadNotifications]);
 
   // If we are nested, bypass the shell completely and only render screen content
   if (isNested) {
@@ -98,15 +106,17 @@ const SuperAdminLayout = ({
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
       <View style={styles.layoutWrapper}>
         {/* Left Sidebar - Desktop/Web Only */}
         {isDesktop && (
           <View style={styles.sidebar}>
             {/* Brand Header */}
             <View style={styles.sidebarBrand}>
-              <Ionicons name="shield-checkmark" size={24} color="#f59e0b" />
+              <Ionicons name="shield-checkmark" size={24} color="#D97706" />
               <Text style={styles.sidebarBrandText} numberOfLines={1}>
-                One Click Admin
+                ONE CLICK
               </Text>
             </View>
 
@@ -139,7 +149,7 @@ const SuperAdminLayout = ({
                     <Ionicons
                       name={isActive ? item.activeIcon : item.icon}
                       size={20}
-                      color={isActive ? "#f59e0b" : "#94a3b8"}
+                      color={isActive ? "#D97706" : "#64748B"}
                       style={styles.sidebarNavIcon}
                     />
                     <Text style={[styles.sidebarNavText, isActive && styles.sidebarNavTextActive]}>
@@ -158,10 +168,16 @@ const SuperAdminLayout = ({
           <View
             style={[
               styles.header,
-              { height: 60 + insets.top, paddingTop: insets.top },
-              isDesktop && styles.desktopHeaderAdjustment,
+              {
+                minHeight: 62 + Math.max(insets.top, 12),
+                paddingTop: Math.max(insets.top, 12) + 4,
+                paddingBottom: 10,
+                backgroundColor: headerBg || "#FFFFFF",
+              },
+              headerStyle,
             ]}
           >
+            {/* Header Left */}
             <View style={styles.headerLeft}>
               {!isDesktop ? (
                 <TouchableOpacity
@@ -169,27 +185,40 @@ const SuperAdminLayout = ({
                   style={styles.menuBtn}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="menu-outline" size={26} color="#f8fafc" />
+                  <Ionicons name="menu-outline" size={26} color="#0F172A" />
                 </TouchableOpacity>
               ) : (
                 <View style={{ width: 8 }} />
               )}
-              <Text style={styles.headerTitle} numberOfLines={1}>
-                One Click SuperAdmin
-              </Text>
+              <View style={styles.titleBlock}>
+                <Text style={styles.headerTitle} numberOfLines={1}>
+                  {headerTitle || "Dashboard"}
+                </Text>
+                <Text style={styles.superSubtitle} numberOfLines={1}>
+                  ONE CLICK SUPERADMIN
+                </Text>
+              </View>
             </View>
 
+            {/* Header Right */}
             <View style={styles.headerRight}>
               <NotificationBell
-                unreadCount={0}
+                unreadCount={unreadNotifications}
                 onPress={() => handleQuickNav("Notifications")}
               />
               <TouchableOpacity
                 style={styles.avatar}
                 onPress={() => handleQuickNav("SuperAdminProfile")}
-                activeOpacity={0.7}
+                activeOpacity={0.8}
               >
-                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+                {user?.photo || user?.avatar || user?.profilePicture ? (
+                  <Image
+                    source={{ uri: user.photo || user.avatar || user.profilePicture }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -198,24 +227,31 @@ const SuperAdminLayout = ({
           <View style={styles.content}>{children}</View>
 
           {/* Bottom Navigation Bar - Mobile/Tablet Only */}
-          {!isDesktop && (
-            <View style={[styles.bottomNavContainer, { height: 60 + insets.bottom, paddingBottom: insets.bottom }]}>
+          {!isDesktop && !hideBottomNav && (
+            <View
+              style={[
+                styles.bottomNavContainer,
+                { height: 62 + insets.bottom, paddingBottom: insets.bottom },
+              ]}
+            >
               {BOTTOM_NAV_ITEMS.map((item) => {
-                const isActive = activeTabVal === item.label;
+                const isActive = activeTabVal === item.label || activeTabVal === item.shortLabel;
                 return (
                   <TouchableOpacity
                     key={item.label}
                     onPress={() => handleQuickNav(item.screen)}
                     style={styles.bottomNavItem}
-                    activeOpacity={0.7}
+                    activeOpacity={0.8}
                   >
-                    <Ionicons
-                      name={isActive ? item.activeIcon : item.icon}
-                      size={22}
-                      color={isActive ? "#f59e0b" : "#94a3b8"}
-                    />
+                    <View style={styles.iconContainer}>
+                      <Ionicons
+                        name={isActive ? item.activeIcon : item.icon}
+                        size={22}
+                        color={isActive ? "#D97706" : "#64748B"}
+                      />
+                    </View>
                     <Text style={[styles.bottomNavText, isActive && styles.bottomNavTextActive]}>
-                      {item.label}
+                      {item.shortLabel}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -231,11 +267,11 @@ const SuperAdminLayout = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#F4F7FB",
   },
   nestedContainer: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#F4F7FB",
   },
   layoutWrapper: {
     flex: 1,
@@ -245,13 +281,13 @@ const styles = StyleSheet.create({
     flex: 1,
     height: "100%",
     flexDirection: "column",
-    backgroundColor: "#0f172a",
+    backgroundColor: "#F4F7FB",
   },
   sidebar: {
     width: 240,
-    backgroundColor: "#1e293b",
+    backgroundColor: "#FFFFFF",
     borderRightWidth: 1,
-    borderRightColor: "#334155",
+    borderRightColor: "#E2E8F0",
     height: "100%",
     paddingTop: 20,
     display: Platform.OS === "web" ? "flex" : "none",
@@ -264,10 +300,11 @@ const styles = StyleSheet.create({
   },
   sidebarBrandText: {
     fontSize: 17,
-    fontWeight: "800",
-    color: "#f8fafc",
+    fontWeight: "900",
+    color: "#0F172A",
     marginLeft: 10,
     flex: 1,
+    letterSpacing: 0.5,
   },
   sidebarUser: {
     flexDirection: "row",
@@ -275,22 +312,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#334155",
+    borderBottomColor: "#F1F5F9",
     marginBottom: 20,
   },
   sidebarAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#f59e0b",
+    backgroundColor: "#D97706",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1.5,
-    borderColor: "#334155",
+    borderColor: "#E2E8F0",
   },
   sidebarAvatarText: {
-    color: "#ffffff",
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontWeight: "800",
     fontSize: 14,
   },
   sidebarUserInfo: {
@@ -300,13 +337,14 @@ const styles = StyleSheet.create({
   sidebarUserName: {
     fontSize: 13.5,
     fontWeight: "700",
-    color: "#f8fafc",
+    color: "#0F172A",
   },
   sidebarUserRole: {
     fontSize: 11,
-    color: "#94a3b8",
+    color: "#D97706",
     marginTop: 1,
-    fontWeight: "600",
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   sidebarNav: {
     flex: 1,
@@ -317,11 +355,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 11,
     marginHorizontal: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     marginBottom: 4,
   },
   sidebarNavItemActive: {
-    backgroundColor: "rgba(245, 158, 11, 0.15)",
+    backgroundColor: "rgba(217, 119, 6, 0.12)",
   },
   sidebarNavIcon: {
     marginRight: 12,
@@ -329,77 +367,96 @@ const styles = StyleSheet.create({
   sidebarNavText: {
     fontSize: 13.5,
     fontWeight: "600",
-    color: "#94a3b8",
+    color: "#64748B",
   },
   sidebarNavTextActive: {
-    color: "#f59e0b",
-    fontWeight: "700",
+    color: "#D97706",
+    fontWeight: "800",
   },
   header: {
-    backgroundColor: "#1e293b",
+    backgroundColor: "#FFFFFF",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
     zIndex: 1000,
     borderBottomWidth: 1,
-    borderBottomColor: "#334155",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
-  },
-  desktopHeaderAdjustment: {
-    borderBottomWidth: 1,
-    borderBottomColor: "#334155",
+    borderBottomColor: "#F1F5F9",
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
   },
   headerLeft: {
     flexDirection: "row",
     alignItems: "center",
-    maxWidth: "50%",
+    flex: 1,
+    marginRight: 8,
   },
   menuBtn: {
     padding: 6,
-    marginRight: 6,
+    marginRight: 8,
+  },
+  titleBlock: {
+    flex: 1,
   },
   headerTitle: {
-    color: "#f8fafc",
-    fontSize: 16,
+    color: "#0F172A",
+    fontSize: 17,
+    fontFamily: FONTS.displayBold,
     fontWeight: "800",
-    letterSpacing: 0.2,
+    letterSpacing: -0.2,
+  },
+  superSubtitle: {
+    color: "#D97706",
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "800",
+    letterSpacing: 0.6,
+    marginTop: 0.5,
   },
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
   },
   avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f59e0b",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#D97706",
     alignItems: "center",
     justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FDE68A",
     marginLeft: 10,
-    borderWidth: 1.5,
-    borderColor: "#334155",
+    elevation: 2,
+    shadowColor: "#D97706",
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 18,
   },
   avatarText: {
-    color: "#ffffff",
-    fontSize: 12,
-    fontWeight: "700",
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "800",
   },
   bottomNavContainer: {
     flexDirection: "row",
-    backgroundColor: "#1e293b",
+    backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
-    borderTopColor: "#334155",
+    borderTopColor: "#E2E8F0",
     alignItems: "center",
     justifyContent: "space-around",
     elevation: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     shadowOffset: { width: 0, height: -3 },
   },
   bottomNavItem: {
@@ -408,19 +465,27 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingVertical: 6,
   },
+  iconContainer: {
+    position: "relative",
+    width: 26,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   bottomNavText: {
     fontSize: 10,
-    fontWeight: "600",
-    color: "#94a3b8",
-    marginTop: 4,
+    fontFamily: FONTS.bodyMedium,
+    color: "#64748B",
+    marginTop: 3,
   },
   bottomNavTextActive: {
-    color: "#f59e0b",
-    fontWeight: "700",
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "800",
+    color: "#D97706",
   },
   content: {
     flex: 1,
-    backgroundColor: "#0f172a",
+    backgroundColor: "#F4F7FB",
   },
 });
 
