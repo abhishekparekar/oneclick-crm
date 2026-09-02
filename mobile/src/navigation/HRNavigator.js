@@ -148,20 +148,31 @@ const HRCustomTabBar = ({ state, descriptors, navigation }) => {
 
 // Bottom Tabs Navigator
 const HRBottomTabs = () => {
-  const { user } = useAuth();
-  
-  // Always show all tabs — backend blocks API calls if plan is inactive
+  const { user, hasPermission } = useAuth();
+
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
 
   return (
     <Tab.Navigator
       tabBar={(props) => <HRCustomTabBar {...props} />}
       screenOptions={{ headerShown: false }}
     >
-      <Tab.Screen name="HRDashboard"    component={HRDashboardScreen} />
-      <Tab.Screen name="LeadsEngine"    component={HRLeadsScreen} />
-      <Tab.Screen name="HRTaskBoard"    component={HRTaskBoardScreen} />
-      <Tab.Screen name="HRLeaveRequests" component={HRLeaveRequestsScreen} />
-      <Tab.Screen name="HRAttendance"   component={HRAttendanceScreen} />
+      <Tab.Screen name="HRDashboard"     component={HRDashboardScreen} />
+      {canAccessLeads && (
+        <Tab.Screen name="LeadsEngine"   component={HRLeadsScreen} />
+      )}
+      {canAccessTasks && (
+        <Tab.Screen name="HRTaskBoard"   component={HRTaskBoardScreen} />
+      )}
+      {canAccessLeaves && (
+        <Tab.Screen name="HRLeaveRequests" component={HRLeaveRequestsScreen} />
+      )}
+      {canAccessAttendance && (
+        <Tab.Screen name="HRAttendance"  component={HRAttendanceScreen} />
+      )}
     </Tab.Navigator>
   );
 };

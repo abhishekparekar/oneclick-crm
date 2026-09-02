@@ -65,6 +65,9 @@ const EmployeeBottomTabs = () => {
   const insets = useSafeAreaInsets();
   const { user, hasPermission } = useAuth();
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
 
   return (
     <Tab.Navigator
@@ -132,33 +135,44 @@ const EmployeeBottomTabs = () => {
           component={EmployeeLeadsScreen}
           options={{ tabBarLabel: "Leads", headerShown: false }}
         />
-      ) : (
+      ) : canAccessTasks ? (
         <Tab.Screen
           name="Tasks"
           component={MyTasksScreen}
           options={{ tabBarLabel: "Tasks", headerShown: false }}
+        />
+      ) : null}
+
+      {canAccessAttendance && (
+        <Tab.Screen
+          name="Attendance"
+          component={EmployeeMonthlyAttendanceScreen}
+          options={{
+            tabBarLabel: () => null,
+          }}
         />
       )}
-      <Tab.Screen
-        name="Attendance"
-        component={EmployeeMonthlyAttendanceScreen}
-        options={{
-          tabBarLabel: () => null,
-        }}
-      />
-      {canAccessLeads ? (
+
+      {canAccessLeads && canAccessTasks ? (
         <Tab.Screen
           name="Tasks"
           component={MyTasksScreen}
           options={{ tabBarLabel: "Tasks", headerShown: false }}
         />
-      ) : (
+      ) : !canAccessLeads && !canAccessTasks && canAccessLeaves ? (
         <Tab.Screen
           name="Leave"
           component={MyLeavesScreen}
           options={{ tabBarLabel: "Leaves", headerShown: false }}
         />
-      )}
+      ) : canAccessLeads && !canAccessTasks && canAccessLeaves ? (
+        <Tab.Screen
+          name="Leave"
+          component={MyLeavesScreen}
+          options={{ tabBarLabel: "Leaves", headerShown: false }}
+        />
+      ) : null}
+
       <Tab.Screen
         name="EmployeeProfile"
         component={EmployeeProfileScreen}

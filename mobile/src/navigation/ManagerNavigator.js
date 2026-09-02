@@ -68,11 +68,11 @@ const TEAL_INACTIVE = "#64748B";
 // ── 1. Bottom Tab Navigator ────────────────────────────────
 const ManagerBottomTabs = () => {
   const insets = useSafeAreaInsets();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
-  // Always show all tabs — backend blocks API calls if plan is inactive
-  // const showTasks = !user?.planModules || user.planModules.length === 0 || user.planModules.includes("tasks");
-  // const showLeave = !user?.planModules || user.planModules.length === 0 || user.planModules.includes("leave");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
 
   return (
     <Tab.Navigator
@@ -89,8 +89,6 @@ const ManagerBottomTabs = () => {
             iconName = focused ? "grid" : "grid-outline";
           } else if (route.name === "ManagerTeam") {
             iconName = focused ? "people" : "people-outline";
-          // } else if (route.name === "ManagerProjects") {
-          //   iconName = focused ? "folder-open" : "folder-open-outline";
           } else if (route.name === "ManagerTasks") {
             iconName = focused ? "albums" : "albums-outline";
           } else if (route.name === "ManagerTeamLeaves") {
@@ -107,21 +105,25 @@ const ManagerBottomTabs = () => {
         component={ManagerDashboardScreen}
         options={{ tabBarLabel: "Home", headerShown: false }}
       />
-      <Tab.Screen
-        name="ManagerTasks"
-        component={ManagerTasksScreen}
-        options={{ tabBarLabel: "Tasks", headerShown: false }}
-      />
+      {canAccessTasks && (
+        <Tab.Screen
+          name="ManagerTasks"
+          component={ManagerTasksScreen}
+          options={{ tabBarLabel: "Tasks", headerShown: false }}
+        />
+      )}
       <Tab.Screen
         name="ManagerTeam"
         component={ManagerTeamScreen}
         options={{ tabBarLabel: "My Team", headerShown: false }}
       />
-      <Tab.Screen
-        name="ManagerTeamLeaves"
-        component={ManagerTeamLeavesScreen}
-        options={{ tabBarLabel: "Leaves", headerShown: false }}
-      />
+      {canAccessLeaves && (
+        <Tab.Screen
+          name="ManagerTeamLeaves"
+          component={ManagerTeamLeavesScreen}
+          options={{ tabBarLabel: "Leaves", headerShown: false }}
+        />
+      )}
       <Tab.Screen
         name="ManagerProfile"
         component={ManagerProfileScreen}

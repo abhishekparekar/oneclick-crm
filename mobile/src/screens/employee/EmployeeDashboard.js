@@ -433,16 +433,18 @@ export default function EmployeeDashboard({ navigation }) {
                 </View>
               </View>
             </View>
-            <TouchableOpacity
-              style={styles.heroPunchBtn}
-              onPress={() => navigation.navigate("CheckInCheckOut")}
-              activeOpacity={0.85}
-            >
-              <View style={styles.heroPunchWhiteBtn}>
-                <Ionicons name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"} size={16} color="#1268D9" style={{ marginRight: 4 }} />
-                <Text style={styles.heroPunchWhiteText}>{isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}</Text>
-              </View>
-            </TouchableOpacity>
+            {canAccessAttendance && (
+              <TouchableOpacity
+                style={styles.heroPunchBtn}
+                onPress={() => navigation.navigate("CheckInCheckOut")}
+                activeOpacity={0.85}
+              >
+                <View style={styles.heroPunchWhiteBtn}>
+                  <Ionicons name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"} size={16} color="#1268D9" style={{ marginRight: 4 }} />
+                  <Text style={styles.heroPunchWhiteText}>{isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}</Text>
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Glowing Line Visual / Sparkline Progress Bar */}
