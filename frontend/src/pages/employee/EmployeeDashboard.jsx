@@ -725,83 +725,139 @@ const EmployeeDashboard = () => {
         <div className="lg:col-span-2 space-y-3.5">
           
           {/* ── Lead Management CRM (Clean Professional Card) ── */}
-                <span className="text-[9.5px] text-amber-700 dark:text-amber-400 font-bold">Active</span>
+          {canAccessLeads && (
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    <Magnet size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white tracking-tight leading-none">Lead Management CRM</h3>
+                    <p className="text-[10.5px] text-slate-500 font-semibold mt-0.5">Sales Opportunities &amp; Pipeline</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAddLeadModal(true)}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
+                  >
+                    <Plus size={13} /> Add Lead
+                  </button>
+                  <Link
+                    to="/employee/leads"
+                    className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 px-2 py-1.5"
+                  >
+                    View All <ChevronRight size={13} />
+                  </Link>
+                </div>
               </div>
 
-              <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
-                <div className="flex items-center justify-between mb-0.5">
-                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Won</span>
-                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              {/* 4 Neutral KPI Grid Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+                <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Total</span>
+                    <div className="w-2 h-2 rounded-full bg-slate-700 dark:bg-slate-300" />
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.total}</div>
+                  <span className="text-[9.5px] text-slate-500 font-bold">All Leads</span>
                 </div>
-                <div className="text-lg font-black text-emerald-600 dark:text-emerald-400 leading-tight">{leadStats.won}</div>
-                <span className="text-[9.5px] text-emerald-700 dark:text-emerald-400 font-bold">Deals Closed</span>
+
+                <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Contacted</span>
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.contacted}</div>
+                  <span className="text-[9.5px] text-amber-600 dark:text-amber-400 font-bold">In Discussion</span>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">In Progress</span>
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.inProgress}</div>
+                  <span className="text-[9.5px] text-amber-600 dark:text-amber-400 font-bold">Active Funnel</span>
+                </div>
+
+                <div className="bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between mb-0.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Won Deals</span>
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  </div>
+                  <div className="text-lg font-black text-slate-900 dark:text-white leading-tight">{leadStats.won}</div>
+                  <span className="text-[9.5px] text-emerald-600 dark:text-emerald-400 font-bold">Converted</span>
+                </div>
               </div>
+
+              {/* Recent Prospects List */}
+              {leadsList.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
+                    <span>Recent Prospects</span>
+                    <span>1-Click Contact</span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {leadsList.slice(0, 4).map((lead) => {
+                      const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
+
+                      return (
+                        <div
+                          key={lead.id || lead._id || Math.random().toString()}
+                          className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101B] hover:border-amber-500 transition-all shadow-2xs"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
+                              {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-xs font-black text-slate-900 dark:text-white truncate">
+                                {lead.name}
+                              </div>
+                              <div className="text-[10.5px] text-slate-500 font-medium truncate">
+                                {lead.company || lead.productService || "Prospect"}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
+                            {lead.estimatedValue && (
+                              <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
+                                ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
+                              </span>
+                            )}
+                            {cleanPhone && (
+                              <a
+                                href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.name || ""}, connecting from One Click regarding your inquiry.`)}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center justify-center transition-all border border-emerald-200 dark:border-emerald-800"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageSquare size={13} />
+                              </a>
+                            )}
+                            {cleanPhone && (
+                              <a
+                                href={`tel:${cleanPhone}`}
+                                className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-800 text-slate-700 hover:text-white dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center transition-all border border-slate-200 dark:border-slate-700"
+                                title="Call"
+                              >
+                                <Phone size={13} />
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </div>
-
-            {/* Recent Prospects List */}
-            {leadsList.length > 0 ? (
-              <div className="space-y-2">
-                <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1 flex items-center justify-between">
-                  <span>Recent Prospects</span>
-                  <span>1-Click Contact</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {leadsList.slice(0, 4).map((lead) => {
-                    const cleanPhone = (lead.whatsappPhone || lead.phone || "").replace(/[^0-9]/g, "");
-
-                    return (
-                      <div
-                        key={lead.id || lead._id || Math.random().toString()}
-                        className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-[#0B101B] hover:border-amber-500 transition-all shadow-2xs"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0 bg-amber-500/15 text-amber-800 dark:text-amber-300 border border-amber-500/30">
-                            {(lead.name || "LD").slice(0, 2).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="text-xs font-black text-slate-900 dark:text-white truncate">
-                              {lead.name}
-                            </div>
-                            <div className="text-[10.5px] text-slate-500 font-medium truncate">
-                              {lead.company || lead.productService || "Prospect"}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0 ml-1.5">
-                          {lead.estimatedValue && (
-                            <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 px-1.5 py-0.5 rounded-md">
-                              ₹{Number(lead.estimatedValue).toLocaleString("en-IN")}
-                            </span>
-                          )}
-                          {cleanPhone && (
-                            <a
-                              href={`https://wa.me/${cleanPhone}?text=${encodeURIComponent(`Hello ${lead.name || ""}, connecting from One Click regarding your inquiry.`)}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="w-7 h-7 rounded-lg bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white dark:bg-emerald-950/40 dark:text-emerald-300 flex items-center justify-center transition-all border border-emerald-200 dark:border-emerald-800"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageSquare size={13} />
-                            </a>
-                          )}
-                          {cleanPhone && (
-                            <a
-                              href={`tel:${cleanPhone}`}
-                              className="w-7 h-7 rounded-lg bg-slate-100 hover:bg-slate-800 text-slate-700 hover:text-white dark:bg-slate-800 dark:text-slate-300 flex items-center justify-center transition-all border border-slate-200 dark:border-slate-700"
-                              title="Call"
-                            >
-                              <Phone size={13} />
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
+          )}
 
           {/* ── Tasks Progress & Quick Actions Bar (Dual Grid) ───────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
