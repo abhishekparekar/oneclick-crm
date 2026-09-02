@@ -257,50 +257,90 @@ const EmployeeLocationTracking = () => {
         mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60] });
       }
     } else if (viewMode === "trail" && trailData?.trail?.length > 0) {
-      // Draw Trail Polyline
-      const latlngs = trailData.trail.map((pt) => [pt.latitude, pt.longitude]);
+      const rawLatlngs = trailData.trail.map((pt) => [pt.latitude, pt.longitude]);
 
-      const polyline = L.polyline(latlngs, {
-        color: "#3B82F6",
-        weight: 6,
+      // Initial line (smooth blue route)
+      const polyline = L.polyline(rawLatlngs, {
+        color: "#2563EB",
+        weight: 5,
         opacity: 0.9,
-        smoothFactor: 1,
+        smoothFactor: 2,
+        lineJoin: "round",
+        lineCap: "round",
       });
 
       polylineLayerRef.current.addLayer(polyline);
 
-      // Start Marker
+      // Start Marker (Green Pin)
       const startPt = trailData.trail[0];
       const startIcon = L.divIcon({
         html: `
-          <div style="width: 30px; height: 30px; border-radius: 50%; background: #10B981; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+          <div style="width: 32px; height: 32px; border-radius: 50%; background: #10B981; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 3px 10px rgba(0,0,0,0.5);">
             🚩
           </div>
         `,
         className: "start-marker",
-        iconSize: [30, 30],
-        iconAnchor: [15, 15],
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
       });
       L.marker([startPt.latitude, startPt.longitude], { icon: startIcon })
         .bindPopup("<b>Route Start</b><br/>" + new Date(startPt.timestamp).toLocaleTimeString())
         .addTo(polylineLayerRef.current);
 
-      // End Marker
+      // End Marker (Red Pin)
       if (trailData.trail.length > 1) {
         const endPt = trailData.trail[trailData.trail.length - 1];
         const endIcon = L.divIcon({
           html: `
-            <div style="width: 30px; height: 30px; border-radius: 50%; background: #EF4444; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: #EF4444; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 3px 10px rgba(0,0,0,0.5);">
               📍
             </div>
           `,
           className: "end-marker",
-          iconSize: [30, 30],
-          iconAnchor: [15, 15],
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
         });
         L.marker([endPt.latitude, endPt.longitude], { icon: endIcon })
-          .bindPopup("<b>Latest Point</b><br/>" + new Date(endPt.timestamp).toLocaleTimeString())
+          .bindPopup("<b>Latest / End Point</b><br/>" + new Date(endPt.timestamp).toLocaleTimeString())
           .addTo(polylineLayerRef.current);
+      }
+
+      // Snap-to-Roads: Match GPS track to real street corridors so lines never cut through buildings
+      if (trailData.trail.length >= 2) {
+        const samplePoints = trailData.trail.length > 70
+          ? trailData.trail.filter((_, idx) => idx % Math.ceil(trailData.trail.length / 70) === 0 || idx === trailData.trail.length - 1)
+          : trailData.trail;
+
+        const coordsStr = samplePoints.map((p) => `${p.longitude},${p.latitude}`).join(";");
+        fetch(`https://router.project-osrm.org/match/v1/driving/${coordsStr}?overview=full&geometries=geojson`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.code === "Ok" && data.matchings && data.matchings.length > 0) {
+              const roadSnappedCoords = [];
+              data.matchings.forEach((m) => {
+                if (m.geometry?.coordinates) {
+                  m.geometry.coordinates.forEach(([lng, lat]) => {
+                    roadSnappedCoords.push([lat, lng]);
+                  });
+                }
+              });
+              if (roadSnappedCoords.length > 0 && polylineLayerRef.current) {
+                // Remove initial straight polyline and replace with road-snapped geometry
+                polylineLayerRef.current.removeLayer(polyline);
+                const roadPolyline = L.polyline(roadSnappedCoords, {
+                  color: "#3B82F6",
+                  weight: 5.5,
+                  opacity: 0.95,
+                  lineJoin: "round",
+                  lineCap: "round",
+                });
+                polylineLayerRef.current.addLayer(roadPolyline);
+              }
+            }
+          })
+          .catch((err) => {
+            console.log("[RoadMatching] Falling back to high-accuracy raw GPS track:", err.message);
+          });
       }
 
       mapInstanceRef.current.fitBounds(polyline.getBounds(), { padding: [70, 70] });
