@@ -5,8 +5,23 @@ import { createCompanyApi, getPlansApi } from "../../api/superAdminApi";
 import {
   Building2, Save, ArrowLeft, Mail, Copy, CheckCircle2,
   User, Key, Shield, CreditCard, Sparkles, Check,
-  Users, Globe, MapPin, Phone, Briefcase
+  Users, Globe, MapPin, Phone, Briefcase, Cpu, HardDrive, Clock
 } from "lucide-react";
+
+const MODULES = [
+  "attendance", "leave", "payroll", "tasks", "projects", 
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
+];
+
+const MODULE_CAP_ITEMS = [
+  { key: "attendance", label: "Attendance & Bio-Punch", color: "#10b981" },
+  { key: "leave",      label: "Leave Management",       color: "#06B6D4" },
+  { key: "payroll",    label: "Payroll & Salary",       color: "#8b5cf6" },
+  { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
+  { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
+  { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
+  { key: "reports",    label: "Analytics & Reports",     color: "#3B82F6" },
+];
 
 /* ─── Shared Section Header ─────────────────────────────────────────────── */
 const SectionHeader = ({ title, subtitle, icon: Icon, grad = ["#d97706", "#f59e0b"] }) => (
@@ -43,7 +58,19 @@ const SuperAdminAddCompany = () => {
     industryType: "Technology",
     planId: "",
     planName: "",
-    employeeLimit: 50,
+    employeeLimit: 10,
+    storageLimit: 5,
+    trialDays: 7,
+    subscribedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "mobileApp", "webAdmin", "leads"],
+    moduleLimits: {
+      attendance: 0,
+      leave: 0,
+      payroll: 0,
+      tasks: 0,
+      leads: 0,
+      projects: 0,
+      reports: 0,
+    },
     adminName: "",
     adminEmail: "",
     adminPhone: "",
@@ -66,7 +93,13 @@ const SuperAdminAddCompany = () => {
         ...prev,
         planId: first._id,
         planName: first.planName,
-        employeeLimit: first.employeeLimit || prev.employeeLimit || 50,
+        employeeLimit: first.employeeLimit || prev.employeeLimit || 10,
+        storageLimit: first.storageLimit || prev.storageLimit || 5,
+        trialDays: first.trialDays || prev.trialDays || 7,
+        subscribedModules: (Array.isArray(first.modules) && first.modules.length > 0)
+          ? first.modules
+          : prev.subscribedModules,
+        moduleLimits: first.moduleLimits || prev.moduleLimits || {},
       }));
     }
   }, [activePlans]);
@@ -79,7 +112,13 @@ const SuperAdminAddCompany = () => {
         ...prev,
         planId: plan._id,
         planName: plan.planName,
-        employeeLimit: plan.employeeLimit || prev.employeeLimit || 50,
+        employeeLimit: plan.employeeLimit || prev.employeeLimit || 10,
+        storageLimit: plan.storageLimit || prev.storageLimit || 5,
+        trialDays: plan.trialDays || prev.trialDays || 7,
+        subscribedModules: (Array.isArray(plan.modules) && plan.modules.length > 0)
+          ? plan.modules
+          : prev.subscribedModules,
+        moduleLimits: plan.moduleLimits || prev.moduleLimits || {},
       }));
     } else {
       setFormData(prev => ({
@@ -99,8 +138,32 @@ const SuperAdminAddCompany = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: name === "employeeLimit" ? Number(value) || 0 : value }));
+    const { name, value, checked } = e.target;
+    if (name === "subscribedModules") {
+      const mod = value;
+      setFormData(prev => {
+        const current = prev.subscribedModules || [];
+        const next = checked ? [...current, mod] : current.filter(m => m !== mod);
+        return { ...prev, subscribedModules: next };
+      });
+    } else if (name.startsWith("moduleLimit_")) {
+      const modKey = name.replace("moduleLimit_", "");
+      const numVal = Math.max(0, parseInt(value, 10) || 0);
+      setFormData(prev => ({
+        ...prev,
+        moduleLimits: {
+          ...(prev.moduleLimits || {}),
+          [modKey]: numVal,
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: (name === "employeeLimit" || name === "storageLimit" || name === "trialDays")
+          ? Number(value) || 0
+          : value
+      }));
+    }
   };
 
   const mutation = useMutation({
@@ -481,21 +544,23 @@ const SuperAdminAddCompany = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* Right Sidebar: Subscription Quota & Live Summary (4 Cols) */}
-        <div className="lg:col-span-4 space-y-3 sm:space-y-3.5">
-          
-          {/* Card 4: Plan & Quota Configuration */}
-          <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm">
-            <SectionHeader title="Subscription Plan & Limits" subtitle="Assign initial subscription tiers and employee capacity boundaries" icon={CreditCard} grad={["var(--color-sa-primary)", "var(--color-sa-accent)"]} />
-            
+          {/* Card 4: Subscription Plan, Entitled Modules & Granular Seat Allocation */}
+          <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm space-y-6">
+            <SectionHeader 
+              title="Subscription Tier & Suite Module Licensing" 
+              subtitle="Configure enterprise feature entitlements, storage allowance, and per-module employee seat caps" 
+              icon={CreditCard} 
+              grad={["#d97706", "#f59e0b"]} 
+            />
+
+            {/* Plan Selector & 3-Column Base Limits */}
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Assign Subscription Plan</label>
-                  <Link to="/superadmin/plans" className="text-[10px] font-bold text-sa-primary hover:underline">
-                    Manage Plans
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Assign Subscription Plan Preset</label>
+                  <Link to="/superadmin/plans" className="text-[10px] font-bold text-[#f59e0b] hover:underline">
+                    Manage Tier Presets →
                   </Link>
                 </div>
                 {plansLoading ? (
@@ -507,7 +572,7 @@ const SuperAdminAddCompany = () => {
                     name="planId" 
                     value={formData.planId || ""} 
                     onChange={handlePlanSelect}
-                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all cursor-pointer"
+                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] focus:ring-1 focus:ring-[#f59e0b]/20 transition-all cursor-pointer"
                   >
                     {activePlans.map((plan) => (
                       <option key={plan._id} value={plan._id}>
@@ -518,44 +583,151 @@ const SuperAdminAddCompany = () => {
                 ) : (
                   <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-600 dark:text-amber-400 font-semibold space-y-1.5">
                     <p>No created subscription plans found.</p>
-                    <Link to="/superadmin/plans" className="inline-block text-[11px] font-extrabold text-sa-primary underline">
+                    <Link to="/superadmin/plans" className="inline-block text-[11px] font-extrabold text-[#f59e0b] underline">
                       + Create a Plan in Plans Module
                     </Link>
                   </div>
                 )}
               </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Employee Quota Limit</label>
-                  <span className="text-xs font-black text-sa-primary">{formData.employeeLimit} Seats</span>
+              {/* 3-Column Inputs: Total Seats, Storage, Trial Days */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 pt-1">
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Total Company Employee Seats</label>
+                  </div>
+                  <input 
+                    type="number" 
+                    name="employeeLimit" 
+                    min="1" 
+                    value={formData.employeeLimit} 
+                    onChange={handleChange}
+                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
+                    placeholder="10" 
+                  />
+                  <p className="text-[10px] text-sa-text-secondary mt-1">All employees receive attendance &amp; leave access.</p>
                 </div>
-                <input type="number" name="employeeLimit" min="1" value={formData.employeeLimit} onChange={handleChange}
-                  className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all"
-                  placeholder="50" />
-                
-                {/* Quick select pills */}
-                <div className="flex items-center space-x-1.5 mt-2.5">
-                  {[25, 50, 100, 250, 500].map((num) => (
-                    <button
-                      key={num}
-                      type="button"
-                      onClick={() => setFormData(prev => ({ ...prev, employeeLimit: num }))}
-                      className={`flex-1 py-1 rounded-lg text-[10px] font-extrabold transition-all border cursor-pointer ${
-                        formData.employeeLimit === num 
-                          ? "text-white border-transparent bg-gradient-to-br from-sa-primary-hover to-sa-primary" 
-                          : "text-sa-text-secondary border-sa-border/30 dark:border-white/10 bg-sa-bg hover:text-sa-text hover:border-sa-primary/50"
-                      }`}
-                    >
-                      {num}
-                    </button>
-                  ))}
+
+                <div>
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Storage Allowance (GB)</label>
+                  <input 
+                    type="number" 
+                    name="storageLimit" 
+                    min="1" 
+                    value={formData.storageLimit} 
+                    onChange={handleChange}
+                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
+                    placeholder="5" 
+                  />
+                  <p className="text-[10px] text-sa-text-secondary mt-1">Cloud document &amp; asset storage quota.</p>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Free Trial Duration (Days)</label>
+                  <input 
+                    type="number" 
+                    name="trialDays" 
+                    min="0" 
+                    value={formData.trialDays} 
+                    onChange={handleChange}
+                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
+                    placeholder="7" 
+                  />
+                  <p className="text-[10px] text-sa-text-secondary mt-1">Initial trial window duration.</p>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Sticky Provisioning Summary Card */}
+            {/* Section: Entitled Suite Modules & Feature Licenses */}
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-b border-sa-border/30 dark:border-white/10 pb-2">
+                <div>
+                  <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
+                    <Cpu size={14} className="text-[#f59e0b]" />
+                    <span>Entitled Suite Modules &amp; Feature Licenses</span>
+                  </h4>
+                  <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
+                    Select enabled modules. Attendance &amp; Leave apply to all total employee seats. Optionally set custom sub-caps for Tasks and Leads.
+                  </p>
+                </div>
+                <span className="text-xs font-mono font-bold text-[#f59e0b]">{formData.subscribedModules.length} / {MODULES.length} Selected</span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-sa-bg/60 border border-sa-border/30 dark:border-white/10">
+                {MODULES.map((mod) => {
+                  const isChecked = formData.subscribedModules.includes(mod);
+                  return (
+                    <label 
+                      key={mod} 
+                      className={`flex items-center space-x-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                        isChecked 
+                          ? "bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b] shadow-2xs" 
+                          : "bg-sa-surface border-sa-border/40 dark:border-white/10 text-sa-text-secondary hover:text-sa-text hover:border-sa-border/80"
+                      }`}
+                    >
+                      <input 
+                        type="checkbox" 
+                        name="subscribedModules"
+                        value={mod}
+                        checked={isChecked}
+                        onChange={handleChange}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                        isChecked ? "bg-[#f59e0b] border-transparent text-white" : "border-sa-border/60 bg-sa-bg"
+                      }`}>
+                        {isChecked && <Check size={11} strokeWidth={3} />}
+                      </div>
+                      <span className="text-xs font-black uppercase tracking-wider truncate">{mod}</span>
+                    </label>
+                  );
+                })}
+              </div>
+
+              {/* Granular Seat Allocation per Module */}
+              {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "leave", "payroll", "reports"].includes(m)) && (
+                <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
+                  <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
+                    <Users size={13} className="text-[#f59e0b]" />
+                    <span>Per-Module Employee Seat Caps (Optional Sub-Quota — 0 = All Seats)</span>
+                  </p>
+                  <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
+                    Set how many employees can access each module. Leave 0 to allow all company seats.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {MODULE_CAP_ITEMS.filter((m) => formData.subscribedModules.includes(m.key)).map((m) => (
+                      <div key={m.key} className="bg-sa-surface p-2.5 rounded-xl border border-sa-border/40 dark:border-white/10">
+                        <label
+                          className="text-[10px] font-black uppercase tracking-wider block mb-1"
+                          style={{ color: m.color }}
+                        >
+                          {m.label}
+                        </label>
+                        <input
+                          type="number"
+                          name={`moduleLimit_${m.key}`}
+                          min="0"
+                          value={formData.moduleLimits?.[m.key] || 0}
+                          onChange={handleChange}
+                          placeholder="0 = All Company Seats"
+                          className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
+                        />
+                        <p className="text-[9px] text-sa-text-secondary mt-1">
+                          {formData.moduleLimits?.[m.key] > 0
+                            ? `Max ${formData.moduleLimits[m.key]} employee seats`
+                            : `Max ${formData.employeeLimit} employee seats`}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Sidebar: Sticky Provisioning Summary (4 Cols) */}
+        <div className="lg:col-span-4 space-y-3 sm:space-y-3.5">
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm sticky top-6">
             <h4 className="text-xs font-black text-sa-text uppercase tracking-wider mb-3.5 flex items-center justify-between">
               <span>Provisioning Summary</span>
@@ -573,11 +745,32 @@ const SuperAdminAddCompany = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
                 <span className="text-sa-text-secondary font-semibold">Assigned Tier:</span>
-                <span className="font-extrabold px-2 py-0.5 rounded-md bg-sa-primary/15 text-sa-primary text-[10px]">{formData.planName}</span>
+                <span className="font-extrabold px-2 py-0.5 rounded-md bg-[#f59e0b]/15 text-[#f59e0b] text-[10px]">{formData.planName}</span>
               </div>
-              <div className="flex justify-between py-1">
+              <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
                 <span className="text-sa-text-secondary font-semibold">Seat Quota:</span>
-                <span className="font-black text-sa-text">{formData.employeeLimit} Employees</span>
+                <span className="font-black text-sa-text">{formData.employeeLimit} Seats</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
+                <span className="text-sa-text-secondary font-semibold">Storage Quota:</span>
+                <span className="font-black text-sa-text">{formData.storageLimit} GB</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
+                <span className="text-sa-text-secondary font-semibold">Trial Duration:</span>
+                <span className="font-black text-sa-text">{formData.trialDays} Days</span>
+              </div>
+              <div className="py-1">
+                <div className="flex justify-between mb-1.5">
+                  <span className="text-sa-text-secondary font-semibold">Enabled Modules:</span>
+                  <span className="font-bold text-[#f59e0b]">{formData.subscribedModules.length} Active</span>
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {formData.subscribedModules.map((m) => (
+                    <span key={m} className="px-1.5 py-0.5 rounded bg-sa-bg text-[9.5px] font-extrabold uppercase text-sa-text-secondary border border-sa-border/40">
+                      {m}
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
 
@@ -585,7 +778,8 @@ const SuperAdminAddCompany = () => {
               <button
                 type="submit"
                 disabled={mutation.isPending}
-                className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-50 cursor-pointer bg-gradient-to-br from-sa-primary-hover to-sa-primary"
+                className="w-full flex items-center justify-center space-x-2 py-3 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-95 disabled:opacity-50 cursor-pointer"
+                style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
               >
                 <Save size={15} />
                 <span>{mutation.isPending ? "Provisioning Tenant..." : "Create & Provision Tenant"}</span>

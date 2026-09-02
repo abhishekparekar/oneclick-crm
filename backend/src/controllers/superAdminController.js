@@ -38,6 +38,9 @@ const createCompany = async (req, res, next) => {
       planName,
       planId,
       employeeLimit,
+      storageLimit,
+      subscribedModules,
+      moduleLimits,
       adminName,
       adminEmail,
       adminPhone,
@@ -66,6 +69,16 @@ const createCompany = async (req, res, next) => {
         selectedPlan = await Plan.findById(planId);
       }
 
+      const finalModules = (Array.isArray(subscribedModules) && subscribedModules.length > 0)
+        ? subscribedModules
+        : ((selectedPlan?.modules && selectedPlan.modules.length > 0)
+            ? selectedPlan.modules
+            : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"]);
+
+      const finalModuleLimits = moduleLimits && typeof moduleLimits === "object"
+        ? moduleLimits
+        : (selectedPlan?.moduleLimits || {});
+
       company = await Company.create({
         companyName,
         ownerName,
@@ -81,10 +94,9 @@ const createCompany = async (req, res, next) => {
         planName: selectedPlan?.planName || planName || "Custom",
         planId: selectedPlan?._id || planId || null,
         employeeLimit: employeeLimit || selectedPlan?.employeeLimit || 50,
-        subscribedModules: (selectedPlan?.modules && selectedPlan.modules.length > 0)
-          ? selectedPlan.modules
-          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
-        moduleLimits: selectedPlan?.moduleLimits || {},
+        storageLimit: storageLimit || selectedPlan?.storageLimit || 5,
+        subscribedModules: finalModules,
+        moduleLimits: finalModuleLimits,
         createdBy: req.user._id,
       });
 

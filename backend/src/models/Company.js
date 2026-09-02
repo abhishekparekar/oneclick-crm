@@ -80,6 +80,10 @@ const companySchema = new mongoose.Schema(
       type: Number,
       default: 50,
     },
+    storageLimit: {
+      type: Number,
+      default: 5,
+    },
     subscribedModules: {
       type: [String],
       default: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
