@@ -7,7 +7,8 @@ import {
   ChevronRight, X, Download, Tag, User, Users, RefreshCw,
   CalendarClock, LayoutGrid, List, Kanban, ArrowUp, ArrowDown,
   CheckSquare, Sparkles, AlertTriangle, ChevronDown, Calendar,
-  FolderKanban, Check, Filter, Building2, Eye, Paperclip, Repeat
+  FolderKanban, Check, Filter, Building2, Eye, Paperclip, Repeat,
+  SlidersHorizontal
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
