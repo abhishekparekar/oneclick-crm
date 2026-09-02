@@ -257,22 +257,51 @@ const EmployeeLocationTracking = () => {
         mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60] });
       }
     } else if (viewMode === "trail" && trailData?.trail?.length > 0) {
-      const rawLatlngs = trailData.trail.map((pt) => [pt.latitude, pt.longitude]);
+      // 1. Filter out stationary GPS jitter (< 10m noise while standing/inside)
+      const rawPoints = trailData.trail;
+      const cleanPoints = [];
 
-      // Initial line (smooth blue route)
-      const polyline = L.polyline(rawLatlngs, {
+      for (let i = 0; i < rawPoints.length; i++) {
+        const curr = rawPoints[i];
+        if (cleanPoints.length === 0) {
+          cleanPoints.push(curr);
+          continue;
+        }
+
+        const prev = cleanPoints[cleanPoints.length - 1];
+        const dLat = ((curr.latitude - prev.latitude) * Math.PI) / 180;
+        const dLon = ((curr.longitude - prev.longitude) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((prev.latitude * Math.PI) / 180) *
+            Math.cos((curr.latitude * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+        const distMeters = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        // Keep point only if user moved at least 9 meters, or if it is the destination point
+        if (distMeters >= 9 || i === rawPoints.length - 1) {
+          cleanPoints.push(curr);
+        }
+      }
+
+      const activePoints = cleanPoints.length > 0 ? cleanPoints : rawPoints;
+      const latlngs = activePoints.map((pt) => [pt.latitude, pt.longitude]);
+
+      // Draw EXACT traveled route line (smooth, rounded, follows actual path)
+      const polyline = L.polyline(latlngs, {
         color: "#2563EB",
         weight: 5,
-        opacity: 0.9,
-        smoothFactor: 2,
+        opacity: 0.95,
+        smoothFactor: 1.5,
         lineJoin: "round",
         lineCap: "round",
       });
 
       polylineLayerRef.current.addLayer(polyline);
 
-      // Start Marker (Green Pin)
-      const startPt = trailData.trail[0];
+      // Start Marker (Green Flag)
+      const startPt = activePoints[0];
       const startIcon = L.divIcon({
         html: `
           <div style="width: 32px; height: 32px; border-radius: 50%; background: #10B981; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 3px 10px rgba(0,0,0,0.5);">
@@ -288,8 +317,8 @@ const EmployeeLocationTracking = () => {
         .addTo(polylineLayerRef.current);
 
       // End Marker (Red Pin)
-      if (trailData.trail.length > 1) {
-        const endPt = trailData.trail[trailData.trail.length - 1];
+      if (activePoints.length > 1) {
+        const endPt = activePoints[activePoints.length - 1];
         const endIcon = L.divIcon({
           html: `
             <div style="width: 32px; height: 32px; border-radius: 50%; background: #EF4444; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 14px; box-shadow: 0 3px 10px rgba(0,0,0,0.5);">
@@ -301,49 +330,16 @@ const EmployeeLocationTracking = () => {
           iconAnchor: [16, 16],
         });
         L.marker([endPt.latitude, endPt.longitude], { icon: endIcon })
-          .bindPopup("<b>Latest / End Point</b><br/>" + new Date(endPt.timestamp).toLocaleTimeString())
+          .bindPopup("<b>Latest Point</b><br/>" + new Date(endPt.timestamp).toLocaleTimeString())
           .addTo(polylineLayerRef.current);
       }
 
-      // Snap-to-Roads: Match GPS track to real street corridors so lines never cut through buildings
-      if (trailData.trail.length >= 2) {
-        const samplePoints = trailData.trail.length > 70
-          ? trailData.trail.filter((_, idx) => idx % Math.ceil(trailData.trail.length / 70) === 0 || idx === trailData.trail.length - 1)
-          : trailData.trail;
-
-        const coordsStr = samplePoints.map((p) => `${p.longitude},${p.latitude}`).join(";");
-        fetch(`https://router.project-osrm.org/match/v1/driving/${coordsStr}?overview=full&geometries=geojson`)
-          .then((res) => res.json())
-          .then((data) => {
-            if (data.code === "Ok" && data.matchings && data.matchings.length > 0) {
-              const roadSnappedCoords = [];
-              data.matchings.forEach((m) => {
-                if (m.geometry?.coordinates) {
-                  m.geometry.coordinates.forEach(([lng, lat]) => {
-                    roadSnappedCoords.push([lat, lng]);
-                  });
-                }
-              });
-              if (roadSnappedCoords.length > 0 && polylineLayerRef.current) {
-                // Remove initial straight polyline and replace with road-snapped geometry
-                polylineLayerRef.current.removeLayer(polyline);
-                const roadPolyline = L.polyline(roadSnappedCoords, {
-                  color: "#3B82F6",
-                  weight: 5.5,
-                  opacity: 0.95,
-                  lineJoin: "round",
-                  lineCap: "round",
-                });
-                polylineLayerRef.current.addLayer(roadPolyline);
-              }
-            }
-          })
-          .catch((err) => {
-            console.log("[RoadMatching] Falling back to high-accuracy raw GPS track:", err.message);
-          });
+      // Fit map view to exact traveled bounds
+      if (latlngs.length > 1) {
+        mapInstanceRef.current.fitBounds(polyline.getBounds(), { padding: [80, 80], maxZoom: 18 });
+      } else {
+        mapInstanceRef.current.setView(latlngs[0], 17);
       }
-
-      mapInstanceRef.current.fitBounds(polyline.getBounds(), { padding: [70, 70] });
     }
   }, [employees, viewMode, trailData, selectedEmployee, mapReady]);
 
