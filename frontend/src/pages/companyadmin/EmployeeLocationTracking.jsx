@@ -18,7 +18,9 @@ import {
   Sparkles,
   Maximize2,
   ChevronRight,
-  SlidersHorizontal,
+  Layers,
+  Globe,
+  Map as MapIcon,
 } from "lucide-react";
 import { getLiveEmployeeLocationsApi, getEmployeeLocationTrailApi } from "../../api/locationApi";
 import { useAuth } from "../../context/AuthContext";
@@ -29,9 +31,11 @@ const EmployeeLocationTracking = () => {
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
   const polylineLayerRef = useRef(null);
+  const currentTileLayerRef = useRef(null);
 
   // States
   const [viewMode, setViewMode] = useState("live"); // "live" | "trail"
+  const [mapType, setMapType] = useState("satellite"); // "street" | "satellite" | "hybrid"
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "online" | "offline"
   const [selectedEmployee, setSelectedEmployee] = useState(null);
@@ -113,6 +117,39 @@ const EmployeeLocationTracking = () => {
     }
   }, []);
 
+  // Tile layer helper
+  const setTileLayer = (type) => {
+    if (!mapInstanceRef.current || !window.L) return;
+    const L = window.L;
+
+    if (currentTileLayerRef.current) {
+      mapInstanceRef.current.removeLayer(currentTileLayerRef.current);
+    }
+
+    if (type === "satellite") {
+      // Google Hybrid Satellite Tiles (satellite imagery with clean street & building labels)
+      currentTileLayerRef.current = L.tileLayer("https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}", {
+        maxZoom: 20,
+        attribution: "© Google Maps Satellite",
+      }).addTo(mapInstanceRef.current);
+    } else if (type === "pure_satellite") {
+      // Esri High-Resolution World Imagery
+      currentTileLayerRef.current = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {
+          maxZoom: 19,
+          attribution: "© Esri World Imagery",
+        }
+      ).addTo(mapInstanceRef.current);
+    } else {
+      // Standard OpenStreetMap Streets
+      currentTileLayerRef.current = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: "© OpenStreetMap contributors",
+      }).addTo(mapInstanceRef.current);
+    }
+  };
+
   // Initialize Map
   useEffect(() => {
     if (!mapReady || !mapContainerRef.current || mapInstanceRef.current) return;
@@ -125,18 +162,13 @@ const EmployeeLocationTracking = () => {
       zoomControl: false,
     });
 
-    // Clean OpenStreetMap tiles
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: "© OpenStreetMap contributors",
-    }).addTo(map);
+    mapInstanceRef.current = map;
+    setTileLayer(mapType);
 
     L.control.zoom({ position: "topright" }).addTo(map);
 
     markersGroupRef.current = L.featureGroup().addTo(map);
     polylineLayerRef.current = L.featureGroup().addTo(map);
-
-    mapInstanceRef.current = map;
 
     return () => {
       if (mapInstanceRef.current) {
@@ -145,6 +177,12 @@ const EmployeeLocationTracking = () => {
       }
     };
   }, [mapReady]);
+
+  // Handle Map Type Change
+  const handleMapTypeChange = (newType) => {
+    setMapType(newType);
+    setTileLayer(newType);
+  };
 
   // Update Markers & Fit Bounds
   useEffect(() => {
@@ -165,12 +203,12 @@ const EmployeeLocationTracking = () => {
 
         // Custom HTML Marker icon with avatar / pulse dot
         const iconHtml = `
-          <div style="position: relative; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
+          <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
             <div style="
-              width: 38px; height: 38px; border-radius: 50%; 
-              border: 3px solid ${isSelected ? "#F59E0B" : isOnline ? "#10B981" : "#94A3B8"};
+              width: 40px; height: 40px; border-radius: 50%; 
+              border: 3.5px solid ${isSelected ? "#F59E0B" : isOnline ? "#10B981" : "#94A3B8"};
               background: #0F172A; color: #FFFFFF; display: flex; align-items: center; justify-content: center;
-              font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(0,0,0,0.3); overflow: hidden;
+              font-size: 13px; font-weight: 800; box-shadow: 0 4px 12px rgba(0,0,0,0.5); overflow: hidden;
             ">
               ${
                 emp.avatar
@@ -179,8 +217,8 @@ const EmployeeLocationTracking = () => {
               }
             </div>
             <div style="
-              position: absolute; bottom: 0; right: 2px; width: 11px; height: 11px; border-radius: 50%;
-              background: ${isOnline ? "#10B981" : "#94A3B8"}; border: 2px solid #FFFFFF;
+              position: absolute; bottom: 0; right: 2px; width: 12px; height: 12px; border-radius: 50%;
+              background: ${isOnline ? "#10B981" : "#94A3B8"}; border: 2.5px solid #FFFFFF;
             "></div>
           </div>
         `;
@@ -188,22 +226,22 @@ const EmployeeLocationTracking = () => {
         const customIcon = L.divIcon({
           html: iconHtml,
           className: "custom-leaflet-marker",
-          iconSize: [42, 42],
-          iconAnchor: [21, 21],
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
         });
 
         const marker = L.marker([emp.latitude, emp.longitude], { icon: customIcon });
 
         const popupContent = `
-          <div style="font-family: sans-serif; padding: 4px 2px; min-width: 160px;">
+          <div style="font-family: sans-serif; padding: 4px 2px; min-width: 170px;">
             <div style="font-weight: 800; font-size: 14px; color: #0F172A;">${emp.name}</div>
             <div style="font-size: 11px; color: #64748B; margin-top: 1px;">${emp.designation || emp.department || "Staff"}</div>
             ${
               emp.speed > 0
-                ? `<div style="font-size: 11px; font-weight: 700; color: #10B981; margin-top: 4px;">⚡ Speed: ${emp.speed} km/h</div>`
+                ? `<div style="font-size: 11px; font-weight: 800; color: #10B981; margin-top: 4px;">⚡ Speed: ${emp.speed} km/h</div>`
                 : ""
             }
-            <div style="font-size: 10px; color: #94A3B8; margin-top: 4px;">
+            <div style="font-size: 10.5px; color: #64748B; margin-top: 4px;">
               ⏱️ ${emp.lastUpdated ? new Date(emp.lastUpdated).toLocaleTimeString() : "Recent"}
             </div>
           </div>
@@ -223,9 +261,9 @@ const EmployeeLocationTracking = () => {
       const latlngs = trailData.trail.map((pt) => [pt.latitude, pt.longitude]);
 
       const polyline = L.polyline(latlngs, {
-        color: "#2563EB",
-        weight: 5,
-        opacity: 0.85,
+        color: "#3B82F6",
+        weight: 6,
+        opacity: 0.9,
         smoothFactor: 1,
       });
 
@@ -235,13 +273,13 @@ const EmployeeLocationTracking = () => {
       const startPt = trailData.trail[0];
       const startIcon = L.divIcon({
         html: `
-          <div style="width: 28px; height: 28px; border-radius: 50%; background: #10B981; border: 2px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+          <div style="width: 30px; height: 30px; border-radius: 50%; background: #10B981; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
             🚩
           </div>
         `,
         className: "start-marker",
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
       });
       L.marker([startPt.latitude, startPt.longitude], { icon: startIcon })
         .bindPopup("<b>Route Start</b><br/>" + new Date(startPt.timestamp).toLocaleTimeString())
@@ -252,13 +290,13 @@ const EmployeeLocationTracking = () => {
         const endPt = trailData.trail[trailData.trail.length - 1];
         const endIcon = L.divIcon({
           html: `
-            <div style="width: 28px; height: 28px; border-radius: 50%; background: #EF4444; border: 2px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);">
+            <div style="width: 30px; height: 30px; border-radius: 50%; background: #EF4444; border: 2.5px solid #FFF; color: #FFF; display: flex; align-items: center; justify-content: center; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,0.4);">
               📍
             </div>
           `,
           className: "end-marker",
-          iconSize: [28, 28],
-          iconAnchor: [14, 14],
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
         });
         L.marker([endPt.latitude, endPt.longitude], { icon: endIcon })
           .bindPopup("<b>Latest Point</b><br/>" + new Date(endPt.timestamp).toLocaleTimeString())
@@ -273,7 +311,7 @@ const EmployeeLocationTracking = () => {
   const handleSelectStaff = (emp) => {
     setSelectedEmployee(emp);
     if (emp.latitude && emp.longitude && mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([emp.latitude, emp.longitude], 15, {
+      mapInstanceRef.current.flyTo([emp.latitude, emp.longitude], 16, {
         duration: 1.2,
       });
     }
@@ -295,7 +333,7 @@ const EmployeeLocationTracking = () => {
             </span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Real-time GPS tracking, duty movement radar, and historical travel routes for on-field team members.
+            Real-time GPS satellite tracking, duty movement radar, and historical travel routes for on-field team members.
           </p>
         </div>
 
@@ -397,17 +435,48 @@ const EmployeeLocationTracking = () => {
       </div>
 
       {/* ── Main Split View (Map 72% + Staff Panel 28%) ────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[620px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-[630px]">
         {/* Left Interactive Map Box */}
         <div className="lg:col-span-8 bg-card rounded-2xl border border-border overflow-hidden relative shadow-xs flex flex-col">
-          {/* Map Top Floating Overlay */}
-          <div className="absolute top-3 left-3 z-10 bg-background/90 backdrop-blur-xs border border-border px-3 py-1.5 rounded-xl shadow-xs flex items-center space-x-2">
-            <span className="text-[11px] font-black text-foreground flex items-center gap-1.5">
-              <MapPin size={13} className="text-primary" />
+          {/* Map Top Left Floating Info */}
+          <div className="absolute top-3 left-3 z-10 bg-slate-900/90 backdrop-blur-md text-white border border-white/20 px-3.5 py-2 rounded-xl shadow-lg flex items-center space-x-2">
+            <span className="text-[11.5px] font-extrabold flex items-center gap-2">
+              <MapPin size={14} className="text-amber-400" />
               {viewMode === "live"
                 ? `Live Radar (${onlineCount} active markers)`
                 : `Route Trail: ${selectedEmployee?.name || "Select Staff"} (${selectedDate})`}
             </span>
+          </div>
+
+          {/* Map Top Right Layer Switcher Controls (Satellite / Street) */}
+          <div className="absolute top-3 right-14 z-10 bg-slate-900/90 backdrop-blur-md border border-white/20 p-1 rounded-xl shadow-lg flex items-center space-x-1">
+            <button
+              type="button"
+              onClick={() => handleMapTypeChange("satellite")}
+              title="Switch to Google Satellite Map"
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                mapType === "satellite"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <Globe size={13} />
+              <span>Satellite</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => handleMapTypeChange("street")}
+              title="Switch to Street Map"
+              className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold flex items-center gap-1.5 transition-all cursor-pointer ${
+                mapType === "street"
+                  ? "bg-blue-600 text-white shadow-xs"
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <MapIcon size={13} />
+              <span>Street</span>
+            </button>
           </div>
 
           {/* Map Container */}
