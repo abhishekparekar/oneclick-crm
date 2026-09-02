@@ -80,8 +80,14 @@ const getGreeting = () => {
 };
 
 // ─────────────────────────────────────────────────────
-const ManagerDashboardScreen = ({ navigation }) => {
   const { user, hasPermission } = useAuth();
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+
   const { dashboardData, loadingDashboard, dashboardError, fetchDashboard, refreshDashboard } = useManagerController();
 
   const [selectedDeptId, setSelectedDeptId] = useState("");
@@ -301,19 +307,21 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   <Text style={styles.punchInLbl}>Punch In</Text>
                 </View>
                 <Text style={styles.punchInTime}>{isPunchedIn ? punchInTimeStr : "--:--"}</Text>
-                <TouchableOpacity
-                  style={styles.punchBtn}
-                  onPress={() => navigation.navigate("CheckInCheckOut")}
-                  activeOpacity={0.85}
-                >
-                  <Ionicons
-                    name={isPunchedIn ? "log-out-outline" : "log-in-outline"}
-                    size={13}
-                    color="#1268D9"
-                    style={{ marginRight: 3 }}
-                  />
-                  <Text style={styles.punchBtnText}>{isPunchedIn ? "Punch Out" : "Punch In"}</Text>
-                </TouchableOpacity>
+                {canAccessAttendance && (
+                  <TouchableOpacity
+                    style={styles.punchBtn}
+                    onPress={() => navigation.navigate("CheckInCheckOut")}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons
+                      name={isPunchedIn ? "log-out-outline" : "log-in-outline"}
+                      size={13}
+                      color="#1268D9"
+                      style={{ marginRight: 3 }}
+                    />
+                    <Text style={styles.punchBtnText}>{isPunchedIn ? "Punch Out" : "Punch In"}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </LinearGradient>
@@ -342,7 +350,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
           )}
 
           {/* ── 1. ACTION REQUIRED ALERTS (Pending leaves or overdue tasks) ── */}
-          {(pendingLeavesCount > 0 || overdueTasksCount > 0) && (
+          {((canAccessLeaves && pendingLeavesCount > 0) || (canAccessTasks && overdueTasksCount > 0)) && (
             <View style={styles.alertBannerCard}>
               <View style={styles.alertHeaderRow}>
                 <View style={styles.alertBadge}>
@@ -353,7 +361,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.alertItemsRow}>
-                {pendingLeavesCount > 0 && (
+                {canAccessLeaves && pendingLeavesCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
                     onPress={() => navigation.navigate("ManagerTeamLeaves")}
@@ -370,7 +378,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   </TouchableOpacity>
                 )}
 
-                {overdueTasksCount > 0 && (
+                {canAccessTasks && overdueTasksCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
                     onPress={() => navigation.navigate("ManagerTasks")}
@@ -587,104 +595,108 @@ const ManagerDashboardScreen = ({ navigation }) => {
           </View>
 
           {/* ── 4. TEAM ATTENDANCE TODAY PULSE CARD ── */}
-          <View style={styles.attendanceCard}>
-            <View style={styles.attendanceCardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="pulse" size={16} color="#1268D9" style={{ marginRight: 6 }} />
-                <Text style={styles.attendanceCardTitle}>Team Attendance Today</Text>
+          {canAccessAttendance && (
+            <View style={styles.attendanceCard}>
+              <View style={styles.attendanceCardHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="pulse" size={16} color="#1268D9" style={{ marginRight: 6 }} />
+                  <Text style={styles.attendanceCardTitle}>Team Attendance Today</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("ManagerTeamAttendance")}
+                  style={styles.cardHeaderBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cardHeaderBtnText}>Inspect Team</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#1268D9" />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => navigation.navigate("ManagerTeamAttendance")}
-                style={styles.cardHeaderBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardHeaderBtnText}>Inspect Team</Text>
-                <Ionicons name="chevron-forward" size={12} color="#1268D9" />
-              </TouchableOpacity>
-            </View>
 
-            <View style={styles.donutContainer}>
-              <DonutChart data={donutData} size={84} stroke={10} centerLabel={staffTotal} centerSub="STAFF" />
-              <View style={styles.legendGrid}>
-                {donutData.map((d) => (
-                  <View key={d.label} style={styles.legendTile}>
-                    <View style={[styles.legendTileDot, { backgroundColor: d.color }]} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.legendTileLabel}>{d.label}</Text>
-                      <Text style={styles.legendTileValue}>
-                        {d.value} <Text style={styles.legendTilePct}>({pct(d.value)})</Text>
-                      </Text>
-                    </View>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {/* ── 5. UPCOMING DEADLINES & TASK HIGHLIGHTS ── */}
-          <View style={styles.tasksSectionCard}>
-            <View style={styles.tasksCardHeader}>
-              <View style={{ flexDirection: "row", alignItems: "center" }}>
-                <Ionicons name="calendar-outline" size={16} color="#1268D9" style={{ marginRight: 6 }} />
-                <Text style={styles.tasksCardTitle}>Upcoming Deadlines</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => navigation.navigate("ManagerTasks")}
-                style={styles.cardHeaderBtn}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cardHeaderBtnText}>View All ({recentTasks.length})</Text>
-                <Ionicons name="chevron-forward" size={12} color="#1268D9" />
-              </TouchableOpacity>
-            </View>
-
-            {recentTasks.length === 0 ? (
-              <View style={styles.emptyTasksBox}>
-                <Ionicons name="checkmark-done-circle-outline" size={32} color="#10B981" />
-                <Text style={styles.emptyTasksText}>All team deadlines are on track!</Text>
-              </View>
-            ) : (
-              recentTasks.slice(0, 4).map((t, idx) => {
-                const isOverdue = t.isOverdue || (t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed");
-                return (
-                  <TouchableOpacity
-                    key={t._id || idx}
-                    style={styles.taskListItem}
-                    onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerTaskDetails", params: { taskId: t._id } })}
-                    activeOpacity={0.75}
-                  >
-                    <View style={[styles.taskIconBox, { backgroundColor: isOverdue ? "#FEF2F2" : "#EFF6FF" }]}>
-                      <Ionicons
-                        name={isOverdue ? "alert-circle" : "clipboard-outline"}
-                        size={16}
-                        color={isOverdue ? "#EF4444" : "#1268D9"}
-                      />
-                    </View>
-
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                      <Text style={styles.taskItemTitle} numberOfLines={1}>
-                        {t.title || "Task Assignment"}
-                      </Text>
-                      <Text style={styles.taskItemProject} numberOfLines={1}>
-                        {t.projectId?.name || t.departmentName || "General Project"} • {t.assignedTo?.name || "Team"}
-                      </Text>
-                    </View>
-
-                    <View style={{ alignItems: "flex-end" }}>
-                      <Text style={[styles.taskItemDate, isOverdue && { color: "#DC2626", fontWeight: "800" }]}>
-                        {t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Today"}
-                      </Text>
-                      <View style={[styles.priorityPill, { backgroundColor: t.priority === "high" ? "#FEF2F2" : "#F1F5F9" }]}>
-                        <Text style={[styles.priorityPillText, { color: t.priority === "high" ? "#DC2626" : "#64748B" }]}>
-                          {(t.priority || "Normal").toUpperCase()}
+              <View style={styles.donutContainer}>
+                <DonutChart data={donutData} size={84} stroke={10} centerLabel={staffTotal} centerSub="STAFF" />
+                <View style={styles.legendGrid}>
+                  {donutData.map((d) => (
+                    <View key={d.label} style={styles.legendTile}>
+                      <View style={[styles.legendTileDot, { backgroundColor: d.color }]} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.legendTileLabel}>{d.label}</Text>
+                        <Text style={styles.legendTileValue}>
+                          {d.value} <Text style={styles.legendTilePct}>({pct(d.value)})</Text>
                         </Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
-                );
-              })
-            )}
-          </View>
+                  ))}
+                </View>
+              </View>
+            </View>
+          )}
+
+          {/* ── 5. UPCOMING DEADLINES & TASK HIGHLIGHTS ── */}
+          {canAccessTasks && (
+            <View style={styles.tasksSectionCard}>
+              <View style={styles.tasksCardHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="calendar-outline" size={16} color="#1268D9" style={{ marginRight: 6 }} />
+                  <Text style={styles.tasksCardTitle}>Upcoming Deadlines</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("ManagerTasks")}
+                  style={styles.cardHeaderBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cardHeaderBtnText}>View All ({recentTasks.length})</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#1268D9" />
+                </TouchableOpacity>
+              </View>
+
+              {recentTasks.length === 0 ? (
+                <View style={styles.emptyTasksBox}>
+                  <Ionicons name="checkmark-done-circle-outline" size={32} color="#10B981" />
+                  <Text style={styles.emptyTasksText}>All team deadlines are on track!</Text>
+                </View>
+              ) : (
+                recentTasks.slice(0, 4).map((t, idx) => {
+                  const isOverdue = t.isOverdue || (t.dueDate && new Date(t.dueDate) < new Date() && t.status !== "completed");
+                  return (
+                    <TouchableOpacity
+                      key={t._id || idx}
+                      style={styles.taskListItem}
+                      onPress={() => navigation.navigate("ManagerStack", { screen: "ManagerTaskDetails", params: { taskId: t._id } })}
+                      activeOpacity={0.75}
+                    >
+                      <View style={[styles.taskIconBox, { backgroundColor: isOverdue ? "#FEF2F2" : "#EFF6FF" }]}>
+                        <Ionicons
+                          name={isOverdue ? "alert-circle" : "clipboard-outline"}
+                          size={16}
+                          color={isOverdue ? "#EF4444" : "#1268D9"}
+                        />
+                      </View>
+
+                      <View style={{ flex: 1, marginRight: 8 }}>
+                        <Text style={styles.taskItemTitle} numberOfLines={1}>
+                          {t.title || "Task Assignment"}
+                        </Text>
+                        <Text style={styles.taskItemProject} numberOfLines={1}>
+                          {t.projectId?.name || t.departmentName || "General Project"} • {t.assignedTo?.name || "Team"}
+                        </Text>
+                      </View>
+
+                      <View style={{ alignItems: "flex-end" }}>
+                        <Text style={[styles.taskItemDate, isOverdue && { color: "#DC2626", fontWeight: "800" }]}>
+                          {t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "Today"}
+                        </Text>
+                        <View style={[styles.priorityPill, { backgroundColor: t.priority === "high" ? "#FEF2F2" : "#F1F5F9" }]}>
+                          <Text style={[styles.priorityPillText, { color: t.priority === "high" ? "#DC2626" : "#64748B" }]}>
+                            {(t.priority || "Normal").toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+          )}
 
         </View>
       </ScrollView>

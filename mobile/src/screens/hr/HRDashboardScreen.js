@@ -386,23 +386,25 @@ const HRDashboardScreen = ({ navigation }) => {
             </Text>
           </View>
 
-          <TouchableOpacity 
-            style={styles.checkInBtn} 
-            onPress={() => navigation.navigate("CheckInCheckOut")} 
-            activeOpacity={0.9}
-          >
-            {isCurrentlyPunchedIn ? (
-              <>
-                <Ionicons name="log-out-outline" size={14} color="#ef4444" style={{ marginRight: 4 }} />
-                <Text style={[styles.checkInBtnText, { color: "#ef4444" }]}>Punch Out</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="log-in-outline" size={14} color="#1268D9" style={{ marginRight: 4 }} />
-                <Text style={[styles.checkInBtnText, { color: "#1268D9" }]}>Punch In</Text>
-              </>
-            )}
-          </TouchableOpacity>
+          {canAccessAttendance && (
+            <TouchableOpacity 
+              style={styles.checkInBtn} 
+              onPress={() => navigation.navigate("CheckInCheckOut")} 
+              activeOpacity={0.9}
+            >
+              {isCurrentlyPunchedIn ? (
+                <>
+                  <Ionicons name="log-out-outline" size={14} color="#ef4444" style={{ marginRight: 4 }} />
+                  <Text style={[styles.checkInBtnText, { color: "#ef4444" }]}>Punch Out</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="log-in-outline" size={14} color="#1268D9" style={{ marginRight: 4 }} />
+                  <Text style={[styles.checkInBtnText, { color: "#1268D9" }]}>Punch In</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </LinearGradient>
 
         <View style={styles.sectionHeaderRow}>
