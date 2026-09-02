@@ -24,6 +24,7 @@ import {
 } from "../../api/attendanceService";
 import { captureGPSLocation } from "../../utils/locationService";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
+import locationTrackingService from "../../services/locationTrackingService";
 
 const EmployeePunchScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -206,9 +207,11 @@ const EmployeePunchScreen = ({ navigation }) => {
 
       if (action === "in") {
         await punchInApi(payload);
+        locationTrackingService.startLocationTracking().catch(() => {});
         Alert.alert("Success", "Clocked In successfully!");
       } else {
         await punchOutApi(payload);
+        locationTrackingService.stopLocationTracking().catch(() => {});
         Alert.alert("Success", "Clocked Out successfully!");
       }
 

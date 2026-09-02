@@ -66,4 +66,8 @@ router.use(leadRoutes);
 // AI Business Intelligence Routes
 router.use("/ai", protect, checkSubscription, aiRoutes);
 
+// Employee Location Tracking Routes
+const locationRoutes = require("./locationRoutes");
+router.use("/locations", locationRoutes);
+
 module.exports = router;

@@ -89,6 +89,15 @@ const NATIVE_SECTIONS = [
         module: "attendance",
       },
       {
+        label: "Live Location Radar",
+        screen: "EmployeeLocationTracking",
+        icon: "navigate-outline",
+        activeIcon: "navigate",
+        color: "#1268D9",
+        roles: ["CompanyAdmin", "HR", "Manager"],
+        module: "attendance",
+      },
+      {
         label: "Leave Management",
         screen: "LeaveRequests",
         icon: "time-outline",

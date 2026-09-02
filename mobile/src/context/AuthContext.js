@@ -129,6 +129,13 @@ export const AuthProvider = ({ children }) => {
       console.warn("[AuthContext] Logout check failed, proceeding to logout anyway", err);
     }
 
+    try {
+      const locationTrackingService = require("../services/locationTrackingService").default;
+      if (locationTrackingService) {
+        locationTrackingService.stopLocationTracking().catch(() => {});
+      }
+    } catch (_) {}
+
     await clearAuthStorage();
     setToken(null);
     setUser(null);

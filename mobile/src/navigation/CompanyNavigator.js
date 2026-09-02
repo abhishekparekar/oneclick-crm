@@ -57,6 +57,7 @@ import AccessControlScreen from "../screens/company/AccessControlScreen";
 import EmployeeDocumentsScreen from "../screens/employee/EmployeeDocumentsScreen";
 import UploadDocumentScreen from "../screens/company/UploadDocumentScreen";
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
+import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 import LeadsDashboardScreen from "../screens/leads/LeadsDashboardScreen";
 import LeadsListScreen from "../screens/leads/LeadsListScreen";
 import LeadDetailsScreen from "../screens/leads/LeadDetailsScreen";
@@ -74,6 +75,7 @@ const DashboardStack = () => (
     }}
   >
     <Stack.Screen name="CompanyDashboard" component={CompanyDashboard} />
+    <Stack.Screen name="EmployeeLocationTracking" component={EmployeeLocationTrackingScreen} />
     <Stack.Screen name="CompanyRequests" component={CompanyRequestsScreen} />
     <Stack.Screen name="LeadsEngine" component={LeadsNavigator} />
     <Stack.Screen name="LeadDetails" component={LeadDetailsScreen} />

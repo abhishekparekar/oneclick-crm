@@ -101,6 +101,14 @@ const buildManagerSections = (hasPermission) => {
                 module: "attendance",
               },
               {
+                label: "Live Location Radar",
+                screen: "EmployeeLocationTracking",
+                icon: "navigate-outline",
+                activeIcon: "navigate",
+                color: "#1268D9",
+                module: "attendance",
+              },
+              {
                 label: "Regularization",
                 screen: "ManagerRegularization",
                 icon: "create-outline",

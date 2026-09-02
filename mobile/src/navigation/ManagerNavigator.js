@@ -57,6 +57,7 @@ import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
 import EmployeeRegularizationRequestScreen from "../screens/attendance/EmployeeRegularizationRequestScreen";
 import { HRAddEmployeeScreen, HREditEmployeeScreen } from "../screens/hr/HRWrappers";
 import LeadsNavigator from "./LeadsNavigator";
+import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -147,6 +148,7 @@ const ManagerStackScreen = () => {
         options={{ headerShown: false }}
       />
       <Stack.Screen name="LeadsEngine" component={LeadsNavigator} />
+      <Stack.Screen name="EmployeeLocationTracking" component={EmployeeLocationTrackingScreen} />
 
       {/* Team */}
       <Stack.Screen name="ManagerTeamMemberDetails" component={ManagerTeamMemberDetailsScreen} />
