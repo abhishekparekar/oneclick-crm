@@ -631,7 +631,7 @@ const EmployeeDashboard = () => {
                 <button
                   onClick={() => punchOutMutation.mutate()}
                   disabled={punchOutMutation.isPending}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-slate-100 text-[#1268D9] font-black rounded-xl text-xs shadow-lg shadow-black/10 transition-all active:scale-95 cursor-pointer"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-black rounded-xl text-xs shadow-lg shadow-rose-600/30 transition-all active:scale-95 cursor-pointer"
                 >
                   <LogOut size={15} strokeWidth={2.5} />
                   <span>{punchOutMutation.isPending ? "Punching Out..." : "Punch Out"}</span>

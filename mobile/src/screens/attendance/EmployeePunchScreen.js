@@ -338,7 +338,7 @@ const EmployeePunchScreen = ({ navigation }) => {
             style={[
               styles.punchBtn,
               {
-                backgroundColor: action === "in" ? "#16A34A" : "#EA580C",
+                backgroundColor: action === "in" ? "#16A34A" : "#EF4444",
               },
             ]}
             onPress={handleCameraPunchConfirm}

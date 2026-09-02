@@ -310,17 +310,27 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 <Text style={styles.punchInTime}>{isPunchedIn ? punchInTimeStr : "--:--"}</Text>
                 {canAccessAttendance && (
                   <TouchableOpacity
-                    style={styles.punchBtn}
+                    style={[
+                      styles.punchBtn,
+                      isPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
+                    ]}
                     onPress={() => navigation.navigate("CheckInCheckOut")}
                     activeOpacity={0.85}
                   >
                     <Ionicons
                       name={isPunchedIn ? "log-out-outline" : "log-in-outline"}
                       size={13}
-                      color="#1268D9"
+                      color={isPunchedIn ? "#FFFFFF" : "#1268D9"}
                       style={{ marginRight: 3 }}
                     />
-                    <Text style={styles.punchBtnText}>{isPunchedIn ? "Punch Out" : "Punch In"}</Text>
+                    <Text
+                      style={[
+                        styles.punchBtnText,
+                        isPunchedIn && { color: "#FFFFFF" },
+                      ]}
+                    >
+                      {isPunchedIn ? "Punch Out" : "Punch In"}
+                    </Text>
                   </TouchableOpacity>
                 )}
               </View>

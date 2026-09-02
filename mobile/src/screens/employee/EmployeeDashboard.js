@@ -439,9 +439,26 @@ export default function EmployeeDashboard({ navigation }) {
                 onPress={() => navigation.navigate("CheckInCheckOut")}
                 activeOpacity={0.85}
               >
-                <View style={styles.heroPunchWhiteBtn}>
-                  <Ionicons name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"} size={16} color="#1268D9" style={{ marginRight: 4 }} />
-                  <Text style={styles.heroPunchWhiteText}>{isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}</Text>
+                <View
+                  style={[
+                    styles.heroPunchWhiteBtn,
+                    isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
+                  ]}
+                >
+                  <Ionicons
+                    name={isCurrentlyPunchedIn ? "log-out-outline" : "log-in-outline"}
+                    size={16}
+                    color={isCurrentlyPunchedIn ? "#FFFFFF" : "#1268D9"}
+                    style={{ marginRight: 4 }}
+                  />
+                  <Text
+                    style={[
+                      styles.heroPunchWhiteText,
+                      isCurrentlyPunchedIn && { color: "#FFFFFF" },
+                    ]}
+                  >
+                    {isCurrentlyPunchedIn ? "Punch Out" : "Punch In"}
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}

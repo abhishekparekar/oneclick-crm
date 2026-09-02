@@ -391,14 +391,17 @@ const HRDashboardScreen = ({ navigation }) => {
 
           {canAccessAttendance && (
             <TouchableOpacity 
-              style={styles.checkInBtn} 
+              style={[
+                styles.checkInBtn,
+                isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
+              ]} 
               onPress={() => navigation.navigate("CheckInCheckOut")} 
               activeOpacity={0.9}
             >
               {isCurrentlyPunchedIn ? (
                 <>
-                  <Ionicons name="log-out-outline" size={14} color="#ef4444" style={{ marginRight: 4 }} />
-                  <Text style={[styles.checkInBtnText, { color: "#ef4444" }]}>Punch Out</Text>
+                  <Ionicons name="log-out-outline" size={14} color="#FFFFFF" style={{ marginRight: 4 }} />
+                  <Text style={[styles.checkInBtnText, { color: "#FFFFFF" }]}>Punch Out</Text>
                 </>
               ) : (
                 <>
