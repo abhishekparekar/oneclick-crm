@@ -7,6 +7,8 @@ import {
   getCompanyAuditLogsApi,
   getTasksApi,
   getEmployeesApi,
+  getProjectsApi,
+  getCompanyAnnouncementsApi,
 } from "../../api/companyAdminApi";
 import { api as leadApi } from "../../utils/leads/api";
 import {
@@ -18,7 +20,7 @@ import {
   UserPlus, Calendar, BarChart2, DollarSign, Clock,
   CheckCircle, Zap, Briefcase, Plus, Upload,
   CloudSun, ArrowUp, ArrowDown, FileText, ChevronDown, ArrowRight,
-  Inbox,
+  Inbox, Megaphone,
 } from "lucide-react";
 
 /* ─── SVG Progress Ring Component ─────────────────────────────────────────── */
@@ -131,6 +133,24 @@ export default function CompanyDashboard() {
     enabled: !!hasPermission("tasks"),
   });
 
+  const { data: projectsRes } = useQuery({
+    queryKey: ["companyProjects"],
+    queryFn: async () => {
+      const res = await getProjectsApi();
+      return res.data?.projects || res.data || [];
+    },
+    enabled: !!hasPermission("projects"),
+  });
+
+  const { data: annRes } = useQuery({
+    queryKey: ["companyAnnouncements"],
+    queryFn: async () => {
+      const res = await getCompanyAnnouncementsApi();
+      return res.data?.announcements || res.data || [];
+    },
+    staleTime: 60000,
+  });
+
   const { data: empRes } = useQuery({
     queryKey: ["companyEmployees"],
     queryFn: async () => {
@@ -158,12 +178,14 @@ export default function CompanyDashboard() {
   const kpis = dashRes?.kpis || {};
   const realEmps = useMemo(() => (Array.isArray(empRes) ? empRes : []), [empRes]);
   const realTasks = useMemo(() => (Array.isArray(tasksRes) ? tasksRes : []), [tasksRes]);
+  const realProjects = useMemo(() => (Array.isArray(projectsRes) ? projectsRes : []), [projectsRes]);
+  const realAnnouncements = useMemo(() => (Array.isArray(annRes) ? annRes : []), [annRes]);
   const realLeads = useMemo(() => (Array.isArray(leadsData?.leads) ? leadsData.leads : []), [leadsData]);
   const realLogs = useMemo(() => (Array.isArray(auditRes) ? auditRes : []), [auditRes]);
 
   const totalEmployees = kpis.totalEmployees ?? realEmps.length;
   const openLeadsCount = realLeads.length || kpis.openLeads || 0;
-  const activeProjectsCount = kpis.activeProjects || 0;
+  const activeProjectsCount = realProjects.length || kpis.activeProjects || 0;
   const pendingTasksCount = realTasks.filter(t => t.status !== "done" && t.status !== "completed").length;
   const tasksDueTodayCount = realTasks.filter(t => t.dueDate && new Date(t.dueDate).toDateString() === new Date().toDateString() && t.status !== "done" && t.status !== "completed").length || (kpis.openTasks || 0);
 
@@ -173,7 +195,7 @@ export default function CompanyDashboard() {
 
   // HRMS Numbers (100% Real from Database API)
   const presentCount = kpis.presentToday ?? 0;
-  const absentCount  = kpis.absentToday  ?? 0;
+  const absentCount  = kpis.absentToday  ?? (totalEmployees > presentCount ? totalEmployees - presentCount : 0);
   const leaveCount   = kpis.onLeave      ?? 0;
   const lateCount    = kpis.lateToday    ?? 0;
   const wfhCount     = kpis.halfDayToday ?? 0;
@@ -182,6 +204,31 @@ export default function CompanyDashboard() {
   const now = new Date();
   const currentDateStr = now.toLocaleDateString("en-IN", { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
   const currentTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  // Dynamic Top KPI Cards List
+  const kpiCardsList = useMemo(() => {
+    const list = [];
+    if (hasPermission("payroll")) {
+      list.push({ key: "revenue", label: "Total Revenue", value: revenueValue, trend: "Live", isUp: true, period: "database", strokeColor: "#EAB308", Icon: DollarSign, iconBg: "bg-amber-500/10", iconColor: "#D97706", to: "/company/payroll" });
+    }
+    list.push({ key: "employees", label: "Total Employees", value: totalEmployees, trend: "Live", isUp: true, period: "database", strokeColor: "#06B6D4", Icon: Users, iconBg: "bg-cyan-500/10", iconColor: "#0891B2", to: "/company/employees" });
+    if (hasPermission("attendance")) {
+      list.push({ key: "present", label: "Present Today", value: presentCount, trend: "Live", isUp: true, period: "database", strokeColor: "#10B981", Icon: UserCheck, iconBg: "bg-emerald-500/10", iconColor: "#059669", to: "/company/attendance" });
+    }
+    if (hasPermission("projects")) {
+      list.push({ key: "projects", label: "Active Projects", value: activeProjectsCount, trend: "Live", isUp: true, period: "database", strokeColor: "#EC4899", Icon: Folder, iconBg: "bg-pink-500/10", iconColor: "#DB2777", to: "/company/projects" });
+    }
+    if (hasPermission("leave")) {
+      list.push({ key: "leave", label: "On Leave", value: leaveCount, trend: "Live", isUp: false, period: "database", strokeColor: "#F59E0B", Icon: CalendarOff, iconBg: "bg-amber-500/10", iconColor: "#D97706", to: "/company/leaves" });
+    }
+    if (hasPermission("leads")) {
+      list.push({ key: "leads", label: "Open Leads", value: openLeadsCount, trend: "Live", isUp: true, period: "database", strokeColor: "#8B5CF6", Icon: Zap, iconBg: "bg-purple-500/10", iconColor: "#7C3AED", to: "/company/leads" });
+    }
+    if (hasPermission("tasks")) {
+      list.push({ key: "tasks", label: "Tasks Due Today", value: tasksDueTodayCount, trend: "Live", isUp: false, period: "database", strokeColor: "#F97316", Icon: CheckSquare, iconBg: "bg-orange-500/10", iconColor: "#EA580C", to: "/company/tasks" });
+    }
+    return list;
+  }, [hasPermission, revenueValue, totalEmployees, presentCount, activeProjectsCount, leaveCount, openLeadsCount, tasksDueTodayCount]);
 
   // Lead Pipeline (Donut & Kanban - 100% Dynamic from Real Leads)
   const leadPipeline = useMemo(() => {
@@ -299,6 +346,8 @@ export default function CompanyDashboard() {
         initials,
         color: i % 2 === 0 ? "bg-cyan-600" : "bg-purple-600",
         name: emp.name || emp.fullName || "Employee",
+        role: emp.designationId?.name || emp.role || "Team Member",
+        dept: emp.departmentId?.name || "General",
         tasks: done,
         projects: emp.projectsCount || 1,
         eff,
@@ -321,20 +370,34 @@ export default function CompanyDashboard() {
     return [];
   }, [realLogs]);
 
-  // Real Upcoming Events (From tasks with due dates)
+  // Real Upcoming Events (From tasks with due dates + announcements)
   const upcomingEvents = useMemo(() => {
-    const datedTasks = realTasks.filter(t => t.dueDate && new Date(t.dueDate) >= new Date());
-    if (datedTasks.length > 0) {
-      return datedTasks.slice(0, 5).map((t, idx) => ({
-        id: t._id || idx,
-        title: t.title || "Task Deadline",
-        date: new Date(t.dueDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }),
-        ic: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-        Icon: Folder
-      }));
+    const list = [];
+    if (hasPermission("tasks")) {
+      const datedTasks = realTasks.filter(t => t.dueDate && new Date(t.dueDate) >= new Date());
+      datedTasks.slice(0, 3).forEach((t, idx) => {
+        list.push({
+          id: `t-${t._id || idx}`,
+          title: t.title || "Task Deadline",
+          date: new Date(t.dueDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }),
+          ic: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
+          Icon: CheckSquare,
+          to: "/company/tasks",
+        });
+      });
     }
-    return [];
-  }, [realTasks]);
+    realAnnouncements.slice(0, 3).forEach((ann, idx) => {
+      list.push({
+        id: `a-${ann._id || idx}`,
+        title: ann.title || "Company Announcement",
+        date: ann.createdAt ? new Date(ann.createdAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' }) : "Notice",
+        ic: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
+        Icon: Megaphone,
+        to: "/company/announcements",
+      });
+    });
+    return list.slice(0, 5);
+  }, [hasPermission, realTasks, realAnnouncements]);
 
   // Revenue Series (100% Dynamic)
   const revenueSeries = useMemo(() => {
@@ -343,6 +406,15 @@ export default function CompanyDashboard() {
       { date: "Current Period", val: payrollCost }
     ];
   }, [payrollCost]);
+
+  // Determine dynamic layout configurations
+  const hasTasks = hasPermission("tasks");
+  const hasLeads = hasPermission("leads");
+  const hasProjects = hasPermission("projects");
+  const hasPayroll = hasPermission("payroll");
+  const hasHRMS = hasPermission("attendance") || hasPermission("leave");
+
+  const row2Count = [hasPayroll, hasLeads, hasTasks, hasHRMS].filter(Boolean).length;
 
   return (
     <div className="space-y-4 pb-10 font-sans text-slate-900 dark:text-slate-100">
@@ -353,9 +425,13 @@ export default function CompanyDashboard() {
           <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
             Good Morning, {userName} <span className="inline-block">👋</span>
           </h1>
-          {hasPermission("tasks") && (
+          {hasTasks ? (
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
               You have <span className="font-semibold text-[#EAB308]">{pendingTasksCount} pending tasks</span> today.
+            </p>
+          ) : (
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+              Welcome to your centralized business command center.
             </p>
           )}
         </div>
@@ -381,18 +457,15 @@ export default function CompanyDashboard() {
 
           {/* Distinct Grouped Background Shortcut Actions Toolbar */}
           <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#1E293B] p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <button className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center justify-center transition-all shadow-xs" title="Quick Add">
-              <Plus size={14} strokeWidth={2.5}/>
-            </button>
             <Link to="/company/employees/add" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Add Employee">
               <UserPlus size={13}/>
             </Link>
-            {hasPermission("projects") && (
+            {hasProjects && (
               <Link to="/company/projects" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Projects">
                 <Briefcase size={13}/>
               </Link>
             )}
-            {hasPermission("tasks") && (
+            {hasTasks && (
               <Link to="/company/tasks" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Tasks">
                 <CheckSquare size={13}/>
               </Link>
@@ -400,34 +473,50 @@ export default function CompanyDashboard() {
             <Link to="/company/upload-document" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Document">
               <FileText size={13}/>
             </Link>
-            <button className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Export">
-              <Upload size={13}/>
-            </button>
           </div>
         </div>
       </div>
 
-      {/* ── Row 1: Top Compact Stat Cards (100% Dynamic based on Subscribed Modules) ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        {hasPermission("payroll") && <KPICard label="Total Revenue"    value={revenueValue} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={DollarSign}   iconBg="bg-amber-500/10"  iconColor="#D97706" to="/company/payroll"/>}
-        <KPICard label="Total Employees"  value={totalEmployees} trend="Live" isUp period="database" strokeColor="#06B6D4" Icon={Users}        iconBg="bg-cyan-500/10"   iconColor="#0891B2" to="/company/employees"/>
-        {hasPermission("leads") && <KPICard label="Open Leads"       value={openLeadsCount} trend="Live" isUp period="database" strokeColor="#8B5CF6" Icon={Zap}          iconBg="bg-purple-500/10" iconColor="#7C3AED" to="/company/leads"/>}
-        {hasPermission("projects") && <KPICard label="Active Projects"  value={activeProjectsCount} trend="Live" isUp period="database" strokeColor="#EC4899" Icon={Folder}       iconBg="bg-pink-500/10"   iconColor="#DB2777" to="/company/projects"/>}
-        {hasPermission("tasks") && <KPICard label="Tasks Due Today"  value={tasksDueTodayCount} trend="Live" isUp={false} period="database" strokeColor="#F97316" Icon={CheckSquare} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1" to="/company/tasks"/>}
+      {/* ── Row 1: Top Compact Stat Cards (Auto-Balanced Responsive Flex/Grid) ── */}
+      <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${
+        kpiCardsList.length <= 3 ? "lg:grid-cols-3" :
+        kpiCardsList.length === 4 ? "lg:grid-cols-4" :
+        "lg:grid-cols-4 xl:grid-cols-5"
+      } gap-2.5 sm:gap-3`}>
+        {kpiCardsList.map(card => (
+          <KPICard
+            key={card.key}
+            label={card.label}
+            value={card.value}
+            trend={card.trend}
+            isUp={card.isUp}
+            period={card.period}
+            strokeColor={card.strokeColor}
+            Icon={card.Icon}
+            iconBg={card.iconBg}
+            iconColor={card.iconColor}
+            to={card.to}
+          />
+        ))}
       </div>
 
       {/* ── Row 2: Revenue · Lead Pipeline · Task Completion · HRMS Overview ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+      <div className={`grid grid-cols-1 ${
+        row2Count === 1 ? "lg:grid-cols-1" :
+        row2Count === 2 ? "lg:grid-cols-2" :
+        row2Count === 3 ? "md:grid-cols-2 lg:grid-cols-3" :
+        "grid-cols-1 lg:grid-cols-12"
+      } gap-3.5`}>
         
         {/* Revenue Overview */}
-        {hasPermission("payroll") && (
-          <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-amber-500/40 transition-colors">
+        {hasPayroll && (
+          <div className={`${row2Count >= 4 ? "lg:col-span-4" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-amber-500/40 transition-colors`}>
             <div>
               <div className="flex items-center justify-between mb-2">
-                <Link to="/company/payroll" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors">
+                <Link to="/company/payroll/history" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors">
                   Revenue Overview <ArrowRight size={12} className="opacity-70"/>
                 </Link>
-                <Link to="/company/payroll" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md hover:bg-amber-500/20 transition-colors">
+                <Link to="/company/payroll/history" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md hover:bg-amber-500/20 transition-colors">
                   Live Payroll Cost
                 </Link>
               </div>
@@ -435,7 +524,7 @@ export default function CompanyDashboard() {
                 <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{revenueFullStr}</span>
               </div>
             </div>
-            <Link to="/company/payroll" className="h-[155px] w-full flex items-center justify-center block cursor-pointer">
+            <Link to="/company/payroll/history" className="h-[155px] w-full flex items-center justify-center block cursor-pointer">
               {revenueSeries.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                   <AreaChart data={revenueSeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
@@ -463,8 +552,8 @@ export default function CompanyDashboard() {
         )}
 
         {/* Lead Pipeline Donut */}
-        {hasPermission("leads") && (
-          <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-purple-500/40 transition-colors">
+        {hasLeads && (
+          <div className={`${row2Count >= 4 ? "lg:col-span-3" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-purple-500/40 transition-colors`}>
             <div className="flex items-center justify-between mb-2">
               <Link to="/company/leads" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors">
                 Lead Pipeline <ArrowRight size={12} className="opacity-70"/>
@@ -510,8 +599,8 @@ export default function CompanyDashboard() {
         )}
 
         {/* Task Completion Donut */}
-        {hasPermission("tasks") && (
-          <div className="lg:col-span-2 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-orange-500/40 transition-colors">
+        {hasTasks && (
+          <div className={`${row2Count >= 4 ? "lg:col-span-2" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-orange-500/40 transition-colors`}>
             <div className="flex items-center justify-between mb-2">
               <Link to="/company/tasks" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400 flex items-center gap-1 transition-colors">
                 Task Status <ArrowRight size={12} className="opacity-70"/>
@@ -552,8 +641,8 @@ export default function CompanyDashboard() {
         )}
 
         {/* Vibrant High-Contrast HRMS Overview */}
-        {(hasPermission("attendance") || hasPermission("leave")) && (
-          <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
+        {hasHRMS && (
+          <div className={`${row2Count >= 4 ? "lg:col-span-3" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between`}>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">HRMS Overview</h3>
               <Link to="/company/attendance" className="text-[10px] text-cyan-600 hover:text-cyan-700 font-bold">Live</Link>
@@ -579,12 +668,12 @@ export default function CompanyDashboard() {
         )}
       </div>
 
-      {/* ── Row 3: Today's Tasks · Lead Pipeline Board · Upcoming Events ── */}
+      {/* ── Row 3: Today's Tasks · Lead Pipeline Board · Projects Spotlight · Upcoming Events ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
         
-        {/* Today's Tasks */}
-        {hasPermission("tasks") && (
-          <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        {/* Today's Tasks (if Tasks enabled) */}
+        {hasTasks && (
+          <div className={`${hasLeads ? "lg:col-span-4" : "lg:col-span-6"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Today's Tasks</h3>
               <Link to="/company/tasks" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
@@ -622,9 +711,9 @@ export default function CompanyDashboard() {
           </div>
         )}
 
-        {/* Lead Pipeline Board */}
-        {hasPermission("leads") && (
-          <div className="lg:col-span-5 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        {/* Lead Pipeline Board (if Leads enabled) */}
+        {hasLeads && (
+          <div className={`${hasTasks ? "lg:col-span-5" : "lg:col-span-7"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Lead Pipeline Board</h3>
               <Link to="/company/leads" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
@@ -672,10 +761,56 @@ export default function CompanyDashboard() {
           </div>
         )}
 
-        {/* Upcoming Events */}
-        <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+        {/* Projects Spotlight (if Projects enabled and Tasks or Leads is absent, fill gracefully) */}
+        {hasProjects && (!hasTasks || !hasLeads) && (
+          <div className={`${!hasTasks && !hasLeads ? "lg:col-span-7" : "lg:col-span-6"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Projects Progress</h3>
+              <Link to="/company/projects" className="text-[11px] font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-0.5">
+                View All <ArrowRight size={11}/>
+              </Link>
+            </div>
+            {realProjects.length > 0 ? (
+              <div className="space-y-2.5">
+                {realProjects.slice(0, 4).map((p, idx) => {
+                  const pct = p.progress ?? (p.status === "completed" ? 100 : p.status === "in_progress" ? 60 : 20);
+                  return (
+                    <Link to="/company/projects" key={p._id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 hover:border-pink-500/50 transition-colors block no-underline">
+                      <div className="min-w-0 flex-1 pr-3">
+                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{p.name || p.title || "Project Item"}</p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-[10px] text-slate-400 capitalize">{p.status?.replace(/_/g, " ") || "Active"}</span>
+                          <span className="text-[10px] text-slate-400">·</span>
+                          <span className="text-[10px] text-slate-400">{p.deadline ? new Date(p.deadline).toLocaleDateString() : "Ongoing"}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div className="w-20 bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                          <div className="h-full bg-pink-500 rounded-full" style={{ width: `${pct}%` }}/>
+                        </div>
+                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{pct}%</span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Briefcase size={24} className="mx-auto text-slate-400 mb-1" />
+                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No active projects logged</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Upcoming Events & Notices */}
+        <div className={`${
+          hasTasks && hasLeads ? "lg:col-span-3" :
+          !hasTasks && !hasLeads ? "lg:col-span-5" :
+          "lg:col-span-6"
+        } bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Upcoming Events</h3>
+            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Upcoming Events & Notices</h3>
             <Link to="/company/announcements" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
               View All <ArrowRight size={11}/>
             </Link>
@@ -685,10 +820,10 @@ export default function CompanyDashboard() {
               {upcomingEvents.map(ev => {
                 const I = ev.Icon;
                 return (
-                  <Link to="/company/announcements" key={ev.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group block no-underline">
+                  <Link to={ev.to || "/company/announcements"} key={ev.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-slate-100 dark:border-slate-800/60 transition-colors cursor-pointer group block no-underline">
                     <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ev.ic}`}><I size={14}/></div>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 transition-colors">{ev.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11.5px] font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 transition-colors">{ev.title}</p>
                       <p className="text-[9.5px] text-slate-400 mt-0.5">{ev.date}</p>
                     </div>
                   </Link>
@@ -698,7 +833,7 @@ export default function CompanyDashboard() {
           ) : (
             <div className="text-center py-8">
               <Calendar size={24} className="mx-auto text-slate-400 mb-1" />
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No upcoming events</p>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No upcoming events or notices</p>
             </div>
           )}
         </div>
@@ -710,8 +845,8 @@ export default function CompanyDashboard() {
         {/* Team Performance */}
         <div className="lg:col-span-7 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Team Performance</h3>
-            <Link to="/company/reports/performance" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
+            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Team Directory & Status</h3>
+            <Link to="/company/employees" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
               View All <ArrowRight size={11}/>
             </Link>
           </div>
@@ -720,10 +855,15 @@ export default function CompanyDashboard() {
               <thead>
                 <tr className="text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider">
                   <th className="pb-2 text-left w-2/5">Employee</th>
-                  <th className="pb-2 text-center w-1/6">Tasks Completed</th>
-                  <th className="pb-2 text-center w-1/6">Projects</th>
-                  <th className="pb-2 text-left w-1/4 pl-2">Efficiency</th>
-                  <th className="pb-2 text-right w-1/6">Today's Hours</th>
+                  <th className="pb-2 text-left w-1/4">Department</th>
+                  {hasTasks ? (
+                    <th className="pb-2 text-center w-1/6">Tasks Done</th>
+                  ) : hasProjects ? (
+                    <th className="pb-2 text-center w-1/6">Projects</th>
+                  ) : (
+                    <th className="pb-2 text-center w-1/6">Role</th>
+                  )}
+                  <th className="pb-2 text-right w-1/5">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -736,17 +876,15 @@ export default function CompanyDashboard() {
                         <span className="font-semibold text-slate-900 dark:text-white text-[11.5px] truncate">{emp.name}</span>
                       </div>
                     </td>
-                    <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.tasks}</td>
-                    <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.projects}</td>
-                    <td className="py-2.5 pl-2">
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold text-slate-900 dark:text-white text-[11px]">{emp.eff}%</span>
-                        <div className="w-16 bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                          <div className={`h-full ${emp.ec}`} style={{ width:`${emp.eff}%` }}/>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="py-2.5 text-right font-semibold text-slate-900 dark:text-white text-[11.5px]">{emp.hours}</td>
+                    <td className="py-2.5 text-slate-600 dark:text-slate-400 text-[11px] truncate">{emp.dept}</td>
+                    {hasTasks ? (
+                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.tasks}</td>
+                    ) : hasProjects ? (
+                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.projects}</td>
+                    ) : (
+                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11px] truncate">{emp.role}</td>
+                    )}
+                    <td className="py-2.5 text-right font-semibold text-emerald-600 text-[11px]">Active</td>
                   </tr>
                 ))}
               </tbody>
