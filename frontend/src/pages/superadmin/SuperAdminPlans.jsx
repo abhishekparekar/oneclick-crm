@@ -7,7 +7,8 @@ import {
 import {
   Search, Plus, Edit, Trash2, Ban, CheckCircle, CheckCircle2,
   Package, Layers, Users, HardDrive, Clock, Sparkles, Check,
-  DollarSign, Shield, Cpu, Zap, ArrowRight, AlertCircle
+  DollarSign, Shield, Cpu, Zap, ArrowRight, AlertCircle,
+  Eye, EyeOff, X
 } from "lucide-react";
 
 const MODULES = [
