@@ -358,15 +358,50 @@ const changePassword = async (req, res, next) => {
 const logoutCheck = async (req, res) => {
   try {
     const Task = require('../models/Task');
+    const Company = require('../models/Company');
+    const Subscription = require('../models/Subscription');
     
     // Only applies to Employees (Team Members)
     if (req.user.role !== 'Employee') {
       return res.json({ success: true, canLogout: true });
     }
 
+    // 1. Check if the company has the 'tasks' module subscribed
+    if (req.user.companyId) {
+      const company = await Company.findById(req.user.companyId).select('subscribedModules planId').populate('planId').lean();
+      if (company) {
+        let activeModules = [];
+        if (Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0) {
+          activeModules = company.subscribedModules.map(m => m.toLowerCase());
+        } else if (company.planId && Array.isArray(company.planId.modules)) {
+          activeModules = company.planId.modules.map(m => m.toLowerCase());
+        } else {
+          const sub = await Subscription.findOne({ companyId: company._id, status: 'active' }).populate('planId').lean();
+          if (sub && Array.isArray(sub.modules) && sub.modules.length > 0) {
+            activeModules = sub.modules.map(m => m.toLowerCase());
+          } else if (sub && sub.planId && Array.isArray(sub.planId.modules)) {
+            activeModules = sub.planId.modules.map(m => m.toLowerCase());
+          }
+        }
+
+        // If 'tasks' module is not in active company modules, permit logout immediately
+        if (activeModules.length > 0 && !activeModules.includes('tasks') && !activeModules.includes('task')) {
+          return res.json({ success: true, canLogout: true });
+        }
+      }
+    }
+
     const employee = await Employee.findOne({ userId: req.user._id, companyId: req.user.companyId }).lean();
     if (!employee) {
       return res.json({ success: true, canLogout: true });
+    }
+
+    // 2. Check if employee has 'tasks' in assignedModules
+    if (Array.isArray(employee.assignedModules) && employee.assignedModules.length > 0) {
+      const assigned = employee.assignedModules.map(m => m.toLowerCase());
+      if (!assigned.includes('tasks') && !assigned.includes('task')) {
+        return res.json({ success: true, canLogout: true });
+      }
     }
 
     const today = new Date();
@@ -403,6 +438,7 @@ const logoutCheck = async (req, res) => {
 
     res.json({ success: true, canLogout: true });
   } catch (error) {
+    console.error("[Auth] logoutCheck error:", error);
     res.status(500).json({ success: false, message: 'Server error during logout check' });
   }
 };

@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     console.log("[AuthContext] Logging out user:", user?.email);
     try {
-      if (isEmployeeRole(user?.role)) {
+      if (isEmployeeRole(user?.role) && hasPermission("tasks")) {
         const api = require("../api/api").default;
         const res = await api.get("/auth/logout-check");
         if (res.data && res.data.canLogout === false) {
