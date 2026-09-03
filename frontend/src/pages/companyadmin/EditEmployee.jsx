@@ -10,6 +10,7 @@ import {
   getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi,
   getModuleUsageApi
 } from "../../api/companyAdminApi";
+import { useAuth } from "../../context/AuthContext";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
   FileText, Coins, Award, Camera, Save, ArrowLeft, ChevronDown,
@@ -19,6 +20,16 @@ import {
   ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck,
   Calendar, Cpu
 } from "lucide-react";
+
+const ALL_MODULES = [
+  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
+  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
+  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
+  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
+  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
+  { key: "reports", label: "Analytics & Reports", desc: "View operational reports & analytics" },
+];
 
 const getPhotoUrl = (rawPhoto) => {
   if (!rawPhoto || typeof rawPhoto !== "string") return null;
@@ -248,6 +259,17 @@ export default function EditEmployee() {
   const { id } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const authCompanyModules = useMemo(() => {
+    const raw =
+      user?.company?.subscribedModules ??
+      user?.subscribedModules ??
+      (typeof user?.companyId === "object" && user?.companyId !== null ? user?.companyId?.subscribedModules : null);
+    return Array.isArray(raw) && raw.length > 0
+      ? raw.map((m) => String(m).toLowerCase().trim())
+      : null;
+  }, [user]);
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState(null);
@@ -279,7 +301,15 @@ export default function EditEmployee() {
   });
 
   const moduleUsage = moduleUsageRes?.usage || {};
-  const subscribedModules = moduleUsageRes?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+  const subscribedModules = useMemo(() => {
+    if (Array.isArray(moduleUsageRes?.subscribedModules) && moduleUsageRes.subscribedModules.length > 0) {
+      return moduleUsageRes.subscribedModules.map((m) => String(m).toLowerCase().trim());
+    }
+    if (Array.isArray(authCompanyModules) && authCompanyModules.length > 0) {
+      return authCompanyModules;
+    }
+    return [];
+  }, [moduleUsageRes, authCompanyModules]);
 
   const { data: auditRes, refetch: refetchAudit } = useQuery({
     queryKey: ["auditLogs", id],
@@ -287,24 +317,51 @@ export default function EditEmployee() {
     enabled: showAuditLog,
   });
 
+  // Prune any unsubscribed modules if subscribedModules updates
+  useEffect(() => {
+    if (formData && subscribedModules.length > 0) {
+      setFormData((prev) => {
+        if (!prev) return prev;
+        const cur = prev.assignedModules || [];
+        const valid = cur.filter((m) => subscribedModules.includes(m));
+        if (valid.length !== cur.length) {
+          return { ...prev, assignedModules: valid };
+        }
+        return prev;
+      });
+    }
+  }, [subscribedModules]);
+
   // Populate form data
   useEffect(() => {
     if (empRes?.data?.employee && !formData) {
       const emp = empRes.data.employee;
       const resolvedPhoto = emp.photo || emp.documents?.photo || emp.userId?.profileImage || "";
+      const rawAssigned = (emp.assignedModules && emp.assignedModules.length > 0)
+        ? emp.assignedModules
+        : (emp.userId?.assignedModules && emp.userId.assignedModules.length > 0
+            ? emp.userId.assignedModules
+            : subscribedModules);
+      const validAssigned = (rawAssigned || [])
+        .map((m) => String(m).toLowerCase().trim())
+        .filter((m) => subscribedModules.length === 0 || subscribedModules.includes(m));
+
       const initialData = {
         ...emp,
         photo: resolvedPhoto,
+        gender: emp.gender ? emp.gender.toLowerCase() : "",
+        employmentType: emp.employmentType ? emp.employmentType.toLowerCase().replace('_', '-') : "full-time",
+        workMode: emp.workMode ? emp.workMode.toLowerCase() : "office",
+        maritalStatus: emp.maritalStatus ? emp.maritalStatus.toLowerCase() : "",
+        bloodGroup: emp.bloodGroup || "",
+        aadhaarNumber: emp.aadhaarNumber || "",
+        panNumber: emp.panNumber || "",
         dateOfBirth: emp.dateOfBirth ? emp.dateOfBirth.split('T')[0] : "",
         joiningDate: emp.joiningDate ? emp.joiningDate.split('T')[0] : "",
         confirmationDate: emp.confirmationDate ? emp.confirmationDate.split('T')[0] : "",
         managerAccessLevel: emp.managerAccessLevel || "team",
         allowRemotePunch: emp.allowRemotePunch || false,
-        assignedModules: emp.assignedModules && emp.assignedModules.length > 0
-          ? emp.assignedModules
-          : (emp.userId?.assignedModules && emp.userId.assignedModules.length > 0
-              ? emp.userId.assignedModules
-              : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"]),
+        assignedModules: validAssigned,
         accessibleDepartments: emp.accessibleDepartments?.length
           ? emp.accessibleDepartments.map(d => typeof d === 'object' ? d._id : d)
           : (emp.departmentId ? [typeof emp.departmentId === 'object' ? emp.departmentId._id : emp.departmentId] : []),
@@ -503,10 +560,10 @@ export default function EditEmployee() {
       email: formData.email,
       phone: formData.phone,
       alternateMobile: formData.alternateMobile,
-      gender: formData.gender,
+      gender: formData.gender ? String(formData.gender).toLowerCase().trim() : "",
       dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
-      bloodGroup: formData.bloodGroup,
-      maritalStatus: formData.maritalStatus,
+      bloodGroup: formData.bloodGroup || "",
+      maritalStatus: formData.maritalStatus ? String(formData.maritalStatus).toLowerCase().trim() : "",
       photo: formData.photo,
 
       currentAddress: formData.currentAddress,
@@ -519,8 +576,8 @@ export default function EditEmployee() {
       branchId: typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId,
       reportingManagerId: typeof formData.reportingManagerId === "object" ? formData.reportingManagerId?._id : formData.reportingManagerId,
       managerAccessLevel: (formData.role === "Manager" || formData.userId?.role === "Manager") ? formData.managerAccessLevel : undefined,
-      employmentType: formData.employmentType,
-      workMode: formData.workMode,
+      employmentType: formData.employmentType ? String(formData.employmentType).toLowerCase().trim().replace("_", "-") : "full-time",
+      workMode: formData.workMode ? String(formData.workMode).toLowerCase().trim() : "office",
       allowRemotePunch: formData.allowRemotePunch,
       joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : null,
       confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : null,
@@ -531,7 +588,7 @@ export default function EditEmployee() {
       panNumber: formData.panNumber,
       documents: formData.documents,
 
-      assignedModules: formData.assignedModules,
+      assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
       role: formData.role || formData.userId?.role,
       loginRole: formData.role || formData.userId?.role,
       salaryDetails: formData.salaryDetails,
@@ -766,15 +823,15 @@ export default function EditEmployee() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-              <Select label="Gender" value={formData.gender} onChange={(v) => handleChange("gender", v)} options={[
-                { value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }
+              <Select label="Gender" value={formData.gender ? formData.gender.toLowerCase() : ""} onChange={(v) => handleChange("gender", v.toLowerCase())} options={[
+                { value: "male", label: "Male" }, { value: "female", label: "Female" }, { value: "other", label: "Other" }
               ]} />
-              <Select label="Blood Group" value={formData.bloodGroup} onChange={(v) => handleChange("bloodGroup", v)} options={[
+              <Select label="Blood Group" value={formData.bloodGroup || ""} onChange={(v) => handleChange("bloodGroup", v)} options={[
                 { value: "A+", label: "A+" }, { value: "A-", label: "A-" }, { value: "B+", label: "B+" }, { value: "B-", label: "B-" },
                 { value: "O+", label: "O+" }, { value: "O-", label: "O-" }, { value: "AB+", label: "AB+" }, { value: "AB-", label: "AB-" }
               ]} />
-              <Select label="Marital Status" value={formData.maritalStatus} onChange={(v) => handleChange("maritalStatus", v)} options={[
-                { value: "Single", label: "Single" }, { value: "Married", label: "Married" }, { value: "Divorced", label: "Divorced" }
+              <Select label="Marital Status" value={formData.maritalStatus ? formData.maritalStatus.toLowerCase() : ""} onChange={(v) => handleChange("maritalStatus", v.toLowerCase())} options={[
+                { value: "single", label: "Single" }, { value: "married", label: "Married" }, { value: "divorced", label: "Divorced" }
               ]} />
             </div>
           </div>
@@ -852,14 +909,13 @@ export default function EditEmployee() {
               />
               <Select
                 label="Employment Type"
-                value={formData.employmentType}
+                value={formData.employmentType ? formData.employmentType.toLowerCase().replace('_', '-') : "full-time"}
                 onChange={(v) => handleChange("employmentType", v)}
                 options={[
-                  { value: "Full-Time", label: "Full-Time" },
-                  { value: "Part-Time", label: "Part-Time" },
-                  { value: "Contract", label: "Contractual" },
-                  { value: "Internship", label: "Internship" },
-                  { value: "Freelance", label: "Freelance" }
+                  { value: "full-time", label: "Full-Time" },
+                  { value: "part-time", label: "Part-Time" },
+                  { value: "contract", label: "Contractual" },
+                  { value: "intern", label: "Internship" }
                 ]}
               />
             </div>
@@ -867,12 +923,12 @@ export default function EditEmployee() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               <Select
                 label="Work Mode"
-                value={formData.workMode}
-                onChange={(v) => handleChange("workMode", v)}
+                value={formData.workMode ? formData.workMode.toLowerCase() : "office"}
+                onChange={(v) => handleChange("workMode", v.toLowerCase())}
                 options={[
-                  { value: "Office", label: "In-Office" },
-                  { value: "Remote", label: "Remote / WFH" },
-                  { value: "Hybrid", label: "Hybrid" }
+                  { value: "office", label: "In-Office" },
+                  { value: "remote", label: "Remote / WFH" },
+                  { value: "hybrid", label: "Hybrid" }
                 ]}
               />
               <Input label="Joining Date" type="date" required value={formData.joiningDate} onChange={(v) => handleChange("joiningDate", v)} />
@@ -896,72 +952,66 @@ export default function EditEmployee() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                {[
-                  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
-                  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
-                  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
-                  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
-                  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
-                  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
-                ].map(m => {
-                  const isSubscribed = subscribedModules.includes(m.key);
-                  const usageInfo = moduleUsage[m.key];
-                  const isChecked = (formData.assignedModules || []).includes(m.key);
-                  const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+              {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).length === 0 ? (
+                <div className="p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+                  No suite modules subscribed in current company plan.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                  {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).map((m) => {
+                    const usageInfo = moduleUsage[m.key];
+                    const isChecked = (formData.assignedModules || []).includes(m.key);
+                    const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
 
-                  return (
-                    <div
-                      key={m.key}
-                      onClick={() => {
-                        if (!isSubscribed || (isFull && !isChecked)) return;
-                        const cur = formData.assignedModules || [];
-                        const next = isChecked ? cur.filter(x => x !== m.key) : [...cur, m.key];
-                        handleChange("assignedModules", next);
-                      }}
-                      className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
-                        !isSubscribed
-                          ? "opacity-40 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                          : isChecked
-                          ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
-                          : isFull
-                          ? "opacity-60 bg-rose-500/5 border-rose-300 dark:border-rose-900 cursor-not-allowed"
-                          : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <span className="text-xs font-black text-slate-900 dark:text-white block">
-                            {m.label}
-                          </span>
-                          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
-                            {m.desc}
-                          </span>
+                    return (
+                      <div
+                        key={m.key}
+                        onClick={() => {
+                          if (isFull && !isChecked) return;
+                          const cur = formData.assignedModules || [];
+                          const next = isChecked ? cur.filter((x) => x !== m.key) : [...cur, m.key];
+                          handleChange("assignedModules", next);
+                        }}
+                        className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                          isChecked
+                            ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
+                            : isFull
+                            ? "opacity-60 bg-rose-500/5 border-rose-300 dark:border-rose-900 cursor-not-allowed"
+                            : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-xs font-black text-slate-900 dark:text-white block">
+                              {m.label}
+                            </span>
+                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
+                              {m.desc}
+                            </span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={isFull && !isChecked}
+                            onChange={() => {}}
+                            className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
+                          />
                         </div>
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          disabled={!isSubscribed || (isFull && !isChecked)}
-                          onChange={() => {}}
-                          className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
-                        />
-                      </div>
 
-                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
-                        {!isSubscribed ? (
-                          <span className="text-slate-400">Not in plan</span>
-                        ) : usageInfo?.isUnlimited ? (
-                          <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
-                        ) : (
-                          <span className={isFull && !isChecked ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}>
-                            {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
-                          </span>
-                        )}
+                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
+                          {usageInfo?.isUnlimited ? (
+                            <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
+                          ) : (
+                            <span className={isFull && !isChecked ? "text-rose-500" : "text-amber-600 dark:text-amber-400"}>
+                              {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Remote Punch Option */}
@@ -1367,6 +1417,34 @@ export default function EditEmployee() {
                   <div><span className="text-slate-400 text-[10px] block">Paid Leaves</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formData.leaveBalance?.paidLeaves ?? 18} Days / Yr</span></div>
                   <div><span className="text-slate-400 text-[10px] block">Unpaid Leaves (LOP)</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.leaveBalance?.unpaidLeaves ?? formData.leaveBalance?.unpaid ?? 0} Days</span></div>
                   <div><span className="text-slate-400 text-[10px] block">Breakdown</span><span className="font-bold text-slate-800 dark:text-slate-200">CL: {formData.leaveBalance?.casual || 0} | SL: {formData.leaveBalance?.sick || 0} | PL: {formData.leaveBalance?.annual || 0}</span></div>
+                </div>
+              </div>
+
+              {/* Card 6: Assigned Module Licenses */}
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2 sm:col-span-2">
+                <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
+                  <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Cpu size={13} className="text-amber-500" /> Assigned Module Licenses ({(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length})
+                  </span>
+                  <button onClick={() => setStep(2)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {(formData.assignedModules || [])
+                    .filter((m) => subscribedModules.includes(m))
+                    .map((mKey) => {
+                      const mod = ALL_MODULES.find((x) => x.key === mKey);
+                      return (
+                        <span
+                          key={mKey}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                        >
+                          {mod?.label || mKey}
+                        </span>
+                      );
+                    })}
+                  {(!formData.assignedModules || formData.assignedModules.filter((m) => subscribedModules.includes(m)).length === 0) && (
+                    <span className="text-[11px] text-slate-400 italic">No modules assigned</span>
+                  )}
                 </div>
               </div>
 

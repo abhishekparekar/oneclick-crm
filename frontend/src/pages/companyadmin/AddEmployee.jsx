@@ -7,6 +7,7 @@ import {
   getBranchesApi, getEmployeesApi, createDepartmentApi,
   createDesignationApi, createBranchApi, getModuleUsageApi
 } from "../../api/companyAdminApi";
+import { useAuth } from "../../context/AuthContext";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
   FileText, Coins, Award, Camera, Save, ArrowLeft, ChevronDown,
@@ -15,6 +16,16 @@ import {
   ChevronLeft, CheckCheck, Trash2, ExternalLink, Sparkles, Shield,
   DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu, Zap, ArrowUpRight
 } from "lucide-react";
+
+const ALL_MODULES = [
+  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
+  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
+  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
+  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
+  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
+  { key: "reports", label: "Analytics & Reports", desc: "View operational reports & analytics" },
+];
 
 const getPhotoUrl = (rawPhoto) => {
   if (!rawPhoto || typeof rawPhoto !== "string") return null;
@@ -180,6 +191,17 @@ export default function AddEmployee() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const avatarInputRef = useRef(null);
+  const { user } = useAuth();
+
+  const authCompanyModules = useMemo(() => {
+    const raw =
+      user?.company?.subscribedModules ??
+      user?.subscribedModules ??
+      (typeof user?.companyId === "object" && user?.companyId !== null ? user?.companyId?.subscribedModules : null);
+    return Array.isArray(raw) && raw.length > 0
+      ? raw.map((m) => String(m).toLowerCase().trim())
+      : null;
+  }, [user]);
 
   const isHR = window.location.pathname.startsWith("/hr");
   const baseRoute = isHR ? "/hr" : "/company";
@@ -262,7 +284,7 @@ export default function AddEmployee() {
     aadhaarNumber: "",
     panNumber: "",
     documents: [],
-    assignedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+    assignedModules: authCompanyModules || [],
   });
 
   // Quick Create Modal States
@@ -278,7 +300,35 @@ export default function AddEmployee() {
   const { data: moduleUsageRes } = useQuery({ queryKey: ["companyModuleUsage"], queryFn: () => getModuleUsageApi().then((r) => r.data) });
 
   const moduleUsage = moduleUsageRes?.usage || {};
-  const subscribedModules = moduleUsageRes?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+  const subscribedModules = useMemo(() => {
+    if (Array.isArray(moduleUsageRes?.subscribedModules) && moduleUsageRes.subscribedModules.length > 0) {
+      return moduleUsageRes.subscribedModules.map((m) => String(m).toLowerCase().trim());
+    }
+    if (Array.isArray(authCompanyModules) && authCompanyModules.length > 0) {
+      return authCompanyModules;
+    }
+    return [];
+  }, [moduleUsageRes, authCompanyModules]);
+
+  const modulesInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (subscribedModules.length > 0) {
+      setFormData((prev) => {
+        const cur = prev.assignedModules || [];
+        const valid = cur.filter((m) => subscribedModules.includes(m));
+
+        if (!modulesInitializedRef.current && valid.length === 0) {
+          modulesInitializedRef.current = true;
+          return { ...prev, assignedModules: [...subscribedModules] };
+        }
+        if (valid.length !== cur.length) {
+          return { ...prev, assignedModules: valid };
+        }
+        return prev;
+      });
+    }
+  }, [subscribedModules]);
 
   const departments = deptRes?.departments || [];
   const designations = desigRes?.designations || [];
@@ -436,6 +486,7 @@ export default function AddEmployee() {
       aadhaarNumber: formData.aadhaarNumber,
       panNumber: formData.panNumber,
       documents: formData.documents,
+      assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
     };
 
     createMutation.mutate(payload);
@@ -851,94 +902,86 @@ export default function AddEmployee() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-                  {[
-                    { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
-                    { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
-                    { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
-                    { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
-                    { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
-                    { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
-                  ].map(m => {
-                    const isSubscribed = subscribedModules.includes(m.key);
-                    const usageInfo = moduleUsage[m.key];
-                    const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
-                    const isChecked = (formData.assignedModules || []).includes(m.key);
+                {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).length === 0 ? (
+                  <div className="p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
+                    No suite modules subscribed in current company plan.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+                    {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).map((m) => {
+                      const usageInfo = moduleUsage[m.key];
+                      const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+                      const isChecked = (formData.assignedModules || []).includes(m.key);
 
-                    return (
-                      <div
-                        key={m.key}
-                        onClick={() => {
-                          if (!isSubscribed) return;
-                          if (isFull && !isChecked) {
-                            // Show upgrade plan popup
-                            setUpgradePlanModal({
-                              moduleName: m.key,
-                              label: m.label,
-                              used: usageInfo?.used || 0,
-                              limit: usageInfo?.limit || 0,
+                      return (
+                        <div
+                          key={m.key}
+                          onClick={() => {
+                            if (isFull && !isChecked) {
+                              // Show upgrade plan popup
+                              setUpgradePlanModal({
+                                moduleName: m.key,
+                                label: m.label,
+                                used: usageInfo?.used || 0,
+                                limit: usageInfo?.limit || 0,
+                              });
+                              return;
+                            }
+                            setFormData((p) => {
+                              const cur = p.assignedModules || [];
+                              return {
+                                ...p,
+                                assignedModules: isChecked ? cur.filter((x) => x !== m.key) : [...cur, m.key],
+                              };
                             });
-                            return;
-                          }
-                          setFormData(p => {
-                            const cur = p.assignedModules || [];
-                            return {
-                              ...p,
-                              assignedModules: isChecked ? cur.filter(x => x !== m.key) : [...cur, m.key]
-                            };
-                          });
-                        }}
-                        className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
-                          !isSubscribed
-                            ? "opacity-40 bg-slate-100 dark:bg-slate-900 border-slate-200 dark:border-slate-800 cursor-not-allowed"
-                            : isChecked
-                            ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
-                            : isFull
-                            ? "bg-rose-500/5 border-rose-300 dark:border-rose-900 hover:border-rose-400 cursor-pointer"
-                            : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <span className="text-xs font-black text-slate-900 dark:text-white block">
-                              {m.label}
-                            </span>
-                            <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
-                              {m.desc}
-                            </span>
+                          }}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer select-none flex flex-col justify-between ${
+                            isChecked
+                              ? "bg-amber-500/10 border-amber-500/50 shadow-xs ring-1 ring-amber-500/30"
+                              : isFull
+                              ? "bg-rose-500/5 border-rose-300 dark:border-rose-900 hover:border-rose-400 cursor-pointer"
+                              : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 hover:border-amber-500/40"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <span className="text-xs font-black text-slate-900 dark:text-white block">
+                                {m.label}
+                              </span>
+                              <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium leading-tight line-clamp-2 mt-0.5">
+                                {m.desc}
+                              </span>
+                            </div>
+                            {isFull && !isChecked ? (
+                              <Zap size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                            ) : (
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {}}
+                                className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
+                              />
+                            )}
                           </div>
-                          {isFull && !isChecked ? (
-                            <Zap size={14} className="text-rose-500 shrink-0 mt-0.5" />
-                          ) : (
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              disabled={!isSubscribed}
-                              onChange={() => {}}
-                              className="w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500 cursor-pointer pointer-events-none mt-0.5"
-                            />
-                          )}
-                        </div>
 
-                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
-                          {!isSubscribed ? (
-                            <span className="text-slate-400">Not in plan</span>
-                          ) : usageInfo?.isUnlimited ? (
-                            <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
-                          ) : isFull && !isChecked ? (
-                            <span className="text-rose-500 flex items-center gap-1">
-                              <Zap size={9} /> Limit full — Upgrade Plan
-                            </span>
-                          ) : (
-                            <span className="text-amber-600 dark:text-amber-400">
-                              {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
-                            </span>
-                          )}
+                          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
+                            {usageInfo?.isUnlimited ? (
+                              <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
+                            ) : isFull && !isChecked ? (
+                              <span className="text-rose-500 flex items-center gap-1">
+                                <Zap size={9} /> Limit full — Upgrade Plan
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 dark:text-amber-400">
+                                {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               <Toggle
@@ -1258,6 +1301,31 @@ export default function AddEmployee() {
                   <p className="font-black text-slate-900 dark:text-white text-sm">{selectedDesigName}</p>
                   <p className="text-slate-600 dark:text-slate-300 font-semibold">{selectedDeptName} Department</p>
                   <p className="text-amber-600 dark:text-amber-400 font-black uppercase">{formData.role}</p>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
+                <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider flex items-center gap-1.5">
+                  <Cpu size={13} className="text-amber-500" />
+                  Assigned Module Licenses ({(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {(formData.assignedModules || [])
+                    .filter((m) => subscribedModules.includes(m))
+                    .map((mKey) => {
+                      const mod = ALL_MODULES.find((x) => x.key === mKey);
+                      return (
+                        <span
+                          key={mKey}
+                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
+                        >
+                          {mod?.label || mKey}
+                        </span>
+                      );
+                    })}
+                  {(!formData.assignedModules || formData.assignedModules.filter((m) => subscribedModules.includes(m)).length === 0) && (
+                    <span className="text-[11px] text-slate-400 italic">No modules assigned</span>
+                  )}
                 </div>
               </div>
 

@@ -114,7 +114,10 @@ const getModuleUsage = async (req, res, next) => {
 
     const totalActiveEmployees = await Employee.countDocuments({ companyId, status: "active" });
 
-    const subscribedModules = company.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const rawSubscribed = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+      ? company.subscribedModules
+      : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const subscribedModules = rawSubscribed.map(m => String(m).toLowerCase().trim());
     const moduleLimits = company.moduleLimits || {};
 
     const usage = {};
@@ -373,12 +376,17 @@ const createEmployee = async (req, res, next) => {
     const employeeCode = await generateNextEmployeeCode(companyId);
 
     // Module allocation check against plan limits
-    const subscribed = company.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const rawSubscribed = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
+      ? company.subscribedModules
+      : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const subscribed = rawSubscribed.map(m => String(m).toLowerCase().trim());
     const limits = company.moduleLimits || {};
 
     let finalAssignedModules = req.body.assignedModules;
     if (!Array.isArray(finalAssignedModules) || finalAssignedModules.length === 0) {
       finalAssignedModules = subscribed;
+    } else {
+      finalAssignedModules = finalAssignedModules.map(m => String(m).toLowerCase().trim());
     }
 
     for (const mod of finalAssignedModules) {
@@ -599,11 +607,25 @@ const updateEmployee = async (req, res, next) => {
     const newData = {};
     let hasChanges = false;
 
+    // Normalize common enum/string formats
+    if (req.body.gender !== undefined) {
+      req.body.gender = req.body.gender ? String(req.body.gender).toLowerCase().trim() : "";
+    }
+    if (req.body.workMode !== undefined) {
+      req.body.workMode = req.body.workMode ? String(req.body.workMode).toLowerCase().trim() : "office";
+    }
+    if (req.body.employmentType !== undefined && typeof req.body.employmentType === "string") {
+      const et = req.body.employmentType.toLowerCase().trim().replace("_", "-");
+      req.body.employmentType = et === "internship" ? "intern" : et;
+    }
+
     // Standard scalar fields
     const fieldsToCheck = [
       "firstName", "lastName", "middleName", "phone", "alternateMobile", "photo", "gender", 
       "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "designationId", 
-      "branchId", "employmentType", "workMode", "allowRemotePunch", "status", "skills", "certifications", "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions"
+      "branchId", "employmentType", "workMode", "allowRemotePunch", "status", "skills", "certifications", 
+      "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions",
+      "bloodGroup", "maritalStatus", "aadhaarNumber", "panNumber", "personalEmail"
     ];
     
     for (const field of fieldsToCheck) {
@@ -755,10 +777,15 @@ const updateEmployee = async (req, res, next) => {
     if (req.body.assignedModules !== undefined && Array.isArray(req.body.assignedModules)) {
       const Company = require("../models/Company");
       const company = await Company.findById(req.companyId).lean();
-      const subscribed = company?.subscribedModules || ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+      const rawSubscribed = Array.isArray(company?.subscribedModules) && company.subscribedModules.length > 0
+        ? company.subscribedModules
+        : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+      const subscribed = rawSubscribed.map(m => String(m).toLowerCase().trim());
       const limits = company?.moduleLimits || {};
 
-      for (const mod of req.body.assignedModules) {
+      const sanitizedModules = req.body.assignedModules.map(m => String(m).toLowerCase().trim());
+
+      for (const mod of sanitizedModules) {
         if (!subscribed.includes(mod)) {
           return res.status(400).json({
             message: `Module "${mod}" is not included in the company's active subscription plan.`
@@ -826,8 +853,9 @@ const updateEmployee = async (req, res, next) => {
       return res.status(400).json({ message: refErr });
     }
 
-    if (newData.firstName !== undefined || newData.lastName !== undefined) {
-      user.name = `${employee.firstName} ${employee.lastName}`.trim();
+    if (newData.firstName !== undefined || newData.middleName !== undefined || newData.lastName !== undefined) {
+      employee.fullName = `${employee.firstName || ""} ${employee.middleName || ""} ${employee.lastName || ""}`.replace(/\s+/g, " ").trim();
+      user.name = employee.fullName || `${employee.firstName} ${employee.lastName}`.trim();
     }
     if (newData.phone !== undefined) {
       user.phone = employee.phone;
