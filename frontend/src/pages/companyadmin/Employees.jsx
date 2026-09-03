@@ -498,8 +498,9 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
     </div>
   );
 };
-// ── Reset Password Modal ───────────────────────────────────────────────────────
+
 const ROWS_PER_PAGE = 10;
+
 const Employees = () => {
   const queryClient = useQueryClient();
 
@@ -520,6 +521,8 @@ const Employees = () => {
   const { data: empRes, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ["employees"],
     queryFn: () => getEmployeesApi(),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
   const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
@@ -531,11 +534,17 @@ const Employees = () => {
   // ── Mutations ──
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => patchEmployeeStatusApi(id, status),
-    onSuccess: () => { queryClient.invalidateQueries(["employees"]); queryClient.invalidateQueries(["companyDashboard"]); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["companyDashboard"] });
+    },
   });
   const deleteMutation = useMutation({
     mutationFn: deleteEmployeeApi,
-    onSuccess: () => { queryClient.invalidateQueries(["employees"]); queryClient.invalidateQueries(["companyDashboard"]); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employees"] });
+      queryClient.invalidateQueries({ queryKey: ["companyDashboard"] });
+    },
   });
   const resetPasswordMutation = useMutation({
     mutationFn: ({ id, newPassword }) => resetEmployeePasswordApi(id, newPassword),

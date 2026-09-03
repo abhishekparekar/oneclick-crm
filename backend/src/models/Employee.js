@@ -32,6 +32,7 @@ const bankDetailsSchema = new mongoose.Schema({
   accountNumber: { type: String, trim: true, default: "" },
   ifscCode: { type: String, trim: true, default: "" },
   branchName: { type: String, trim: true, default: "" },
+  accountType: { type: String, trim: true, default: "savings" },
   upiId: { type: String, trim: true, default: "" },
 }, { _id: false });
 
@@ -100,8 +101,8 @@ const employeeSchema = new mongoose.Schema(
     },
     lastName: {
       type: String,
-      required: [true, "Last name is required"],
       trim: true,
+      default: "",
     },
     fullName: {
       type: String,
@@ -231,11 +232,20 @@ const employeeSchema = new mongoose.Schema(
       type: new mongoose.Schema({
         ctc: { type: Number, default: null },
         basic: { type: Number, default: null },
+        basicSalary: { type: Number, default: null },
         hra: { type: Number, default: null },
         specialAllowance: { type: Number, default: null },
+        conveyance: { type: Number, default: null },
+        medicalAllowance: { type: Number, default: null },
+        otherAllowance: { type: Number, default: null },
         pf: { type: Number, default: null },
+        pfEmployee: { type: Number, default: null },
+        pfEmployer: { type: Number, default: null },
         esi: { type: Number, default: null },
+        esiEmployee: { type: Number, default: null },
+        esiEmployer: { type: Number, default: null },
         tds: { type: Number, default: null },
+        professionalTax: { type: Number, default: null },
       }, { _id: false }),
       default: () => ({}),
     },
@@ -365,6 +375,22 @@ const employeeSchema = new mongoose.Schema(
       type: String,
       trim: true,
       default: "",
+    },
+
+    // Live Location & Stoppage Tracking
+    lastLocation: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      accuracy: { type: Number, default: 0 },
+      speed: { type: Number, default: 0 },
+      heading: { type: Number, default: 0 },
+      batteryLevel: { type: Number, default: null },
+      address: { type: String, default: "" },
+      updatedAt: { type: Date, default: null },
+      isTrackingActive: { type: Boolean, default: false },
+      stationarySince: { type: Date, default: null },
+      stoppageDurationMinutes: { type: Number, default: 0 },
+      motionStatus: { type: String, default: "stationary" },
     },
 
     // Timestamps / CreatedBy

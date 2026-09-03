@@ -39,6 +39,7 @@ import {
   Clock,
   MessageSquare,
   BrainCircuit,
+  Navigation,
 } from "lucide-react";
 
 // ─── Company Admin nav sections — ordered by usage frequency ────────────────
@@ -76,6 +77,7 @@ const COMPANY_SECTIONS = [
     items: [
       { label: "Employees", path: "/company/employees", icon: Users },
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
+      // { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },
@@ -171,9 +173,8 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 
   return (
     <div
-      className={`ca-sidebar ${
-        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
-      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+      className={`ca-sidebar ${isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+        } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
     >
       {/* Centered Brand Logo Header */}
       <div className={`px-2.5 py-3 flex flex-col items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : "gap-1"}`}>
@@ -209,15 +210,13 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                     to={item.path}
                     onClick={onItemClick}
                     title={item.label}
-                    className={`${
-                      isCollapsed
-                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                            active
-                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                          }`
+                    className={`${isCollapsed
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                          ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                          : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                        }`
                         : `oc-nav-item ${active ? "active" : ""}`
-                    }`}
+                      }`}
                   >
                     {isCollapsed ? (
                       <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
@@ -328,9 +327,8 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 
   return (
     <div
-      className={`ca-sidebar ${
-        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
-      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+      className={`ca-sidebar ${isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+        } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
     >
       {/* Centered Brand Logo Header */}
       <div className={`px-2.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : ""}`}>
@@ -359,11 +357,10 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
           return (
             <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
               {!isCollapsed && section.title && (
-                <p className={`text-[9px] font-bold uppercase tracking-[0.12em] px-2.5 pt-3 pb-1 ${
-                  section.title === "AI INTELLIGENCE"
+                <p className={`text-[9px] font-bold uppercase tracking-[0.12em] px-2.5 pt-3 pb-1 ${section.title === "AI INTELLIGENCE"
                     ? "text-violet-400"
                     : "text-slate-500"
-                }`}>
+                  }`}>
                   {section.title === "AI INTELLIGENCE" ? "✦ " : ""}{section.title}
                 </p>
               )}
@@ -380,15 +377,13 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                       to={item.path}
                       onClick={onItemClick}
                       title={item.label}
-                      className={`${
-                        isCollapsed
-                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                              active
-                                ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                                : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                            }`
+                      className={`${isCollapsed
+                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                            ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                          }`
                           : `oc-nav-item ${active ? "active" : ""}`
-                      }`}
+                        }`}
                     >
                       {isCollapsed ? (
                         <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />

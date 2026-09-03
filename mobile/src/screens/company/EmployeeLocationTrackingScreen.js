@@ -10,35 +10,30 @@ import {
   Dimensions,
   Platform,
   StatusBar,
-  Alert,
 } from "react-native";
-import MapView, { Marker, Polyline, Callout, PROVIDER_GOOGLE } from "react-native-maps";
+import { WebView } from "react-native-webview";
 import { Ionicons } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useFocusEffect } from "@react-navigation/native";
-import { getLiveEmployeeLocationsApi, getEmployeeLocationTrailApi } from "../../api/locationService";
-import { FONTS, COLORS } from "../../theme/tokens";
+import {
+  getLiveEmployeeLocationsApi,
+  getEmployeeLocationTrailApi,
+} from "../../api/locationService";
+import { COLORS } from "../../theme/tokens";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-// Default initial region (India central fallback)
-const DEFAULT_REGION = {
-  latitude: 18.5204,
-  longitude: 73.8567,
-  latitudeDelta: 0.08,
-  longitudeDelta: 0.08,
-};
-
 const EmployeeLocationTrackingScreen = ({ navigation }) => {
-  const mapRef = useRef(null);
+  const webViewRef = useRef(null);
 
   // Mode: "live" (all fleet) or "trail" (selected employee route)
   const [viewMode, setViewMode] = useState("live");
+  const [mapType, setMapType] = useState("satellite"); // satellite or streets
   const [employees, setEmployees] = useState([]);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [loadingLive, setLoadingLive] = useState(true);
   const [loadingTrail, setLoadingTrail] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
 
   // Trail state
   const [trailData, setTrailData] = useState({
@@ -47,6 +42,32 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     totalPoints: 0,
   });
   const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // today, yesterday
+
+  // Helper to post messages into the Leaflet WebView
+  const postToMap = (data) => {
+    if (webViewRef.current) {
+      webViewRef.current.postMessage(JSON.stringify(data));
+    }
+  };
+
+  // Sync state to WebView when map is ready or employees change
+  useEffect(() => {
+    if (!mapReady) return;
+
+    if (viewMode === "live") {
+      postToMap({
+        type: "UPDATE_EMPLOYEES",
+        employees: employees,
+        selectedId: selectedEmployee?._id,
+      });
+    } else if (viewMode === "trail" && trailData.trail) {
+      postToMap({
+        type: "UPDATE_TRAIL",
+        trail: trailData.trail,
+        employeeName: selectedEmployee?.name,
+      });
+    }
+  }, [mapReady, employees, selectedEmployee, viewMode, trailData]);
 
   // Fetch live employee locations
   const fetchLiveLocations = async (silent = false) => {
@@ -59,15 +80,11 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       const validList = Array.isArray(list) ? list : [];
       setEmployees(validList);
 
-      // If we have valid coordinates and no employee selected, fit map
-      const activeCoords = validList
-        .filter((e) => e.latitude && e.longitude)
-        .map((e) => ({ latitude: e.latitude, longitude: e.longitude }));
-
-      if (activeCoords.length > 0 && mapRef.current && !selectedEmployee) {
-        mapRef.current.fitToCoordinates(activeCoords, {
-          edgePadding: { top: 80, right: 50, bottom: 220, left: 50 },
-          animated: true,
+      if (mapReady && viewMode === "live") {
+        postToMap({
+          type: "UPDATE_EMPLOYEES",
+          employees: validList,
+          selectedId: selectedEmployee?._id,
         });
       }
     } catch (err) {
@@ -83,10 +100,18 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       fetchLiveLocations();
       const interval = setInterval(() => {
         fetchLiveLocations(true);
-      }, 20000); // 20s auto-refresh
+      }, 15000); // 15s auto-refresh
       return () => clearInterval(interval);
-    }, [])
+    }, [mapReady, viewMode])
   );
+
+  const getDateValue = (filter) => {
+    const d = new Date();
+    if (filter === "yesterday") {
+      d.setDate(d.getDate() - 1);
+    }
+    return d.toISOString().split("T")[0];
+  };
 
   // Fetch route trail when employee & date selected
   const fetchTrailHistory = async (empId, dateStr) => {
@@ -97,14 +122,11 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       const data = res.data?.data || { trail: [], distanceKm: 0, totalPoints: 0 };
       setTrailData(data);
 
-      if (data.trail && data.trail.length > 0 && mapRef.current) {
-        const coords = data.trail.map((pt) => ({
-          latitude: pt.latitude,
-          longitude: pt.longitude,
-        }));
-        mapRef.current.fitToCoordinates(coords, {
-          edgePadding: { top: 90, right: 60, bottom: 240, left: 60 },
-          animated: true,
+      if (mapReady) {
+        postToMap({
+          type: "UPDATE_TRAIL",
+          trail: data.trail || [],
+          employeeName: selectedEmployee?.name,
         });
       }
     } catch (err) {
@@ -116,16 +138,13 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
   const handleSelectEmployee = (emp) => {
     setSelectedEmployee(emp);
-    if (emp.latitude && emp.longitude && mapRef.current) {
-      mapRef.current.animateToRegion(
-        {
-          latitude: emp.latitude,
-          longitude: emp.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        },
-        800
-      );
+    if (emp.latitude && emp.longitude) {
+      postToMap({
+        type: "CENTER_COORDS",
+        latitude: emp.latitude,
+        longitude: emp.longitude,
+        zoom: 17,
+      });
     }
     if (viewMode === "trail") {
       fetchTrailHistory(emp._id, getDateValue(selectedDateFilter));
@@ -134,19 +153,15 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
   const handleModeSwitch = (mode) => {
     setViewMode(mode);
-    if (mode === "trail" && selectedEmployee) {
-      fetchTrailHistory(selectedEmployee._id, getDateValue(selectedDateFilter));
+    if (mode === "trail") {
+      const target = selectedEmployee || employees[0];
+      if (target) {
+        setSelectedEmployee(target);
+        fetchTrailHistory(target._id, getDateValue(selectedDateFilter));
+      }
     } else if (mode === "live") {
       fetchLiveLocations();
     }
-  };
-
-  const getDateValue = (filter) => {
-    const d = new Date();
-    if (filter === "yesterday") {
-      d.setDate(d.getDate() - 1);
-    }
-    return d.toISOString().split("T")[0];
   };
 
   const handleDateChange = (filter) => {
@@ -158,144 +173,362 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
   const handleRecenter = () => {
     if (selectedEmployee && selectedEmployee.latitude) {
-      mapRef.current?.animateToRegion(
-        {
-          latitude: selectedEmployee.latitude,
-          longitude: selectedEmployee.longitude,
-          latitudeDelta: 0.015,
-          longitudeDelta: 0.015,
-        },
-        600
-      );
+      postToMap({
+        type: "CENTER_COORDS",
+        latitude: selectedEmployee.latitude,
+        longitude: selectedEmployee.longitude,
+        zoom: 17,
+      });
     } else {
-      const activeCoords = employees
+      const validCoords = employees
         .filter((e) => e.latitude && e.longitude)
-        .map((e) => ({ latitude: e.latitude, longitude: e.longitude }));
-
-      if (activeCoords.length > 0) {
-        mapRef.current?.fitToCoordinates(activeCoords, {
-          edgePadding: { top: 80, right: 50, bottom: 220, left: 50 },
-          animated: true,
+        .map((e) => [e.latitude, e.longitude]);
+      if (validCoords.length > 0) {
+        postToMap({
+          type: "FIT_BOUNDS",
+          bounds: validCoords,
         });
       }
     }
   };
 
+  const toggleMapType = () => {
+    const nextType = mapType === "satellite" ? "streets" : "satellite";
+    setMapType(nextType);
+    postToMap({
+      type: "TOGGLE_MAP_TYPE",
+      mapType: nextType,
+    });
+  };
+
+  const handleWebViewMessage = (event) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      if (data.type === "MAP_READY") {
+        setMapReady(true);
+        postToMap({
+          type: "UPDATE_EMPLOYEES",
+          employees: employees,
+          selectedId: selectedEmployee?._id,
+        });
+      } else if (data.type === "SELECT_EMPLOYEE") {
+        const found = employees.find((e) => e._id === data.employeeId);
+        if (found) {
+          setSelectedEmployee(found);
+          if (viewMode === "trail") {
+            fetchTrailHistory(found._id, getDateValue(selectedDateFilter));
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[LocationTracking] WebView message parsing error:", e);
+    }
+  };
+
   const liveTrackedCount = employees.filter((e) => e.isOnline && e.latitude).length;
+
+  const getLeafletHTML = () => {
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <style>
+          * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+          html, body, #map {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #0F172A;
+          }
+          .custom-leaflet-marker {
+            background: transparent;
+            border: none;
+          }
+          .avatar-bubble {
+            position: relative;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #0F172A;
+            border: 3.5px solid #10B981;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+          }
+          .avatar-bubble.offline {
+            border-color: #94A3B8;
+            opacity: 0.85;
+          }
+          .avatar-bubble.selected {
+            border-color: #F59E0B;
+            border-width: 4px;
+            transform: scale(1.15);
+          }
+          .avatar-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+          }
+          .avatar-initials {
+            color: #FFFFFF;
+            font-size: 13px;
+            font-weight: 800;
+            font-family: sans-serif;
+          }
+          .status-dot {
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            border: 2.5px solid #FFFFFF;
+            background: #10B981;
+          }
+          .status-dot.offline {
+            background: #94A3B8;
+          }
+          .endpoint-marker {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #FFFFFF;
+            font-weight: 800;
+            font-size: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            border: 2.5px solid #FFFFFF;
+          }
+          .leaflet-popup-content-wrapper {
+            background: #0F172A;
+            color: #FFFFFF;
+            border-radius: 12px;
+            padding: 4px 6px;
+            box-shadow: 0 6px 22px rgba(0,0,0,0.5);
+          }
+          .leaflet-popup-tip {
+            background: #0F172A;
+          }
+          .popup-name {
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #FFFFFF;
+          }
+          .popup-sub {
+            font-size: 11px;
+            color: #94A3B8;
+            margin-top: 1px;
+          }
+          .popup-speed {
+            font-size: 11px;
+            font-weight: 800;
+            color: #10B981;
+            margin-top: 4px;
+          }
+          .popup-time {
+            font-size: 10px;
+            color: #64748B;
+            margin-top: 2px;
+          }
+        </style>
+      </head>
+      <body>
+        <div id="map"></div>
+        <script>
+          var map;
+          var tileLayer;
+          var markersLayer = L.layerGroup();
+          var trailLayer = L.layerGroup();
+          var currentMapType = 'satellite';
+
+          map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+          }).setView([18.5204, 73.8567], 15);
+
+          setTiles('satellite');
+          markersLayer.addTo(map);
+          trailLayer.addTo(map);
+
+          function setTiles(type) {
+            currentMapType = type;
+            if (tileLayer) map.removeLayer(tileLayer);
+            if (type === 'satellite') {
+              tileLayer = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                maxZoom: 20
+              }).addTo(map);
+            } else {
+              tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+              }).addTo(map);
+            }
+          }
+
+          function createAvatarIcon(emp, isSelected) {
+            var isOnline = emp.isOnline;
+            var initials = (emp.name || 'E').slice(0, 2).toUpperCase();
+            var avatarHtml = emp.avatar 
+              ? '<img src="' + emp.avatar + '" class="avatar-img" />'
+              : '<span class="avatar-initials">' + initials + '</span>';
+            
+            var bubbleClass = 'avatar-bubble' + (isOnline ? '' : ' offline') + (isSelected ? ' selected' : '');
+            var dotClass = 'status-dot' + (isOnline ? '' : ' offline');
+
+            var html = '<div class="' + bubbleClass + '">' + avatarHtml + '<div class="' + dotClass + '"></div></div>';
+
+            return L.divIcon({
+              className: 'custom-leaflet-marker',
+              html: html,
+              iconSize: [44, 44],
+              iconAnchor: [22, 22],
+              popupAnchor: [0, -24]
+            });
+          }
+
+          function renderEmployees(employees, selectedId) {
+            markersLayer.clearLayers();
+            var bounds = [];
+
+            (employees || []).forEach(function(emp) {
+              if (!emp.latitude || !emp.longitude) return;
+              var isSelected = selectedId === emp._id;
+              var icon = createAvatarIcon(emp, isSelected);
+              var marker = L.marker([emp.latitude, emp.longitude], { icon: icon });
+
+              var popup = '<div style="font-family:sans-serif; padding:4px 2px;">' +
+                '<div class="popup-name">' + (emp.name || 'Employee') + '</div>' +
+                '<div class="popup-sub">' + (emp.designation || emp.department || 'Staff') + '</div>' +
+                (emp.speed > 0 ? '<div class="popup-speed">⚡ Speed: ' + emp.speed + ' km/h</div>' : '') +
+                '<div class="popup-time">⏱️ ' + (emp.lastUpdated ? new Date(emp.lastUpdated).toLocaleTimeString() : 'Recent') + '</div>' +
+              '</div>';
+
+              marker.bindPopup(popup);
+              marker.on('click', function() {
+                if (window.ReactNativeWebView) {
+                  window.ReactNativeWebView.postMessage(JSON.stringify({
+                    type: 'SELECT_EMPLOYEE',
+                    employeeId: emp._id
+                  }));
+                }
+              });
+
+              markersLayer.addLayer(marker);
+              bounds.push([emp.latitude, emp.longitude]);
+            });
+
+            if (bounds.length > 0 && !selectedId) {
+              map.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
+            }
+          }
+
+          function renderTrail(trail, employeeName) {
+            trailLayer.clearLayers();
+            markersLayer.clearLayers();
+            if (!trail || trail.length === 0) return;
+
+            var latlngs = trail.map(function(pt) {
+              return [pt.latitude, pt.longitude];
+            });
+
+            var polyline = L.polyline(latlngs, {
+              color: '#3B82F6',
+              weight: 5,
+              opacity: 0.95
+            });
+            trailLayer.addLayer(polyline);
+
+            // Start marker
+            var startPt = trail[0];
+            var startIcon = L.divIcon({
+              className: 'custom-leaflet-marker',
+              html: '<div class="endpoint-marker" style="background:#10B981;">🏁</div>',
+              iconSize: [32, 32],
+              iconAnchor: [16, 16]
+            });
+            var startMarker = L.marker([startPt.latitude, startPt.longitude], { icon: startIcon });
+            startMarker.bindPopup('<b style="color:#10B981;">Route Start</b><br/>' + (startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : ''));
+            trailLayer.addLayer(startMarker);
+
+            // End marker
+            if (trail.length > 1) {
+              var endPt = trail[trail.length - 1];
+              var endIcon = L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: '<div class="endpoint-marker" style="background:#EF4444;">📍</div>',
+                iconSize: [32, 32],
+                iconAnchor: [16, 16]
+              });
+              var endMarker = L.marker([endPt.latitude, endPt.longitude], { icon: endIcon });
+              endMarker.bindPopup('<b style="color:#EF4444;">Current Position</b><br/>' + (endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : ''));
+              trailLayer.addLayer(endMarker);
+            }
+
+            map.fitBounds(latlngs, { padding: [80, 80], maxZoom: 17 });
+          }
+
+          window.addEventListener('message', function(e) { handleMessage(e.data); });
+          document.addEventListener('message', function(e) { handleMessage(e.data); });
+
+          function handleMessage(raw) {
+            try {
+              var data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+              if (data.type === 'UPDATE_EMPLOYEES') {
+                renderEmployees(data.employees || [], data.selectedId);
+              } else if (data.type === 'UPDATE_TRAIL') {
+                renderTrail(data.trail || [], data.employeeName);
+              } else if (data.type === 'CENTER_COORDS') {
+                map.flyTo([data.latitude, data.longitude], data.zoom || 17, { duration: 0.8 });
+              } else if (data.type === 'FIT_BOUNDS') {
+                if (data.bounds && data.bounds.length > 0) {
+                  map.fitBounds(data.bounds, { padding: [70, 70], maxZoom: 17 });
+                }
+              } else if (data.type === 'TOGGLE_MAP_TYPE') {
+                setTiles(data.mapType);
+              }
+            } catch (err) {
+              console.error(err);
+            }
+          }
+
+          if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+          }
+        </script>
+      </body>
+      </html>
+    `;
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {/* ── Main Map View ───────────────────────────────────────────────── */}
-      <MapView
-        ref={mapRef}
-        provider={PROVIDER_GOOGLE}
+      {/* ── Main Leaflet Satellite Map View (WebView) ────────────────────── */}
+      <WebView
+        ref={webViewRef}
         style={styles.map}
-        initialRegion={DEFAULT_REGION}
-        showsUserLocation={false}
-        showsCompass={true}
-        showsScale={true}
-      >
-        {/* Render Live Employee Markers */}
-        {viewMode === "live" &&
-          employees.map((emp) => {
-            if (!emp.latitude || !emp.longitude) return null;
-            const isSelected = selectedEmployee?._id === emp._id;
-            const isOnline = emp.isOnline;
-
-            return (
-              <Marker
-                key={emp._id}
-                coordinate={{ latitude: emp.latitude, longitude: emp.longitude }}
-                onPress={() => handleSelectEmployee(emp)}
-                tracksViewChanges={false}
-              >
-                <View style={styles.markerWrapper}>
-                  <View
-                    style={[
-                      styles.markerBubble,
-                      isOnline ? styles.markerBubbleActive : styles.markerBubbleOffline,
-                      isSelected && styles.markerBubbleSelected,
-                    ]}
-                  >
-                    {emp.avatar ? (
-                      <Image source={{ uri: emp.avatar }} style={styles.markerAvatar} />
-                    ) : (
-                      <Text style={styles.markerInitials}>
-                        {(emp.name || "E").slice(0, 2).toUpperCase()}
-                      </Text>
-                    )}
-                  </View>
-                  <View
-                    style={[
-                      styles.markerDot,
-                      { backgroundColor: isOnline ? "#10B981" : "#94A3B8" },
-                    ]}
-                  />
-                </View>
-
-                <Callout tooltip>
-                  <View style={styles.calloutCard}>
-                    <Text style={styles.calloutName}>{emp.name}</Text>
-                    <Text style={styles.calloutRole}>{emp.designation || emp.department}</Text>
-                    {emp.speed > 0 ? (
-                      <Text style={styles.calloutSpeed}>Speed: {emp.speed} km/h</Text>
-                    ) : null}
-                    <Text style={styles.calloutTime}>
-                      {emp.lastUpdated ? new Date(emp.lastUpdated).toLocaleTimeString() : "Recent"}
-                    </Text>
-                  </View>
-                </Callout>
-              </Marker>
-            );
-          })}
-
-        {/* Render Route Trail Polyline & Checkpoints */}
-        {viewMode === "trail" && trailData.trail && trailData.trail.length > 0 && (
-          <>
-            <Polyline
-              coordinates={trailData.trail.map((pt) => ({
-                latitude: pt.latitude,
-                longitude: pt.longitude,
-              }))}
-              strokeColor="#1268D9"
-              strokeWidth={4}
-              lineDashPattern={null}
-            />
-
-            {/* Start Marker */}
-            {trailData.trail[0] && (
-              <Marker
-                coordinate={{
-                  latitude: trailData.trail[0].latitude,
-                  longitude: trailData.trail[0].longitude,
-                }}
-                title="Route Start"
-              >
-                <View style={[styles.endpointBadge, { backgroundColor: "#10B981" }]}>
-                  <Ionicons name="flag" size={12} color="#FFFFFF" />
-                </View>
-              </Marker>
-            )}
-
-            {/* End Marker */}
-            {trailData.trail.length > 1 && (
-              <Marker
-                coordinate={{
-                  latitude: trailData.trail[trailData.trail.length - 1].latitude,
-                  longitude: trailData.trail[trailData.trail.length - 1].longitude,
-                }}
-                title="Current / End Point"
-              >
-                <View style={[styles.endpointBadge, { backgroundColor: "#EF4444" }]}>
-                  <Ionicons name="location" size={12} color="#FFFFFF" />
-                </View>
-              </Marker>
-            )}
-          </>
+        originWhitelist={["*"]}
+        source={{ html: getLeafletHTML() }}
+        onMessage={handleWebViewMessage}
+        javaScriptEnabled={true}
+        domStorageEnabled={true}
+        startInLoadingState={true}
+        renderLoading={() => (
+          <View style={styles.mapLoadingOverlay}>
+            <ActivityIndicator size="large" color="#1268D9" />
+            <Text style={styles.mapLoadingText}>Loading Satellite Radar...</Text>
+          </View>
         )}
-      </MapView>
+      />
 
       {/* ── Top Floating Navigation & Mode Bar ──────────────────────────── */}
       <View style={styles.topFloatHeader}>
@@ -377,9 +610,25 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         </View>
       </View>
 
-      {/* ── Floating Map Action Buttons ─────────────────────────────────── */}
+      {/* ── Floating Action Buttons (Recenter & Satellite Toggle) ────────── */}
       <View style={styles.mapFloatingActions}>
-        <TouchableOpacity style={styles.floatActionBtn} onPress={handleRecenter} activeOpacity={0.8}>
+        <TouchableOpacity
+          style={styles.floatActionBtn}
+          onPress={toggleMapType}
+          activeOpacity={0.8}
+        >
+          <Ionicons
+            name={mapType === "satellite" ? "map-outline" : "globe-outline"}
+            size={20}
+            color="#1268D9"
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.floatActionBtn}
+          onPress={handleRecenter}
+          activeOpacity={0.8}
+        >
           <Ionicons name="locate" size={20} color="#1268D9" />
         </TouchableOpacity>
       </View>
@@ -443,7 +692,9 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
         {/* Employee Carousel */}
         <Text style={styles.carouselSectionTitle}>
-          {viewMode === "live" ? "ACTIVE FIELD EMPLOYEES" : "SELECT EMPLOYEE TO VIEW TRAIL"}
+          {viewMode === "live"
+            ? "ACTIVE FIELD EMPLOYEES"
+            : `TRAIL: ${selectedEmployee ? selectedEmployee.name : "SELECT EMPLOYEE"}`}
         </Text>
 
         {loadingLive && employees.length === 0 ? (
@@ -536,11 +787,24 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F4F7FB",
+    backgroundColor: "#0F172A",
   },
   map: {
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
+    backgroundColor: "#0F172A",
+  },
+  mapLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "#0F172A",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  mapLoadingText: {
+    color: "#94A3B8",
+    fontSize: 12,
+    fontWeight: "600",
   },
   topFloatHeader: {
     position: "absolute",
@@ -795,8 +1059,8 @@ const styles = StyleSheet.create({
   },
   empCardBottom: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   statusPill: {
     flexDirection: "row",
@@ -831,94 +1095,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#94A3B8",
     fontWeight: "600",
-  },
-  markerWrapper: {
-    alignItems: "center",
-  },
-  markerBubble: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 2.5,
-    borderColor: "#FFFFFF",
-    backgroundColor: "#1268D9",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-  markerBubbleActive: {
-    borderColor: "#10B981",
-  },
-  markerBubbleOffline: {
-    borderColor: "#94A3B8",
-  },
-  markerBubbleSelected: {
-    borderColor: "#F59E0B",
-    borderWidth: 3,
-  },
-  markerAvatar: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 19,
-  },
-  markerInitials: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  markerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginTop: -2,
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
-  },
-  calloutCard: {
-    backgroundColor: "#0F172A",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignItems: "center",
-    minWidth: 110,
-  },
-  calloutName: {
-    color: "#FFFFFF",
-    fontSize: 11.5,
-    fontWeight: "800",
-  },
-  calloutRole: {
-    color: "#94A3B8",
-    fontSize: 9.5,
-    fontWeight: "600",
-  },
-  calloutSpeed: {
-    color: "#10B981",
-    fontSize: 9.5,
-    fontWeight: "700",
-    marginTop: 2,
-  },
-  calloutTime: {
-    color: "#64748B",
-    fontSize: 8.5,
-    marginTop: 2,
-  },
-  endpointBadge: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#FFFFFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowRadius: 3,
-    elevation: 4,
   },
 });
 

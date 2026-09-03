@@ -10,16 +10,28 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-const BATCH_SYNC_INTERVAL_MS = 20000; // 20 seconds
-const GPS_HEARTBEAT_INTERVAL_MS = 15000; // 15 seconds active hardware poll
+const BATCH_SYNC_INTERVAL_MS = 15000; // 15 seconds
+const GPS_HEARTBEAT_INTERVAL_MS = 10000; // 10 seconds active hardware poll
+
+// Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
+try {
+  Geolocation.setRNConfiguration({
+    skipPermissionRequests: false,
+    authorizationLevel: "always",
+    enableBackgroundLocationUpdates: true,
+    locationProvider: "playServices",
+  });
+} catch (e) {
+  console.warn("[LocationService] setRNConfiguration notice:", e?.message);
+}
 
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 20000,
-  maximumAge: 5000,
-  distanceFilter: 5, // Meters
-  interval: 10000, // Android interval
-  fastestInterval: 5000, // Android fastest interval
+  timeout: 15000,
+  maximumAge: 0, // Always acquire fresh GPS coordinates, reject stale cached readings
+  distanceFilter: 2, // Meters: sensitive to real-world movement
+  interval: 5000, // Android poll interval: 5 seconds
+  fastestInterval: 2500, // Android fastest interval: 2.5 seconds
 };
 
 // Register Notifee Foreground Service task at file load
@@ -99,6 +111,22 @@ class LocationTrackingService {
   }
 
   /**
+   * Check and prompt for Battery Optimization exemption (Unrestricted background)
+   */
+  async requestBatteryOptimizationExemption() {
+    if (Platform.OS !== "android") return;
+    try {
+      const isBatteryOptimized = await notifee.isBatteryOptimizationEnabled();
+      if (isBatteryOptimized) {
+        console.log("[LocationService] Prompting user to disable battery optimization for uninterrupted tracking");
+        await notifee.openBatteryOptimizationSettings();
+      }
+    } catch (err) {
+      console.log("[LocationService] Battery optimization check notice:", err.message);
+    }
+  }
+
+  /**
    * Setup Android Foreground Notification Channel & Display Status
    */
   async showForegroundNotification() {
@@ -167,6 +195,9 @@ class LocationTrackingService {
     // Display persistent notification with foreground service
     await this.showForegroundNotification();
 
+    // Check battery optimization settings so Android doesn't kill tracking when app is swiped away
+    this.requestBatteryOptimizationExemption().catch(() => {});
+
     // 1. Immediately poll current position
     this.pollCurrentGpsLocation();
 
@@ -225,7 +256,7 @@ class LocationTrackingService {
       (err) => {
         console.log("[LocationService] GPS poll heartbeat notice:", err.message);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 10000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     );
   }
 
@@ -282,6 +313,20 @@ class LocationTrackingService {
     try {
       const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
       if (active === "true" && !this.isTracking) {
+        // Verify with backend that employee is actually on duty today
+        try {
+          const res = await api.get("/attendance/my-today");
+          const att = res.data?.attendance;
+          const isOnDuty = Boolean(att && att.punchInTime && !att.punchOutTime);
+          if (!isOnDuty) {
+            console.log("[LocationService] Duty not active for today. Clearing tracking state.");
+            await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+            return;
+          }
+        } catch (apiErr) {
+          console.log("[LocationService] Could not verify today duty status:", apiErr.message);
+        }
+
         console.log("[LocationService] Resuming background tracking session from storage state...");
         await this.startLocationTracking();
       }
@@ -298,7 +343,7 @@ class LocationTrackingService {
       Geolocation.getCurrentPosition(
         (pos) => resolve(pos.coords),
         (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 12000, maximumAge: 5000 }
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
       );
     });
   }
@@ -376,6 +421,14 @@ class LocationTrackingService {
       });
 
       if (response.data && response.data.success) {
+        // If server says employee is not on duty (not punched in / punched out), immediately kill tracking
+        if (response.data.trackingAllowed === false) {
+          console.log("[LocationService] Duty hours inactive (not punched in / punched out). Shutting down tracking...");
+          await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
+          await this.stopLocationTracking();
+          return;
+        }
+
         // Remove successfully synced points from queue
         const remaining = queue.slice(batchToSend.length);
         await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remaining));

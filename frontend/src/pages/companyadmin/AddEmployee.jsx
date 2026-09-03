@@ -50,42 +50,59 @@ const STEPS = [
 ];
 
 // ── Shared Field Components (Crystal Clear Contrast & High Density) ────────
-const Field = ({ label, required, children, className = "", action, hint }) => (
+const Field = ({ label, required, children, className = "", action, hint, error }) => (
   <div className={`space-y-1.5 ${className}`}>
     <div className="flex items-center justify-between">
-      <label className="block text-[11.5px] font-extrabold text-slate-700 dark:text-slate-200 uppercase tracking-wider">
+      <label className={`block text-[11.5px] font-extrabold uppercase tracking-wider ${error ? "text-rose-500" : "text-slate-700 dark:text-slate-200"}`}>
         {label} {required && <span className="text-rose-500 font-black">*</span>}
       </label>
       {action}
     </div>
     {children}
-    {hint && <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{hint}</p>}
+    {error && (
+      <p className="flex items-center gap-1 text-[10.5px] font-bold text-rose-500 animate-pulse">
+        <AlertCircle size={11} className="shrink-0" /> {error}
+      </p>
+    )}
+    {!error && hint && <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{hint}</p>}
   </div>
 );
 
-const Input = ({ label, type = "text", value, onChange, placeholder, disabled = false, required = false, hint, className = "" }) => (
-  <Field label={label} required={required} hint={hint} className={className}>
+const Input = ({ label, type = "text", value, onChange, onBlur, placeholder, disabled = false, required = false, hint, className = "", error, onClearError, maxLength }) => (
+  <Field label={label} required={required} hint={hint} className={className} error={error}>
     <input
-      type={type}
+      type={type === "email" ? "text" : type === "tel" ? "text" : type}
+      inputMode={type === "email" ? "email" : type === "tel" ? "numeric" : type === "number" ? "numeric" : undefined}
       value={value ?? ""}
-      onChange={(e) => onChange(e.target.value)}
+      maxLength={maxLength}
+      onChange={(e) => { if (onClearError) onClearError(); onChange(e.target.value); }}
+      onBlur={onBlur}
       disabled={disabled}
       placeholder={placeholder}
-      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all ${
+      autoComplete={type === "email" ? "email" : type === "tel" ? "tel" : undefined}
+      className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all ${
+        error
+          ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/30 dark:bg-rose-900/10"
+          : "border-slate-300 dark:border-slate-700/90 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+      } ${
         disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
       }`}
     />
   </Field>
 );
 
-const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action, hint, className = "" }) => (
-  <Field label={label} required={required} action={action} hint={hint} className={className}>
+const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action, hint, className = "", error, onClearError }) => (
+  <Field label={label} required={required} action={action} hint={hint} className={className} error={error}>
     <div className="relative">
       <select
         value={value ?? ""}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => { if (onClearError) onClearError(); onChange(e.target.value); }}
         disabled={disabled}
-        className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all cursor-pointer ${
+        className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0B101B] border rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer ${
+          error
+            ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/30 dark:bg-rose-900/10"
+            : "border-slate-300 dark:border-slate-700/90 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
+        } ${
           disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
         }`}
       >
@@ -208,6 +225,9 @@ export default function AddEmployee() {
 
   const [activeStep, setActiveStep] = useState(1);
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [formErrors, setFormErrors] = useState({});
+
+  const clearError = (field) => setFormErrors((prev) => { const n = { ...prev }; delete n[field]; return n; });
   // Upgrade Plan Popup
   const [upgradePlanModal, setUpgradePlanModal] = useState(null); // { moduleName, label, used, limit }
 
@@ -429,9 +449,16 @@ export default function AddEmployee() {
   // Create Employee Mutation
   const createMutation = useMutation({
     mutationFn: createEmployeeApi,
-    onSuccess: (res) => {
-      queryClient.invalidateQueries(["allEmployees"]);
-      queryClient.invalidateQueries(["companyEmployeesList"]);
+    onSuccess: async (res) => {
+      await Promise.allSettled([
+        queryClient.invalidateQueries({ queryKey: ["employees"] }),
+        queryClient.invalidateQueries({ queryKey: ["allEmployees"] }),
+        queryClient.invalidateQueries({ queryKey: ["companyEmployeesList"] }),
+        queryClient.invalidateQueries({ queryKey: ["companyDashboard"] }),
+        queryClient.invalidateQueries({ queryKey: ["companyModuleUsage"] }),
+      ]);
+      queryClient.removeQueries({ queryKey: ["employees"] });
+      queryClient.refetchQueries({ queryKey: ["employees"] });
       toast.success(res?.data?.message || "Employee registered successfully!");
       navigate(`${baseRoute}/employees`);
     },
@@ -440,16 +467,156 @@ export default function AddEmployee() {
     },
   });
 
+  // ── Per-field instant inline validation ───────────────────────────────────
+  const validateField = (field, val) => {
+    let err = "";
+    const v = (val !== undefined && val !== null) ? String(val) : "";
+
+    if (field === "firstName") {
+      if (!v.trim()) err = "First name is required";
+      else if (v.trim().length < 2) err = "First name must be at least 2 characters";
+      else if (!/^[A-Za-z\s.'-]+$/.test(v.trim())) err = "Only letters allowed in first name";
+    } else if (field === "email") {
+      if (!v.trim()) err = "Email address is required";
+      else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v.trim())) {
+        err = "Enter a valid email address (e.g. name@company.com)";
+      }
+    } else if (field === "phone") {
+      const digits = v.replace(/\D/g, "");
+      if (!digits) err = "Mobile number is required";
+      else if (!/^[6-9]/.test(digits)) err = "Mobile number must start with 6, 7, 8, or 9";
+      else if (digits.length !== 10) err = `Mobile number must be 10 digits (${digits.length}/10)`;
+    } else if (field === "role") {
+      if (!v) err = "Please select a system role";
+    } else if (field === "emergencyPhone") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 10) err = `Emergency phone must be 10 digits (${digits.length}/10)`;
+      else if (digits && !/^[6-9]/.test(digits)) err = "Phone number must start with 6, 7, 8, or 9";
+    } else if (field === "pincode") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 6) err = "Pincode must be exactly 6 digits";
+    } else if (field === "panNumber") {
+      if (v.trim()) {
+        const pan = v.trim().toUpperCase();
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) err = "Invalid PAN format (e.g. ABCDE1234F)";
+      }
+    } else if (field === "aadhaarNumber") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 12) err = `Aadhaar must be 12 digits (${digits.length}/12)`;
+    } else if (field === "ifscCode") {
+      if (v.trim()) {
+        const ifsc = v.trim().toUpperCase();
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) err = "Invalid IFSC format (e.g. SBIN0001234)";
+      }
+    } else if (field === "accountNumber") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && (digits.length < 9 || digits.length > 18)) err = "Account number must be 9-18 digits";
+    }
+
+    setFormErrors((prev) => {
+      if (err) return { ...prev, [field]: err };
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+
+    return err;
+  };
+
+  // ── Per-step validation ────────────────────────────────────────────────────
+  const validateStep = (step) => {
+    const errors = {};
+    if (step === 1) {
+      const fn = validateField("firstName", formData.firstName);
+      const em = validateField("email", formData.email);
+      const ph = validateField("phone", formData.phone);
+      if (fn) errors.firstName = fn;
+      if (em) errors.email = em;
+      if (ph) errors.phone = ph;
+    }
+    if (step === 2) {
+      const rl = validateField("role", formData.role);
+      if (rl) errors.role = rl;
+    }
+    if (step === 3) {
+      if (formData.emergencyContact?.phone) {
+        const ep = validateField("emergencyPhone", formData.emergencyContact.phone);
+        if (ep) errors.emergencyPhone = ep;
+      }
+      if (formData.address?.pincode) {
+        const pin = validateField("pincode", formData.address.pincode);
+        if (pin) errors.pincode = pin;
+      }
+    }
+    if (step === 5) {
+      if (formData.panNumber) {
+        const pan = validateField("panNumber", formData.panNumber);
+        if (pan) errors.panNumber = pan;
+      }
+      if (formData.aadhaarNumber) {
+        const aadh = validateField("aadhaarNumber", formData.aadhaarNumber);
+        if (aadh) errors.aadhaarNumber = aadh;
+      }
+      if (formData.bankDetails?.ifscCode) {
+        const ifsc = validateField("ifscCode", formData.bankDetails.ifscCode);
+        if (ifsc) errors.ifscCode = ifsc;
+      }
+      if (formData.bankDetails?.accountNumber) {
+        const acc = validateField("accountNumber", formData.bankDetails.accountNumber);
+        if (acc) errors.accountNumber = acc;
+      }
+    }
+    return errors;
+  };
+
+  const validateAndNext = () => {
+    const errors = validateStep(activeStep);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    setFormErrors({});
+    setActiveStep((s) => Math.min(s + 1, STEPS.length));
+  };
+
   const handleFinalSubmit = (e) => {
     if (e) e.preventDefault();
-    if (!formData.firstName?.trim()) {
+    // Validate all critical steps before submit
+    const step1Errors = validateStep(1);
+    if (Object.keys(step1Errors).length > 0) {
+      setFormErrors(step1Errors);
       setActiveStep(1);
-      return toast.error("Please enter First Name");
+      toast.error("Please fix the errors in Basic Info before submitting");
+      return;
     }
-    if (!formData.email?.trim()) {
-      setActiveStep(1);
-      return toast.error("Please enter Email Address");
+    const step2Errors = validateStep(2);
+    if (Object.keys(step2Errors).length > 0) {
+      setFormErrors(step2Errors);
+      setActiveStep(2);
+      toast.error("Please fix the errors in Job Details before submitting");
+      return;
     }
+    const step3Errors = validateStep(3);
+    if (Object.keys(step3Errors).length > 0) {
+      setFormErrors(step3Errors);
+      setActiveStep(3);
+      toast.error("Please fix the errors in Address & Contact before submitting");
+      return;
+    }
+    const step5Errors = validateStep(5);
+    if (Object.keys(step5Errors).length > 0) {
+      setFormErrors(step5Errors);
+      setActiveStep(5);
+      toast.error("Please fix the errors in Bank & Identity before submitting");
+      return;
+    }
+    setFormErrors({});
+
+    // Sanitize employmentType: convert full_time → full-time (backend expects hyphen)
+    const sanitizeEmploymentType = (v) => {
+      if (!v) return "full-time";
+      return v.toLowerCase().replace(/_/g, "-");
+    };
 
     const payload = {
       firstName: formData.firstName.trim(),
@@ -461,7 +628,7 @@ export default function AddEmployee() {
       photo: formData.photo || undefined,
       gender: formData.gender,
       dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
-      maritalStatus: formData.maritalStatus,
+      maritalStatus: formData.maritalStatus || undefined,
 
       departmentId: formData.accessibleDepartments?.[0] || formData.departmentId || undefined,
       accessibleDepartments: formData.accessibleDepartments || [],
@@ -471,21 +638,24 @@ export default function AddEmployee() {
       role: formData.role || "Employee",
       loginRole: formData.role || "Employee",
       managerAccessLevel: formData.role === "Manager" || formData.role === "HR" ? formData.managerAccessLevel : undefined,
-      employmentType: formData.employmentType,
-      workMode: formData.workMode,
-      allowRemotePunch: formData.allowRemotePunch,
+      employmentType: sanitizeEmploymentType(formData.employmentType),
+      workMode: formData.workMode || "office",
+      allowRemotePunch: formData.allowRemotePunch || false,
       joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : undefined,
       confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : undefined,
-      noticePeriod: formData.noticePeriod,
+      noticePeriod: formData.noticePeriod || undefined,
 
       address: formData.address,
       permanentAddress: formData.permanentAddress,
       emergencyContact: formData.emergencyContact,
-      salaryDetails: formData.salaryDetails,
-      bankDetails: formData.bankDetails,
-      aadhaarNumber: formData.aadhaarNumber,
-      panNumber: formData.panNumber,
-      documents: formData.documents,
+      salaryDetails: formData.salaryDetails || undefined,
+      bankDetails: formData.bankDetails || undefined,
+      aadhaarNumber: formData.aadhaarNumber?.trim() || undefined,
+      panNumber: formData.panNumber?.trim() || undefined,
+      // documents must be object {}, never an array
+      documents: (formData.documents && !Array.isArray(formData.documents) && typeof formData.documents === "object")
+        ? formData.documents
+        : {},
       assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
     };
 
@@ -697,7 +867,15 @@ export default function AddEmployee() {
                   required
                   placeholder="Enter first name"
                   value={formData.firstName}
-                  onChange={(v) => setFormData((p) => ({ ...p, firstName: v }))}
+                  error={formErrors.firstName}
+                  onClearError={() => clearError("firstName")}
+                  onBlur={() => validateField("firstName", formData.firstName)}
+                  onChange={(v) => {
+                    setFormData((p) => ({ ...p, firstName: v }));
+                    if (formErrors.firstName || v.trim().length >= 2) {
+                      validateField("firstName", v);
+                    }
+                  }}
                 />
                 <Input
                   label="Middle Name"
@@ -718,17 +896,34 @@ export default function AddEmployee() {
                   label="Email Address (Login ID)"
                   required
                   type="email"
-                  placeholder="Enter employee email address"
+                  placeholder="Enter employee email address (e.g. name@company.com)"
                   value={formData.email}
-                  onChange={(v) => setFormData((p) => ({ ...p, email: v }))}
+                  error={formErrors.email}
+                  onClearError={() => clearError("email")}
+                  onBlur={() => validateField("email", formData.email)}
+                  onChange={(v) => {
+                    const clean = v.trim();
+                    setFormData((p) => ({ ...p, email: clean }));
+                    if (formErrors.email || clean.includes("@")) {
+                      validateField("email", clean);
+                    }
+                  }}
                 />
                 <Input
                   label="Mobile / WhatsApp Phone"
                   required
                   type="tel"
+                  maxLength={10}
                   placeholder="Enter 10-digit mobile number"
                   value={formData.phone}
-                  onChange={(v) => setFormData((p) => ({ ...p, phone: v }))}
+                  error={formErrors.phone}
+                  onClearError={() => clearError("phone")}
+                  onBlur={() => validateField("phone", formData.phone)}
+                  onChange={(v) => {
+                    const digits = v.replace(/\D/g, "").slice(0, 10);
+                    setFormData((p) => ({ ...p, phone: digits }));
+                    validateField("phone", digits);
+                  }}
                 />
               </div>
 
@@ -787,6 +982,8 @@ export default function AddEmployee() {
                   label="System Role"
                   required
                   value={formData.role}
+                  error={formErrors.role}
+                  onClearError={() => clearError("role")}
                   onChange={(v) => setFormData((p) => ({ ...p, role: v }))}
                   options={[
                     { value: "Employee", label: "Employee (Standard Staff)" },
@@ -1025,9 +1222,21 @@ export default function AddEmployee() {
                   />
                   <Input
                     label="Pincode"
+                    type="tel"
+                    maxLength={6}
                     placeholder="Enter 6-digit pincode"
                     value={formData.address?.pincode}
-                    onChange={(v) => setFormData((p) => ({ ...p, address: { ...p.address, pincode: v } }))}
+                    error={formErrors.pincode}
+                    onClearError={() => clearError("pincode")}
+                    onBlur={() => {
+                      if (formData.address?.pincode) validateField("pincode", formData.address.pincode);
+                    }}
+                    onChange={(v) => {
+                      const digits = v.replace(/\D/g, "").slice(0, 6);
+                      setFormData((p) => ({ ...p, address: { ...p.address, pincode: digits } }));
+                      if (digits) validateField("pincode", digits);
+                      else clearError("pincode");
+                    }}
                   />
                 </div>
               </div>
@@ -1055,9 +1264,20 @@ export default function AddEmployee() {
                   <Input
                     label="Emergency Phone"
                     type="tel"
-                    placeholder="Enter emergency contact phone number"
+                    maxLength={10}
+                    placeholder="Enter 10-digit emergency contact phone"
                     value={formData.emergencyContact?.phone}
-                    onChange={(v) => setFormData((p) => ({ ...p, emergencyContact: { ...p.emergencyContact, phone: v } }))}
+                    error={formErrors.emergencyPhone}
+                    onClearError={() => clearError("emergencyPhone")}
+                    onBlur={() => {
+                      if (formData.emergencyContact?.phone) validateField("emergencyPhone", formData.emergencyContact.phone);
+                    }}
+                    onChange={(v) => {
+                      const digits = v.replace(/\D/g, "").slice(0, 10);
+                      setFormData((p) => ({ ...p, emergencyContact: { ...p.emergencyContact, phone: digits } }));
+                      if (digits) validateField("emergencyPhone", digits);
+                      else clearError("emergencyPhone");
+                    }}
                   />
                 </div>
               </div>
@@ -1159,15 +1379,38 @@ export default function AddEmployee() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Input
                   label="Aadhaar Card Number"
+                  type="tel"
+                  maxLength={12}
                   placeholder="Enter 12-digit Aadhaar number"
                   value={formData.aadhaarNumber}
-                  onChange={(v) => setFormData((p) => ({ ...p, aadhaarNumber: v }))}
+                  error={formErrors.aadhaarNumber}
+                  onClearError={() => clearError("aadhaarNumber")}
+                  onBlur={() => {
+                    if (formData.aadhaarNumber) validateField("aadhaarNumber", formData.aadhaarNumber);
+                  }}
+                  onChange={(v) => {
+                    const digits = v.replace(/\D/g, "").slice(0, 12);
+                    setFormData((p) => ({ ...p, aadhaarNumber: digits }));
+                    if (digits) validateField("aadhaarNumber", digits);
+                    else clearError("aadhaarNumber");
+                  }}
                 />
                 <Input
                   label="Income Tax PAN Number"
-                  placeholder="Enter 10-character PAN number"
+                  maxLength={10}
+                  placeholder="Enter 10-character PAN number (e.g. ABCDE1234F)"
                   value={formData.panNumber}
-                  onChange={(v) => setFormData((p) => ({ ...p, panNumber: v.toUpperCase() }))}
+                  error={formErrors.panNumber}
+                  onClearError={() => clearError("panNumber")}
+                  onBlur={() => {
+                    if (formData.panNumber) validateField("panNumber", formData.panNumber);
+                  }}
+                  onChange={(v) => {
+                    const pan = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+                    setFormData((p) => ({ ...p, panNumber: pan }));
+                    if (pan) validateField("panNumber", pan);
+                    else clearError("panNumber");
+                  }}
                 />
               </div>
 
@@ -1182,17 +1425,40 @@ export default function AddEmployee() {
                   />
                   <Input
                     label="Bank Account Number"
+                    type="tel"
+                    maxLength={18}
                     placeholder="Enter bank account number"
                     value={formData.bankDetails?.accountNumber}
-                    onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, accountNumber: v } }))}
+                    error={formErrors.accountNumber}
+                    onClearError={() => clearError("accountNumber")}
+                    onBlur={() => {
+                      if (formData.bankDetails?.accountNumber) validateField("accountNumber", formData.bankDetails.accountNumber);
+                    }}
+                    onChange={(v) => {
+                      const digits = v.replace(/\D/g, "").slice(0, 18);
+                      setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, accountNumber: digits } }));
+                      if (digits) validateField("accountNumber", digits);
+                      else clearError("accountNumber");
+                    }}
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <Input
                     label="IFSC Code"
-                    placeholder="Enter 11-character IFSC code"
+                    maxLength={11}
+                    placeholder="Enter 11-character IFSC code (e.g. SBIN0001234)"
                     value={formData.bankDetails?.ifscCode}
-                    onChange={(v) => setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, ifscCode: v.toUpperCase() } }))}
+                    error={formErrors.ifscCode}
+                    onClearError={() => clearError("ifscCode")}
+                    onBlur={() => {
+                      if (formData.bankDetails?.ifscCode) validateField("ifscCode", formData.bankDetails.ifscCode);
+                    }}
+                    onChange={(v) => {
+                      const ifsc = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11);
+                      setFormData((p) => ({ ...p, bankDetails: { ...p.bankDetails, ifscCode: ifsc } }));
+                      if (ifsc) validateField("ifscCode", ifsc);
+                      else clearError("ifscCode");
+                    }}
                   />
                   <Select
                     label="Account Type"
@@ -1348,7 +1614,7 @@ export default function AddEmployee() {
             <button
               type="button"
               disabled={activeStep === 1}
-              onClick={() => setActiveStep((s) => Math.max(1, s - 1))}
+              onClick={() => { setFormErrors({}); setActiveStep((s) => Math.max(1, s - 1)); }}
               className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer disabled:opacity-40 flex items-center gap-1"
             >
               <ChevronLeft size={14} /> <span>Previous</span>
@@ -1358,7 +1624,7 @@ export default function AddEmployee() {
               {activeStep < 7 ? (
                 <button
                   type="button"
-                  onClick={() => setActiveStep((s) => Math.min(7, s + 1))}
+                  onClick={validateAndNext}
                   className="px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1"
                 >
                   <span>Next Step</span> <ChevronRight size={14} />

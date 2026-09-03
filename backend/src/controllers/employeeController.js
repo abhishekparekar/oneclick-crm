@@ -269,6 +269,7 @@ const createEmployee = async (req, res, next) => {
 
     const {
       firstName,
+      middleName,
       lastName,
       email,
       phone,
@@ -276,6 +277,7 @@ const createEmployee = async (req, res, next) => {
       gender,
       dateOfBirth,
       joiningDate,
+      confirmationDate,
       departmentId,
       departmentIds,
       designationId,
@@ -284,6 +286,8 @@ const createEmployee = async (req, res, next) => {
       workMode,
       salary,
       address,
+      permanentAddress,
+      emergencyContact,
       emergencyContactName,
       emergencyContactPhone,
       documents,
@@ -294,6 +298,13 @@ const createEmployee = async (req, res, next) => {
       reportingManagerId,
       leaveBalance,
       permissions,
+      salaryDetails,
+      bankDetails,
+      aadhaarNumber,
+      panNumber,
+      maritalStatus,
+      noticePeriod,
+      password: reqPassword,
     } = req.body;
 
     // Support multi-department: use first departmentId from array if departmentId not set
@@ -370,10 +381,12 @@ const createEmployee = async (req, res, next) => {
       ? loginRole
       : "Employee";
 
-    const temporaryPassword = req.body.password && req.body.password.trim().length >= 6
-      ? req.body.password.trim()
+    const temporaryPassword = (reqPassword && reqPassword.trim().length >= 6)
+      ? reqPassword.trim()
       : tempPasswordFromPhone(phone || "000000");
     const employeeCode = await generateNextEmployeeCode(companyId);
+
+    const fullName = [firstName?.trim(), middleName?.trim(), lastName?.trim()].filter(Boolean).join(" ");
 
     // Module allocation check against plan limits
     const rawSubscribed = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
@@ -409,8 +422,6 @@ const createEmployee = async (req, res, next) => {
         }
       }
     }
-
-    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
 
     const user = await User.create({
       name: fullName,
@@ -457,7 +468,8 @@ const createEmployee = async (req, res, next) => {
         userId: user._id,
         employeeCode,
         firstName,
-        lastName,
+        middleName: middleName || "",
+        lastName: lastName || "",
         email: emailLower,
         phone,
         photo,
@@ -466,6 +478,7 @@ const createEmployee = async (req, res, next) => {
         assignedModules: finalAssignedModules,
         dateOfBirth: dateOfBirth || null,
         joiningDate: joiningDate || null,
+        confirmationDate: confirmationDate || null,
         departmentId: effectiveDeptId || null,
         departmentIds: Array.isArray(departmentIds) && departmentIds.length > 0
           ? departmentIds
@@ -476,10 +489,39 @@ const createEmployee = async (req, res, next) => {
         workMode,
         allowRemotePunch: allowRemotePunch === true,
         salary: salary !== undefined && salary !== "" ? Number(salary) : null,
-        address,
-        emergencyContactName,
-        emergencyContactPhone,
-        documents: documents || {},
+        salaryDetails: salaryDetails || undefined,
+        // Map frontend address {street, city, state, pincode, country} → currentAddress schema
+        currentAddress: address ? {
+          addressLine1: address.street || address.addressLine1 || "",
+          city: address.city || "",
+          state: address.state || "",
+          pincode: address.pincode || "",
+          country: address.country || "India",
+        } : undefined,
+        // Map permanentAddress (same structure)
+        permanentAddress: permanentAddress ? {
+          sameAsCurrent: permanentAddress.sameAsCurrent || false,
+          addressLine1: permanentAddress.street || permanentAddress.addressLine1 || "",
+          city: permanentAddress.city || "",
+          state: permanentAddress.state || "",
+          pincode: permanentAddress.pincode || "",
+          country: permanentAddress.country || "India",
+        } : undefined,
+        // emergencyContact object from frontend
+        emergencyContact: emergencyContact ? {
+          name: emergencyContact.name || emergencyContactName || "",
+          relationship: emergencyContact.relationship || "",
+          phone: emergencyContact.phone || emergencyContactPhone || "",
+        } : (emergencyContactName ? {
+          name: emergencyContactName,
+          phone: emergencyContactPhone || "",
+        } : undefined),
+        bankDetails: bankDetails || undefined,
+        aadhaarNumber: aadhaarNumber || undefined,
+        panNumber: panNumber || undefined,
+        maritalStatus: maritalStatus || undefined,
+        noticePeriod: noticePeriod || undefined,
+        documents: (documents && !Array.isArray(documents) && typeof documents === "object") ? documents : {},
         status: "active",
         managerAccessLevel: managerAccessLevel || "team",
         accessibleDepartments: accessibleDepartments || [],

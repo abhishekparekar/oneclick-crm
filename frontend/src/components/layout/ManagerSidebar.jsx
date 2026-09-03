@@ -22,6 +22,7 @@ import {
   LogOut,
   ChevronDown,
   Hexagon,
+  Navigation,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -46,6 +47,7 @@ const MANAGER_SECTIONS = [
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
+      // { label: "Live Location Radar", path: "/manager/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },
@@ -93,9 +95,8 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
 
   return (
     <div
-      className={`ca-sidebar ${
-        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
-      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+      className={`ca-sidebar ${isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+        } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
     >
       {/* Brand Logo Header */}
       <div className={`px-2.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : ""}`}>
@@ -134,43 +135,40 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
               )}
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={onItemClick}
-                    title={item.label}
-                    className={`${
-                      isCollapsed
-                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                            active
-                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onItemClick}
+                      title={item.label}
+                      className={`${isCollapsed
+                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                            ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
                           }`
-                        : `flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${
-                            active
-                              ? "bg-[#1268D9] text-white font-bold shadow-md shadow-[#1268D9]/25"
-                              : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
+                          : `flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${active
+                            ? "bg-[#1268D9] text-white font-bold shadow-md shadow-[#1268D9]/25"
+                            : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
                           }`
-                    }`}
-                  >
-                    {isCollapsed ? (
-                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
-                    ) : (
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon
-                          size={15}
-                          strokeWidth={2}
-                          className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`}
-                        />
-                        <span className="truncate text-[12.5px]">{item.label}</span>
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+                        }`}
+                    >
+                      {isCollapsed ? (
+                        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                      ) : (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon
+                            size={15}
+                            strokeWidth={2}
+                            className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400 group-hover:text-slate-200"}`}
+                          />
+                          <span className="truncate text-[12.5px]">{item.label}</span>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );

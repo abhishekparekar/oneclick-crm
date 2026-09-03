@@ -4,7 +4,8 @@ const sanitizeGender = (val) => (typeof val === "string" ? val.toLowerCase().tri
 const sanitizeWorkMode = (val) => (typeof val === "string" ? val.toLowerCase().trim() : val);
 const sanitizeEmploymentType = (val) => {
   if (typeof val !== "string") return val;
-  const s = val.toLowerCase().trim().replace(/[-_]/g, "");
+  // Normalize both underscore and hyphen variants
+  const s = val.toLowerCase().trim().replace(/[-_\s]/g, "");
   if (s === "fulltime") return "full-time";
   if (s === "parttime") return "part-time";
   if (s === "contract" || s === "contractual") return "contract";
@@ -15,7 +16,7 @@ const sanitizeEmploymentType = (val) => {
 
 const employeeCreateRules = [
   body("firstName").trim().notEmpty().withMessage("First name is required"),
-  body("lastName").trim().notEmpty().withMessage("Last name is required"),
+  body("lastName").optional({ nullable: true, checkFalsy: true }).trim(),
   body("email").isEmail().withMessage("Valid email is required"),
   body("phone").optional({ nullable: true, checkFalsy: true }).trim(),
   body("photo").optional({ nullable: true, checkFalsy: true }).trim(),
@@ -39,15 +40,29 @@ const employeeCreateRules = [
     .customSanitizer(sanitizeWorkMode)
     .isIn(["office", "remote", "hybrid", ""])
     .withMessage("Invalid work mode (must be office, remote, or hybrid)"),
-  body("salaryDetails").optional({ nullable: true, checkFalsy: true }).isObject().withMessage("Invalid salary details"),
-  body("address").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("salaryDetails").optional({ nullable: true, checkFalsy: true }),
+  body("address").optional({ nullable: true, checkFalsy: true }),
+  body("emergencyContact").optional({ nullable: true, checkFalsy: true }),
   body("emergencyContactName").optional({ nullable: true, checkFalsy: true }).trim(),
   body("emergencyContactPhone").optional({ nullable: true, checkFalsy: true }).trim(),
   body("loginRole")
     .optional({ nullable: true, checkFalsy: true })
     .isIn(["Employee", "Manager", "HR", "CompanyAdmin"])
     .withMessage("loginRole must be Employee, Manager, HR, or CompanyAdmin"),
-  body("documents").optional({ nullable: true, checkFalsy: true }).isObject(),
+  body("documents").optional({ nullable: true, checkFalsy: true }),
+  body("assignedModules").optional({ nullable: true, checkFalsy: true }),
+  body("accessibleDepartments").optional({ nullable: true, checkFalsy: true }),
+  body("reportingManagerId").optional({ nullable: true, checkFalsy: true }),
+  body("noticePeriod").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("maritalStatus").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("middleName").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("password").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("allowRemotePunch").optional({ nullable: true }).isBoolean(),
+  body("confirmationDate").optional({ nullable: true, checkFalsy: true }),
+  body("permanentAddress").optional({ nullable: true, checkFalsy: true }),
+  body("bankDetails").optional({ nullable: true, checkFalsy: true }),
+  body("aadhaarNumber").optional({ nullable: true, checkFalsy: true }).trim(),
+  body("panNumber").optional({ nullable: true, checkFalsy: true }).trim(),
 ];
 
 const employeeUpdateRules = [

@@ -2611,3 +2611,31 @@ a.bg-amber-600:hover,
 .shadow-orange-600\/20 {
   box-shadow: 0 4px 14px 0 rgba(18, 104, 217, 0.3) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Leaflet Map Tile & Tailwind Reset Fixes
+   ═══════════════════════════════════════════════════════════════════════════ */
+.leaflet-container {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: #0f172a !important;
+}
+
+/* Prevent Tailwind preflight from breaking or shrinking Leaflet tiles */
+.leaflet-container img.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.leaflet-tile {
+  visibility: inherit !important;
+}
+
+.leaflet-pane {
+  z-index: 400;
+}
+
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 500;
+}
