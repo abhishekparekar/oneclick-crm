@@ -413,18 +413,13 @@ const SubscriptionDetails = () => {
       <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs p-4 sm:p-5 space-y-4">
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-          <div>
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
-                <Layers size={16} />
-              </div>
-              <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
-                Module-Wise Seat & License Allocation
-              </h3>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+              <Layers size={16} />
             </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Track allocated employee seats, assigned staff members, and remaining capacity across modules.
-            </p>
+            <h3 className="text-sm sm:text-base font-bold text-slate-900 dark:text-white uppercase tracking-wider m-0">
+              Module-Wise Seat & License Allocation
+            </h3>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -555,11 +550,6 @@ const SubscriptionDetails = () => {
                         )}
                       </div>
 
-                      {/* Description */}
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium leading-snug line-clamp-1">
-                        {item.description}
-                      </p>
-
                       {/* 3 Core Metric Stat Boxes */}
                       <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800">
                         {/* Total Allowed */}
@@ -567,11 +557,8 @@ const SubscriptionDetails = () => {
                           <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block truncate">
                             Total Limit
                           </span>
-                          <span className="text-sm font-black text-slate-900 dark:text-white leading-tight block my-0.5">
+                          <span className="text-base font-black text-slate-900 dark:text-white leading-tight block my-0.5">
                             {item.limit}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block truncate">
-                            Seats Allowed
                           </span>
                         </div>
 
@@ -580,11 +567,8 @@ const SubscriptionDetails = () => {
                           <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 block truncate">
                             Assigned
                           </span>
-                          <span className="text-sm font-black text-blue-600 dark:text-blue-400 leading-tight block my-0.5">
+                          <span className="text-base font-black text-blue-600 dark:text-blue-400 leading-tight block my-0.5">
                             {item.used}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block truncate">
-                            Staff Active
                           </span>
                         </div>
 
@@ -595,13 +579,10 @@ const SubscriptionDetails = () => {
                           }`}>
                             Remaining
                           </span>
-                          <span className={`text-sm font-black leading-tight block my-0.5 ${
+                          <span className={`text-base font-black leading-tight block my-0.5 ${
                             item.remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
                           }`}>
                             {item.remaining}
-                          </span>
-                          <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 block truncate">
-                            {item.remaining > 0 ? "Seats Left" : "No Seats Left"}
                           </span>
                         </div>
                       </div>
