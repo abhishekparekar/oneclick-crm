@@ -423,7 +423,7 @@ const SubscriptionDetails = () => {
               </h3>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              मॉड्यूलनिहाय घेतलेला एकूण ॲक्सेस कोटा (Total Seats), कर्मचाऱ्यांना दिलेले ॲक्सेस (Assigned) आणि शिल्लक जागा (Remaining Capacity).
+              Track allocated employee seats, assigned staff members, and remaining capacity across modules.
             </p>
           </div>
 
