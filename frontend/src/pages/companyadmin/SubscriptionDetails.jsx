@@ -13,7 +13,7 @@ import {
   Mail, Clock, ArrowUpRight, HelpCircle, Send, Plus, RefreshCw,
   CalendarCheck, DollarSign, CheckSquare, FolderKanban, BarChart3,
   Magnet, Smartphone, Globe, ChevronDown, ChevronUp, UserCheck,
-  AlertTriangle, ExternalLink, Filter, Check
+  AlertTriangle, ExternalLink, Filter, Check, LayoutGrid, List
 } from "lucide-react";
 
 const RequestStatusBadge = ({ status }) => {
@@ -60,6 +60,7 @@ const SubscriptionDetails = () => {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [expandedModule, setExpandedModule] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [viewMode, setViewMode] = useState("table");
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["activeSubscription"],
@@ -442,16 +443,16 @@ const SubscriptionDetails = () => {
           </div>
         </div>
 
-        {/* Category Filters & Quick Summary Pills */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5 pt-1 pb-1">
+        {/* Category Filters, Quick Summary & View Mode Toggle */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 pt-0.5 pb-1">
           {/* Filter Pills */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5 max-w-full">
             {[
-              { key: "all", label: "All Modules" },
+              { key: "all", label: "All" },
               { key: "Core HR", label: "Core HR" },
               { key: "Productivity", label: "Productivity" },
               { key: "Sales & CRM", label: "Sales & CRM" },
-              { key: "Platform", label: "Platform & Reports" },
+              { key: "Platform", label: "Platform" },
             ].map((cat) => {
               const active = selectedCategory === cat.key;
               const count = cat.key === "all"
@@ -465,10 +466,10 @@ const SubscriptionDetails = () => {
                   key={cat.key}
                   type="button"
                   onClick={() => setSelectedCategory(cat.key)}
-                  className={`px-3 py-1 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 cursor-pointer ${
                     active
-                      ? "bg-amber-500 text-slate-950 shadow-xs"
-                      : "bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      ? "bg-amber-500 text-slate-950 shadow-2xs"
+                      : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"
                   }`}
                 >
                   {cat.label} <span className="text-[10px] opacity-75">({count})</span>
@@ -477,27 +478,218 @@ const SubscriptionDetails = () => {
             })}
           </div>
 
-          {/* Quick Summary Pill */}
+          {/* Quick Summary Pill & View Toggle */}
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 shrink-0">
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              Plan Limit: <strong className="text-slate-900 dark:text-white">{usageData?.companyLimit || subscription.planId?.employeeLimit || 10} Seats</strong>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+              Plan: <strong className="text-slate-900 dark:text-white">{usageData?.companyLimit || subscription.planId?.employeeLimit || 10}</strong>
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span>
-              Active Staff: <strong className="text-slate-900 dark:text-white">{usageData?.totalActiveEmployees || 0} Staff</strong>
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+              Active: <strong className="text-slate-900 dark:text-white">{usageData?.totalActiveEmployees || 0}</strong>
             </span>
+
+            {/* View Mode Toggle: Table / Grid */}
+            <div className="flex items-center p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/60">
+              <button
+                type="button"
+                onClick={() => setViewMode("table")}
+                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "table"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                }`}
+                title="Compact Table View"
+              >
+                <List size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode("grid")}
+                className={`p-1 rounded-md transition-colors cursor-pointer ${
+                  viewMode === "grid"
+                    ? "bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs"
+                    : "text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                }`}
+                title="Compact Grid View"
+              >
+                <LayoutGrid size={13} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Module Cards Grid */}
+        {/* Compact Content: Table or Grid */}
         {isUsageLoading ? (
-          <div className="py-12 flex flex-col items-center justify-center space-y-2">
-            <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+          <div className="py-8 flex flex-col items-center justify-center space-y-2">
+            <div className="w-7 h-7 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
             <p className="text-xs text-slate-400">Loading module seat usage...</p>
           </div>
+        ) : viewMode === "table" ? (
+          /* ── Compact Table View ── */
+          <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-50/90 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 text-slate-400 font-extrabold uppercase text-[10px] tracking-wider text-left">
+                  <th className="py-2 pl-3">Module</th>
+                  <th className="py-2 text-center">Total Limit</th>
+                  <th className="py-2 text-center">Assigned</th>
+                  <th className="py-2 text-center">Remaining</th>
+                  <th className="py-2 min-w-[130px]">Utilization</th>
+                  <th className="py-2 text-center">Status</th>
+                  <th className="py-2 text-right pr-3">Staff List</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                {moduleBreakdown
+                  .filter((item) => {
+                    if (selectedCategory === "all") return true;
+                    if (selectedCategory === "Platform") return item.category === "Platform" || item.category === "Analytics";
+                    return item.category === selectedCategory;
+                  })
+                  .map((item) => {
+                    const IconComponent = MODULE_ICONS[item.key] || Layers;
+                    const colors = MODULE_COLORS[item.key] || {
+                      bg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+                      progress: "from-amber-500 to-amber-600",
+                    };
+                    const isExpanded = expandedModule === item.key;
+
+                    return (
+                      <React.Fragment key={item.key}>
+                        <tr className="hover:bg-slate-50/70 dark:hover:bg-slate-800/30 transition-colors">
+                          {/* Module */}
+                          <td className="py-2 pl-3">
+                            <div className="flex items-center gap-2">
+                              <div className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 border ${colors.bg}`}>
+                                <IconComponent size={13} />
+                              </div>
+                              <span className="font-bold text-slate-900 dark:text-white text-xs">
+                                {item.label}
+                              </span>
+                              <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 bg-slate-100 dark:bg-slate-800/80 px-1.5 py-0.5 rounded">
+                                {item.category}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Total Limit */}
+                          <td className="py-2 text-center font-bold text-slate-900 dark:text-white">
+                            {item.limit}
+                          </td>
+
+                          {/* Assigned */}
+                          <td className="py-2 text-center font-black text-blue-600 dark:text-blue-400">
+                            {item.used}
+                          </td>
+
+                          {/* Remaining */}
+                          <td className="py-2 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[11px] font-black ${
+                              item.remaining > 0
+                                ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400"
+                                : "bg-rose-500/15 text-rose-700 dark:text-rose-400"
+                            }`}>
+                              {item.remaining}
+                            </span>
+                          </td>
+
+                          {/* Utilization */}
+                          <td className="py-2">
+                            <div className="flex items-center gap-2">
+                              <div className="w-20 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden shrink-0">
+                                <div
+                                  className={`h-full rounded-full ${
+                                    item.isFull
+                                      ? "bg-rose-500"
+                                      : item.percentage > 70
+                                      ? "bg-amber-500"
+                                      : "bg-emerald-500"
+                                  }`}
+                                  style={{ width: `${Math.min(100, Math.max(item.percentage, item.used > 0 ? 8 : 0))}%` }}
+                                ></div>
+                              </div>
+                              <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">
+                                {item.percentage}%
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="py-2 text-center">
+                            {item.isFull ? (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400">
+                                Full
+                              </span>
+                            ) : item.remaining <= 2 ? (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400">
+                                Low
+                              </span>
+                            ) : (
+                              <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400">
+                                Available
+                              </span>
+                            )}
+                          </td>
+
+                          {/* Action / Staff */}
+                          <td className="py-2 text-right pr-3">
+                            <button
+                              type="button"
+                              onClick={() => setExpandedModule(isExpanded ? null : item.key)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                            >
+                              <Users size={10} className="text-slate-400" />
+                              <span>{item.used} Staff</span>
+                              {isExpanded ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                            </button>
+                          </td>
+                        </tr>
+
+                        {/* Inline Expandable Assigned Staff Drawer */}
+                        {isExpanded && (
+                          <tr className="bg-slate-50/50 dark:bg-slate-900/40">
+                            <td colSpan={7} className="p-2.5">
+                              <div className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-1.5">
+                                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase">
+                                  <span>Assigned Staff to {item.label} ({item.employees?.length || 0})</span>
+                                  {item.remaining > 0 ? (
+                                    <Link to="/company/employees" className="text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-bold">
+                                      <Plus size={10} /> Assign more ({item.remaining} seats left)
+                                    </Link>
+                                  ) : (
+                                    <button onClick={() => setIsRequestModalOpen(true)} className="text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer font-bold">
+                                      <ArrowUpRight size={10} /> Request More Seats
+                                    </button>
+                                  )}
+                                </div>
+
+                                {(!item.employees || item.employees.length === 0) ? (
+                                  <p className="text-[11px] text-slate-400 py-1 font-medium">No employees assigned yet.</p>
+                                ) : (
+                                  <div className="flex flex-wrap gap-1.5 pt-0.5">
+                                    {item.employees.map(emp => (
+                                      <span key={emp._id} className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-semibold text-slate-800 dark:text-slate-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                                        <span>{emp.name}</span>
+                                        {emp.email && <span className="text-[9px] text-slate-400 font-normal">({emp.email})</span>}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
+              </tbody>
+            </table>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          /* ── Compact Grid View ── */
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
             {moduleBreakdown
               .filter((item) => {
                 if (selectedCategory === "all") return true;
@@ -515,180 +707,102 @@ const SubscriptionDetails = () => {
                 return (
                   <div
                     key={item.key}
-                    className="bg-slate-50/70 dark:bg-[#0D151C] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-200 shadow-2xs"
+                    className="bg-slate-50/70 dark:bg-[#0D151C] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 flex flex-col justify-between hover:border-slate-300 dark:hover:border-slate-700 transition-all duration-150 shadow-2xs space-y-2.5"
                   >
-                    <div className="space-y-3">
-                      {/* Card Top: Icon, Title & Status Badge */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${colors.bg}`}>
-                            <IconComponent size={18} />
+                    <div>
+                      {/* Top: Icon, Title & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${colors.bg}`}>
+                            <IconComponent size={14} />
                           </div>
                           <div className="min-w-0">
                             <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate m-0">
                               {item.label}
                             </h4>
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400">
+                            <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400">
                               {item.category}
                             </span>
                           </div>
                         </div>
 
-                        {/* Capacity Status Badge */}
                         {item.isFull ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-rose-500/15 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-800 shrink-0">
-                            Full (100%)
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 shrink-0">
+                            Full
                           </span>
                         ) : item.remaining <= 2 ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-300 dark:border-amber-800 shrink-0">
-                            Running Low
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/15 text-amber-600 dark:text-amber-400 shrink-0">
+                            Low
                           </span>
                         ) : (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 shrink-0">
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 shrink-0">
                             Available
                           </span>
                         )}
                       </div>
 
-                      {/* 3 Core Metric Stat Boxes */}
-                      <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl bg-white dark:bg-slate-900/80 border border-slate-200/60 dark:border-slate-800">
-                        {/* Total Allowed */}
-                        <div className="text-center px-1 py-1">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-slate-400 block truncate">
-                            Total Limit
-                          </span>
-                          <span className="text-base font-black text-slate-900 dark:text-white leading-tight block my-0.5">
-                            {item.limit}
-                          </span>
+                      {/* 3 Compact Numbers */}
+                      <div className="grid grid-cols-3 gap-1 p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800 text-center mt-2">
+                        <div>
+                          <span className="text-[8px] font-extrabold uppercase text-slate-400 block">Limit</span>
+                          <span className="text-sm font-black text-slate-900 dark:text-white">{item.limit}</span>
                         </div>
-
-                        {/* Assigned / Given */}
-                        <div className="text-center px-1 py-1 border-x border-slate-100 dark:border-slate-800">
-                          <span className="text-[9px] font-extrabold uppercase tracking-wider text-blue-600 dark:text-blue-400 block truncate">
-                            Assigned
-                          </span>
-                          <span className="text-base font-black text-blue-600 dark:text-blue-400 leading-tight block my-0.5">
-                            {item.used}
-                          </span>
+                        <div className="border-x border-slate-100 dark:border-slate-800">
+                          <span className="text-[8px] font-extrabold uppercase text-blue-600 dark:text-blue-400 block">Assigned</span>
+                          <span className="text-sm font-black text-blue-600 dark:text-blue-400">{item.used}</span>
                         </div>
-
-                        {/* Remaining */}
-                        <div className="text-center px-1 py-1">
-                          <span className={`text-[9px] font-extrabold uppercase tracking-wider block truncate ${
-                            item.remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                          }`}>
-                            Remaining
+                        <div>
+                          <span className={`text-[8px] font-extrabold uppercase block ${item.remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                            Left
                           </span>
-                          <span className={`text-base font-black leading-tight block my-0.5 ${
-                            item.remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                          }`}>
+                          <span className={`text-sm font-black ${item.remaining > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                             {item.remaining}
                           </span>
                         </div>
                       </div>
 
-                      {/* Progress Bar */}
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[10px] font-bold">
-                          <span className="text-slate-500 dark:text-slate-400">Seat Utilization</span>
-                          <span className={item.isFull ? "text-rose-600 dark:text-rose-400 font-extrabold" : "text-slate-700 dark:text-slate-300"}>
-                            {item.used} of {item.limit} used ({item.percentage}%)
-                          </span>
+                      {/* Thin Progress bar */}
+                      <div className="mt-2 space-y-0.5">
+                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 dark:text-slate-400">
+                          <span>Usage</span>
+                          <span>{item.percentage}%</span>
                         </div>
-                        <div className="w-full h-2 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
+                        <div className="w-full h-1 rounded-full bg-slate-200 dark:bg-slate-800 overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              item.isFull
-                                ? "bg-gradient-to-r from-rose-500 to-rose-600"
-                                : item.percentage > 70
-                                ? "bg-gradient-to-r from-amber-500 to-orange-500"
-                                : "bg-gradient-to-r from-emerald-500 to-teal-500"
-                            }`}
-                            style={{ width: `${Math.min(100, Math.max(item.percentage, item.used > 0 ? 6 : 0))}%` }}
+                            className={`h-full rounded-full ${item.isFull ? "bg-rose-500" : item.percentage > 70 ? "bg-amber-500" : "bg-emerald-500"}`}
+                            style={{ width: `${Math.min(100, Math.max(item.percentage, item.used > 0 ? 8 : 0))}%` }}
                           ></div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Footer: Expand Assigned Employees Drawer */}
-                    <div className="pt-3 mt-3 border-t border-slate-200/60 dark:border-slate-800/80">
+                    {/* Staff List Toggle */}
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-slate-800">
                       <button
                         type="button"
                         onClick={() => setExpandedModule(isExpanded ? null : item.key)}
-                        className="w-full py-1.5 px-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800/80 text-[11px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between transition-all cursor-pointer"
+                        className="w-full py-1 px-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 text-[10px] font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between transition-colors cursor-pointer"
                       >
-                        <span className="flex items-center gap-1.5">
-                          <Users size={12} className="text-slate-400" />
-                          <span>{isExpanded ? "Hide Staff List" : `View Assigned Staff (${item.used})`}</span>
+                        <span className="flex items-center gap-1">
+                          <Users size={10} className="text-slate-400" />
+                          <span>Staff ({item.used})</span>
                         </span>
-                        {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        {isExpanded ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
                       </button>
 
-                      {/* Expanded Assigned Staff List */}
                       {isExpanded && (
-                        <div className="mt-2.5 p-2.5 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-2 animate-in fade-in duration-200">
-                          <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800 text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                            <span>Assigned Staff ({item.employees?.length || 0})</span>
-                            <span>Status</span>
-                          </div>
-
+                        <div className="mt-2 p-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 space-y-1">
                           {(!item.employees || item.employees.length === 0) ? (
-                            <p className="text-[11px] text-slate-400 py-1.5 text-center font-medium">
-                              No employees currently assigned to this module.
-                            </p>
+                            <p className="text-[10px] text-slate-400">No staff assigned.</p>
                           ) : (
-                            <div className="max-h-36 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-50 dark:divide-slate-800/40">
-                              {item.employees.map((emp) => {
-                                const initials = (emp.name || emp.email || "E")
-                                  .split(" ")
-                                  .map(n => n[0])
-                                  .slice(0, 2)
-                                  .join("")
-                                  .toUpperCase();
-
-                                return (
-                                  <div key={emp._id} className="pt-1.5 first:pt-0 flex items-center justify-between gap-2 text-xs">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                      <div className="w-5 h-5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 font-black text-[9px] flex items-center justify-center shrink-0">
-                                        {initials}
-                                      </div>
-                                      <div className="min-w-0">
-                                        <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate m-0 leading-tight">
-                                          {emp.name}
-                                        </p>
-                                        <p className="text-[9px] text-slate-400 truncate m-0">
-                                          {emp.email}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-600 dark:text-emerald-400 shrink-0">
-                                      <Check size={10} /> Active
-                                    </span>
-                                  </div>
-                                );
-                              })}
+                            <div className="max-h-24 overflow-y-auto space-y-1 text-[10px]">
+                              {item.employees.map(emp => (
+                                <p key={emp._id} className="font-semibold text-slate-800 dark:text-slate-200 truncate m-0">
+                                  • {emp.name}
+                                </p>
+                              ))}
                             </div>
                           )}
-
-                          {/* Quick Bottom Action */}
-                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                            {item.remaining > 0 ? (
-                              <Link
-                                to="/company/employees"
-                                className="text-[10px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
-                              >
-                                <Plus size={10} /> Assign {item.remaining} more staff
-                              </Link>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => setIsRequestModalOpen(true)}
-                                className="text-[10px] font-bold text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
-                              >
-                                <ArrowUpRight size={10} /> Request more seats from Super Admin
-                              </button>
-                            )}
-                          </div>
                         </div>
                       )}
                     </div>
@@ -698,7 +812,6 @@ const SubscriptionDetails = () => {
           </div>
         )}
       </div>
-
       {/* ── My Submitted Subscription Requests Table ── */}
       <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-2xs p-4 sm:p-5 space-y-3">
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
