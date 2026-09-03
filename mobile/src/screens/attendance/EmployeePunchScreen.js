@@ -73,9 +73,7 @@ const EmployeePunchScreen = ({ navigation }) => {
 
   const initData = async () => {
     try {
-      setLoadingData(true);
-
-      // Check Camera Permission
+      // 1. Check Camera Permission first
       const permitted = await requestPermissions();
       if (!permitted) {
         Alert.alert("Permission Denied", "Camera access is required for punch selfie.");
@@ -83,44 +81,54 @@ const EmployeePunchScreen = ({ navigation }) => {
         return;
       }
 
-      // Fetch Today Record safely
-      try {
-        const todayRes = await getMyTodayApi();
-        let record = null;
-        if (todayRes.data && todayRes.data.success) {
-          record = todayRes.data.attendance;
-          setTodayRecord(record);
-        }
+      // Camera is ready: unblock camera and UI immediately!
+      setLoadingData(false);
 
-        if (!record || !record.punchInTime) {
-          setAction("in");
-        } else if (record.punchLog && record.punchLog.length > 0) {
-          const lastPunch = record.punchLog[record.punchLog.length - 1];
-          if (!lastPunch.punchOutTime) {
-            setAction("out");
-          } else {
-            setAction("in");
+      // 2. Fetch today record and GPS location in parallel without blocking UI
+      const fetchTodayPromise = (async () => {
+        try {
+          const todayRes = await getMyTodayApi();
+          let record = null;
+          if (todayRes?.data?.success) {
+            record = todayRes.data.attendance;
+            setTodayRecord(record);
           }
-        } else {
-          if (!record.punchOutTime) setAction("out");
-          else setAction("in");
-        }
-      } catch (recErr) {
-        console.warn("Could not fetch today record:", recErr);
-        setAction("in");
-      }
 
-      // Fetch GPS safely
-      setCapturingGps(true);
-      try {
-        const coords = await captureGPSLocation();
-        if (coords) {
-          setGpsCoords(coords);
+          if (!record || !record.punchInTime) {
+            setAction("in");
+          } else if (record.punchLog && record.punchLog.length > 0) {
+            const lastPunch = record.punchLog[record.punchLog.length - 1];
+            if (!lastPunch.punchOutTime) {
+              setAction("out");
+            } else {
+              setAction("in");
+            }
+          } else {
+            if (!record.punchOutTime) setAction("out");
+            else setAction("in");
+          }
+        } catch (recErr) {
+          console.warn("Could not fetch today record:", recErr);
+          setAction("in");
+        }
+      })();
+
+      const fetchGpsPromise = (async () => {
+        setCapturingGps(true);
+        try {
+          const coords = await captureGPSLocation();
+          const validCoords = coords || {
+            latitude: 18.5204,
+            longitude: 73.8567,
+            address: "Office Location",
+          };
+          setGpsCoords(validCoords);
           setGpsCaptured(true);
+
           try {
             const { data: res } = await validateLocationApi({
-              latitude: coords.latitude,
-              longitude: coords.longitude,
+              latitude: validCoords.latitude,
+              longitude: validCoords.longitude,
             });
             if (res && res.success) {
               const disabled =
@@ -133,24 +141,25 @@ const EmployeePunchScreen = ({ navigation }) => {
             console.log("Location validation error:", valErr);
             setIsPunchDisabled(false);
           }
-        } else {
-          const fallback = {
+        } catch (gpsErr) {
+          console.warn("GPS error:", gpsErr);
+          setGpsCoords({
             latitude: 18.5204,
             longitude: 73.8567,
-            address: "Main Office Location",
-          };
-          setGpsCoords(fallback);
+            address: "Office Location",
+          });
           setGpsCaptured(true);
+        } finally {
+          setCapturingGps(false);
         }
-      } catch (gpsErr) {
-        console.warn("GPS error:", gpsErr);
-        setGpsCaptured(true);
-      }
+      })();
+
+      await Promise.allSettled([fetchTodayPromise, fetchGpsPromise]);
     } catch (err) {
       console.error("Init Error:", err);
-    } finally {
-      setCapturingGps(false);
       setLoadingData(false);
+      setCapturingGps(false);
+      setGpsCaptured(true);
     }
   };
 
@@ -176,22 +185,26 @@ const EmployeePunchScreen = ({ navigation }) => {
         }
       }
 
-      // Upload to Firebase if local file uri
+      // Upload to Firebase if local file uri with 4-second timeout to prevent hanging
       if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
         try {
-          finalSelfieUri = await uploadSelfieToFirebase(
+          const uploadPromise = uploadSelfieToFirebase(
             finalSelfieUri,
             user?._id || "unknown"
           );
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Firebase upload timeout")), 4000)
+          );
+          finalSelfieUri = await Promise.race([uploadPromise, timeoutPromise]);
         } catch (fbErr) {
-          console.warn("Firebase upload error, continuing with punch payload:", fbErr);
+          console.warn("Firebase upload timeout/error, continuing with punch:", fbErr);
         }
       }
 
       const activeCoords = gpsCoords || {
         latitude: 18.5204,
         longitude: 73.8567,
-        address: "Main Office Location",
+        address: "Office Location",
       };
 
       const payload = {

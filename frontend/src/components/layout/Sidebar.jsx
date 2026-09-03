@@ -77,7 +77,7 @@ const COMPANY_SECTIONS = [
     items: [
       { label: "Employees", path: "/company/employees", icon: Users },
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
-      // { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
+      { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },
@@ -211,11 +211,11 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                     onClick={onItemClick}
                     title={item.label}
                     className={`${isCollapsed
-                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
-                          ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                          : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                        }`
-                        : `oc-nav-item ${active ? "active" : ""}`
+                      ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                        ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                        : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                      }`
+                      : `oc-nav-item ${active ? "active" : ""}`
                       }`}
                   >
                     {isCollapsed ? (
@@ -358,8 +358,8 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
             <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
               {!isCollapsed && section.title && (
                 <p className={`text-[9px] font-bold uppercase tracking-[0.12em] px-2.5 pt-3 pb-1 ${section.title === "AI INTELLIGENCE"
-                    ? "text-violet-400"
-                    : "text-slate-500"
+                  ? "text-violet-400"
+                  : "text-slate-500"
                   }`}>
                   {section.title === "AI INTELLIGENCE" ? "✦ " : ""}{section.title}
                 </p>
@@ -378,11 +378,11 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                       onClick={onItemClick}
                       title={item.label}
                       className={`${isCollapsed
-                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
-                            ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                          }`
-                          : `oc-nav-item ${active ? "active" : ""}`
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                          ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                          : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                        }`
+                        : `oc-nav-item ${active ? "active" : ""}`
                         }`}
                     >
                       {isCollapsed ? (

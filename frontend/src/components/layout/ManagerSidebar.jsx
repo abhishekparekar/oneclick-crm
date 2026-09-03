@@ -47,7 +47,7 @@ const MANAGER_SECTIONS = [
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
-      // { label: "Live Location Radar", path: "/manager/location-tracking", icon: Navigation, module: "attendance" },
+      { label: "Live Location Radar", path: "/manager/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },
@@ -144,14 +144,14 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                       onClick={onItemClick}
                       title={item.label}
                       className={`${isCollapsed
-                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
-                            ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                          }`
-                          : `flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${active
-                            ? "bg-[#1268D9] text-white font-bold shadow-md shadow-[#1268D9]/25"
-                            : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
-                          }`
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                          ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                          : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                        }`
+                        : `flex items-center justify-between px-2.5 py-2 rounded-xl text-xs font-semibold transition-all ${active
+                          ? "bg-[#1268D9] text-white font-bold shadow-md shadow-[#1268D9]/25"
+                          : "text-slate-400 hover:text-slate-100 hover:bg-white/[0.04]"
+                        }`
                         }`}
                     >
                       {isCollapsed ? (
