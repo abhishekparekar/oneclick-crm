@@ -112,48 +112,105 @@ const getModuleUsage = async (req, res, next) => {
     const company = await Company.findById(companyId).lean();
     if (!company) return res.status(404).json({ message: "Company not found" });
 
-    const totalActiveEmployees = await Employee.countDocuments({ companyId, status: "active" });
+    const activeEmployees = await Employee.find({ companyId, status: "active" })
+      .select("firstName lastName email employeeCode assignedModules")
+      .lean();
+    const totalActiveEmployees = activeEmployees.length;
 
+    // Collect all modules from subscribed list and moduleLimits
     const rawSubscribed = Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
       ? company.subscribedModules
-      : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
-    const subscribedModules = rawSubscribed.map(m => String(m).toLowerCase().trim());
+      : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "mobileApp", "webAdmin"];
+    
+    // Normalize module names to unique keys
+    const moduleSet = new Set(rawSubscribed.map(m => String(m).toLowerCase().trim()));
+    if (company.moduleLimits) {
+      Object.keys(company.moduleLimits).forEach(k => moduleSet.add(k.toLowerCase().trim()));
+    }
+    // Always include core modules
+    ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"].forEach(k => moduleSet.add(k));
+
     const moduleLimits = company.moduleLimits || {};
+    const companyPlanLimit = company.employeeLimit || 10;
+
+    const MODULE_METADATA = {
+      attendance: { label: "Attendance & Time Tracker", desc: "GPS clock-in, geofence, shifts & regularization", category: "Core HR" },
+      leave: { label: "Leave & Absence Management", desc: "Paid leave balances, approvals & holiday calendar", category: "Core HR" },
+      payroll: { label: "Payroll & Compensation", desc: "Salary slips, tax calculations, advances & EPF/ESI", category: "Finance" },
+      tasks: { label: "Workforce Tasks & Delegation", desc: "Daily work assignment, subtasks & task priority", category: "Productivity" },
+      projects: { label: "Projects & Milestone Board", desc: "Team collaboration, project tracking & progress", category: "Productivity" },
+      reports: { label: "Analytics & Detailed Reports", desc: "HR analytics, attendance summaries & payroll reports", category: "Analytics" },
+      leads: { label: "Lead CRM & WhatsApp Engine", desc: "Lead pipeline, automated followup & WhatsApp CRM", category: "Sales & CRM" },
+      mobileapp: { label: "Mobile App Access", desc: "Native iOS / Android app login & attendance punch", category: "Platform" },
+      webadmin: { label: "Web Portal Access", desc: "Desktop web dashboard and portal workspace", category: "Platform" },
+    };
 
     const usage = {};
-    for (const mod of subscribedModules) {
-      let used = 0;
-      const isCustomLimit = moduleLimits[mod] && moduleLimits[mod] > 0;
+    const detailedBreakdown = [];
 
-      if (!isCustomLimit && ["attendance", "leave", "payroll", "reports"].includes(mod)) {
-        // No specific limit set → these modules apply to all active employees
-        used = totalActiveEmployees;
-      } else {
-        // Either a custom limit is set, OR it's a dynamic module (tasks/leads/projects)
-        used = await Employee.countDocuments({
-          companyId,
-          status: "active",
-          assignedModules: mod
-        });
-      }
+    for (const mod of Array.from(moduleSet)) {
+      const modLower = mod.toLowerCase();
+      const meta = MODULE_METADATA[modLower] || {
+        label: mod.charAt(0).toUpperCase() + mod.slice(1),
+        desc: "Module access and feature set",
+        category: "General"
+      };
 
-      const limit = isCustomLimit ? moduleLimits[mod] : (company.employeeLimit || 50);
-      usage[mod] = {
+      // Count employees who have this module assigned
+      const assignedEmps = activeEmployees.filter(e => {
+        if (!Array.isArray(e.assignedModules) || e.assignedModules.length === 0) {
+          // Default suite modules for legacy/standard employees
+          return ["attendance", "leave", "payroll", "reports"].includes(modLower);
+        }
+        return e.assignedModules.some(m => String(m).toLowerCase().trim() === modLower);
+      });
+
+      const used = assignedEmps.length;
+      const customLimitVal = moduleLimits[modLower] ?? moduleLimits[mod];
+      const hasCustomLimit = customLimitVal !== undefined && customLimitVal > 0;
+      const limit = hasCustomLimit ? customLimitVal : companyPlanLimit;
+      const remaining = Math.max(0, limit - used);
+      const percentage = limit > 0 ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+
+      usage[modLower] = {
+        key: modLower,
+        label: meta.label,
         subscribed: true,
         limit,
         used,
-        remaining: Math.max(0, limit - used),
-        isUnlimited: !isCustomLimit
+        remaining,
+        percentage,
+        isUnlimited: !hasCustomLimit && limit >= companyPlanLimit,
+        isFull: remaining <= 0,
       };
+
+      detailedBreakdown.push({
+        key: modLower,
+        label: meta.label,
+        description: meta.desc,
+        category: meta.category,
+        limit,
+        used,
+        remaining,
+        percentage,
+        isFull: remaining <= 0,
+        employees: assignedEmps.map(e => ({
+          _id: e._id,
+          name: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email,
+          email: e.email,
+          employeeCode: e.employeeCode || "",
+        }))
+      });
     }
 
     res.json({
       success: true,
-      companyLimit: company.employeeLimit || 50,
+      companyLimit: companyPlanLimit,
       totalActiveEmployees,
-      subscribedModules,
+      subscribedModules: Array.from(moduleSet),
       moduleLimits,
-      usage
+      usage,
+      detailedBreakdown
     });
   } catch (error) {
     next(error);
