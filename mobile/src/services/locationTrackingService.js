@@ -10,8 +10,8 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-const BATCH_SYNC_INTERVAL_MS = 15000; // 15 seconds
-const GPS_HEARTBEAT_INTERVAL_MS = 10000; // 10 seconds active hardware poll
+const BATCH_SYNC_INTERVAL_MS = 4000; // 4 seconds ultra-responsive sync
+const GPS_HEARTBEAT_INTERVAL_MS = 3500; // 3.5 seconds active hardware poll
 
 // Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
 try {
@@ -27,11 +27,11 @@ try {
 
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 15000,
+  timeout: 8000,
   maximumAge: 0, // Always acquire fresh GPS coordinates, reject stale cached readings
-  distanceFilter: 2, // Meters: sensitive to real-world movement
-  interval: 5000, // Android poll interval: 5 seconds
-  fastestInterval: 2500, // Android fastest interval: 2.5 seconds
+  distanceFilter: 1, // Meters: sensitive to real-world movement (1 meter steps)
+  interval: 3500, // Android poll interval: 3.5 seconds
+  fastestInterval: 2000, // Android fastest interval: 2 seconds
 };
 
 // Register Notifee Foreground Service task at file load
@@ -214,8 +214,8 @@ class LocationTrackingService {
         // 4. Sync queued batch to backend
         await this.syncQueuedLocations();
 
-        // 5. Sleep 12 seconds before next poll
-        await new Promise((resolve) => setTimeout(resolve, 12000));
+        // 5. Sleep 3.5 seconds before next hardware GPS poll (3-4 seconds frequency)
+        await new Promise((resolve) => setTimeout(resolve, 3500));
       }
     } catch (loopErr) {
       console.warn("[LocationService] Background tracking loop notice:", loopErr.message);
@@ -454,8 +454,8 @@ class LocationTrackingService {
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
 
-      // If queue has 3 or more points, trigger immediate sync
-      if (queue.length >= 3 && !this.isSyncing) {
+      // Trigger immediate sync for every new point (3-4 seconds real-time stream)
+      if (queue.length >= 1 && !this.isSyncing) {
         this.syncQueuedLocations();
       }
     } catch (err) {

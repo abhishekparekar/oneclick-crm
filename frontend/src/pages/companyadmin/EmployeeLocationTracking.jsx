@@ -59,7 +59,7 @@ const EmployeeLocationTracking = () => {
       const res = await getLiveEmployeeLocationsApi();
       return res.data?.data || res.data || [];
     },
-    refetchInterval: 15000, // 15s live polling for real-time tracking
+    refetchInterval: 4000, // 4s ultra-fast live polling for real-time tracking
   });
 
   const employees = useMemo(() => (Array.isArray(liveData) ? liveData : []), [liveData]);

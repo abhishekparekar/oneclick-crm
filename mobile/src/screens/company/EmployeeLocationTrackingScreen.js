@@ -114,7 +114,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       fetchLiveLocations();
       const interval = setInterval(() => {
         fetchLiveLocations(true);
-      }, 15000); // 15s auto-refresh
+      }, 4000); // 4s auto-refresh for real-time live map
       return () => clearInterval(interval);
     }, [mapReady, viewMode])
   );
