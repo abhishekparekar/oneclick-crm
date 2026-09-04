@@ -742,8 +742,20 @@ const getEmployeeLocationTrail = async (req, res) => {
     const roadWaypoints = cleanTrail.map((p) => [p.latitude, p.longitude]);
     const { roadPoints, roadDistanceKm } = await snapCoordinatesToRoads(roadWaypoints);
 
+    const actualGpsDistanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
+    
+    // Protect against OSRM car driving detour inflation:
+    // If the employee walked/moved a short distance (e.g. 500m) or OSRM deviates by > 35%, keep actual GPS distance!
+    let finalDistance = actualGpsDistanceKm;
+    if (roadDistanceKm && roadDistanceKm > 0) {
+      if (actualGpsDistanceKm <= 1.5 || Math.abs(roadDistanceKm - actualGpsDistanceKm) > (actualGpsDistanceKm * 0.35)) {
+        finalDistance = actualGpsDistanceKm;
+      } else {
+        finalDistance = roadDistanceKm;
+      }
+    }
+
     const finalTrail = roadPoints && roadPoints.length > 0 ? roadPoints : cleanTrail;
-    const finalDistance = roadDistanceKm && roadDistanceKm > 0 ? roadDistanceKm : Number((totalDistanceMeters / 1000).toFixed(2));
 
     const avgMovingSpeed = movingSpeeds.length > 0
       ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)
