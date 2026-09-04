@@ -110,6 +110,23 @@ const syncBatchLocations = async (req, res) => {
       return res.status(400).json({ success: false, message: "No associated employee record found for user" });
     }
 
+    // ── Enforce Late-Night Cut-Off (Requirement 6: 11:00 PM / 23:00 IST) ──
+    const kolkataHour = parseInt(
+      new Intl.DateTimeFormat("en-GB", {
+        timeZone: "Asia/Kolkata",
+        hour: "numeric",
+        hour12: false,
+      }).format(new Date())
+    );
+
+    if (kolkataHour >= 23 || kolkataHour < 5) {
+      return res.status(200).json({
+        success: true,
+        trackingAllowed: false,
+        message: "Late night cut-off (11:00 PM): Location tracking automatically stopped",
+      });
+    }
+
     // ── Enforce Duty Hours Only (Employee must be actively punched in today) ──
     const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const todayAtt = await Attendance.findOne({
@@ -720,7 +737,7 @@ const getEmployeeLocationTrail = async (req, res) => {
     const { roadPoints, roadDistanceKm } = await snapCoordinatesToRoads(roadWaypoints);
 
     const finalTrail = roadPoints && roadPoints.length > 0 ? roadPoints : cleanTrail;
-    const finalDistance = roadDistanceKm !== null ? roadDistanceKm : Number((totalDistanceMeters / 1000).toFixed(2));
+    const finalDistance = roadDistanceKm && roadDistanceKm > 0 ? roadDistanceKm : Number((totalDistanceMeters / 1000).toFixed(2));
 
     const avgMovingSpeed = movingSpeeds.length > 0
       ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)
@@ -737,6 +754,7 @@ const getEmployeeLocationTrail = async (req, res) => {
         isStationaryAllDay: false,
         rawCount: rawTrail.length,
         cleanCount: finalTrail.length,
+        totalPoints: rawTrail.length,
         distanceKm: finalDistance,
         maxSpeed: Math.round(maxSpeed),
         avgSpeed: avgMovingSpeed,

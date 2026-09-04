@@ -1,5 +1,6 @@
 import axios from "axios";
 import { NativeModules, Platform } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 // Toggle this to true if you want to force the mobile app to use the live Vercel backend during local development
@@ -78,8 +79,20 @@ const api = axios.create({
 });
 
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
     config.baseURL = getApiBaseUrl();
+
+    // Auto-attach stored token for background tasks / headless workers
+    if (!config.headers?.Authorization) {
+      try {
+        const storedToken = await AsyncStorage.getItem("hrms_token");
+        if (storedToken) {
+          config.headers = config.headers || {};
+          config.headers.Authorization = `Bearer ${storedToken}`;
+        }
+      } catch (_) {}
+    }
+
     const isFormData = config.data instanceof FormData;
     if (isFormData && config.headers) {
       config.headers["Content-Type"] = "multipart/form-data";

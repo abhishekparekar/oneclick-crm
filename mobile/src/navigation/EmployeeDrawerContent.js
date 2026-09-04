@@ -90,6 +90,14 @@ const buildEmployeeSections = (hasPermission) => {
                 color: "#D97706",
                 module: "attendance",
               },
+              {
+                label: "Travel Route & GPS",
+                screen: "EmployeeLocationTracking",
+                icon: "navigate-outline",
+                activeIcon: "navigate",
+                color: "#2563EB",
+                module: "attendance",
+              },
             ]
           : []),
         ...(canAccessLeaves

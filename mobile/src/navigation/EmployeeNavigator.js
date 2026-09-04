@@ -55,6 +55,7 @@ import EmployeeDocumentsScreen from "../screens/employee/EmployeeDocumentsScreen
 import EmployeeLeadsScreen from "../screens/employee/EmployeeLeadsScreen";
 import EmployeeLeadDetailsScreen from "../screens/employee/EmployeeLeadDetailsScreen";
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
+import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -315,6 +316,7 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="EmployeeProjectTasks" component={EmployeeProjectTasksScreen} />
       <Stack.Screen name="EmployeeProjectActivity" component={EmployeeProjectActivityScreen} />
       <Stack.Screen name="CompanyRequests" component={CompanyRequestsScreen} />
+      <Stack.Screen name="EmployeeLocationTracking" component={EmployeeLocationTrackingScreen} />
     </Stack.Navigator>
   );
 };

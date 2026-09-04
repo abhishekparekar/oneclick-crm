@@ -467,6 +467,39 @@ const EmployeeLocationTracking = () => {
       });
       polylineLayerRef.current.addLayer(polyline);
 
+      // Directional Navigation Arrows along the route path (shows exact direction of travel)
+      if (activePoints.length > 1) {
+        const step = activePoints.length > 100 ? 5 : activePoints.length > 40 ? 3 : 1;
+        for (let i = 0; i < activePoints.length - 1; i += step) {
+          const p1 = activePoints[i];
+          const p2 = activePoints[Math.min(i + step, activePoints.length - 1)];
+
+          const dLon = ((p2.longitude - p1.longitude) * Math.PI) / 180;
+          const lat1Rad = (p1.latitude * Math.PI) / 180;
+          const lat2Rad = (p2.latitude * Math.PI) / 180;
+          const y = Math.sin(dLon) * Math.cos(lat2Rad);
+          const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+          const bearing = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
+
+          const midLat = (p1.latitude + p2.latitude) / 2;
+          const midLng = (p1.longitude + p2.longitude) / 2;
+
+          const arrowIcon = L.divIcon({
+            className: "route-arrow-marker",
+            html: `
+              <div style="transform: rotate(${Math.round(bearing)}deg); width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.85)); pointer-events: none;">
+                <svg viewBox="0 0 24 24" width="16" height="16" fill="#FFFFFF">
+                  <path d="M12 2L4 20l8-4 8 4z"/>
+                </svg>
+              </div>
+            `,
+            iconSize: [22, 22],
+            iconAnchor: [11, 11],
+          });
+          L.marker([midLat, midLng], { icon: arrowIcon, interactive: false }).addTo(polylineLayerRef.current);
+        }
+      }
+
       // Start Marker (Green Flag)
       const startPt = activePoints[0];
       const startIcon = L.divIcon({

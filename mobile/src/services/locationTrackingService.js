@@ -35,12 +35,15 @@ const GPS_HIGH_ACCURACY_OPTIONS = {
 };
 
 // Register Notifee Foreground Service task at file load
-// This keeps the React Native JS thread awake when screen is off or app is minimized
+// This keeps the React Native JS thread awake when screen is off or app is minimized/closed
 try {
   notifee.registerForegroundService((notification) => {
-    return new Promise(() => {
-      // Intentionally never resolved while foreground service is active
+    return new Promise(async (resolve) => {
       console.log("[LocationService] Native foreground service worker running in background");
+      if (locationTrackingService) {
+        await locationTrackingService.runBackgroundTrackingLoop();
+      }
+      resolve();
     });
   });
 } catch (err) {
@@ -50,9 +53,8 @@ try {
 class LocationTrackingService {
   constructor() {
     this.watchId = null;
-    this.syncIntervalId = null;
-    this.heartbeatIntervalId = null;
     this.isTracking = false;
+    this.isLoopRunning = false;
     this.lastAcceptedPoint = null;
     this.isSyncing = false;
     this.appStateSubscription = null;
@@ -176,9 +178,97 @@ class LocationTrackingService {
   }
 
   /**
+   * Continuous background tracking loop running inside Android Foreground Service
+   * Survives app close, swipe away, and screen locks.
+   */
+  async runBackgroundTrackingLoop() {
+    if (this.isLoopRunning) {
+      console.log("[LocationService] Background tracking loop already running");
+      return;
+    }
+    this.isLoopRunning = true;
+    this.isTracking = true;
+    console.log("[LocationService] Background tracking engine active");
+
+    try {
+      while (this.isTracking) {
+        // 1. Verify tracking state from AsyncStorage
+        const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+        if (active !== "true") {
+          console.log("[LocationService] Storage indicates tracking inactive. Halting loop.");
+          this.isTracking = false;
+          break;
+        }
+
+        // 2. Late-Night Auto-Stop Check (Requirement 6: Cut off after 11:00 PM / 23:00 local time)
+        const currentHour = new Date().getHours();
+        if (currentHour >= 23 || currentHour < 5) {
+          console.log(`[LocationService] Late night hour detected (${currentHour}:00). Auto-stopping tracking.`);
+          await this.stopLocationTracking();
+          break;
+        }
+
+        // 3. Force hardware GPS poll with high accuracy and network fallback
+        await this.pollCurrentGpsLocationAsync();
+
+        // 4. Sync queued batch to backend
+        await this.syncQueuedLocations();
+
+        // 5. Sleep 12 seconds before next poll
+        await new Promise((resolve) => setTimeout(resolve, 12000));
+      }
+    } catch (loopErr) {
+      console.warn("[LocationService] Background tracking loop notice:", loopErr.message);
+    } finally {
+      this.isLoopRunning = false;
+      console.log("[LocationService] Background tracking loop exited");
+    }
+  }
+
+  /**
+   * Acquire fresh GPS location with high accuracy and fallback
+   */
+  async pollCurrentGpsLocationAsync() {
+    return new Promise((resolve) => {
+      if (!this.isTracking) return resolve();
+
+      // Attempt 1: High Accuracy GPS (10 seconds timeout)
+      Geolocation.getCurrentPosition(
+        (pos) => {
+          if (pos && pos.coords) {
+            this.handleNewGpsPoint(pos.coords);
+          }
+          resolve();
+        },
+        (err) => {
+          // Attempt 2: Fallback to Network/Cell/WiFi location if satellite GPS timed out
+          Geolocation.getCurrentPosition(
+            (fallbackPos) => {
+              if (fallbackPos && fallbackPos.coords) {
+                this.handleNewGpsPoint(fallbackPos.coords);
+              }
+              resolve();
+            },
+            () => resolve(),
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+  }
+
+  /**
    * Start Location Tracking
    */
   async startLocationTracking() {
+    // Check late-night cutoff
+    const currentHour = new Date().getHours();
+    if (currentHour >= 23 || currentHour < 5) {
+      console.log("[LocationService] Late night: Location tracking cannot be started");
+      return { success: false, message: "Tracking cannot be started after 11:00 PM" };
+    }
+
     if (this.isTracking) {
       console.log("[LocationService] Tracking is already active");
       return { success: true, message: "Tracking already running" };
@@ -193,45 +283,35 @@ class LocationTrackingService {
     await AsyncStorage.setItem(TRACKING_STATE_KEY, "true");
 
     // Display persistent notification with foreground service
+    // This keeps the native process running even if the user swipes away the app
     await this.showForegroundNotification();
 
     // Check battery optimization settings so Android doesn't kill tracking when app is swiped away
     this.requestBatteryOptimizationExemption().catch(() => {});
 
-    // 1. Immediately poll current position
-    this.pollCurrentGpsLocation();
+    // Start background tracking worker loop
+    this.runBackgroundTrackingLoop().catch(() => {});
 
-    // 2. Start GPS Continuous Watcher
+    // Continuous watcher for instant movement updates
     try {
       this.watchId = Geolocation.watchPosition(
         (position) => {
           this.handleNewGpsPoint(position.coords);
         },
         (error) => {
-          console.warn("[LocationService] GPS watch error:", error.message);
+          console.warn("[LocationService] GPS watch notice:", error.message);
         },
         GPS_HIGH_ACCURACY_OPTIONS
       );
     } catch (watchErr) {
-      console.warn("[LocationService] watchPosition init error:", watchErr);
+      console.warn("[LocationService] watchPosition init notice:", watchErr);
     }
 
-    // 3. Active Heartbeat Poller: Force-poll hardware GPS every 15 seconds
-    // This guarantees points are captured even if watchPosition hangs in deep sleep
-    this.heartbeatIntervalId = setInterval(() => {
-      this.pollCurrentGpsLocation();
-    }, GPS_HEARTBEAT_INTERVAL_MS);
-
-    // 4. Start periodic batch sync timer
-    this.syncIntervalId = setInterval(() => {
-      this.syncQueuedLocations();
-    }, BATCH_SYNC_INTERVAL_MS);
-
-    // 5. Handle AppState changes
+    // Handle AppState changes (when user opens app from background, trigger immediate sync)
     if (!this.appStateSubscription) {
       this.appStateSubscription = AppState.addEventListener("change", (nextState) => {
         if (nextState === "active" && this.isTracking) {
-          this.pollCurrentGpsLocation();
+          this.pollCurrentGpsLocationAsync();
           this.syncQueuedLocations();
         }
       });
@@ -245,42 +325,19 @@ class LocationTrackingService {
    * Force-poll hardware GPS chip
    */
   pollCurrentGpsLocation() {
-    if (!this.isTracking) return;
-
-    Geolocation.getCurrentPosition(
-      (pos) => {
-        if (pos && pos.coords) {
-          this.handleNewGpsPoint(pos.coords);
-        }
-      },
-      (err) => {
-        console.log("[LocationService] GPS poll heartbeat notice:", err.message);
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
-    );
+    this.pollCurrentGpsLocationAsync();
   }
 
   /**
    * Stop Location Tracking
    */
   async stopLocationTracking() {
-    if (!this.isTracking) {
-      return { success: true };
-    }
+    this.isTracking = false;
+    this.isLoopRunning = false;
 
     if (this.watchId !== null) {
       Geolocation.clearWatch(this.watchId);
       this.watchId = null;
-    }
-
-    if (this.heartbeatIntervalId !== null) {
-      clearInterval(this.heartbeatIntervalId);
-      this.heartbeatIntervalId = null;
-    }
-
-    if (this.syncIntervalId !== null) {
-      clearInterval(this.syncIntervalId);
-      this.syncIntervalId = null;
     }
 
     if (this.appStateSubscription) {
@@ -288,7 +345,6 @@ class LocationTrackingService {
       this.appStateSubscription = null;
     }
 
-    this.isTracking = false;
     await AsyncStorage.removeItem(TRACKING_STATE_KEY);
     await this.hideForegroundNotification();
 
@@ -311,6 +367,13 @@ class LocationTrackingService {
    */
   async autoResumeTrackingIfActive() {
     try {
+      const currentHour = new Date().getHours();
+      if (currentHour >= 23 || currentHour < 5) {
+        console.log("[LocationService] Late night hour detected. Auto-resume aborted.");
+        await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+        return;
+      }
+
       const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
       if (active === "true" && !this.isTracking) {
         // Verify with backend that employee is actually on duty today

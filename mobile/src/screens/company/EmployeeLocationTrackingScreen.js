@@ -64,6 +64,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       postToMap({
         type: "UPDATE_TRAIL",
         trail: trailData.trail,
+        halts: trailData.halts || [],
         employeeName: selectedEmployee?.name,
       });
     }
@@ -126,6 +127,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         postToMap({
           type: "UPDATE_TRAIL",
           trail: data.trail || [],
+          halts: data.halts || [],
           employeeName: selectedEmployee?.name,
         });
       }
@@ -430,7 +432,17 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             }
           }
 
-          function renderTrail(trail, employeeName) {
+          function calculateBearing(lat1, lon1, lat2, lon2) {
+            var dLon = (lon2 - lon1) * Math.PI / 180;
+            var lat1Rad = lat1 * Math.PI / 180;
+            var lat2Rad = lat2 * Math.PI / 180;
+            var y = Math.sin(dLon) * Math.cos(lat2Rad);
+            var x = Math.cos(lat1Rad) * Math.sin(lat2Rad) - Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
+            var brng = Math.atan2(y, x) * 180 / Math.PI;
+            return (brng + 360) % 360;
+          }
+
+          function renderTrail(trail, employeeName, halts) {
             trailLayer.clearLayers();
             markersLayer.clearLayers();
             if (!trail || trail.length === 0) return;
@@ -439,26 +451,77 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               return [pt.latitude, pt.longitude];
             });
 
+            // 1. Outer glow polyline for maximum road visibility
+            var polylineGlow = L.polyline(latlngs, {
+              color: '#1E3A8A',
+              weight: 8,
+              opacity: 0.45,
+              lineJoin: 'round'
+            });
+            trailLayer.addLayer(polylineGlow);
+
+            // 2. Exact Traveled Route Polyline
             var polyline = L.polyline(latlngs, {
-              color: '#3B82F6',
+              color: '#2563EB',
               weight: 5,
-              opacity: 0.95
+              opacity: 0.95,
+              lineJoin: 'round',
+              lineCap: 'round'
             });
             trailLayer.addLayer(polyline);
 
-            // Start marker
+            // 3. Directional Navigation Arrows along the polyline path
+            if (trail.length > 1) {
+              var step = trail.length > 80 ? 4 : trail.length > 30 ? 2 : 1;
+              for (var i = 0; i < trail.length - 1; i += step) {
+                var p1 = trail[i];
+                var p2 = trail[Math.min(i + step, trail.length - 1)];
+                var bearing = calculateBearing(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+                var midLat = (p1.latitude + p2.latitude) / 2;
+                var midLng = (p1.longitude + p2.longitude) / 2;
+
+                var arrowIcon = L.divIcon({
+                  className: 'custom-leaflet-marker',
+                  html: '<div style="transform: rotate(' + Math.round(bearing) + 'deg); width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.85));">' +
+                        '<svg viewBox="0 0 24 24" width="16" height="16" fill="#FFFFFF">' +
+                        '<path d="M12 2L4 20l8-4 8 4z"/>' +
+                        '</svg></div>',
+                  iconSize: [22, 22],
+                  iconAnchor: [11, 11]
+                });
+                var arrowMarker = L.marker([midLat, midLng], { icon: arrowIcon, interactive: false });
+                trailLayer.addLayer(arrowMarker);
+              }
+            }
+
+            // 4. Stoppage / Halt Pins along the route
+            if (Array.isArray(halts) && halts.length > 0) {
+              halts.forEach(function(h, idx) {
+                var haltIcon = L.divIcon({
+                  className: 'custom-leaflet-marker',
+                  html: '<div style="min-width: 32px; height: 24px; padding: 0 6px; border-radius: 99px; background: #DC2626; color: #FFF; border: 2px solid #FFF; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; box-shadow: 0 3px 10px rgba(0,0,0,0.6); white-space: nowrap;">🛑 ' + (h.durationText || (h.durationMinutes + 'm')) + '</div>',
+                  iconSize: [44, 24],
+                  iconAnchor: [22, 12]
+                });
+                var haltMarker = L.marker([h.latitude, h.longitude], { icon: haltIcon });
+                haltMarker.bindPopup('<b style="color:#DC2626;">🛑 Halt #' + (idx + 1) + ' (' + (h.durationText || (h.durationMinutes + 'm')) + ')</b><br/>' + (h.address ? '📍 ' + h.address + '<br/>' : '') + '⏱️ ' + (h.startTime ? new Date(h.startTime).toLocaleTimeString() : ''));
+                trailLayer.addLayer(haltMarker);
+              });
+            }
+
+            // 5. Start marker (Green Flag)
             var startPt = trail[0];
             var startIcon = L.divIcon({
               className: 'custom-leaflet-marker',
-              html: '<div class="endpoint-marker" style="background:#10B981;">🏁</div>',
+              html: '<div class="endpoint-marker" style="background:#10B981;">🚩</div>',
               iconSize: [32, 32],
               iconAnchor: [16, 16]
             });
             var startMarker = L.marker([startPt.latitude, startPt.longitude], { icon: startIcon });
-            startMarker.bindPopup('<b style="color:#10B981;">Route Start</b><br/>' + (startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : ''));
+            startMarker.bindPopup('<b style="color:#10B981;">🚩 Route Start Point</b><br/>' + (startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : ''));
             trailLayer.addLayer(startMarker);
 
-            // End marker
+            // 6. End marker (Red Pin)
             if (trail.length > 1) {
               var endPt = trail[trail.length - 1];
               var endIcon = L.divIcon({
@@ -468,7 +531,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                 iconAnchor: [16, 16]
               });
               var endMarker = L.marker([endPt.latitude, endPt.longitude], { icon: endIcon });
-              endMarker.bindPopup('<b style="color:#EF4444;">Current Position</b><br/>' + (endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : ''));
+              endMarker.bindPopup('<b style="color:#EF4444;">📍 Current Position</b><br/>' + (endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : ''));
               trailLayer.addLayer(endMarker);
             }
 
@@ -484,7 +547,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               if (data.type === 'UPDATE_EMPLOYEES') {
                 renderEmployees(data.employees || [], data.selectedId);
               } else if (data.type === 'UPDATE_TRAIL') {
-                renderTrail(data.trail || [], data.employeeName);
+                renderTrail(data.trail || [], data.employeeName, data.halts || []);
               } else if (data.type === 'CENTER_COORDS') {
                 map.flyTo([data.latitude, data.longitude], data.zoom || 17, { duration: 0.8 });
               } else if (data.type === 'FIT_BOUNDS') {
