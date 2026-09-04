@@ -25,6 +25,7 @@ import EmployeeAttendanceCalendarScreen from "../screens/hr/EmployeeAttendanceCa
 import EmployeeDailyAttendanceScreen from "../screens/hr/EmployeeDailyAttendanceScreen";
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
+import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 
 // Import Report Screens
 import AttendanceReportScreen from "../screens/reports/AttendanceReportScreen";
@@ -290,6 +291,7 @@ const HRStackScreen = () => {
       <Stack.Screen name="HREmployeeList"              component={HREmployeeListScreen} />
       <Stack.Screen name="HRAttendance"                component={HRAttendanceScreen} />
       <Stack.Screen name="CompanyRequests"             component={CompanyRequestsScreen} />
+      <Stack.Screen name="EmployeeLocationTracking"    component={EmployeeLocationTrackingScreen} />
     </Stack.Navigator>
   );
 };

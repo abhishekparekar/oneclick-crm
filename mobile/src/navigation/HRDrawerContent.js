@@ -130,6 +130,14 @@ const buildHRSections = (hasPermission) => {
                 module: "attendance",
               },
               {
+                label: "Live Location Radar",
+                screen: "EmployeeLocationTracking",
+                icon: "navigate-outline",
+                activeIcon: "navigate",
+                color: "#1268D9",
+                module: "attendance",
+              },
+              {
                 label: "Regularization",
                 screen: "HRRegularizationApproval",
                 icon: "checkmark-done-circle-outline",
