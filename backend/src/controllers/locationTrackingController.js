@@ -278,6 +278,12 @@ const getLiveEmployeeLocations = async (req, res) => {
           employeeQuery.departmentName = managerEmp.departmentName;
         }
       }
+    } else if (req.user.role === "Employee" || req.user.role === "employee") {
+      // If Employee, show their own location so their tracking radar opens focused on themselves
+      const ownEmp = await Employee.findOne({ userId: req.user._id, companyId });
+      if (ownEmp) {
+        employeeQuery._id = ownEmp._id;
+      }
     }
 
     const employees = await Employee.find(employeeQuery)

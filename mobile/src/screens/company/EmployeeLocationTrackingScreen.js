@@ -66,6 +66,8 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         trail: trailData.trail,
         halts: trailData.halts || [],
         employeeName: selectedEmployee?.name,
+        startTime: trailData.startTime,
+        endTime: trailData.endTime,
       });
     }
   }, [mapReady, employees, selectedEmployee, viewMode, trailData]);
@@ -80,6 +82,17 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       const list = res.data?.data || res.data || [];
       const validList = Array.isArray(list) ? list : [];
       setEmployees(validList);
+
+      // Auto-focus on active staff with GPS coordinates so map opens immediately on employee
+      if (!selectedEmployee && validList.length > 0) {
+        const bestEmp =
+          validList.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+          validList.find((e) => e.latitude && e.longitude) ||
+          validList[0];
+        if (bestEmp) {
+          setSelectedEmployee(bestEmp);
+        }
+      }
 
       if (mapReady && viewMode === "live") {
         postToMap({
@@ -129,6 +142,8 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
           trail: data.trail || [],
           halts: data.halts || [],
           employeeName: selectedEmployee?.name,
+          startTime: data.startTime,
+          endTime: data.endTime,
         });
       }
     } catch (err) {
@@ -156,7 +171,12 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
   const handleModeSwitch = (mode) => {
     setViewMode(mode);
     if (mode === "trail") {
-      const target = selectedEmployee || employees[0];
+      const target =
+        selectedEmployee?.latitude
+          ? selectedEmployee
+          : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+            employees.find((e) => e.latitude && e.longitude) ||
+            employees[0];
       if (target) {
         setSelectedEmployee(target);
         fetchTrailHistory(target._id, getDateValue(selectedDateFilter));
@@ -427,8 +447,15 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               bounds.push([emp.latitude, emp.longitude]);
             });
 
-            if (bounds.length > 0 && !selectedId) {
-              map.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
+            if (bounds.length > 0) {
+              var selectedEmp = (employees || []).find(function(e) { return e._id === selectedId; });
+              if (selectedEmp && selectedEmp.latitude && selectedEmp.longitude) {
+                map.setView([selectedEmp.latitude, selectedEmp.longitude], 16);
+              } else if (bounds.length === 1) {
+                map.setView(bounds[0], 16);
+              } else {
+                map.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
+              }
             }
           }
 
@@ -442,7 +469,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             return (brng + 360) % 360;
           }
 
-          function renderTrail(trail, employeeName, halts) {
+          function renderTrail(trail, employeeName, halts, startTime, endTime) {
             trailLayer.clearLayers();
             markersLayer.clearLayers();
             if (!trail || trail.length === 0) return;
@@ -518,7 +545,8 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               iconAnchor: [16, 16]
             });
             var startMarker = L.marker([startPt.latitude, startPt.longitude], { icon: startIcon });
-            startMarker.bindPopup('<b style="color:#10B981;">🚩 Route Start Point</b><br/>' + (startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : ''));
+            var startT = startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : (startTime ? new Date(startTime).toLocaleTimeString() : 'Start');
+            startMarker.bindPopup('<b style="color:#10B981;">🚩 Route Start Point</b><br/>⏱️ ' + startT);
             trailLayer.addLayer(startMarker);
 
             // 6. End marker (Red Pin)
@@ -531,11 +559,16 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                 iconAnchor: [16, 16]
               });
               var endMarker = L.marker([endPt.latitude, endPt.longitude], { icon: endIcon });
-              endMarker.bindPopup('<b style="color:#EF4444;">📍 Current Position</b><br/>' + (endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : ''));
+              var endT = endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : (endTime ? new Date(endTime).toLocaleTimeString() : 'Current');
+              endMarker.bindPopup('<b style="color:#EF4444;">📍 Current Position</b><br/>⏱️ ' + endT);
               trailLayer.addLayer(endMarker);
             }
 
-            map.fitBounds(latlngs, { padding: [80, 80], maxZoom: 17 });
+            if (latlngs.length === 1) {
+              map.setView(latlngs[0], 16);
+            } else if (latlngs.length > 1) {
+              map.fitBounds(latlngs, { padding: [80, 80], maxZoom: 17 });
+            }
           }
 
           window.addEventListener('message', function(e) { handleMessage(e.data); });
@@ -547,7 +580,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               if (data.type === 'UPDATE_EMPLOYEES') {
                 renderEmployees(data.employees || [], data.selectedId);
               } else if (data.type === 'UPDATE_TRAIL') {
-                renderTrail(data.trail || [], data.employeeName, data.halts || []);
+                renderTrail(data.trail || [], data.employeeName, data.halts || [], data.startTime, data.endTime);
               } else if (data.type === 'CENTER_COORDS') {
                 map.flyTo([data.latitude, data.longitude], data.zoom || 17, { duration: 0.8 });
               } else if (data.type === 'FIT_BOUNDS') {
@@ -562,9 +595,14 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             }
           }
 
-          if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+          function notifyReady() {
+            if (window.ReactNativeWebView) {
+              window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+            } else {
+              setTimeout(notifyReady, 100);
+            }
           }
+          notifyReady();
         </script>
       </body>
       </html>
@@ -585,6 +623,29 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         javaScriptEnabled={true}
         domStorageEnabled={true}
         startInLoadingState={true}
+        onLoadEnd={() => {
+          setMapReady(true);
+          if (viewMode === "live" && employees.length > 0) {
+            postToMap({
+              type: "UPDATE_EMPLOYEES",
+              employees: employees,
+              selectedId: selectedEmployee?._id,
+            });
+          }
+        }}
+        injectedJavaScript={`
+          (function() {
+            function tryNotify() {
+              if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'MAP_READY' }));
+              } else {
+                setTimeout(tryNotify, 100);
+              }
+            }
+            tryNotify();
+          })();
+          true;
+        `}
         renderLoading={() => (
           <View style={styles.mapLoadingOverlay}>
             <ActivityIndicator size="large" color="#1268D9" />

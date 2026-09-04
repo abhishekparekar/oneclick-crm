@@ -64,6 +64,19 @@ const EmployeeLocationTracking = () => {
 
   const employees = useMemo(() => (Array.isArray(liveData) ? liveData : []), [liveData]);
 
+  // Auto-select employee with active GPS coordinates (e.g. viki) so map opens focused immediately
+  useEffect(() => {
+    if (!selectedEmployee && employees.length > 0) {
+      const bestEmp =
+        employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+        employees.find((e) => e.latitude && e.longitude) ||
+        employees[0];
+      if (bestEmp) {
+        setSelectedEmployee(bestEmp);
+      }
+    }
+  }, [employees, selectedEmployee]);
+
   // Fetch Trail Query (when an employee and date are selected in trail mode)
   const {
     data: trailData,
@@ -392,9 +405,16 @@ const EmployeeLocationTracking = () => {
         bounds.push([emp.latitude, emp.longitude]);
       });
 
-      if (bounds.length > 0 && !selectedEmployee) {
+      if (selectedEmployee?.latitude && selectedEmployee?.longitude) {
+        mapInstanceRef.current.setView([selectedEmployee.latitude, selectedEmployee.longitude], 16);
+      } else if (bounds.length === 1) {
+        mapInstanceRef.current.setView(bounds[0], 16);
+      } else if (bounds.length > 1) {
         mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
       }
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize({ pan: false });
+      }, 200);
     } else if (viewMode === "trail" && trailData?.trail?.length > 0) {
       const activePoints = trailData.trail;
       const isStationary = trailData.isStationaryAllDay || trailData.distanceKm === 0 || activePoints.length < 2;
@@ -512,11 +532,16 @@ const EmployeeLocationTracking = () => {
         iconSize: [34, 34],
         iconAnchor: [17, 17],
       });
+      const startTimeStr = startPt.timestamp
+        ? new Date(startPt.timestamp).toLocaleTimeString()
+        : trailData?.startTime
+        ? new Date(trailData.startTime).toLocaleTimeString()
+        : "Start";
       L.marker([startPt.latitude, startPt.longitude], { icon: startIcon })
         .bindPopup(
           `<div style="font-family: sans-serif; padding: 4px;">
              <b style="color: #10B981;">🚩 Route Start Point</b><br/>
-             <b>Time:</b> ${new Date(startPt.timestamp).toLocaleTimeString()}
+             <b>Time:</b> ${startTimeStr}
            </div>`
         )
         .addTo(polylineLayerRef.current);
@@ -571,11 +596,16 @@ const EmployeeLocationTracking = () => {
           iconSize: [34, 34],
           iconAnchor: [17, 17],
         });
+        const endTimeStr = endPt.timestamp
+          ? new Date(endPt.timestamp).toLocaleTimeString()
+          : trailData?.endTime
+          ? new Date(trailData.endTime).toLocaleTimeString()
+          : "End / Current";
         L.marker([endPt.latitude, endPt.longitude], { icon: endIcon })
           .bindPopup(
             `<div style="font-family: sans-serif; padding: 4px;">
                <b style="color: #EF4444;">📍 Route End / Latest Point</b><br/>
-               <b>Time:</b> ${new Date(endPt.timestamp).toLocaleTimeString()}
+               <b>Time:</b> ${endTimeStr}
              </div>`
           )
           .addTo(polylineLayerRef.current);
@@ -583,10 +613,16 @@ const EmployeeLocationTracking = () => {
 
       // Fit map view to exact traveled bounds
       if (latlngs.length > 1) {
-        mapInstanceRef.current.fitBounds(polyline.getBounds(), { padding: [80, 80], maxZoom: 18 });
-      } else {
+        const routeBounds = L.latLngBounds(latlngs);
+        if (routeBounds.isValid()) {
+          mapInstanceRef.current.fitBounds(routeBounds, { padding: [80, 80], maxZoom: 18 });
+        }
+      } else if (latlngs.length === 1) {
         mapInstanceRef.current.setView(latlngs[0], 17);
       }
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize({ pan: false });
+      }, 200);
     }
   }, [employees, viewMode, trailData, selectedEmployee, mapReady]);
 
@@ -641,9 +677,18 @@ const EmployeeLocationTracking = () => {
             type="button"
             onClick={() => {
               setViewMode("trail");
-              if (!selectedEmployee && employees.length > 0) {
-                setSelectedEmployee(employees[0]);
+              const bestEmp =
+                selectedEmployee?.latitude
+                  ? selectedEmployee
+                  : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+                    employees.find((e) => e.latitude && e.longitude) ||
+                    employees[0];
+              if (bestEmp) {
+                setSelectedEmployee(bestEmp);
               }
+              setTimeout(() => {
+                mapInstanceRef.current?.invalidateSize({ pan: false });
+              }, 150);
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center space-x-1.5 cursor-pointer ${
               viewMode === "trail"
