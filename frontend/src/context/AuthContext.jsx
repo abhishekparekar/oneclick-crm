@@ -14,6 +14,21 @@ export const AuthProvider = ({ children }) => {
   const [isLogoutPending, setIsLogoutPending] = useState(false);
   const [pendingTasks, setPendingTasks] = useState([]);
 
+  const refreshUserProfile = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return null;
+    try {
+      const res = await getMe();
+      if (res.success && res.user) {
+        setUser(res.user);
+        return res.user;
+      }
+    } catch (err) {
+      console.warn("Failed to refresh user profile:", err);
+    }
+    return null;
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem("token");
@@ -33,6 +48,17 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     };
     initAuth();
+
+    // Auto-sync profile and permissions when user switches back to window/tab
+    let lastFocusSync = Date.now();
+    const handleFocus = () => {
+      if (Date.now() - lastFocusSync > 5000) {
+        lastFocusSync = Date.now();
+        refreshUserProfile();
+      }
+    };
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
   const login = async (credentials) => {
@@ -105,8 +131,18 @@ export const AuthProvider = ({ children }) => {
     if (cat === "report" || cat === "reports") return "reports";
     if (cat === "attendance") return "attendance";
     if (cat === "payroll" || cat === "payslips") return "payroll";
+    if (cat === "recruitment") return "recruitment";
+    if (cat === "performance") return "performance";
+    if (cat === "whatsapp") return "whatsapp";
+    if (cat === "mobileapp") return "mobileapp";
+    if (cat === "webadmin") return "webadmin";
     return cat;
   };
+
+  const SUITE_MODULES = [
+    "attendance", "leave", "payroll", "tasks", "projects", "leads", "reports",
+    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin"
+  ];
 
   const hasPermission = (category, action) => {
     if (!user) return false;
@@ -116,55 +152,90 @@ export const AuthProvider = ({ children }) => {
     const normMod = normalizeModule(category);
     if (!normMod) return true;
 
-    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access)
-    const rawSubscribed = 
-      user.company?.subscribedModules ?? 
-      user.subscribedModules ?? 
-      (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+    const isSuite = SUITE_MODULES.includes(normMod);
 
-    if (Array.isArray(rawSubscribed)) {
-      const subscribed = rawSubscribed.map(normalizeModule);
-      if (!subscribed.includes(normMod)) {
-        return false; // Company did not purchase this module in their plan!
+    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access for suite modules)
+    if (isSuite) {
+      const rawSubscribed = 
+        user.company?.subscribedModules ?? 
+        user.subscribedModules ?? 
+        (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+
+      if (Array.isArray(rawSubscribed)) {
+        const subscribed = rawSubscribed.map(normalizeModule);
+        if (!subscribed.includes(normMod)) {
+          return false; // Company did not purchase this module in their plan!
+        }
       }
     }
 
     // CompanyAdmin has full access to all company subscribed modules
     if (roleLower === "companyadmin" || roleLower === "admin") return true;
 
-    // 2. Check Employee/Manager/HR Assigned Modules Quota (Seat-Level Access)
-    const rawAssigned = 
-      user.assignedModules ?? 
-      user.employee?.assignedModules ?? 
-      (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+    // 2. Check Employee/Manager/HR Assigned Modules Quota (Seat-Level Access for suite modules)
+    if (isSuite) {
+      const rawAssigned = 
+        user.assignedModules ?? 
+        user.employee?.assignedModules ?? 
+        (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
 
-    if (Array.isArray(rawAssigned)) {
-      const assigned = rawAssigned.map(normalizeModule);
-      if (!assigned.includes(normMod)) {
-        return false; // Not assigned to this specific employee/manager/HR!
+      if (Array.isArray(rawAssigned)) {
+        const assigned = rawAssigned.map(normalizeModule);
+        if (!assigned.includes(normMod)) {
+          return false; // Not assigned to this specific employee/manager/HR!
+        }
       }
     }
 
     const perm = user.permissions || {};
-    const catPerm = perm[category] || perm[category?.toLowerCase()] || (normMod ? perm[normMod] : undefined);
-    
-    if (catPerm !== undefined) {
-      if (action) {
-        return catPerm[action] === true || (action === "view" && (catPerm === true || catPerm.read === true || catPerm.view === true));
-      } else {
-        return catPerm === true || (typeof catPerm === "object" && Object.values(catPerm).some(v => v === true));
+    const catLower = String(category).toLowerCase().trim();
+    const catPerm = 
+      perm[category] ?? 
+      perm[catLower] ?? 
+      (normMod ? perm[normMod] : undefined) ??
+      (normMod === "leave" ? perm.leaves : undefined) ??
+      (normMod === "leads" ? perm.leads : undefined) ??
+      (normMod === "tasks" ? perm.tasks : undefined) ??
+      (normMod === "employees" || normMod === "teammembers" || normMod === "team" ? (perm.teamMembers || perm.employees) : undefined);
+
+    // Module-level or view access: granted if assigned to user
+    if (!action || action === "view" || action === "read") {
+      if (isSuite) {
+        return true;
+      }
+      if (catPerm === false) return false;
+      if (typeof catPerm === "object" && catPerm !== null && catPerm.view === false) {
+        return false;
+      }
+      return true;
+    }
+
+    // Specific action-level permissions
+    if (catPerm !== undefined && catPerm !== null) {
+      if (typeof catPerm === "boolean") return catPerm;
+      if (typeof catPerm === "object" && catPerm[action] !== undefined) {
+        return catPerm[action] === true;
       }
     }
-    
-    // Fallback defaults by role (if module is allowed by subscription & assignment)
+
+    // Fallback defaults by role for actions
     if (roleLower === "hr") return true;
     if (roleLower === "manager") {
       if (normMod === "tasks" && action === "cancel") return false;
       if (normMod === "leads" && action === "delete") return false;
+      if (normMod === "leave" && action === "approveReject") return true;
+      if (normMod === "employees" || normMod === "teammembers" || normMod === "team") {
+        if (action === "add" || action === "create") return catPerm?.add === true || catPerm?.create === true;
+        if (action === "edit") return catPerm?.edit === true;
+        if (action === "activeInactive") return catPerm?.activeInactive === true;
+        return true;
+      }
       return true;
     }
     if (roleLower === "employee" || roleLower === "team member") {
-      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normMod)) return true;
+      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normMod)) {
+        return true;
+      }
     }
     return false;
   };
@@ -191,7 +262,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, syncCompanyProfile, hasPermission }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, register, updateUser, refreshUserProfile, syncCompanyProfile, hasPermission }}>
       {children}
       
       {/* First-Time Login Password Reset Modal */}
@@ -223,6 +294,7 @@ export const useAuth = () => {
       logout: () => {},
       register: async () => {},
       updateUser: () => {},
+      refreshUserProfile: async () => {},
       hasPermission: () => false,
     };
   }

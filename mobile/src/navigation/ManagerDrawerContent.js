@@ -22,6 +22,7 @@ const buildManagerSections = (hasPermission) => {
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
   const canAccessReports = hasPermission("reports", "view") || hasPermission("reports");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
 
   return [
     {
@@ -152,6 +153,18 @@ const buildManagerSections = (hasPermission) => {
               },
             ]
           : []),
+        ...(canAccessPayroll
+          ? [
+              {
+                label: "My Payslips",
+                screen: "Payslips",
+                icon: "receipt-outline",
+                activeIcon: "receipt",
+                color: "#16A34A",
+                module: "payroll",
+              },
+            ]
+          : []),
         ...(canAccessReports
           ? [
               {
@@ -178,8 +191,14 @@ const buildManagerSections = (hasPermission) => {
 
 const ManagerDrawerContent = (props) => {
   const { state, navigation } = props;
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (refreshUserProfile) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, []);
 
   const MANAGER_SECTIONS = buildManagerSections(hasPermission);
 

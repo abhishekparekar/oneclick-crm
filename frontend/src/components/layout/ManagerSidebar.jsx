@@ -76,8 +76,10 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const { data: profileData } = useQuery({
     queryKey: ["managerProfile"],
     queryFn: () => getManagerProfileApi().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
+
+  const assignedModules = profileData?.manager?.assignedModules || profileData?.employee?.assignedModules || user?.assignedModules || [];
 
   const companyName =
     profileData?.company?.companyName ||
@@ -113,10 +115,14 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
           const liveSubscribed = profileData?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            const norm = String(item.module).toLowerCase().trim();
             if (Array.isArray(liveSubscribed)) {
-              const norm = String(item.module).toLowerCase().trim();
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
               if (!subs.includes(norm)) return false;
+            }
+            if (Array.isArray(assignedModules) && assignedModules.length > 0) {
+              const assigned = assignedModules.map(m => String(m).toLowerCase().trim());
+              if (!assigned.includes(norm)) return false;
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

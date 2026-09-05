@@ -207,9 +207,15 @@ const NATIVE_SECTIONS = [
 
 const CompanyDrawerContent = (props) => {
   const { navigation } = props;
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
   const layout = useLayout();
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (refreshUserProfile) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, []);
 
   const userRole = user?.role || "CompanyAdmin";
   const activeTabVal = layout ? layout.activeTab : "Dashboard";

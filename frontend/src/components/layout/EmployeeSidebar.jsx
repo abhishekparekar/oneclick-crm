@@ -29,7 +29,7 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const { data: profileData } = useQuery({
     queryKey: ["employeeProfile"],
     queryFn: () => getMyProfileApi().then((r) => r.data),
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
   const subscribedModules = profileData?.company?.subscribedModules || user?.company?.subscribedModules || [];
@@ -123,6 +123,11 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
               const norm = String(item.module).toLowerCase().trim();
               const subs = subscribedModules.map(m => String(m).toLowerCase().trim());
               if (!subs.includes(norm)) return false;
+            }
+            if (Array.isArray(assignedModules) && assignedModules.length > 0) {
+              const norm = String(item.module).toLowerCase().trim();
+              const assigned = assignedModules.map(m => String(m).toLowerCase().trim());
+              if (!assigned.includes(norm)) return false;
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

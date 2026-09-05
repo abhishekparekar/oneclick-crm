@@ -18,6 +18,7 @@ import { useAuth } from "../../context/AuthContext";
 import useManagerController from "../../controllers/managerController";
 import { getMyTodayApi } from "../../api/attendanceService";
 import FollowUpPopup from "../../components/FollowUpPopup";
+import leadsService from "../../api/leadsService";
 
 const { width } = Dimensions.get("window");
 const HP = 14;
@@ -81,7 +82,7 @@ const getGreeting = () => {
 
 // ─────────────────────────────────────────────────────
 const ManagerDashboardScreen = ({ navigation }) => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, refreshUserProfile } = useAuth();
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
@@ -95,6 +96,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState(null);
   const [liveTime, setLiveTime] = useState(new Date());
+  const [leadsList, setLeadsList] = useState([]);
 
   useEffect(() => {
     const t = setInterval(() => setLiveTime(new Date()), 1000);
@@ -110,22 +112,48 @@ const ManagerDashboardScreen = ({ navigation }) => {
     }
   };
 
+  const fetchLeads = async () => {
+    if (!canAccessLeads) return;
+    try {
+      const res = await leadsService.getLeads();
+      const raw = res?.data || res;
+      setLeadsList(Array.isArray(raw) ? raw : []);
+    } catch (e) {
+      console.log("Failed to fetch leads for Manager Dashboard:", e.message);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
+      if (refreshUserProfile) refreshUserProfile().catch(() => {});
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
       fetchDashboard(false, params);
       fetchTodayAttendance();
-    }, [selectedDeptId, fetchDashboard])
+      if (canAccessLeads) {
+        fetchLeads();
+      }
+    }, [selectedDeptId, fetchDashboard, canAccessLeads])
   );
 
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refreshDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {});
+      if (refreshUserProfile) await refreshUserProfile().catch(() => {});
+      await fetchDashboard(selectedDeptId ? { departmentId: selectedDeptId } : {});
       await fetchTodayAttendance();
+      if (canAccessLeads) {
+        await fetchLeads();
+      }
     } finally {
       setRefreshing(false);
     }
+  };
+
+  const leadStats = {
+    total: leadsList.length,
+    contacted: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("contact")).length,
+    inProgress: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("progress") || (l.status?.name || "").toLowerCase().includes("qualif")).length,
+    won: leadsList.filter((l) => (l.status?.name || "").toLowerCase().includes("won")).length,
   };
 
   const data = dashboardData || {};
@@ -489,6 +517,15 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 module: "reports",
                 onPress: () => navigation.navigate("ManagerReports"),
               },
+              {
+                label: "My Payslips",
+                icon: "receipt",
+                c: "#16A34A",
+                bg: "#DCFCE7",
+                border: "#BBF7D0",
+                module: "payroll",
+                onPress: () => navigation.navigate("Payslips"),
+              },
             ]
               .filter((sc) => {
                 if (!sc.module) return true;
@@ -738,6 +775,113 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   );
                 })
               )}
+            </View>
+          )}
+
+          {/* ── 6. LEAD MANAGEMENT CRM OVERVIEW ── */}
+          {canAccessLeads && (
+            <View style={styles.leadCard}>
+              <View style={styles.leadCardHeader}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="magnet" size={16} color="#8B5CF6" style={{ marginRight: 6 }} />
+                  <Text style={styles.leadCardTitle}>Lead Engine & CRM Pipeline</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate("LeadsEngine")}
+                  style={styles.cardHeaderBtn}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.cardHeaderBtnText, { color: "#8B5CF6" }]}>Open Pipeline</Text>
+                  <Ionicons name="chevron-forward" size={12} color="#8B5CF6" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Quick 4 KPI Row */}
+              <View style={styles.leadKpiRow}>
+                <TouchableOpacity
+                  style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
+                  onPress={() => navigation.navigate("LeadsEngine")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.leadKpiNum}>{leadStats.total}</Text>
+                  <Text style={styles.leadKpiLabel}>Total Leads</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.leadKpiTile, { borderLeftColor: "#8B5CF6" }]}
+                  onPress={() => navigation.navigate("LeadsEngine")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.leadKpiNum}>{leadStats.contacted}</Text>
+                  <Text style={styles.leadKpiLabel}>Contacted</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
+                  onPress={() => navigation.navigate("LeadsEngine")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.leadKpiNum}>{leadStats.inProgress}</Text>
+                  <Text style={styles.leadKpiLabel}>In Progress</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
+                  onPress={() => navigation.navigate("LeadsEngine")}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{leadStats.won}</Text>
+                  <Text style={styles.leadKpiLabel}>Won</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Recent Leads Preview */}
+              {leadsList.length > 0 ? (
+                <View style={styles.recentLeadsWrapper}>
+                  <Text style={styles.recentLeadHeader}>Recent Prospects</Text>
+                  {leadsList.slice(0, 3).map((lead, idx) => {
+                    const sName = lead.status?.name || "New";
+                    const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10B981" : sName.toLowerCase().includes("contact") ? "#3B82F6" : "#8B5CF6");
+                    return (
+                      <TouchableOpacity
+                        key={lead.id || lead._id || String(idx)}
+                        style={styles.recentLeadItem}
+                        onPress={() => navigation.navigate("LeadsEngine")}
+                        activeOpacity={0.75}
+                      >
+                        <View style={styles.recentLeadAvatar}>
+                          <Text style={styles.recentLeadAvatarText}>
+                            {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View style={styles.recentLeadMeta}>
+                          <Text style={styles.recentLeadName} numberOfLines={1}>
+                            {lead.name}
+                          </Text>
+                          <Text style={styles.recentLeadSub} numberOfLines={1}>
+                            {lead.company || lead.productService || lead.phone || "Prospect"}
+                          </Text>
+                        </View>
+                        <View style={[styles.recentLeadBadge, { backgroundColor: `${sColor}18` }]}>
+                          <View style={[styles.recentLeadDot, { backgroundColor: sColor }]} />
+                          <Text style={[styles.recentLeadBadgeText, { color: sColor }]}>{sName}</Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {/* Direct Open Button */}
+              <TouchableOpacity
+                style={styles.openLeadsPipelineBtn}
+                onPress={() => navigation.navigate("LeadsEngine")}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="magnet-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.openLeadsPipelineText}>Manage Lead Engine CRM</Text>
+                <Ionicons name="arrow-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
+              </TouchableOpacity>
             </View>
           )}
 
@@ -1200,6 +1344,145 @@ const styles = StyleSheet.create({
   priorityPillText: {
     fontSize: 8,
     fontWeight: "900",
+  },
+
+  // ── Lead Management Card Styles ────────────────
+  leadCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  leadCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  leadCardTitle: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  leadKpiRow: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 10,
+  },
+  leadKpiTile: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderWidth: 1,
+    borderColor: "#F1F5F9",
+  },
+  leadKpiNum: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  leadKpiLabel: {
+    fontSize: 9.5,
+    color: "#64748B",
+    marginTop: 1,
+    fontWeight: "600",
+  },
+  recentLeadsWrapper: {
+    marginTop: 4,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 8,
+  },
+  recentLeadHeader: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#64748B",
+    marginBottom: 6,
+    textTransform: "uppercase",
+  },
+  recentLeadItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F8FAFC",
+  },
+  recentLeadAvatar: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#F5F3FF",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  recentLeadAvatarText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#7C3AED",
+  },
+  recentLeadMeta: {
+    flex: 1,
+    marginRight: 6,
+  },
+  recentLeadName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  recentLeadSub: {
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+  recentLeadBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  recentLeadDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    marginRight: 4,
+  },
+  recentLeadBadgeText: {
+    fontSize: 9.5,
+    fontWeight: "700",
+  },
+  openLeadsPipelineBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#8B5CF6",
+    paddingVertical: 9,
+    borderRadius: 8,
+    marginTop: 10,
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  openLeadsPipelineText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
   },
 });
 

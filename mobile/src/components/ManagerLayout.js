@@ -24,9 +24,9 @@ const MANAGER_AVATAR_BG = "#1268D9";
 const SCREEN_TO_TAB = {
   ManagerDashboard: "Home",
   ManagerDashboardScreen: "Home",
-  ManagerTeam: "Home",
-  ManagerTeamMemberDetails: "Home",
-  ManagerTeamOrgView: "Home",
+  ManagerTeam: "Team",
+  ManagerTeamMemberDetails: "Team",
+  ManagerTeamOrgView: "Team",
   LeadsEngine: "Leads",
   LeadsDashboard: "Leads",
   LeadsDashboardScreen: "Leads",
@@ -41,9 +41,9 @@ const SCREEN_TO_TAB = {
   ManagerTeamTasks: "Tasks",
   ManagerTaskDetails: "Tasks",
   ManagerCreateTask: "Tasks",
-  ManagerProjects: "My Projects",
-  ManagerProjectDetails: "My Projects",
-  ManagerCreateProject: "My Projects",
+  ManagerProjects: "Projects",
+  ManagerProjectDetails: "Projects",
+  ManagerCreateProject: "Projects",
   ManagerProfile: "Profile",
   ManagerProfileScreen: "Profile",
   ManagerEditProfileScreen: "Profile",
@@ -56,8 +56,12 @@ const SCREEN_TO_TAB = {
   ManagerTeamAttendanceDetails: "Attendance",
   ManagerTeamAttendanceDetailsScreen: "Attendance",
   ManagerRegularization: "Attendance",
-  ManagerTeamLeaves: "Attendance",
-  ManagerTeamLeavesScreen: "Attendance",
+  ManagerTeamLeaves: "Leaves",
+  ManagerTeamLeavesScreen: "Leaves",
+  ManagerTeamLeaveDetails: "Leaves",
+  ManagerTeamLeaveDetailsScreen: "Leaves",
+  ManagerMyLeave: "Leaves",
+  ManagerApplyLeave: "Leaves",
 };
 
 const BOTTOM_TABS = [
@@ -103,7 +107,7 @@ const ManagerLayout = ({
   filterActive = false,
   hideFab = false,
 }) => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, refreshUserProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const hookNavigation = useNavigation();
   const navigation = propNavigation || hookNavigation;
@@ -111,6 +115,12 @@ const ManagerLayout = ({
 
   const [fabVisible, setFabVisible] = useState(false);
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
+
+  React.useEffect(() => {
+    if (refreshUserProfile) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, []);
 
   // Cached notification query (zero re-render thrashing on route changes)
   const { data: notifData } = useQuery({
@@ -239,47 +249,46 @@ const ManagerLayout = ({
       navigation.dispatch(DrawerActions.openDrawer());
       return;
     }
+
+    let targetScreen = screen;
+    let targetParams = undefined;
+
     if (screen === "ManagerDashboard" || screen === "Home") {
-      navigation.navigate("ManagerDashboard");
-      return;
+      targetScreen = "ManagerDashboard";
+    } else if (screen === "LeadsEngine" || screen === "LeadsDashboard" || screen === "Leads") {
+      targetScreen = "LeadsEngine";
+      targetParams = { screen: "LeadsDashboard" };
+    } else if (screen === "ManagerTasks" || screen === "Tasks") {
+      targetScreen = "ManagerTasks";
+    } else if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
+      targetScreen = "ManagerTeamAttendance";
+    } else if (screen === "ManagerTeamLeaves" || screen === "Leaves") {
+      targetScreen = "ManagerTeamLeaves";
+    } else if (screen === "ManagerProjects" || screen === "Projects") {
+      targetScreen = "ManagerProjects";
+    } else if (screen === "ManagerTeam" || screen === "Team") {
+      targetScreen = "ManagerTeam";
+    } else if (screen === "ManagerReports" || screen === "Reports") {
+      targetScreen = "ManagerReports";
+    } else if (screen === "CompanyRequests" || screen === "Requests") {
+      targetScreen = "CompanyRequests";
+    } else if (screen === "ManagerProfile" || screen === "Profile") {
+      targetScreen = "ManagerProfile";
     }
-    if (screen === "LeadsEngine" || screen === "LeadsDashboard" || screen === "Leads") {
-      navigation.navigate("LeadsEngine", { screen: "LeadsDashboard" });
-      return;
-    }
-    if (screen === "ManagerTasks" || screen === "Tasks") {
-      navigation.navigate("ManagerTasks");
-      return;
-    }
-    if (screen === "ManagerTeamAttendance" || screen === "ManagerAttendance" || screen === "Attendance") {
-      navigation.navigate("ManagerTeamAttendance");
-      return;
-    }
-    if (screen === "ManagerTeamLeaves" || screen === "Leaves") {
-      navigation.navigate("ManagerTeamLeaves");
-      return;
-    }
-    if (screen === "ManagerProjects" || screen === "Projects") {
-      navigation.navigate("ManagerProjects");
-      return;
-    }
-    if (screen === "ManagerTeam" || screen === "Team") {
-      navigation.navigate("ManagerTeam");
-      return;
-    }
-    if (screen === "ManagerReports" || screen === "Reports") {
-      navigation.navigate("ManagerReports");
-      return;
-    }
-    if (screen === "CompanyRequests" || screen === "Requests") {
-      navigation.navigate("CompanyRequests");
-      return;
-    }
-    if (screen === "ManagerProfile" || screen === "Profile") {
-      navigation.navigate("ManagerProfile");
-      return;
-    }
-    navigation.navigate(screen);
+
+    // Try navigating to ManagerTabs first (if we are in a stack screen, this pops/switches to tab)
+    try {
+      navigation.navigate("ManagerTabs", { screen: targetScreen, params: targetParams });
+    } catch (_) {}
+
+    // Also navigate directly on current navigator:
+    try {
+      if (targetParams) {
+        navigation.navigate(targetScreen, targetParams);
+      } else {
+        navigation.navigate(targetScreen);
+      }
+    } catch (_) {}
   };
 
   const navigateToScreen = (screen) => {

@@ -260,8 +260,14 @@ const buildHRSections = (hasPermission) => {
 
 const HRDrawerContent = (props) => {
   const { state, navigation } = props;
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
   const insets = useSafeAreaInsets();
+
+  React.useEffect(() => {
+    if (refreshUserProfile) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, []);
 
   const HR_SECTIONS = buildHRSections(hasPermission);
 

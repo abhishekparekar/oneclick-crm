@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef } from "react";
+import React, { useCallback, useState, useRef, useEffect, Suspense } from "react";
 import {
   View,
   Text,
@@ -46,6 +46,14 @@ const EmployeePunchScreen = ({ navigation }) => {
   const [hasCameraPerm, setHasCameraPerm] = useState(false);
   const [capturingSelfie, setCapturingSelfie] = useState(false);
   const cameraRef = useRef(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   const requestPermissions = async () => {
     if (Platform.OS === "android") {
@@ -83,6 +91,9 @@ const EmployeePunchScreen = ({ navigation }) => {
 
       // Camera is ready: unblock camera and UI immediately!
       setLoadingData(false);
+
+      // Check battery optimization for uninterrupted background bike tracking
+      locationTrackingService.requestBatteryOptimizationExemption(true).catch(() => {});
 
       // 2. Fetch today record and GPS location in parallel without blocking UI
       const fetchTodayPromise = (async () => {
@@ -171,17 +182,21 @@ const EmployeePunchScreen = ({ navigation }) => {
 
   const executePunch = async () => {
     try {
-      setCapturingSelfie(true);
+      if (isMountedRef.current) setCapturingSelfie(true);
       let finalSelfieUri = null;
 
       if (cameraRef.current && typeof cameraRef.current.capture === "function") {
         try {
-          const photo = await cameraRef.current.capture();
+          const capturePromise = cameraRef.current.capture();
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Camera capture timeout")), 3000)
+          );
+          const photo = await Promise.race([capturePromise, timeoutPromise]);
           if (photo && photo.uri) {
             finalSelfieUri = photo.uri;
           }
         } catch (captureErr) {
-          console.warn("Camera capture error:", captureErr);
+          console.warn("Camera capture error:", captureErr?.message || captureErr);
         }
       }
 
@@ -197,7 +212,7 @@ const EmployeePunchScreen = ({ navigation }) => {
           );
           finalSelfieUri = await Promise.race([uploadPromise, timeoutPromise]);
         } catch (fbErr) {
-          console.warn("Firebase upload timeout/error, continuing with punch:", fbErr);
+          console.warn("Firebase upload timeout/error, continuing with punch:", fbErr?.message || fbErr);
         }
       }
 
@@ -218,27 +233,40 @@ const EmployeePunchScreen = ({ navigation }) => {
           : {}),
       };
 
+      // Trigger dashboard refresh in background
+      const triggerDashboardRefresh = () => {
+        try {
+          if (user?.role === "Manager" || user?.role === "manager") {
+            refreshManagerDashboard();
+          } else {
+            refreshEmployeeDashboard();
+          }
+        } catch (_) {}
+      };
+
       if (action === "in") {
         await punchInApi(payload);
-        locationTrackingService.startLocationTracking().catch(() => {});
-        Alert.alert("Success", "Clocked In successfully!");
+        triggerDashboardRefresh();
+        setTimeout(() => {
+          try {
+            locationTrackingService.startLocationTracking().catch(() => {});
+          } catch (_) {}
+        }, 800);
+        Alert.alert("Success", "Clocked In successfully!", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
       } else {
         await punchOutApi(payload);
-        locationTrackingService.stopLocationTracking().catch(() => {});
-        Alert.alert("Success", "Clocked Out successfully!");
+        triggerDashboardRefresh();
+        setTimeout(() => {
+          try {
+            locationTrackingService.stopLocationTracking().catch(() => {});
+          } catch (_) {}
+        }, 500);
+        Alert.alert("Success", "Clocked Out successfully!", [
+          { text: "OK", onPress: () => navigation.goBack() }
+        ]);
       }
-
-      try {
-        if (user?.role === "Manager" || user?.role === "manager") {
-          await refreshManagerDashboard();
-        } else {
-          await refreshEmployeeDashboard();
-        }
-      } catch (err) {
-        console.log("Could not refresh dashboard data:", err);
-      }
-
-      navigation.goBack();
     } catch (err) {
       console.error("Punch error:", err);
       Alert.alert(
@@ -246,7 +274,9 @@ const EmployeePunchScreen = ({ navigation }) => {
         err.response?.data?.message || "Failed to complete punch. Please try again."
       );
     } finally {
-      setCapturingSelfie(false);
+      if (isMountedRef.current) {
+        setCapturingSelfie(false);
+      }
     }
   };
 
@@ -313,13 +343,22 @@ const EmployeePunchScreen = ({ navigation }) => {
             },
           ]}
         >
-          <Camera
-            ref={cameraRef}
-            style={styles.camera}
-            cameraType={CameraType.Front}
-            flashMode="off"
-            resetFocusWhenMotionDetected={false}
-          />
+          <Suspense
+            fallback={
+              <View style={[styles.camera, { justifyContent: "center", alignItems: "center" }]}>
+                <ActivityIndicator size="small" color="#3B82F6" />
+              </View>
+            }
+          >
+            <Camera
+              ref={cameraRef}
+              style={styles.camera}
+              cameraType={CameraType.Front}
+              flashMode="off"
+              resetFocusWhenMotionDetected={false}
+              shutterPhotoSound={false}
+            />
+          </Suspense>
         </View>
 
         <Text style={styles.cameraInstruction}>

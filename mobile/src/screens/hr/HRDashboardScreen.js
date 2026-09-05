@@ -129,7 +129,7 @@ const formatWorkingHours = (hours) => {
 };
 
 const HRDashboardScreen = ({ navigation }) => {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, refreshUserProfile } = useAuth();
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
@@ -182,22 +182,31 @@ const HRDashboardScreen = ({ navigation }) => {
         leadsService.getStatuses(),
       ]);
 
-      if (leadsRes.status === "fulfilled") {
-        const arr = Array.isArray(leadsRes.value) ? leadsRes.value : leadsRes.value?.data || [];
-        setLeadsList(arr);
+      if (leadsRes.status === "fulfilled" && leadsRes.value) {
+        const raw = leadsRes.value.data || leadsRes.value;
+        setLeadsList(Array.isArray(raw) ? raw : []);
       }
-
-      if (statusesRes.status === "fulfilled") {
-        const sArr = Array.isArray(statusesRes.value) ? statusesRes.value : statusesRes.value?.data || [];
-        setLeadStatuses(sArr.filter((s) => s?.name && s.name.trim().toLowerCase() !== "aa"));
+      if (statusesRes.status === "fulfilled" && statusesRes.value) {
+        const rawSt = statusesRes.value.data || statusesRes.value;
+        const stList = Array.isArray(rawSt) ? rawSt : [];
+        setLeadStatuses(stList);
+        if (stList.length > 0) {
+          setNewLeadForm((prev) => ({ ...prev, statusId: prev.statusId || (stList[0].id || stList[0]._id) }));
+        }
       }
-    } catch (_) {}
+    } catch (err) {
+      console.log("Failed to fetch leads for HR Dashboard:", err);
+    }
   };
 
   const fetchDashboard = async (isRefresh = false) => {
     try {
-      if (isRefresh) setRefreshing(true);
-      else setLoading(true);
+      if (isRefresh) {
+        setRefreshing(true);
+        if (refreshUserProfile) await refreshUserProfile().catch(() => {});
+      } else {
+        setLoading(true);
+      }
       setError("");
 
       const response = await getHRDashboardApi();

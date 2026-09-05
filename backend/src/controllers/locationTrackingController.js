@@ -110,7 +110,7 @@ const syncBatchLocations = async (req, res) => {
       return res.status(400).json({ success: false, message: "No associated employee record found for user" });
     }
 
-    // ── Enforce Late-Night Cut-Off (Requirement 6: 11:00 PM / 23:00 IST) ──
+    // ── Enforce Late-Night Cut-Off (12:00 AM / Midnight IST) ──
     const kolkataHour = parseInt(
       new Intl.DateTimeFormat("en-GB", {
         timeZone: "Asia/Kolkata",
@@ -119,11 +119,11 @@ const syncBatchLocations = async (req, res) => {
       }).format(new Date())
     );
 
-    if (kolkataHour >= 23 || kolkataHour < 5) {
+    if (kolkataHour < 5) {
       return res.status(200).json({
         success: true,
         trackingAllowed: false,
-        message: "Late night cut-off (11:00 PM): Location tracking automatically stopped",
+        message: "Late night cut-off (12:00 AM): Location tracking automatically stopped",
       });
     }
 
@@ -404,8 +404,21 @@ const getLiveEmployeeLocations = async (req, res) => {
       // Calculate time elapsed since last GPS transmission
       const minutesSinceLastPing = lastUpdated ? Math.max(0, Math.round((now - new Date(lastUpdated)) / 60000)) : null;
 
-      // ── Determine Tracking Status: "active" (चालू) | "idle" | "stopped" (बंद) ──
-      let trackingStatus = "no_signal"; // "active" | "idle" | "stopped" | "no_signal"
+      // Late night check (12:00 AM / midnight IST cut-off: 00:00 to 05:00 IST)
+      const kolkataHour = parseInt(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Asia/Kolkata",
+          hour: "numeric",
+          hour12: false,
+        }).format(now)
+      );
+      const isLateNight = kolkataHour < 5; // 12:00 AM (midnight) to 05:00 AM IST
+
+      // ── Determine Tracking Status: "active" (चालू) | "stopped" (बंद) | "no_signal" ──
+      // Rules:
+      // 1. Employee tracking stays ACTIVE (चालू) as long as they are punched in and haven't punched out.
+      // 2. Automatically stops when employee punches out or at late night 12:00 AM (midnight).
+      let trackingStatus = "no_signal"; // "active" | "stopped" | "no_signal"
       let trackingStatusLabel = "No GPS Signal";
       let trackingStatusColor = "slate"; // "emerald" | "amber" | "rose" | "slate"
       let isOnline = false;
@@ -424,26 +437,24 @@ const getLiveEmployeeLocations = async (req, res) => {
         trackingStatusLabel = "Tracking Stopped (Punched Out)";
         trackingStatusColor = "rose";
         isOnline = false;
+      } else if (isLateNight) {
+        // Auto-stop at late night 12:00 AM
+        trackingStatus = "stopped";
+        trackingStatusLabel = "Tracking Stopped (Late Night 12:00 AM)";
+        trackingStatusColor = "rose";
+        isOnline = false;
       } else if (!latitude || !lastUpdated) {
         trackingStatus = "no_signal";
         trackingStatusLabel = "Waiting for GPS Signal";
         trackingStatusColor = "slate";
         isOnline = false;
-      } else if (minutesSinceLastPing <= 12) {
+      } else {
+        // Employee is on duty (punched in & not punched out) and before 12:00 AM:
+        // Tracking stays ACTIVE (चालू)!
         trackingStatus = "active";
         trackingStatusLabel = "Live Tracking Active (चालू)";
         trackingStatusColor = "emerald";
         isOnline = true;
-      } else if (minutesSinceLastPing <= 45) {
-        trackingStatus = "idle";
-        trackingStatusLabel = `Idle (Last ping ${minutesSinceLastPing}m ago)`;
-        trackingStatusColor = "amber";
-        isOnline = false;
-      } else {
-        trackingStatus = "stopped";
-        trackingStatusLabel = `Tracking Stopped (${minutesSinceLastPing > 120 ? `${Math.floor(minutesSinceLastPing / 60)}h ago` : `${minutesSinceLastPing}m ago`})`;
-        trackingStatusColor = "rose";
-        isOnline = false;
       }
 
       // ── Calculate Stoppage / Halt Duration (तो स्टाफ किती वेळ झाला तिथे थांबलाय) ──

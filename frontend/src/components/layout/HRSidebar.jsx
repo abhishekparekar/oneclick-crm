@@ -92,10 +92,11 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
   const { data: profileRes } = useQuery({
     queryKey: ["hrProfile"],
     queryFn: getMyProfileApi,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 30 * 1000,
   });
 
   const empProfile = profileRes?.data?.employee || profileRes?.data || {};
+  const assignedModules = empProfile?.assignedModules || user?.assignedModules || [];
 
   const companyName =
     empProfile?.companyId?.companyName ||
@@ -131,13 +132,17 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
       {/* ── Navigation ── */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
         {HR_NAV_SECTIONS.map((section, idx) => {
-          const liveSubscribed = companyProfile?.subscribedModules || empProfile?.companyId?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
+          const liveSubscribed = empProfile?.companyId?.subscribedModules || empProfile?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            const norm = String(item.module).toLowerCase().trim();
             if (Array.isArray(liveSubscribed)) {
-              const norm = String(item.module).toLowerCase().trim();
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
               if (!subs.includes(norm)) return false;
+            }
+            if (Array.isArray(assignedModules) && assignedModules.length > 0) {
+              const assigned = assignedModules.map(m => String(m).toLowerCase().trim());
+              if (!assigned.includes(norm)) return false;
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

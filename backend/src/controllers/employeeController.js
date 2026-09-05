@@ -666,6 +666,14 @@ const updateEmployee = async (req, res, next) => {
       return res.status(404).json({ message: "Employee not found" });
     }
 
+    let user = null;
+    if (employee.userId) {
+      user = await User.findById(employee.userId);
+    }
+    if (!user && employee.email) {
+      user = await User.findOne({ email: employee.email.toLowerCase() });
+    }
+
     // Manager Department check for update
     if (req.user && req.user.role === "Manager") {
       // Manager cannot edit another Manager or HR
@@ -827,7 +835,9 @@ const updateEmployee = async (req, res, next) => {
       }
     }
 
-    const user = await User.findById(employee.userId);
+    if (!user && employee.userId) {
+      user = await User.findById(employee.userId);
+    }
     if (!user) {
       return res.status(400).json({ message: "Linked user not found" });
     }
@@ -906,12 +916,34 @@ const updateEmployee = async (req, res, next) => {
         }
       }
 
-      const oldModules = employee.assignedModules || [];
-      if (JSON.stringify(oldModules.sort()) !== JSON.stringify([...req.body.assignedModules].sort())) {
+      const oldModules = (employee.assignedModules || []).map(m => String(m).toLowerCase().trim());
+      const sortedOld = [...oldModules].sort();
+      const sortedNew = [...sanitizedModules].sort();
+
+      if (JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
         oldData.assignedModules = oldModules;
-        newData.assignedModules = req.body.assignedModules;
-        employee.assignedModules = req.body.assignedModules;
-        user.assignedModules = req.body.assignedModules;
+        newData.assignedModules = sanitizedModules;
+        employee.assignedModules = sanitizedModules;
+        employee.markModified("assignedModules");
+        if (user) {
+          user.assignedModules = sanitizedModules;
+          user.markModified("assignedModules");
+        }
+
+        // Keep permissions object in sync so older/cloud backends also see view: true
+        const curPerm = employee.permissions || {};
+        const suiteMods = ["leads", "payroll", "projects", "reports", "tasks", "attendance", "leaves"];
+        for (const sm of suiteMods) {
+          const isAssigned = sanitizedModules.includes(sm) || (sm === "leaves" && (sanitizedModules.includes("leave") || sanitizedModules.includes("leaves")));
+          if (typeof curPerm[sm] === "object" && curPerm[sm] !== null) {
+            curPerm[sm].view = isAssigned;
+          } else if (isAssigned) {
+            curPerm[sm] = { view: true };
+          }
+        }
+        employee.permissions = curPerm;
+        employee.markModified("permissions");
+
         hasChanges = true;
       }
     }
@@ -954,14 +986,18 @@ const updateEmployee = async (req, res, next) => {
 
     if (newData.firstName !== undefined || newData.middleName !== undefined || newData.lastName !== undefined) {
       employee.fullName = `${employee.firstName || ""} ${employee.middleName || ""} ${employee.lastName || ""}`.replace(/\s+/g, " ").trim();
-      user.name = employee.fullName || `${employee.firstName} ${employee.lastName}`.trim();
+      if (user) {
+        user.name = employee.fullName || `${employee.firstName} ${employee.lastName}`.trim();
+      }
     }
-    if (newData.phone !== undefined) {
+    if (newData.phone !== undefined && user) {
       user.phone = employee.phone;
     }
     if (req.body.photo !== undefined || req.body.documents?.photo !== undefined) {
       const photoVal = req.body.photo || req.body.documents?.photo || "";
-      user.profileImage = photoVal;
+      if (user) {
+        user.profileImage = photoVal;
+      }
       employee.photo = photoVal;
     }
 
@@ -973,7 +1009,9 @@ const updateEmployee = async (req, res, next) => {
     });
     employee.profileCompletionPercentage = Math.round((filledFields / requiredProfileFields.length) * 100);
 
-    await user.save();
+    if (user) {
+      await user.save();
+    }
     await employee.save();
     await syncUserFromEmployeeStatus(employee);
 

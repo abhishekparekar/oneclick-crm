@@ -249,6 +249,19 @@ const checkIn = async (req, res, next) => {
 
     await attendance.save();
 
+    // Activate location tracking on Punch In
+    await Employee.findByIdAndUpdate(employee._id, {
+      $set: {
+        "lastLocation.latitude": punchLocation?.latitude || null,
+        "lastLocation.longitude": punchLocation?.longitude || null,
+        "lastLocation.address": punchLocation?.address || "",
+        "lastLocation.updatedAt": now,
+        "lastLocation.isTrackingActive": true,
+        "lastLocation.motionStatus": "stationary",
+        "lastLocation.stationarySince": now,
+      },
+    }).catch(() => {});
+
     // Send Notifications
     const timeStr = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
     const empName = employee.user?.name || employee.firstName + " " + employee.lastName;
@@ -457,6 +470,13 @@ const checkOut = async (req, res, next) => {
     if (punchOutSelfie) attendance.punchOutSelfie = punchOutSelfie;
 
     await attendance.save();
+
+    // Deactivate location tracking on Punch Out
+    await Employee.findByIdAndUpdate(employee._id, {
+      $set: {
+        "lastLocation.isTrackingActive": false,
+      },
+    }).catch(() => {});
 
     // Send Notifications
     const timeStr = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });

@@ -164,9 +164,15 @@ const buildEmployeeSections = (hasPermission) => {
 
 const EmployeeDrawerContent = (props) => {
   const { state, navigation } = props;
-  const { user, logout, hasPermission } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
   const insets = useSafeAreaInsets();
   const [imgError, setImgError] = useState(false);
+
+  React.useEffect(() => {
+    if (refreshUserProfile) {
+      refreshUserProfile().catch(() => {});
+    }
+  }, []);
 
   const sections = buildEmployeeSections(hasPermission);
 

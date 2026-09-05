@@ -66,10 +66,10 @@ const SectionHeader = ({ title, icon, onViewAll }) => (
 );
 
 export default function EmployeeDashboard({ navigation }) {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, refreshUserProfile } = useAuth();
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
-  const canCreateTask = hasPermission("tasks", "create") || hasPermission("tasks");
+  const canCreateTask = hasPermission("tasks", "create");
   const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
@@ -90,6 +90,7 @@ export default function EmployeeDashboard({ navigation }) {
       const params = currentDeptId ? { departmentId: currentDeptId } : {};
       if (force) {
         setRefreshing(true);
+        if (refreshUserProfile) await refreshUserProfile().catch(() => {});
         await refreshEmployeeDashboard(params);
       } else {
         await getEmployeeDashboardCached(false, params);

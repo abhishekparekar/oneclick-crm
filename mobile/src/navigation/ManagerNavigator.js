@@ -58,6 +58,8 @@ import EmployeeRegularizationRequestScreen from "../screens/attendance/EmployeeR
 import { HRAddEmployeeScreen, HREditEmployeeScreen } from "../screens/hr/HRWrappers";
 import LeadsNavigator from "./LeadsNavigator";
 import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
+import MyPayslipsScreen from "../screens/employee/MyPayslipsScreen";
+import EmployeePayslipDetailsScreen from "../screens/employee/EmployeePayslipDetailsScreen";
 
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
@@ -106,25 +108,36 @@ const ManagerBottomTabs = () => {
         component={ManagerDashboardScreen}
         options={{ tabBarLabel: "Home", headerShown: false }}
       />
-      {canAccessTasks && (
-        <Tab.Screen
-          name="ManagerTasks"
-          component={ManagerTasksScreen}
-          options={{ tabBarLabel: "Tasks", headerShown: false }}
-        />
-      )}
+      <Tab.Screen
+        name="LeadsEngine"
+        component={LeadsNavigator}
+        options={{ tabBarLabel: "Leads", headerShown: false }}
+      />
+      <Tab.Screen
+        name="ManagerTasks"
+        component={ManagerTasksScreen}
+        options={{ tabBarLabel: "Tasks", headerShown: false }}
+      />
+      <Tab.Screen
+        name="ManagerTeamAttendance"
+        component={ManagerTeamAttendanceScreen}
+        options={{ tabBarLabel: "Attendance", headerShown: false }}
+      />
+      <Tab.Screen
+        name="ManagerTeamLeaves"
+        component={ManagerTeamLeavesScreen}
+        options={{ tabBarLabel: "Leaves", headerShown: false }}
+      />
+      <Tab.Screen
+        name="ManagerProjects"
+        component={ManagerProjectsScreen}
+        options={{ tabBarLabel: "Projects", headerShown: false }}
+      />
       <Tab.Screen
         name="ManagerTeam"
         component={ManagerTeamScreen}
         options={{ tabBarLabel: "My Team", headerShown: false }}
       />
-      {canAccessLeaves && (
-        <Tab.Screen
-          name="ManagerTeamLeaves"
-          component={ManagerTeamLeavesScreen}
-          options={{ tabBarLabel: "Leaves", headerShown: false }}
-        />
-      )}
       <Tab.Screen
         name="ManagerProfile"
         component={ManagerProfileScreen}
@@ -147,6 +160,11 @@ const ManagerStackScreen = () => {
         component={ManagerBottomTabs}
         options={{ headerShown: false }}
       />
+      {/* Core Tab Screen Aliases directly in Stack for seamless top-level jumping */}
+      <Stack.Screen name="ManagerDashboard" component={ManagerDashboardScreen} />
+      <Stack.Screen name="ManagerTasks" component={ManagerTasksScreen} />
+      <Stack.Screen name="ManagerTeam" component={ManagerTeamScreen} />
+      <Stack.Screen name="ManagerProfile" component={ManagerProfileScreen} />
       <Stack.Screen name="LeadsEngine" component={LeadsNavigator} />
       <Stack.Screen name="EmployeeLocationTracking" component={EmployeeLocationTrackingScreen} />
 
@@ -201,6 +219,11 @@ const ManagerStackScreen = () => {
       <Stack.Screen name="ManagerNotificationDetailsScreen" component={ManagerNotificationDetailsScreen} />
       <Stack.Screen name="ManagerAnnouncements" component={ManagerAnnouncementsScreen} />
       <Stack.Screen name="ManagerAnnouncementDetailsScreen" component={ManagerAnnouncementDetailsScreen} />
+
+      {/* Payroll / Payslips */}
+      <Stack.Screen name="Payslips" component={MyPayslipsScreen} />
+      <Stack.Screen name="MyPayslips" component={MyPayslipsScreen} />
+      <Stack.Screen name="EmployeePayslipDetails" component={EmployeePayslipDetailsScreen} />
 
       {/* Settings & Profile */}
       <Stack.Screen name="ManagerSettings" component={ManagerSettingsScreen} />

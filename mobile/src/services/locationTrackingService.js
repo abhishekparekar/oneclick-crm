@@ -1,6 +1,6 @@
 import Geolocation from "@react-native-community/geolocation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PermissionsAndroid, Platform, AppState } from "react-native";
+import { PermissionsAndroid, Platform, AppState, Alert } from "react-native";
 import notifee, { AndroidImportance, AndroidForegroundServiceType } from "@notifee/react-native";
 import api from "../api/api";
 import { isValidGpsPoint } from "../utils/locationUtils";
@@ -27,9 +27,9 @@ try {
 
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 8000,
-  maximumAge: 0, // Always acquire fresh GPS coordinates, reject stale cached readings
-  distanceFilter: 1, // Meters: sensitive to real-world movement (1 meter steps)
+  timeout: 7000,
+  maximumAge: 3000, // 3-second fresh GPS cache prevents satellite dropouts on moving bike
+  distanceFilter: 3, // Sensitive to real-world bike steps (3 meters)
   interval: 3500, // Android poll interval: 3.5 seconds
   fastestInterval: 2000, // Android fastest interval: 2 seconds
 };
@@ -115,16 +115,33 @@ class LocationTrackingService {
   /**
    * Check and prompt for Battery Optimization exemption (Unrestricted background)
    */
-  async requestBatteryOptimizationExemption() {
+  async requestBatteryOptimizationExemption(showAlert = true) {
     if (Platform.OS !== "android") return;
     try {
       const isBatteryOptimized = await notifee.isBatteryOptimizationEnabled();
       if (isBatteryOptimized) {
-        console.log("[LocationService] Prompting user to disable battery optimization for uninterrupted tracking");
-        await notifee.openBatteryOptimizationSettings();
+        console.log("[LocationService] Battery optimization is active. Prompting user for Unrestricted...");
+        if (showAlert) {
+          Alert.alert(
+            "🔋 Battery: 'Unrestricted' आवश्यक आहे",
+            "बाईकवर प्रवास करताना फोन खिशात किंवा स्क्रीन बंद असताना ट्रॅकिंग सतत अचूक सुरू राहण्यासाठी, कृपया Battery Usage मध्ये 'Unrestricted' (कदापि थांबवू नका) निवडा.",
+            [
+              { text: "नंतर (Later)", style: "cancel" },
+              {
+                text: "सेटिंग्ज उघडा (Open Settings)",
+                onPress: async () => {
+                  try {
+                    await notifee.openBatteryOptimizationSettings();
+                  } catch (_) {}
+                },
+              },
+            ],
+            { cancelable: true }
+          );
+        }
       }
     } catch (err) {
-      console.log("[LocationService] Battery optimization check notice:", err.message);
+      console.log("[LocationService] Battery optimization check notice:", err?.message);
     }
   }
 
@@ -146,24 +163,44 @@ class LocationTrackingService {
         foregroundTypes.push(AndroidForegroundServiceType.LOCATION);
       }
 
-      await notifee.displayNotification({
-        id: NOTIFICATION_ID,
-        title: "Location Tracking Active",
-        body: "Recording your real-time travel and duty location.",
-        android: {
-          channelId: NOTIFICATION_CHANNEL_ID,
-          asForegroundService: true,
-          ongoing: true,
-          autoCancel: false,
-          foregroundServiceTypes: foregroundTypes,
-          pressAction: {
-            id: "default",
+      // Try as foreground service first with valid drawable icon
+      try {
+        await notifee.displayNotification({
+          id: NOTIFICATION_ID,
+          title: "Location Tracking Active",
+          body: "Recording your real-time travel and duty location.",
+          android: {
+            channelId: NOTIFICATION_CHANNEL_ID,
+            asForegroundService: true,
+            ongoing: true,
+            autoCancel: false,
+            foregroundServiceTypes: foregroundTypes,
+            pressAction: {
+              id: "default",
+            },
+            smallIcon: "ic_notification",
           },
-          smallIcon: "ic_launcher",
-        },
-      });
+        });
+      } catch (fgsErr) {
+        console.warn("[LocationService] Foreground service notification fallback:", fgsErr?.message);
+        // Fallback: Ongoing notification without foreground service flag if OS disallowed FGS start
+        await notifee.displayNotification({
+          id: NOTIFICATION_ID,
+          title: "Location Tracking Active",
+          body: "Recording your real-time travel and duty location.",
+          android: {
+            channelId: NOTIFICATION_CHANNEL_ID,
+            ongoing: true,
+            autoCancel: false,
+            pressAction: {
+              id: "default",
+            },
+            smallIcon: "ic_notification",
+          },
+        });
+      }
     } catch (err) {
-      console.warn("[LocationService] Notification display notice:", err.message);
+      console.warn("[LocationService] Notification display notice:", err?.message);
     }
   }
 
@@ -200,9 +237,9 @@ class LocationTrackingService {
           break;
         }
 
-        // 2. Late-Night Auto-Stop Check (Requirement 6: Cut off after 11:00 PM / 23:00 local time)
+        // 2. Late-Night Auto-Stop Check (Cut off after 12:00 AM / Midnight local time)
         const currentHour = new Date().getHours();
-        if (currentHour >= 23 || currentHour < 5) {
+        if (currentHour < 5) {
           console.log(`[LocationService] Late night hour detected (${currentHour}:00). Auto-stopping tracking.`);
           await this.stopLocationTracking();
           break;
@@ -262,11 +299,11 @@ class LocationTrackingService {
    * Start Location Tracking
    */
   async startLocationTracking() {
-    // Check late-night cutoff
+    // Check late-night cutoff (12:00 AM / Midnight)
     const currentHour = new Date().getHours();
-    if (currentHour >= 23 || currentHour < 5) {
+    if (currentHour < 5) {
       console.log("[LocationService] Late night: Location tracking cannot be started");
-      return { success: false, message: "Tracking cannot be started after 11:00 PM" };
+      return { success: false, message: "Tracking cannot be started after 12:00 AM" };
     }
 
     if (this.isTracking) {
@@ -286,8 +323,8 @@ class LocationTrackingService {
     // This keeps the native process running even if the user swipes away the app
     await this.showForegroundNotification();
 
-    // Check battery optimization settings so Android doesn't kill tracking when app is swiped away
-    this.requestBatteryOptimizationExemption().catch(() => {});
+    // Check battery optimization settings so Android doesn't kill tracking when app is swiped away or phone screen is locked
+    this.requestBatteryOptimizationExemption(true).catch(() => {});
 
     // Start background tracking worker loop
     this.runBackgroundTrackingLoop().catch(() => {});
@@ -368,8 +405,8 @@ class LocationTrackingService {
   async autoResumeTrackingIfActive() {
     try {
       const currentHour = new Date().getHours();
-      if (currentHour >= 23 || currentHour < 5) {
-        console.log("[LocationService] Late night hour detected. Auto-resume aborted.");
+      if (currentHour < 5) {
+        console.log("[LocationService] Late night hour detected (12:00 AM cut-off). Auto-resume aborted.");
         await AsyncStorage.removeItem(TRACKING_STATE_KEY);
         return;
       }
@@ -387,11 +424,15 @@ class LocationTrackingService {
             return;
           }
         } catch (apiErr) {
-          console.log("[LocationService] Could not verify today duty status:", apiErr.message);
+          console.log("[LocationService] Could not verify today duty status:", apiErr?.message);
         }
 
         console.log("[LocationService] Resuming background tracking session from storage state...");
-        await this.startLocationTracking();
+        try {
+          await this.startLocationTracking();
+        } catch (startErr) {
+          console.warn("[LocationService] Start tracking error during auto-resume:", startErr);
+        }
       }
     } catch (err) {
       console.warn("[LocationService] Auto-resume check error:", err);

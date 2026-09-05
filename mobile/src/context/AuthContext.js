@@ -70,7 +70,10 @@ export const AuthProvider = ({ children }) => {
       try {
         const locationTrackingService = require("../services/locationTrackingService").default;
         if (locationTrackingService) {
-          locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
+          // Delay by 1.5s so React Native UI & Activity are fully initialized before foreground service
+          setTimeout(() => {
+            locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
+          }, 1500);
         }
       } catch (_) {}
     }
@@ -200,8 +203,18 @@ export const AuthProvider = ({ children }) => {
     if (cat === "report" || cat === "reports") return "reports";
     if (cat === "attendance") return "attendance";
     if (cat === "payroll" || cat === "payslips") return "payroll";
+    if (cat === "recruitment") return "recruitment";
+    if (cat === "performance") return "performance";
+    if (cat === "whatsapp") return "whatsapp";
+    if (cat === "mobileapp") return "mobileapp";
+    if (cat === "webadmin") return "webadmin";
     return cat;
   };
+
+  const SUITE_MODULES = [
+    "attendance", "leave", "payroll", "tasks", "projects", "leads", "reports",
+    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin"
+  ];
 
   const hasPermission = (category, action) => {
     if (!user) return false;
@@ -211,55 +224,91 @@ export const AuthProvider = ({ children }) => {
     const normCat = normalizeModule(category);
     if (!normCat) return true;
 
-    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access)
-    const rawSubscribed = 
-      user.company?.subscribedModules ?? 
-      user.subscribedModules ?? 
-      (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+    const isSuite = SUITE_MODULES.includes(normCat);
 
-    if (Array.isArray(rawSubscribed)) {
-      const subscribed = rawSubscribed.map(normalizeModule);
-      if (!subscribed.includes(normCat)) {
-        return false; // Not in company's purchased plan
+    // 1. Check Company Active Subscription Plan Modules (Plan-Level Access for suite modules)
+    if (isSuite) {
+      const rawSubscribed = 
+        user.company?.subscribedModules ?? 
+        user.subscribedModules ?? 
+        (typeof user.companyId === "object" && user.companyId !== null ? user.companyId.subscribedModules : null);
+
+      if (Array.isArray(rawSubscribed)) {
+        const subscribed = rawSubscribed.map(normalizeModule);
+        if (!subscribed.includes(normCat)) {
+          return false; // Not in company's purchased plan
+        }
       }
     }
 
     // CompanyAdmin gets full access to all subscribed modules in plan
     if (roleLower === "companyadmin" || roleLower === "admin") return true;
 
-    // 2. Check Employee Assigned Modules (for Employee, Manager, HR)
-    const rawAssigned = 
-      user.assignedModules ?? 
-      user.employee?.assignedModules ?? 
-      (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+    // 2. Check Employee Assigned Modules (for suite modules only)
+    if (isSuite) {
+      const rawAssigned = 
+        user.assignedModules ?? 
+        user.employee?.assignedModules ?? 
+        (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
 
-    if (Array.isArray(rawAssigned)) {
-      const assigned = rawAssigned.map(normalizeModule);
-      if (!assigned.includes(normCat)) {
-        return false; // Not allocated to this employee
+      if (Array.isArray(rawAssigned)) {
+        const assigned = rawAssigned.map(normalizeModule);
+        if (!assigned.includes(normCat)) {
+          return false; // Not allocated to this employee/manager/HR
+        }
       }
     }
 
     const perm = user.permissions || {};
-    const catPerm = perm[category] || perm[category?.toLowerCase()] || (normCat ? perm[normCat] : undefined);
+    const catLower = String(category).toLowerCase().trim();
+    const catPerm = 
+      perm[category] ?? 
+      perm[catLower] ?? 
+      (normCat ? perm[normCat] : undefined) ??
+      (normCat === "leave" ? perm.leaves : undefined) ??
+      (normCat === "leads" ? perm.leads : undefined) ??
+      (normCat === "tasks" ? perm.tasks : undefined) ??
+      (normCat === "employees" || normCat === "teammembers" || normCat === "team" ? (perm.teamMembers || perm.employees) : undefined);
 
-    if (catPerm !== undefined) {
-      if (action) {
-        return catPerm[action] === true || (action === "view" && (catPerm === true || catPerm.read === true || catPerm.view === true));
-      } else {
-        return catPerm === true || (typeof catPerm === "object" && Object.values(catPerm).some(v => v === true));
+    // Module-level or view access: granted if assigned to user
+    if (!action || action === "view" || action === "read") {
+      // If it is a suite module and passed the assignedModules check above, viewing is always permitted
+      if (isSuite) {
+        return true;
+      }
+      if (catPerm === false) return false;
+      if (typeof catPerm === "object" && catPerm !== null && catPerm.view === false) {
+        return false;
+      }
+      return true;
+    }
+
+    // Specific action-level permissions
+    if (catPerm !== undefined && catPerm !== null) {
+      if (typeof catPerm === "boolean") return catPerm;
+      if (typeof catPerm === "object" && catPerm[action] !== undefined) {
+        return catPerm[action] === true;
       }
     }
 
-    // Fallback defaults by role
+    // Fallback defaults by role for actions
     if (roleLower === "hr") return true;
     if (roleLower === "manager") {
       if (normCat === "tasks" && action === "cancel") return false;
       if (normCat === "leads" && action === "delete") return false;
+      if (normCat === "leave" && action === "approveReject") return true;
+      if (normCat === "employees" || normCat === "teammembers" || normCat === "team") {
+        if (action === "add" || action === "create") return catPerm?.add === true || catPerm?.create === true;
+        if (action === "edit") return catPerm?.edit === true;
+        if (action === "activeInactive") return catPerm?.activeInactive === true;
+        return true;
+      }
       return true;
     }
     if (roleLower === "employee" || roleLower === "team member") {
-      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normCat)) return true;
+      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normCat)) {
+        return true;
+      }
     }
     return false;
   };
