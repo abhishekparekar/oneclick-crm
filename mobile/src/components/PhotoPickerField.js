@@ -34,7 +34,7 @@ const PhotoPickerField = ({ photo, onPhotoChange, label = "PROFILE PHOTO" }) => 
       }
 
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],        // expo-image-picker v57+ format
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.75,

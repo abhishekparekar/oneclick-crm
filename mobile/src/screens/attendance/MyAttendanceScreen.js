@@ -13,6 +13,9 @@ import {
   Dimensions,
   SafeAreaView,
   Image,
+  PermissionsAndroid,
+  Platform,
+  Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -178,23 +181,59 @@ const MyAttendanceScreen = ({ navigation }) => {
     }
   };
 
-  // Camera selfie capture — returns the captured base64 URI or null if cancelled
+  // Camera selfie capture — shows native Android permission dialog directly in app
   const handleCaptureSelfie = async () => {
     try {
       setCapturingSelfie(true);
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Camera Permission Denied", "Please grant camera access to capture your attendance selfie.");
-        setCapturingSelfie(false);
-        return null;
+
+      // Step 1: Native Android permission request — shows "Allow/Deny" popup in app
+      if (Platform.OS === "android") {
+        const already = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.CAMERA
+        );
+        if (!already) {
+          const permResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            {
+              title: "Camera Permission",
+              message: "OneClick needs camera access to capture your attendance selfie.",
+              buttonPositive: "Allow",
+              buttonNegative: "Deny",
+            }
+          );
+          if (permResult === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+            Alert.alert(
+              "Camera Permission Blocked",
+              "Camera access is permanently denied. Please enable it in Settings → Apps → OneClick → Permissions → Camera.",
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Open Settings", onPress: () => Linking.openSettings() },
+              ]
+            );
+            setCapturingSelfie(false);
+            return null;
+          }
+          if (permResult !== PermissionsAndroid.RESULTS.GRANTED) {
+            setCapturingSelfie(false);
+            return null;
+          }
+        }
+      } else {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          setCapturingSelfie(false);
+          return null;
+        }
       }
+
+      // Step 2: Launch camera
       const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ["images"],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.4,
         base64: true,
-        cameraType: ImagePicker.CameraType.front,
+        cameraSide: "front",
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const asset = result.assets[0];
@@ -202,13 +241,15 @@ const MyAttendanceScreen = ({ navigation }) => {
         setSelfieUri(fileUri);
         setSelfieChecked(true);
         setCapturingSelfie(false);
-        return fileUri; // return so caller can use it immediately
+        return fileUri;
       }
       setCapturingSelfie(false);
       return null;
     } catch (err) {
       console.log("Camera capture error:", err);
-      Alert.alert("Camera Error", "Failed to capture selfie. Please try again.");
+      if (!err?.message?.toLowerCase().includes("cancel")) {
+        Alert.alert("Camera Error", "Could not open camera. Please try again.");
+      }
       setCapturingSelfie(false);
       return null;
     }

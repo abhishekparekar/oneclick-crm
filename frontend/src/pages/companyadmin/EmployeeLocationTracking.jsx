@@ -721,7 +721,7 @@ const EmployeeLocationTracking = () => {
                   एकूण प्रत्यक्ष अंतर (Actual Distance)
                 </p>
                 <h3 className="text-2xl font-black text-blue-600 mt-0.5">
-                  {trailData?.distanceKm || 0} km
+                  {trailData?.distanceText || `${trailData?.distanceKm || 0} km`}
                 </h3>
                 <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
                   GPS Jitter-filtered road path
@@ -953,16 +953,23 @@ const EmployeeLocationTracking = () => {
               </div>
 
               <div className="flex items-center justify-between text-[10.5px] text-slate-300 pt-0.5">
-                <span>
-                  ⏱️ शेवटचे सिग्नल:{" "}
-                  <b>
-                    {selectedEmployee.lastUpdated
-                      ? new Date(selectedEmployee.lastUpdated).toLocaleTimeString()
-                      : "N/A"}
-                  </b>{" "}
-                  {selectedEmployee.minutesSinceLastPing !== null
-                    ? `(${selectedEmployee.minutesSinceLastPing}m ago)`
-                    : ""}
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <span>
+                    ⏱️ शेवटचे सिग्नल:{" "}
+                    <b>
+                      {selectedEmployee.lastUpdated
+                        ? new Date(selectedEmployee.lastUpdated).toLocaleTimeString()
+                        : "N/A"}
+                    </b>{" "}
+                    {selectedEmployee.minutesSinceLastPing !== null
+                      ? `(${selectedEmployee.minutesSinceLastPing}m ago)`
+                      : ""}
+                  </span>
+                  {selectedEmployee.todayDistanceText && (
+                    <span className="bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded border border-blue-500/30 font-bold">
+                      🛣️ आजचा प्रवास: {selectedEmployee.todayDistanceText}
+                    </span>
+                  )}
                 </span>
 
                 <button
@@ -1005,7 +1012,7 @@ const EmployeeLocationTracking = () => {
                   <div className="flex items-center justify-between text-xs">
                     <span className="font-extrabold text-foreground">{selectedEmployee.name}</span>
                     <span className="font-black text-blue-600 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
-                      {trailData?.distanceKm || 0} km प्रत्यक्ष अंतर
+                      {trailData?.distanceText || `${trailData?.distanceKm || 0} km`} प्रत्यक्ष अंतर
                     </span>
                   </div>
 
@@ -1172,25 +1179,33 @@ const EmployeeLocationTracking = () => {
                       </div>
                     </div>
 
-                    {/* Bottom Row: Stoppage Time / Motion Speed + Last Update */}
-                    <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[11px]">
-                      {emp.motionStatus === "moving" ? (
-                        <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-500/20">
-                          <Car size={12} />
-                          <span>रस्त्यावर चालू: {Math.round(emp.speed)} km/h</span>
-                        </div>
-                      ) : emp.latitude ? (
-                        <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-extrabold bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/20">
-                          <Timer size={12} />
-                          <span>थांबून: {emp.stoppageText || "0 mins"}</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-1 text-muted-foreground font-semibold text-[10px]">
-                          <span>लोकेशन प्राप्त नाही</span>
-                        </div>
-                      )}
+                    {/* Bottom Row: Stoppage Time / Motion Speed + Today's Distance + Last Update */}
+                    <div className="flex items-center justify-between pt-1 border-t border-border/50 text-[11px] flex-wrap gap-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {emp.motionStatus === "moving" ? (
+                          <div className="flex items-center gap-1.5 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-500/20">
+                            <Car size={12} />
+                            <span>रस्त्यावर चालू: {Math.round(emp.speed)} km/h</span>
+                          </div>
+                        ) : emp.latitude ? (
+                          <div className="flex items-center gap-1.5 text-rose-700 dark:text-rose-400 font-extrabold bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/20">
+                            <Timer size={12} />
+                            <span>थांबून: {emp.stoppageText || "0 mins"}</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-muted-foreground font-semibold text-[10px]">
+                            <span>लोकेशन प्राप्त नाही</span>
+                          </div>
+                        )}
 
-                      <div className="text-[10px] text-muted-foreground font-semibold">
+                        {emp.todayDistanceText && (
+                          <div className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">
+                            🛣️ {emp.todayDistanceText}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="text-[10px] text-muted-foreground font-semibold ml-auto">
                         ⏱️ {emp.lastUpdated ? new Date(emp.lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "N/A"}
                         {emp.minutesSinceLastPing !== null ? ` (${emp.minutesSinceLastPing}m)` : ""}
                       </div>

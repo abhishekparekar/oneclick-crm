@@ -802,7 +802,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             {/* Trail Metrics */}
             <View style={styles.trailMetricsBox}>
               <View style={styles.metricItem}>
-                <Text style={styles.metricVal}>{trailData.distanceKm} km</Text>
+                <Text style={styles.metricVal}>{trailData.distanceText || `${trailData.distanceKm} km`}</Text>
                 <Text style={styles.metricLbl}>Distance</Text>
               </View>
               <View style={styles.metricDivider} />
@@ -894,9 +894,18 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                         {isOnline ? "Active" : "Idle / Offline"}
                       </Text>
                     </View>
-                    {emp.speed > 0 ? (
-                      <Text style={styles.empSpeedText}>{emp.speed} km/h</Text>
-                    ) : null}
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      {emp.todayDistanceText ? (
+                        <View style={styles.todayDistanceBadge}>
+                          <Text style={styles.todayDistanceText}>
+                            🛣️ {emp.todayDistanceText}
+                          </Text>
+                        </View>
+                      ) : null}
+                      {emp.speed > 0 ? (
+                        <Text style={styles.empSpeedText}>{emp.speed} km/h</Text>
+                      ) : null}
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -1196,6 +1205,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   empSpeedText: {
+    fontSize: 9.5,
+    fontWeight: "800",
+    color: "#1268D9",
+  },
+  todayDistanceBadge: {
+    backgroundColor: "rgba(18, 104, 217, 0.1)",
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: "rgba(18, 104, 217, 0.2)",
+  },
+  todayDistanceText: {
     fontSize: 9.5,
     fontWeight: "800",
     color: "#1268D9",

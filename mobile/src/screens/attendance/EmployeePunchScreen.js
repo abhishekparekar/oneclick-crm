@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useRef, useEffect, Suspense } from "react";
+import React, { useCallback, useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,14 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  PermissionsAndroid,
   StatusBar,
+  Image,
+  PermissionsAndroid,
+  Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import { Camera, CameraType } from "react-native-camera-kit";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import useManagerController from "../../controllers/managerController";
@@ -42,10 +44,10 @@ const EmployeePunchScreen = ({ navigation }) => {
   const [capturingGps, setCapturingGps] = useState(false);
   const [isPunchDisabled, setIsPunchDisabled] = useState(false);
 
-  // Camera State
-  const [hasCameraPerm, setHasCameraPerm] = useState(false);
+  // Selfie State
+  const [selfieUri, setSelfieUri] = useState(null);
   const [capturingSelfie, setCapturingSelfie] = useState(false);
-  const cameraRef = useRef(null);
+  const [submittingPunch, setSubmittingPunch] = useState(false);
   const isMountedRef = useRef(true);
 
   useEffect(() => {
@@ -55,47 +57,14 @@ const EmployeePunchScreen = ({ navigation }) => {
     };
   }, []);
 
-  const requestPermissions = async () => {
-    if (Platform.OS === "android") {
-      try {
-        const cameraGranted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: "Camera Permission",
-            message: "One Click CRM needs camera access to capture your selfie.",
-            buttonPositive: "Allow",
-            buttonNegative: "Cancel",
-          }
-        );
-        const hasCamera = cameraGranted === PermissionsAndroid.RESULTS.GRANTED;
-        setHasCameraPerm(hasCamera);
-        return hasCamera;
-      } catch (err) {
-        console.warn("Permission error:", err);
-        return false;
-      }
-    }
-    setHasCameraPerm(true);
-    return true;
-  };
-
   const initData = async () => {
     try {
-      // 1. Check Camera Permission first
-      const permitted = await requestPermissions();
-      if (!permitted) {
-        Alert.alert("Permission Denied", "Camera access is required for punch selfie.");
-        navigation.goBack();
-        return;
-      }
-
-      // Camera is ready: unblock camera and UI immediately!
-      setLoadingData(false);
+      setLoadingData(true);
 
       // Check battery optimization for uninterrupted background bike tracking
-      locationTrackingService.requestBatteryOptimizationExemption(true).catch(() => {});
+      locationTrackingService.requestBatteryOptimizationExemption(false).catch(() => {});
 
-      // 2. Fetch today record and GPS location in parallel without blocking UI
+      // 1. Fetch today record
       const fetchTodayPromise = (async () => {
         try {
           const todayRes = await getMyTodayApi();
@@ -124,6 +93,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         }
       })();
 
+      // 2. Capture GPS Location and validate office boundary
       const fetchGpsPromise = (async () => {
         setCapturingGps(true);
         try {
@@ -168,9 +138,10 @@ const EmployeePunchScreen = ({ navigation }) => {
       await Promise.allSettled([fetchTodayPromise, fetchGpsPromise]);
     } catch (err) {
       console.error("Init Error:", err);
-      setLoadingData(false);
       setCapturingGps(false);
       setGpsCaptured(true);
+    } finally {
+      setLoadingData(false);
     }
   };
 
@@ -180,25 +151,102 @@ const EmployeePunchScreen = ({ navigation }) => {
     }, [])
   );
 
-  const executePunch = async () => {
+  const handleCaptureSelfie = async () => {
+    if (capturingSelfie || submittingPunch) return null;
     try {
-      if (isMountedRef.current) setCapturingSelfie(true);
-      let finalSelfieUri = null;
+      setCapturingSelfie(true);
 
-      if (cameraRef.current && typeof cameraRef.current.capture === "function") {
-        try {
-          const capturePromise = cameraRef.current.capture();
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Camera capture timeout")), 3000)
+      // Step 1: Request camera permission using Android native dialog
+      // This shows the "Allow / Deny" popup directly inside the app.
+      if (Platform.OS === "android") {
+        const already = await PermissionsAndroid.check(
+          PermissionsAndroid.PERMISSIONS.CAMERA
+        );
+        if (!already) {
+          const result = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.CAMERA,
+            {
+              title: "Camera Permission",
+              message: "OneClick needs camera access to capture your attendance selfie.",
+              buttonPositive: "Allow",
+              buttonNegative: "Deny",
+            }
           );
-          const photo = await Promise.race([capturePromise, timeoutPromise]);
-          if (photo && photo.uri) {
-            finalSelfieUri = photo.uri;
+          if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) {
+            // User clicked "Don't ask again" — only NOW show Settings button
+            Alert.alert(
+              "Camera Permission Blocked",
+              "You have permanently denied camera access. Please enable it in Settings → Apps → OneClick → Permissions → Camera.",
+              [
+                { text: "Cancel", style: "cancel" },
+                { text: "Open Settings", onPress: () => Linking.openSettings() },
+              ]
+            );
+            setCapturingSelfie(false);
+            return null;
           }
-        } catch (captureErr) {
-          console.warn("Camera capture error:", captureErr?.message || captureErr);
+          if (result !== PermissionsAndroid.RESULTS.GRANTED) {
+            setCapturingSelfie(false);
+            return null;
+          }
+        }
+      } else {
+        // iOS: use expo permission
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          setCapturingSelfie(false);
+          return null;
         }
       }
+
+      // Step 2: Launch camera
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.4,
+        base64: true,
+        cameraSide: "front",
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const uri = result.assets[0].uri;
+        setSelfieUri(uri);
+        setCapturingSelfie(false);
+        return uri;
+      }
+      setCapturingSelfie(false);
+      return null;
+    } catch (err) {
+      console.warn("Camera capture error:", err);
+      // Only show error if it's truly unexpected (not a user cancel)
+      if (!err?.message?.toLowerCase().includes("cancel")) {
+        Alert.alert(
+          "Camera Error",
+          "Could not open camera. Please try again.",
+          [{ text: "OK" }]
+        );
+      }
+      setCapturingSelfie(false);
+      return null;
+    }
+  };
+
+  const triggerDashboardRefresh = () => {
+    try {
+      if (user?.role === "Manager" || user?.role === "manager") {
+        refreshManagerDashboard && refreshManagerDashboard();
+      } else {
+        refreshEmployeeDashboard && refreshEmployeeDashboard();
+      }
+    } catch (_) {}
+  };
+
+  const executePunch = async (activeSelfie) => {
+    try {
+      setSubmittingPunch(true);
+
+      let finalSelfieUri = activeSelfie || selfieUri;
 
       // Upload to Firebase if local file uri with 4-second timeout to prevent hanging
       if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
@@ -233,38 +281,27 @@ const EmployeePunchScreen = ({ navigation }) => {
           : {}),
       };
 
-      // Trigger dashboard refresh in background
-      const triggerDashboardRefresh = () => {
-        try {
-          if (user?.role === "Manager" || user?.role === "manager") {
-            refreshManagerDashboard();
-          } else {
-            refreshEmployeeDashboard();
-          }
-        } catch (_) {}
-      };
-
       if (action === "in") {
         await punchInApi(payload);
         triggerDashboardRefresh();
-        setTimeout(() => {
-          try {
-            locationTrackingService.startLocationTracking().catch(() => {});
-          } catch (_) {}
-        }, 800);
+        try {
+          await locationTrackingService.startLocationTracking();
+        } catch (trkErr) {
+          console.warn("[Punch] Tracking start notice:", trkErr);
+        }
         Alert.alert("Success", "Clocked In successfully!", [
-          { text: "OK", onPress: () => navigation.goBack() }
+          { text: "OK", onPress: () => navigation.goBack() },
         ]);
       } else {
         await punchOutApi(payload);
         triggerDashboardRefresh();
-        setTimeout(() => {
-          try {
-            locationTrackingService.stopLocationTracking().catch(() => {});
-          } catch (_) {}
-        }, 500);
+        try {
+          await locationTrackingService.stopLocationTracking();
+        } catch (trkErr) {
+          console.warn("[Punch] Tracking stop notice:", trkErr);
+        }
         Alert.alert("Success", "Clocked Out successfully!", [
-          { text: "OK", onPress: () => navigation.goBack() }
+          { text: "OK", onPress: () => navigation.goBack() },
         ]);
       }
     } catch (err) {
@@ -275,18 +312,23 @@ const EmployeePunchScreen = ({ navigation }) => {
       );
     } finally {
       if (isMountedRef.current) {
-        setCapturingSelfie(false);
+        setSubmittingPunch(false);
       }
     }
   };
 
   const handleCameraPunchConfirm = async () => {
+    if (submittingPunch) return;
+
     if (isPunchDisabled) {
-      Alert.alert(
-        "Locked",
-        "You are outside the authorized office boundary."
-      );
+      Alert.alert("Locked", "You are outside the authorized office boundary.");
       return;
+    }
+
+    let activeSelfie = selfieUri;
+    if (!activeSelfie) {
+      activeSelfie = await handleCaptureSelfie();
+      if (!activeSelfie) return;
     }
 
     if (action === "out") {
@@ -295,24 +337,26 @@ const EmployeePunchScreen = ({ navigation }) => {
         "Are you sure you want to punch out for the day?",
         [
           { text: "Cancel", style: "cancel" },
-          { text: "Yes, Punch Out", style: "destructive", onPress: executePunch },
+          { text: "Yes, Punch Out", style: "destructive", onPress: () => executePunch(activeSelfie) },
         ]
       );
     } else {
-      await executePunch();
+      await executePunch(activeSelfie);
     }
   };
 
-  if (loadingData || !hasCameraPerm) {
+  if (loadingData) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
         <ActivityIndicator size="large" color="#3B82F6" />
         <Text style={{ color: "#FFFFFF", marginTop: 12, fontWeight: "600" }}>
-          Preparing Camera...
+          Loading Attendance Data...
         </Text>
       </View>
     );
   }
+
+  const isWorking = submittingPunch || capturingSelfie || capturingGps || !gpsCaptured;
 
   return (
     <View style={styles.container}>
@@ -329,7 +373,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         <View style={{ width: 42 }} />
       </View>
 
-      {/* In-App Circular Live Camera Stream */}
+      {/* Center Selfie Capture Area */}
       <View style={styles.cameraWrapper}>
         <View
           style={[
@@ -339,41 +383,78 @@ const EmployeePunchScreen = ({ navigation }) => {
                 ? "#334155"
                 : isPunchDisabled
                 ? "#EF4444"
+                : selfieUri
+                ? "#10B981"
                 : "#3B82F6",
             },
           ]}
         >
-          <Suspense
-            fallback={
-              <View style={[styles.camera, { justifyContent: "center", alignItems: "center" }]}>
-                <ActivityIndicator size="small" color="#3B82F6" />
-              </View>
-            }
-          >
-            <Camera
-              ref={cameraRef}
-              style={styles.camera}
-              cameraType={CameraType.Front}
-              flashMode="off"
-              resetFocusWhenMotionDetected={false}
-              shutterPhotoSound={false}
-            />
-          </Suspense>
+          {selfieUri ? (
+            <View style={styles.selfieInner}>
+              <Image source={{ uri: selfieUri }} style={styles.selfieImage} resizeMode="cover" />
+              <TouchableOpacity
+                style={styles.retakeOverlayBtn}
+                onPress={handleCaptureSelfie}
+                disabled={submittingPunch}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="camera-reverse" size={15} color="#FFFFFF" />
+                <Text style={styles.retakeOverlayText}>Retake</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.emptySelfieBtn}
+              onPress={handleCaptureSelfie}
+              disabled={submittingPunch || capturingSelfie}
+              activeOpacity={0.8}
+            >
+              {capturingSelfie ? (
+                <ActivityIndicator size="large" color="#3B82F6" />
+              ) : (
+                <>
+                  <View style={styles.cameraIconBox}>
+                    <Ionicons name="camera" size={42} color="#3B82F6" />
+                  </View>
+                  <Text style={styles.snapSelfieTitle}>Snap Selfie</Text>
+                  <Text style={styles.snapSelfieSub}>Tap here to open front camera</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
-        <Text style={styles.cameraInstruction}>
-          Please frame your face in the circle
-        </Text>
+        {/* Status Pill */}
+        <View style={styles.statusPillRow}>
+          {selfieUri ? (
+            <View style={[styles.infoBadge, { backgroundColor: "rgba(16, 185, 129, 0.15)", borderColor: "rgba(16, 185, 129, 0.3)" }]}>
+              <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+              <Text style={[styles.infoBadgeText, { color: "#10B981" }]}>Selfie Ready</Text>
+            </View>
+          ) : (
+            <View style={[styles.infoBadge, { backgroundColor: "rgba(59, 130, 246, 0.15)", borderColor: "rgba(59, 130, 246, 0.3)" }]}>
+              <Ionicons name="camera-outline" size={14} color="#3B82F6" />
+              <Text style={[styles.infoBadgeText, { color: "#60A5FA" }]}>Face Photo Required</Text>
+            </View>
+          )}
+
+          <View style={[styles.infoBadge, { backgroundColor: "rgba(255, 255, 255, 0.08)", borderColor: "rgba(255, 255, 255, 0.15)" }]}>
+            <Ionicons name="location-outline" size={14} color="#94A3B8" />
+            <Text style={[styles.infoBadgeText, { color: "#CBD5E1" }]}>
+              {capturingGps ? "Capturing GPS..." : gpsCoords ? `GPS ±${gpsCoords.accuracy || 15}m` : "GPS Ready"}
+            </Text>
+          </View>
+        </View>
       </View>
 
       {/* Bottom Controls */}
       <View style={styles.bottomControls}>
-        {capturingSelfie || capturingGps || !gpsCaptured ? (
+        {submittingPunch ? (
           <View style={[styles.punchBtn, { backgroundColor: "#1E293B" }]}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <ActivityIndicator color="#3B82F6" size="small" style={{ marginRight: 12 }} />
               <Text style={[styles.punchBtnText, { color: "#94A3B8" }]}>
-                {capturingSelfie ? "Capturing Selfie..." : "Getting Location..."}
+                Processing Punch...
               </Text>
             </View>
           </View>
@@ -394,7 +475,7 @@ const EmployeePunchScreen = ({ navigation }) => {
               },
             ]}
             onPress={handleCameraPunchConfirm}
-            disabled={capturingSelfie || !gpsCaptured || capturingGps}
+            disabled={isWorking}
             activeOpacity={0.85}
           >
             <View style={{ flexDirection: "row", alignItems: "center" }}>
@@ -414,7 +495,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.cancelBtn}
           onPress={() => navigation.goBack()}
-          disabled={capturingSelfie}
+          disabled={submittingPunch}
         >
           <Text style={styles.cancelBtnText}>Cancel</Text>
         </TouchableOpacity>
@@ -449,9 +530,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   cameraCircle: {
-    width: 280,
-    height: 280,
-    borderRadius: 140,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     overflow: "hidden",
     borderWidth: 4,
     backgroundColor: "#1E293B",
@@ -460,18 +541,85 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.5,
     shadowRadius: 15,
     elevation: 10,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  camera: {
-    flex: 1,
+  selfieInner: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+  },
+  selfieImage: {
     width: "100%",
     height: "100%",
   },
-  cameraInstruction: {
+  retakeOverlayBtn: {
+    position: "absolute",
+    bottom: 14,
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(15, 23, 42, 0.85)",
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  retakeOverlayText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emptySelfieBtn: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  cameraIconBox: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.3)",
+  },
+  snapSelfieTitle: {
+    color: "#FFFFFF",
+    fontSize: 17,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  snapSelfieSub: {
     color: "#94A3B8",
-    fontSize: 14,
-    marginTop: 24,
-    fontWeight: "500",
+    fontSize: 12,
     textAlign: "center",
+    fontWeight: "500",
+  },
+  statusPillRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 20,
+  },
+  infoBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  infoBadgeText: {
+    fontSize: 11.5,
+    fontWeight: "700",
   },
   bottomControls: {
     padding: 24,
@@ -520,8 +668,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   cancelBtnText: {
-    color: "#CBD5E1",
-    fontSize: 16,
+    color: "#64748B",
+    fontSize: 15,
     fontWeight: "600",
   },
 });

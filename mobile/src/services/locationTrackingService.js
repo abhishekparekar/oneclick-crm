@@ -1,6 +1,6 @@
 import Geolocation from "@react-native-community/geolocation";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PermissionsAndroid, Platform, AppState, Alert } from "react-native";
+import { PermissionsAndroid, Platform, AppState, Alert, Linking } from "react-native";
 import notifee, { AndroidImportance, AndroidForegroundServiceType } from "@notifee/react-native";
 import api from "../api/api";
 import { isValidGpsPoint } from "../utils/locationUtils";
@@ -10,8 +10,10 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-const BATCH_SYNC_INTERVAL_MS = 4000; // 4 seconds ultra-responsive sync
-const GPS_HEARTBEAT_INTERVAL_MS = 3500; // 3.5 seconds active hardware poll
+// GPS points are collected locally for 10 minutes then uploaded in one batch.
+// This reduces API calls from ~200/hr → ~6/hr.
+const BATCH_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes between cloud uploads
+const GPS_HEARTBEAT_INTERVAL_MS = 3500;         // 3.5 seconds between GPS polls (unchanged)
 
 // Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
 try {
@@ -34,20 +36,30 @@ const GPS_HIGH_ACCURACY_OPTIONS = {
   fastestInterval: 2000, // Android fastest interval: 2 seconds
 };
 
-// Register Notifee Foreground Service task at file load
-// This keeps the React Native JS thread awake when screen is off or app is minimized/closed
+// Register Notifee Foreground Service task at file load.
+// CRITICAL: The Promise returned here must NEVER resolve while tracking is active.
+// As long as it is pending, Android keeps the native Foreground Service process
+// alive — immune to Doze mode, task-swipe, and screen-off battery limits.
+// We only call resolve() inside stopLocationTracking().
 try {
   notifee.registerForegroundService((notification) => {
-    return new Promise(async (resolve) => {
-      console.log("[LocationService] Native foreground service worker running in background");
+    return new Promise((resolve) => {
+      console.log("[LocationService] Native foreground service worker started — keeping alive");
       if (locationTrackingService) {
-        await locationTrackingService.runBackgroundTrackingLoop();
+        // Store resolver so stopLocationTracking() can end the service cleanly
+        locationTrackingService.foregroundServiceResolver = resolve;
+        // Fire the background loop without awaiting — loop must run continuously
+        locationTrackingService.runBackgroundTrackingLoop().catch((err) => {
+          console.warn("[LocationService] Background loop unexpected exit:", err?.message);
+        });
+      } else {
+        // Safety: if singleton not ready yet, resolve immediately to avoid orphan service
+        resolve();
       }
-      resolve();
     });
   });
 } catch (err) {
-  console.log("[LocationService] Foreground service registration notice:", err.message);
+  console.log("[LocationService] Foreground service registration notice:", err?.message);
 }
 
 class LocationTrackingService {
@@ -58,6 +70,13 @@ class LocationTrackingService {
     this.lastAcceptedPoint = null;
     this.isSyncing = false;
     this.appStateSubscription = null;
+    // Holds the Notifee foreground service Promise resolve() function.
+    // We NEVER call this until stopLocationTracking() so Android keeps the
+    // native foreground service process alive indefinitely (Doze-proof).
+    this.foregroundServiceResolver = null;
+    // Timestamp of the last successful cloud upload.
+    // GPS points accumulate locally until 10 minutes have passed.
+    this.lastSyncTime = Date.now();
   }
 
   /**
@@ -123,16 +142,20 @@ class LocationTrackingService {
         console.log("[LocationService] Battery optimization is active. Prompting user for Unrestricted...");
         if (showAlert) {
           Alert.alert(
-            "🔋 Battery: 'Unrestricted' आवश्यक आहे",
-            "बाईकवर प्रवास करताना फोन खिशात किंवा स्क्रीन बंद असताना ट्रॅकिंग सतत अचूक सुरू राहण्यासाठी, कृपया Battery Usage मध्ये 'Unrestricted' (कदापि थांबवू नका) निवडा.",
+            "⚙️ अचूक ट्रॅकिंगसाठी २ महत्त्वाच्या परवानग्या",
+            "स्क्रीन बंद असताना किंवा फोन खिशात असताना प्रवास अचूक मोजण्यासाठी खालील २ सोप्या पायऱ्या करा:\n\n" +
+            "१. 'Battery' (किंवा App battery usage) वर क्लिक करा ➔ 'Unrestricted' (अप्रतिबंधित) निवडा.\n\n" +
+            "२. 'Permissions' ➔ 'Location' वर क्लिक करा ➔ 'Allow all the time' (नेहमी अनुमती द्या) निवडा.",
             [
               { text: "नंतर (Later)", style: "cancel" },
               {
                 text: "सेटिंग्ज उघडा (Open Settings)",
                 onPress: async () => {
                   try {
-                    await notifee.openBatteryOptimizationSettings();
-                  } catch (_) {}
+                    await Linking.openSettings();
+                  } catch (_) {
+                    await notifee.openBatteryOptimizationSettings().catch(() => {});
+                  }
                 },
               },
             ],
@@ -163,42 +186,48 @@ class LocationTrackingService {
         foregroundTypes.push(AndroidForegroundServiceType.LOCATION);
       }
 
-      // Try as foreground service first with valid drawable icon
-      try {
-        await notifee.displayNotification({
-          id: NOTIFICATION_ID,
-          title: "Location Tracking Active",
-          body: "Recording your real-time travel and duty location.",
-          android: {
-            channelId: NOTIFICATION_CHANNEL_ID,
-            asForegroundService: true,
-            ongoing: true,
-            autoCancel: false,
-            foregroundServiceTypes: foregroundTypes,
-            pressAction: {
-              id: "default",
+      const isAppActive = AppState.currentState === "active";
+
+      // Try as foreground service if app is active
+      if (isAppActive) {
+        try {
+          await notifee.displayNotification({
+            id: NOTIFICATION_ID,
+            title: "Location Tracking Active",
+            body: "Recording your real-time travel and duty location.",
+            android: {
+              channelId: NOTIFICATION_CHANNEL_ID,
+              asForegroundService: true,
+              ongoing: true,
+              autoCancel: false,
+              foregroundServiceTypes: foregroundTypes,
+              pressAction: {
+                id: "default",
+              },
+              smallIcon: "ic_notification",
             },
-            smallIcon: "ic_notification",
-          },
-        });
-      } catch (fgsErr) {
-        console.warn("[LocationService] Foreground service notification fallback:", fgsErr?.message);
-        // Fallback: Ongoing notification without foreground service flag if OS disallowed FGS start
-        await notifee.displayNotification({
-          id: NOTIFICATION_ID,
-          title: "Location Tracking Active",
-          body: "Recording your real-time travel and duty location.",
-          android: {
-            channelId: NOTIFICATION_CHANNEL_ID,
-            ongoing: true,
-            autoCancel: false,
-            pressAction: {
-              id: "default",
-            },
-            smallIcon: "ic_notification",
-          },
-        });
+          });
+          return;
+        } catch (fgsErr) {
+          console.warn("[LocationService] Foreground service notification fallback:", fgsErr?.message);
+        }
       }
+
+      // Safe fallback: Standard ongoing notification if app is in background or OS disallows FGS
+      await notifee.displayNotification({
+        id: NOTIFICATION_ID,
+        title: "Location Tracking Active",
+        body: "Recording your real-time travel and duty location.",
+        android: {
+          channelId: NOTIFICATION_CHANNEL_ID,
+          ongoing: true,
+          autoCancel: false,
+          pressAction: {
+            id: "default",
+          },
+          smallIcon: "ic_notification",
+        },
+      });
     } catch (err) {
       console.warn("[LocationService] Notification display notice:", err?.message);
     }
@@ -227,8 +256,12 @@ class LocationTrackingService {
     this.isTracking = true;
     console.log("[LocationService] Background tracking engine active");
 
-    try {
-      while (this.isTracking) {
+    // CRITICAL FIX: try/catch is INSIDE the while loop.
+    // A transient GPS timeout, network error, or async exception will be caught
+    // here and the loop will simply continue to the next iteration after a
+    // brief pause — the loop can NEVER be killed by a single bad iteration.
+    while (this.isTracking) {
+      try {
         // 1. Verify tracking state from AsyncStorage
         const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
         if (active !== "true") {
@@ -248,18 +281,27 @@ class LocationTrackingService {
         // 3. Force hardware GPS poll with high accuracy and network fallback
         await this.pollCurrentGpsLocationAsync();
 
-        // 4. Sync queued batch to backend
-        await this.syncQueuedLocations();
+        // 4. Sync queued batch to backend ONLY if 10 minutes have elapsed.
+        //    GPS points accumulate in AsyncStorage locally between syncs.
+        const now = Date.now();
+        const msSinceLastSync = now - this.lastSyncTime;
+        if (msSinceLastSync >= BATCH_SYNC_INTERVAL_MS) {
+          console.log(`[LocationService] 10-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since last sync)`);
+          await this.syncQueuedLocations();
+        }
 
         // 5. Sleep 3.5 seconds before next hardware GPS poll (3-4 seconds frequency)
         await new Promise((resolve) => setTimeout(resolve, 3500));
+      } catch (iterErr) {
+        // Log the error but DO NOT break the loop — tracking must continue
+        console.warn("[LocationService] Tracking iteration error (continuing):", iterErr?.message);
+        // Brief pause before retrying so we don't spam errors in a tight loop
+        await new Promise((resolve) => setTimeout(resolve, 5000));
       }
-    } catch (loopErr) {
-      console.warn("[LocationService] Background tracking loop notice:", loopErr.message);
-    } finally {
-      this.isLoopRunning = false;
-      console.log("[LocationService] Background tracking loop exited");
     }
+
+    this.isLoopRunning = false;
+    console.log("[LocationService] Background tracking loop exited cleanly");
   }
 
   /**
@@ -269,13 +311,22 @@ class LocationTrackingService {
     return new Promise((resolve) => {
       if (!this.isTracking) return resolve();
 
-      // Attempt 1: High Accuracy GPS (10 seconds timeout)
+      // Safety timeout: always resolve after 12s so the loop is NEVER blocked
+      // by a hanging GPS call (e.g. GPS chip not responding, permission revoked)
+      const safetyTimer = setTimeout(() => {
+        console.warn("[LocationService] GPS poll safety timeout fired — continuing loop");
+        resolve();
+      }, 12000);
+
+      const done = () => { clearTimeout(safetyTimer); resolve(); };
+
+      // Attempt 1: High Accuracy GPS (8 seconds timeout)
       Geolocation.getCurrentPosition(
         (pos) => {
           if (pos && pos.coords) {
             this.handleNewGpsPoint(pos.coords);
           }
-          resolve();
+          done();
         },
         (err) => {
           // Attempt 2: Fallback to Network/Cell/WiFi location if satellite GPS timed out
@@ -284,13 +335,13 @@ class LocationTrackingService {
               if (fallbackPos && fallbackPos.coords) {
                 this.handleNewGpsPoint(fallbackPos.coords);
               }
-              resolve();
+              done();
             },
-            () => resolve(),
+            () => done(),
             { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
           );
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     });
   }
@@ -383,12 +434,21 @@ class LocationTrackingService {
     }
 
     await AsyncStorage.removeItem(TRACKING_STATE_KEY);
-    await this.hideForegroundNotification();
 
-    // Flush any remaining queued locations
+    // Flush any remaining queued locations before stopping
     await this.syncQueuedLocations();
 
-    console.log("[LocationService] Location tracking stopped");
+    // CRITICAL: Resolve the Notifee foreground service Promise so Android
+    // cleanly destroys the native foreground service process. This MUST be
+    // called after sync so we don't lose in-flight data.
+    if (this.foregroundServiceResolver) {
+      try { this.foregroundServiceResolver(); } catch (_) {}
+      this.foregroundServiceResolver = null;
+    }
+
+    await this.hideForegroundNotification();
+
+    console.log("[LocationService] Location tracking stopped cleanly");
     return { success: true };
   }
 
@@ -412,19 +472,42 @@ class LocationTrackingService {
       }
 
       const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+
+      // Issue 3 Fix: If background loop is already running (Notifee foreground service kept
+      // JS alive after app swipe), do NOT call startLocationTracking again — this prevents
+      // the duplicate "Tracking restarted" notification every time the user opens the app.
+      if (active === "true" && this.isLoopRunning) {
+        console.log("[LocationService] Background loop already running — skipping auto-resume (no duplicate start).");
+        return;
+      }
+
       if (active === "true" && !this.isTracking) {
-        // Verify with backend that employee is actually on duty today
+        // Verify with backend that employee is actually on duty today.
+        // IMPORTANT: Check the LAST session in punchLog, not the root punchOutTime field
+        // which may be stale from an earlier session today.
         try {
           const res = await api.get("/attendance/my-today");
           const att = res.data?.attendance;
-          const isOnDuty = Boolean(att && att.punchInTime && !att.punchOutTime);
+
+          // Determine duty status from last punchLog session
+          let isOnDuty = false;
+          if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
+            const lastSession = att.punchLog[att.punchLog.length - 1];
+            isOnDuty = Boolean(lastSession.punchInTime && !lastSession.punchOutTime);
+          } else if (att && att.punchInTime && !att.punchOutTime) {
+            // Fallback to root fields if punchLog is absent
+            isOnDuty = true;
+          }
+
           if (!isOnDuty) {
             console.log("[LocationService] Duty not active for today. Clearing tracking state.");
             await AsyncStorage.removeItem(TRACKING_STATE_KEY);
             return;
           }
         } catch (apiErr) {
-          console.log("[LocationService] Could not verify today duty status:", apiErr?.message);
+          // Network offline — don't clear state, let it resume tracking
+          // (tracking will self-stop when backend confirms punch-out on next sync)
+          console.log("[LocationService] Could not verify today duty status (offline — continuing):", apiErr?.message);
         }
 
         console.log("[LocationService] Resuming background tracking session from storage state...");
@@ -488,17 +571,14 @@ class LocationTrackingService {
       const queue = raw ? JSON.parse(raw) : [];
       queue.push(point);
 
-      // Keep max 500 points in local storage if offline for hours
-      if (queue.length > 500) {
+      // Keep max 2000 points locally (covers ~2 hrs at 3.5s interval if network is down)
+      if (queue.length > 2000) {
         queue.shift();
       }
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
-
-      // Trigger immediate sync for every new point (3-4 seconds real-time stream)
-      if (queue.length >= 1 && !this.isSyncing) {
-        this.syncQueuedLocations();
-      }
+      // NOTE: No immediate cloud sync here — points accumulate for 10 minutes
+      // before being uploaded in a single batch by runBackgroundTrackingLoop.
     } catch (err) {
       console.warn("[LocationService] Enqueue error:", err.message);
     }
@@ -518,28 +598,55 @@ class LocationTrackingService {
       if (!Array.isArray(queue) || queue.length === 0) return;
 
       this.isSyncing = true;
-      const batchToSend = queue.slice(0, 40); // Send up to 40 points per batch
+      console.log(`[LocationService] Starting batch upload of ${queue.length} GPS points to server...`);
 
-      const response = await api.post("/locations/sync", {
-        locations: batchToSend,
-      });
+      // Upload all queued points in chunks of 200 per API call
+      // (prevents request body from being too large)
+      const CHUNK_SIZE = 200;
+      let totalSynced = 0;
+      let shouldStop = false;
 
-      if (response.data && response.data.success) {
-        // If server says employee is not on duty (not punched in / punched out), immediately kill tracking
-        if (response.data.trackingAllowed === false) {
-          console.log("[LocationService] Duty hours inactive (not punched in / punched out). Shutting down tracking...");
-          await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
-          await this.stopLocationTracking();
-          return;
+      for (let offset = 0; offset < queue.length; offset += CHUNK_SIZE) {
+        const chunk = queue.slice(offset, offset + CHUNK_SIZE);
+        try {
+          const response = await api.post("/locations/sync", {
+            locations: chunk,
+          });
+
+          if (response.data && response.data.success) {
+            // If server says employee punched out, stop tracking immediately
+            if (response.data.trackingAllowed === false) {
+              console.log("[LocationService] Duty ended (punched out). Stopping tracking...");
+              await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
+              shouldStop = true;
+              break;
+            }
+            totalSynced += chunk.length;
+          }
+        } catch (chunkErr) {
+          // Network failed mid-batch — stop uploading, keep remaining points for next 10-min sync
+          console.warn("[LocationService] Chunk upload failed (network), will retry next batch:", chunkErr?.message);
+          break;
         }
+      }
 
-        // Remove successfully synced points from queue
-        const remaining = queue.slice(batchToSend.length);
+      if (!shouldStop && totalSynced > 0) {
+        // Remove successfully uploaded points from local queue
+        const remaining = queue.slice(totalSynced);
         await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remaining));
-        console.log(`[LocationService] Synced ${batchToSend.length} points to server, ${remaining.length} remaining in queue`);
+        console.log(`[LocationService] ✅ Batch upload complete: ${totalSynced} points sent, ${remaining.length} remaining locally`);
+      }
+
+      // Update timestamp so next sync fires 10 minutes from now
+      this.lastSyncTime = Date.now();
+
+      if (shouldStop) {
+        await this.stopLocationTracking();
       }
     } catch (err) {
-      console.warn("[LocationService] Batch sync failed (offline or network error), will retry:", err.message);
+      console.warn("[LocationService] Batch sync failed (offline or network error), will retry next batch:", err?.message);
+      // Still update lastSyncTime to prevent hammering the server on repeated failures
+      this.lastSyncTime = Date.now();
     } finally {
       this.isSyncing = false;
     }
