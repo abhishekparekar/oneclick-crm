@@ -46,10 +46,10 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (reject coarse accuracy > 120 meters, or > 150m if moving)
-  // In narrow city gullies or on a moving bike, accuracy hovers between 40m-100m.
+  // 2. Accuracy check (reject coarse accuracy > 50m, or > 65m if moving fast)
+  // City streets and lane navigation require fine accuracy. Readings > 50m are coarse Wi-Fi/tower guesses.
   const speed = Number(point.speed) || 0;
-  const maxAcc = speed > 1.0 ? 150 : 120;
+  const maxAcc = speed > 2.0 ? 65 : 50;
   if (!isNaN(accuracy) && accuracy > maxAcc) {
     console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> ${maxAcc}m limit)`);
     return false;
@@ -66,7 +66,7 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
 
     const timeDiffSeconds =
       point.timestamp && previousPoint.timestamp
-        ? Math.abs(new Date(point.timestamp) - new Date(previousPoint.timestamp)) / 1000
+        ? Math.max(0.5, Math.abs(new Date(point.timestamp) - new Date(previousPoint.timestamp)) / 1000)
         : 10;
 
     // Discard micro jitter (< 2 meters) if stationary
@@ -74,13 +74,12 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
       return false;
     }
 
-    // Teleportation filter (traveling faster than 180 km/h = 50 m/s)
-    if (timeDiffSeconds > 0) {
-      const calculatedSpeed = distMeters / timeDiffSeconds;
-      if (calculatedSpeed > 50 && distMeters > 500) {
-        console.log(`[LocationFilter] Rejected impossible GPS jump: ${distMeters.toFixed(1)}m in ${timeDiffSeconds.toFixed(1)}s`);
-        return false;
-      }
+    // Teleportation & spike filter:
+    // Reject impossible jumps (e.g. 70m in 1 second = 250 km/h)
+    const calculatedSpeedKmh = (distMeters / timeDiffSeconds) * 3.6;
+    if (distMeters > 25 && calculatedSpeedKmh > 110) {
+      console.log(`[LocationFilter] Rejected impossible GPS jump: ${distMeters.toFixed(1)}m in ${timeDiffSeconds.toFixed(1)}s (${calculatedSpeedKmh.toFixed(0)} km/h)`);
+      return false;
     }
   }
 

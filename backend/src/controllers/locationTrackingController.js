@@ -756,8 +756,8 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Filter out poor GPS fixes (accuracy <= 120m keeps real city lane & bike movement)
-    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 120);
+    // 1. Filter out poor GPS fixes (accuracy <= 55m eliminates coarse cell-tower and wake-up jumps)
+    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 55);
     let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
 
     // 1b. Discard cold-start cell-tower glitch at point[0]:
@@ -770,7 +770,7 @@ const getEmployeeLocationTrail = async (req, res) => {
       const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
       const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
 
-      if (jump01 > 200 && cluster12 < 100) {
+      if (jump01 > 150 && cluster12 < 100) {
         candidatePoints = candidatePoints.slice(1);
       }
     }
@@ -783,9 +783,39 @@ const getEmployeeLocationTrail = async (req, res) => {
       const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
       const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
 
-      if (jumpTail > 200 && clusterPrev < 100) {
+      if (jumpTail > 150 && clusterPrev < 100) {
         candidatePoints = candidatePoints.slice(0, -1);
       }
+    }
+
+    // 1d. V-Spike / Overshoot Outlier Filter:
+    // Discards points that suddenly jump away and immediately snap back (e.g. temporary phone wake-up glitch)
+    if (candidatePoints.length >= 3) {
+      const filtered = [candidatePoints[0]];
+      for (let i = 1; i < candidatePoints.length - 1; i++) {
+        const prev = filtered[filtered.length - 1];
+        const cur = candidatePoints[i];
+        const next = candidatePoints[i + 1];
+
+        const dPrevCur = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
+        const dCurNext = getHaversineDistanceMeters(cur.latitude, cur.longitude, next.latitude, next.longitude);
+        const dPrevNext = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
+
+        const dtCurNext = Math.max(0.5, (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000);
+        const speedCurNext = (dCurNext / dtCurNext) * 3.6;
+
+        // If cur overshoots by > 25m and next returns back close to prev, or speed between cur and next is impossible (> 60 km/h)
+        const isSpike = (dPrevCur > 20 && dCurNext > 20 && dPrevNext < dPrevCur * 0.75) ||
+                        (speedCurNext > 60 && dCurNext > 25);
+
+        if (isSpike) {
+          console.log(`[TrailFilter] Suppressed V-spike overshoot point: ${cur.latitude}, ${cur.longitude} (spike: ${Math.round(dCurNext)}m in ${dtCurNext.toFixed(1)}s, acc: ${cur.accuracy}m)`);
+          continue;
+        }
+        filtered.push(cur);
+      }
+      filtered.push(candidatePoints[candidatePoints.length - 1]);
+      candidatePoints = filtered;
     }
 
     // 2. Calculate accurate real-world cumulative distance
