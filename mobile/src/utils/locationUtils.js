@@ -46,10 +46,10 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (reject coarse accuracy > 50m, or > 65m if moving fast)
-  // City streets and lane navigation require fine accuracy. Readings > 50m are coarse Wi-Fi/tower guesses.
+  // 2. Accuracy check (allow up to 85m on bike/car, 70m when slow/stationary)
+  // City streets and lane navigation: readings > 85m are coarse guesses and should be dropped.
   const speed = Number(point.speed) || 0;
-  const maxAcc = speed > 2.0 ? 65 : 50;
+  const maxAcc = speed > 1.0 ? 85 : 70;
   if (!isNaN(accuracy) && accuracy > maxAcc) {
     console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> ${maxAcc}m limit)`);
     return false;

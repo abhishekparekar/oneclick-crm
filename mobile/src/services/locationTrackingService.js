@@ -10,10 +10,9 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-// GPS points are collected locally and synced every 2 minutes, or when 20 points accumulate.
-// This guarantees that short trips (3-5 mins) are never lost.
-const BATCH_SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes between cloud uploads
-const GPS_HEARTBEAT_INTERVAL_MS = 3500;        // 3.5 seconds between GPS polls (unchanged)
+// GPS points are collected every 2 seconds on bike/car and synced online every 5 minutes.
+const BATCH_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes between cloud uploads
+const GPS_HEARTBEAT_INTERVAL_MS = 2000;        // 2 seconds between GPS polls
 
 // Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
 try {
@@ -29,11 +28,11 @@ try {
 
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 7000,
-  maximumAge: 0, // Fresh GPS reading (maximumAge: 0 eliminates stale cell-tower positions)
-  distanceFilter: 3, // Sensitive to real-world bike steps (3 meters)
-  interval: 3500, // Android poll interval: 3.5 seconds
-  fastestInterval: 2000, // Android fastest interval: 2 seconds
+  timeout: 5000,
+  maximumAge: 2000, // 2-second fresh cache allows streaming bike/car movement without dropping
+  distanceFilter: 2, // Sensitive to real-world bike/car steps (2 meters)
+  interval: 2000, // Android poll interval: 2 seconds
+  fastestInterval: 1500, // Android fastest interval: 1.5 seconds
 };
 
 class LocationTrackingService {
@@ -44,12 +43,12 @@ class LocationTrackingService {
     this.lastAcceptedPoint = null;
     this.isSyncing = false;
     this.appStateSubscription = null;
+    this.syncIntervalTimer = null; // Dedicated 5-minute online sync timer
     // Holds the Notifee foreground service Promise resolve() function.
     // We NEVER call this until stopLocationTracking() so Android keeps the
     // native foreground service process alive indefinitely (Doze-proof).
     this.foregroundServiceResolver = null;
     // Timestamp of the last successful cloud upload.
-    // GPS points accumulate locally until 10 minutes have passed.
     this.lastSyncTime = Date.now();
   }
 
@@ -255,17 +254,17 @@ class LocationTrackingService {
         // 3. Force hardware GPS poll with high accuracy and network fallback
         await this.pollCurrentGpsLocationAsync();
 
-        // 4. Sync queued batch to backend ONLY if 10 minutes have elapsed.
-        //    GPS points accumulate in AsyncStorage locally between syncs.
+        // 4. Sync queued batch to backend every 5 minutes.
+        //    GPS points accumulate in AsyncStorage locally every 2 seconds.
         const now = Date.now();
         const msSinceLastSync = now - this.lastSyncTime;
         if (msSinceLastSync >= BATCH_SYNC_INTERVAL_MS) {
-          console.log(`[LocationService] 10-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since last sync)`);
+          console.log(`[LocationService] 5-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since last sync)`);
           await this.syncQueuedLocations();
         }
 
-        // 5. Sleep 3.5 seconds before next hardware GPS poll (3-4 seconds frequency)
-        await new Promise((resolve) => setTimeout(resolve, 3500));
+        // 5. Sleep 2 seconds before next hardware GPS poll (takes location every 2s on bike/car)
+        await new Promise((resolve) => setTimeout(resolve, 2000));
       } catch (iterErr) {
         // Log the error but DO NOT break the loop — tracking must continue
         console.warn("[LocationService] Tracking iteration error (continuing):", iterErr?.message);
@@ -285,16 +284,15 @@ class LocationTrackingService {
     return new Promise((resolve) => {
       if (!this.isTracking) return resolve();
 
-      // Safety timeout: always resolve after 12s so the loop is NEVER blocked
-      // by a hanging GPS call (e.g. GPS chip not responding, permission revoked)
+      // Safety timeout: 6s so loop is never blocked
       const safetyTimer = setTimeout(() => {
         console.warn("[LocationService] GPS poll safety timeout fired — continuing loop");
         resolve();
-      }, 12000);
+      }, 6000);
 
       const done = () => { clearTimeout(safetyTimer); resolve(); };
 
-      // Attempt 1: High Accuracy GPS (10s timeout, 3s cache to prevent pocket satellite timeouts)
+      // Attempt 1: High Accuracy GPS (4s timeout, 2s cache so Android hardware delivers continuous bike points)
       Geolocation.getCurrentPosition(
         (pos) => {
           if (pos && pos.coords) {
@@ -303,7 +301,7 @@ class LocationTrackingService {
           done();
         },
         (err) => {
-          // Attempt 2: Fallback to Network/Cell/WiFi location if satellite GPS timed out
+          // Attempt 2: Fallback to Network/Cell/WiFi location
           Geolocation.getCurrentPosition(
             (fallbackPos) => {
               if (fallbackPos && fallbackPos.coords) {
@@ -312,10 +310,10 @@ class LocationTrackingService {
               done();
             },
             () => done(),
-            { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
+            { enableHighAccuracy: false, timeout: 3000, maximumAge: 3000 }
           );
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 4000, maximumAge: 2000 }
       );
     });
   }
@@ -379,6 +377,17 @@ class LocationTrackingService {
       });
     }
 
+    // Start dedicated 5-minute cloud sync timer
+    if (this.syncIntervalTimer) {
+      clearInterval(this.syncIntervalTimer);
+    }
+    this.syncIntervalTimer = setInterval(() => {
+      if (this.isTracking) {
+        console.log("[LocationService] ⏰ Dedicated 5-minute cloud sync timer fired!");
+        this.syncQueuedLocations().catch(() => {});
+      }
+    }, BATCH_SYNC_INTERVAL_MS);
+
     console.log("[LocationService] Location tracking engine started successfully");
     return { success: true };
   }
@@ -396,6 +405,11 @@ class LocationTrackingService {
   async stopLocationTracking() {
     this.isTracking = false;
     this.isLoopRunning = false;
+
+    if (this.syncIntervalTimer) {
+      clearInterval(this.syncIntervalTimer);
+      this.syncIntervalTimer = null;
+    }
 
     if (this.watchId !== null) {
       Geolocation.clearWatch(this.watchId);
@@ -565,8 +579,9 @@ class LocationTrackingService {
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
 
-      // Auto-trigger sync if 20+ points (~1-2 mins of motion) have accumulated
-      if (queue.length >= 20 && !this.isSyncing) {
+      // Auto-trigger sync if 5 minutes have elapsed, or if 150+ points (~5 mins at 2s) have accumulated
+      const now = Date.now();
+      if ((now - this.lastSyncTime >= BATCH_SYNC_INTERVAL_MS || queue.length >= 150) && !this.isSyncing) {
         this.syncQueuedLocations().catch(() => {});
       }
     } catch (err) {
@@ -581,11 +596,34 @@ class LocationTrackingService {
     if (this.isSyncing) return;
 
     try {
-      const raw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
-      if (!raw) return;
+      let queue = [];
+      if (raw) {
+        try { queue = JSON.parse(raw); } catch (_) { queue = []; }
+      }
+      if (!Array.isArray(queue)) queue = [];
 
-      const queue = JSON.parse(raw);
-      if (!Array.isArray(queue) || queue.length === 0) return;
+      // If queue is empty (e.g. employee was stationary for past 5 mins),
+      // capture a fresh live location point so the server is guaranteed to update every 5 minutes!
+      if (queue.length === 0 && this.isTracking) {
+        try {
+          const freshCoord = await this.getCurrentLocation();
+          if (freshCoord && freshCoord.latitude && freshCoord.longitude) {
+            queue.push({
+              latitude: Number(freshCoord.latitude.toFixed(6)),
+              longitude: Number(freshCoord.longitude.toFixed(6)),
+              accuracy: Number(freshCoord.accuracy ? freshCoord.accuracy.toFixed(1) : 0),
+              speed: freshCoord.speed && freshCoord.speed > 0 ? Number(freshCoord.speed.toFixed(2)) : 0,
+              heading: freshCoord.heading && freshCoord.heading > 0 ? Number(freshCoord.heading.toFixed(1)) : 0,
+              timestamp: new Date().toISOString(),
+            });
+            console.log("[LocationService] Captured 5-min live heartbeat point for empty queue");
+          }
+        } catch (hbErr) {
+          console.warn("[LocationService] Heartbeat location capture notice:", hbErr?.message);
+        }
+      }
+
+      if (queue.length === 0) return;
 
       this.isSyncing = true;
       console.log(`[LocationService] Starting batch upload of ${queue.length} GPS points to server...`);
