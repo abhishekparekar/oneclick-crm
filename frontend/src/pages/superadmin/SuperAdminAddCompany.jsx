@@ -10,7 +10,7 @@ import {
 
 const MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects", 
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
 ];
 
 const MODULE_CAP_ITEMS = [
@@ -21,6 +21,7 @@ const MODULE_CAP_ITEMS = [
   { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
   { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
   { key: "reports",    label: "Analytics & Reports",     color: "#3B82F6" },
+  { key: "location_tracking", label: "Field GPS Location Tracking", color: "#ec4899" },
 ];
 
 /* ─── Shared Section Header ─────────────────────────────────────────────── */
@@ -685,7 +686,7 @@ const SuperAdminAddCompany = () => {
               </div>
 
               {/* Granular Seat Allocation per Module */}
-              {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "leave", "payroll", "reports"].includes(m)) && (
+              {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "leave", "payroll", "reports", "location_tracking"].includes(m)) && (
                 <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                   <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                     <Users size={13} className="text-[#f59e0b]" />

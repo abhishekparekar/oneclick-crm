@@ -97,17 +97,29 @@ const syncBatchLocations = async (req, res) => {
     const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
     const userId = req.user._id;
 
-    // Determine employeeId
+    // Determine employeeId and check tracking permission
     let employeeId = req.user.employeeId;
+    let emp = null;
     if (!employeeId) {
-      const emp = await Employee.findOne({ userId, companyId }).select("_id");
+      emp = await Employee.findOne({ userId, companyId }).select("_id isLocationTrackingEnabled");
       if (emp) {
         employeeId = emp._id;
       }
+    } else {
+      emp = await Employee.findById(employeeId).select("_id isLocationTrackingEnabled");
     }
 
-    if (!employeeId) {
+    if (!employeeId || !emp) {
       return res.status(400).json({ success: false, message: "No associated employee record found for user" });
+    }
+
+    // Check if employee has location tracking enabled by Company Admin
+    if (emp.isLocationTrackingEnabled === false) {
+      return res.status(200).json({
+        success: true,
+        trackingAllowed: false,
+        message: "Location tracking is not enabled for this employee",
+      });
     }
 
     // ── Enforce Late-Night Cut-Off (12:00 AM / Midnight IST) ──
@@ -153,18 +165,6 @@ const syncBatchLocations = async (req, res) => {
       }
     }
 
-    if (!isOnDuty) {
-      // Employee has not punched in today, or has already punched out!
-      // Signal mobile device to immediately halt background tracking
-      return res.status(200).json({
-        success: true,
-        trackingAllowed: false,
-        message: hasPunchedOut
-          ? "Duty ended: Employee has punched out for the day"
-          : "Duty not started: Employee has not punched in yet",
-      });
-    }
-
     // Filter and sanitize valid points
     const validPoints = [];
     for (const pt of locations) {
@@ -201,13 +201,13 @@ const syncBatchLocations = async (req, res) => {
       // Sort points chronologically ascending
       validPoints.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-      // Bulk insert into history
+      // Bulk insert into history - NEVER discard real travel points!
       await EmployeeLocation.insertMany(validPoints, { ordered: false }).catch((err) => {
         console.warn("[LocationSync] Partial insert notice:", err.message);
       });
 
-      // Update Employee latest location snapshot prioritizing high-accuracy fixes (<= 35m)
-      const accuratePoints = validPoints.filter((p) => !p.accuracy || p.accuracy <= 35);
+      // Update Employee latest location snapshot prioritizing high-accuracy fixes (<= 45m)
+      const accuratePoints = validPoints.filter((p) => !p.accuracy || p.accuracy <= 45);
       const candidateList = accuratePoints.length > 0 ? accuratePoints : validPoints;
       const latestPoint = candidateList[candidateList.length - 1];
 
@@ -217,7 +217,7 @@ const syncBatchLocations = async (req, res) => {
 
       if (isNewer) {
         let stationarySince = latestPoint.timestamp;
-        const isMoving = (latestPoint.speed || 0) > 3.0;
+        const isMoving = isOnDuty && (latestPoint.speed || 0) > 3.0;
 
         if (!isMoving && prevEmp?.lastLocation?.latitude) {
           const dist = getHaversineDistanceMeters(
@@ -233,26 +233,31 @@ const syncBatchLocations = async (req, res) => {
         }
 
         await Employee.findByIdAndUpdate(employeeId, {
-        $set: {
-          "lastLocation.latitude": latestPoint.latitude,
-          "lastLocation.longitude": latestPoint.longitude,
-          "lastLocation.accuracy": latestPoint.accuracy,
-          "lastLocation.speed": latestPoint.speed,
-          "lastLocation.heading": latestPoint.heading,
-          "lastLocation.batteryLevel": latestPoint.batteryLevel,
-          "lastLocation.address": latestPoint.address,
-          "lastLocation.updatedAt": latestPoint.timestamp,
-          "lastLocation.isTrackingActive": true,
-          "lastLocation.stationarySince": isMoving ? null : stationarySince,
-          "lastLocation.motionStatus": isMoving ? "moving" : "stationary",
-        },
+          $set: {
+            "lastLocation.latitude": latestPoint.latitude,
+            "lastLocation.longitude": latestPoint.longitude,
+            "lastLocation.accuracy": latestPoint.accuracy,
+            "lastLocation.speed": latestPoint.speed,
+            "lastLocation.heading": latestPoint.heading,
+            "lastLocation.batteryLevel": latestPoint.batteryLevel,
+            "lastLocation.address": latestPoint.address,
+            "lastLocation.updatedAt": latestPoint.timestamp,
+            "lastLocation.isTrackingActive": isOnDuty,
+            "lastLocation.stationarySince": isMoving ? null : stationarySince,
+            "lastLocation.motionStatus": isMoving ? "moving" : "stationary",
+          },
         }).catch(() => {});
       }
     }
 
     return res.status(200).json({
       success: true,
-      message: `Successfully synced ${validPoints.length} location points`,
+      trackingAllowed: isOnDuty,
+      message: hasPunchedOut
+        ? `Synced ${validPoints.length} points. Duty ended (punched out).`
+        : !hasPunchedIn
+        ? `Synced ${validPoints.length} points. Duty not started.`
+        : `Successfully synced ${validPoints.length} location points`,
       syncedCount: validPoints.length,
     });
   } catch (error) {
@@ -299,7 +304,7 @@ const getLiveEmployeeLocations = async (req, res) => {
 
     const employees = await Employee.find(employeeQuery)
       .select(
-        "firstName lastName fullName email phone designationName departmentName photo avatar employeeCode lastLocation status"
+        "firstName lastName fullName email phone designationName departmentName photo avatar employeeCode lastLocation status isLocationTrackingEnabled"
       )
       .lean();
 
@@ -476,12 +481,20 @@ const getLiveEmployeeLocations = async (req, res) => {
       // Rules:
       // 1. Employee tracking stays ACTIVE (चालू) as long as they are punched in and haven't punched out.
       // 2. Automatically stops when employee punches out or at late night 12:00 AM (midnight).
-      let trackingStatus = "no_signal"; // "active" | "stopped" | "no_signal"
+      let trackingStatus = "no_signal"; // "active" | "stopped" | "no_signal" | "disabled"
       let trackingStatusLabel = "No GPS Signal";
       let trackingStatusColor = "slate"; // "emerald" | "amber" | "rose" | "slate"
       let isOnline = false;
 
-      if (!hasPunchedIn) {
+      if (!emp.isLocationTrackingEnabled) {
+        // Location tracking is not enabled for this employee (e.g. Office Staff)
+        trackingStatus = "disabled";
+        trackingStatusLabel = "Tracking Not Assigned (Office Staff)";
+        trackingStatusColor = "slate";
+        isOnline = false;
+        latitude = null;
+        longitude = null;
+      } else if (!hasPunchedIn) {
         // Employee has NOT punched in today: Tracking MUST be OFF / STOPPED!
         trackingStatus = "stopped";
         trackingStatusLabel = "Not Punched In (Off Duty)";
@@ -593,6 +606,7 @@ const getLiveEmployeeLocations = async (req, res) => {
         attendanceStatus: todayAtt ? todayAtt.status : "absent",
         punchInTime: todayAtt ? todayAtt.punchInTime : null,
         punchOutTime: todayAtt ? todayAtt.punchOutTime : null,
+        isLocationTrackingEnabled: Boolean(emp.isLocationTrackingEnabled),
       };
     });
 
@@ -610,6 +624,77 @@ const getLiveEmployeeLocations = async (req, res) => {
  * Get location trail history for a specific employee on a specific date
  * @route GET /api/locations/trail/:employeeId
  */
+/**
+ * Get road path between two GPS coordinates using OpenStreetMap routing (bike/driving/foot)
+ * Follows actual streets and lane turns instead of cutting straight through buildings
+ */
+async function getRoadPathBetweenPoints(pt1, pt2) {
+  try {
+    const start = `${pt1.longitude || pt1.lng},${pt1.latitude || pt1.lat}`;
+    const end = `${pt2.longitude || pt2.lng},${pt2.latitude || pt2.lat}`;
+
+    for (const profile of ["bike", "driving", "foot"]) {
+      const url = `https://router.project-osrm.org/route/v1/${profile}/${start};${end}?overview=full&geometries=geojson`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && data.code === "Ok" && data.routes && data.routes[0]?.geometry?.coordinates?.length >= 2) {
+          const coords = data.routes[0].geometry.coordinates.map((c) => ({
+            latitude: c[1],
+            longitude: c[0],
+          }));
+          return {
+            points: coords,
+            distanceMeters: Number(data.routes[0].distance) || 0,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[LocationTracking] Road routing segment notice:", err.message);
+  }
+  return null;
+}
+
+/**
+ * Route GPS trail segments along actual road network
+ * Replaces straight diagonal lines that cut through buildings with real road paths
+ */
+async function alignTrailToRoadNetwork(cleanPoints) {
+  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) return { trail: cleanPoints, distanceMeters: 0 };
+
+  const roadTrail = [];
+  let totalRoadDistance = 0;
+
+  for (let i = 0; i < cleanPoints.length - 1; i++) {
+    const p1 = cleanPoints[i];
+    const p2 = cleanPoints[i + 1];
+    const straightDist = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+
+    if (straightDist < 25) {
+      if (roadTrail.length === 0) roadTrail.push(p1);
+      roadTrail.push(p2);
+      totalRoadDistance += straightDist;
+    } else {
+      const roadPath = await getRoadPathBetweenPoints(p1, p2);
+      if (roadPath && Array.isArray(roadPath.points) && roadPath.points.length >= 2) {
+        if (roadTrail.length === 0) {
+          roadTrail.push(...roadPath.points);
+        } else {
+          roadTrail.push(...roadPath.points.slice(1));
+        }
+        totalRoadDistance += roadPath.distanceMeters;
+      } else {
+        if (roadTrail.length === 0) roadTrail.push(p1);
+        roadTrail.push(p2);
+        totalRoadDistance += straightDist;
+      }
+    }
+  }
+
+  return { trail: roadTrail, distanceMeters: totalRoadDistance };
+}
+
 /**
  * Get location trail history for a specific employee on a specific date with accurate actual distance & halts
  * @route GET /api/locations/trail/:employeeId
@@ -671,8 +756,8 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Filter out poor GPS fixes (accuracy > 55 meters)
-    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 55);
+    // 1. Filter out poor GPS fixes (accuracy > 85 meters so narrow city lanes & pocket fixes are retained)
+    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 85);
     const candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
 
     // 2. Calculate accurate real-world cumulative distance
@@ -817,18 +902,27 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // Use the real-world clean GPS trail directly so out-and-back trips are 100% preserved
-    // and no artificial OSRM car T-turns or loops are injected!
-    const finalDistance = Number((totalDistanceMeters / 1000).toFixed(2));
+    // Align trail segments to actual streets so the route runs on the road and never through buildings
+    let finalTrail = cleanTrail;
+    let actualRoadDistanceMeters = totalDistanceMeters;
 
+    if (cleanTrail.length >= 2) {
+      const roadAligned = await alignTrailToRoadNetwork(cleanTrail);
+      if (roadAligned && Array.isArray(roadAligned.trail) && roadAligned.trail.length >= 2) {
+        finalTrail = roadAligned.trail;
+        if (roadAligned.distanceMeters > actualRoadDistanceMeters) {
+          actualRoadDistanceMeters = roadAligned.distanceMeters;
+        }
+      }
+    }
+
+    const finalDistance = Number((actualRoadDistanceMeters / 1000).toFixed(2));
     let distanceText = "0 km";
     if (finalDistance >= 1.0) {
       distanceText = `${finalDistance.toFixed(2)} km`;
-    } else if (totalDistanceMeters > 0) {
-      distanceText = `${Math.round(totalDistanceMeters)} m (${finalDistance.toFixed(2)} km)`;
+    } else if (actualRoadDistanceMeters > 0) {
+      distanceText = `${Math.round(actualRoadDistanceMeters)} m (${finalDistance.toFixed(2)} km)`;
     }
-
-    const finalTrail = cleanTrail;
 
     const avgMovingSpeed = movingSpeeds.length > 0
       ? Math.round(movingSpeeds.reduce((a, b) => a + b, 0) / movingSpeeds.length)

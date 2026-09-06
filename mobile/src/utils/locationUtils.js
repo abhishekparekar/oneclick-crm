@@ -46,15 +46,15 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (reject poor / coarse accuracy > 55 meters)
-  // Google Fused Location with high accuracy in city lanes typically gives 5m–45m.
-  // Readings > 55m are coarse cellular/network guesses that create false location splits.
-  if (!isNaN(accuracy) && accuracy > 55) {
-    console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> 55m limit)`);
+  // 2. Accuracy check (reject coarse accuracy > 85 meters)
+  // In narrow city gullies or with phone in pocket on a bike, accuracy hovers between 50m-80m.
+  // Readings > 85m are coarse guesses that should be dropped.
+  if (!isNaN(accuracy) && accuracy > 85) {
+    console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> 85m limit)`);
     return false;
   }
 
-  // 3. Teleportation, precision preservation & jitter check against previous point
+  // 3. Teleportation & micro-jitter check against previous point
   if (previousPoint && previousPoint.latitude && previousPoint.longitude) {
     const distMeters = calculateDistanceMeters(
       previousPoint.latitude,
@@ -62,11 +62,6 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
       lat,
       lng
     );
-
-    // If user has not moved noticeably (< 20m), do NOT overwrite a high-precision fix with a noisier one
-    if (distMeters < 20 && previousPoint.accuracy && accuracy > (previousPoint.accuracy + 12)) {
-      return false;
-    }
 
     const timeDiffSeconds =
       point.timestamp && previousPoint.timestamp

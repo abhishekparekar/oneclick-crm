@@ -10,10 +10,10 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-// GPS points are collected locally for 10 minutes then uploaded in one batch.
-// This reduces API calls from ~200/hr → ~6/hr.
-const BATCH_SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes between cloud uploads
-const GPS_HEARTBEAT_INTERVAL_MS = 3500;         // 3.5 seconds between GPS polls (unchanged)
+// GPS points are collected locally and synced every 3 minutes, or when 35 points accumulate.
+// This guarantees that short trips (5-8 mins) are never lost.
+const BATCH_SYNC_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes between cloud uploads
+const GPS_HEARTBEAT_INTERVAL_MS = 3500;        // 3.5 seconds between GPS polls (unchanged)
 
 // Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
 try {
@@ -35,32 +35,6 @@ const GPS_HIGH_ACCURACY_OPTIONS = {
   interval: 3500, // Android poll interval: 3.5 seconds
   fastestInterval: 2000, // Android fastest interval: 2 seconds
 };
-
-// Register Notifee Foreground Service task at file load.
-// CRITICAL: The Promise returned here must NEVER resolve while tracking is active.
-// As long as it is pending, Android keeps the native Foreground Service process
-// alive — immune to Doze mode, task-swipe, and screen-off battery limits.
-// We only call resolve() inside stopLocationTracking().
-try {
-  notifee.registerForegroundService((notification) => {
-    return new Promise((resolve) => {
-      console.log("[LocationService] Native foreground service worker started — keeping alive");
-      if (locationTrackingService) {
-        // Store resolver so stopLocationTracking() can end the service cleanly
-        locationTrackingService.foregroundServiceResolver = resolve;
-        // Fire the background loop without awaiting — loop must run continuously
-        locationTrackingService.runBackgroundTrackingLoop().catch((err) => {
-          console.warn("[LocationService] Background loop unexpected exit:", err?.message);
-        });
-      } else {
-        // Safety: if singleton not ready yet, resolve immediately to avoid orphan service
-        resolve();
-      }
-    });
-  });
-} catch (err) {
-  console.log("[LocationService] Foreground service registration notice:", err?.message);
-}
 
 class LocationTrackingService {
   constructor() {
@@ -320,7 +294,7 @@ class LocationTrackingService {
 
       const done = () => { clearTimeout(safetyTimer); resolve(); };
 
-      // Attempt 1: High Accuracy GPS (8 seconds timeout)
+      // Attempt 1: High Accuracy GPS (10s timeout, 3s cache to prevent pocket satellite timeouts)
       Geolocation.getCurrentPosition(
         (pos) => {
           if (pos && pos.coords) {
@@ -341,7 +315,7 @@ class LocationTrackingService {
             { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
           );
         },
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
       );
     });
   }
@@ -481,6 +455,19 @@ class LocationTrackingService {
         return;
       }
 
+      // Check if employee has tracking enabled in stored profile
+      const userRaw = await AsyncStorage.getItem("@auth_user");
+      if (userRaw) {
+        try {
+          const u = JSON.parse(userRaw);
+          if (u.isLocationTrackingEnabled === false) {
+            console.log("[LocationService] Employee tracking is disabled by admin. Clearing tracking state.");
+            await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+            return;
+          }
+        } catch (_) {}
+      }
+
       if (active === "true" && !this.isTracking) {
         // Verify with backend that employee is actually on duty today.
         // IMPORTANT: Check the LAST session in punchLog, not the root punchOutTime field
@@ -577,8 +564,11 @@ class LocationTrackingService {
       }
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
-      // NOTE: No immediate cloud sync here — points accumulate for 10 minutes
-      // before being uploaded in a single batch by runBackgroundTrackingLoop.
+
+      // Auto-trigger sync if 35+ points (~2 mins of motion) have accumulated
+      if (queue.length >= 35 && !this.isSyncing) {
+        this.syncQueuedLocations().catch(() => {});
+      }
     } catch (err) {
       console.warn("[LocationService] Enqueue error:", err.message);
     }
@@ -614,30 +604,33 @@ class LocationTrackingService {
           });
 
           if (response.data && response.data.success) {
-            // If server says employee punched out, stop tracking immediately
+            totalSynced += chunk.length;
+            // If server says employee punched out, stop tracking cleanly
             if (response.data.trackingAllowed === false) {
               console.log("[LocationService] Duty ended (punched out). Stopping tracking...");
-              await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
               shouldStop = true;
               break;
             }
-            totalSynced += chunk.length;
           }
         } catch (chunkErr) {
-          // Network failed mid-batch — stop uploading, keep remaining points for next 10-min sync
+          // Network failed mid-batch — stop uploading, keep remaining points for next sync
           console.warn("[LocationService] Chunk upload failed (network), will retry next batch:", chunkErr?.message);
           break;
         }
       }
 
-      if (!shouldStop && totalSynced > 0) {
+      if (totalSynced > 0) {
         // Remove successfully uploaded points from local queue
         const remaining = queue.slice(totalSynced);
-        await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remaining));
+        if (remaining.length === 0 || shouldStop) {
+          await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
+        } else {
+          await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(remaining));
+        }
         console.log(`[LocationService] ✅ Batch upload complete: ${totalSynced} points sent, ${remaining.length} remaining locally`);
       }
 
-      // Update timestamp so next sync fires 10 minutes from now
+      // Update timestamp so next scheduled sync fires from now
       this.lastSyncTime = Date.now();
 
       if (shouldStop) {
@@ -655,4 +648,26 @@ class LocationTrackingService {
 
 // Export singleton instance
 const locationTrackingService = new LocationTrackingService();
+
+// Register Notifee Foreground Service task.
+// As long as the Promise is pending, Android keeps the native Foreground Service
+// worker process alive (immune to Doze mode and task-swipe).
+try {
+  notifee.registerForegroundService((notification) => {
+    return new Promise((resolve) => {
+      console.log("[LocationService] Native foreground service worker started — keeping alive");
+      if (locationTrackingService) {
+        locationTrackingService.foregroundServiceResolver = resolve;
+        locationTrackingService.runBackgroundTrackingLoop().catch((err) => {
+          console.warn("[LocationService] Background loop unexpected exit:", err?.message);
+        });
+      } else {
+        resolve();
+      }
+    });
+  });
+} catch (err) {
+  console.log("[LocationService] Foreground service registration notice:", err?.message);
+}
+
 export default locationTrackingService;

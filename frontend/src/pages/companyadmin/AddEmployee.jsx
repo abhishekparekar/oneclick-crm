@@ -254,6 +254,7 @@ export default function AddEmployee() {
     employmentType: "full_time",
     workMode: "office",
     allowRemotePunch: false,
+    isLocationTrackingEnabled: false,
     joiningDate: new Date().toISOString().slice(0, 10),
     confirmationDate: "",
     noticePeriod: "30_days",
@@ -641,6 +642,7 @@ export default function AddEmployee() {
       employmentType: sanitizeEmploymentType(formData.employmentType),
       workMode: formData.workMode || "office",
       allowRemotePunch: formData.allowRemotePunch || false,
+      isLocationTrackingEnabled: Boolean(formData.isLocationTrackingEnabled),
       joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : undefined,
       confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : undefined,
       noticePeriod: formData.noticePeriod || undefined,
@@ -1187,6 +1189,28 @@ export default function AddEmployee() {
                 onChange={(v) => setFormData((p) => ({ ...p, allowRemotePunch: v }))}
                 description="Allows employee to mark attendance from mobile app outside office geofence"
               />
+
+              {/* Live GPS Location Tracking Toggle */}
+              {subscribedModules.length === 0 || subscribedModules.includes("location_tracking") ? (
+                <Toggle
+                  label="Live GPS Location Tracking (Field Staff)"
+                  checked={formData.isLocationTrackingEnabled}
+                  onChange={(v) => setFormData((p) => ({ ...p, isLocationTrackingEnabled: v }))}
+                  description="Enable live travel route tracking on mobile punch-in. Keep OFF for office staff (Punch-in works normally for everyone)."
+                />
+              ) : (
+                <div className="flex items-start justify-between gap-3 p-3.5 rounded-xl bg-slate-100/70 dark:bg-slate-800/40 border border-dashed border-slate-300 dark:border-slate-700 opacity-75">
+                  <div>
+                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <span>Live GPS Location Tracking</span>
+                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">Module Inactive</span>
+                    </p>
+                    <p className="text-[10.5px] text-slate-500 dark:text-slate-400 mt-0.5">
+                      GPS tracking is not subscribed for your company. Contact Super Admin to enable this module.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

@@ -44,7 +44,7 @@ const EmployeeLocationTracking = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "active" | "halt" | "moving" | "stopped"
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString("en-CA"));
   const [mapReady, setMapReady] = useState(false);
 
   // Fetch Live Employees Query
@@ -103,9 +103,11 @@ const EmployeeLocationTracking = () => {
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && emp.trackingStatus === "active") ||
+        (statusFilter === "field" && Boolean(emp.isLocationTrackingEnabled)) ||
+        (statusFilter === "office" && !emp.isLocationTrackingEnabled) ||
         (statusFilter === "halt" && emp.motionStatus === "stationary" && emp.latitude) ||
         (statusFilter === "moving" && emp.motionStatus === "moving") ||
-        (statusFilter === "stopped" && (emp.trackingStatus === "stopped" || emp.trackingStatus === "no_signal"));
+        (statusFilter === "stopped" && (emp.trackingStatus === "stopped" || emp.trackingStatus === "no_signal" || emp.trackingStatus === "disabled"));
 
       return matchesSearch && matchesStatus;
     });
@@ -114,6 +116,14 @@ const EmployeeLocationTracking = () => {
   // Tracking & Motion Metrics
   const activeTrackingCount = useMemo(
     () => employees.filter((e) => e.trackingStatus === "active" && e.latitude).length,
+    [employees]
+  );
+  const fieldStaffCount = useMemo(
+    () => employees.filter((e) => e.isLocationTrackingEnabled).length,
+    [employees]
+  );
+  const officeStaffCount = useMemo(
+    () => employees.filter((e) => !e.isLocationTrackingEnabled).length,
     [employees]
   );
   const haltingCount = useMemo(
@@ -125,7 +135,7 @@ const EmployeeLocationTracking = () => {
     [employees]
   );
   const stoppedTrackingCount = useMemo(
-    () => employees.filter((e) => e.trackingStatus === "stopped" || !e.isOnline).length,
+    () => employees.filter((e) => e.isLocationTrackingEnabled && (e.trackingStatus === "stopped" || !e.isOnline)).length,
     [employees]
   );
   const onlineCount = useMemo(() => employees.filter((e) => e.isOnline && e.latitude).length, [employees]);
@@ -1076,7 +1086,8 @@ const EmployeeLocationTracking = () => {
               { id: "active", label: `🟢 चालू (${activeTrackingCount})` },
               { id: "halt", label: `🛑 थांबलेले (${haltingCount})` },
               { id: "moving", label: `🚗 चलनात (${movingCount})` },
-              { id: "stopped", label: `⚪ बंद (${stoppedTrackingCount})` },
+              { id: "field", label: `🗺️ Field Staff (${fieldStaffCount})` },
+              { id: "office", label: `🏢 Office Staff (${officeStaffCount})` },
             ].map((pill) => (
               <button
                 key={pill.id}
@@ -1110,6 +1121,7 @@ const EmployeeLocationTracking = () => {
                 const isSelected = selectedEmployee?._id === emp._id;
                 const isTrackingActive = emp.trackingStatus === "active";
                 const isIdle = emp.trackingStatus === "idle";
+                const isFieldStaff = Boolean(emp.isLocationTrackingEnabled);
 
                 return (
                   <div
@@ -1132,7 +1144,9 @@ const EmployeeLocationTracking = () => {
                           )}
                           <span
                             className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-card ${
-                              isTrackingActive
+                              !isFieldStaff
+                                ? "bg-slate-400"
+                                : isTrackingActive
                                 ? "bg-emerald-500 animate-pulse"
                                 : isIdle
                                 ? "bg-amber-500"
@@ -1141,41 +1155,54 @@ const EmployeeLocationTracking = () => {
                           />
                         </div>
                         <div className="min-w-0">
-                          <h4 className="text-xs font-black text-foreground truncate">{emp.name}</h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs font-black text-foreground truncate">{emp.name}</h4>
+                            {!isFieldStaff && (
+                              <span className="text-[8.5px] font-black uppercase px-1 py-0.2 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700">
+                                Office
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-muted-foreground truncate font-medium">
-                            {emp.designation || emp.department || "Field Staff"}
+                            {emp.designation || emp.department || (isFieldStaff ? "Field Staff" : "Office Staff")}
                           </p>
                         </div>
                       </div>
 
                       {/* Tracking State Badge */}
                       <div className="text-right flex-shrink-0 pl-1">
-                        <span
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
-                            isTrackingActive
-                              ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
-                              : isIdle
-                              ? "bg-amber-500/15 text-amber-600 border border-amber-500/30"
-                              : "bg-rose-500/15 text-rose-600 border border-rose-500/30"
-                          }`}
-                        >
-                          {isTrackingActive ? (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
-                              चालू (Active)
-                            </>
-                          ) : isIdle ? (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" />
-                              सुस्त (Idle)
-                            </>
-                          ) : (
-                            <>
-                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1" />
-                              बंद (Stopped)
-                            </>
-                          )}
-                        </span>
+                        {!isFieldStaff ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30">
+                            🏢 ट्रॅकिंग नाही
+                          </span>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                              isTrackingActive
+                                ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                                : isIdle
+                                ? "bg-amber-500/15 text-amber-600 border border-amber-500/30"
+                                : "bg-rose-500/15 text-rose-600 border border-rose-500/30"
+                            }`}
+                          >
+                            {isTrackingActive ? (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1 animate-pulse" />
+                                चालू (Active)
+                              </>
+                            ) : isIdle ? (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1" />
+                                सुस्त (Idle)
+                              </>
+                            ) : (
+                              <>
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1" />
+                                बंद (Stopped)
+                              </>
+                            )}
+                          </span>
+                        )}
                       </div>
                     </div>
 

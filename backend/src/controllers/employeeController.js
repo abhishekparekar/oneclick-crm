@@ -241,7 +241,7 @@ const getEmployees = async (req, res, next) => {
     console.log("DB QUERY: getEmployees");
     const filter = buildEmployeeFilter(req);
     const employees = await Employee.find(filter)
-      .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions assignedModules joiningDate createdAt")
+      .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions assignedModules isLocationTrackingEnabled allowRemotePunch workMode joiningDate createdAt")
       .populate([
         { path: "userId", select: "role profileImage name email assignedModules" },
         { path: "departmentId", select: "name" },
@@ -545,6 +545,7 @@ const createEmployee = async (req, res, next) => {
         employmentType,
         workMode,
         allowRemotePunch: allowRemotePunch === true,
+        isLocationTrackingEnabled: Boolean(req.body.isLocationTrackingEnabled),
         salary: salary !== undefined && salary !== "" ? Number(salary) : null,
         salaryDetails: salaryDetails || undefined,
         // Map frontend address {street, city, state, pincode, country} → currentAddress schema
@@ -730,7 +731,7 @@ const updateEmployee = async (req, res, next) => {
     const fieldsToCheck = [
       "firstName", "lastName", "middleName", "phone", "alternateMobile", "photo", "gender", 
       "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "designationId", 
-      "branchId", "employmentType", "workMode", "allowRemotePunch", "status", "skills", "certifications", 
+      "branchId", "employmentType", "workMode", "allowRemotePunch", "isLocationTrackingEnabled", "status", "skills", "certifications", 
       "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions",
       "bloodGroup", "maritalStatus", "aadhaarNumber", "panNumber", "personalEmail"
     ];

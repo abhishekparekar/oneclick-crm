@@ -124,7 +124,10 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     if (filter === "yesterday") {
       d.setDate(d.getDate() - 1);
     }
-    return d.toISOString().split("T")[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
   };
 
   // Fetch route trail when employee & date selected
@@ -247,6 +250,14 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     }
   };
 
+  const formatName = (str) => {
+    if (!str) return "Employee";
+    return str
+      .split(" ")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   const liveTrackedCount = employees.filter((e) => e.isOnline && e.latitude).length;
 
   const getLeafletHTML = () => {
@@ -254,7 +265,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       <!DOCTYPE html>
       <html>
       <head>
-        <meta charset="utf-8">
+        <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -275,22 +286,26 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             width: 44px;
             height: 44px;
             border-radius: 50%;
-            background: #0F172A;
-            border: 3.5px solid #10B981;
-            box-shadow: 0 4px 14px rgba(0,0,0,0.55);
+            background: #1E293B;
+            border: 3px solid #10B981;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.45);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
             cursor: pointer;
+            transition: all 0.2s ease;
+          }
+          .avatar-bubble.online {
+            border-color: #10B981;
           }
           .avatar-bubble.offline {
             border-color: #94A3B8;
-            opacity: 0.85;
+            opacity: 0.9;
           }
           .avatar-bubble.selected {
-            border-color: #F59E0B;
-            border-width: 4px;
+            border-color: #2563EB;
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.4), 0 6px 20px rgba(0,0,0,0.6);
             transform: scale(1.15);
           }
           .avatar-img {
@@ -303,23 +318,24 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             font-size: 13px;
             font-weight: 800;
             font-family: sans-serif;
+            letter-spacing: 0.5px;
           }
           .status-dot {
             position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 13px;
-            height: 13px;
+            bottom: 1px;
+            right: 1px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            border: 2.5px solid #FFFFFF;
+            border: 2px solid #FFFFFF;
             background: #10B981;
           }
           .status-dot.offline {
             background: #94A3B8;
           }
           .endpoint-marker {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -327,39 +343,54 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             color: #FFFFFF;
             font-weight: 800;
             font-size: 14px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 14px rgba(0,0,0,0.5);
             border: 2.5px solid #FFFFFF;
           }
           .leaflet-popup-content-wrapper {
             background: #0F172A;
             color: #FFFFFF;
-            border-radius: 12px;
-            padding: 4px 6px;
-            box-shadow: 0 6px 22px rgba(0,0,0,0.5);
+            border-radius: 14px;
+            padding: 6px 8px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+            border: 1px solid #334155;
           }
           .leaflet-popup-tip {
             background: #0F172A;
           }
           .popup-name {
-            font-size: 13.5px;
+            font-size: 14px;
             font-weight: 800;
             color: #FFFFFF;
           }
           .popup-sub {
             font-size: 11px;
             color: #94A3B8;
-            margin-top: 1px;
+            margin-top: 2px;
           }
           .popup-speed {
-            font-size: 11px;
+            font-size: 11.5px;
             font-weight: 800;
             color: #10B981;
-            margin-top: 4px;
+            margin-top: 5px;
           }
           .popup-time {
-            font-size: 10px;
+            font-size: 10.5px;
             color: #64748B;
-            margin-top: 2px;
+            margin-top: 3px;
+          }
+          .halt-marker {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #F59E0B;
+            border: 2px solid #FFFFFF;
+            color: #FFFFFF;
+            font-size: 10px;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
           }
         </style>
       </head>
@@ -402,8 +433,8 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               ? '<img src="' + emp.avatar + '" class="avatar-img" />'
               : '<span class="avatar-initials">' + initials + '</span>';
             
-            var bubbleClass = 'avatar-bubble' + (isOnline ? '' : ' offline') + (isSelected ? ' selected' : '');
-            var dotClass = 'status-dot' + (isOnline ? '' : ' offline');
+            var bubbleClass = 'avatar-bubble ' + (isOnline ? 'online' : 'offline') + (isSelected ? ' selected' : '');
+            var dotClass = 'status-dot ' + (isOnline ? 'online' : 'offline');
 
             var html = '<div class="' + bubbleClass + '">' + avatarHtml + '<div class="' + dotClass + '"></div></div>';
 
@@ -471,92 +502,73 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
           function renderTrail(trail, employeeName, halts, startTime, endTime) {
             trailLayer.clearLayers();
-            markersLayer.clearLayers();
             if (!trail || trail.length === 0) return;
 
-            var latlngs = trail.map(function(pt) {
-              return [pt.latitude, pt.longitude];
-            });
+            var latlngs = trail.map(function(p) { return [p.latitude, p.longitude]; });
 
-            // 1. Outer glow polyline for maximum road visibility
-            var polylineGlow = L.polyline(latlngs, {
-              color: '#1E3A8A',
+            var glowLine = L.polyline(latlngs, {
+              color: '#3B82F6',
               weight: 8,
-              opacity: 0.45,
+              opacity: 0.35,
+              lineCap: 'round',
               lineJoin: 'round'
             });
-            trailLayer.addLayer(polylineGlow);
+            trailLayer.addLayer(glowLine);
 
-            // 2. Exact Traveled Route Polyline
             var polyline = L.polyline(latlngs, {
               color: '#2563EB',
-              weight: 5,
+              weight: 4.5,
               opacity: 0.95,
-              lineJoin: 'round',
-              lineCap: 'round'
+              lineCap: 'round',
+              lineJoin: 'round'
             });
             trailLayer.addLayer(polyline);
 
-            // 3. Directional Navigation Arrows along the polyline path
-            if (trail.length > 1) {
-              var step = trail.length > 80 ? 4 : trail.length > 30 ? 2 : 1;
-              for (var i = 0; i < trail.length - 1; i += step) {
-                var p1 = trail[i];
-                var p2 = trail[Math.min(i + step, trail.length - 1)];
-                var bearing = calculateBearing(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
-                var midLat = (p1.latitude + p2.latitude) / 2;
-                var midLng = (p1.longitude + p2.longitude) / 2;
-
-                var arrowIcon = L.divIcon({
-                  className: 'custom-leaflet-marker',
-                  html: '<div style="transform: rotate(' + Math.round(bearing) + 'deg); width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.85));">' +
-                        '<svg viewBox="0 0 24 24" width="16" height="16" fill="#FFFFFF">' +
-                        '<path d="M12 2L4 20l8-4 8 4z"/>' +
-                        '</svg></div>',
-                  iconSize: [22, 22],
-                  iconAnchor: [11, 11]
-                });
-                var arrowMarker = L.marker([midLat, midLng], { icon: arrowIcon, interactive: false });
-                trailLayer.addLayer(arrowMarker);
-              }
-            }
-
-            // 4. Stoppage / Halt Pins along the route
-            if (Array.isArray(halts) && halts.length > 0) {
-              halts.forEach(function(h, idx) {
-                var haltIcon = L.divIcon({
-                  className: 'custom-leaflet-marker',
-                  html: '<div style="min-width: 32px; height: 24px; padding: 0 6px; border-radius: 99px; background: #DC2626; color: #FFF; border: 2px solid #FFF; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 900; box-shadow: 0 3px 10px rgba(0,0,0,0.6); white-space: nowrap;">🛑 ' + (h.durationText || (h.durationMinutes + 'm')) + '</div>',
-                  iconSize: [44, 24],
-                  iconAnchor: [22, 12]
-                });
-                var haltMarker = L.marker([h.latitude, h.longitude], { icon: haltIcon });
-                haltMarker.bindPopup('<b style="color:#DC2626;">🛑 Halt #' + (idx + 1) + ' (' + (h.durationText || (h.durationMinutes + 'm')) + ')</b><br/>' + (h.address ? '📍 ' + h.address + '<br/>' : '') + '⏱️ ' + (h.startTime ? new Date(h.startTime).toLocaleTimeString() : ''));
-                trailLayer.addLayer(haltMarker);
+            var arrowInterval = Math.max(1, Math.floor(trail.length / 15));
+            for (var i = 0; i < trail.length - 1; i += arrowInterval) {
+              var p1 = trail[i];
+              var p2 = trail[i + 1];
+              var bearing = calculateBearing(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+              var arrowIcon = L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: '<div style="transform: rotate(' + bearing + 'deg); font-size:12px; color:#FFFFFF; text-shadow:0 1px 3px rgba(0,0,0,0.8); line-height:12px;">➤</div>',
+                iconSize: [14, 14],
+                iconAnchor: [7, 7]
               });
+              trailLayer.addLayer(L.marker([p1.latitude, p1.longitude], { icon: arrowIcon }));
             }
 
-            // 5. Start marker (Green Flag)
+            (halts || []).forEach(function(halt, idx) {
+              var haltIcon = L.divIcon({
+                className: 'custom-leaflet-marker',
+                html: '<div class="halt-marker">H' + (idx + 1) + '</div>',
+                iconSize: [22, 22],
+                iconAnchor: [11, 11]
+              });
+              var haltMarker = L.marker([halt.latitude, halt.longitude], { icon: haltIcon });
+              haltMarker.bindPopup('<b style="color:#F59E0B;">⏸️ Halt #' + (idx + 1) + '</b><br/>Duration: ' + halt.durationMinutes + ' min');
+              trailLayer.addLayer(haltMarker);
+            });
+
             var startPt = trail[0];
             var startIcon = L.divIcon({
               className: 'custom-leaflet-marker',
-              html: '<div class="endpoint-marker" style="background:#10B981;">🚩</div>',
-              iconSize: [32, 32],
-              iconAnchor: [16, 16]
+              html: '<div class="endpoint-marker" style="background:#10B981;">🏁</div>',
+              iconSize: [34, 34],
+              iconAnchor: [17, 17]
             });
             var startMarker = L.marker([startPt.latitude, startPt.longitude], { icon: startIcon });
             var startT = startPt.timestamp ? new Date(startPt.timestamp).toLocaleTimeString() : (startTime ? new Date(startTime).toLocaleTimeString() : 'Start');
-            startMarker.bindPopup('<b style="color:#10B981;">🚩 Route Start Point</b><br/>⏱️ ' + startT);
+            startMarker.bindPopup('<b style="color:#10B981;">🏁 Route Start Point</b><br/>⏱️ ' + startT);
             trailLayer.addLayer(startMarker);
 
-            // 6. End marker (Red Pin)
             if (trail.length > 1) {
               var endPt = trail[trail.length - 1];
               var endIcon = L.divIcon({
                 className: 'custom-leaflet-marker',
                 html: '<div class="endpoint-marker" style="background:#EF4444;">📍</div>',
-                iconSize: [32, 32],
-                iconAnchor: [16, 16]
+                iconSize: [34, 34],
+                iconAnchor: [17, 17]
               });
               var endMarker = L.marker([endPt.latitude, endPt.longitude], { icon: endIcon });
               var endT = endPt.timestamp ? new Date(endPt.timestamp).toLocaleTimeString() : (endTime ? new Date(endTime).toLocaleTimeString() : 'Current');
@@ -609,9 +621,15 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     `;
   };
 
+  const topInset = Platform.OS === "ios" ? 54 : (StatusBar.currentHeight || 28) + 12;
+
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent={true}
+      />
 
       {/* ── Main Leaflet Satellite Map View (WebView) ────────────────────── */}
       <WebView
@@ -648,19 +666,19 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         `}
         renderLoading={() => (
           <View style={styles.mapLoadingOverlay}>
-            <ActivityIndicator size="large" color="#1268D9" />
+            <ActivityIndicator size="large" color="#2563EB" />
             <Text style={styles.mapLoadingText}>Loading Satellite Radar...</Text>
           </View>
         )}
       />
 
       {/* ── Top Floating Navigation & Mode Bar ──────────────────────────── */}
-      <View style={styles.topFloatHeader}>
+      <View style={[styles.topFloatHeader, { top: topInset }]}>
         <View style={styles.topHeaderRow}>
           <TouchableOpacity
             style={styles.iconCircleBtn}
             onPress={() => navigation.goBack()}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
             <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </TouchableOpacity>
@@ -668,9 +686,21 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
           <View style={styles.headerTitleBox}>
             <Text style={styles.headerTitle}>Live Location Radar</Text>
             <View style={styles.liveIndicatorRow}>
-              <View style={styles.livePulseDot} />
-              <Text style={styles.liveIndicatorText}>
-                {liveTrackedCount} Active Staff Online
+              <View
+                style={[
+                  styles.livePulseDot,
+                  { backgroundColor: liveTrackedCount > 0 ? "#10B981" : "#94A3B8" },
+                ]}
+              />
+              <Text
+                style={[
+                  styles.liveIndicatorText,
+                  { color: liveTrackedCount > 0 ? "#10B981" : "#64748B" },
+                ]}
+              >
+                {liveTrackedCount > 0
+                  ? `${liveTrackedCount} Staff Online`
+                  : `${employees.length} Staff Monitored`}
               </Text>
             </View>
           </View>
@@ -678,12 +708,12 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
           <TouchableOpacity
             style={styles.iconCircleBtn}
             onPress={() => fetchLiveLocations(true)}
-            activeOpacity={0.8}
+            activeOpacity={0.7}
           >
             {refreshing ? (
-              <ActivityIndicator size="small" color="#1268D9" />
+              <ActivityIndicator size="small" color="#2563EB" />
             ) : (
-              <Ionicons name="refresh" size={19} color="#1268D9" />
+              <Ionicons name="refresh" size={19} color="#2563EB" />
             )}
           </TouchableOpacity>
         </View>
@@ -699,7 +729,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               name="navigate"
               size={14}
               color={viewMode === "live" ? "#FFFFFF" : "#64748B"}
-              style={{ marginRight: 5 }}
+              style={{ marginRight: 6 }}
             />
             <Text
               style={[
@@ -720,7 +750,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
               name="footsteps"
               size={14}
               color={viewMode === "trail" ? "#FFFFFF" : "#64748B"}
-              style={{ marginRight: 5 }}
+              style={{ marginRight: 6 }}
             />
             <Text
               style={[
@@ -735,7 +765,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       </View>
 
       {/* ── Floating Action Buttons (Recenter & Satellite Toggle) ────────── */}
-      <View style={styles.mapFloatingActions}>
+      <View style={[styles.mapFloatingActions, { top: topInset + 120 }]}>
         <TouchableOpacity
           style={styles.floatActionBtn}
           onPress={toggleMapType}
@@ -743,8 +773,8 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         >
           <Ionicons
             name={mapType === "satellite" ? "map-outline" : "globe-outline"}
-            size={20}
-            color="#1268D9"
+            size={21}
+            color="#2563EB"
           />
         </TouchableOpacity>
 
@@ -753,12 +783,14 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
           onPress={handleRecenter}
           activeOpacity={0.8}
         >
-          <Ionicons name="locate" size={20} color="#1268D9" />
+          <Ionicons name="locate" size={21} color="#2563EB" />
         </TouchableOpacity>
       </View>
 
       {/* ── Bottom Floating Card / Carousel ─────────────────────────────── */}
       <View style={styles.bottomSheetCard}>
+        <View style={styles.sheetHandle} />
+
         {viewMode === "trail" && (
           <View style={styles.trailControlRow}>
             <View style={styles.trailDateChips}>
@@ -814,22 +846,33 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
           </View>
         )}
 
-        {/* Employee Carousel */}
-        <Text style={styles.carouselSectionTitle}>
-          {viewMode === "live"
-            ? "ACTIVE FIELD EMPLOYEES"
-            : `TRAIL: ${selectedEmployee ? selectedEmployee.name : "SELECT EMPLOYEE"}`}
-        </Text>
+        {/* Employee Carousel Header */}
+        <View style={styles.sheetHeaderRow}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Ionicons name="people-outline" size={16} color="#2563EB" />
+            <Text style={styles.carouselSectionTitle}>
+              {viewMode === "live"
+                ? "ACTIVE FIELD STAFF"
+                : `TRAIL: ${selectedEmployee ? formatName(selectedEmployee.name) : "SELECT STAFF"}`}
+            </Text>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>{employees.length}</Text>
+            </View>
+          </View>
+          {viewMode === "live" && (
+            <Text style={styles.sheetHeaderSub}>Tap to focus map</Text>
+          )}
+        </View>
 
         {loadingLive && employees.length === 0 ? (
           <View style={styles.loadingCarousel}>
-            <ActivityIndicator size="small" color="#1268D9" />
+            <ActivityIndicator size="small" color="#2563EB" />
             <Text style={styles.loadingCarouselText}>Detecting field locations...</Text>
           </View>
         ) : employees.length === 0 ? (
           <View style={styles.emptyCarousel}>
             <Ionicons name="location-outline" size={24} color="#94A3B8" />
-            <Text style={styles.emptyCarouselText}>No live staff tracked at this moment.</Text>
+            <Text style={styles.emptyCarouselText}>No staff location tracked today yet.</Text>
           </View>
         ) : (
           <ScrollView
@@ -868,33 +911,46 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                       />
                     </View>
 
-                    <View style={{ flex: 1, marginLeft: 8 }}>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={styles.empName} numberOfLines={1}>
-                        {emp.name}
+                        {formatName(emp.name)}
                       </Text>
-                      <Text style={styles.empRole} numberOfLines={1}>
-                        {emp.designation || emp.department || "Staff"}
-                      </Text>
+                      <View style={styles.roleTag}>
+                        <Text style={styles.empRole} numberOfLines={1}>
+                          {emp.designation || emp.department || "Staff"}
+                        </Text>
+                      </View>
                     </View>
                   </View>
 
                   <View style={styles.empCardBottom}>
-                    <View style={styles.statusPill}>
-                      <Ionicons
-                        name={isOnline ? "navigate" : "time-outline"}
-                        size={11}
-                        color={isOnline ? "#10B981" : "#64748B"}
+                    <View
+                      style={[
+                        styles.statusPill,
+                        {
+                          backgroundColor: isOnline
+                            ? "rgba(16, 185, 129, 0.12)"
+                            : "rgba(100, 116, 139, 0.1)",
+                        },
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.statusDotSmall,
+                          { backgroundColor: isOnline ? "#10B981" : "#94A3B8" },
+                        ]}
                       />
                       <Text
                         style={[
                           styles.statusPillText,
-                          { color: isOnline ? "#10B981" : "#64748B" },
+                          { color: isOnline ? "#059669" : "#64748B" },
                         ]}
                       >
                         {isOnline ? "Active" : "Idle / Offline"}
                       </Text>
                     </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
                       {emp.todayDistanceText ? (
                         <View style={styles.todayDistanceBadge}>
                           <Text style={styles.todayDistanceText}>
@@ -941,18 +997,18 @@ const styles = StyleSheet.create({
   },
   topFloatHeader: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 25,
     left: 14,
     right: 14,
     zIndex: 10,
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 18,
-    padding: 12,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    elevation: 10,
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
@@ -962,9 +1018,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   iconCircleBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: "#F8FAFC",
     borderWidth: 1,
     borderColor: "#E2E8F0",
@@ -976,52 +1032,52 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerTitle: {
-    fontSize: 14.5,
+    fontSize: 15.5,
     fontWeight: "800",
     color: "#0F172A",
+    letterSpacing: -0.2,
   },
   liveIndicatorRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginTop: 2,
-    gap: 5,
+    marginTop: 3,
+    gap: 6,
   },
   livePulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
     backgroundColor: "#10B981",
   },
   liveIndicatorText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: "700",
-    color: "#10B981",
   },
   modeSegment: {
     flexDirection: "row",
     backgroundColor: "#F1F5F9",
-    borderRadius: 12,
-    padding: 3,
-    marginTop: 10,
+    borderRadius: 14,
+    padding: 3.5,
+    marginTop: 12,
   },
   segmentBtn: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 7,
-    borderRadius: 9,
+    paddingVertical: 8,
+    borderRadius: 11,
   },
   segmentBtnActive: {
-    backgroundColor: "#1268D9",
-    shadowColor: "#1268D9",
+    backgroundColor: "#2563EB",
+    shadowColor: "#2563EB",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
   segmentText: {
-    fontSize: 11.5,
+    fontSize: 12,
     fontWeight: "700",
     color: "#64748B",
   },
@@ -1031,47 +1087,87 @@ const styles = StyleSheet.create({
   mapFloatingActions: {
     position: "absolute",
     right: 16,
-    top: Platform.OS === "ios" ? 170 : 145,
     zIndex: 9,
-    gap: 10,
+    gap: 12,
   },
   floatActionBtn: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
+    elevation: 6,
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
   bottomSheetCard: {
     position: "absolute",
-    bottom: Platform.OS === "ios" ? 24 : 14,
-    left: 12,
-    right: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.96)",
-    borderRadius: 20,
-    padding: 12,
+    bottom: Platform.OS === "ios" ? 28 : 16,
+    left: 14,
+    right: 14,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 16,
     shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+    elevation: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+  },
+  sheetHandle: {
+    width: 38,
+    height: 4.5,
+    borderRadius: 2.5,
+    backgroundColor: "#CBD5E1",
+    alignSelf: "center",
+    marginBottom: 10,
+  },
+  sheetHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 10,
+    paddingHorizontal: 2,
+  },
+  carouselSectionTitle: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#0F172A",
+    letterSpacing: 0.6,
+  },
+  countBadge: {
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 6,
+    paddingVertical: 1.5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#DBEAFE",
+  },
+  countBadgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#2563EB",
+  },
+  sheetHeaderSub: {
+    fontSize: 10.5,
+    fontWeight: "600",
+    color: "#64748B",
   },
   trailControlRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
-    paddingBottom: 8,
+    marginBottom: 10,
+    paddingBottom: 10,
     borderBottomWidth: 1,
     borderBottomColor: "#F1F5F9",
   },
@@ -1080,24 +1176,24 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   dateChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4.5,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 5.5,
+    borderRadius: 10,
     backgroundColor: "#F1F5F9",
     borderWidth: 1,
     borderColor: "#E2E8F0",
   },
   dateChipActive: {
-    backgroundColor: "rgba(18, 104, 217, 0.12)",
-    borderColor: "rgba(18, 104, 217, 0.4)",
+    backgroundColor: "rgba(37, 99, 235, 0.12)",
+    borderColor: "rgba(37, 99, 235, 0.4)",
   },
   dateChipText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: "700",
     color: "#64748B",
   },
   dateChipTextActive: {
-    color: "#1268D9",
+    color: "#2563EB",
   },
   trailMetricsBox: {
     flexDirection: "row",
@@ -1108,7 +1204,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   metricVal: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: "900",
     color: "#0F172A",
   },
@@ -1120,32 +1216,30 @@ const styles = StyleSheet.create({
   },
   metricDivider: {
     width: 1,
-    height: 16,
+    height: 18,
     backgroundColor: "#E2E8F0",
   },
-  carouselSectionTitle: {
-    fontSize: 9.5,
-    fontWeight: "800",
-    color: "#64748B",
-    letterSpacing: 0.6,
-    marginBottom: 8,
-    marginLeft: 2,
-  },
   carouselScroll: {
-    gap: 10,
+    gap: 12,
+    paddingRight: 10,
   },
   employeeCard: {
-    width: 175,
+    width: 220,
     backgroundColor: "#F8FAFC",
-    borderRadius: 14,
-    borderWidth: 1,
+    borderRadius: 16,
+    borderWidth: 1.5,
     borderColor: "#E2E8F0",
-    padding: 10,
-    gap: 6,
+    padding: 12,
+    gap: 10,
   },
   employeeCardSelected: {
-    borderColor: "#1268D9",
+    borderColor: "#2563EB",
     backgroundColor: "#EFF6FF",
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 3,
   },
   empCardTop: {
     flexDirection: "row",
@@ -1153,40 +1247,44 @@ const styles = StyleSheet.create({
   },
   empAvatarBox: {
     position: "relative",
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#1268D9",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#2563EB",
     alignItems: "center",
     justifyContent: "center",
   },
   empAvatar: {
     width: "100%",
     height: "100%",
-    borderRadius: 16,
+    borderRadius: 18,
   },
   empInitials: {
     color: "#FFFFFF",
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: "800",
   },
   onlineDotBadge: {
     position: "absolute",
     bottom: -1,
     right: -1,
-    width: 9,
-    height: 9,
-    borderRadius: 4.5,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     borderWidth: 1.5,
     borderColor: "#FFFFFF",
   },
   empName: {
-    fontSize: 12,
+    fontSize: 13.5,
     fontWeight: "800",
     color: "#0F172A",
+    marginBottom: 2,
+  },
+  roleTag: {
+    alignSelf: "flex-start",
   },
   empRole: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: "600",
     color: "#64748B",
   },
@@ -1198,47 +1296,55 @@ const styles = StyleSheet.create({
   statusPill: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusDotSmall: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   statusPillText: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontWeight: "700",
   },
   empSpeedText: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontWeight: "800",
-    color: "#1268D9",
+    color: "#2563EB",
   },
   todayDistanceBadge: {
-    backgroundColor: "rgba(18, 104, 217, 0.1)",
-    paddingHorizontal: 5,
-    paddingVertical: 1.5,
-    borderRadius: 5,
+    backgroundColor: "rgba(37, 99, 235, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 6,
     borderWidth: 1,
-    borderColor: "rgba(18, 104, 217, 0.2)",
+    borderColor: "rgba(37, 99, 235, 0.2)",
   },
   todayDistanceText: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontWeight: "800",
-    color: "#1268D9",
+    color: "#2563EB",
   },
   loadingCarousel: {
-    paddingVertical: 20,
+    paddingVertical: 22,
     alignItems: "center",
-    gap: 6,
+    gap: 8,
   },
   loadingCarouselText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: "#64748B",
     fontWeight: "600",
   },
   emptyCarousel: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: "center",
-    gap: 4,
+    gap: 6,
   },
   emptyCarouselText: {
-    fontSize: 11,
+    fontSize: 11.5,
     color: "#94A3B8",
     fontWeight: "600",
   },

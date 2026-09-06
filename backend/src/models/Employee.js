@@ -218,6 +218,10 @@ const employeeSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isLocationTrackingEnabled: {
+      type: Boolean,
+      default: false, // Default is false (Office staff). Admin explicitly enables for field staff.
+    },
     reportingManagerId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",

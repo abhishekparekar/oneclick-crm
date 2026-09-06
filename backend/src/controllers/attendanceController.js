@@ -249,18 +249,26 @@ const checkIn = async (req, res, next) => {
 
     await attendance.save();
 
-    // Activate location tracking on Punch In
-    await Employee.findByIdAndUpdate(employee._id, {
-      $set: {
-        "lastLocation.latitude": punchLocation?.latitude || null,
-        "lastLocation.longitude": punchLocation?.longitude || null,
-        "lastLocation.address": punchLocation?.address || "",
-        "lastLocation.updatedAt": now,
-        "lastLocation.isTrackingActive": true,
-        "lastLocation.motionStatus": "stationary",
-        "lastLocation.stationarySince": now,
-      },
-    }).catch(() => {});
+    // Activate location tracking on Punch In ONLY IF company has location_tracking and employee has tracking enabled!
+    const Company = require("../models/Company");
+    const company = await Company.findById(req.companyId).select("subscribedModules");
+    const companySubscribed = company?.subscribedModules || [];
+    const isCompanyTrackingAllowed = companySubscribed.includes("location_tracking") || companySubscribed.includes("location");
+    const isEmployeeTrackingAllowed = isCompanyTrackingAllowed && Boolean(employee.isLocationTrackingEnabled);
+
+    if (isEmployeeTrackingAllowed) {
+      await Employee.findByIdAndUpdate(employee._id, {
+        $set: {
+          "lastLocation.latitude": punchLocation?.latitude || null,
+          "lastLocation.longitude": punchLocation?.longitude || null,
+          "lastLocation.address": punchLocation?.address || "",
+          "lastLocation.updatedAt": now,
+          "lastLocation.isTrackingActive": true,
+          "lastLocation.motionStatus": "stationary",
+          "lastLocation.stationarySince": now,
+        },
+      }).catch(() => {});
+    }
 
     // Send Notifications
     const timeStr = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
@@ -280,7 +288,11 @@ const checkIn = async (req, res, next) => {
       await notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }).catch(err => console.error("Dept notify punch-in error:", err));
     }
 
-    res.status(201).json({ success: true, attendance });
+    res.status(201).json({
+      success: true,
+      attendance,
+      isLocationTrackingEnabled: isEmployeeTrackingAllowed,
+    });
   } catch (error) {
     next(error);
   }
