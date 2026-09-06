@@ -154,45 +154,13 @@ class LocationTrackingService {
         lights: false,
       });
 
-      const foregroundTypes = [];
-      if (AndroidForegroundServiceType && AndroidForegroundServiceType.LOCATION) {
-        foregroundTypes.push(AndroidForegroundServiceType.LOCATION);
-      }
-
-      const isAppActive = AppState.currentState === "active";
-
-      // Try as foreground service if app is active
-      if (isAppActive) {
-        try {
-          await notifee.displayNotification({
-            id: NOTIFICATION_ID,
-            title: "Location Tracking Active",
-            body: "Recording your real-time travel and duty location.",
-            android: {
-              channelId: NOTIFICATION_CHANNEL_ID,
-              asForegroundService: true,
-              ongoing: true,
-              autoCancel: false,
-              foregroundServiceTypes: foregroundTypes,
-              pressAction: {
-                id: "default",
-              },
-              smallIcon: "ic_notification",
-            },
-          });
-          return;
-        } catch (fgsErr) {
-          console.warn("[LocationService] Foreground service notification fallback:", fgsErr?.message);
-        }
-      }
-
-      // Safe fallback: Standard ongoing notification if app is in background or OS disallows FGS
       await notifee.displayNotification({
         id: NOTIFICATION_ID,
         title: "Location Tracking Active",
         body: "Recording your real-time travel and duty location.",
         android: {
           channelId: NOTIFICATION_CHANNEL_ID,
+          asForegroundService: true,
           ongoing: true,
           autoCancel: false,
           pressAction: {
@@ -201,8 +169,9 @@ class LocationTrackingService {
           smallIcon: "ic_notification",
         },
       });
+      console.log("[LocationService] Native Foreground Service notification active");
     } catch (err) {
-      console.warn("[LocationService] Notification display notice:", err?.message);
+      console.warn("[LocationService] Notification display error:", err?.message);
     }
   }
 
@@ -596,6 +565,7 @@ class LocationTrackingService {
     if (this.isSyncing) return;
 
     try {
+      const raw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
       let queue = [];
       if (raw) {
         try { queue = JSON.parse(raw); } catch (_) { queue = []; }
@@ -658,8 +628,11 @@ class LocationTrackingService {
       }
 
       if (totalSynced > 0) {
-        // Remove successfully uploaded points from local queue
-        const remaining = queue.slice(totalSynced);
+        // Remove successfully uploaded points from local queue (preserving any points added during sync)
+        const freshRaw = await AsyncStorage.getItem(QUEUE_STORAGE_KEY);
+        let freshQueue = [];
+        try { freshQueue = freshRaw ? JSON.parse(freshRaw) : []; } catch (_) { freshQueue = []; }
+        const remaining = Array.isArray(freshQueue) ? freshQueue.slice(totalSynced) : [];
         if (remaining.length === 0 || shouldStop) {
           await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
         } else {
