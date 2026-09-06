@@ -250,8 +250,6 @@ const checkIn = async (req, res, next) => {
     await attendance.save();
 
     // Activate location tracking on Punch In ONLY IF company has location_tracking and employee has tracking enabled!
-    const Company = require("../models/Company");
-    const company = await Company.findById(req.companyId).select("subscribedModules");
     const companySubscribed = company?.subscribedModules || [];
     const isCompanyTrackingAllowed = companySubscribed.includes("location_tracking") || companySubscribed.includes("location");
     const isEmployeeTrackingAllowed = isCompanyTrackingAllowed && Boolean(employee.isLocationTrackingEnabled);
