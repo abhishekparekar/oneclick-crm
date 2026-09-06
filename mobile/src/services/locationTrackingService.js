@@ -10,9 +10,9 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-// GPS points are collected locally and synced every 3 minutes, or when 35 points accumulate.
-// This guarantees that short trips (5-8 mins) are never lost.
-const BATCH_SYNC_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes between cloud uploads
+// GPS points are collected locally and synced every 2 minutes, or when 20 points accumulate.
+// This guarantees that short trips (3-5 mins) are never lost.
+const BATCH_SYNC_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes between cloud uploads
 const GPS_HEARTBEAT_INTERVAL_MS = 3500;        // 3.5 seconds between GPS polls (unchanged)
 
 // Force Google Play Services FusedLocationProviderClient for high-precision sensor fusion (GPS + Wi-Fi + Cell)
@@ -30,7 +30,7 @@ try {
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
   timeout: 7000,
-  maximumAge: 3000, // 3-second fresh GPS cache prevents satellite dropouts on moving bike
+  maximumAge: 0, // Fresh GPS reading (maximumAge: 0 eliminates stale cell-tower positions)
   distanceFilter: 3, // Sensitive to real-world bike steps (3 meters)
   interval: 3500, // Android poll interval: 3.5 seconds
   fastestInterval: 2000, // Android fastest interval: 2 seconds
@@ -312,10 +312,10 @@ class LocationTrackingService {
               done();
             },
             () => done(),
-            { enableHighAccuracy: false, timeout: 5000, maximumAge: 30000 }
+            { enableHighAccuracy: false, timeout: 5000, maximumAge: 0 }
           );
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       );
     });
   }
@@ -565,8 +565,8 @@ class LocationTrackingService {
 
       await AsyncStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue));
 
-      // Auto-trigger sync if 35+ points (~2 mins of motion) have accumulated
-      if (queue.length >= 35 && !this.isSyncing) {
+      // Auto-trigger sync if 20+ points (~1-2 mins of motion) have accumulated
+      if (queue.length >= 20 && !this.isSyncing) {
         this.syncQueuedLocations().catch(() => {});
       }
     } catch (err) {

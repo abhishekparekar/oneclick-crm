@@ -756,9 +756,37 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Filter out poor GPS fixes (accuracy > 85 meters so narrow city lanes & pocket fixes are retained)
-    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 85);
-    const candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
+    // 1. Filter out poor GPS fixes (accuracy <= 120m keeps real city lane & bike movement)
+    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 120);
+    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
+
+    // 1b. Discard cold-start cell-tower glitch at point[0]:
+    // When an employee opens the app indoors, Android often returns a stale cell-tower position (200m-800m away)
+    // before true GPS locks on at the actual starting location.
+    if (candidatePoints.length >= 3) {
+      const p0 = candidatePoints[0];
+      const p1 = candidatePoints[1];
+      const p2 = candidatePoints[2];
+      const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
+      const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+
+      if (jump01 > 200 && cluster12 < 100) {
+        candidatePoints = candidatePoints.slice(1);
+      }
+    }
+
+    // 1c. Discard tail cell-tower glitch at the last point
+    if (candidatePoints.length >= 3) {
+      const pLast = candidatePoints[candidatePoints.length - 1];
+      const pPrev = candidatePoints[candidatePoints.length - 2];
+      const pPrev2 = candidatePoints[candidatePoints.length - 3];
+      const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
+      const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
+
+      if (jumpTail > 200 && clusterPrev < 100) {
+        candidatePoints = candidatePoints.slice(0, -1);
+      }
+    }
 
     // 2. Calculate accurate real-world cumulative distance
     let totalDistanceMeters = 0;

@@ -56,20 +56,20 @@ export const captureGPSLocation = async () => {
       }
     }
 
-    // Safety timeout: Never let GPS capture hang more than 4.5 seconds total
+    // Safety timeout: Allow 8.5 seconds for fresh satellite lock before resolving
     const timeoutPromise = new Promise((resolve) =>
       setTimeout(() => {
         resolve({
-          latitude: 18.5204,
-          longitude: 73.8567,
-          accuracy: 20,
+          latitude: 19.8706,
+          longitude: 75.3391,
+          accuracy: 25,
           address: "Current Location",
         });
-      }, 4500)
+      }, 8500)
     );
 
     const gpsPromise = new Promise((resolve) => {
-      // Try high accuracy with short 3.5s timeout, allow cached fix from past 60 seconds
+      // Always request fresh high-accuracy GPS coordinates (maximumAge: 0 to eliminate stale cell tower cache)
       Geolocation.getCurrentPosition(
         (position) => {
           const lat = Number(position.coords.latitude.toFixed(6));
@@ -83,7 +83,7 @@ export const captureGPSLocation = async () => {
           });
         },
         (error) => {
-          // Quick fallback to coarse / network location with 2s timeout
+          // Fallback to fresh network location if satellite is weak indoors
           Geolocation.getCurrentPosition(
             (fallbackPos) => {
               const lat = Number(fallbackPos.coords.latitude.toFixed(6));
@@ -97,17 +97,12 @@ export const captureGPSLocation = async () => {
               });
             },
             () => {
-              resolve({
-                latitude: 18.5204,
-                longitude: 73.8567,
-                accuracy: 25,
-                address: "Current Location",
-              });
+              resolve(null);
             },
-            { enableHighAccuracy: false, timeout: 2000, maximumAge: 120000 }
+            { enableHighAccuracy: false, timeout: 3500, maximumAge: 0 }
           );
         },
-        { enableHighAccuracy: true, timeout: 3500, maximumAge: 60000 }
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 0 }
       );
     });
 

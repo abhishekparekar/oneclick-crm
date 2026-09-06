@@ -46,11 +46,12 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (reject coarse accuracy > 85 meters)
-  // In narrow city gullies or with phone in pocket on a bike, accuracy hovers between 50m-80m.
-  // Readings > 85m are coarse guesses that should be dropped.
-  if (!isNaN(accuracy) && accuracy > 85) {
-    console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> 85m limit)`);
+  // 2. Accuracy check (reject coarse accuracy > 120 meters, or > 150m if moving)
+  // In narrow city gullies or on a moving bike, accuracy hovers between 40m-100m.
+  const speed = Number(point.speed) || 0;
+  const maxAcc = speed > 1.0 ? 150 : 120;
+  if (!isNaN(accuracy) && accuracy > maxAcc) {
+    console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> ${maxAcc}m limit)`);
     return false;
   }
 
