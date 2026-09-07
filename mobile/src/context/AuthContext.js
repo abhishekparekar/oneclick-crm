@@ -70,10 +70,12 @@ export const AuthProvider = ({ children }) => {
       try {
         const locationTrackingService = require("../services/locationTrackingService").default;
         if (locationTrackingService) {
-          // Delay by 1.5s so React Native UI & Activity are fully initialized before foreground service
+          // Delay by 2.5s so React Native UI & Activity are fully initialized in foreground before starting any background tasks
           setTimeout(() => {
-            locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
-          }, 1500);
+            try {
+              locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
+            } catch (_) {}
+          }, 2500);
         }
       } catch (_) {}
     }

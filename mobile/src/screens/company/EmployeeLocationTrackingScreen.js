@@ -883,6 +883,9 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
             {employees.map((emp) => {
               const isSelected = selectedEmployee?._id === emp._id;
               const isOnline = emp.isOnline;
+              const isHrOrMgr =
+                ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("hr") ||
+                ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("manager");
 
               return (
                 <TouchableOpacity
@@ -906,7 +909,14 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                       <View
                         style={[
                           styles.onlineDotBadge,
-                          { backgroundColor: isOnline ? "#10B981" : "#94A3B8" },
+                          {
+                            backgroundColor:
+                              emp.motionStatus === "moving"
+                                ? "#3B82F6"
+                                : isOnline
+                                ? "#10B981"
+                                : "#94A3B8",
+                          },
                         ]}
                       />
                     </View>
@@ -915,9 +925,25 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                       <Text style={styles.empName} numberOfLines={1}>
                         {formatName(emp.name)}
                       </Text>
-                      <View style={styles.roleTag}>
-                        <Text style={styles.empRole} numberOfLines={1}>
-                          {emp.designation || emp.department || "Staff"}
+                      <View
+                        style={[
+                          styles.roleTag,
+                          isHrOrMgr && {
+                            backgroundColor: "rgba(99, 102, 241, 0.15)",
+                            borderColor: "rgba(99, 102, 241, 0.3)",
+                          },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.empRole,
+                            isHrOrMgr && { color: "#6366F1", fontWeight: "800" },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {isHrOrMgr
+                            ? `👔 ${emp.designation || "HR/Manager"}`
+                            : emp.designation || emp.department || "Staff"}
                         </Text>
                       </View>
                     </View>
@@ -928,38 +954,69 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                       style={[
                         styles.statusPill,
                         {
-                          backgroundColor: isOnline
-                            ? "rgba(16, 185, 129, 0.12)"
-                            : "rgba(100, 116, 139, 0.1)",
+                          backgroundColor:
+                            emp.motionStatus === "moving"
+                              ? "rgba(59, 130, 246, 0.12)"
+                              : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                              ? "rgba(245, 158, 11, 0.12)"
+                              : isOnline
+                              ? "rgba(16, 185, 129, 0.12)"
+                              : "rgba(100, 116, 139, 0.1)",
                         },
                       ]}
                     >
                       <View
                         style={[
                           styles.statusDotSmall,
-                          { backgroundColor: isOnline ? "#10B981" : "#94A3B8" },
+                          {
+                            backgroundColor:
+                              emp.motionStatus === "moving"
+                                ? "#3B82F6"
+                                : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                                ? "#F59E0B"
+                                : isOnline
+                                ? "#10B981"
+                                : "#94A3B8",
+                          },
                         ]}
                       />
                       <Text
                         style={[
                           styles.statusPillText,
-                          { color: isOnline ? "#059669" : "#64748B" },
+                          {
+                            color:
+                              emp.motionStatus === "moving"
+                                ? "#2563EB"
+                                : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                                ? "#D97706"
+                                : isOnline
+                                ? "#059669"
+                                : "#64748B",
+                          },
                         ]}
                       >
-                        {isOnline ? "Active" : "Idle / Offline"}
+                        {emp.motionStatus === "moving"
+                          ? `Moving ${Math.round(emp.speed || 0)}km/h`
+                          : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                          ? `Halt ${emp.stoppageText}`
+                          : isOnline
+                          ? "Active"
+                          : "Stopped"}
                       </Text>
                     </View>
 
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
                       {emp.todayDistanceText ? (
-                        <View style={styles.todayDistanceBadge}>
+                        <View style={[styles.todayDistanceBadge, { flexDirection: "row", alignItems: "center" }]}>
                           <Text style={styles.todayDistanceText}>
                             🛣️ {emp.todayDistanceText}
                           </Text>
+                          {parseFloat(emp.todayDistanceKm) > 0 ? (
+                            <Text style={styles.todayAllowanceText}>
+                              • ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)} TA
+                            </Text>
+                          ) : null}
                         </View>
-                      ) : null}
-                      {emp.speed > 0 ? (
-                        <Text style={styles.empSpeedText}>{emp.speed} km/h</Text>
                       ) : null}
                     </View>
                   </View>
@@ -1327,6 +1384,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "800",
     color: "#2563EB",
+  },
+  todayAllowanceText: {
+    fontSize: 10,
+    fontWeight: "800",
+    color: "#059669",
+    marginLeft: 3,
   },
   loadingCarousel: {
     paddingVertical: 22,

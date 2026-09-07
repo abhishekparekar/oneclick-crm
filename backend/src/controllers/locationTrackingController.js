@@ -2,6 +2,8 @@ const EmployeeLocation = require("../models/EmployeeLocation");
 const Employee = require("../models/Employee");
 const Attendance = require("../models/Attendance");
 const User = require("../models/User");
+const Company = require("../models/Company");
+const TrackingAllowance = require("../models/TrackingAllowance");
 const mongoose = require("mongoose");
 const https = require("https");
 
@@ -101,12 +103,22 @@ const syncBatchLocations = async (req, res) => {
     let employeeId = req.user.employeeId;
     let emp = null;
     if (!employeeId) {
-      emp = await Employee.findOne({ userId, companyId }).select("_id isLocationTrackingEnabled");
+      emp = await Employee.findOne({
+        companyId,
+        $or: [{ userId }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      }).select("_id isLocationTrackingEnabled");
       if (emp) {
         employeeId = emp._id;
       }
     } else {
       emp = await Employee.findById(employeeId).select("_id isLocationTrackingEnabled");
+      if (!emp) {
+        emp = await Employee.findOne({
+          companyId,
+          $or: [{ userId }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+        }).select("_id isLocationTrackingEnabled");
+        if (emp) employeeId = emp._id;
+      }
     }
 
     if (!employeeId || !emp) {
@@ -253,6 +265,8 @@ const syncBatchLocations = async (req, res) => {
     return res.status(200).json({
       success: true,
       trackingAllowed: isOnDuty,
+      hasPunchedOut: Boolean(hasPunchedOut),
+      hasPunchedIn: Boolean(hasPunchedIn),
       message: hasPunchedOut
         ? `Synced ${validPoints.length} points. Duty ended (punched out).`
         : !hasPunchedIn
@@ -284,23 +298,31 @@ const getLiveEmployeeLocations = async (req, res) => {
       status: { $ne: "terminated" },
     };
 
-    // If Manager, filter to their managed department or team if applicable
+    // If Manager, filter to their managed department or team + include manager themselves
     if (isManager) {
-      const managerEmp = await Employee.findOne({ userId: req.user._id, companyId });
+      const managerEmp = await Employee.findOne({
+        companyId,
+        $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      });
       if (managerEmp) {
-        if (managerEmp.departmentId) {
-          employeeQuery.departmentId = managerEmp.departmentId;
-        } else if (managerEmp.departmentName) {
-          employeeQuery.departmentName = managerEmp.departmentName;
-        }
+        const deptFilter = managerEmp.departmentId
+          ? { departmentId: managerEmp.departmentId }
+          : managerEmp.departmentName
+          ? { departmentName: managerEmp.departmentName }
+          : {};
+        employeeQuery.$or = [deptFilter, { _id: managerEmp._id }];
       }
     } else if (req.user.role === "Employee" || req.user.role === "employee") {
       // If Employee, show their own location so their tracking radar opens focused on themselves
-      const ownEmp = await Employee.findOne({ userId: req.user._id, companyId });
+      const ownEmp = await Employee.findOne({
+        companyId,
+        $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      });
       if (ownEmp) {
         employeeQuery._id = ownEmp._id;
       }
     }
+    // If CompanyAdmin or HR: employeeQuery matches all active staff (Employees, HR & Managers)
 
     const employees = await Employee.find(employeeQuery)
       .select(
@@ -974,12 +996,13 @@ const getEmployeeLocationTrail = async (req, res) => {
       }
     }
 
+    const pureDistanceKm = Number((totalDistanceMeters / 1000).toFixed(2));
     const finalDistance = Number((actualRoadDistanceMeters / 1000).toFixed(2));
     let distanceText = "0 km";
-    if (finalDistance >= 1.0) {
-      distanceText = `${finalDistance.toFixed(2)} km`;
-    } else if (actualRoadDistanceMeters > 0) {
-      distanceText = `${Math.round(actualRoadDistanceMeters)} m (${finalDistance.toFixed(2)} km)`;
+    if (pureDistanceKm >= 1.0) {
+      distanceText = `${pureDistanceKm.toFixed(2)} km`;
+    } else if (totalDistanceMeters > 0) {
+      distanceText = `${Math.round(totalDistanceMeters)} m`;
     }
 
     const avgMovingSpeed = movingSpeeds.length > 0
@@ -998,7 +1021,9 @@ const getEmployeeLocationTrail = async (req, res) => {
         rawCount: rawTrail.length,
         cleanCount: finalTrail.length,
         totalPoints: rawTrail.length,
-        distanceKm: finalDistance,
+        distanceKm: pureDistanceKm,
+        pureDistanceKm: pureDistanceKm,
+        roadDistanceKm: finalDistance,
         distanceMeters: Math.round(totalDistanceMeters),
         distanceText: distanceText,
         todayDistanceText: distanceText,
@@ -1022,8 +1047,280 @@ const getEmployeeLocationTrail = async (req, res) => {
   }
 };
 
+/**
+ * @desc Get Daily/Period Tracking Allowance Report with verified GPS KM & amounts
+ * @route GET /api/locations/allowance
+ */
+const getTrackingAllowanceReport = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+    const { date, startDate, endDate, employeeId, status } = req.query;
+
+    const company = await Company.findById(companyId).lean();
+    const defaultRate = company?.settings?.travelAllowanceRatePerKm || 4.0;
+    const twoWheelerRate = company?.settings?.travelAllowanceTwoWheelerRate || defaultRate;
+    const fourWheelerRate = company?.settings?.travelAllowanceFourWheelerRate || 8.0;
+
+    // Determine target date range
+    let queryStartDate, queryEndDate;
+    if (startDate && endDate) {
+      queryStartDate = startDate;
+      queryEndDate = endDate;
+    } else {
+      const targetDate = date || new Date().toISOString().slice(0, 10);
+      queryStartDate = targetDate;
+      queryEndDate = targetDate;
+    }
+
+    // Build employees filter
+    const empFilter = { companyId, status: "active" };
+    if (employeeId && mongoose.Types.ObjectId.isValid(employeeId)) {
+      empFilter._id = employeeId;
+    }
+
+    const employees = await Employee.find(empFilter)
+      .select("_id firstName lastName fullName email employeeCode designationName departmentName designation department photo avatar isLocationTrackingEnabled vehicleType")
+      .lean();
+
+    const empIds = employees.map((e) => e._id);
+
+    // Fetch existing TrackingAllowance records in date range
+    const savedRecords = await TrackingAllowance.find({
+      companyId,
+      employeeId: { $in: empIds },
+      date: { $gte: queryStartDate, $lte: queryEndDate },
+    }).lean();
+
+    const savedMap = new Map();
+    savedRecords.forEach((rec) => {
+      savedMap.set(`${rec.employeeId.toString()}_${rec.date}`, rec);
+    });
+
+    // Date loop
+    const dates = [];
+    let curr = new Date(queryStartDate);
+    const stop = new Date(queryEndDate);
+    while (curr <= stop) {
+      dates.push(curr.toISOString().slice(0, 10));
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    const reportRows = [];
+    let totalFleetKm = 0;
+    let totalFleetPayable = 0;
+    let approvedCount = 0;
+    let pendingCount = 0;
+
+    for (const d of dates) {
+      const startOfDay = new Date(`${d}T00:00:00.000Z`);
+      const endOfDay = new Date(`${d}T23:59:59.999Z`);
+
+      // Fetch location points for this date
+      const locations = await EmployeeLocation.find({
+        companyId,
+        employeeId: { $in: empIds },
+        timestamp: { $gte: startOfDay, $lte: endOfDay },
+      })
+        .sort({ timestamp: 1 })
+        .lean();
+
+      // Group points by employeeId
+      const empPointsMap = new Map();
+      locations.forEach((pt) => {
+        const idStr = pt.employeeId.toString();
+        if (!empPointsMap.has(idStr)) empPointsMap.set(idStr, []);
+        empPointsMap.get(idStr).push(pt);
+      });
+
+      for (const emp of employees) {
+        const idStr = emp._id.toString();
+        const key = `${idStr}_${d}`;
+        const saved = savedMap.get(key);
+
+        // Calculate GPS distance
+        const pts = empPointsMap.get(idStr) || [];
+        let distanceMeters = 0;
+        if (pts.length >= 2) {
+          let lastAcc = pts[0];
+          for (let i = 1; i < pts.length; i++) {
+            const cur = pts[i];
+            const dist = getHaversineDistanceMeters(lastAcc.latitude, lastAcc.longitude, cur.latitude, cur.longitude);
+            const dtSeconds = Math.max(1, (new Date(cur.timestamp) - new Date(lastAcc.timestamp)) / 1000);
+            const speedKmh = (dist / dtSeconds) * 3.6;
+
+            if (speedKmh > 130 && dist > 300) continue;
+            const reportedSpeed = (cur.speed || 0) * 3.6;
+            if (dist < 8 && reportedSpeed < 2.5) continue;
+
+            distanceMeters += dist;
+            lastAcc = cur;
+          }
+        }
+        if (distanceMeters < 25) distanceMeters = 0;
+
+        const calculatedKm = Number((distanceMeters / 1000).toFixed(2));
+        const distanceKm = saved ? saved.distanceKm : calculatedKm;
+        const vehicleType = saved?.vehicleType || emp.vehicleType || "two_wheeler";
+        const ratePerKm = saved?.ratePerKm || (vehicleType === "four_wheeler" ? fourWheelerRate : twoWheelerRate);
+        const totalAmount = saved ? saved.totalAmount : Number((distanceKm * ratePerKm).toFixed(2));
+        const currentStatus = saved ? saved.status : "pending";
+
+        // Filter by status if requested
+        if (status && status !== "all" && currentStatus !== status) {
+          continue;
+        }
+
+        totalFleetKm += distanceKm;
+        totalFleetPayable += totalAmount;
+        if (currentStatus === "approved") approvedCount++;
+        else pendingCount++;
+
+        const empName =
+          emp.fullName ||
+          [emp.firstName, emp.lastName].filter(Boolean).join(" ") ||
+          emp.email ||
+          "Employee";
+        const empAvatar = emp.photo || emp.avatar || null;
+        const empDesignation = emp.designationName || emp.designation || "Staff";
+        const empDepartment = emp.departmentName || emp.department || "General";
+
+        reportRows.push({
+          _id: saved?._id || `${idStr}_${d}`,
+          employeeId: emp._id,
+          name: empName,
+          employeeCode: emp.employeeCode || "",
+          designation: empDesignation,
+          department: empDepartment,
+          avatar: empAvatar,
+          date: d,
+          distanceKm: distanceKm,
+          distanceMeters: Math.round(distanceMeters),
+          ratePerKm: ratePerKm,
+          totalAmount: totalAmount,
+          vehicleType: vehicleType,
+          status: currentStatus,
+          approvedAt: saved?.approvedAt || null,
+          remarks: saved?.remarks || "",
+          isSaved: Boolean(saved),
+        });
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalRows: reportRows.length,
+          totalDistanceKm: Number(totalFleetKm.toFixed(2)),
+          totalPayableAmount: Number(totalFleetPayable.toFixed(2)),
+          approvedCount,
+          pendingCount,
+          defaultRate,
+          twoWheelerRate,
+          fourWheelerRate,
+          queryStartDate,
+          queryEndDate,
+        },
+        records: reportRows,
+      },
+    });
+  } catch (error) {
+    console.error("[LocationTracking] Allowance report error:", error);
+    return res.status(500).json({ success: false, message: "Failed to generate tracking allowance report" });
+  }
+};
+
+/**
+ * @desc Update Company Travel Allowance Rate per KM
+ * @route POST /api/locations/allowance/rate
+ */
+const updateTrackingAllowanceRate = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+    const { ratePerKm, twoWheelerRate, fourWheelerRate } = req.body;
+
+    const company = await Company.findById(companyId);
+    if (!company) {
+      return res.status(404).json({ success: false, message: "Company not found" });
+    }
+
+    if (!company.settings) company.settings = {};
+    if (ratePerKm !== undefined) company.settings.travelAllowanceRatePerKm = Number(ratePerKm);
+    if (twoWheelerRate !== undefined) company.settings.travelAllowanceTwoWheelerRate = Number(twoWheelerRate);
+    if (fourWheelerRate !== undefined) company.settings.travelAllowanceFourWheelerRate = Number(fourWheelerRate);
+
+    await company.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Travel allowance rates updated successfully",
+      data: {
+        ratePerKm: company.settings.travelAllowanceRatePerKm,
+        twoWheelerRate: company.settings.travelAllowanceTwoWheelerRate,
+        fourWheelerRate: company.settings.travelAllowanceFourWheelerRate,
+      },
+    });
+  } catch (error) {
+    console.error("[LocationTracking] Update allowance rate error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update allowance rate" });
+  }
+};
+
+/**
+ * @desc Approve or Reject Tracking Allowance claims
+ * @route POST /api/locations/allowance/status
+ */
+const updateAllowanceStatus = async (req, res) => {
+  try {
+    const companyId = req.user.companyId;
+    const userId = req.user._id;
+    const { items, status, remarks } = req.body;
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ success: false, message: "No allowance items provided" });
+    }
+
+    const validStatus = ["approved", "rejected", "pending"].includes(status) ? status : "approved";
+    const bulkOps = items.map((item) => ({
+      updateOne: {
+        filter: { companyId, employeeId: item.employeeId, date: item.date },
+        update: {
+          $set: {
+            companyId,
+            employeeId: item.employeeId,
+            date: item.date,
+            distanceKm: Number(item.distanceKm || 0),
+            ratePerKm: Number(item.ratePerKm || 4),
+            totalAmount: Number(item.totalAmount || (item.distanceKm * item.ratePerKm) || 0),
+            vehicleType: item.vehicleType || "two_wheeler",
+            status: validStatus,
+            approvedBy: validStatus === "approved" ? userId : null,
+            approvedAt: validStatus === "approved" ? new Date() : null,
+            remarks: remarks || item.remarks || "",
+          },
+        },
+        upsert: true,
+      },
+    }));
+
+    await TrackingAllowance.bulkWrite(bulkOps);
+
+    return res.status(200).json({
+      success: true,
+      message: `Successfully updated ${items.length} allowance record(s) to ${validStatus}`,
+    });
+  } catch (error) {
+    console.error("[LocationTracking] Update allowance status error:", error);
+    return res.status(500).json({ success: false, message: "Failed to update allowance status" });
+  }
+};
+
 module.exports = {
   syncBatchLocations,
   getLiveEmployeeLocations,
   getEmployeeLocationTrail,
+  getTrackingAllowanceReport,
+  updateTrackingAllowanceRate,
+  updateAllowanceStatus,
 };
+

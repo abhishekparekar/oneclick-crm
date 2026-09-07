@@ -11,8 +11,9 @@ import {
   Image,
   PermissionsAndroid,
   Linking,
+  AppState,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Camera, CameraType } from "react-native-camera-kit";
 import { useAuth } from "../../context/AuthContext";
@@ -51,11 +52,17 @@ const EmployeePunchScreen = ({ navigation }) => {
   const [submittingPunch, setSubmittingPunch] = useState(false);
   const cameraRef = useRef(null);
   const isMountedRef = useRef(true);
+  const isFocused = useIsFocused();
+  const [appState, setAppState] = useState(AppState.currentState);
 
   useEffect(() => {
     isMountedRef.current = true;
+    const sub = AppState.addEventListener("change", (nextState) => {
+      setAppState(nextState);
+    });
     return () => {
       isMountedRef.current = false;
+      sub.remove();
     };
   }, []);
 
@@ -246,7 +253,7 @@ const EmployeePunchScreen = ({ navigation }) => {
 
       let finalSelfieUri = activeSelfie || selfieUri;
 
-      // Upload to Firebase if local file uri with 4-second timeout to prevent hanging
+      // Upload to Firebase if local file uri with 1.8-second timeout to prevent hanging
       if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
         try {
           const uploadPromise = uploadSelfieToFirebase(
@@ -254,7 +261,7 @@ const EmployeePunchScreen = ({ navigation }) => {
             user?._id || "unknown"
           );
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Firebase upload timeout")), 4000)
+            setTimeout(() => reject(new Error("Firebase upload timeout")), 1800)
           );
           finalSelfieUri = await Promise.race([uploadPromise, timeoutPromise]);
         } catch (fbErr) {
@@ -284,7 +291,7 @@ const EmployeePunchScreen = ({ navigation }) => {
         triggerDashboardRefresh();
 
         // Universal Punch-In: All employees punch in normally.
-        // Location tracking starts ONLY if admin enabled tracking for this employee (Field Staff).
+        // Location tracking starts ONLY if admin enabled tracking for this employee (Field Staff, HR, or Manager).
         const trackingEnabled =
           punchRes?.data?.isLocationTrackingEnabled ??
           punchRes?.data?.data?.isLocationTrackingEnabled ??
@@ -292,33 +299,46 @@ const EmployeePunchScreen = ({ navigation }) => {
           false;
 
         if (trackingEnabled) {
-          try {
-            await locationTrackingService.startLocationTracking();
-          } catch (trkErr) {
+          locationTrackingService.startLocationTracking().catch((trkErr) => {
             console.warn("[Punch] Tracking start notice:", trkErr);
-          }
+          });
         } else {
           console.log("[Punch] Location tracking is not enabled for this employee (Office Staff). Tracking omitted.");
         }
         Alert.alert("Success", "Clocked In successfully!", [
-          { text: "OK", onPress: () => navigation.goBack() },
+          {
+            text: "OK",
+            onPress: () => {
+              if (isMountedRef.current && navigation && navigation.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              }
+            },
+          },
         ]);
       } else {
         try {
-          // Flush any pending GPS trip points to server before marking punch out
-          await locationTrackingService.syncQueuedLocations();
+          // Flush any pending GPS trip points with 1s timeout to prevent UI delay
+          await Promise.race([
+            locationTrackingService.syncQueuedLocations(),
+            new Promise((resolve) => setTimeout(resolve, 1000)),
+          ]);
         } catch (syncErr) {
           console.warn("[Punch] Pre-punch-out sync notice:", syncErr?.message);
         }
         await punchOutApi(payload);
         triggerDashboardRefresh();
-        try {
-          await locationTrackingService.stopLocationTracking();
-        } catch (trkErr) {
+        locationTrackingService.stopLocationTracking().catch((trkErr) => {
           console.warn("[Punch] Tracking stop notice:", trkErr);
-        }
+        });
         Alert.alert("Success", "Clocked Out successfully!", [
-          { text: "OK", onPress: () => navigation.goBack() },
+          {
+            text: "OK",
+            onPress: () => {
+              if (isMountedRef.current && navigation && navigation.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              }
+            },
+          },
         ]);
       }
     } catch (err) {
@@ -425,7 +445,12 @@ const EmployeePunchScreen = ({ navigation }) => {
                 <Text style={styles.retakeOverlayText}>Retake</Text>
               </TouchableOpacity>
             </View>
-          ) : hasCameraPerm ? (
+          ) : submittingPunch ? (
+            <View style={[styles.cameraContainer, { justifyContent: "center", alignItems: "center" }]}>
+              <ActivityIndicator size="large" color="#3B82F6" />
+              <Text style={{ color: "#94A3B8", marginTop: 8, fontSize: 13, fontWeight: "600" }}>Processing...</Text>
+            </View>
+          ) : hasCameraPerm && isFocused && appState === "active" ? (
             <View style={styles.cameraContainer}>
               <Camera
                 ref={cameraRef}
@@ -443,6 +468,11 @@ const EmployeePunchScreen = ({ navigation }) => {
               >
                 <Ionicons name="camera" size={20} color="#FFFFFF" />
               </TouchableOpacity>
+            </View>
+          ) : hasCameraPerm ? (
+            <View style={[styles.cameraContainer, { justifyContent: "center", alignItems: "center" }]}>
+              <Ionicons name="camera-outline" size={30} color="#64748B" />
+              <Text style={{ color: "#94A3B8", marginTop: 4, fontSize: 11, fontWeight: "500" }}>Camera Standby</Text>
             </View>
           ) : (
             <TouchableOpacity

@@ -46,41 +46,75 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   if (lat < -90 || lat > 90) return false;
   if (lng < -180 || lng > 180) return false;
 
-  // 2. Accuracy check (allow up to 85m on bike/car, 70m when slow/stationary)
-  // City streets and lane navigation: readings > 85m are coarse guesses and should be dropped.
-  const speed = Number(point.speed) || 0;
-  const maxAcc = speed > 1.0 ? 85 : 70;
-  if (!isNaN(accuracy) && accuracy > maxAcc) {
-    console.log(`[LocationFilter] Rejected GPS point due to poor accuracy: ${accuracy}m (> ${maxAcc}m limit)`);
-    return false;
-  }
+  // 2. Compute dynamic movement metrics if previous point exists
+  let calculatedSpeedKmh = 0;
+  let distMeters = 0;
+  let timeDiffSeconds = 5;
+  let isResumingFromStoppage = false;
 
-  // 3. Teleportation & micro-jitter check against previous point
   if (previousPoint && previousPoint.latitude && previousPoint.longitude) {
-    const distMeters = calculateDistanceMeters(
+    distMeters = calculateDistanceMeters(
       previousPoint.latitude,
       previousPoint.longitude,
       lat,
       lng
     );
 
-    const timeDiffSeconds =
+    timeDiffSeconds =
       point.timestamp && previousPoint.timestamp
         ? Math.max(0.5, Math.abs(new Date(point.timestamp) - new Date(previousPoint.timestamp)) / 1000)
-        : 10;
+        : 5;
 
-    // Discard micro jitter (< 2 meters) if stationary
-    if (distMeters < 2 && timeDiffSeconds < 10) {
-      return false;
-    }
+    // A. Long Stoppage Check (> 2 minutes gap):
+    // When stopped at a location for a long time (e.g. 1.5 hours at a shop/office),
+    // do NOT divide distance by 5,400s to compute speed, as that permanently suppresses speed to 0.05 km/h!
+    if (timeDiffSeconds > 120) {
+      if (distMeters > 6.0) {
+        // User has started moving after stoppage (e.g. bike started)
+        isResumingFromStoppage = true;
+        calculatedSpeedKmh = 20.0; // Seed reasonable vehicle speed so initial bike points aren't dropped
+      } else {
+        // User is still stationary at the same place.
+        // Accept ONE stoppage anchor point every 5 minutes (300s) to keep server & lastAcceptedPoint alive!
+        if (timeDiffSeconds >= 300) {
+          if (!isNaN(accuracy) && accuracy <= 95) {
+            console.log(`[LocationFilter] Accepted 5-min stoppage anchor point (${Math.round(timeDiffSeconds / 60)}m stationary)`);
+            return true;
+          }
+        }
+        // Discard sub-5-minute stationary jitter (< 2.5m)
+        return false;
+      }
+    } else {
+      // Normal continuous movement (< 2 minutes between points)
+      calculatedSpeedKmh = (distMeters / timeDiffSeconds) * 3.6;
 
-    // Teleportation & spike filter:
-    // Reject impossible jumps (e.g. 70m in 1 second = 250 km/h)
-    const calculatedSpeedKmh = (distMeters / timeDiffSeconds) * 3.6;
-    if (distMeters > 25 && calculatedSpeedKmh > 110) {
-      console.log(`[LocationFilter] Rejected impossible GPS jump: ${distMeters.toFixed(1)}m in ${timeDiffSeconds.toFixed(1)}s (${calculatedSpeedKmh.toFixed(0)} km/h)`);
-      return false;
+      // Discard stationary micro jitter (< 2.5 meters) when moving slow to prevent map clusters
+      if (distMeters < 2.5 && calculatedSpeedKmh < 8) {
+        return false;
+      }
+
+      // Teleportation & impossible jump filter (e.g. > 135 km/h within continuous window)
+      if (distMeters > 30 && calculatedSpeedKmh > 135) {
+        console.log(`[LocationFilter] Rejected impossible jump: ${distMeters.toFixed(1)}m in ${timeDiffSeconds.toFixed(1)}s (${calculatedSpeedKmh.toFixed(0)} km/h)`);
+        return false;
+      }
     }
+  }
+
+  // 3. Dynamic speed evaluation for Bike/Car vs Walking
+  // Android frequently reports point.speed = 0 when the phone is inside a rider's pocket/bag.
+  // We use effectiveSpeedKmh so real bike movement is always recognized accurately.
+  const hardwareSpeedKmh = (Number(point.speed) || 0) * 3.6;
+  const effectiveSpeedKmh = Math.max(hardwareSpeedKmh, calculatedSpeedKmh);
+
+  // Bike/Vehicle moving (> 8 km/h or resuming from stoppage): Allow up to 95m accuracy
+  // Stationary/Walking (<= 8 km/h): Keep strict 70m accuracy to prevent indoor drift
+  const maxAcc = (effectiveSpeedKmh > 8.0 || isResumingFromStoppage) ? 95 : 70;
+
+  if (!isNaN(accuracy) && accuracy > maxAcc) {
+    console.log(`[LocationFilter] Dropped GPS point due to accuracy: ${accuracy}m (max: ${maxAcc}m, spd: ${effectiveSpeedKmh.toFixed(1)} km/h)`);
+    return false;
   }
 
   return true;

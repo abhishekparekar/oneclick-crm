@@ -117,6 +117,9 @@ const companySchema = new mongoose.Schema(
       workingDays: { type: [String], default: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"] },
       timezone: { type: String, default: "Asia/Kolkata" },
       currency: { type: String, default: "INR" },
+      travelAllowanceRatePerKm: { type: Number, default: 4.0 },
+      travelAllowanceTwoWheelerRate: { type: Number, default: 4.0 },
+      travelAllowanceFourWheelerRate: { type: Number, default: 8.0 },
     },
   },
   {

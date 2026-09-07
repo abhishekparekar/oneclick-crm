@@ -28,6 +28,7 @@ import {
   ChevronDown,
   Hexagon,
   Navigation,
+  Wallet,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ const HR_NAV_SECTIONS = [
       { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare, module: "tasks" },
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Location Radar", path: "/hr/location-tracking", icon: Navigation, module: "attendance" },
+      { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance" },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },
       { label: "Regularization", path: "/hr/regularization", icon: UserCheck, module: "attendance" },
       { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },

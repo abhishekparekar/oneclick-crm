@@ -40,6 +40,7 @@ import {
   MessageSquare,
   BrainCircuit,
   Navigation,
+  Wallet,
 } from "lucide-react";
 
 // ─── Company Admin nav sections — ordered by usage frequency ────────────────
@@ -78,6 +79,7 @@ const COMPANY_SECTIONS = [
       { label: "Employees", path: "/company/employees", icon: Users },
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
+      { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },

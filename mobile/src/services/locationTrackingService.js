@@ -28,11 +28,11 @@ try {
 
 const GPS_HIGH_ACCURACY_OPTIONS = {
   enableHighAccuracy: true,
-  timeout: 5000,
-  maximumAge: 2000, // 2-second fresh cache allows streaming bike/car movement without dropping
-  distanceFilter: 2, // Sensitive to real-world bike/car steps (2 meters)
+  timeout: 10000, // 10s high accuracy satellite timeout for continuous bike tracking
+  maximumAge: 1000, // 1-second fresh cache allows streaming bike movement without dropping
+  distanceFilter: 3, // Sensitive to 3 meters movement - captures every curve, corner, and street turn
   interval: 2000, // Android poll interval: 2 seconds
-  fastestInterval: 1500, // Android fastest interval: 1.5 seconds
+  fastestInterval: 1000, // Android fastest interval: 1 second
 };
 
 class LocationTrackingService {
@@ -80,20 +80,25 @@ class LocationTrackingService {
       }
 
       // 3. Background Location Permission (Android 10+ / API 29+)
+      // Note: With Foreground Service (location type), Android tracks routes while notification is active.
       if (Platform.Version >= 29) {
-        const bgGranted = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION
-        );
-
-        if (!bgGranted) {
-          await PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
-            {
-              title: "Background Location Access",
-              message: "Please choose 'Allow all the time' so travel routes are recorded when screen is locked.",
-              buttonPositive: "Allow All The Time",
-            }
+        try {
+          const bgGranted = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION
           );
+
+          if (!bgGranted) {
+            await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.ACCESS_BACKGROUND_LOCATION,
+              {
+                title: "Background Location Access",
+                message: "Please choose 'Allow all the time' so travel routes are recorded when screen is locked.",
+                buttonPositive: "Allow All The Time",
+              }
+            );
+          }
+        } catch (bgErr) {
+          console.warn("[LocationService] Background location permission check notice (non-fatal):", bgErr?.message);
         }
       }
 
@@ -146,6 +151,22 @@ class LocationTrackingService {
    */
   async showForegroundNotification() {
     try {
+      // Android 13+ (API 33+): Check notification permission before showing foreground notification
+      if (Platform.OS === "android" && Platform.Version >= 33) {
+        try {
+          const hasNotif = await PermissionsAndroid.check(
+            PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+          );
+          if (!hasNotif) {
+            await PermissionsAndroid.request(
+              PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS
+            );
+          }
+        } catch (notifErr) {
+          console.warn("[LocationService] Notification permission check notice:", notifErr?.message);
+        }
+      }
+
       await notifee.createChannel({
         id: NOTIFICATION_CHANNEL_ID,
         name: "Employee Location Tracking",
@@ -154,24 +175,38 @@ class LocationTrackingService {
         lights: false,
       });
 
+      const androidOptions = {
+        channelId: NOTIFICATION_CHANNEL_ID,
+        asForegroundService: true,
+        ongoing: true,
+        autoCancel: false,
+        pressAction: {
+          id: "default",
+        },
+        smallIcon: "ic_notification",
+      };
+
+      // CRITICAL FIX: Android 14+ (API 34+) and Android 15 (API 35) mandate specifying
+      // foregroundServiceTypes matching android:foregroundServiceType="location" in AndroidManifest.xml.
+      // Without this, Android throws MissingForegroundServiceTypeException and immediately crashes the app.
+      if (
+        AndroidForegroundServiceType &&
+        AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_LOCATION !== undefined
+      ) {
+        androidOptions.foregroundServiceTypes = [
+          AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_LOCATION,
+        ];
+      }
+
       await notifee.displayNotification({
         id: NOTIFICATION_ID,
-        title: "Location Tracking Active",
-        body: "Recording your real-time travel and duty location.",
-        android: {
-          channelId: NOTIFICATION_CHANNEL_ID,
-          asForegroundService: true,
-          ongoing: true,
-          autoCancel: false,
-          pressAction: {
-            id: "default",
-          },
-          smallIcon: "ic_notification",
-        },
+        title: "OneClick HRMS • Duty Tracking Active",
+        body: "Field duty active: Your route is being logged.",
+        android: androidOptions,
       });
       console.log("[LocationService] Native Foreground Service notification active");
     } catch (err) {
-      console.warn("[LocationService] Notification display error:", err?.message);
+      console.warn("[LocationService] Notification display error (non-fatal):", err?.message);
     }
   }
 
@@ -181,6 +216,8 @@ class LocationTrackingService {
   async hideForegroundNotification() {
     try {
       await notifee.stopForegroundService();
+    } catch (_) {}
+    try {
       await notifee.cancelNotification(NOTIFICATION_ID);
     } catch (_) {}
   }
@@ -205,11 +242,16 @@ class LocationTrackingService {
     while (this.isTracking) {
       try {
         // 1. Verify tracking state from AsyncStorage
-        const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
-        if (active !== "true") {
-          console.log("[LocationService] Storage indicates tracking inactive. Halting loop.");
-          this.isTracking = false;
-          break;
+        // If storage read fails or is temporarily empty during deep sleep, do NOT stop tracking unless explicitly set to "false"
+        try {
+          const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+          if (active === "false") {
+            console.log("[LocationService] Storage indicates tracking explicitly stopped. Halting loop.");
+            this.isTracking = false;
+            break;
+          }
+        } catch (storageErr) {
+          console.warn("[LocationService] AsyncStorage read notice (relying on memory state):", storageErr?.message);
         }
 
         // 2. Late-Night Auto-Stop Check (Cut off after 12:00 AM / Midnight local time)
@@ -253,15 +295,15 @@ class LocationTrackingService {
     return new Promise((resolve) => {
       if (!this.isTracking) return resolve();
 
-      // Safety timeout: 6s so loop is never blocked
+      // Safety timeout: 10s so loop is never blocked
       const safetyTimer = setTimeout(() => {
         console.warn("[LocationService] GPS poll safety timeout fired — continuing loop");
         resolve();
-      }, 6000);
+      }, 10000);
 
       const done = () => { clearTimeout(safetyTimer); resolve(); };
 
-      // Attempt 1: High Accuracy GPS (4s timeout, 2s cache so Android hardware delivers continuous bike points)
+      // Attempt 1: High Accuracy GPS (7s timeout gives hardware GPS satellite time to lock while moving on bike)
       Geolocation.getCurrentPosition(
         (pos) => {
           if (pos && pos.coords) {
@@ -270,7 +312,7 @@ class LocationTrackingService {
           done();
         },
         (err) => {
-          // Attempt 2: Fallback to Network/Cell/WiFi location
+          // Attempt 2: Fallback to Network/Cell/WiFi location if satellite GPS timed out (e.g. indoors during stoppage)
           Geolocation.getCurrentPosition(
             (fallbackPos) => {
               if (fallbackPos && fallbackPos.coords) {
@@ -279,10 +321,10 @@ class LocationTrackingService {
               done();
             },
             () => done(),
-            { enableHighAccuracy: false, timeout: 3000, maximumAge: 3000 }
+            { enableHighAccuracy: false, timeout: 4000, maximumAge: 30000 }
           );
         },
-        { enableHighAccuracy: true, timeout: 4000, maximumAge: 2000 }
+        { enableHighAccuracy: true, timeout: 7000, maximumAge: 3000 }
       );
     });
   }
@@ -328,7 +370,22 @@ class LocationTrackingService {
           this.handleNewGpsPoint(position.coords);
         },
         (error) => {
-          console.warn("[LocationService] GPS watch notice:", error.message);
+          console.warn("[LocationService] GPS watch notice:", error?.message);
+          // If watchPosition was interrupted during a phone call, re-arm it if tracking is still active
+          if (this.isTracking) {
+            setTimeout(() => {
+              if (this.isTracking && this.watchId !== null) {
+                try {
+                  Geolocation.clearWatch(this.watchId);
+                  this.watchId = Geolocation.watchPosition(
+                    (pos) => this.handleNewGpsPoint(pos.coords),
+                    (err) => console.warn("[LocationService] GPS watch re-arm notice:", err?.message),
+                    GPS_HIGH_ACCURACY_OPTIONS
+                  );
+                } catch (_) {}
+              }
+            }, 3000);
+          }
         },
         GPS_HIGH_ACCURACY_OPTIONS
       );
@@ -336,12 +393,16 @@ class LocationTrackingService {
       console.warn("[LocationService] watchPosition init notice:", watchErr);
     }
 
-    // Handle AppState changes (when user opens app from background, trigger immediate sync)
+    // Handle AppState changes (when user returns from phone call or background, trigger safe sync)
     if (!this.appStateSubscription) {
       this.appStateSubscription = AppState.addEventListener("change", (nextState) => {
-        if (nextState === "active" && this.isTracking) {
-          this.pollCurrentGpsLocationAsync();
-          this.syncQueuedLocations();
+        try {
+          if (nextState === "active" && this.isTracking) {
+            this.pollCurrentGpsLocationAsync().catch(() => {});
+            this.syncQueuedLocations().catch(() => {});
+          }
+        } catch (stateErr) {
+          console.warn("[LocationService] AppState change notice:", stateErr?.message);
         }
       });
     }
@@ -372,41 +433,50 @@ class LocationTrackingService {
    * Stop Location Tracking
    */
   async stopLocationTracking() {
-    this.isTracking = false;
-    this.isLoopRunning = false;
+    try {
+      this.isTracking = false;
+      this.isLoopRunning = false;
 
-    if (this.syncIntervalTimer) {
-      clearInterval(this.syncIntervalTimer);
-      this.syncIntervalTimer = null;
+      if (this.syncIntervalTimer) {
+        clearInterval(this.syncIntervalTimer);
+        this.syncIntervalTimer = null;
+      }
+
+      if (this.watchId !== null) {
+        try { Geolocation.clearWatch(this.watchId); } catch (_) {}
+        this.watchId = null;
+      }
+
+      if (this.appStateSubscription) {
+        try { this.appStateSubscription.remove(); } catch (_) {}
+        this.appStateSubscription = null;
+      }
+
+      await AsyncStorage.removeItem(TRACKING_STATE_KEY).catch(() => {});
+
+      // Flush any remaining queued locations before stopping
+      try {
+        await this.syncQueuedLocations();
+      } catch (syncErr) {
+        console.warn("[LocationService] Pre-stop sync notice:", syncErr?.message);
+      }
+
+      // CRITICAL: Resolve the Notifee foreground service Promise so Android
+      // cleanly destroys the native foreground service process. This MUST be
+      // called after sync so we don't lose in-flight data.
+      if (this.foregroundServiceResolver) {
+        try { this.foregroundServiceResolver(); } catch (_) {}
+        this.foregroundServiceResolver = null;
+      }
+
+      await this.hideForegroundNotification();
+
+      console.log("[LocationService] Location tracking stopped cleanly");
+      return { success: true };
+    } catch (stopErr) {
+      console.warn("[LocationService] Stop tracking error (handled):", stopErr?.message);
+      return { success: false, error: stopErr?.message };
     }
-
-    if (this.watchId !== null) {
-      Geolocation.clearWatch(this.watchId);
-      this.watchId = null;
-    }
-
-    if (this.appStateSubscription) {
-      this.appStateSubscription.remove();
-      this.appStateSubscription = null;
-    }
-
-    await AsyncStorage.removeItem(TRACKING_STATE_KEY);
-
-    // Flush any remaining queued locations before stopping
-    await this.syncQueuedLocations();
-
-    // CRITICAL: Resolve the Notifee foreground service Promise so Android
-    // cleanly destroys the native foreground service process. This MUST be
-    // called after sync so we don't lose in-flight data.
-    if (this.foregroundServiceResolver) {
-      try { this.foregroundServiceResolver(); } catch (_) {}
-      this.foregroundServiceResolver = null;
-    }
-
-    await this.hideForegroundNotification();
-
-    console.log("[LocationService] Location tracking stopped cleanly");
-    return { success: true };
   }
 
   /**
@@ -459,25 +529,23 @@ class LocationTrackingService {
           const res = await api.get("/attendance/my-today");
           const att = res.data?.attendance;
 
-          // Determine duty status from last punchLog session
-          let isOnDuty = false;
+          // Determine duty status: only stop if user explicitly punched out today
+          let isPunchedOut = false;
           if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
             const lastSession = att.punchLog[att.punchLog.length - 1];
-            isOnDuty = Boolean(lastSession.punchInTime && !lastSession.punchOutTime);
-          } else if (att && att.punchInTime && !att.punchOutTime) {
-            // Fallback to root fields if punchLog is absent
-            isOnDuty = true;
+            isPunchedOut = Boolean(lastSession.punchInTime && lastSession.punchOutTime);
+          } else if (att && att.punchInTime && att.punchOutTime) {
+            isPunchedOut = true;
           }
 
-          if (!isOnDuty) {
-            console.log("[LocationService] Duty not active for today. Clearing tracking state.");
+          if (isPunchedOut) {
+            console.log("[LocationService] Duty confirmed completed for today (punched out). Clearing tracking state.");
             await AsyncStorage.removeItem(TRACKING_STATE_KEY);
             return;
           }
         } catch (apiErr) {
-          // Network offline — don't clear state, let it resume tracking
-          // (tracking will self-stop when backend confirms punch-out on next sync)
-          console.log("[LocationService] Could not verify today duty status (offline — continuing):", apiErr?.message);
+          // Network offline or returning from phone call — keep tracking alive!
+          console.log("[LocationService] Could not verify today duty status (continuing tracking):", apiErr?.message);
         }
 
         console.log("[LocationService] Resuming background tracking session from storage state...");
@@ -499,8 +567,15 @@ class LocationTrackingService {
     return new Promise((resolve, reject) => {
       Geolocation.getCurrentPosition(
         (pos) => resolve(pos.coords),
-        (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        (err) => {
+          // Fallback to network/cell location if high accuracy satellite timed out (e.g. punch-in/out indoors)
+          Geolocation.getCurrentPosition(
+            (fallbackPos) => resolve(fallbackPos.coords),
+            (fallbackErr) => reject(fallbackErr || err),
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 30000 }
+          );
+        },
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 10000 }
       );
     });
   }
@@ -613,9 +688,9 @@ class LocationTrackingService {
 
           if (response.data && response.data.success) {
             totalSynced += chunk.length;
-            // If server says employee punched out, stop tracking cleanly
-            if (response.data.trackingAllowed === false) {
-              console.log("[LocationService] Duty ended (punched out). Stopping tracking...");
+            // If server explicitly confirms employee punched out, stop tracking cleanly
+            if (response.data.hasPunchedOut === true) {
+              console.log("[LocationService] Duty confirmed ended (punched out). Stopping tracking...");
               shouldStop = true;
               break;
             }

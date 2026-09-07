@@ -117,11 +117,17 @@ const handleValidation = (req, res) => {
 const checkIn = async (req, res, next) => {
   try {
     if (handleValidation(req, res)) return;
-    const employee = await resolveEmployeeForUser(req);
+
+    // Parallelize employee, settings, and company lookups
+    const [employee, geoSettings, company] = await Promise.all([
+      resolveEmployeeForUser(req),
+      getCompanyAttendanceSettings(req.companyId),
+      Company.findById(req.companyId).lean(),
+    ]);
+
     if (!employee) {
       return res.status(403).json({ message: "Employee profile required for check-in" });
     }
-    const company = await Company.findById(req.companyId);
 
     const now = new Date();
     const date = getDateKey(now);
@@ -144,7 +150,6 @@ const checkIn = async (req, res, next) => {
     }
 
     // Geo-fencing validation
-    const geoSettings = await getCompanyAttendanceSettings(req.companyId);
     const punchLocation = req.body.punchInLocation || req.body.checkInLocation || {};
     const punchInSelfie = req.body.punchInSelfie || null;
     const { latitude, longitude } = punchLocation;
@@ -201,8 +206,6 @@ const checkIn = async (req, res, next) => {
 
     const isLate = checkIsLate(now, shiftStartTime, graceMinutes);
     let status = isLate ? "late" : "present";
-    
-
 
     const attendance =
       existing ||
@@ -235,7 +238,7 @@ const checkIn = async (req, res, next) => {
       if (punchInSelfie) attendance.punchInSelfie = punchInSelfie;
     }
 
-    // Always reset status to present/late when punching in (override any "absent" from low hours on previous punch out)
+    // Always reset status to present/late when punching in
     attendance.status = status;
 
     // Always push to punchLog
@@ -249,13 +252,13 @@ const checkIn = async (req, res, next) => {
 
     await attendance.save();
 
-    // Activate location tracking on Punch In ONLY IF company has location_tracking and employee has tracking enabled!
+    // Activate location tracking on Punch In if company & employee allows it (works for Employee, HR & Manager)
     const companySubscribed = company?.subscribedModules || [];
     const isCompanyTrackingAllowed = companySubscribed.includes("location_tracking") || companySubscribed.includes("location");
     const isEmployeeTrackingAllowed = isCompanyTrackingAllowed && Boolean(employee.isLocationTrackingEnabled);
 
     if (isEmployeeTrackingAllowed) {
-      await Employee.findByIdAndUpdate(employee._id, {
+      Employee.findByIdAndUpdate(employee._id, {
         $set: {
           "lastLocation.latitude": punchLocation?.latitude || null,
           "lastLocation.longitude": punchLocation?.longitude || null,
@@ -268,25 +271,20 @@ const checkIn = async (req, res, next) => {
       }).catch(() => {});
     }
 
-    // Send Notifications
-    const timeStr = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
-    const empName = employee.user?.name || employee.firstName + " " + employee.lastName;
+    // Non-blocking asynchronous notifications: return response instantly without waiting!
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+    const empName = employee.user?.name || (employee.firstName ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "Employee");
     const notifyTitle = `Punch In: ${empName}`;
     const notifyBody = `${empName} punched in at ${timeStr}. Status: ${status}.`;
-    
-    // Notify Employee
-    if (employee.userId) {
-      await notifyUser(employee.userId, req.companyId, "Punched In Successfully", `You punched in at ${timeStr}.`, "attendance", { attendanceId: attendance._id });
-    }
-    // Notify CompanyAdmin & HR
-    await notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id });
-    await notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id });
-    // Notify Dept Manager
-    if (employee.departmentId) {
-      await notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }).catch(err => console.error("Dept notify punch-in error:", err));
-    }
 
-    res.status(201).json({
+    Promise.allSettled([
+      employee.userId ? notifyUser(employee.userId, req.companyId, "Punched In Successfully", `You punched in at ${timeStr}.`, "attendance", { attendanceId: attendance._id }) : Promise.resolve(),
+      notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
+      notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
+      employee.departmentId ? notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }) : Promise.resolve(),
+    ]).catch((err) => console.error("[AttendanceNotify] Async punch-in notify error:", err));
+
+    return res.status(201).json({
       success: true,
       attendance,
       isLocationTrackingEnabled: isEmployeeTrackingAllowed,
@@ -300,25 +298,32 @@ const checkIn = async (req, res, next) => {
 const checkOut = async (req, res, next) => {
   try {
     if (handleValidation(req, res)) return;
-    const employee = await resolveEmployeeForUser(req);
+
+    // Parallelize employee, settings, and company lookups
+    const [employee, geoSettings, company] = await Promise.all([
+      resolveEmployeeForUser(req),
+      getCompanyAttendanceSettings(req.companyId),
+      Company.findById(req.companyId).lean(),
+    ]);
+
     if (!employee) {
       return res.status(403).json({ message: "Employee profile required for check-out" });
     }
 
-    // Check for pending tasks today for Employee and Manager roles
-    if (req.user.role === 'Employee' || req.user.role === 'Manager') {
-      const Task = require('../models/Task');
+    // Check for pending tasks today for Employee and Manager roles (fast existence check)
+    if (req.user.role === "Employee" || req.user.role === "Manager") {
+      const Task = require("../models/Task");
       
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
 
-      // Find if they have any pending tasks for today
-      const pendingTasks = await Task.find({
+      // Fast check: find at most 1 pending task without loading all
+      const hasPendingTask = await Task.findOne({
         companyId: req.companyId,
         assignedTo: employee._id,
-        status: { $in: ['pending', 're_pending'] },
+        status: { $in: ["pending", "re_pending"] },
         $or: [
           { nextFollowUpDate: { $gte: today, $lt: tomorrow } },
           {
@@ -330,17 +335,14 @@ const checkOut = async (req, res, next) => {
             startDateTime: { $gte: today, $lt: tomorrow }
           }
         ]
-      });
+      }).select("_id").lean();
 
-      if (pendingTasks.length > 0) {
+      if (hasPendingTask) {
         return res.status(400).json({ 
-          message: `You have ${pendingTasks.length} pending task(s) for today. Please update their status or add a next follow-up date before punching out.`
+          message: "You have pending task(s) for today. Please update their status or add a next follow-up date before punching out."
         });
       }
     }
-
-    const Company = require("../models/Company");
-    const company = await Company.findById(req.companyId);
 
     const now = new Date();
     const date = getDateKey(now);
@@ -371,7 +373,6 @@ const checkOut = async (req, res, next) => {
     }
 
     // Geo-fencing validation
-    const geoSettings = await getCompanyAttendanceSettings(req.companyId);
     const punchLocation = req.body.punchOutLocation || req.body.checkOutLocation || {};
     const punchOutSelfie = req.body.punchOutSelfie || null;
     const { latitude, longitude } = punchLocation;
@@ -482,31 +483,26 @@ const checkOut = async (req, res, next) => {
     await attendance.save();
 
     // Deactivate location tracking on Punch Out
-    await Employee.findByIdAndUpdate(employee._id, {
+    Employee.findByIdAndUpdate(employee._id, {
       $set: {
         "lastLocation.isTrackingActive": false,
       },
     }).catch(() => {});
 
-    // Send Notifications
-    const timeStr = now.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: "Asia/Kolkata" });
-    const empName = employee.user?.name || employee.firstName + " " + employee.lastName;
+    // Non-blocking asynchronous notifications: return response instantly without waiting!
+    const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
+    const empName = employee.user?.name || (employee.firstName ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "Employee");
     const notifyTitle = `Punch Out: ${empName}`;
     const notifyBody = `${empName} punched out at ${timeStr}. Total hours: ${formatTotalHours(totalHours)}.`;
-    
-    // Notify Employee
-    if (employee.userId) {
-      await notifyUser(employee.userId, req.companyId, "Punched Out Successfully", `You punched out at ${timeStr}. Total hours today: ${formatTotalHours(totalHours)}.`, "attendance", { attendanceId: attendance._id });
-    }
-    // Notify CompanyAdmin & HR
-    await notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id });
-    await notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id });
-    // Notify Dept Manager
-    if (employee.departmentId) {
-      await notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }).catch(err => console.error("Dept notify punch-out error:", err));
-    }
 
-    res.json({ success: true, attendance });
+    Promise.allSettled([
+      employee.userId ? notifyUser(employee.userId, req.companyId, "Punched Out Successfully", `You punched out at ${timeStr}. Total hours today: ${formatTotalHours(totalHours)}.`, "attendance", { attendanceId: attendance._id }) : Promise.resolve(),
+      notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
+      notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
+      employee.departmentId ? notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }) : Promise.resolve(),
+    ]).catch((err) => console.error("[AttendanceNotify] Async punch-out notify error:", err));
+
+    return res.json({ success: true, attendance });
   } catch (error) {
     next(error);
   }

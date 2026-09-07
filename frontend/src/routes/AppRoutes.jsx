@@ -95,6 +95,7 @@ import LeaveBalance from "../pages/companyadmin/LeaveBalance";
 import Holidays from "../pages/companyadmin/Holidays";
 import CompanyAttendanceSettings from "../pages/companyadmin/CompanyAttendanceSettings";
 import EmployeeLocationTracking from "../pages/companyadmin/EmployeeLocationTracking";
+import TrackingAllowance from "../pages/companyadmin/TrackingAllowance";
 
 // Company Admin — Work
 import TaskBoard from "../pages/companyadmin/TaskBoard";
@@ -176,6 +177,7 @@ const AppRoutes = () => {
             <Route element={<ModuleRoute module="attendance" />}>
               <Route path="attendance" element={<CompanyAttendance />} />
               <Route path="location-tracking" element={<EmployeeLocationTracking />} />
+              <Route path="tracking-allowance" element={<TrackingAllowance />} />
               <Route path="regularization" element={<RegularizationApprovals />} />
               <Route path="attendance-settings" element={<CompanyAttendanceSettings />} />
             </Route>
@@ -274,6 +276,7 @@ const AppRoutes = () => {
             {/* Attendance & Time-Off */}
             <Route path="attendance" element={<CompanyAttendance />} />
             <Route path="location-tracking" element={<EmployeeLocationTracking />} />
+            <Route path="tracking-allowance" element={<TrackingAllowance />} />
             <Route path="regularization" element={<RegularizationApprovals />} />
             <Route path="leaves" element={<LeaveRequests />} />
             <Route path="leave-balance" element={<LeaveBalance />} />
@@ -315,6 +318,7 @@ const AppRoutes = () => {
             <Route path="team" element={<ManagerTeamMembers />} />
             <Route path="attendance" element={<ManagerAttendance />} />
             <Route path="location-tracking" element={<EmployeeLocationTracking />} />
+            <Route path="tracking-allowance" element={<TrackingAllowance />} />
             <Route path="team-attendance" element={<ManagerAttendance />} />
             <Route path="team-leaves" element={<ManagerTeamLeaves />} />
             <Route path="my-leave" element={<ManagerMyLeave />} />
