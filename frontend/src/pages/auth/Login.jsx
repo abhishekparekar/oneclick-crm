@@ -337,7 +337,7 @@ const Login = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => fillCredentials("omkar@gmail.com", "Admin@123")}
+                    onClick={() => fillCredentials("omkar@gmail.com", "123456")}
                     className="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold border border-emerald-200 transition-all cursor-pointer"
                   >
                     👷 Employee

@@ -110,8 +110,8 @@ app.use(errorHandler);
 if (!isVercel) {
   const PORT = process.env.PORT || 5000;
   const server = app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-    console.log(`Local access: http://localhost:${PORT}`);
+    console.log(`[HRMS Backend] Server ready and listening on http://0.0.0.0:${PORT}`);
+    console.log(`[HRMS Backend] Local access: http://localhost:${PORT}`);
   });
 
   const io = require("./socket").init(server);

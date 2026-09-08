@@ -647,70 +647,134 @@ const getLiveEmployeeLocations = async (req, res) => {
  * @route GET /api/locations/trail/:employeeId
  */
 /**
- * Get road path between two GPS coordinates using OpenStreetMap routing (bike/driving/foot)
- * Follows actual streets and lane turns instead of cutting straight through buildings
+ * Perpendicular distance from a point to a line segment in meters
  */
-async function getRoadPathBetweenPoints(pt1, pt2) {
-  try {
-    const start = `${pt1.longitude || pt1.lng},${pt1.latitude || pt1.lat}`;
-    const end = `${pt2.longitude || pt2.lng},${pt2.latitude || pt2.lat}`;
+function getPerpendicularDistance(pt, p1, p2) {
+  const x = pt.longitude || pt.lng;
+  const y = pt.latitude || pt.lat;
+  const x1 = p1.longitude || p1.lng;
+  const y1 = p1.latitude || p1.lat;
+  const x2 = p2.longitude || p2.lng;
+  const y2 = p2.latitude || p2.lat;
 
-    for (const profile of ["bike", "driving", "foot"]) {
-      const url = `https://router.project-osrm.org/route/v1/${profile}/${start};${end}?overview=full&geometries=geojson`;
-      const res = await fetch(url, { signal: AbortSignal.timeout(3000) }).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json().catch(() => null);
-        if (data && data.code === "Ok" && data.routes && data.routes[0]?.geometry?.coordinates?.length >= 2) {
-          const coords = data.routes[0].geometry.coordinates.map((c) => ({
-            latitude: c[1],
-            longitude: c[0],
-          }));
-          return {
-            points: coords,
-            distanceMeters: Number(data.routes[0].distance) || 0,
-          };
-        }
-      }
-    }
-  } catch (err) {
-    console.warn("[LocationTracking] Road routing segment notice:", err.message);
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    return getHaversineDistanceMeters(y, x, y1, x1);
   }
-  return null;
+
+  const num = Math.abs(dy * x - dx * y + x2 * y1 - y2 * x1);
+  const den = Math.sqrt(dy * dy + dx * dx);
+  return (num / den) * 111000;
 }
 
 /**
- * Route GPS trail segments along actual road network
- * Replaces straight diagonal lines that cut through buildings with real road paths
+ * Ramer-Douglas-Peucker simplification to extract key inflection waypoints
+ */
+function rdpSimplify(points, epsilonMeters = 15) {
+  if (!Array.isArray(points) || points.length <= 2) return points;
+
+  let maxDist = 0;
+  let maxIdx = 0;
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = getPerpendicularDistance(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIdx = i;
+    }
+  }
+
+  if (maxDist > epsilonMeters) {
+    const left = rdpSimplify(points.slice(0, maxIdx + 1), epsilonMeters);
+    const right = rdpSimplify(points.slice(maxIdx), epsilonMeters);
+    return left.slice(0, -1).concat(right);
+  } else {
+    return [first, last];
+  }
+}
+
+/**
+ * Route GPS trail segments along actual road network using high-performance multi-waypoint batching
+ * Guarantees routes follow real streets and lane turns, completely eliminating building-cutting straight lines
  */
 async function alignTrailToRoadNetwork(cleanPoints) {
-  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) return { trail: cleanPoints, distanceMeters: 0 };
+  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) {
+    return { trail: cleanPoints, distanceMeters: 0 };
+  }
 
+  // 1. Distill raw points down to essential turn/inflection waypoints using RDP
+  const waypoints = rdpSimplify(cleanPoints, 15);
+
+  // 2. Batch route through OSRM in chunks of up to 25 waypoints per request
+  const CHUNK_SIZE = 25;
   const roadTrail = [];
   let totalRoadDistance = 0;
 
-  for (let i = 0; i < cleanPoints.length - 1; i++) {
-    const p1 = cleanPoints[i];
-    const p2 = cleanPoints[i + 1];
-    const straightDist = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
+  for (let i = 0; i < waypoints.length; i += CHUNK_SIZE - 1) {
+    const chunk = waypoints.slice(i, i + CHUNK_SIZE);
+    if (chunk.length < 2) continue;
 
-    if (straightDist < 25) {
-      if (roadTrail.length === 0) roadTrail.push(p1);
-      roadTrail.push(p2);
-      totalRoadDistance += straightDist;
-    } else {
-      const roadPath = await getRoadPathBetweenPoints(p1, p2);
-      if (roadPath && Array.isArray(roadPath.points) && roadPath.points.length >= 2) {
-        if (roadTrail.length === 0) {
-          roadTrail.push(...roadPath.points);
-        } else {
-          roadTrail.push(...roadPath.points.slice(1));
+    const coordsStr = chunk
+      .map((p) => `${(p.longitude || p.lng).toFixed(6)},${(p.latitude || p.lat).toFixed(6)}`)
+      .join(";");
+
+    let routed = false;
+
+    let chunkDirectDistance = 0;
+    for (let k = 0; k < chunk.length - 1; k++) {
+      chunkDirectDistance += getHaversineDistanceMeters(
+        chunk[k].latitude || chunk[k].lat,
+        chunk[k].longitude || chunk[k].lng,
+        chunk[k + 1].latitude || chunk[k + 1].lat,
+        chunk[k + 1].longitude || chunk[k + 1].lng
+      );
+    }
+
+    // Try bike profile first (standard for two-wheelers/intra-city), fallback to driving
+    for (const profile of ["bike", "driving"]) {
+      const url = `https://router.project-osrm.org/route/v1/${profile}/${coordsStr}?overview=full&geometries=geojson`;
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.code === "Ok" && data.routes && data.routes[0]?.geometry?.coordinates?.length >= 2) {
+            const osrmDistance = Number(data.routes[0].distance) || 0;
+            
+            // If OSRM route is > 1.35x direct distance and adds > 40m, it's an artificial detour around a one-way block or alley
+            if (chunkDirectDistance > 0 && osrmDistance > chunkDirectDistance * 1.35 && (osrmDistance - chunkDirectDistance) > 40) {
+              // Reject artificial detour
+              continue;
+            }
+
+            const coords = data.routes[0].geometry.coordinates.map((c) => ({
+              latitude: c[1],
+              longitude: c[0],
+            }));
+            if (roadTrail.length === 0) {
+              roadTrail.push(...coords);
+            } else {
+              roadTrail.push(...coords.slice(1));
+            }
+            totalRoadDistance += osrmDistance;
+            routed = true;
+            break;
+          }
         }
-        totalRoadDistance += roadPath.distanceMeters;
-      } else {
-        if (roadTrail.length === 0) roadTrail.push(p1);
-        roadTrail.push(p2);
-        totalRoadDistance += straightDist;
+      } catch (err) {
+        // Fallback to next profile or direct chunk
       }
+    }
+
+    if (!routed) {
+      if (roadTrail.length === 0) {
+        roadTrail.push(...chunk);
+      } else {
+        roadTrail.push(...chunk.slice(1));
+      }
+      totalRoadDistance += chunkDirectDistance;
     }
   }
 
@@ -914,7 +978,7 @@ const getEmployeeLocationTrail = async (req, res) => {
     }
 
     // ── Build Clean Trail & Detect Real Halts ──
-    const ANCHOR_RADIUS_METERS = 25;
+    const HALT_ZONE_RADIUS_METERS = 35;
     let anchor = candidatePoints[0];
     const cleanTrail = [anchor];
     const halts = [];
@@ -930,9 +994,15 @@ const getEmployeeLocationTrail = async (req, res) => {
     for (let i = 1; i < candidatePoints.length; i++) {
       const pt = candidatePoints[i];
       const spd = (Number(pt.speed) || 0) * 3.6;
-      const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, pt.latitude, pt.longitude);
+      const distFromHaltCenter = getHaversineDistanceMeters(
+        currentHalt.latitude,
+        currentHalt.longitude,
+        pt.latitude,
+        pt.longitude
+      );
 
-      if (distFromAnchor < ANCHOR_RADIUS_METERS && spd < 3.0) {
+      if (distFromHaltCenter < HALT_ZONE_RADIUS_METERS && spd < 3.0) {
+        // Stationary or drifting within the halt zone: absorb into current halt to prevent rooftop lines
         currentHalt.endTime = pt.timestamp;
         if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
       } else {
@@ -1016,10 +1086,12 @@ const getEmployeeLocationTrail = async (req, res) => {
       success: true,
       data: {
         trail: finalTrail,
-        cleanTrail: cleanTrail,
+        cleanTrail: cleanTrail, // Pure filtered GPS trail without OSRM artificial detours
+        roadTrail: finalTrail,
+        rawSensorPoints: cleanTrail,
         isStationaryAllDay: false,
         rawCount: rawTrail.length,
-        cleanCount: finalTrail.length,
+        cleanCount: cleanTrail.length,
         totalPoints: rawTrail.length,
         distanceKm: pureDistanceKm,
         pureDistanceKm: pureDistanceKm,

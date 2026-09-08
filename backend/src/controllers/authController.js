@@ -64,7 +64,10 @@ const login = async (req, res, next) => {
     const identifier = String(email || "").trim().toLowerCase();
     const cleanPassword = String(password || "").trim();
 
+    console.log(`[Auth Login Attempt] identifier: "${identifier}", password length: ${cleanPassword?.length}`);
+
     if (!identifier || !cleanPassword) {
+      console.warn(`[Auth Login Failed] Missing identifier or password`);
       return res.status(400).json({ message: "Email/Phone number and password are required" });
     }
 
@@ -111,6 +114,7 @@ const login = async (req, res, next) => {
     }
 
     if (!user) {
+      console.warn(`[Auth Login Failed] No account found for: "${identifier}"`);
       return res.status(401).json({ message: "No account found with this Email or Phone number" });
     }
 
@@ -143,6 +147,7 @@ const login = async (req, res, next) => {
     }
 
     if (!isMatch) {
+      console.warn(`[Auth Login Failed] Incorrect password for user: "${user.email}" (${user.role})`);
       return res.status(401).json({ message: "Incorrect password" });
     }
 

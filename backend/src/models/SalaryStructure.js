@@ -96,7 +96,5 @@ salaryStructureSchema.index(
   { unique: true, partialFilterExpression: { status: "active" } }
 );
 
-salaryStructureSchema.index({ companyId: 1 });
-
 const SalaryStructure = mongoose.model("SalaryStructure", salaryStructureSchema);
 module.exports = SalaryStructure;

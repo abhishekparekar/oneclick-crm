@@ -574,9 +574,11 @@ const EmployeeLocationTracking = () => {
         }
       };
 
+      const roadLatLngs = roadPoints.map((pt) => [pt.latitude, pt.longitude]);
+      const pureLatLngs = rawCleanPoints.map((pt) => [pt.latitude, pt.longitude]);
+
       if (trailPathMode === "pure") {
         // 🎯 1. Pure GPS Actual Route: Directly from phone sensors without OSRM artificial detour
-        const pureLatLngs = rawCleanPoints.map((pt) => [pt.latitude, pt.longitude]);
         const polylineGlow = L.polyline(pureLatLngs, {
           color: "#064E3B",
           weight: 8,
@@ -597,12 +599,11 @@ const EmployeeLocationTracking = () => {
 
         drawArrows(rawCleanPoints);
       } else if (trailPathMode === "road") {
-        // 🛣️ 2. Road Snapped Route: Aligned to OpenStreetMap road network
-        const roadLatLngs = roadPoints.map((pt) => [pt.latitude, pt.longitude]);
+        // 🛣️ 2. Road Snapped Route: Aligned to OpenStreetMap road network in Royal Blue
         const polylineGlow = L.polyline(roadLatLngs, {
           color: "#1E40AF",
           weight: 8,
-          opacity: 0.4,
+          opacity: 0.5,
           lineJoin: "round",
         });
         polylineLayerRef.current.addLayer(polylineGlow);
@@ -619,31 +620,18 @@ const EmployeeLocationTracking = () => {
 
         drawArrows(roadPoints);
       } else if (trailPathMode === "both") {
-        // ⚡ 3. Both Modes Together: Compare Pure GPS vs Road Snapped side-by-side
-        // Road path in dashed royal blue
-        const roadLatLngs = roadPoints.map((pt) => [pt.latitude, pt.longitude]);
+        // ⚡ 3. Both Modes Together: Solid Royal Blue road route with Emerald accent
         const polylineRoad = L.polyline(roadLatLngs, {
           color: "#2563EB",
-          weight: 5,
-          opacity: 0.75,
-          dashArray: "6, 8",
+          weight: 6,
+          opacity: 0.85,
           lineJoin: "round",
         });
         polylineLayerRef.current.addLayer(polylineRoad);
 
-        // Pure GPS in solid emerald green
-        const pureLatLngs = rawCleanPoints.map((pt) => [pt.latitude, pt.longitude]);
-        const polylinePureGlow = L.polyline(pureLatLngs, {
-          color: "#064E3B",
-          weight: 8,
-          opacity: 0.4,
-          lineJoin: "round",
-        });
-        polylineLayerRef.current.addLayer(polylinePureGlow);
-
         const polylinePure = L.polyline(pureLatLngs, {
           color: "#10B981",
-          weight: 4.5,
+          weight: 4,
           opacity: 0.95,
           lineJoin: "round",
           lineCap: "round",
@@ -1198,25 +1186,27 @@ const EmployeeLocationTracking = () => {
             <div className="absolute top-14 right-14 z-20 bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-md flex items-center gap-1">
               <button
                 type="button"
-                onClick={() => setTrailPathMode("pure")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
-                  trailPathMode === "pure"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                🎯 Pure GPS
-              </button>
-              <button
-                type="button"
                 onClick={() => setTrailPathMode("road")}
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
                   trailPathMode === "road"
                     ? "bg-blue-600 text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                title="रस्त्यानुसार जोडलेला अचूक मार्ग (Road Snapped Network)"
               >
                 🛣️ Road
+              </button>
+              <button
+                type="button"
+                onClick={() => setTrailPathMode("pure")}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
+                  trailPathMode === "pure"
+                    ? "bg-emerald-600 text-white shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+                title="कच्चा फोन सेन्सर डेटा (Raw Sensor GPS)"
+              >
+                🎯 Pure GPS
               </button>
               <button
                 type="button"
@@ -1226,6 +1216,7 @@ const EmployeeLocationTracking = () => {
                     ? "bg-purple-600 text-white shadow-xs"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
+                title="दोन्ही मार्ग एकत्र पहा (Compare Both)"
               >
                 ⚡ Both
               </button>

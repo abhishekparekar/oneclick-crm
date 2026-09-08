@@ -92,14 +92,39 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
   try {
     const response = await admin.messaging().sendEachForMulticast(message);
     if (response.failureCount > 0) {
-      const failedTokens = [];
+      const staleTokens = [];
+      const otherErrors = [];
+
       response.responses.forEach((resp, idx) => {
         if (!resp.success) {
-          failedTokens.push(tokens[idx]);
-          console.error("FCM Send Error for token:", tokens[idx], resp.error);
+          const errCode = resp.error?.code || resp.error?.errorInfo?.code;
+          if (
+            errCode === 'messaging/registration-token-not-registered' ||
+            errCode === 'messaging/invalid-registration-token'
+          ) {
+            staleTokens.push(tokens[idx]);
+          } else {
+            otherErrors.push({ token: tokens[idx], error: resp.error?.message || resp.error });
+          }
         }
       });
-      console.log("Tokens failed:", failedTokens);
+
+      if (staleTokens.length > 0) {
+        console.warn(`[FCM] Automatically deactivating ${staleTokens.length} stale/unregistered token(s) from database.`);
+        try {
+          const DeviceToken = require("../models/DeviceToken");
+          await DeviceToken.updateMany(
+            { fcmToken: { $in: staleTokens } },
+            { isActive: false }
+          );
+        } catch (cleanupErr) {
+          console.error("[FCM] Failed to deactivate stale device tokens:", cleanupErr.message);
+        }
+      }
+
+      if (otherErrors.length > 0) {
+        console.error(`[FCM] ${otherErrors.length} notification send error(s):`, otherErrors);
+      }
     }
     return response;
   } catch (error) {
