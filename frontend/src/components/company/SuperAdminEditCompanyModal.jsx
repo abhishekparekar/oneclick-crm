@@ -10,7 +10,7 @@ import {
 
 const ALL_SYSTEM_MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects",
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
 ];
 
 const DISPLAY_MODULES = [
@@ -18,6 +18,7 @@ const DISPLAY_MODULES = [
   { key: "tasks", label: "Tasks" },
   { key: "leads", label: "Leads Engine" },
   { key: "projects", label: "Projects" },
+  { key: "location_tracking", label: "Location Tracking", subtext: "GPS Field Radar" },
   { key: "whatsapp", label: "WhatsApp" },
   { key: "mobileApp", label: "Mobile App" },
   { key: "webAdmin", label: "Web Admin" },
@@ -28,6 +29,7 @@ const MODULE_CAP_ITEMS = [
   { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
   { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
   { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
+  { key: "location_tracking", label: "Field GPS Location Tracking", color: "#ec4899" },
 ];
 
 const getTodayStr = () => new Date().toISOString().split("T")[0];
@@ -68,7 +70,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
     trialDays: 7,
     startDate: getTodayStr(),
     endDate: getFutureDateStr(7),
-    subscribedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+    subscribedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "location_tracking"],
     moduleLimits: {
       attendance: 0,
       leave: 0,
@@ -77,6 +79,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
       leads: 0,
       projects: 0,
       reports: 0,
+      location_tracking: 0,
     },
   });
 
@@ -128,7 +131,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
         endDate: initEnd,
         subscribedModules: Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
           ? Array.from(new Set([...company.subscribedModules, "reports", "performance", "recruitment", ...(company.subscribedModules.includes("attendance") ? ["attendance", "leave", "payroll"] : [])]))
-          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "performance", "recruitment", "leads"],
+          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "performance", "recruitment", "leads", "location_tracking"],
         moduleLimits: company.moduleLimits || {
           attendance: 0,
           leave: 0,
@@ -137,6 +140,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
           leads: 0,
           projects: 0,
           reports: 0,
+          location_tracking: 0,
         },
       });
     }
@@ -639,7 +643,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                 </div>
 
                 {/* Granular Seat Allocation per Module */}
-                {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "reports"].includes(m)) && (
+                {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "reports", "location_tracking"].includes(m)) && (
                   <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                     <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                       <Users size={13} className="text-[#f59e0b]" />

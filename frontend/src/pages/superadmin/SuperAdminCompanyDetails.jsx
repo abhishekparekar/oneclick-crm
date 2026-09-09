@@ -294,31 +294,63 @@ const SuperAdminCompanyDetails = () => {
 
               {/* Module Access Authorization Card */}
               <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm overflow-hidden p-6">
-                <h3 className="font-bold text-sa-text text-base pb-3 border-b border-sa-border mb-4 flex items-center justify-between">
-                  <span>Module Access Matrix</span>
-                  <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg">4 Active</span>
-                </h3>
-                
-                <div className="grid grid-cols-1 gap-2.5">
-                  {['Core HR & Directory', 'Time & Attendance', 'Payroll & Compliance', 'Leave Management'].map((mod, i) => (
-                    <div key={i} className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-800 dark:text-emerald-300 font-bold text-sm">
-                      <span className="flex items-center space-x-2.5">
-                        <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
-                        <span>{mod}</span>
-                      </span>
-                      <span className="text-[11px] font-extrabold uppercase tracking-wider bg-emerald-500/20 px-2 py-0.5 rounded">Active</span>
-                    </div>
-                  ))}
-                  {['Recruitment & ATS', 'Performance & OKRs'].map((mod, i) => (
-                    <div key={i} className="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-sa-bg border border-sa-border text-sa-text-secondary font-medium text-sm opacity-70">
-                      <span className="flex items-center space-x-2.5">
-                        <Lock size={15} className="text-sa-text-secondary flex-shrink-0" />
-                        <span>{mod}</span>
-                      </span>
-                      <span className="text-[11px] font-bold uppercase tracking-wider bg-sa-border/60 px-2 py-0.5 rounded text-sa-text-secondary">Locked</span>
-                    </div>
-                  ))}
-                </div>
+                {(() => {
+                  const allSystemModules = [
+                    { key: "attendance", label: "Time & Attendance" },
+                    { key: "leave", label: "Leave Management" },
+                    { key: "payroll", label: "Payroll & Compliance" },
+                    { key: "location_tracking", label: "Live GPS Location Tracking" },
+                    { key: "tasks", label: "Task Management" },
+                    { key: "leads", label: "Leads Engine & CRM" },
+                    { key: "projects", label: "Projects Workspace" },
+                    { key: "reports", label: "Reports & Analytics" },
+                    { key: "whatsapp", label: "WhatsApp Automations" },
+                    { key: "mobileApp", label: "Mobile App Access" },
+                  ];
+                  const subList = Array.isArray(company.subscribedModules) ? company.subscribedModules : [];
+                  const activeCount = allSystemModules.filter(m => subList.includes(m.key)).length;
+
+                  return (
+                    <>
+                      <h3 className="font-bold text-sa-text text-base pb-3 border-b border-sa-border mb-4 flex items-center justify-between">
+                        <span>Module Access Matrix</span>
+                        <span className="text-xs font-extrabold text-emerald-700 dark:text-emerald-400 bg-emerald-500/15 px-2.5 py-1 rounded-lg">
+                          {activeCount} Active
+                        </span>
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 gap-2.5 max-h-[380px] overflow-y-auto pr-1">
+                        {allSystemModules.map((mod) => {
+                          const isActive = subList.includes(mod.key);
+                          return (
+                            <div 
+                              key={mod.key} 
+                              className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl border font-bold text-sm transition-all ${
+                                isActive
+                                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-800 dark:text-emerald-300"
+                                  : "bg-sa-bg border-sa-border text-sa-text-secondary opacity-60"
+                              }`}
+                            >
+                              <span className="flex items-center space-x-2.5">
+                                {isActive ? (
+                                  <CheckCircle size={15} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                                ) : (
+                                  <Lock size={15} className="text-sa-text-secondary flex-shrink-0" />
+                                )}
+                                <span>{mod.label}</span>
+                              </span>
+                              <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded ${
+                                isActive ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300" : "bg-sa-border/60 text-sa-text-secondary"
+                              }`}>
+                                {isActive ? "Active" : "Locked"}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           </div>

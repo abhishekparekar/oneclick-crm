@@ -78,7 +78,7 @@ const createCompany = async (req, res, next) => {
         ? subscribedModules
         : ((selectedPlan?.modules && selectedPlan.modules.length > 0)
             ? selectedPlan.modules
-            : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"]);
+            : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "location_tracking"]);
 
       // Always include standard default modules: reports, performance, recruitment
       finalModules = Array.from(new Set([...finalModules, "reports", "performance", "recruitment"]));

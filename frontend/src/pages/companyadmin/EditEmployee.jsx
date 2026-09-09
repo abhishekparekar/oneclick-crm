@@ -1032,63 +1032,45 @@ export default function EditEmployee() {
             </div>
 
             {/* Live GPS Location Tracking Toggle */}
-            {subscribedModules.length === 0 || subscribedModules.includes("location_tracking") ? (
-              <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <MapPin size={16} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="isLocationTrackingEnabled" className="text-xs font-bold text-slate-900 dark:text-slate-100 cursor-pointer">
-                        Live GPS Location Tracking (Field Staff)
-                      </label>
-                      <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
-                        formData.isLocationTrackingEnabled
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
-                          : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700"
-                      }`}>
-                        {formData.isLocationTrackingEnabled ? "TRACKING ACTIVE" : "OFFICE STAFF (NO TRACKING)"}
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
-                      Turn ON for field workers to track live travel routes and halts upon punch-in. Turn OFF for office workers (Universal punch-in works normally for all employees without tracking).
-                    </p>
-                  </div>
+            <div className="flex items-start justify-between gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <MapPin size={16} />
                 </div>
-                <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-                  <input
-                    type="checkbox"
-                    id="isLocationTrackingEnabled"
-                    checked={formData.isLocationTrackingEnabled || false}
-                    onChange={(e) => handleChange("isLocationTrackingEnabled", e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500"></div>
-                </label>
-              </div>
-            ) : (
-              <div className="flex items-start justify-between gap-3 p-4 rounded-2xl bg-slate-100/60 dark:bg-slate-800/30 border border-dashed border-slate-300 dark:border-slate-700">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-slate-200 dark:bg-slate-800 text-slate-400 flex items-center justify-center shrink-0 mt-0.5">
-                    <MapPin size={16} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
-                        Live GPS Location Tracking
+                <div>
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="isLocationTrackingEnabled" className="text-xs font-bold text-slate-900 dark:text-slate-100 cursor-pointer">
+                      Live GPS Location Tracking (Field Staff)
+                    </label>
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                      formData.isLocationTrackingEnabled
+                        ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30"
+                        : "bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700"
+                    }`}>
+                      {formData.isLocationTrackingEnabled ? "TRACKING ACTIVE" : "OFFICE STAFF (NO TRACKING)"}
+                    </span>
+                    {subscribedModules.length > 0 && subscribedModules.includes("location_tracking") && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                        GPS Plan Active
                       </span>
-                      <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                        Super Admin Module Inactive
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                      GPS tracking is not subscribed for your company. Contact Super Admin to enable this add-on module.
-                    </p>
+                    )}
                   </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                    Turn ON for field workers to track live travel routes and halts upon punch-in. Turn OFF for office workers (Universal punch-in works normally for all employees without tracking).
+                  </p>
                 </div>
               </div>
-            )}
+              <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+                <input
+                  type="checkbox"
+                  id="isLocationTrackingEnabled"
+                  checked={formData.isLocationTrackingEnabled || false}
+                  onChange={(e) => handleChange("isLocationTrackingEnabled", e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-slate-600 peer-checked:bg-amber-500"></div>
+              </label>
+            </div>
           </div>
         )}
 

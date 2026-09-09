@@ -256,7 +256,7 @@ const checkIn = async (req, res, next) => {
 
     // Activate location tracking on Punch In if company & employee allows it (works for Employee, HR & Manager)
     const companySubscribed = company?.subscribedModules || [];
-    const isCompanyTrackingAllowed = companySubscribed.includes("location_tracking") || companySubscribed.includes("location");
+    const isCompanyTrackingAllowed = companySubscribed.length === 0 || companySubscribed.includes("location_tracking") || companySubscribed.includes("location");
     const isEmployeeTrackingAllowed = isCompanyTrackingAllowed && Boolean(employee.isLocationTrackingEnabled);
 
     if (isEmployeeTrackingAllowed) {
