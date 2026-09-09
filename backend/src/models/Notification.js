@@ -91,13 +91,17 @@ notificationSchema.post("save", async function (doc) {
             }
 
             // 2. Send FCM Mobile Push Notification
-            const deviceTokens = await DeviceToken.find({ userId: doc.userId, isActive: true });
+            const deviceTokens = await DeviceToken.find({
+                $or: [{ userId: doc.userId }, { employeeId: doc.userId }],
+                isActive: true
+            });
             if (deviceTokens.length > 0) {
                 const tokens = deviceTokens.map((dt) => dt.fcmToken).filter(Boolean);
                 if (tokens.length > 0) {
                     sendPushNotification(tokens, doc.title, doc.body, {
                         type: doc.type || "system",
                         ...(doc.data || {}),
+                        notificationId: doc._id.toString(),
                     }).catch(err => console.error("Background FCM Error:", err));
                 }
             }

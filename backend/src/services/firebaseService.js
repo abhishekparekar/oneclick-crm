@@ -80,12 +80,31 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
       body,
     },
     android: {
+      priority: 'high',
       notification: {
+        title,
+        body,
         sound: 'notice11',
-        channelId: 'notice11-sound'
-      }
+        channelId: 'oneclick_alerts_v4',
+        priority: 'high',
+        defaultSound: false,
+        defaultVibrateTimings: true,
+        icon: 'ic_notification',
+      },
     },
-    data: stringifiedData,
+    apns: {
+      payload: {
+        aps: {
+          sound: 'notice11.wav',
+          badge: 1,
+        },
+      },
+    },
+    data: {
+      ...stringifiedData,
+      title: String(title || ''),
+      body: String(body || ''),
+    },
     tokens,
   };
 

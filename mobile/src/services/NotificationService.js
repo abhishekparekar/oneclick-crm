@@ -9,7 +9,7 @@ import {
   AuthorizationStatus 
 } from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
-import { Platform } from 'react-native';
+import { Platform, PermissionsAndroid } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { getApiBaseUrl } from '../api/api';
 
@@ -28,10 +28,27 @@ class NotificationService {
         return false;
       }
     } else if (Platform.OS === 'android') {
+      // 1. Android 13+ POST_NOTIFICATIONS runtime permission
+      if (Platform.Version >= 33) {
+        try {
+          const hasPostNotif = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+          if (!hasPostNotif) {
+            await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS, {
+              title: "Notification Permission",
+              message: "One Click needs notification permission to alert you about tasks, attendance, and duty updates.",
+              buttonPositive: "Allow",
+            });
+          }
+        } catch (e) {
+          console.warn("[NotificationService] POST_NOTIFICATIONS request notice:", e?.message);
+        }
+      }
+
       await notifee.requestPermission();
+
       // Create high importance notification channel with custom chime sound
       await notifee.createChannel({
-        id: 'notice11-sound',
+        id: 'oneclick_alerts_v4',
         name: 'HRMS Notifications & Alerts',
         importance: AndroidImportance.HIGH,
         sound: 'notice11',
@@ -42,8 +59,8 @@ class NotificationService {
       });
 
       await notifee.createChannel({
-        id: 'hrms_alerts_v2',
-        name: 'High Priority Alerts',
+        id: 'notice11-sound',
+        name: 'HRMS Notifications (Legacy)',
         importance: AndroidImportance.HIGH,
         sound: 'notice11',
         vibration: true,
@@ -114,18 +131,21 @@ class NotificationService {
   static async displayNotification(remoteMessage) {
     const { notification, data } = remoteMessage || {};
     
-    if (notification || data?.title) {
-      const title = notification?.title || data?.title || 'New HRMS Notification';
+    if (notification || data?.title || data?.body) {
+      const title = notification?.title || data?.title || 'One Click HRMS';
       const body = notification?.body || data?.body || '';
 
       await notifee.displayNotification({
+        id: data?.notificationId || undefined,
         title,
         body,
         data: data || {},
         android: {
-          channelId: 'notice11-sound',
+          channelId: 'oneclick_alerts_v4',
           importance: AndroidImportance.HIGH,
           sound: 'notice11', // Distinctive HRMS sound chime
+          smallIcon: 'ic_notification',
+          color: '#1268D9',
           vibrationPattern: [300, 500],
           pressAction: {
             id: 'default',
