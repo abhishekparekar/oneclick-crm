@@ -70,18 +70,21 @@ class LocationTrackingService {
       }
 
       // 2. Foreground Location Permission
-      const fineGranted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-        {
-          title: "Location Permission",
-          message: "One Click needs high accuracy location to track work travel and duty routes.",
-          buttonPositive: "Allow",
-        }
-      );
+      const hasFine = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+      if (!hasFine) {
+        const fineGranted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: "Location Permission",
+            message: "One Click needs high accuracy location to track work travel and duty routes.",
+            buttonPositive: "Allow",
+          }
+        );
 
-      if (fineGranted !== PermissionsAndroid.RESULTS.GRANTED) {
-        console.warn("[LocationService] Fine location permission denied");
-        return false;
+        if (fineGranted !== PermissionsAndroid.RESULTS.GRANTED) {
+          console.warn("[LocationService] Fine location permission denied");
+          return false;
+        }
       }
 
       // 3. Background Location Permission (Android 10+ / API 29+)
@@ -171,17 +174,8 @@ class LocationTrackingService {
         pressAction: {
           id: "default",
         },
-        smallIcon: "ic_notification",
+        smallIcon: "ic_launcher",
       };
-
-      if (
-        AndroidForegroundServiceType &&
-        AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_LOCATION !== undefined
-      ) {
-        androidOptions.foregroundServiceTypes = [
-          AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_LOCATION,
-        ];
-      }
 
       await notifee.displayNotification({
         id: NOTIFICATION_ID,
@@ -510,6 +504,13 @@ class LocationTrackingService {
         return;
       }
 
+      // Ensure fine location permission is granted before auto-starting
+      const hasFine = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).catch(() => false);
+      if (!hasFine) {
+        console.log("[LocationService] Location permission not granted yet — skipping background auto-resume.");
+        return;
+      }
+
       // Check if employee has tracking enabled in stored profile (support both user storage keys)
       const userRaw = (await AsyncStorage.getItem("hrms_user")) || (await AsyncStorage.getItem("@auth_user"));
       if (userRaw) {
@@ -524,21 +525,21 @@ class LocationTrackingService {
       }
 
       const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+      if (active !== "true") {
+        return;
+      }
 
       // Verify today's duty status from server to decide if tracking should run
       try {
         const res = await api.get("/attendance/my-today");
         const att = res.data?.attendance;
 
-        let isPunchedIn = false;
         let isPunchedOut = false;
         if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
           const lastSession = att.punchLog[att.punchLog.length - 1];
-          isPunchedIn = Boolean(lastSession.punchInTime);
           isPunchedOut = Boolean(lastSession.punchInTime && lastSession.punchOutTime);
-        } else if (att) {
-          isPunchedIn = Boolean(att.punchInTime);
-          isPunchedOut = Boolean(att.punchInTime && att.punchOutTime);
+        } else if (att && att.punchInTime && att.punchOutTime) {
+          isPunchedOut = true;
         }
 
         if (isPunchedOut) {
@@ -546,27 +547,14 @@ class LocationTrackingService {
           await AsyncStorage.removeItem(TRACKING_STATE_KEY);
           return;
         }
-
-        if (isPunchedIn && !isPunchedOut) {
-          console.log("[LocationService] Active punch-in verified on server. Auto-starting tracking...");
-          await AsyncStorage.setItem(TRACKING_STATE_KEY, "true");
-          await this.startLocationTracking();
-          return;
-        }
       } catch (apiErr) {
         console.log("[LocationService] Could not verify today duty status via API (falling back to storage):", apiErr?.message);
       }
 
-      if (active === "true" && !this.isTracking) {
-        console.log("[LocationService] Resuming background tracking session from storage state...");
-        try {
-          await this.startLocationTracking();
-        } catch (startErr) {
-          console.warn("[LocationService] Start tracking error during auto-resume:", startErr);
-        }
-      }
+      console.log("[LocationService] Resuming background tracking session from storage state...");
+      await this.startLocationTracking();
     } catch (err) {
-      console.warn("[LocationService] Auto-resume check error:", err);
+      console.warn("[LocationService] Auto-resume check error:", err?.message);
     }
   }
 

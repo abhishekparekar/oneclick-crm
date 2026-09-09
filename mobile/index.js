@@ -37,7 +37,7 @@ try {
             channelId: 'oneclick_alerts_v4',
             importance: AndroidImportance.HIGH,
             sound: 'notice11',
-            smallIcon: 'ic_notification',
+            smallIcon: 'ic_launcher',
             color: '#1268D9',
             vibrationPattern: [300, 500],
             pressAction: {
@@ -52,6 +52,14 @@ try {
   });
 } catch (e) {
   console.log('Messaging background handler error:', e);
+}
+
+try {
+  notifee.onBackgroundEvent(async ({ type, detail }) => {
+    console.log('[Notifee Background Event]', type);
+  });
+} catch (e) {
+  console.log('[Notifee] onBackgroundEvent error:', e);
 }
 
 // Global error safety net to prevent app crashes from transient background exceptions

@@ -334,17 +334,23 @@ export const AuthProvider = ({ children }) => {
     let unsubscribeTokenRefresh;
     if (token && user) {
       const initNotifications = async () => {
-        const NotificationService = require("../services/NotificationService").default;
-        const hasPermission = await NotificationService.requestPermissions();
-        if (hasPermission) {
-          await NotificationService.getFCMToken(token);
-          unsubscribeTokenRefresh = NotificationService.listenForTokenRefresh(token);
+        try {
+          const NotificationService = require("../services/NotificationService").default;
+          const hasPermission = await NotificationService.requestPermissions();
+          if (hasPermission) {
+            await NotificationService.getFCMToken(token);
+            unsubscribeTokenRefresh = NotificationService.listenForTokenRefresh(token);
+          }
+        } catch (notifErr) {
+          console.warn("[AuthContext] Push notification init notice (safe):", notifErr?.message);
         }
       };
       initNotifications();
     }
     return () => {
-      if (unsubscribeTokenRefresh) unsubscribeTokenRefresh();
+      try {
+        if (unsubscribeTokenRefresh) unsubscribeTokenRefresh();
+      } catch (_) {}
     };
   }, [token, user]);
 

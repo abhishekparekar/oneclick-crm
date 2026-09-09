@@ -18,58 +18,69 @@ class NotificationService {
    * Request permissions and initialize Notifee channels for Android
    */
   static async requestPermissions() {
-    if (Platform.OS === 'ios') {
-      const authStatus = await requestPermission(getMessaging());
-      const enabled =
-        authStatus === AuthorizationStatus.AUTHORIZED ||
-        authStatus === AuthorizationStatus.PROVISIONAL;
-      if (!enabled) {
-        console.log('FCM permission denied on iOS');
-        return false;
-      }
-    } else if (Platform.OS === 'android') {
-      // 1. Android 13+ POST_NOTIFICATIONS runtime permission
-      if (Platform.Version >= 33) {
-        try {
-          const hasPostNotif = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
-          if (!hasPostNotif) {
-            await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS, {
-              title: "Notification Permission",
-              message: "One Click needs notification permission to alert you about tasks, attendance, and duty updates.",
-              buttonPositive: "Allow",
-            });
+    try {
+      if (Platform.OS === 'ios') {
+        const authStatus = await requestPermission(getMessaging());
+        const enabled =
+          authStatus === AuthorizationStatus.AUTHORIZED ||
+          authStatus === AuthorizationStatus.PROVISIONAL;
+        if (!enabled) {
+          console.log('FCM permission denied on iOS');
+          return false;
+        }
+      } else if (Platform.OS === 'android') {
+        // 1. Android 13+ POST_NOTIFICATIONS runtime permission
+        if (Platform.Version >= 33) {
+          try {
+            const hasPostNotif = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS);
+            if (!hasPostNotif) {
+              await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS, {
+                title: "Notification Permission",
+                message: "One Click needs notification permission to alert you about tasks, attendance, and duty updates.",
+                buttonPositive: "Allow",
+              });
+            }
+          } catch (e) {
+            console.warn("[NotificationService] POST_NOTIFICATIONS request notice:", e?.message);
           }
-        } catch (e) {
-          console.warn("[NotificationService] POST_NOTIFICATIONS request notice:", e?.message);
+        }
+
+        try {
+          await notifee.requestPermission();
+        } catch (_) {}
+
+        // Create high importance notification channel with custom chime sound
+        try {
+          await notifee.createChannel({
+            id: 'oneclick_alerts_v4',
+            name: 'HRMS Notifications & Alerts',
+            importance: AndroidImportance.HIGH,
+            sound: 'notice11',
+            vibration: true,
+            vibrationPattern: [300, 500],
+            lights: true,
+            badge: true,
+          });
+
+          await notifee.createChannel({
+            id: 'notice11-sound',
+            name: 'HRMS Notifications (Legacy)',
+            importance: AndroidImportance.HIGH,
+            sound: 'notice11',
+            vibration: true,
+            vibrationPattern: [300, 500],
+            lights: true,
+            badge: true,
+          });
+        } catch (chanErr) {
+          console.warn("[NotificationService] Channel creation notice:", chanErr?.message);
         }
       }
-
-      await notifee.requestPermission();
-
-      // Create high importance notification channel with custom chime sound
-      await notifee.createChannel({
-        id: 'oneclick_alerts_v4',
-        name: 'HRMS Notifications & Alerts',
-        importance: AndroidImportance.HIGH,
-        sound: 'notice11',
-        vibration: true,
-        vibrationPattern: [300, 500],
-        lights: true,
-        badge: true,
-      });
-
-      await notifee.createChannel({
-        id: 'notice11-sound',
-        name: 'HRMS Notifications (Legacy)',
-        importance: AndroidImportance.HIGH,
-        sound: 'notice11',
-        vibration: true,
-        vibrationPattern: [300, 500],
-        lights: true,
-        badge: true,
-      });
+      return true;
+    } catch (err) {
+      console.warn("[NotificationService] requestPermissions notice (handled):", err?.message);
+      return false;
     }
-    return true;
   }
 
   /**
@@ -144,7 +155,7 @@ class NotificationService {
           channelId: 'oneclick_alerts_v4',
           importance: AndroidImportance.HIGH,
           sound: 'notice11', // Distinctive HRMS sound chime
-          smallIcon: 'ic_notification',
+          smallIcon: 'ic_launcher',
           color: '#1268D9',
           vibrationPattern: [300, 500],
           pressAction: {
@@ -172,37 +183,39 @@ class NotificationService {
    * Setup interaction handlers (when user taps on notification)
    */
   static setupInteractions(navigationRef) {
-    // When notification is tapped while app is in background
-    notifee.onBackgroundEvent(async ({ type, detail }) => {
-      if (type === EventType.PRESS) {
-        this.handleNotificationTap(detail.notification, navigationRef);
-      }
-    });
-
     // When notification is tapped while app is in foreground
-    notifee.onForegroundEvent(({ type, detail }) => {
-      if (type === EventType.PRESS) {
-        this.handleNotificationTap(detail.notification, navigationRef);
-      }
-    });
-
-    // Also handle FCM background message interaction (in case Notifee doesn't catch it)
-    onNotificationOpenedApp(getMessaging(), remoteMessage => {
-      console.log('Notification caused app to open from background state:', remoteMessage);
-      this.handleNotificationTap({ data: remoteMessage.data }, navigationRef);
-    });
-
-    // Check if app was opened from a quit state by a notification
-    getInitialNotification(getMessaging())
-      .then(remoteMessage => {
-        if (remoteMessage) {
-          console.log('Notification caused app to open from quit state:', remoteMessage);
-          // Small delay to ensure navigation is ready
-          setTimeout(() => {
-            this.handleNotificationTap({ data: remoteMessage.data }, navigationRef);
-          }, 1000);
+    try {
+      notifee.onForegroundEvent(({ type, detail }) => {
+        if (type === EventType.PRESS) {
+          this.handleNotificationTap(detail.notification, navigationRef);
         }
       });
+    } catch (_) {}
+
+    // Also handle FCM background message interaction (in case Notifee doesn't catch it)
+    try {
+      onNotificationOpenedApp(getMessaging(), remoteMessage => {
+        console.log('Notification caused app to open from background state:', remoteMessage);
+        this.handleNotificationTap({ data: remoteMessage?.data }, navigationRef);
+      });
+    } catch (_) {}
+
+    // Check if app was opened from a quit state by a notification
+    try {
+      getInitialNotification(getMessaging())
+        .then(remoteMessage => {
+          if (remoteMessage) {
+            console.log('Notification caused app to open from quit state:', remoteMessage);
+            // Small delay to ensure navigation is ready
+            setTimeout(() => {
+              this.handleNotificationTap({ data: remoteMessage?.data }, navigationRef);
+            }, 1000);
+          }
+        })
+        .catch(err => {
+          console.log('[NotificationService] getInitialNotification error (handled):', err?.message);
+        });
+    } catch (_) {}
   }
 
   /**

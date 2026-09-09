@@ -101,9 +101,6 @@ const EmployeePunchScreen = ({ navigation }) => {
     try {
       setLoadingData(true);
 
-      // Check battery optimization for uninterrupted background bike tracking
-      locationTrackingService.requestBatteryOptimizationExemption(false).catch(() => {});
-
       // Check camera permission for in-app circular preview
       await checkCameraPermission();
 
@@ -123,21 +120,12 @@ const EmployeePunchScreen = ({ navigation }) => {
             const lastPunch = record.punchLog[record.punchLog.length - 1];
             if (!lastPunch.punchOutTime) {
               setAction("out");
-              if (user?.isLocationTrackingEnabled !== false && !locationTrackingService.isLocationTrackingActive()) {
-                locationTrackingService.startLocationTracking().catch(() => {});
-              }
             } else {
               setAction("in");
             }
           } else {
-            if (!record.punchOutTime) {
-              setAction("out");
-              if (user?.isLocationTrackingEnabled !== false && !locationTrackingService.isLocationTrackingActive()) {
-                locationTrackingService.startLocationTracking().catch(() => {});
-              }
-            } else {
-              setAction("in");
-            }
+            if (!record.punchOutTime) setAction("out");
+            else setAction("in");
           }
         } catch (recErr) {
           console.warn("Could not fetch today record:", recErr);
@@ -235,6 +223,26 @@ const EmployeePunchScreen = ({ navigation }) => {
         } catch (captureErr) {
           console.warn("Camera capture error:", captureErr);
         }
+      }
+
+      // Safe fallback: Launch native image camera if circular camera failed
+      try {
+        const ImagePicker = require("expo-image-picker");
+        const result = await ImagePicker.launchCameraAsync({
+          mediaTypes: ["images"],
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.5,
+          cameraType: ImagePicker.CameraType?.front || "front",
+        });
+        if (!result.canceled && result.assets && result.assets[0]?.uri) {
+          const uri = result.assets[0].uri;
+          setSelfieUri(uri);
+          setCapturingSelfie(false);
+          return uri;
+        }
+      } catch (pickerErr) {
+        console.warn("ImagePicker fallback notice:", pickerErr);
       }
 
       setCapturingSelfie(false);
