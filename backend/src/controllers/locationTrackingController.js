@@ -134,30 +134,17 @@ const syncBatchLocations = async (req, res) => {
       });
     }
 
-    // ── Enforce Late-Night Cut-Off (12:00 AM / Midnight IST) ──
-    const kolkataHour = parseInt(
-      new Intl.DateTimeFormat("en-GB", {
-        timeZone: "Asia/Kolkata",
-        hour: "numeric",
-        hour12: false,
-      }).format(new Date())
-    );
-
-    if (kolkataHour < 5) {
-      return res.status(200).json({
-        success: true,
-        trackingAllowed: false,
-        message: "Late night cut-off (12:00 AM): Location tracking automatically stopped",
-      });
-    }
-
-    // ── Enforce Duty Hours Only (Employee must be actively punched in today) ──
+    // ── Enforce Duty Hours Only (Employee must be actively punched in today or yesterday for overnight shifts) ──
     const todayIst = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const todayUtc = new Date().toISOString().split("T")[0];
+    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayIst = yesterdayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const yesterdayUtc = yesterdayDate.toISOString().split("T")[0];
+
     const todayAtt = await Attendance.findOne({
       employeeId,
       companyId,
-      date: { $in: [todayIst, todayUtc] },
+      date: { $in: [todayIst, todayUtc, yesterdayIst, yesterdayUtc] },
     }).sort({ createdAt: -1 }).select("punchInTime punchOutTime punchLog");
 
     let isOnDuty = false;
@@ -333,12 +320,15 @@ const getLiveEmployeeLocations = async (req, res) => {
     const employeeIds = employees.map((e) => e._id);
     const todayIst = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const todayUtc = new Date().toISOString().slice(0, 10);
+    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayIst = yesterdayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const yesterdayUtc = yesterdayDate.toISOString().slice(0, 10);
 
-    // 1. Fetch today's attendance records to know punch status (In/Out)
+    // 1. Fetch today's (or overnight yesterday's) attendance records to know punch status (In/Out)
     const attendances = await Attendance.find({
       employeeId: { $in: employeeIds },
-      date: { $in: [todayIst, todayUtc] },
-    }).lean();
+      date: { $in: [todayIst, todayUtc, yesterdayIst, yesterdayUtc] },
+    }).sort({ createdAt: 1 }).lean();
 
     const attendanceMap = new Map();
     attendances.forEach((att) => {
@@ -346,8 +336,7 @@ const getLiveEmployeeLocations = async (req, res) => {
     });
 
     // 2. Fetch today's continuous GPS trail history from EmployeeLocation for stoppage duration calculation
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
+    const startOfToday = new Date(Date.now() - 24 * 60 * 60 * 1000); // look back 24 hrs to capture active trip
 
     const recentLocationAgg = await EmployeeLocation.aggregate([
       {
@@ -381,15 +370,20 @@ const getLiveEmployeeLocations = async (req, res) => {
       const allPts = Array.isArray(item.allPoints) ? item.allPoints : [];
       let todayDistanceMeters = 0;
 
-      if (allPts.length >= 2) {
+      if (allPts.length > 1) {
         let lastAcc = allPts[0];
         for (let i = 1; i < allPts.length; i++) {
           const cur = allPts[i];
-          const dist = getHaversineDistanceMeters(lastAcc.latitude, lastAcc.longitude, cur.latitude, cur.longitude);
-          const dtSeconds = Math.max(1, (new Date(cur.timestamp) - new Date(lastAcc.timestamp)) / 1000);
-          const speedKmh = (dist / dtSeconds) * 3.6;
+          const dist = getHaversineDistanceMeters(
+            lastAcc.latitude,
+            lastAcc.longitude,
+            cur.latitude,
+            cur.longitude
+          );
 
-          // Skip teleport jump glitches (> 130 km/h)
+          // Skip GPS speed-spikes (> 130 km/h)
+          const timeDiffSec = Math.max(1, (new Date(cur.timestamp) - new Date(lastAcc.timestamp)) / 1000);
+          const speedKmh = (dist / timeDiffSec) * 3.6;
           if (speedKmh > 130 && dist > 300) continue;
 
           // Skip micro-jitter (under 8 meters if stationary)
@@ -449,7 +443,7 @@ const getLiveEmployeeLocations = async (req, res) => {
         heading = locData.latest.heading || 0;
         batteryLevel = locData.latest.batteryLevel !== undefined ? locData.latest.batteryLevel : null;
         address = locData.latest.address || "";
-      } else if (lastLoc.latitude) {
+      } else if (lastLoc.latitude && lastLoc.longitude) {
         latitude = lastLoc.latitude;
         longitude = lastLoc.longitude;
         lastUpdated = lastLoc.updatedAt;
@@ -489,20 +483,10 @@ const getLiveEmployeeLocations = async (req, res) => {
       // Calculate time elapsed since last GPS transmission
       const minutesSinceLastPing = lastUpdated ? Math.max(0, Math.round((now - new Date(lastUpdated)) / 60000)) : null;
 
-      // Late night check (12:00 AM / midnight IST cut-off: 00:00 to 05:00 IST)
-      const kolkataHour = parseInt(
-        new Intl.DateTimeFormat("en-GB", {
-          timeZone: "Asia/Kolkata",
-          hour: "numeric",
-          hour12: false,
-        }).format(now)
-      );
-      const isLateNight = kolkataHour < 5; // 12:00 AM (midnight) to 05:00 AM IST
-
       // ── Determine Tracking Status: "active" (चालू) | "stopped" (बंद) | "no_signal" ──
       // Rules:
       // 1. Employee tracking stays ACTIVE (चालू) as long as they are punched in and haven't punched out.
-      // 2. Automatically stops when employee punches out or at late night 12:00 AM (midnight).
+      // 2. Automatically stops when employee punches out.
       let trackingStatus = "no_signal"; // "active" | "stopped" | "no_signal" | "disabled"
       let trackingStatusLabel = "No GPS Signal";
       let trackingStatusColor = "slate"; // "emerald" | "amber" | "rose" | "slate"
@@ -530,19 +514,13 @@ const getLiveEmployeeLocations = async (req, res) => {
         trackingStatusLabel = "Tracking Stopped (Punched Out)";
         trackingStatusColor = "rose";
         isOnline = false;
-      } else if (isLateNight) {
-        // Auto-stop at late night 12:00 AM
-        trackingStatus = "stopped";
-        trackingStatusLabel = "Tracking Stopped (Late Night 12:00 AM)";
-        trackingStatusColor = "rose";
-        isOnline = false;
       } else if (!latitude || !lastUpdated) {
         trackingStatus = "no_signal";
         trackingStatusLabel = "Waiting for GPS Signal";
         trackingStatusColor = "slate";
         isOnline = false;
       } else {
-        // Employee is on duty (punched in & not punched out) and before 12:00 AM:
+        // Employee is on duty (punched in & not punched out):
         // Tracking stays ACTIVE (चालू)!
         trackingStatus = "active";
         trackingStatusLabel = "Live Tracking Active (चालू)";

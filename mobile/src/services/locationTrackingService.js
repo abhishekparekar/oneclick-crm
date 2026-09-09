@@ -266,13 +266,7 @@ class LocationTrackingService {
           console.warn("[LocationService] AsyncStorage read notice (relying on memory state):", storageErr?.message);
         }
 
-        // 2. Late-Night Auto-Stop Check (Cut off after 12:00 AM / Midnight local time)
-        const currentHour = new Date().getHours();
-        if (currentHour < 5) {
-          console.log(`[LocationService] Late night hour detected (${currentHour}:00). Auto-stopping tracking.`);
-          await this.stopLocationTracking();
-          break;
-        }
+        // 2. Continuous tracking validation (stops when punch-out occurs)
 
         // 3. Stoppage Heartbeat: ONLY IF no new GPS coordinate has arrived from watchPosition for > 3 minutes (180s)
         // (e.g. employee stationary inside shop/building where watchPosition distanceFilter hasn't triggered)
@@ -352,13 +346,6 @@ class LocationTrackingService {
    * Start Location Tracking
    */
   async startLocationTracking() {
-    // Check late-night cutoff (12:00 AM / Midnight)
-    const currentHour = new Date().getHours();
-    if (currentHour < 5) {
-      console.log("[LocationService] Late night: Location tracking cannot be started");
-      return { success: false, message: "Tracking cannot be started after 12:00 AM" };
-    }
-
     if (this.isTracking) {
       console.log("[LocationService] Tracking is already active");
       return { success: true, message: "Tracking already running" };
@@ -431,8 +418,18 @@ class LocationTrackingService {
       }
     }, BATCH_SYNC_INTERVAL_MS);
 
-    console.log("[LocationService] Location tracking engine started successfully");
-    return { success: true };
+    // Capture immediate initial GPS coordinate & sync to server so employee is instantly live on map!
+    setTimeout(() => {
+      if (this.isTracking) {
+        this.pollCurrentGpsLocationAsync()
+          .then(() => {
+            this.syncQueuedLocations().catch(() => {});
+          })
+          .catch(() => {});
+      }
+    }, 1500);
+
+    return { success: true, message: "Location tracking started" };
   }
 
   /**
@@ -508,16 +505,7 @@ class LocationTrackingService {
    */
   async autoResumeTrackingIfActive() {
     try {
-      const currentHour = new Date().getHours();
-      if (currentHour < 5) {
-        console.log("[LocationService] Late night hour detected (12:00 AM cut-off). Auto-resume aborted.");
-        await AsyncStorage.removeItem(TRACKING_STATE_KEY);
-        return;
-      }
-
-      const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
-
-      if (active === "true" && (this.isLoopRunning || this.isTracking)) {
+      if (this.isLoopRunning || this.isTracking) {
         console.log("[LocationService] Background loop already running — skipping auto-resume (no duplicate start).");
         return;
       }
@@ -535,28 +523,41 @@ class LocationTrackingService {
         } catch (_) {}
       }
 
-      if (active === "true" && !this.isTracking) {
-        try {
-          const res = await api.get("/attendance/my-today");
-          const att = res.data?.attendance;
+      const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
 
-          let isPunchedOut = false;
-          if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
-            const lastSession = att.punchLog[att.punchLog.length - 1];
-            isPunchedOut = Boolean(lastSession.punchInTime && lastSession.punchOutTime);
-          } else if (att && att.punchInTime && att.punchOutTime) {
-            isPunchedOut = true;
-          }
+      // Verify today's duty status from server to decide if tracking should run
+      try {
+        const res = await api.get("/attendance/my-today");
+        const att = res.data?.attendance;
 
-          if (isPunchedOut) {
-            console.log("[LocationService] Duty confirmed completed for today (punched out). Clearing tracking state.");
-            await AsyncStorage.removeItem(TRACKING_STATE_KEY);
-            return;
-          }
-        } catch (apiErr) {
-          console.log("[LocationService] Could not verify today duty status (continuing tracking):", apiErr?.message);
+        let isPunchedIn = false;
+        let isPunchedOut = false;
+        if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
+          const lastSession = att.punchLog[att.punchLog.length - 1];
+          isPunchedIn = Boolean(lastSession.punchInTime);
+          isPunchedOut = Boolean(lastSession.punchInTime && lastSession.punchOutTime);
+        } else if (att) {
+          isPunchedIn = Boolean(att.punchInTime);
+          isPunchedOut = Boolean(att.punchInTime && att.punchOutTime);
         }
 
+        if (isPunchedOut) {
+          console.log("[LocationService] Duty confirmed completed (punched out). Clearing tracking state.");
+          await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+          return;
+        }
+
+        if (isPunchedIn && !isPunchedOut) {
+          console.log("[LocationService] Active punch-in verified on server. Auto-starting tracking...");
+          await AsyncStorage.setItem(TRACKING_STATE_KEY, "true");
+          await this.startLocationTracking();
+          return;
+        }
+      } catch (apiErr) {
+        console.log("[LocationService] Could not verify today duty status via API (falling back to storage):", apiErr?.message);
+      }
+
+      if (active === "true" && !this.isTracking) {
         console.log("[LocationService] Resuming background tracking session from storage state...");
         try {
           await this.startLocationTracking();

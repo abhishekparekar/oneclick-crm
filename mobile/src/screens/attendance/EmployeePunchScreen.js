@@ -123,12 +123,21 @@ const EmployeePunchScreen = ({ navigation }) => {
             const lastPunch = record.punchLog[record.punchLog.length - 1];
             if (!lastPunch.punchOutTime) {
               setAction("out");
+              if (user?.isLocationTrackingEnabled !== false && !locationTrackingService.isLocationTrackingActive()) {
+                locationTrackingService.startLocationTracking().catch(() => {});
+              }
             } else {
               setAction("in");
             }
           } else {
-            if (!record.punchOutTime) setAction("out");
-            else setAction("in");
+            if (!record.punchOutTime) {
+              setAction("out");
+              if (user?.isLocationTrackingEnabled !== false && !locationTrackingService.isLocationTrackingActive()) {
+                locationTrackingService.startLocationTracking().catch(() => {});
+              }
+            } else {
+              setAction("in");
+            }
           }
         } catch (recErr) {
           console.warn("Could not fetch today record:", recErr);
