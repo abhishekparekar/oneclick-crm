@@ -59,38 +59,41 @@ const SalaryStructurePage = () => {
   const fetchSalaryStructure = async (empId) => {
     setLoading(true);
     setMessage({ type: "", text: "" });
+    // Helper: show empty string for optional zero fields so input appears blank
+    const opt = (v) => (v === 0 || v === null || v === undefined || v === "") ? "" : v;
+    const req = (v) => v || 0; // required fields always show a number
     try {
       const res = await api.get(`/payroll/company/salary-structures/${empId}`);
       if (res.data.success && res.data.data) {
         const data = res.data.data;
         setStructure({
-          monthlyCTC: data.monthlyCTC || 0,
-          basicSalary: data.basicSalary || 0,
-          hra: data.hra || 0,
-          conveyanceAllowance: data.conveyanceAllowance || 0,
-          medicalAllowance: data.medicalAllowance || 0,
-          specialAllowance: data.specialAllowance || 0,
-          otherAllowance: data.otherAllowance || data.allowances || 0,
-          pf: data.pf || 0,
-          esi: data.esi || 0,
-          professionalTax: data.professionalTax || 0,
-          tds: data.tds || 0,
-          otherDeductions: data.otherDeductions || data.deductions || 0,
+          monthlyCTC: req(data.monthlyCTC),
+          basicSalary: req(data.basicSalary),
+          hra: opt(data.hra),
+          conveyanceAllowance: opt(data.conveyanceAllowance),
+          medicalAllowance: opt(data.medicalAllowance),
+          specialAllowance: opt(data.specialAllowance),
+          otherAllowance: opt(data.otherAllowance ?? data.allowances),
+          pf: opt(data.pf),
+          esi: opt(data.esi),
+          professionalTax: opt(data.professionalTax),
+          tds: opt(data.tds),
+          otherDeductions: opt(data.otherDeductions ?? data.deductions),
         });
         if (data.isLegacy) {
           setMessage({ type: "warning", text: "Loaded legacy salary details. Please save to create a formal salary structure." });
         }
       } else {
         setStructure({
-          monthlyCTC: 0, basicSalary: 0, hra: 0, conveyanceAllowance: 0, medicalAllowance: 0, specialAllowance: 0, otherAllowance: 0,
-          pf: 0, esi: 0, professionalTax: 0, tds: 0, otherDeductions: 0
+          monthlyCTC: 0, basicSalary: 0, hra: "", conveyanceAllowance: "", medicalAllowance: "",
+          specialAllowance: "", otherAllowance: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
         });
       }
     } catch (error) {
       console.error("Error fetching salary structure:", error);
       setStructure({
-        monthlyCTC: 0, basicSalary: 0, hra: 0, conveyanceAllowance: 0, medicalAllowance: 0, specialAllowance: 0, otherAllowance: 0,
-        pf: 0, esi: 0, professionalTax: 0, tds: 0, otherDeductions: 0
+        monthlyCTC: 0, basicSalary: 0, hra: "", conveyanceAllowance: "", medicalAllowance: "",
+        specialAllowance: "", otherAllowance: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
       });
     } finally {
       setLoading(false);
@@ -104,9 +107,10 @@ const SalaryStructurePage = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    // Store raw string while typing (allows clearing); backend defaults to 0
     setStructure(prev => ({
       ...prev,
-      [name]: parseFloat(value) || 0
+      [name]: value === "" ? "" : (parseFloat(value) ?? 0)
     }));
   };
 
@@ -142,12 +146,12 @@ const SalaryStructurePage = () => {
       conveyanceAllowance: conveyance,
       medicalAllowance: medical,
       specialAllowance: special,
-      otherAllowance: 0,
+      otherAllowance: "",
       pf: pf,
-      esi: 0,
+      esi: "",
       professionalTax: pt,
-      tds: 0,
-      otherDeductions: 0,
+      tds: "",
+      otherDeductions: "",
     }));
     toast.success("Standard salary breakdown generated!");
   };

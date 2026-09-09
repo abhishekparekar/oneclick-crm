@@ -73,12 +73,12 @@ const Input = ({ label, type = "text", value, onChange, onBlur, placeholder, dis
     <input
       type={type === "email" ? "text" : type === "tel" ? "text" : type}
       inputMode={type === "email" ? "email" : type === "tel" ? "numeric" : type === "number" ? "numeric" : undefined}
-      value={value ?? ""}
+      value={(type === "number" && (value === 0 || value === "0")) ? "" : (value ?? "")}
       maxLength={maxLength}
       onChange={(e) => { if (onClearError) onClearError(); onChange(e.target.value); }}
       onBlur={onBlur}
       disabled={disabled}
-      placeholder={placeholder}
+      placeholder={placeholder || (type === "number" ? "0" : undefined)}
       autoComplete={type === "email" ? "email" : type === "tel" ? "tel" : undefined}
       className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none transition-all ${
         error
@@ -287,13 +287,13 @@ export default function AddEmployee() {
       conveyance: 19200,
       medicalAllowance: 15000,
       specialAllowance: 73800,
-      otherAllowance: 0,
+      otherAllowance: "",
       pfEmployee: 21600,
       pfEmployer: 21600,
-      esiEmployee: 0,
-      esiEmployer: 0,
+      esiEmployee: "",
+      esiEmployer: "",
       professionalTax: 2400,
-      tds: 0,
+      tds: "",
     },
 
     bankDetails: {
@@ -382,13 +382,13 @@ export default function AddEmployee() {
         conveyance,
         medicalAllowance: medical,
         specialAllowance: special,
-        otherAllowance: 0,
+        otherAllowance: "",
         pfEmployee: pfEmp,
         pfEmployer: pfEmplr,
-        esiEmployee: 0,
-        esiEmployer: 0,
+        esiEmployee: "",
+        esiEmployer: "",
         professionalTax: pt,
-        tds: 0,
+        tds: "",
       },
     }));
   };

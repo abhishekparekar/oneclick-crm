@@ -546,8 +546,11 @@ const createEmployee = async (req, res, next) => {
         workMode,
         allowRemotePunch: allowRemotePunch === true,
         isLocationTrackingEnabled: Boolean(req.body.isLocationTrackingEnabled),
-        salary: salary !== undefined && salary !== "" ? Number(salary) : null,
-        salaryDetails: salaryDetails || undefined,
+        salary: salary !== undefined && salary !== "" ? Number(salary) : 0,
+        salaryDetails: salaryDetails ? Object.keys(salaryDetails).reduce((acc, k) => {
+          acc[k] = (salaryDetails[k] === "" || salaryDetails[k] === null || isNaN(Number(salaryDetails[k]))) ? 0 : Number(salaryDetails[k]);
+          return acc;
+        }, {}) : undefined,
         // Map frontend address {street, city, state, pincode, country} → currentAddress schema
         currentAddress: address ? {
           addressLine1: address.street || address.addressLine1 || "",
@@ -825,8 +828,8 @@ const updateEmployee = async (req, res, next) => {
       const oldObj = employee.salaryDetails ? employee.salaryDetails.toObject() : {};
       const newObj = { ...oldObj, ...req.body.salaryDetails };
       
-      // cleanup nulls/empty for comparison
-      Object.keys(newObj).forEach(k => { if (newObj[k] === "" || newObj[k] === null) newObj[k] = null; else newObj[k] = Number(newObj[k]); });
+      // cleanup nulls/empty to default 0
+      Object.keys(newObj).forEach(k => { if (newObj[k] === "" || newObj[k] === null || isNaN(Number(newObj[k]))) newObj[k] = 0; else newObj[k] = Number(newObj[k]); });
       
       if (JSON.stringify(oldObj) !== JSON.stringify(newObj)) {
         oldData.salaryDetails = oldObj;

@@ -71,7 +71,7 @@ const Input = ({ label, type = "text", value, onChange, placeholder, disabled = 
   <Field label={label} required={required} hint={hint} className={className}>
     <input
       type={type}
-      value={value ?? ""}
+      value={type === "number" && (value === 0 || value === "0") ? "" : (value ?? "")}
       onChange={(e) => onChange(e.target.value)}
       disabled={disabled}
       placeholder={placeholder}
@@ -81,6 +81,7 @@ const Input = ({ label, type = "text", value, onChange, placeholder, disabled = 
     />
   </Field>
 );
+
 
 const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action, hint, className = "" }) => (
   <Field label={label} required={required} action={action} hint={hint} className={className}>
