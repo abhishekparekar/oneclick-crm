@@ -84,6 +84,16 @@ const companySchema = new mongoose.Schema(
       type: Number,
       default: 5,
     },
+    trialDays: {
+      type: Number,
+      default: 7,
+    },
+    subscriptionStartDate: {
+      type: Date,
+    },
+    subscriptionEndDate: {
+      type: Date,
+    },
     subscribedModules: {
       type: [String],
       default: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],

@@ -29,6 +29,7 @@ import {
   Hexagon,
   Navigation,
   Wallet,
+  FileSpreadsheet,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,6 +43,7 @@ const HR_NAV_SECTIONS = [
       { label: "Leads Pipeline", path: "/hr/leads", icon: Magnet, module: "leads" },
       { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare, module: "tasks" },
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Attendance Report", path: "/hr/attendance-report", icon: FileSpreadsheet, module: "attendance" },
       { label: "Live Location Radar", path: "/hr/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance" },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },

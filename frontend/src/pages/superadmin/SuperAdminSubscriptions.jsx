@@ -143,6 +143,18 @@ const MOCK_SUBSCRIPTIONS = [
   }
 ];
 
+const getTodayStr = () => new Date().toISOString().split("T")[0];
+const getFutureDateStr = (days = 30, fromDateStr) => {
+  const base = fromDateStr ? new Date(fromDateStr) : new Date();
+  base.setDate(base.getDate() + (Number(days) || 30));
+  return base.toISOString().split("T")[0];
+};
+const calculateDaysDiff = (fromStr, toStr) => {
+  if (!fromStr || !toStr) return 1;
+  const ms = new Date(toStr).getTime() - new Date(fromStr).getTime();
+  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
+};
+
 const SuperAdminSubscriptions = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -155,8 +167,16 @@ const SuperAdminSubscriptions = () => {
   const [selectedSub, setSelectedSub] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
   
-  const [assignData, setAssignData] = useState({ companyId: "", planId: "", billingCycle: "monthly" });
+  const [assignData, setAssignData] = useState({
+    companyId: "",
+    planId: "",
+    billingCycle: "monthly",
+    startDate: getTodayStr(),
+    endDate: getFutureDateStr(30),
+    subscriptionDays: 30,
+  });
   const [extendDays, setExtendDays] = useState(7);
+  const [extendToDate, setExtendToDate] = useState("");
 
   const { data, isLoading, refetch } = useQuery({ queryKey: ["superAdminSubscriptions"], queryFn: () => getSubscriptionsApi() });
   const { data: plansData } = useQuery({ queryKey: ["superAdminPlans"], queryFn: () => getPlansApi() });
@@ -203,7 +223,7 @@ const SuperAdminSubscriptions = () => {
   });
 
   const extendTrialMutation = useMutation({
-    mutationFn: ({ id, days }) => extendTrialApi(id, days),
+    mutationFn: ({ id, days, toDate }) => extendTrialApi(id, days, toDate),
     onSuccess: () => { queryClient.invalidateQueries(["superAdminSubscriptions"]); setIsExtendModalOpen(false); },
     onError: (err) => alert(err.response?.data?.message || "Failed to extend trial")
   });
@@ -217,28 +237,68 @@ const SuperAdminSubscriptions = () => {
     onError: (err) => alert(err.response?.data?.message || "Failed to delete subscription")
   });
 
-  const handleRenew = (id) => {
-    if (window.confirm("Are you sure you want to activate/renew this subscription for another billing cycle?")) {
-      renewMutation.mutate(id);
+  const handleCycleChange = (cycle) => {
+    let days = 30;
+    if (cycle === "yearly") days = 365;
+    else if (cycle === "trial") {
+      const selectedPlan = plans.find(p => p._id === assignData.planId);
+      days = selectedPlan?.trialDays || 14;
     }
+    setAssignData(prev => ({
+      ...prev,
+      billingCycle: cycle,
+      subscriptionDays: days,
+      endDate: getFutureDateStr(days, prev.startDate || getTodayStr()),
+    }));
   };
 
-  const handleCancel = (id) => {
-    if (window.confirm("CRITICAL: Are you sure you want to cancel this subscription? The company will lose access depending on active cycle rules.")) {
-      cancelMutation.mutate(id);
-    }
+  const handleAssignDateChange = (field, val) => {
+    setAssignData(prev => {
+      const nextStart = field === "startDate" ? val : prev.startDate;
+      const nextEnd = field === "endDate" ? val : prev.endDate;
+      const diff = calculateDaysDiff(nextStart, nextEnd);
+      return {
+        ...prev,
+        startDate: nextStart,
+        endDate: nextEnd,
+        subscriptionDays: diff,
+      };
+    });
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("DANGER: Are you sure you want to completely REMOVE this subscription? This will delete the subscription record and revert/clear the company's assigned plan tier!")) {
-      deleteMutation.mutate(id);
-    }
+  const handleAssignDaysChange = (val) => {
+    const days = Math.max(1, parseInt(val, 10) || 1);
+    setAssignData(prev => {
+      const start = prev.startDate || getTodayStr();
+      const end = getFutureDateStr(days, start);
+      return {
+        ...prev,
+        subscriptionDays: days,
+        endDate: end,
+      };
+    });
   };
 
   const handleOpenExtend = (sub) => {
     setSelectedSub(sub);
     setExtendDays(7);
+    const base = sub?.endDate ? new Date(sub.endDate).toISOString().split("T")[0] : getTodayStr();
+    setExtendToDate(getFutureDateStr(7, base));
     setIsExtendModalOpen(true);
+  };
+
+  const handleExtendDaysChange = (val) => {
+    const days = Math.max(1, parseInt(val, 10) || 1);
+    setExtendDays(days);
+    const base = selectedSub?.endDate ? new Date(selectedSub.endDate).toISOString().split("T")[0] : getTodayStr();
+    setExtendToDate(getFutureDateStr(days, base));
+  };
+
+  const handleExtendToDateChange = (toVal) => {
+    setExtendToDate(toVal);
+    const base = selectedSub?.endDate ? new Date(selectedSub.endDate).toISOString().split("T")[0] : getTodayStr();
+    const diff = calculateDaysDiff(base, toVal);
+    setExtendDays(diff);
   };
 
   const handleAssignSubmit = (e) => {
@@ -248,7 +308,7 @@ const SuperAdminSubscriptions = () => {
 
   const handleExtendSubmit = (e) => {
     e.preventDefault();
-    extendTrialMutation.mutate({ id: selectedSub._id, days: extendDays });
+    extendTrialMutation.mutate({ id: selectedSub._id, days: extendDays, toDate: extendToDate });
   };
 
   /* ─── Table Column Definition ────────────────────────────────────────── */
@@ -587,12 +647,49 @@ const SuperAdminSubscriptions = () => {
 
               <div>
                 <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Billing Frequency</label>
-                <select required value={assignData.billingCycle} onChange={e => setAssignData({...assignData, billingCycle: e.target.value})}
+                <select required value={assignData.billingCycle} onChange={e => handleCycleChange(e.target.value)}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
-                  <option value="monthly">Monthly Cycle</option>
-                  <option value="yearly">Annual / Yearly Cycle</option>
+                  <option value="monthly">Monthly Cycle (30 Days)</option>
+                  <option value="yearly">Annual / Yearly Cycle (365 Days)</option>
                   <option value="trial">Evaluation Free Trial</option>
                 </select>
+              </div>
+
+              {/* Subscription Days & Date Range */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Subscription Days</label>
+                  <span className="text-[10px] font-bold text-[#f59e0b]">{assignData.subscriptionDays} Days Active</span>
+                </div>
+                <input 
+                  type="number" 
+                  min="1" 
+                  value={assignData.subscriptionDays} 
+                  onChange={(e) => handleAssignDaysChange(e.target.value)}
+                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-sa-bg/50 border border-sa-border/30">
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">From Date (Start)</label>
+                  <input 
+                    type="date" 
+                    value={assignData.startDate} 
+                    onChange={(e) => handleAssignDateChange("startDate", e.target.value)}
+                    className="w-full bg-sa-surface border border-sa-border/40 rounded-xl px-3 py-1.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10.5px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">To Date (End)</label>
+                  <input 
+                    type="date" 
+                    min={assignData.startDate}
+                    value={assignData.endDate} 
+                    onChange={(e) => handleAssignDateChange("endDate", e.target.value)}
+                    className="w-full bg-sa-surface border border-sa-border/40 rounded-xl px-3 py-1.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
+                  />
+                </div>
               </div>
               
               <div className="flex items-start space-x-2.5 bg-[#f59e0b]/5 p-3.5 rounded-xl border border-[#f59e0b]/20 mt-4 text-xs">
@@ -629,20 +726,44 @@ const SuperAdminSubscriptions = () => {
             <div className="px-6 py-4 border-b border-sa-border/30 flex justify-between items-center bg-sa-bg/60">
               <div className="flex items-center space-x-2.5">
                 <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
-                <h2 className="text-base font-black text-sa-text tracking-tight">Extend Free Trial</h2>
+                <h2 className="text-base font-black text-sa-text tracking-tight">Extend Subscription / Trial</h2>
               </div>
               <button onClick={() => setIsExtendModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
             </div>
             
             <form onSubmit={handleExtendSubmit} className="p-6 space-y-4">
               <div className="p-3.5 rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/10 text-xs font-bold text-sa-text">
-                Extending evaluation period for <span className="text-[#f59e0b]">{selectedSub?.companyId?.companyName}</span>.
+                Extending subscription for <span className="text-[#f59e0b]">{selectedSub?.companyId?.companyName}</span>.
+                <div className="text-[10.5px] text-sa-text-secondary mt-1 font-semibold">
+                  Current Expiry: <span className="text-sa-text font-bold">{selectedSub?.endDate ? new Date(selectedSub.endDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
+                </div>
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Extension Duration (Days)</label>
-                <input type="number" required min="1" max="90" value={extendDays} onChange={e => setExtendDays(Number(e.target.value))}
-                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Extension Subscription Days</label>
+                  <span className="text-[10px] font-bold text-[#06B6D4]">+{extendDays} Days</span>
+                </div>
+                <input 
+                  type="number" 
+                  required 
+                  min="1" 
+                  max="365" 
+                  value={extendDays} 
+                  onChange={e => handleExtendDaysChange(e.target.value)}
+                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" 
+                />
+              </div>
+
+              <div>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">New Expiry (To Date)</label>
+                <input 
+                  type="date" 
+                  required 
+                  value={extendToDate} 
+                  onChange={e => handleExtendToDateChange(e.target.value)}
+                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer" 
+                />
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-sa-border mt-4">

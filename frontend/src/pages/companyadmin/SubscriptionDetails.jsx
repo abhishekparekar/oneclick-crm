@@ -324,10 +324,9 @@ const SubscriptionDetails = () => {
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3">
               {[
                 { label: "Assigned Plan Code", value: subscription.planId?.planCode || subscription.planId?.name || "Standard Enterprise" },
-                { label: "Cloud Storage Limit", value: `${subscription.planId?.storageLimit || 5} GB Dedicated Storage` },
               ].map((item, i) => (
                 <div key={i} className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800 space-y-1">
                   <p className="text-[10px] font-extrabold uppercase tracking-wider text-slate-400 m-0">{item.label}</p>

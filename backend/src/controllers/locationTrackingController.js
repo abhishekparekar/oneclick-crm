@@ -647,134 +647,70 @@ const getLiveEmployeeLocations = async (req, res) => {
  * @route GET /api/locations/trail/:employeeId
  */
 /**
- * Perpendicular distance from a point to a line segment in meters
+ * Get road path between two GPS coordinates using OpenStreetMap routing (bike/driving/foot)
+ * Follows actual streets and lane turns instead of cutting straight through buildings
  */
-function getPerpendicularDistance(pt, p1, p2) {
-  const x = pt.longitude || pt.lng;
-  const y = pt.latitude || pt.lat;
-  const x1 = p1.longitude || p1.lng;
-  const y1 = p1.latitude || p1.lat;
-  const x2 = p2.longitude || p2.lng;
-  const y2 = p2.latitude || p2.lat;
+async function getRoadPathBetweenPoints(pt1, pt2) {
+  try {
+    const start = `${pt1.longitude || pt1.lng},${pt1.latitude || pt1.lat}`;
+    const end = `${pt2.longitude || pt2.lng},${pt2.latitude || pt2.lat}`;
 
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  if (dx === 0 && dy === 0) {
-    return getHaversineDistanceMeters(y, x, y1, x1);
-  }
-
-  const num = Math.abs(dy * x - dx * y + x2 * y1 - y2 * x1);
-  const den = Math.sqrt(dy * dy + dx * dx);
-  return (num / den) * 111000;
-}
-
-/**
- * Ramer-Douglas-Peucker simplification to extract key inflection waypoints
- */
-function rdpSimplify(points, epsilonMeters = 15) {
-  if (!Array.isArray(points) || points.length <= 2) return points;
-
-  let maxDist = 0;
-  let maxIdx = 0;
-  const first = points[0];
-  const last = points[points.length - 1];
-
-  for (let i = 1; i < points.length - 1; i++) {
-    const dist = getPerpendicularDistance(points[i], first, last);
-    if (dist > maxDist) {
-      maxDist = dist;
-      maxIdx = i;
+    for (const profile of ["bike", "driving", "foot"]) {
+      const url = `https://router.project-osrm.org/route/v1/${profile}/${start};${end}?overview=full&geometries=geojson`;
+      const res = await fetch(url, { signal: AbortSignal.timeout(3000) }).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => null);
+        if (data && data.code === "Ok" && data.routes && data.routes[0]?.geometry?.coordinates?.length >= 2) {
+          const coords = data.routes[0].geometry.coordinates.map((c) => ({
+            latitude: c[1],
+            longitude: c[0],
+          }));
+          return {
+            points: coords,
+            distanceMeters: Number(data.routes[0].distance) || 0,
+          };
+        }
+      }
     }
+  } catch (err) {
+    console.warn("[LocationTracking] Road routing segment notice:", err.message);
   }
-
-  if (maxDist > epsilonMeters) {
-    const left = rdpSimplify(points.slice(0, maxIdx + 1), epsilonMeters);
-    const right = rdpSimplify(points.slice(maxIdx), epsilonMeters);
-    return left.slice(0, -1).concat(right);
-  } else {
-    return [first, last];
-  }
+  return null;
 }
 
 /**
- * Route GPS trail segments along actual road network using high-performance multi-waypoint batching
- * Guarantees routes follow real streets and lane turns, completely eliminating building-cutting straight lines
+ * Route GPS trail segments along actual road network
+ * Replaces straight diagonal lines that cut through buildings with real road paths
  */
 async function alignTrailToRoadNetwork(cleanPoints) {
-  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) {
-    return { trail: cleanPoints, distanceMeters: 0 };
-  }
+  if (!Array.isArray(cleanPoints) || cleanPoints.length < 2) return { trail: cleanPoints, distanceMeters: 0 };
 
-  // 1. Distill raw points down to essential turn/inflection waypoints using RDP
-  const waypoints = rdpSimplify(cleanPoints, 15);
-
-  // 2. Batch route through OSRM in chunks of up to 25 waypoints per request
-  const CHUNK_SIZE = 25;
   const roadTrail = [];
   let totalRoadDistance = 0;
 
-  for (let i = 0; i < waypoints.length; i += CHUNK_SIZE - 1) {
-    const chunk = waypoints.slice(i, i + CHUNK_SIZE);
-    if (chunk.length < 2) continue;
+  for (let i = 0; i < cleanPoints.length - 1; i++) {
+    const p1 = cleanPoints[i];
+    const p2 = cleanPoints[i + 1];
+    const straightDist = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
 
-    const coordsStr = chunk
-      .map((p) => `${(p.longitude || p.lng).toFixed(6)},${(p.latitude || p.lat).toFixed(6)}`)
-      .join(";");
-
-    let routed = false;
-
-    let chunkDirectDistance = 0;
-    for (let k = 0; k < chunk.length - 1; k++) {
-      chunkDirectDistance += getHaversineDistanceMeters(
-        chunk[k].latitude || chunk[k].lat,
-        chunk[k].longitude || chunk[k].lng,
-        chunk[k + 1].latitude || chunk[k + 1].lat,
-        chunk[k + 1].longitude || chunk[k + 1].lng
-      );
-    }
-
-    // Try bike profile first (standard for two-wheelers/intra-city), fallback to driving
-    for (const profile of ["bike", "driving"]) {
-      const url = `https://router.project-osrm.org/route/v1/${profile}/${coordsStr}?overview=full&geometries=geojson`;
-      try {
-        const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.code === "Ok" && data.routes && data.routes[0]?.geometry?.coordinates?.length >= 2) {
-            const osrmDistance = Number(data.routes[0].distance) || 0;
-            
-            // If OSRM route is > 1.35x direct distance and adds > 40m, it's an artificial detour around a one-way block or alley
-            if (chunkDirectDistance > 0 && osrmDistance > chunkDirectDistance * 1.35 && (osrmDistance - chunkDirectDistance) > 40) {
-              // Reject artificial detour
-              continue;
-            }
-
-            const coords = data.routes[0].geometry.coordinates.map((c) => ({
-              latitude: c[1],
-              longitude: c[0],
-            }));
-            if (roadTrail.length === 0) {
-              roadTrail.push(...coords);
-            } else {
-              roadTrail.push(...coords.slice(1));
-            }
-            totalRoadDistance += osrmDistance;
-            routed = true;
-            break;
-          }
+    if (straightDist < 25) {
+      if (roadTrail.length === 0) roadTrail.push(p1);
+      roadTrail.push(p2);
+      totalRoadDistance += straightDist;
+    } else {
+      const roadPath = await getRoadPathBetweenPoints(p1, p2);
+      if (roadPath && Array.isArray(roadPath.points) && roadPath.points.length >= 2) {
+        if (roadTrail.length === 0) {
+          roadTrail.push(...roadPath.points);
+        } else {
+          roadTrail.push(...roadPath.points.slice(1));
         }
-      } catch (err) {
-        // Fallback to next profile or direct chunk
-      }
-    }
-
-    if (!routed) {
-      if (roadTrail.length === 0) {
-        roadTrail.push(...chunk);
+        totalRoadDistance += roadPath.distanceMeters;
       } else {
-        roadTrail.push(...chunk.slice(1));
+        if (roadTrail.length === 0) roadTrail.push(p1);
+        roadTrail.push(p2);
+        totalRoadDistance += straightDist;
       }
-      totalRoadDistance += chunkDirectDistance;
     }
   }
 
@@ -842,9 +778,10 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Filter out poor GPS fixes (accuracy <= 55m eliminates coarse cell-tower and wake-up jumps)
-    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 55);
-    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
+    // 1. Filter out poor GPS fixes (accuracy <= 35m eliminates coarse cell-tower and indoor multipath building reflections)
+    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 35);
+    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail.filter((p) => !p.accuracy || p.accuracy <= 50);
+    if (candidatePoints.length < 2) candidatePoints = rawTrail;
 
     // 1b. Discard cold-start cell-tower glitch at point[0]:
     // When an employee opens the app indoors, Android often returns a stale cell-tower position (200m-800m away)
@@ -856,7 +793,7 @@ const getEmployeeLocationTrail = async (req, res) => {
       const jump01 = getHaversineDistanceMeters(p0.latitude, p0.longitude, p1.latitude, p1.longitude);
       const cluster12 = getHaversineDistanceMeters(p1.latitude, p1.longitude, p2.latitude, p2.longitude);
 
-      if (jump01 > 150 && cluster12 < 100) {
+      if (jump01 > 120 && cluster12 < 80) {
         candidatePoints = candidatePoints.slice(1);
       }
     }
@@ -869,39 +806,68 @@ const getEmployeeLocationTrail = async (req, res) => {
       const jumpTail = getHaversineDistanceMeters(pPrev.latitude, pPrev.longitude, pLast.latitude, pLast.longitude);
       const clusterPrev = getHaversineDistanceMeters(pPrev2.latitude, pPrev2.longitude, pPrev.latitude, pPrev.longitude);
 
-      if (jumpTail > 150 && clusterPrev < 100) {
+      if (jumpTail > 120 && clusterPrev < 80) {
         candidatePoints = candidatePoints.slice(0, -1);
       }
     }
 
-    // 1d. V-Spike / Overshoot Outlier Filter:
-    // Discards points that suddenly jump away and immediately snap back (e.g. temporary phone wake-up glitch)
+    // 1d. Multi-point Outlier, Teleport Jump & Excursion Filter:
+    // Discards points that jump off-road into buildings, impossible speed jumps, or temporary excursions
     if (candidatePoints.length >= 3) {
       const filtered = [candidatePoints[0]];
-      for (let i = 1; i < candidatePoints.length - 1; i++) {
+      for (let i = 1; i < candidatePoints.length; i++) {
         const prev = filtered[filtered.length - 1];
         const cur = candidatePoints[i];
-        const next = candidatePoints[i + 1];
 
-        const dPrevCur = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
-        const dCurNext = getHaversineDistanceMeters(cur.latitude, cur.longitude, next.latitude, next.longitude);
-        const dPrevNext = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
+        const dist = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
+        const dt = Math.max(0.5, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
+        const speed = (dist / dt) * 3.6;
 
-        const dtCurNext = Math.max(0.5, (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000);
-        const speedCurNext = (dCurNext / dtCurNext) * 3.6;
+        // Reject impossible speed jumps (> 75 km/h for city street travel if jump > 35m)
+        if (speed > 75 && dist > 35) {
+          if (i + 1 < candidatePoints.length) {
+            const next = candidatePoints[i + 1];
+            const distPrevNext = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
+            const dtNext = Math.max(0.5, (new Date(next.timestamp) - new Date(prev.timestamp)) / 1000);
+            const speedPrevNext = (distPrevNext / dtNext) * 3.6;
+            if (speedPrevNext <= 70) {
+              console.log(`[TrailFilter] Suppressed impossible speed jump: ${dist.toFixed(1)}m in ${dt.toFixed(1)}s (${speed.toFixed(0)} km/h)`);
+              continue;
+            }
+          }
+        }
 
-        // If cur overshoots by > 25m and next returns back close to prev, or speed between cur and next is impossible (> 60 km/h)
-        const isSpike = (dPrevCur > 20 && dCurNext > 20 && dPrevNext < dPrevCur * 0.75) ||
-                        (speedCurNext > 60 && dCurNext > 25);
-
-        if (isSpike) {
-          console.log(`[TrailFilter] Suppressed V-spike overshoot point: ${cur.latitude}, ${cur.longitude} (spike: ${Math.round(dCurNext)}m in ${dtCurNext.toFixed(1)}s, acc: ${cur.accuracy}m)`);
+        // Teleport jump filter (> 200m jump where speed > 70 km/h)
+        if (dist > 200 && speed > 70) {
+          console.log(`[TrailFilter] Suppressed teleport jump: ${dist.toFixed(1)}m in ${dt.toFixed(1)}s (${speed.toFixed(0)} km/h)`);
           continue;
         }
+
+        // Excursion loop filter: look ahead up to 6 points to see if path jumps away into buildings and returns back
+        let isExcursion = false;
+        if (dist > 30) {
+          for (let look = 1; look <= 6 && i + look < candidatePoints.length; look++) {
+            const future = candidatePoints[i + look];
+            const distFuture = getHaversineDistanceMeters(prev.latitude, prev.longitude, future.latitude, future.longitude);
+            const dtFuture = Math.max(1, (new Date(future.timestamp) - new Date(prev.timestamp)) / 1000);
+            const speedFuture = (distFuture / dtFuture) * 3.6;
+
+            if (dist > 45 && distFuture < 35 && speedFuture < 35) {
+              isExcursion = true;
+              break;
+            }
+          }
+        }
+        if (isExcursion) {
+          console.log(`[TrailFilter] Suppressed building excursion point: ${cur.latitude}, ${cur.longitude}`);
+          continue;
+        }
+
         filtered.push(cur);
       }
-      filtered.push(candidatePoints[candidatePoints.length - 1]);
-      candidatePoints = filtered;
+      if (filtered.length >= 2) {
+        candidatePoints = filtered;
+      }
     }
 
     // 2. Calculate accurate real-world cumulative distance
@@ -919,8 +885,8 @@ const getEmployeeLocationTrail = async (req, res) => {
       const dtSeconds = Math.max(1, (new Date(cur.timestamp) - new Date(lastAccepted.timestamp)) / 1000);
       const impliedSpeed = (dist / dtSeconds) * 3.6;
 
-      // Skip teleport jump glitches (> 130 km/h)
-      if (impliedSpeed > 130 && dist > 300) continue;
+      // Skip teleport jump glitches (> 80 km/h over > 40m on city streets)
+      if (impliedSpeed > 80 && dist > 40) continue;
 
       // Skip micro-jitter (under 8 meters if stationary)
       const reportedSpeed = (cur.speed || 0) * 3.6;
@@ -978,7 +944,7 @@ const getEmployeeLocationTrail = async (req, res) => {
     }
 
     // ── Build Clean Trail & Detect Real Halts ──
-    const HALT_ZONE_RADIUS_METERS = 35;
+    const ANCHOR_RADIUS_METERS = 25;
     let anchor = candidatePoints[0];
     const cleanTrail = [anchor];
     const halts = [];
@@ -994,15 +960,9 @@ const getEmployeeLocationTrail = async (req, res) => {
     for (let i = 1; i < candidatePoints.length; i++) {
       const pt = candidatePoints[i];
       const spd = (Number(pt.speed) || 0) * 3.6;
-      const distFromHaltCenter = getHaversineDistanceMeters(
-        currentHalt.latitude,
-        currentHalt.longitude,
-        pt.latitude,
-        pt.longitude
-      );
+      const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, pt.latitude, pt.longitude);
 
-      if (distFromHaltCenter < HALT_ZONE_RADIUS_METERS && spd < 3.0) {
-        // Stationary or drifting within the halt zone: absorb into current halt to prevent rooftop lines
+      if (distFromAnchor < ANCHOR_RADIUS_METERS && spd < 3.0) {
         currentHalt.endTime = pt.timestamp;
         if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
       } else {
@@ -1011,7 +971,7 @@ const getEmployeeLocationTrail = async (req, res) => {
         const dtSeconds = Math.max(1, (new Date(pt.timestamp) - new Date(prev.timestamp)) / 1000);
         const impliedSpeed = (distFromPrev / dtSeconds) * 3.6;
 
-        if (impliedSpeed > 130 && distFromPrev > 300) continue;
+        if (impliedSpeed > 80 && distFromPrev > 40) continue;
 
         const haltDurationMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
         if (haltDurationMins >= 3) {
@@ -1091,7 +1051,7 @@ const getEmployeeLocationTrail = async (req, res) => {
         rawSensorPoints: cleanTrail,
         isStationaryAllDay: false,
         rawCount: rawTrail.length,
-        cleanCount: cleanTrail.length,
+        cleanCount: finalTrail.length,
         totalPoints: rawTrail.length,
         distanceKm: pureDistanceKm,
         pureDistanceKm: pureDistanceKm,
@@ -1394,5 +1354,7 @@ module.exports = {
   getTrackingAllowanceReport,
   updateTrackingAllowanceRate,
   updateAllowanceStatus,
+  alignTrailToRoadNetwork,
+  getRoadPathBetweenPoints,
 };
 

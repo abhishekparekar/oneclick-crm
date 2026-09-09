@@ -61,10 +61,6 @@ const SuperAdminCompanyDetails = () => {
   const employeeLimit = company.employeeLimit || 50;
   const employeePercent = Math.min(Math.round((employeeCount / employeeLimit) * 100), 100);
 
-  const storageUsed = 1.2;
-  const storageLimit = 10;
-  const storagePercent = Math.round((storageUsed / storageLimit) * 100);
-
   return (
     <div className="w-full space-y-3 pb-12">
       {/* Header Profile Banner (Upside square icon box removed for professional clean layout) */}
@@ -293,27 +289,6 @@ const SuperAdminCompanyDetails = () => {
                       <span>{employeeLimit - employeeCount} Seats Available</span>
                     </div>
                   </div>
-
-                  <div className="pt-3 border-t border-sa-border/60">
-                    <div className="flex justify-between items-baseline text-sm mb-2">
-                      <span className="font-bold text-sa-text flex items-center">
-                        <HardDrive size={15} className="mr-2 text-blue-500" /> Cloud Storage
-                      </span>
-                      <span className="font-extrabold text-sa-text text-base">
-                        {storageUsed} GB <span className="text-sa-text-secondary text-sm font-semibold">/ {storageLimit} GB</span>
-                      </span>
-                    </div>
-                    <div className="w-full bg-sa-bg rounded-full h-2.5 p-0.5 border border-sa-border">
-                      <div 
-                        className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full transition-all duration-500" 
-                        style={{ width: `${storagePercent}%` }} 
-                      />
-                    </div>
-                    <div className="flex justify-between text-xs font-bold text-sa-text-secondary mt-1.5">
-                      <span>{storagePercent}% Consumed</span>
-                      <span>{storageLimit - storageUsed} GB Free</span>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -428,10 +403,6 @@ const SuperAdminCompanyDetails = () => {
                   <div className="p-3.5 rounded-xl bg-sa-surface border border-sa-border flex justify-between items-center shadow-sm">
                     <span className="text-sm font-bold text-sa-text-secondary">Employee User Limit</span>
                     <span className="font-black text-sa-text text-base">{company.employeeLimit || 50} Seats</span>
-                  </div>
-                  <div className="p-3.5 rounded-xl bg-sa-surface border border-sa-border flex justify-between items-center shadow-sm">
-                    <span className="text-sm font-bold text-sa-text-secondary">Storage Quota</span>
-                    <span className="font-black text-sa-text text-base">10 GB SSD</span>
                   </div>
                   <div className="p-3.5 rounded-xl bg-sa-surface border border-sa-border flex justify-between items-center shadow-sm">
                     <span className="text-sm font-bold text-sa-text-secondary">API & Webhooks</span>

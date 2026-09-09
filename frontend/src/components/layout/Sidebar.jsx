@@ -41,6 +41,7 @@ import {
   BrainCircuit,
   Navigation,
   Wallet,
+  FileSpreadsheet,
 } from "lucide-react";
 
 // ─── Company Admin nav sections — ordered by usage frequency ────────────────
@@ -78,6 +79,7 @@ const COMPANY_SECTIONS = [
     items: [
       { label: "Employees", path: "/company/employees", icon: Users },
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Attendance Report", path: "/company/attendance-report", icon: FileSpreadsheet, module: "attendance" },
       { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
       { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance" },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
@@ -106,6 +108,7 @@ const COMPANY_SECTIONS = [
   {
     title: "REPORTS",
     items: [
+      { label: "Attendance Report", path: "/company/attendance-report", icon: FileSpreadsheet, module: "reports" },
       { label: "Reports & Analytics", path: "/company/reports/attendance", icon: BarChart2, module: "reports" },
       { label: "Performance", path: "/company/reports/performance", icon: Activity, module: "performance" },
     ],

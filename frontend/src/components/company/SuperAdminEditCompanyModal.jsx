@@ -5,23 +5,42 @@ import { toast } from "react-hot-toast";
 import {
   X, Building2, User, Phone, Mail, MapPin, Briefcase,
   CreditCard, Users, Cpu, HardDrive, Sparkles, Check,
-  Save, AlertCircle
+  Save, AlertCircle, Calendar
 } from "lucide-react";
 
-const MODULES = [
+const ALL_SYSTEM_MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects",
   "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
 ];
 
+const DISPLAY_MODULES = [
+  { key: "attendance", label: "Attendance" },
+  { key: "tasks", label: "Tasks" },
+  { key: "leads", label: "Leads Engine" },
+  { key: "projects", label: "Projects" },
+  { key: "whatsapp", label: "WhatsApp" },
+  { key: "mobileApp", label: "Mobile App" },
+  { key: "webAdmin", label: "Web Admin" },
+];
+
 const MODULE_CAP_ITEMS = [
-  { key: "attendance", label: "Attendance & Bio-Punch", color: "#10b981" },
-  { key: "leave",      label: "Leave Management",       color: "#06B6D4" },
-  { key: "payroll",    label: "Payroll & Salary",       color: "#8b5cf6" },
+  { key: "attendance", label: "Attendance", color: "#10b981" },
   { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
   { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
   { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
-  { key: "reports",    label: "Analytics & Reports",     color: "#3B82F6" },
 ];
+
+const getTodayStr = () => new Date().toISOString().split("T")[0];
+const getFutureDateStr = (days = 7, fromDateStr) => {
+  const base = fromDateStr ? new Date(fromDateStr) : new Date();
+  base.setDate(base.getDate() + (Number(days) || 7));
+  return base.toISOString().split("T")[0];
+};
+const calculateDaysDiff = (fromStr, toStr) => {
+  if (!fromStr || !toStr) return 1;
+  const ms = new Date(toStr).getTime() - new Date(fromStr).getTime();
+  return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
+};
 
 const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => {
   const queryClient = useQueryClient();
@@ -46,6 +65,9 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
     planName: "",
     employeeLimit: 50,
     storageLimit: 5,
+    trialDays: 7,
+    startDate: getTodayStr(),
+    endDate: getFutureDateStr(7),
     subscribedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
     moduleLimits: {
       attendance: 0,
@@ -77,6 +99,14 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
       setIsCustomIndustry(isCustom);
       setCustomIndustryText(isCustom ? company.industryType : "");
 
+      const initStart = company.subscriptionStartDate
+        ? new Date(company.subscriptionStartDate).toISOString().split("T")[0]
+        : getTodayStr();
+      const initEnd = company.subscriptionEndDate
+        ? new Date(company.subscriptionEndDate).toISOString().split("T")[0]
+        : getFutureDateStr(company.trialDays || 7, initStart);
+      const initDays = company.trialDays || calculateDaysDiff(initStart, initEnd);
+
       setFormData({
         companyName: company.companyName || company.name || "",
         ownerName: company.ownerName || company.contactPerson || "",
@@ -93,9 +123,12 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
         planName: company.planName || company.plan || "Custom",
         employeeLimit: company.employeeLimit ?? company.userLimit ?? 50,
         storageLimit: company.storageLimit ?? 5,
+        trialDays: initDays,
+        startDate: initStart,
+        endDate: initEnd,
         subscribedModules: Array.isArray(company.subscribedModules) && company.subscribedModules.length > 0
-          ? company.subscribedModules
-          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
+          ? Array.from(new Set([...company.subscribedModules, "reports", "performance", "recruitment", ...(company.subscribedModules.includes("attendance") ? ["attendance", "leave", "payroll"] : [])]))
+          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "performance", "recruitment", "leads"],
         moduleLimits: company.moduleLimits || {
           attendance: 0,
           leave: 0,
@@ -109,18 +142,58 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
     }
   }, [company, isOpen]);
 
+  const ensureDefaultAndSuiteModules = (mods) => {
+    const list = Array.isArray(mods) ? mods : [];
+    const combined = new Set([...list, "reports", "performance", "recruitment"]);
+    if (combined.has("attendance")) {
+      combined.add("leave");
+      combined.add("payroll");
+    }
+    return Array.from(combined);
+  };
+
+  const handleDateChange = (field, val) => {
+    setFormData(prev => {
+      const nextStart = field === "startDate" ? val : prev.startDate;
+      const nextEnd = field === "endDate" ? val : prev.endDate;
+      const diff = calculateDaysDiff(nextStart, nextEnd);
+      return {
+        ...prev,
+        startDate: nextStart,
+        endDate: nextEnd,
+        trialDays: diff,
+      };
+    });
+  };
+
+  const handleSubscriptionDaysChange = (val) => {
+    const days = Math.max(1, parseInt(val, 10) || 1);
+    setFormData(prev => {
+      const start = prev.startDate || getTodayStr();
+      const end = getFutureDateStr(days, start);
+      return {
+        ...prev,
+        trialDays: days,
+        endDate: end,
+      };
+    });
+  };
+
   const handlePlanSelect = (e) => {
     const selectedId = e.target.value;
     const plan = activePlans.find(p => p._id === selectedId);
     if (plan) {
+      const days = plan.trialDays || 7;
       setFormData(prev => ({
         ...prev,
         planId: plan._id,
         planName: plan.planName,
         employeeLimit: plan.employeeLimit || prev.employeeLimit || 50,
         storageLimit: plan.storageLimit || prev.storageLimit || 5,
+        trialDays: days,
+        endDate: getFutureDateStr(days, prev.startDate || getTodayStr()),
         subscribedModules: Array.isArray(plan.modules) && plan.modules.length > 0
-          ? plan.modules
+          ? ensureDefaultAndSuiteModules(plan.modules)
           : prev.subscribedModules,
         moduleLimits: plan.moduleLimits || prev.moduleLimits || {},
       }));
@@ -128,7 +201,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
       setFormData(prev => ({
         ...prev,
         planId: "",
-        planName: selectedId,
+        planName: "Custom",
       }));
     }
   };
@@ -139,19 +212,32 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
       const mod = value;
       setFormData(prev => {
         const current = prev.subscribedModules || [];
-        const next = checked ? [...current, mod] : current.filter(m => m !== mod);
+        let next;
+        if (mod === "attendance") {
+          if (checked) {
+            next = Array.from(new Set([...current, "attendance", "leave", "payroll"]));
+          } else {
+            next = current.filter(m => m !== "attendance" && m !== "leave" && m !== "payroll");
+          }
+        } else {
+          next = checked ? [...current, mod] : current.filter(m => m !== mod);
+        }
         return { ...prev, subscribedModules: next };
       });
     } else if (name.startsWith("moduleLimit_")) {
       const modKey = name.replace("moduleLimit_", "");
       const numVal = Math.max(0, parseInt(value, 10) || 0);
-      setFormData(prev => ({
-        ...prev,
-        moduleLimits: {
-          ...(prev.moduleLimits || {}),
-          [modKey]: numVal,
+      setFormData(prev => {
+        const currentLimits = { ...(prev.moduleLimits || {}) };
+        if (modKey === "attendance") {
+          currentLimits.attendance = numVal;
+          currentLimits.leave = numVal;
+          currentLimits.payroll = numVal;
+        } else {
+          currentLimits[modKey] = numVal;
         }
-      }));
+        return { ...prev, moduleLimits: currentLimits };
+      });
     } else {
       setFormData(prev => ({
         ...prev,
@@ -226,7 +312,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
         <div className="px-6 pt-3 pb-2 border-b border-sa-border/30 dark:border-white/5 flex items-center space-x-2 bg-sa-bg/30 overflow-x-auto">
           {[
             { id: "general",  label: "Organization & Contact", icon: Building2 },
-            { id: "licenses", label: "Plan & Feature Licenses", icon: Cpu, badge: `${formData.subscribedModules.length} Modules` },
+            { id: "licenses", label: "Plan & Feature Licenses", icon: Cpu, badge: `${DISPLAY_MODULES.filter(m => formData.subscribedModules.includes(m.key)).length} Modules` },
             { id: "owner",    label: "Primary Owner Details", icon: User },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -433,7 +519,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                   </select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
                     <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Total Company Employee Seats</label>
                     <input 
@@ -449,26 +535,54 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Storage Allowance (GB)</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Subscription Days</label>
+                      <span className="text-[10px] font-bold text-[#f59e0b]">{formData.trialDays} Days Duration</span>
+                    </div>
                     <input 
                       type="number" 
-                      name="storageLimit" 
+                      name="trialDays" 
                       min="1" 
-                      value={formData.storageLimit} 
-                      onChange={handleChange}
+                      value={formData.trialDays} 
+                      onChange={(e) => handleSubscriptionDaysChange(e.target.value)}
                       className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b]"
-                      placeholder="5" 
+                      placeholder="7" 
                     />
-                    <p className="text-[10px] text-sa-text-secondary mt-1">Cloud document &amp; asset quota.</p>
+                    <p className="text-[10px] text-sa-text-secondary mt-1">Total active validity in days.</p>
+                  </div>
+                </div>
+
+                {/* Date Selection: From Date to To Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-sa-surface border border-sa-border/40 dark:border-white/10">
+                  <div>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#f59e0b]" />
+                      <span>From Date (Start Date)</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      name="startDate" 
+                      value={formData.startDate} 
+                      onChange={(e) => handleDateChange("startDate", e.target.value)}
+                      className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
+                    />
+                    <p className="text-[10px] text-sa-text-secondary mt-1 font-medium">Subscription active from.</p>
                   </div>
 
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Subscription Status</label>
-                    <div className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text flex items-center justify-between">
-                      <span className="capitalize">{company.status || "active"}</span>
-                      <span className={`w-2 h-2 rounded-full ${company.status === "active" ? "bg-emerald-500" : "bg-amber-500"} animate-pulse`} />
-                    </div>
-                    <p className="text-[10px] text-sa-text-secondary mt-1">Managed via Subscriptions.</p>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#f59e0b]" />
+                      <span>To Date (End Date)</span>
+                    </label>
+                    <input 
+                      type="date" 
+                      name="endDate" 
+                      min={formData.startDate}
+                      value={formData.endDate} 
+                      onChange={(e) => handleDateChange("endDate", e.target.value)}
+                      className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
+                    />
+                    <p className="text-[10px] text-sa-text-secondary mt-1 font-medium">Subscription valid until.</p>
                   </div>
                 </div>
               </div>
@@ -482,18 +596,18 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                       <span>Entitled Suite Modules &amp; Feature Licenses</span>
                     </h4>
                     <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
-                      Select enabled modules. Attendance &amp; Leave apply to all total employee seats. Optionally set custom sub-caps for Tasks and Leads.
+                      Select enabled modules.
                     </p>
                   </div>
-                  <span className="text-xs font-mono font-bold text-[#f59e0b]">{formData.subscribedModules.length} / {MODULES.length} Selected</span>
+                  <span className="text-xs font-mono font-bold text-[#f59e0b]">{DISPLAY_MODULES.filter(m => formData.subscribedModules.includes(m.key)).length} / {DISPLAY_MODULES.length} Selected</span>
                 </div>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-sa-bg/60 border border-sa-border/40 dark:border-white/10">
-                  {MODULES.map((mod) => {
-                    const isChecked = formData.subscribedModules.includes(mod);
+                  {DISPLAY_MODULES.map((item) => {
+                    const isChecked = formData.subscribedModules.includes(item.key);
                     return (
                       <label 
-                        key={mod} 
+                        key={item.key} 
                         className={`flex items-center space-x-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
                           isChecked 
                             ? "bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b] shadow-2xs" 
@@ -503,24 +617,29 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                         <input 
                           type="checkbox" 
                           name="subscribedModules"
-                          value={mod}
+                          value={item.key}
                           checked={isChecked}
                           onChange={handleChange}
                           className="sr-only"
                         />
-                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all ${
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
                           isChecked ? "bg-[#f59e0b] border-transparent text-white" : "border-sa-border/60 bg-sa-bg"
                         }`}>
                           {isChecked && <Check size={11} strokeWidth={3} />}
                         </div>
-                        <span className="text-xs font-black uppercase tracking-wider truncate">{mod}</span>
+                        <div className="truncate">
+                          <span className="text-xs font-black uppercase tracking-wider truncate block">{item.label}</span>
+                          {item.subtext && (
+                            <span className="text-[9px] font-semibold text-emerald-500 truncate block mt-0.5">{item.subtext}</span>
+                          )}
+                        </div>
                       </label>
                     );
                   })}
                 </div>
 
                 {/* Granular Seat Allocation per Module */}
-                {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "leave", "payroll", "reports"].includes(m)) && (
+                {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "reports"].includes(m)) && (
                   <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                     <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                       <Users size={13} className="text-[#f59e0b]" />

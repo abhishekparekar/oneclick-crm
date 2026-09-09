@@ -7,7 +7,7 @@ import {
   PieChart, Pie, Cell,
 } from "recharts";
 import {
-  Building2, Users, Receipt, HardDrive,
+  Building2, Users, Receipt,
   TrendingUp, Activity, Server, Clock, LogIn,
   ShieldAlert, UserPlus, CreditCard, ChevronDown, Download,
   CheckCircle, User, Wallet, CalendarDays, Calendar, Archive, BarChart2,
@@ -376,7 +376,7 @@ export default function SuperAdminDashboard() {
               { icon: Building2,   label: "Active Tenants",    val: activeCompanies, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200", bc: "bg-emerald-600 text-white font-black" },
               { icon: UserPlus,    label: "Pending Requests",  val: pendingRequestsCount, ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200",         bc: "bg-amber-600 text-white font-black" },
               { icon: ShieldAlert, label: "Expired Subs",      val: stats.expiredSubscriptions ?? 0, ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200",             bc: "bg-rose-600 text-white font-black" },
-              { icon: HardDrive,   label: "Storage Used",      val: stats.storageUsage || "1.2 TB",   ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200",   bc: "bg-indigo-600 text-white font-black" },
+              { icon: Users,       label: "Total Employees",   val: totalEmployees || "0",            ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200",   bc: "bg-indigo-600 text-white font-black" },
               { icon: Server,      label: "Uptime Status",     val: stats.serverHealth || "99.9%",   ib: "bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-800/60 text-cyan-900 dark:text-cyan-200",             bc: "bg-cyan-600 text-white font-black" },
             ].map(r => {
               const I = r.icon;

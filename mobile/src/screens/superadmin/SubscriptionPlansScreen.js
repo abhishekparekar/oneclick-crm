@@ -414,15 +414,9 @@ const SubscriptionPlansScreen = ({ navigation }) => {
           </View>
 
           <View style={styles.quotaBox}>
-            <Ionicons name="cloud" size={16} color="#06B6D4" style={{ marginBottom: 2 }} />
-            <Text style={styles.quotaVal}>{item.storageLimit || 5} GB</Text>
-            <Text style={styles.quotaLbl}>Storage</Text>
-          </View>
-
-          <View style={styles.quotaBox}>
             <Ionicons name="time" size={16} color="#EAB308" style={{ marginBottom: 2 }} />
             <Text style={styles.quotaVal}>{item.trialDays || 0} Days</Text>
-            <Text style={styles.quotaLbl}>Free Trial</Text>
+            <Text style={styles.quotaLbl}>Subscription Days</Text>
           </View>
         </View>
 
@@ -745,16 +739,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                   </View>
                   <View style={styles.formCol}>
                     <AppInput
-                      label="Cloud Storage (GB)"
-                      value={form.storageLimit}
-                      onChangeText={(v) => setForm((prev) => ({ ...prev, storageLimit: v }))}
-                      placeholder="e.g. 50"
-                      keyboardType="numeric"
-                    />
-                  </View>
-                  <View style={styles.formCol}>
-                    <AppInput
-                      label="Trial (Days)"
+                      label="Subscription Days"
                       value={form.trialDays}
                       onChangeText={(v) => setForm((prev) => ({ ...prev, trialDays: v }))}
                       placeholder="e.g. 14"

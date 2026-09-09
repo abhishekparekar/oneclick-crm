@@ -96,6 +96,7 @@ import Holidays from "../pages/companyadmin/Holidays";
 import CompanyAttendanceSettings from "../pages/companyadmin/CompanyAttendanceSettings";
 import EmployeeLocationTracking from "../pages/companyadmin/EmployeeLocationTracking";
 import TrackingAllowance from "../pages/companyadmin/TrackingAllowance";
+import AttendanceReport from "../pages/companyadmin/AttendanceReport";
 
 // Company Admin — Work
 import TaskBoard from "../pages/companyadmin/TaskBoard";
@@ -180,6 +181,7 @@ const AppRoutes = () => {
               <Route path="tracking-allowance" element={<TrackingAllowance />} />
               <Route path="regularization" element={<RegularizationApprovals />} />
               <Route path="attendance-settings" element={<CompanyAttendanceSettings />} />
+              <Route path="attendance-report" element={<AttendanceReport />} />
             </Route>
 
             {/* Organization Setup */}
@@ -275,6 +277,7 @@ const AppRoutes = () => {
 
             {/* Attendance & Time-Off */}
             <Route path="attendance" element={<CompanyAttendance />} />
+            <Route path="attendance-report" element={<AttendanceReport />} />
             <Route path="location-tracking" element={<EmployeeLocationTracking />} />
             <Route path="tracking-allowance" element={<TrackingAllowance />} />
             <Route path="regularization" element={<RegularizationApprovals />} />

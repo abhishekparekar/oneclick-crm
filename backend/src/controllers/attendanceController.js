@@ -7,6 +7,8 @@ const Leave = require("../models/Leave");
 const AuditLog = require("../models/AuditLog");
 const CompanyAttendanceSettings = require("../models/CompanyAttendanceSettings");
 const User = require("../models/User");
+const Department = require("../models/Department");
+const Designation = require("../models/Designation");
 const { calculateDistance } = require("../utils/geoUtils");
 const { notifyUser, notifyRole, notifyDeptManagers } = require("../utils/notificationHelper");
 
@@ -790,10 +792,12 @@ const regularizationRequest = async (req, res, next) => {
 // GET /api/company/attendance AND GET /api/hr/attendance
 const companyAttendance = async (req, res, next) => {
   try {
-    const { date, status, departmentId, search } = req.query;
+    const { date, month, year, status, departmentId, search } = req.query;
     const filter = { companyId: req.companyId };
 
     if (date) filter.date = date;
+    if (month) filter.month = Number(month);
+    if (year) filter.year = Number(year);
     if (status) filter.status = status;
 
     let employeesFilter = { companyId: req.companyId };

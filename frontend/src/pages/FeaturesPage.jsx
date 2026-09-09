@@ -297,7 +297,7 @@ export default function FeaturesPage() {
             </span>
             <h2 className="text-3xl font-black text-slate-900 tracking-tight">Super Admin Global Console</h2>
             <p className="text-slate-600 text-xs font-medium leading-relaxed">
-              Global platform oversight. Create new company tenants, manage subscription tiers, monitor storage quotas, and handle global support tickets.
+              Global platform oversight. Create new company tenants, manage subscription tiers, monitor license quotas, and handle global support tickets.
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

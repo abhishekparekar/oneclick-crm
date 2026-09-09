@@ -31,7 +31,7 @@ export const assignSubscriptionApi = (data) => api.post("/superadmin/subscriptio
 export const updateSubscriptionApi = (id, data) => api.put(`/superadmin/subscriptions/${id}`, data);
 export const renewSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions/${id}/renew`);
 export const cancelSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions/${id}/cancel`);
-export const extendTrialApi = (id, days) => api.patch(`/superadmin/subscriptions/${id}/extend-trial`, { days });
+export const extendTrialApi = (id, days, toDate) => api.patch(`/superadmin/subscriptions/${id}/extend-trial`, { days, toDate });
 export const deleteSubscriptionApi = (id) => api.delete(`/superadmin/subscriptions/${id}`);
 
 // Payments

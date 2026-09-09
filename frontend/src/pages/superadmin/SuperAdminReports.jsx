@@ -4,7 +4,7 @@ import { getSuperAdminReportsApi } from "../../api/superAdminApi";
 import toast from "react-hot-toast";
 import { 
   Download, BarChart2, TrendingUp, Users, Building2, Calendar, 
-  ChevronDown, HardDrive, ShieldCheck, ArrowUp, ArrowDown, FileText, CheckCircle, Clock
+  ChevronDown, ShieldCheck, ArrowUp, ArrowDown, FileText, CheckCircle, Clock
 } from "lucide-react";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -128,13 +128,12 @@ const SuperAdminReports = () => {
         rows.push(["One Click  - Tenant Usage & Resource Allocation Report"]);
         rows.push([`Generated On: ${new Date().toLocaleString()}`]);
         rows.push([]);
-        rows.push(["Cohort / Period", "New Companies Onboarded", "Est. Storage Usage (GB)", "API Calls Volume", "Avg Employees / Tenant"]);
+        rows.push(["Cohort / Period", "New Companies Onboarded", "API Calls Volume", "Avg Employees / Tenant"]);
         onboardingData.forEach((item) => {
           const count = item.count || 0;
           rows.push([
             `"${item.name || item.month || ""}"`,
             count,
-            count * 15 + 25,
             (count * 12500 + 45000).toLocaleString(),
             "24 Users"
           ]);
@@ -183,7 +182,7 @@ const SuperAdminReports = () => {
 
   const REPORT_CARDS = [
     { title: "Financial Summary", description: "Monthly recurring revenue, GST breakdowns, transaction charges, and projected ARR.", icon: TrendingUp, size: "1.2 MB" },
-    { title: "Tenant Usage", description: "Resource utilization metrics: storage limits, API throughput, and employee counts per tenant.", icon: BarChart2, size: "850 KB" },
+    { title: "Tenant Usage", description: "Resource utilization metrics: seat quotas, API throughput, and employee counts per tenant.", icon: BarChart2, size: "850 KB" },
     { title: "Company Directory", description: "Complete directory export of active, trial, suspended, and pending company tenants.", icon: Building2, size: "2.1 MB" },
     { title: "Global Users", description: "Platform user roster across all tiers, last login timestamps, and 2FA security status.", icon: Users, size: "3.4 MB" },
   ];
@@ -229,7 +228,7 @@ const SuperAdminReports = () => {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <KPICard label="Total MRR Revenue"  value="₹18.75L" trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={TrendingUp}   iconBg="bg-amber-500/10"  iconColor="#D97706"/>
         <KPICard label="Active Tenants"     value="186"     trend="12.4%" isUp period="last month" strokeColor="#10B981" Icon={Building2}    iconBg="bg-emerald-500/10" iconColor="#059669"/>
-        <KPICard label="Avg Storage / Tenant" value="13.2 GB" trend="5.8%"  isUp period="capacity"   strokeColor="#06B6D4" Icon={HardDrive}    iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
+        <KPICard label="Total Platform Users" value="24.5K" trend="16.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Users}        iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
         <KPICard label="API Calls Volume"   value="1.82M"   trend="14.5%" isUp period="last month" strokeColor="#8B5CF6" Icon={BarChart2}     iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
       </div>
 

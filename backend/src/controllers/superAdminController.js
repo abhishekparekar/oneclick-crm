@@ -39,6 +39,11 @@ const createCompany = async (req, res, next) => {
       planId,
       employeeLimit,
       storageLimit,
+      trialDays,
+      startDate,
+      endDate,
+      subscriptionStartDate,
+      subscriptionEndDate,
       subscribedModules,
       moduleLimits,
       adminName,
@@ -69,15 +74,38 @@ const createCompany = async (req, res, next) => {
         selectedPlan = await Plan.findById(planId);
       }
 
-      const finalModules = (Array.isArray(subscribedModules) && subscribedModules.length > 0)
+      let finalModules = (Array.isArray(subscribedModules) && subscribedModules.length > 0)
         ? subscribedModules
         : ((selectedPlan?.modules && selectedPlan.modules.length > 0)
             ? selectedPlan.modules
             : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"]);
 
-      const finalModuleLimits = moduleLimits && typeof moduleLimits === "object"
-        ? moduleLimits
-        : (selectedPlan?.moduleLimits || {});
+      // Always include standard default modules: reports, performance, recruitment
+      finalModules = Array.from(new Set([...finalModules, "reports", "performance", "recruitment"]));
+
+      // Unify attendance suite: If attendance is included, ensure leave & payroll are automatically added
+      if (finalModules.includes("attendance")) {
+        finalModules = Array.from(new Set([...finalModules, "attendance", "leave", "payroll"]));
+      }
+
+      let finalModuleLimits = moduleLimits && typeof moduleLimits === "object"
+        ? { ...moduleLimits }
+        : (selectedPlan?.moduleLimits ? { ...selectedPlan.moduleLimits } : {});
+
+      if (finalModuleLimits.attendance !== undefined && finalModuleLimits.attendance !== null) {
+        if (!finalModuleLimits.leave) finalModuleLimits.leave = finalModuleLimits.attendance;
+        if (!finalModuleLimits.payroll) finalModuleLimits.payroll = finalModuleLimits.attendance;
+      }
+
+      const subDays = Number(trialDays) || selectedPlan?.trialDays || 7;
+      const subStart = (startDate || subscriptionStartDate) ? new Date(startDate || subscriptionStartDate) : new Date();
+      let subEnd;
+      if (endDate || subscriptionEndDate) {
+        subEnd = new Date(endDate || subscriptionEndDate);
+      } else {
+        subEnd = new Date(subStart);
+        subEnd.setDate(subEnd.getDate() + subDays);
+      }
 
       company = await Company.create({
         companyName,
@@ -95,10 +123,32 @@ const createCompany = async (req, res, next) => {
         planId: selectedPlan?._id || planId || null,
         employeeLimit: employeeLimit || selectedPlan?.employeeLimit || 50,
         storageLimit: storageLimit || selectedPlan?.storageLimit || 5,
+        trialDays: subDays,
+        subscriptionStartDate: subStart,
+        subscriptionEndDate: subEnd,
         subscribedModules: finalModules,
         moduleLimits: finalModuleLimits,
         createdBy: req.user._id,
       });
+
+      // Auto-provision initial Subscription entity with specified dates
+      try {
+        const isTrial = (selectedPlan?.priceMonthly === 0 && selectedPlan?.priceYearly === 0) || (subDays > 0 && (!selectedPlan || selectedPlan.planName === 'Trial'));
+        await Subscription.create({
+          companyId: company._id,
+          planId: selectedPlan?._id || planId || null,
+          planName: selectedPlan?.planName || planName || "Custom",
+          billingCycle: isTrial ? "trial" : "monthly",
+          startDate: subStart,
+          endDate: subEnd,
+          trialEndsAt: isTrial ? subEnd : undefined,
+          amount: selectedPlan?.priceMonthly || 0,
+          status: isTrial ? "trial" : "active",
+          paymentStatus: isTrial ? "paid" : "pending",
+        });
+      } catch (subErr) {
+        console.warn("Notice: Company initial subscription creation:", subErr.message);
+      }
 
       const temporaryPassword = adminPassword || generateTempPassword();
 
@@ -209,6 +259,9 @@ const updateCompany = async (req, res, next) => {
       "planId",
       "employeeLimit",
       "storageLimit",
+      "trialDays",
+      "subscriptionStartDate",
+      "subscriptionEndDate",
       "subscribedModules",
       "moduleLimits",
     ];
@@ -222,6 +275,13 @@ const updateCompany = async (req, res, next) => {
       }
     });
 
+    if (req.body.startDate) {
+      company.subscriptionStartDate = new Date(req.body.startDate);
+    }
+    if (req.body.endDate) {
+      company.subscriptionEndDate = new Date(req.body.endDate);
+    }
+
     if (req.body.planId && req.body.subscribedModules === undefined) {
       const plan = await Plan.findById(req.body.planId);
       if (plan) {
@@ -232,7 +292,38 @@ const updateCompany = async (req, res, next) => {
       }
     }
 
+    if (Array.isArray(company.subscribedModules)) {
+      company.subscribedModules = Array.from(new Set([...company.subscribedModules, "reports", "performance", "recruitment"]));
+      if (company.subscribedModules.includes("attendance")) {
+        company.subscribedModules = Array.from(new Set([...company.subscribedModules, "attendance", "leave", "payroll"]));
+      }
+    }
+
+    if (company.moduleLimits && company.moduleLimits.attendance !== undefined && company.moduleLimits.attendance !== null) {
+      if (!company.moduleLimits.leave) company.moduleLimits.leave = company.moduleLimits.attendance;
+      if (!company.moduleLimits.payroll) company.moduleLimits.payroll = company.moduleLimits.attendance;
+    }
+
     await company.save();
+
+    // Sync latest subscription if dates changed
+    if (company.subscriptionEndDate || company.subscriptionStartDate) {
+      try {
+        await Subscription.findOneAndUpdate(
+          { companyId: company._id },
+          {
+            $set: {
+              ...(company.subscriptionStartDate && { startDate: company.subscriptionStartDate }),
+              ...(company.subscriptionEndDate && { endDate: company.subscriptionEndDate, trialEndsAt: company.subscriptionEndDate }),
+            }
+          },
+          { sort: { createdAt: -1 } }
+        );
+        bustSubscriptionCache(company._id);
+      } catch (subErr) {
+        console.warn("Notice: Subscription sync on updateCompany:", subErr.message);
+      }
+    }
 
     res.json({ company });
   } catch (error) {
@@ -714,23 +805,31 @@ const updateSubscription = async (req, res, next) => {
 
 const assignSubscription = async (req, res, next) => {
   try {
-    const { companyId, planId, billingCycle } = req.body;
+    const { companyId, planId, billingCycle, startDate: customStart, endDate: customEnd } = req.body;
     const plan = await Plan.findById(planId);
     if (!plan) return res.status(404).json({ message: "Plan not found" });
 
-    const startDate = new Date();
-    const endDate = new Date();
-    let amount = 0;
+    const startDate = customStart ? new Date(customStart) : new Date();
+    let endDate;
+    if (customEnd) {
+      endDate = new Date(customEnd);
+    } else {
+      endDate = new Date(startDate);
+      if (billingCycle === 'monthly') {
+        endDate.setMonth(endDate.getMonth() + 1);
+      } else if (billingCycle === 'yearly') {
+        endDate.setFullYear(endDate.getFullYear() + 1);
+      } else {
+        // Trial
+        endDate.setDate(endDate.getDate() + (plan.trialDays || 14));
+      }
+    }
 
+    let amount = 0;
     if (billingCycle === 'monthly') {
-      endDate.setMonth(endDate.getMonth() + 1);
       amount = plan.priceMonthly;
     } else if (billingCycle === 'yearly') {
-      endDate.setFullYear(endDate.getFullYear() + 1);
       amount = plan.priceYearly;
-    } else {
-      // Trial
-      endDate.setDate(endDate.getDate() + (plan.trialDays || 14));
     }
 
     const subscription = await Subscription.create({
@@ -749,6 +848,8 @@ const assignSubscription = async (req, res, next) => {
       planId: plan._id,
       planName: plan.planName,
       employeeLimit: plan.employeeLimit,
+      subscriptionStartDate: startDate,
+      subscriptionEndDate: endDate,
       subscribedModules: (plan.modules && plan.modules.length > 0)
         ? plan.modules
         : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"],
@@ -784,6 +885,10 @@ const renewSubscription = async (req, res, next) => {
     subscription.status = 'active';
     await subscription.save();
 
+    await Company.findByIdAndUpdate(subscription.companyId, {
+      subscriptionEndDate: endDate
+    });
+
     await AuditLog.create({ action: `Renewed subscription ${subscription._id}`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
     bustSubscriptionCache(subscription.companyId);
     res.json({ subscription });
@@ -807,17 +912,26 @@ const cancelSubscription = async (req, res, next) => {
 
 const extendTrial = async (req, res, next) => {
   try {
-    const { days } = req.body;
+    const { days, toDate } = req.body;
     const subscription = await Subscription.findById(req.params.id);
     if (!subscription) return res.status(404).json({ message: "Subscription not found" });
 
-    const endDate = new Date(subscription.endDate);
-    endDate.setDate(endDate.getDate() + (days || 7));
+    let endDate;
+    if (toDate) {
+      endDate = new Date(toDate);
+    } else {
+      endDate = new Date(subscription.endDate);
+      endDate.setDate(endDate.getDate() + (Number(days) || 7));
+    }
     subscription.endDate = endDate;
     subscription.trialEndsAt = endDate;
     await subscription.save();
 
-    await AuditLog.create({ action: `Extended trial by ${days || 7} days`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
+    await Company.findByIdAndUpdate(subscription.companyId, {
+      subscriptionEndDate: endDate
+    });
+
+    await AuditLog.create({ action: `Extended subscription to ${endDate.toISOString().split('T')[0]}`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
     bustSubscriptionCache(subscription.companyId);
     res.json({ subscription });
   } catch (error) {

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -1231,8 +1232,15 @@ const CompanyAttendance = () => {
             onClick={handleExportTotalMonthlySummary}
             className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer"
           >
-            <FileSpreadsheet size={13} strokeWidth={2.5} /> Monthly Report
+            <FileSpreadsheet size={13} strokeWidth={2.5} /> Monthly Summary CSV
           </button>
+
+          <Link
+            to="/company/attendance-report"
+            className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-3.5 h-8 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-600/25 transition-all shrink-0 cursor-pointer"
+          >
+            <CalendarCheck size={13} strokeWidth={2.5} /> Full Report View
+          </Link>
         </div>
       </div>
 

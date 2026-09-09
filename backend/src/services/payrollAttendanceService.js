@@ -3,6 +3,8 @@ const Leave = require("../models/Leave");
 const Employee = require("../models/Employee");
 const PayrollSettings = require("../models/PayrollSettings");
 const Holiday = require("../models/Holiday");
+const Department = require("../models/Department");
+const Designation = require("../models/Designation");
 
 /**
  * Calculates the full attendance summary for payroll for a given employee, month, year.

@@ -176,7 +176,6 @@ const CompanyDetailsScreen = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>SaaS Subscription & Module Licensing</Text>
           <DetailRow icon="card-outline" label="Active Plan" value={company.planName} />
           <DetailRow icon="people-outline" label="Seat Quota" value={`${company.employeeLimit || 50} employees`} />
-          <DetailRow icon="cloud-outline" label="Storage Allowance" value={`${company.storageLimit || 5} GB`} />
           
           <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6" }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>

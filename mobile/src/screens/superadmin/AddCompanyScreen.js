@@ -417,18 +417,9 @@ const AddCompanyScreen = ({ route, navigation }) => {
                 keyboardType="numeric"
               />
             </View>
-            <View style={{ flex: 1, marginHorizontal: 3 }}>
-              <AppInput
-                label="Storage (GB)"
-                placeholder="5"
-                value={form.storageLimit}
-                onChangeText={(v) => updateField("storageLimit", v)}
-                keyboardType="numeric"
-              />
-            </View>
             <View style={{ flex: 1, marginLeft: 6 }}>
               <AppInput
-                label="Trial (Days)"
+                label="Subscription Days"
                 placeholder="7"
                 value={form.trialDays}
                 onChangeText={(v) => updateField("trialDays", v)}

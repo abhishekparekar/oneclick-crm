@@ -433,21 +433,16 @@ const SuperAdminPlans = () => {
 
                 {/* Quota Pillars Card */}
                 <div className="p-6 flex-1 space-y-5">
-                  <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="grid grid-cols-2 gap-2 text-center">
                     <div className="bg-sa-bg p-2.5 rounded-xl border border-sa-border">
                       <Users size={14} className="text-[#f59e0b] mx-auto mb-1 opacity-80" />
                       <span className="block text-xs font-black text-sa-text">{plan.employeeLimit || 0}</span>
                       <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Seats</span>
                     </div>
                     <div className="bg-sa-bg p-2.5 rounded-xl border border-sa-border">
-                      <HardDrive size={14} className="text-[#06B6D4] mx-auto mb-1 opacity-80" />
-                      <span className="block text-xs font-black text-sa-text">{plan.storageLimit || 0} GB</span>
-                      <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Storage</span>
-                    </div>
-                    <div className="bg-sa-bg p-2.5 rounded-xl border border-sa-border">
                       <Clock size={14} className="text-[#fbbf24] mx-auto mb-1 opacity-80" />
                       <span className="block text-xs font-black text-sa-text">{plan.trialDays || 0} Days</span>
-                      <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Free Trial</span>
+                      <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Subscription Days</span>
                     </div>
                   </div>
 
@@ -522,7 +517,7 @@ const SuperAdminPlans = () => {
                     {editingPlan ? `Configure Tier: ${editingPlan.planName}` : "Create New Subscription Plan"}
                   </h3>
                   <p className="text-xs text-sa-text-secondary mt-0.5">
-                    Define subscription pricing, employee seat capacity, storage allowance, and marketing points
+                    Define subscription pricing, employee seat capacity, and marketing points
                   </p>
                 </div>
               </div>
@@ -593,7 +588,7 @@ const SuperAdminPlans = () => {
                   <Users size={14} className="text-[#fbbf24]" />
                   <span>Total Company Capacity &amp; Evaluation Trial</span>
                 </h4>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Total Company Employee Seats</label>
                     <input type="number" name="employeeLimit" required min="1" value={formData.employeeLimit} onChange={handleChange}
@@ -601,14 +596,10 @@ const SuperAdminPlans = () => {
                     <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default seats allocated.</p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Storage Allowance (GB)</label>
-                    <input type="number" name="storageLimit" required min="1" value={formData.storageLimit} onChange={handleChange}
-                      className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Free Trial Duration (Days)</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Subscription Days</label>
                     <input type="number" name="trialDays" required min="0" value={formData.trialDays} onChange={handleChange}
                       className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
+                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default validity / trial duration in days.</p>
                   </div>
                 </div>
               </div>
