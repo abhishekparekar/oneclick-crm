@@ -791,7 +791,7 @@ const EmployeeLocationTracking = () => {
   };
 
   return (
-    <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4 flex flex-col overflow-hidden" : "space-y-4 w-full pb-8"}>
+    <div className={isFullscreen ? "fixed inset-0 z-50 bg-background p-4 flex flex-col overflow-hidden" : "space-y-4 w-full pb-10 min-h-screen"}>
       {/* ── Scoped Keyframe Animations & Enterprise Fleet Styling ───────── */}
       <style>{`
         @keyframes radarSweep {
@@ -850,7 +850,7 @@ const EmployeeLocationTracking = () => {
       `}</style>
 
       {/* ── Top Header Bar (Modern Fleet Command Center) ──────────────── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-border">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-border">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
             <Navigation size={20} className="animate-pulse" />
@@ -953,7 +953,7 @@ const EmployeeLocationTracking = () => {
       </div>
 
       {/* ── 4 Executive KPI Telemetry Cards (Compact & Professional) ──── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3" style={{ minHeight: 'auto' }}>
         {viewMode === "trail" ? (
           <>
             {/* Trail Metric 1: Distance */}
@@ -1111,7 +1111,7 @@ const EmployeeLocationTracking = () => {
       </div>
 
       {/* ── Full-Width Interactive Radar Map ────────────────────────── */}
-      <div className={`w-full bg-card rounded-2xl border border-border overflow-hidden relative shadow-sm flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[540px] lg:h-[580px]"}`}>
+      <div className={`w-full bg-card rounded-2xl border border-border overflow-hidden relative shadow-sm flex flex-col transition-all ${isFullscreen ? "flex-1 min-h-0 h-full" : "h-[500px] sm:h-[560px] lg:h-[620px]"}`}>
           {/* ── Unified Floating Command Bar (Zero Overlap Guaranteed) ──── */}
           <div className="absolute top-3 left-3 right-14 z-20 flex items-center justify-between gap-2 pointer-events-none">
             {/* Left: Telemetry Status Badge */}
@@ -1365,14 +1365,14 @@ const EmployeeLocationTracking = () => {
           )}
 
           {/* Leaflet Map Canvas */}
-          <div ref={mapContainerRef} className="w-full h-full flex-1 min-h-[460px]" style={{ zIndex: 1 }} />
+          <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '420px' }} />
         </div>
 
       {/* ── Compact Fleet Radar Roster (Relocated Below Map) ──────────────── */}
       {!isFullscreen && (
-        <div className="bg-card rounded-2xl border border-border p-3.5 sm:p-4 shadow-xs space-y-3">
+        <div className="bg-card rounded-2xl border border-border p-4 sm:p-5 shadow-sm space-y-4">
           {/* Header Bar: Title, Search, and Status Filter Tabs */}
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-2 border-b border-border/60">
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 pb-3 border-b border-border">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
                 <Users size={16} />
@@ -1496,7 +1496,7 @@ const EmployeeLocationTracking = () => {
           )}
 
           {/* Compact Staff Cards Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
             {loadingLive && employees.length === 0 ? (
               <div className="col-span-full py-10 text-center">
                 <RefreshCw size={22} className="animate-spin text-primary mx-auto mb-2" />
@@ -1528,10 +1528,10 @@ const EmployeeLocationTracking = () => {
                   <div
                     key={emp._id}
                     onClick={() => handleSelectStaff(emp)}
-                    className={`p-2.5 rounded-xl border cursor-pointer flex flex-col justify-between space-y-1.5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${leftAccent} ${
+                    className={`p-3 rounded-xl border cursor-pointer flex flex-col justify-between space-y-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md ${leftAccent} ${
                       isSelected
-                        ? "bg-primary/[0.08] border-primary shadow-xs ring-1 ring-primary/40"
-                        : "bg-background/70 hover:bg-muted/40 border-border hover:border-primary/30 shadow-2xs"
+                        ? "bg-primary/[0.07] border-primary shadow-sm ring-1 ring-primary/30"
+                        : "bg-card hover:bg-muted/30 border-border hover:border-primary/30 shadow-xs"
                     }`}
                   >
                     {/* Top Row: Avatar + Name + HR/Mgr Tag + Status Badge */}
