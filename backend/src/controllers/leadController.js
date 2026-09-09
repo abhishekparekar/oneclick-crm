@@ -11,6 +11,8 @@ const WhatsappLog = require("../models/WhatsappLog");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
+const DeviceToken = require("../models/DeviceToken");
+const { sendPushNotification } = require("../services/firebaseService");
 const {
   sendWhatsAppNotification,
   makeMetaRequest,
@@ -31,6 +33,21 @@ const buildCompanyQuery = (req, base = {}) => {
   return base;
 };
 
+// ── FCM Push Helper ───────────────────────────────────────────
+const pushFCMToUserIds = async (userIds, title, body, type, data = {}) => {
+  try {
+    if (!userIds || userIds.length === 0) return;
+    const cleanIds = userIds.map(id => id?.toString()).filter(Boolean);
+    const tokens = await DeviceToken.find({ userId: { $in: cleanIds }, isActive: true }).select("fcmToken").lean();
+    const fcmTokens = tokens.map(t => t.fcmToken).filter(Boolean);
+    if (fcmTokens.length === 0) return;
+    const pushData = { type: String(type || "lead"), ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) };
+    await sendPushNotification(fcmTokens, title, body, pushData);
+  } catch (err) {
+    console.error("[leadController pushFCMToUserIds]:", err.message);
+  }
+};
+
 // ── Notification Helpers ─────────────────────────────────────
 const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type = "lead", data = {}) => {
   try {
@@ -42,6 +59,7 @@ const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type =
       ...(excludeUserId ? { _id: { $ne: excludeUserId } } : {}),
     }).select("_id");
 
+    const userIds = adminUsers.map(a => a._id.toString());
     for (const admin of adminUsers) {
       await Notification.create({
         companyId,
@@ -52,6 +70,8 @@ const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type =
         data,
       });
     }
+    // FCM push to all admins
+    await pushFCMToUserIds(userIds, title, body, type, data);
   } catch (err) {
     console.error("[notifyCompanyAdmins error]:", err.message);
   }
@@ -83,6 +103,8 @@ const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "le
       type,
       data,
     });
+    // FCM push to assigned user's device
+    await pushFCMToUserIds([(targetUserId._id || targetUserId).toString()], title, body, type, data);
   } catch (err) {
     console.error("[notifyUserOrEmployee error]:", err.message);
   }

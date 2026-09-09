@@ -1,6 +1,33 @@
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const DeviceToken = require("../models/DeviceToken");
+const { sendPushNotification } = require("../services/firebaseService");
+
+/**
+ * Internal: send FCM push to all active device tokens for a list of userIds
+ */
+const pushToUsers = async (userIds, title, body, type, data = {}) => {
+  try {
+    if (!userIds || userIds.length === 0) return;
+    const cleanIds = userIds.map(id => id?.toString()).filter(Boolean);
+    if (cleanIds.length === 0) return;
+
+    const tokens = await DeviceToken.find({
+      userId: { $in: cleanIds },
+      isActive: true,
+    }).select("fcmToken").lean();
+
+    const fcmTokens = tokens.map(t => t.fcmToken).filter(Boolean);
+    if (fcmTokens.length === 0) return;
+
+    // Ensure all data values are strings for FCM
+    const pushData = { type: String(type || "general"), ...data };
+    await sendPushNotification(fcmTokens, title, body, pushData);
+  } catch (err) {
+    console.error("[pushToUsers] FCM push error:", err.message);
+  }
+};
 
 const sendNotificationToEmployees = async (companyId, employeeIds, title, body, type, data = {}) => {
   try {
@@ -49,14 +76,17 @@ const sendNotificationToAllEmployees = async (companyId, title, body, type, data
 const notifyUser = async (userId, companyId, title, body, type, data = {}) => {
   try {
     if (!userId) return;
+    const cleanUserId = userId._id || userId;
     await Notification.create({
       companyId,
-      userId: userId._id || userId,
+      userId: cleanUserId,
       title,
       body,
       type,
       data
     });
+    // Send FCM push
+    await pushToUsers([cleanUserId.toString()], title, body, type, data);
   } catch (err) {
     console.error("Error creating notification for user:", err);
   }
@@ -80,6 +110,9 @@ const notifyManyUsers = async (userIds, companyId, title, body, type, data = {})
         })
       )
     );
+
+    // Send FCM push notifications to all target devices
+    await pushToUsers(uniqueUserIds, title, body, type, data);
   } catch (err) {
     console.error("Error creating notifications for multiple users:", err);
   }

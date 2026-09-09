@@ -89,7 +89,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
         priority: 'high',
         defaultSound: false,
         defaultVibrateTimings: true,
-        icon: 'ic_notification',
+        icon: 'ic_launcher',
       },
     },
     apns: {
