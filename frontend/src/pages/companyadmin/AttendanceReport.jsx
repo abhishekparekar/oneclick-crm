@@ -7,32 +7,41 @@ import {
 } from "../../api/companyAdminApi";
 import {
   Search, Calendar, CalendarCheck, Users, CheckCircle2, Clock,
-  XCircle, AlertCircle, ChevronDown, ChevronUp,
+  XCircle, AlertCircle, ChevronDown, ChevronUp, ChevronRight,
   CalendarDays, Building2, Filter, RefreshCw, TrendingUp,
-  AlarmClock, User, Download, FileSpreadsheet,
+  AlarmClock, User, Download, FileSpreadsheet, CheckCircle,
+  Coffee, Plane, ShieldCheck, ArrowUp, ArrowDown, MapPin,
 } from "lucide-react";
 
-// ── Status Configurations ──────────────────────────────────────────────────
+// ── Status Configurations (Matching One Click Design System) ───────────────
 const STATUS_CFG = {
-  present:     { label: "Present",     cls: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800" },
-  late:        { label: "Late",        cls: "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border-amber-200 dark:border-amber-800" },
-  absent:      { label: "Absent",      cls: "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border-rose-200 dark:border-rose-800" },
-  "half-day":  { label: "Half Day",    cls: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
-  half_day:    { label: "Half Day",    cls: "bg-sky-50 text-sky-700 dark:bg-sky-950/40 dark:text-sky-400 border-sky-200 dark:border-sky-800" },
-  "on-leave":  { label: "On Leave",    cls: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
-  on_leave:    { label: "On Leave",    cls: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
-  paid_leave:  { label: "Paid Leave",  cls: "bg-violet-50 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 border-violet-200 dark:border-violet-800" },
-  unpaid_leave:{ label: "LOP Leave",   cls: "bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800" },
-  holiday:     { label: "Holiday",     cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700" },
-  weekly_off:  { label: "Weekly Off",  cls: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700" },
+  present:     { label: "Present",     bg: "bg-emerald-500/10 dark:bg-emerald-950/40", text: "text-emerald-700 dark:text-emerald-400", border: "border-emerald-500/25", dot: "bg-emerald-500" },
+  late:        { label: "Late Arrival",bg: "bg-amber-500/10 dark:bg-amber-950/40",   text: "text-amber-700 dark:text-amber-400",   border: "border-amber-500/25",   dot: "bg-amber-500" },
+  absent:      { label: "Absent",      bg: "bg-rose-500/10 dark:bg-rose-950/40",     text: "text-rose-700 dark:text-rose-400",     border: "border-rose-500/25",     dot: "bg-rose-500" },
+  "half-day":  { label: "Half Day",    bg: "bg-purple-500/10 dark:bg-purple-950/40", text: "text-purple-700 dark:text-purple-400", border: "border-purple-500/25", dot: "bg-purple-500" },
+  half_day:    { label: "Half Day",    bg: "bg-purple-500/10 dark:bg-purple-950/40", text: "text-purple-700 dark:text-purple-400", border: "border-purple-500/25", dot: "bg-purple-500" },
+  "on-leave":  { label: "On Leave",    bg: "bg-blue-500/10 dark:bg-blue-950/40",     text: "text-blue-700 dark:text-blue-400",     border: "border-blue-500/25",     dot: "bg-blue-500" },
+  on_leave:    { label: "On Leave",    bg: "bg-blue-500/10 dark:bg-blue-950/40",     text: "text-blue-700 dark:text-blue-400",     border: "border-blue-500/25",     dot: "bg-blue-500" },
+  paid_leave:  { label: "Paid Leave",  bg: "bg-blue-500/10 dark:bg-blue-950/40",     text: "text-blue-700 dark:text-blue-400",     border: "border-blue-500/25",     dot: "bg-blue-500" },
+  unpaid_leave:{ label: "LOP Leave",   bg: "bg-indigo-500/10 dark:bg-indigo-950/40", text: "text-indigo-700 dark:text-indigo-400", border: "border-indigo-500/25", dot: "bg-indigo-500" },
+  holiday:     { label: "Holiday",     bg: "bg-slate-500/10 dark:bg-slate-800/60",   text: "text-slate-600 dark:text-slate-300",   border: "border-slate-500/20",   dot: "bg-slate-400" },
+  weekly_off:  { label: "Weekly Off",  bg: "bg-slate-500/10 dark:bg-slate-800/60",   text: "text-slate-600 dark:text-slate-300",   border: "border-slate-500/20",   dot: "bg-slate-500" },
 };
 
-const badge = (st) => {
-  const k = (st || "absent").toLowerCase().replace(/_/g, "-");
-  const cfg = STATUS_CFG[k] || STATUS_CFG[st] || { label: st || "Absent", cls: "bg-slate-100 text-slate-700 border-slate-200" };
+const StatusBadge = ({ status }) => {
+  const k = (status || "absent").toLowerCase();
+  const cfg = STATUS_CFG[k] || STATUS_CFG[k.replace(/_/g, "-")] || {
+    label: status || "Absent",
+    bg: "bg-slate-100 dark:bg-slate-800",
+    text: "text-slate-600 dark:text-slate-300",
+    border: "border-slate-200 dark:border-slate-700",
+    dot: "bg-slate-400",
+  };
+
   return (
-    <span className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold ${cfg.cls}`}>
-      {cfg.label}
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg border text-[10px] font-black uppercase tracking-wider ${cfg.bg} ${cfg.text} ${cfg.border}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+      <span>{cfg.label}</span>
     </span>
   );
 };
@@ -69,27 +78,37 @@ const dur = (ci, co, totalHours) => {
   return `${h}h ${m}m`;
 };
 
-const KPI = ({ label, value, color = "#2563eb" }) => (
-  <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 shadow-2xs">
-    <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate">{label}</p>
-    <p className="text-base sm:text-lg font-black mt-0.5" style={{ color }}>{value ?? "—"}</p>
+// ── Executive KPI Card (Exact Theme Match) ─────────────────────────────────
+const KPICard = ({ label, value, sub, icon: Icon, color = "#2563EB", bg = "bg-blue-500/10", textColor = "text-blue-600 dark:text-blue-400" }) => (
+  <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:-translate-y-0.5 transition-all duration-300 group min-w-0">
+    <div className="flex-1 min-w-0 pr-1.5">
+      <div className="flex items-center gap-1.5 mb-1">
+        <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${bg} flex-shrink-0 shadow-2xs`}>
+          <Icon size={13} style={{ color }} strokeWidth={2.4} />
+        </div>
+        <span className="text-[10.5px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-tight truncate">{label}</span>
+      </div>
+      <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1 font-mono">{value}</h3>
+      {sub && <p className="text-[10px] font-semibold text-slate-400 dark:text-slate-500 truncate">{sub}</p>}
+    </div>
   </div>
 );
 
 const Loader = () => (
-  <div className="flex items-center justify-center py-12">
-    <div className="w-6 h-6 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+  <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-2">
+    <RefreshCw size={24} className="animate-spin text-primary" />
+    <p className="text-xs font-bold">Loading attendance intelligence...</p>
   </div>
 );
 
-const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default function AttendanceReport() {
   const now = new Date();
   const todayStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
   // View modes: "daily" | "monthly"
-  const [view, setView] = useState("daily");
+  const [view, setView] = useState("monthly");
 
   // Daily filters
   const [date, setDate] = useState(todayStr);
@@ -99,7 +118,7 @@ export default function AttendanceReport() {
 
   // Monthly drill-down
   const [month, setMonth] = useState(now.getMonth() + 1);
-  const [year, setYear]   = useState(now.getFullYear());
+  const [year, setYear] = useState(now.getFullYear());
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
 
@@ -226,7 +245,7 @@ export default function AttendanceReport() {
   // ── Export Daily to CSV ───────────────────────────────────────────────────
   const exportDailyCSV = () => {
     if (!filteredDaily.length) return;
-    const headers = ["#", "Employee Code", "Employee Name", "Department", "Status", "Punch In", "Punch Out", "Total Hours", "Source"];
+    const headers = ["#", "Employee Code", "Employee Name", "Department", "Designation", "Status", "Punch In", "Punch Out", "Total Hours", "Source"];
     const rows = filteredDaily.map((rec, i) => {
       const emp = rec.employeeId;
       const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
@@ -238,6 +257,7 @@ export default function AttendanceReport() {
         `"${emp?.employeeCode || "—"}"`,
         `"${name}"`,
         `"${emp?.departmentId?.name || "—"}"`,
+        `"${emp?.designationId?.name || emp?.role || "Staff"}"`,
         `"${rec.status || "absent"}"`,
         `"${inTime}"`,
         `"${outTime}"`,
@@ -246,7 +266,7 @@ export default function AttendanceReport() {
       ];
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const link = document.createElement("a");
     link.href = encodeURI(csvContent);
     link.download = `Attendance_Daily_${date}.csv`;
@@ -276,7 +296,7 @@ export default function AttendanceReport() {
       ];
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
     const link = document.createElement("a");
     link.href = encodeURI(csvContent);
     link.download = `Attendance_Monthly_${months[month - 1]}_${year}.csv`;
@@ -286,492 +306,574 @@ export default function AttendanceReport() {
   };
 
   return (
-    <div className="bg-background min-h-screen text-foreground font-sans">
-      <div className="max-w-[1400px] mx-auto px-3 sm:px-4 py-4 space-y-3.5">
+    <div className="animate-fadeIn space-y-4 max-w-[1440px] mx-auto pb-24 font-sans text-slate-900 dark:text-slate-100">
 
-        {/* ── Page Header ── */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border/80 rounded-2xl p-4 shadow-2xs">
-          <div>
-            <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground flex items-center gap-2">
-              <CalendarCheck className="text-primary" size={22} />
-              Attendance Report
-            </h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Daily & monthly employee attendance logs, timings, drill-down, and compliance summaries
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => (view === "daily" ? exportDailyCSV() : exportMonthlyCSV())}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-muted hover:bg-muted/80 border border-border rounded-xl text-xs font-bold text-foreground transition-all shadow-2xs cursor-pointer"
-            >
-              <Download size={13} className="text-primary" />
-              <span>Export CSV</span>
-            </button>
-
-            <button
-              onClick={() => (view === "daily" ? refetchDaily() : refetchMonthly())}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer"
-            >
-              <RefreshCw size={13} />
-              <span>Refresh</span>
-            </button>
-          </div>
+      {/* ── Seamless Page Header (Matching Dashboard & Attendance layout) ─────── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
+        <div>
+          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+            Attendance Report
+          </h1>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+            Comprehensive daily logs, monthly summaries, interactive drill-down & compliance metrics
+          </p>
         </div>
 
-        {/* ── View Toggle (Pill Switcher) ── */}
-        <div className="flex gap-1 bg-muted/60 border border-border/80 rounded-xl p-1 w-fit shadow-2xs">
-          {[
-            { id: "daily",   label: "Daily Report",   icon: CalendarDays },
-            { id: "monthly", label: "Monthly Report",  icon: Calendar },
-          ].map((v) => {
-            const Icon = v.icon;
-            const isActive = view === v.id;
-            return (
-              <button
-                key={v.id}
-                onClick={() => setView(v.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                  isActive
-                    ? "bg-primary text-primary-foreground shadow-xs"
-                    : "text-muted-foreground hover:text-foreground hover:bg-card"
-                }`}
-              >
-                <Icon size={14} />
-                <span>{v.label}</span>
-              </button>
-            );
-          })}
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 relative z-30 w-full sm:w-auto">
+          {/* Segmented View Switcher Pill */}
+          <div className="bg-slate-100 dark:bg-slate-900/80 p-1 rounded-xl border border-slate-200/80 dark:border-slate-800 flex items-center gap-1 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setView("daily")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                view === "daily"
+                  ? "bg-white dark:bg-slate-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <CalendarDays size={13} />
+              <span>Daily Report</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setView("monthly")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                view === "monthly"
+                  ? "bg-blue-600 text-white shadow-xs shadow-blue-500/20"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
+            >
+              <Calendar size={13} />
+              <span>Monthly Summary</span>
+            </button>
+          </div>
+
+          {/* Export CSV Button */}
+          <button
+            type="button"
+            onClick={() => (view === "daily" ? exportDailyCSV() : exportMonthlyCSV())}
+            className="flex items-center justify-center gap-1.5 px-3.5 h-8 bg-white dark:bg-[#0D1B2E] border border-slate-200/80 dark:border-[#1C3554] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+          >
+            <Download size={13} className="text-blue-500" />
+            <span>Export CSV</span>
+          </button>
+
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={() => (view === "daily" ? refetchDaily() : refetchMonthly())}
+            className="flex items-center justify-center gap-1.5 px-3 h-8 bg-white dark:bg-[#0D1B2E] border border-slate-200/80 dark:border-[#1C3554] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+            title="Refresh records"
+          >
+            <RefreshCw size={13} className="text-slate-400" />
+            <span>Refresh</span>
+          </button>
         </div>
+      </div>
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {/* 1. DAILY REPORT VIEW                                              */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {view === "daily" && (
-          <div className="space-y-3">
-            {/* Filters Toolbar */}
-            <div className="flex flex-wrap items-center gap-2.5 bg-card border border-border/80 rounded-xl p-3 shadow-2xs">
-              {/* Date Picker */}
-              <div className="flex items-center gap-1.5 bg-muted/50 border border-border px-2.5 py-1.5 rounded-lg text-xs">
-                <Calendar size={13} className="text-muted-foreground" />
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 1. DAILY REPORT VIEW                                                  */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {view === "daily" && (
+        <div className="space-y-3.5">
+          {/* Top Stat KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+            <KPICard label="Total Logs" value={dailyKPIs.total} sub="Logged today" icon={CalendarCheck} color="#2563EB" bg="bg-blue-500/10" />
+            <KPICard label="Present"    value={dailyKPIs.present} sub="On time" icon={CheckCircle} color="#10B981" bg="bg-emerald-500/10" />
+            <KPICard label="Late"       value={dailyKPIs.late} sub="Delayed punch" icon={Clock} color="#F59E0B" bg="bg-amber-500/10" />
+            <KPICard label="Absent"     value={dailyKPIs.absent} sub="No show" icon={XCircle} color="#F43F5E" bg="bg-rose-500/10" />
+            <KPICard label="Half Day"   value={dailyKPIs.halfDay} sub="Short hours" icon={Coffee} color="#8B5CF6" bg="bg-purple-500/10" />
+            <KPICard label="On Leave"   value={dailyKPIs.onLeave} sub="Approved" icon={Plane} color="#3B82F6" bg="bg-blue-500/10" />
+          </div>
+
+          {/* Filters Row Toolbar */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+            <div className="bg-slate-50/60 dark:bg-slate-900/40 border-b border-slate-200/80 dark:border-slate-800 p-3 sm:p-3.5 flex flex-wrap md:flex-nowrap items-center justify-between gap-3">
+              {/* Search Bar */}
+              <div className="relative flex-1 min-w-[200px] w-full md:w-auto group">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors pointer-events-none" />
                 <input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  max={todayStr}
-                  className="bg-transparent text-xs font-bold text-foreground focus:outline-none cursor-pointer"
-                />
-              </div>
-
-              {/* Status Filter */}
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="present">Present</option>
-                <option value="late">Late</option>
-                <option value="absent">Absent</option>
-                <option value="half-day">Half Day</option>
-                <option value="on-leave">On Leave</option>
-              </select>
-
-              {/* Department Filter */}
-              <select
-                value={deptFilter}
-                onChange={(e) => setDeptFilter(e.target.value)}
-                className="bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none"
-              >
-                <option value="all">All Departments</option>
-                {departments.map((d) => (
-                  <option key={d._id} value={d._id}>
-                    {d.name || d.departmentName}
-                  </option>
-                ))}
-              </select>
-
-              {/* Search Box */}
-              <div className="flex items-center gap-2 bg-muted/50 border border-border rounded-lg px-3 py-1.5 flex-1 min-w-[180px]">
-                <Search size={13} className="text-muted-foreground shrink-0" />
-                <input
+                  type="text"
+                  placeholder="Search by team member name or employee code..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search name or employee code..."
-                  className="bg-transparent text-xs font-medium text-foreground placeholder:text-muted-foreground outline-none flex-1"
+                  className="w-full pl-9 pr-4 h-9 bg-white dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 focus:border-blue-500 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 focus:outline-none transition-all placeholder:text-slate-400 shadow-2xs"
                 />
               </div>
 
-              <span className="text-[11px] font-bold text-muted-foreground px-1">
-                {filteredDaily.length} records
-              </span>
-            </div>
+              {/* Filters Group */}
+              <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full md:w-auto">
+                {/* Date Picker */}
+                <div className="flex items-center gap-1.5 px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 shadow-2xs">
+                  <Calendar size={13} className="text-slate-400 shrink-0" />
+                  <input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    max={todayStr}
+                    className="bg-transparent text-xs font-bold text-slate-900 dark:text-slate-100 focus:outline-none cursor-pointer"
+                  />
+                </div>
 
-            {/* Daily KPI Counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-              <KPI label="Total Logs" value={dailyKPIs.total}   color="#2563EB" />
-              <KPI label="Present"    value={dailyKPIs.present} color="#10B981" />
-              <KPI label="Late"       value={dailyKPIs.late}    color="#F59E0B" />
-              <KPI label="Absent"     value={dailyKPIs.absent}  color="#F43F5E" />
-              <KPI label="Half Day"   value={dailyKPIs.halfDay} color="#0EA5E9" />
-              <KPI label="On Leave"   value={dailyKPIs.onLeave} color="#8B5CF6" />
+                {/* Status Filter */}
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none shadow-2xs cursor-pointer"
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="present">Present</option>
+                  <option value="late">Late Arrival</option>
+                  <option value="absent">Absent</option>
+                  <option value="half-day">Half Day</option>
+                  <option value="on-leave">On Leave</option>
+                </select>
+
+                {/* Department Filter */}
+                <select
+                  value={deptFilter}
+                  onChange={(e) => setDeptFilter(e.target.value)}
+                  className="px-3 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none shadow-2xs cursor-pointer"
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map((d) => (
+                    <option key={d._id} value={d._id}>
+                      {d.name || d.departmentName}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Daily Table */}
-            {dailyLoading ? (
-              <Loader />
-            ) : filteredDaily.length === 0 ? (
-              <div className="bg-card rounded-2xl border border-border p-12 text-center text-muted-foreground text-xs space-y-2">
-                <AlertCircle className="mx-auto text-amber-500 opacity-60" size={28} />
-                <p className="font-bold text-sm text-foreground">No attendance records found for this date</p>
-                <p className="text-[11px]">Try picking another date or adjusting status / department filters.</p>
-              </div>
-            ) : (
-              <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
-                    <thead className="bg-muted/50 border-b border-border">
-                      <tr>
-                        {["#", "Employee", "Dept", "Designation", "Status", "Check In", "Check Out", "Duration", "Source"].map((h) => (
-                          <th
-                            key={h}
-                            className="px-3.5 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-muted-foreground whitespace-nowrap"
-                          >
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border/60">
-                      {filteredDaily.map((rec, i) => {
-                        const emp = rec.employeeId;
-                        const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
-                        const inTime = fmtTime(rec.punchInTime || rec.checkIn);
-                        const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
-                        const duration = dur(rec.punchInTime || rec.checkIn, rec.punchOutTime || rec.checkOut, rec.totalHours);
-
-                        return (
-                          <tr key={rec._id || i} className="hover:bg-muted/30 transition-colors">
-                            <td className="px-3.5 py-2.5 text-muted-foreground font-bold">{i + 1}</td>
-                            <td className="px-3.5 py-2.5">
-                              <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">
-                                  {name.charAt(0).toUpperCase()}
-                                </div>
-                                <div>
-                                  <p className="font-bold text-foreground text-xs leading-tight">{name}</p>
-                                  <p className="text-[10px] text-muted-foreground font-mono">{emp?.employeeCode || "—"}</p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-3.5 py-2.5 text-muted-foreground font-medium">
-                              {emp?.departmentId?.name || "—"}
-                            </td>
-                            <td className="px-3.5 py-2.5 text-muted-foreground font-medium">
-                              {emp?.designationId?.name || emp?.role || "Staff"}
-                            </td>
-                            <td className="px-3.5 py-2.5">{badge(rec.status)}</td>
-                            <td className="px-3.5 py-2.5 font-mono font-bold text-foreground">
-                              {inTime}
-                            </td>
-                            <td className="px-3.5 py-2.5 font-mono font-bold text-foreground">
-                              {outTime}
-                            </td>
-                            <td className="px-3.5 py-2.5 font-mono font-bold text-sky-600 dark:text-sky-400">
-                              {duration}
-                            </td>
-                            <td className="px-3.5 py-2.5 text-[10.5px] uppercase font-bold text-muted-foreground">
-                              {rec.source || "punch"}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+            <div className="overflow-x-auto">
+              {dailyLoading ? (
+                <Loader />
+              ) : filteredDaily.length === 0 ? (
+                <div className="text-center py-16 text-slate-400 space-y-2">
+                  <AlertCircle size={28} className="mx-auto text-amber-500 opacity-60" />
+                  <p className="font-extrabold text-sm text-slate-900 dark:text-white">No attendance records found for this date</p>
+                  <p className="text-xs text-slate-400">Try selecting another date or clearing your search filters</p>
                 </div>
-              </div>
-            )}
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800">
+                    <tr>
+                      {["#", "Team Member", "Department", "Designation", "Status", "Punch In", "Punch Out", "Total Hours", "Source"].map((h) => (
+                        <th
+                          key={h}
+                          className="px-4 py-3 text-left text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap"
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {filteredDaily.map((rec, i) => {
+                      const emp = rec.employeeId;
+                      const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
+                      const inTime = fmtTime(rec.punchInTime || rec.checkIn);
+                      const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
+                      const duration = dur(rec.punchInTime || rec.checkIn, rec.punchOutTime || rec.checkOut, rec.totalHours);
+
+                      return (
+                        <tr key={rec._id || i} className="hover:bg-slate-50/80 dark:hover:bg-slate-850/50 transition-colors">
+                          <td className="px-4 py-3 text-slate-400 font-bold">{i + 1}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-2xs flex-shrink-0">
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="font-extrabold text-slate-900 dark:text-white text-xs leading-tight truncate">{name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono mt-0.5">{emp?.employeeCode || "—"}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-medium">
+                            {emp?.departmentId?.name || "—"}
+                          </td>
+                          <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-medium">
+                            {emp?.designationId?.name || emp?.role || "Staff"}
+                          </td>
+                          <td className="px-4 py-3">
+                            <StatusBadge status={rec.status} />
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">
+                            {inTime}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-bold text-slate-900 dark:text-white">
+                            {outTime}
+                          </td>
+                          <td className="px-4 py-3 font-mono font-black text-sky-600 dark:text-sky-400">
+                            {duration}
+                          </td>
+                          <td className="px-4 py-3 text-[10px] uppercase font-black text-slate-500 dark:text-slate-400">
+                            {rec.source || "punch"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {/* 2. MONTHLY REPORT VIEW                                            */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
-        {view === "monthly" && (
-          <div className="space-y-3">
-            {/* Month & Year Selectors */}
-            <div className="flex flex-wrap items-center gap-2.5 bg-card border border-border/80 rounded-xl p-3 shadow-2xs">
-              <div className="flex items-center gap-1.5">
-                <Calendar className="text-muted-foreground" size={14} />
-                <span className="text-xs font-bold text-muted-foreground">Select Month:</span>
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 2. MONTHLY REPORT VIEW                                                */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {view === "monthly" && (
+        <div className="space-y-3.5">
+          {/* Top Stat KPI Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-3">
+            <KPICard label="Staff Roster" value={monthlyKPIs.uniqueEmps} sub="Active employees" icon={Users} color="#2563EB" bg="bg-blue-500/10" />
+            <KPICard label="Total Entries" value={monthlyKPIs.totalEntries} sub="Month logs" icon={FileSpreadsheet} color="#4F46E5" bg="bg-indigo-500/10" />
+            <KPICard label="Present"      value={monthlyKPIs.present} sub="Full days" icon={CheckCircle} color="#10B981" bg="bg-emerald-500/10" />
+            <KPICard label="Late Days"    value={monthlyKPIs.late} sub="Delayed punches" icon={Clock} color="#F59E0B" bg="bg-amber-500/10" />
+            <KPICard label="Absent Days"  value={monthlyKPIs.absent} sub="Missed shifts" icon={XCircle} color="#F43F5E" bg="bg-rose-500/10" />
+            <KPICard label="Avg Attendance" value={`${monthlyKPIs.avgAtt}%`} sub="Fleet compliance" icon={TrendingUp} color="#0EA5E9" bg="bg-sky-500/10" />
+          </div>
+
+          {/* Month & Year Selection Bar */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-3.5 shadow-2xs flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20">
+                <Calendar size={15} />
               </div>
+              <div>
+                <p className="text-xs font-black text-slate-900 dark:text-white leading-tight">
+                  Reporting Period
+                </p>
+                <p className="text-[10px] text-slate-400 font-medium">
+                  {daysInMonth} Calendar Days • {monthlyByEmp.length} Enrolled Employees
+                </p>
+              </div>
+            </div>
 
-              <select
-                value={month}
-                onChange={(e) => setMonth(Number(e.target.value))}
-                className="bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none"
-              >
-                {months.map((m, i) => (
-                  <option key={i} value={i + 1}>
-                    {m}
-                  </option>
-                ))}
-              </select>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center bg-slate-100 dark:bg-slate-900 rounded-xl p-0.5 border border-slate-200/80 dark:border-slate-800">
+                <select
+                  value={month}
+                  onChange={(e) => setMonth(Number(e.target.value))}
+                  className="bg-transparent px-3 py-1.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
+                >
+                  {months.map((m, i) => (
+                    <option key={i} value={i + 1} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {m}
+                    </option>
+                  ))}
+                </select>
 
-              <select
-                value={year}
-                onChange={(e) => setYear(Number(e.target.value))}
-                className="bg-muted/50 border border-border rounded-lg px-2.5 py-1.5 text-xs font-bold text-foreground focus:outline-none"
-              >
-                {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear()].map((y) => (
-                  <option key={y} value={y}>
-                    {y}
-                  </option>
-                ))}
-              </select>
+                <select
+                  value={year}
+                  onChange={(e) => setYear(Number(e.target.value))}
+                  className="bg-transparent px-3 py-1.5 text-xs font-extrabold text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer border-l border-slate-200 dark:border-slate-800"
+                >
+                  {[now.getFullYear() - 2, now.getFullYear() - 1, now.getFullYear()].map((y) => (
+                    <option key={y} value={y} className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
 
-              <span className="text-[11px] font-bold text-muted-foreground ml-auto">
-                {daysInMonth} Days in Month • {monthlyByEmp.length} Staff Enrolled
+          {/* Employee Monthly Summary Table */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
+            <div className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800 px-4 py-3 flex items-center justify-between">
+              <div>
+                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  Employee Monthly Summary — {months[month - 1]} {year}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                  Click any row to expand the day-by-day punch log timeline
+                </p>
+              </div>
+              <span className="text-[10.5px] font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-lg border border-blue-500/20">
+                {monthlyByEmp.length} Staff
               </span>
             </div>
 
-            {/* Monthly KPIs */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-              <KPI label="Employees"  value={monthlyKPIs.uniqueEmps}   color="#2563EB" />
-              <KPI label="Total Logs" value={monthlyKPIs.totalEntries} color="#4F46E5" />
-              <KPI label="Present"    value={monthlyKPIs.present}      color="#10B981" />
-              <KPI label="Late"       value={monthlyKPIs.late}         color="#F59E0B" />
-              <KPI label="Absent"     value={monthlyKPIs.absent}       color="#F43F5E" />
-              <KPI label="Avg Att %"  value={`${monthlyKPIs.avgAtt}%`} color="#0EA5E9" />
-            </div>
-
-            {monthlyLoading ? (
-              <Loader />
-            ) : monthlyByEmp.length === 0 ? (
-              <div className="bg-card rounded-2xl border border-border p-12 text-center text-muted-foreground text-xs space-y-2">
-                <AlertCircle className="mx-auto text-amber-500 opacity-60" size={28} />
-                <p className="font-bold text-sm text-foreground">No attendance records found for this month</p>
-                <p className="text-[11px]">Select another month or year to review historical logs.</p>
-              </div>
-            ) : (
-              <>
-                {/* Employee Monthly Summary Table */}
-                <div className="bg-card rounded-xl border border-border overflow-hidden shadow-2xs">
-                  <div className="px-3.5 py-2.5 border-b border-border bg-muted/40 flex items-center justify-between">
-                    <p className="text-xs font-black text-foreground uppercase tracking-wider">
-                      Employee Monthly Summary — {months[month - 1]} {year}
-                    </p>
-                    <p className="text-[10px] font-bold text-muted-foreground">
-                      Click any employee row to expand daily breakdown
-                    </p>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead className="bg-muted/50 border-b border-border">
-                        <tr>
-                          {["#", "Employee", "Dept", "Desig", "Present", "Late", "Absent", "Half", "Leave", "Att %"].map((h) => (
-                            <th
-                              key={h}
-                              className="px-3.5 py-2.5 text-left text-[10px] font-black uppercase tracking-wider text-muted-foreground whitespace-nowrap"
-                            >
-                              {h}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/60">
-                        {monthlyByEmp.map((emp, i) => {
-                          const attPct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
-                          const isExpanded = expandedRow === emp._id?.toString();
-                          const empRecords = empDetail || [];
-
-                          return (
-                            <React.Fragment key={emp._id || i}>
-                              <tr
-                                onClick={() => {
-                                  if (isExpanded) {
-                                    setExpandedRow(null);
-                                    setSelectedEmp(null);
-                                  } else {
-                                    setExpandedRow(emp._id?.toString());
-                                    setSelectedEmp(emp);
-                                  }
-                                }}
-                                className={`transition-colors cursor-pointer ${
-                                  isExpanded ? "bg-primary/5 dark:bg-primary/10" : "hover:bg-muted/40"
-                                }`}
-                              >
-                                <td className="px-3.5 py-2.5 text-muted-foreground font-bold">{i + 1}</td>
-                                <td className="px-3.5 py-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-7 h-7 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary flex-shrink-0">
-                                      {emp.name.charAt(0).toUpperCase()}
-                                    </div>
-                                    <div>
-                                      <p className="font-bold text-foreground text-xs leading-tight">{emp.name}</p>
-                                      <p className="text-[10px] text-muted-foreground font-mono">{emp.code}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="px-3.5 py-2.5 text-muted-foreground font-medium">{emp.dept}</td>
-                                <td className="px-3.5 py-2.5 text-muted-foreground font-medium">{emp.desig}</td>
-                                <td className="px-3.5 py-2.5 font-bold text-emerald-600 dark:text-emerald-400">{emp.present}</td>
-                                <td className="px-3.5 py-2.5 font-bold text-amber-600 dark:text-amber-400">{emp.late}</td>
-                                <td className="px-3.5 py-2.5 font-bold text-rose-600 dark:text-rose-400">{emp.absent}</td>
-                                <td className="px-3.5 py-2.5 font-bold text-sky-600 dark:text-sky-400">{emp.halfDay}</td>
-                                <td className="px-3.5 py-2.5 font-bold text-violet-600 dark:text-violet-400">{emp.onLeave}</td>
-                                <td className="px-3.5 py-2.5">
-                                  <div className="flex items-center gap-2">
-                                    <div className="w-16 bg-muted rounded-full h-1.5 overflow-hidden">
-                                      <div
-                                        className="h-1.5 rounded-full transition-all duration-300"
-                                        style={{
-                                          width: `${Math.min(attPct, 100)}%`,
-                                          background: attPct >= 80 ? "#10B981" : attPct >= 60 ? "#F59E0B" : "#F43F5E",
-                                        }}
-                                      />
-                                    </div>
-                                    <span
-                                      className={`text-[10px] font-black ${
-                                        attPct >= 80
-                                          ? "text-emerald-600 dark:text-emerald-400"
-                                          : attPct >= 60
-                                          ? "text-amber-600 dark:text-amber-400"
-                                          : "text-rose-600 dark:text-rose-400"
-                                      }`}
-                                    >
-                                      {attPct}%
-                                    </span>
-                                    {isExpanded ? (
-                                      <ChevronUp size={12} className="text-muted-foreground ml-auto" />
-                                    ) : (
-                                      <ChevronDown size={12} className="text-muted-foreground ml-auto" />
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-
-                              {/* Expanded Daily Breakdown Grid */}
-                              {isExpanded && (
-                                <tr key={`exp-${emp._id}`}>
-                                  <td colSpan={10} className="px-0 py-0 bg-muted/30">
-                                    {empDetailLoading ? (
-                                      <div className="flex items-center justify-center py-6">
-                                        <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                                      </div>
-                                    ) : empRecords.length === 0 ? (
-                                      <p className="text-center text-[11px] text-muted-foreground py-4 font-medium">
-                                        No individual daily logs found for this month
-                                      </p>
-                                    ) : (
-                                      <div className="p-3.5 sm:p-4 space-y-2">
-                                        <div className="flex items-center justify-between">
-                                          <p className="text-[11px] font-extrabold text-foreground uppercase tracking-wider">
-                                            Daily Breakdown — {emp.name} ({empRecords.length} Days Recorded)
-                                          </p>
-                                          <span className="text-[10px] font-bold text-muted-foreground">
-                                            {months[month - 1]} {year}
-                                          </span>
-                                        </div>
-
-                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                                          {empRecords
-                                            .sort((a, b) => (a.date < b.date ? -1 : 1))
-                                            .map((dr) => {
-                                              const inT = fmtTime(dr.punchInTime || dr.checkIn);
-                                              const outT = fmtTime(dr.punchOutTime || dr.checkOut);
-                                              const dStr = dur(dr.punchInTime || dr.checkIn, dr.punchOutTime || dr.checkOut, dr.totalHours);
-
-                                              return (
-                                                <div
-                                                  key={dr._id || dr.date}
-                                                  className="bg-card rounded-xl border border-border/80 p-2 shadow-2xs space-y-1"
-                                                >
-                                                  <div className="flex items-center justify-between">
-                                                    <p className="text-[10.5px] font-black text-foreground">
-                                                      {fmtDate(dr.date)}
-                                                    </p>
-                                                    {badge(dr.status)}
-                                                  </div>
-
-                                                  <div className="pt-1 flex items-center justify-between text-[10px] font-mono text-muted-foreground">
-                                                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">{inT}</span>
-                                                    <span>→</span>
-                                                    <span className="text-rose-600 dark:text-rose-400 font-bold">{outT}</span>
-                                                  </div>
-
-                                                  {dStr !== "—" && (
-                                                    <div className="text-[9.5px] text-sky-600 dark:text-sky-400 font-bold font-mono text-right">
-                                                      ⏱️ {dStr}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              );
-                                            })}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
+            <div className="overflow-x-auto">
+              {monthlyLoading ? (
+                <Loader />
+              ) : monthlyByEmp.length === 0 ? (
+                <div className="text-center py-16 text-slate-400 space-y-2">
+                  <AlertCircle size={28} className="mx-auto text-amber-500 opacity-60" />
+                  <p className="font-extrabold text-sm text-slate-900 dark:text-white">No attendance records found for this month</p>
+                  <p className="text-xs text-slate-400">Select another month or check employee punches</p>
                 </div>
+              ) : (
+                <table className="w-full text-xs">
+                  <thead className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800">
+                    <tr>
+                      {["#", "Team Member", "Department", "Designation", "Present", "Late", "Absent", "Half Day", "Leaves", "Attendance Rate", ""].map((h, idx) => (
+                        <th
+                          key={idx}
+                          className={`px-4 py-3 text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap ${
+                            idx >= 4 && idx <= 8 ? "text-center" : "text-left"
+                          }`}
+                        >
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
+                    {monthlyByEmp.map((emp, i) => {
+                      const attPct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
+                      const isExpanded = expandedRow === emp._id?.toString();
+                      const empRecords = empDetail || [];
 
-                {/* Monthly Attendance % Comparison Visual Card */}
-                <div className="bg-card rounded-xl border border-border p-4 shadow-2xs space-y-3">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-black text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                      <TrendingUp size={14} className="text-primary" />
-                      Attendance % Comparison by Staff
-                    </p>
-                    <span className="text-[10px] font-bold text-muted-foreground">
-                      Target: 80%+
-                    </span>
-                  </div>
-
-                  <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                    {monthlyByEmp.map((emp) => {
-                      const pct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
                       return (
-                        <div key={emp._id} className="flex items-center gap-2 text-xs">
-                          <span className="text-[11px] font-bold text-foreground w-36 truncate">{emp.name}</span>
-                          <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                            <div
-                              className="h-2 rounded-full transition-all duration-300"
-                              style={{
-                                width: `${Math.min(pct, 100)}%`,
-                                background: pct >= 80 ? "#10B981" : pct >= 60 ? "#F59E0B" : "#F43F5E",
-                              }}
-                            />
-                          </div>
-                          <span
-                            className={`text-[11px] font-black w-10 text-right font-mono ${
-                              pct >= 80
-                                ? "text-emerald-600 dark:text-emerald-400"
-                                : pct >= 60
-                                ? "text-amber-600 dark:text-amber-400"
-                                : "text-rose-600 dark:text-rose-400"
+                        <React.Fragment key={emp._id || i}>
+                          <tr
+                            onClick={() => {
+                              if (isExpanded) {
+                                setExpandedRow(null);
+                                setSelectedEmp(null);
+                              } else {
+                                setExpandedRow(emp._id?.toString());
+                                setSelectedEmp(emp);
+                              }
+                            }}
+                            className={`cursor-pointer transition-colors ${
+                              isExpanded
+                                ? "bg-blue-50/50 dark:bg-blue-950/20"
+                                : "hover:bg-slate-50/80 dark:hover:bg-slate-850/50"
                             }`}
                           >
-                            {pct}%
-                          </span>
-                        </div>
+                            <td className="px-4 py-3.5 text-slate-400 font-bold">{i + 1}</td>
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-2xs flex-shrink-0">
+                                  {emp.name.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-extrabold text-slate-900 dark:text-white text-xs leading-tight truncate">{emp.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono mt-0.5">{emp.code}</p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
+                              {emp.dept}
+                            </td>
+                            <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
+                              {emp.desig}
+                            </td>
+
+                            {/* Counts with clean badge chips */}
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
+                                {emp.present}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10">
+                                {emp.late}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-rose-600 dark:text-rose-400 bg-rose-500/10">
+                                {emp.absent}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-purple-600 dark:text-purple-400 bg-purple-500/10">
+                                {emp.halfDay}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-blue-600 dark:text-blue-400 bg-blue-500/10">
+                                {emp.onLeave}
+                              </span>
+                            </td>
+
+                            {/* Attendance % Wide Gradient Progress Bar */}
+                            <td className="px-4 py-3.5">
+                              <div className="flex items-center gap-2.5 min-w-[140px]">
+                                <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
+                                  <div
+                                    className="h-full rounded-full transition-all duration-500"
+                                    style={{
+                                      width: `${Math.min(attPct, 100)}%`,
+                                      background:
+                                        attPct >= 80
+                                          ? "linear-gradient(90deg, #10B981, #059669)"
+                                          : attPct >= 60
+                                          ? "linear-gradient(90deg, #F59E0B, #D97706)"
+                                          : "linear-gradient(90deg, #F43F5E, #E11D48)",
+                                    }}
+                                  />
+                                </div>
+                                <span
+                                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-black font-mono tracking-tight shrink-0 ${
+                                    attPct >= 80
+                                      ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25"
+                                      : attPct >= 60
+                                      ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25"
+                                      : "bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25"
+                                  }`}
+                                >
+                                  {attPct}%
+                                </span>
+                              </div>
+                            </td>
+
+                            {/* Chevron Toggle Icon */}
+                            <td className="px-4 py-3.5 text-right">
+                              <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
+                                {isExpanded ? <ChevronUp size={14} /> : <ChevronRight size={14} />}
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Daily Breakdown Grid */}
+                          {isExpanded && (
+                            <tr key={`exp-${emp._id}`}>
+                              <td colSpan={11} className="p-0 bg-slate-50/70 dark:bg-[#0E1624]">
+                                <div className="p-4 sm:p-5 space-y-3 border-y border-slate-200/80 dark:border-slate-800/80">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Clock size={14} className="text-blue-500" />
+                                      <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                        Day-by-Day Punch Logs — {emp.name} ({empRecords.length} Records)
+                                      </p>
+                                    </div>
+                                    <span className="text-[10.5px] font-bold text-slate-400">
+                                      {months[month - 1]} {year}
+                                    </span>
+                                  </div>
+
+                                  {empDetailLoading ? (
+                                    <div className="flex items-center justify-center py-8">
+                                      <RefreshCw size={18} className="animate-spin text-blue-500" />
+                                    </div>
+                                  ) : empRecords.length === 0 ? (
+                                    <p className="text-center text-xs text-slate-400 py-4">
+                                      No individual punch logs recorded for this employee in {months[month - 1]} {year}
+                                    </p>
+                                  ) : (
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5">
+                                      {empRecords
+                                        .sort((a, b) => (a.date < b.date ? -1 : 1))
+                                        .map((dr) => {
+                                          const inT = fmtTime(dr.punchInTime || dr.checkIn);
+                                          const outT = fmtTime(dr.punchOutTime || dr.checkOut);
+                                          const dStr = dur(dr.punchInTime || dr.checkIn, dr.punchOutTime || dr.checkOut, dr.totalHours);
+
+                                          return (
+                                            <div
+                                              key={dr._id || dr.date}
+                                              className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 shadow-2xs space-y-1.5 hover:shadow-xs transition-all"
+                                            >
+                                              <div className="flex items-center justify-between gap-1">
+                                                <span className="text-[10.5px] font-black text-slate-900 dark:text-white">
+                                                  {fmtDate(dr.date)}
+                                                </span>
+                                                <StatusBadge status={dr.status} />
+                                              </div>
+
+                                              <div className="pt-1 border-t border-slate-100 dark:border-slate-800 text-[10px] font-mono space-y-0.5">
+                                                <div className="flex justify-between items-center text-emerald-600 dark:text-emerald-400 font-bold">
+                                                  <span className="text-[9px] text-slate-400 font-sans">IN</span>
+                                                  <span>{inT}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-rose-600 dark:text-rose-400 font-bold">
+                                                  <span className="text-[9px] text-slate-400 font-sans">OUT</span>
+                                                  <span>{outT}</span>
+                                                </div>
+                                              </div>
+
+                                              {dStr !== "—" && (
+                                                <div className="text-[9.5px] text-sky-600 dark:text-sky-400 font-black font-mono pt-1 border-t border-slate-100 dark:border-slate-800 text-right">
+                                                  ⏱️ {dStr}
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
                       );
                     })}
-                  </div>
-                </div>
-              </>
-            )}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </div>
-        )}
-      </div>
+
+          {/* Monthly Attendance % Comparison Visual Card */}
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-2xs space-y-3.5">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                  <TrendingUp size={14} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Attendance % Fleet Comparison
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-medium">
+                    Employee compliance rate benchmarked against monthly target
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-lg">
+                Target: 80%+
+              </span>
+            </div>
+
+            <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+              {monthlyByEmp.map((emp) => {
+                const pct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
+                return (
+                  <div key={emp._id} className="flex items-center gap-3 text-xs">
+                    <span className="text-[11px] font-extrabold text-slate-900 dark:text-white w-40 truncate">
+                      {emp.name}
+                    </span>
+                    <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2.5 overflow-hidden shadow-inner">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${Math.min(pct, 100)}%`,
+                          background:
+                            pct >= 80
+                              ? "linear-gradient(90deg, #10B981, #059669)"
+                              : pct >= 60
+                              ? "linear-gradient(90deg, #F59E0B, #D97706)"
+                              : "linear-gradient(90deg, #F43F5E, #E11D48)",
+                        }}
+                      />
+                    </div>
+                    <span
+                      className={`text-[11px] font-black font-mono w-10 text-right ${
+                        pct >= 80
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : pct >= 60
+                          ? "text-amber-600 dark:text-amber-400"
+                          : "text-rose-600 dark:text-rose-400"
+                      }`}
+                    >
+                      {pct}%
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
