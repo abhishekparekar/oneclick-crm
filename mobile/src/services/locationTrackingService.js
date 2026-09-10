@@ -10,16 +10,16 @@ const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-// GPS points sync online to backend every 5 minutes.
-const BATCH_SYNC_INTERVAL_MS = 5 * 60 * 1000;
+// GPS points sync online to backend every 15 minutes.
+const BATCH_SYNC_INTERVAL_MS = 15 * 60 * 1000;
 
-// Configure Play Services location provider once
+// Configure location provider safely
 try {
   Geolocation.setRNConfiguration({
     skipPermissionRequests: false,
-    authorizationLevel: "always",
-    enableBackgroundLocationUpdates: true,
-    locationProvider: "playServices",
+    authorizationLevel: "auto",
+    enableBackgroundLocationUpdates: false,
+    locationProvider: "auto",
   });
 } catch (e) {
   console.warn("[LocationService] setRNConfiguration notice:", e?.message);
@@ -271,10 +271,10 @@ class LocationTrackingService {
           this.pollCurrentGpsLocationAsync().catch(() => {});
         }
 
-        // 4. Batch Upload queued points to cloud every 5 minutes OR if 100+ points accumulated
+        // 4. Batch Upload queued points to cloud every 15 minutes OR if 100+ points accumulated
         const msSinceLastSync = now - this.lastSyncTime;
         if ((msSinceLastSync >= BATCH_SYNC_INTERVAL_MS || this.memoryQueue.length >= 100) && !this.isSyncing) {
-          console.log(`[LocationService] 5-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since sync, ${this.memoryQueue.length} points)`);
+          console.log(`[LocationService] 15-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since sync, ${this.memoryQueue.length} points)`);
           this.syncQueuedLocations().catch(() => {});
         }
 
@@ -407,7 +407,7 @@ class LocationTrackingService {
     }
     this.syncIntervalTimer = setInterval(() => {
       if (this.isTracking) {
-        console.log("[LocationService] ⏰ Dedicated 5-minute cloud sync timer fired!");
+        console.log("[LocationService] ⏰ Dedicated 15-minute cloud sync timer fired!");
         this.syncQueuedLocations().catch(() => {});
       }
     }, BATCH_SYNC_INTERVAL_MS);

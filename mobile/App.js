@@ -18,6 +18,13 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  React.useEffect(() => {
+    try {
+      const NotificationService = require('./src/services/NotificationService').default;
+      NotificationService.requestPermissions().catch(() => {});
+    } catch (_) {}
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <SafeAreaProvider>

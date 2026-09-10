@@ -435,6 +435,24 @@ const ManagerTeamAttendanceDetailsScreen = ({ route, navigation }) => {
                 ) : null}
 
                 <TouchableOpacity
+                  style={styles.modalMapBtn}
+                  onPress={() => {
+                    const rec = selectedDayRecord;
+                    setSelectedDayRecord(null);
+                    navigation.navigate("EmployeeLocationTracking", {
+                      employeeId,
+                      employeeName,
+                      date: rec.date ? rec.date.slice(0, 10) : undefined,
+                      viewMode: "trail",
+                    });
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="map-outline" size={16} color="#1268D9" style={{ marginRight: 6 }} />
+                  <Text style={styles.modalMapBtnText}>Open Map & Route</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={styles.modalFullDetailsBtn}
                   onPress={() => {
                     const rec = selectedDayRecord;
@@ -623,6 +641,22 @@ const styles = StyleSheet.create({
   },
   modalRemarksTitle: { fontSize: 10.5, fontWeight: "800", color: "#475569" },
   modalRemarksText: { fontSize: 12, color: "#1E293B", marginTop: 2 },
+  modalMapBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#EFF6FF",
+    borderRadius: 10,
+    paddingVertical: 10,
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+  },
+  modalMapBtnText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#1268D9",
+  },
   modalFullDetailsBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -630,7 +664,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME_PRIMARY,
     borderRadius: 10,
     paddingVertical: 10,
-    marginTop: 14,
+    marginTop: 8,
   },
   modalFullDetailsBtnText: {
     fontSize: 12,

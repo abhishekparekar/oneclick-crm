@@ -74,6 +74,8 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
     }
   }
 
+  const notifId = String(data?.notificationId || `hrms_${Date.now()}_${Math.floor(Math.random() * 100000)}`);
+
   const message = {
     notification: {
       title,
@@ -85,11 +87,11 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
         title,
         body,
         sound: 'notice11',
-        channelId: 'oneclick_alerts_v4',
+        channelId: 'oneclick_alerts_v5',
         priority: 'high',
         defaultSound: false,
         defaultVibrateTimings: true,
-        icon: 'ic_launcher',
+        icon: 'ic_notification',
       },
     },
     apns: {
@@ -104,6 +106,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
       ...stringifiedData,
       title: String(title || ''),
       body: String(body || ''),
+      notificationId: notifId,
     },
     tokens,
   };

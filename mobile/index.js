@@ -18,7 +18,7 @@ try {
       if (title || body) {
         // Ensure channel exists with custom sound
         await notifee.createChannel({
-          id: 'oneclick_alerts_v4',
+          id: 'oneclick_alerts_v5',
           name: 'HRMS Notifications & Alerts',
           importance: AndroidImportance.HIGH,
           sound: 'notice11',
@@ -28,16 +28,20 @@ try {
           badge: true,
         });
 
+        const notifId = (data?.notificationId && String(data.notificationId).trim())
+          ? String(data.notificationId).trim()
+          : `hrms_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
         await notifee.displayNotification({
-          id: data?.notificationId || undefined,
+          id: notifId,
           title,
           body,
           data: data || {},
           android: {
-            channelId: 'oneclick_alerts_v4',
+            channelId: 'oneclick_alerts_v5',
             importance: AndroidImportance.HIGH,
             sound: 'notice11',
-            smallIcon: 'ic_launcher',
+            smallIcon: 'ic_notification',
             color: '#1268D9',
             vibrationPattern: [300, 500],
             pressAction: {

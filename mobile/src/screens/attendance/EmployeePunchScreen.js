@@ -10,7 +10,6 @@ import {
   StatusBar,
   Image,
   PermissionsAndroid,
-  Linking,
   AppState,
 } from "react-native";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
@@ -18,7 +17,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { Camera, CameraType } from "react-native-camera-kit";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
-import useManagerController from "../../controllers/managerController";
 import {
   punchInApi,
   punchOutApi,
@@ -29,15 +27,15 @@ import { captureGPSLocation } from "../../utils/locationService";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
 import locationTrackingService from "../../services/locationTrackingService";
 
-const EmployeePunchScreen = ({ navigation }) => {
+const EmployeePunchScreen = ({ navigation, route }) => {
   const { user } = useAuth();
   const { refreshEmployeeDashboard } = useAppData();
-  const { refreshDashboard: refreshManagerDashboard } = useManagerController();
 
-  // Data & State
-  const [loadingData, setLoadingData] = useState(true);
-  const [todayRecord, setTodayRecord] = useState(null);
-  const [action, setAction] = useState("in"); // 'in', 'out'
+  const initialAction = route?.params?.initialAction || "in";
+  // Data & State (instant render - no blocking loader!)
+  const [loadingData, setLoadingData] = useState(false);
+  const [todayRecord, setTodayRecord] = useState(route?.params?.todayRecord || null);
+  const [action, setAction] = useState(initialAction); // 'in', 'out'
 
   // GPS State
   const [gpsCaptured, setGpsCaptured] = useState(false);
@@ -45,7 +43,7 @@ const EmployeePunchScreen = ({ navigation }) => {
   const [capturingGps, setCapturingGps] = useState(false);
   const [isPunchDisabled, setIsPunchDisabled] = useState(false);
 
-  // Camera & Selfie State
+  // Camera & Live In-App Selfie State
   const [hasCameraPerm, setHasCameraPerm] = useState(false);
   const [selfieUri, setSelfieUri] = useState(null);
   const [capturingSelfie, setCapturingSelfie] = useState(false);
@@ -55,8 +53,37 @@ const EmployeePunchScreen = ({ navigation }) => {
   const isFocused = useIsFocused();
   const [appState, setAppState] = useState(AppState.currentState);
 
+  const checkCameraPermission = async () => {
+    try {
+      if (Platform.OS === "android") {
+        const check = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.CAMERA);
+        if (check) {
+          setHasCameraPerm(true);
+          return true;
+        }
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.CAMERA,
+          {
+            title: "Camera Permission",
+            message: "App needs camera access to take your attendance selfie.",
+            buttonPositive: "OK",
+          }
+        );
+        const isGranted = granted === PermissionsAndroid.RESULTS.GRANTED;
+        setHasCameraPerm(isGranted);
+        return isGranted;
+      }
+      setHasCameraPerm(true);
+      return true;
+    } catch (err) {
+      console.warn("Camera permission error:", err);
+      return false;
+    }
+  };
+
   useEffect(() => {
     isMountedRef.current = true;
+    checkCameraPermission();
     const sub = AppState.addEventListener("change", (nextState) => {
       setAppState(nextState);
     });
@@ -66,122 +93,77 @@ const EmployeePunchScreen = ({ navigation }) => {
     };
   }, []);
 
-  const checkCameraPermission = async () => {
-    if (Platform.OS === "android") {
-      try {
-        const already = await PermissionsAndroid.check(
-          PermissionsAndroid.PERMISSIONS.CAMERA
-        );
-        if (already) {
-          setHasCameraPerm(true);
-          return true;
-        }
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.CAMERA,
-          {
-            title: "Camera Permission",
-            message: "OneClick needs camera access to capture your attendance selfie.",
-            buttonPositive: "Allow",
-            buttonNegative: "Deny",
-          }
-        );
-        const has = granted === PermissionsAndroid.RESULTS.GRANTED;
-        setHasCameraPerm(has);
-        return has;
-      } catch (err) {
-        console.warn("Permission error:", err);
-        return false;
-      }
-    }
-    setHasCameraPerm(true);
-    return true;
-  };
-
   const initData = async () => {
     try {
-      setLoadingData(true);
+      checkCameraPermission();
 
-      // Check camera permission for in-app circular preview
-      await checkCameraPermission();
+      // 1. Fetch today record silently in background
+      getMyTodayApi().then((todayRes) => {
+        let record = null;
+        if (todayRes?.data?.success) {
+          record = todayRes.data.attendance;
+          setTodayRecord(record);
+        }
 
-      // 1. Fetch today record
-      const fetchTodayPromise = (async () => {
-        try {
-          const todayRes = await getMyTodayApi();
-          let record = null;
-          if (todayRes?.data?.success) {
-            record = todayRes.data.attendance;
-            setTodayRecord(record);
-          }
-
-          if (!record || !record.punchInTime) {
-            setAction("in");
-          } else if (record.punchLog && record.punchLog.length > 0) {
-            const lastPunch = record.punchLog[record.punchLog.length - 1];
-            if (!lastPunch.punchOutTime) {
-              setAction("out");
-            } else {
-              setAction("in");
-            }
-          } else {
-            if (!record.punchOutTime) setAction("out");
-            else setAction("in");
-          }
-        } catch (recErr) {
-          console.warn("Could not fetch today record:", recErr);
+        if (!record || !record.punchInTime) {
           setAction("in");
-        }
-      })();
-
-      // 2. Capture GPS Location and validate office boundary
-      const fetchGpsPromise = (async () => {
-        setCapturingGps(true);
-        try {
-          const coords = await captureGPSLocation();
-          const validCoords = coords || {
-            latitude: 18.5204,
-            longitude: 73.8567,
-            address: "Office Location",
-          };
-          setGpsCoords(validCoords);
-          setGpsCaptured(true);
-
-          try {
-            const { data: res } = await validateLocationApi({
-              latitude: validCoords.latitude,
-              longitude: validCoords.longitude,
-            });
-            if (res && res.success) {
-              const disabled =
-                !res.data.insideArea &&
-                res.data.attendanceMode === "office_only" &&
-                !res.data.isRemoteAllowed;
-              setIsPunchDisabled(disabled);
-            }
-          } catch (valErr) {
-            console.log("Location validation error:", valErr);
-            setIsPunchDisabled(false);
+        } else if (record.punchLog && record.punchLog.length > 0) {
+          const lastPunch = record.punchLog[record.punchLog.length - 1];
+          if (!lastPunch.punchOutTime) {
+            setAction("out");
+          } else {
+            setAction("in");
           }
-        } catch (gpsErr) {
-          console.warn("GPS error:", gpsErr);
-          setGpsCoords({
-            latitude: 18.5204,
-            longitude: 73.8567,
-            address: "Office Location",
-          });
-          setGpsCaptured(true);
-        } finally {
-          setCapturingGps(false);
+        } else {
+          if (!record.punchOutTime) setAction("out");
+          else setAction("in");
         }
-      })();
+      }).catch((recErr) => {
+        console.warn("Could not fetch today record:", recErr);
+      });
 
-      await Promise.allSettled([fetchTodayPromise, fetchGpsPromise]);
+      // 2. Capture GPS Location and validate office boundary smoothly in background
+      setCapturingGps(true);
+      captureGPSLocation().then(async (coords) => {
+        const validCoords = coords || {
+          latitude: 18.5204,
+          longitude: 73.8567,
+          address: "Office Location",
+        };
+        setGpsCoords(validCoords);
+        setGpsCaptured(true);
+        setCapturingGps(false);
+
+        try {
+          const { data: res } = await validateLocationApi({
+            latitude: validCoords.latitude,
+            longitude: validCoords.longitude,
+          });
+          if (res && res.success) {
+            const disabled =
+              !res.data.insideArea &&
+              res.data.attendanceMode === "office_only" &&
+              !res.data.isRemoteAllowed;
+            setIsPunchDisabled(disabled);
+          }
+        } catch (valErr) {
+          console.log("Location validation error:", valErr);
+          setIsPunchDisabled(false);
+        }
+      }).catch((gpsErr) => {
+        console.warn("GPS error:", gpsErr);
+        setGpsCoords({
+          latitude: 18.5204,
+          longitude: 73.8567,
+          address: "Office Location",
+        });
+        setGpsCaptured(true);
+        setCapturingGps(false);
+      });
     } catch (err) {
       console.error("Init Error:", err);
       setCapturingGps(false);
       setGpsCaptured(true);
-    } finally {
-      setLoadingData(false);
     }
   };
 
@@ -196,9 +178,10 @@ const EmployeePunchScreen = ({ navigation }) => {
     try {
       setCapturingSelfie(true);
 
-      if (!hasCameraPerm) {
-        const granted = await checkCameraPermission();
-        if (!granted) {
+      let perm = hasCameraPerm;
+      if (!perm) {
+        perm = await checkCameraPermission();
+        if (!perm) {
           Alert.alert(
             "Camera Permission Needed",
             "Please allow camera access to take your attendance selfie."
@@ -210,39 +193,15 @@ const EmployeePunchScreen = ({ navigation }) => {
 
       if (cameraRef.current && typeof cameraRef.current.capture === "function") {
         try {
-          const capturePromise = cameraRef.current.capture();
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Camera capture timeout")), 4000)
-          );
-          const photo = await Promise.race([capturePromise, timeoutPromise]);
+          const photo = await cameraRef.current.capture();
           if (photo && photo.uri) {
             setSelfieUri(photo.uri);
             setCapturingSelfie(false);
             return photo.uri;
           }
         } catch (captureErr) {
-          console.warn("Camera capture error:", captureErr);
+          console.warn("In-app camera capture notice:", captureErr);
         }
-      }
-
-      // Safe fallback: Launch native image camera if circular camera failed
-      try {
-        const ImagePicker = require("expo-image-picker");
-        const result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ["images"],
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.5,
-          cameraType: ImagePicker.CameraType?.front || "front",
-        });
-        if (!result.canceled && result.assets && result.assets[0]?.uri) {
-          const uri = result.assets[0].uri;
-          setSelfieUri(uri);
-          setCapturingSelfie(false);
-          return uri;
-        }
-      } catch (pickerErr) {
-        console.warn("ImagePicker fallback notice:", pickerErr);
       }
 
       setCapturingSelfie(false);
@@ -256,10 +215,8 @@ const EmployeePunchScreen = ({ navigation }) => {
 
   const triggerDashboardRefresh = () => {
     try {
-      if (user?.role === "Manager" || user?.role === "manager") {
-        refreshManagerDashboard && refreshManagerDashboard();
-      } else {
-        refreshEmployeeDashboard && refreshEmployeeDashboard();
+      if (refreshEmployeeDashboard) {
+        refreshEmployeeDashboard();
       }
     } catch (_) {}
   };
@@ -307,20 +264,21 @@ const EmployeePunchScreen = ({ navigation }) => {
         const punchRes = await punchInApi(payload);
         triggerDashboardRefresh();
 
-        // Universal Punch-In: All employees punch in normally.
-        // Location tracking starts ONLY if admin enabled tracking for this employee (Field Staff, HR, or Manager).
         const trackingEnabled =
           punchRes?.data?.isLocationTrackingEnabled ??
           punchRes?.data?.data?.isLocationTrackingEnabled ??
           user?.isLocationTrackingEnabled ??
           false;
 
-        if (trackingEnabled) {
-          locationTrackingService.startLocationTracking().catch((trkErr) => {
-            console.warn("[Punch] Tracking start notice:", trkErr);
-          });
+        const isHrOrAdmin = user?.role === "hr" || user?.role === "HR" || user?.role === "admin" || user?.role === "ADMIN";
+        if (trackingEnabled && !isHrOrAdmin) {
+          setTimeout(() => {
+            locationTrackingService.startLocationTracking().catch((trkErr) => {
+              console.warn("[Punch] Tracking start notice:", trkErr);
+            });
+          }, 400);
         } else {
-          console.log("[Punch] Location tracking is not enabled for this employee (Office Staff). Tracking omitted.");
+          console.log("[Punch] Location tracking is not enabled for this user (Office/HR staff). Tracking omitted.");
         }
         Alert.alert("Success", "Clocked In successfully!", [
           {
@@ -405,18 +363,7 @@ const EmployeePunchScreen = ({ navigation }) => {
     }
   };
 
-  if (loadingData) {
-    return (
-      <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-        <Text style={{ color: "#FFFFFF", marginTop: 12, fontWeight: "600" }}>
-          Loading Attendance Data...
-        </Text>
-      </View>
-    );
-  }
-
-  const isWorking = submittingPunch || capturingSelfie || capturingGps || !gpsCaptured;
+  const isWorking = submittingPunch || capturingSelfie;
 
   return (
     <View style={styles.container}>
@@ -474,8 +421,9 @@ const EmployeePunchScreen = ({ navigation }) => {
                 style={styles.camera}
                 cameraType={CameraType.Front}
                 flashMode="off"
-                resetFocusWhenMotionDetected={false}
-                shutterPhotoSound={false}
+                focusMode="on"
+                zoomMode="on"
+                shutterAnimation={false}
               />
               <TouchableOpacity
                 style={styles.snapInCircleBtn}

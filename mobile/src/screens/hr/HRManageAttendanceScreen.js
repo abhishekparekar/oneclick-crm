@@ -23,6 +23,15 @@ import api from "../../api/api";
 import HRHeader from "../../components/HRHeader";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 import DashboardSkeleton from "../../components/DashboardSkeleton";
+import AttendanceDatePickerModal from "../../components/AttendanceDatePickerModal";
+
+const getTodayStr = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
 const HRManageAttendanceScreen = ({ navigation }) => {
   const { user } = useAuth();
@@ -31,7 +40,9 @@ const HRManageAttendanceScreen = ({ navigation }) => {
   const isManager = user?.role === "Manager";
   const isAdmin = user?.role === "CompanyAdmin";
 
-  const [filterDate, setFilterDate] = useState(new Date().toISOString().slice(0, 10));
+  const todayStr = getTodayStr();
+  const [filterDate, setFilterDate] = useState(todayStr);
+  const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
 
   const [editModalVisible, setEditModalVisible] = useState(false);
@@ -180,6 +191,23 @@ const HRManageAttendanceScreen = ({ navigation }) => {
             <Text style={styles.timeDivider}>|</Text>
             <Text style={styles.timeText}>Out: {outTime}</Text>
           </View>
+
+          <TouchableOpacity
+            style={styles.openMapBtn}
+            onPress={(e) => {
+              e.stopPropagation?.();
+              navigation.navigate("EmployeeLocationTracking", {
+                employeeId: item.employee._id,
+                employeeName: fullName,
+                date: filterDate,
+                viewMode: "trail",
+              });
+            }}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="map-outline" size={12} color="#1268D9" style={{ marginRight: 4 }} />
+            <Text style={styles.openMapBtnText}>Open Map</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -205,13 +233,33 @@ const HRManageAttendanceScreen = ({ navigation }) => {
 
               <View>
                 <Text style={styles.locationText}>{user?.companyName || "Main Branch (HQ)"}</Text>
-                <Text style={styles.bannerSubtext}>Today: {new Date(filterDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</Text>
+                <TouchableOpacity
+                  onPress={() => setCalendarModalVisible(true)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.bannerSubtext}>
+                    {filterDate === todayStr ? "Today: " : "Date: "}
+                    {new Date(filterDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
 
-            <TouchableOpacity onPress={() => refetch()} activeOpacity={0.7} style={styles.refreshBtn}>
-              <Ionicons name="refresh-outline" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {/* Single Calendar Icon for Date Selection */}
+              <TouchableOpacity
+                onPress={() => setCalendarModalVisible(true)}
+                activeOpacity={0.7}
+                style={styles.refreshBtn}
+                accessibilityLabel="Select Date"
+              >
+                <Ionicons name="calendar-outline" size={17} color="#FFFFFF" />
+              </TouchableOpacity>
+
+              <TouchableOpacity onPress={() => refetch()} activeOpacity={0.7} style={styles.refreshBtn}>
+                <Ionicons name="refresh-outline" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Metrics Grid */}
@@ -323,6 +371,13 @@ const HRManageAttendanceScreen = ({ navigation }) => {
           />
         )}
       </View>
+
+      <AttendanceDatePickerModal
+        visible={calendarModalVisible}
+        selectedDate={filterDate}
+        onSelectDate={(date) => setFilterDate(date)}
+        onClose={() => setCalendarModalVisible(false)}
+      />
     </View>
   );
 };
@@ -536,6 +591,22 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: "#CBD5E1",
     marginHorizontal: 4,
+  },
+  openMapBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    marginTop: 5,
+  },
+  openMapBtnText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 10,
+    color: "#1268D9",
   },
   emptyContainer: {
     alignItems: "center",

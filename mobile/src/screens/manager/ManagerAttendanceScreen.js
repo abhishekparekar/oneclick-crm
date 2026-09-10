@@ -334,7 +334,12 @@ const ManagerAttendanceScreen = ({ navigation }) => {
                         styles.punchBtn,
                         { backgroundColor: isCurrentlyPunchedIn ? "#dc2626" : "#C2410C" },
                       ]}
-                      onPress={() => navigation.navigate("CheckInCheckOut")}
+                      onPress={() =>
+                        navigation.navigate("CheckInCheckOut", {
+                          initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                          todayRecord,
+                        })
+                      }
                       activeOpacity={0.85}
                     >
                       <Ionicons

@@ -280,17 +280,18 @@ const EmployeeDailyAttendanceScreen = ({ route, navigation }) => {
           <TouchableOpacity
             style={styles.locationPill}
             onPress={() => {
-              const loc = currentRecord?.punchInLocation || currentRecord?.location;
-              if (loc && (loc.latitude || loc.lat)) {
-                Alert.alert("Recorded Location", `Lat: ${loc.latitude || loc.lat}\nLong: ${loc.longitude || loc.lng}`);
-              } else {
-                Alert.alert("GPS Info", "No GPS coordinates logged for this entry.");
-              }
+              const targetDate = typeof date === "string" ? date.slice(0, 10) : new Date(date).toISOString().slice(0, 10);
+              navigation.navigate("EmployeeLocationTracking", {
+                employeeId: employee._id,
+                employeeName: empName,
+                date: targetDate,
+                viewMode: "trail",
+              });
             }}
             activeOpacity={0.8}
           >
-            <Ionicons name="location-sharp" size={13} color="#FFFFFF" />
-            <Text style={styles.locationPillText}>Location</Text>
+            <Ionicons name="map-outline" size={13} color="#FFFFFF" style={{ marginRight: 4 }} />
+            <Text style={styles.locationPillText}>Open Map</Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>

@@ -51,9 +51,24 @@ class NotificationService {
 
         // Create high importance notification channel with custom chime sound
         try {
+          try {
+            await notifee.deleteChannel('oneclick_alerts_v4');
+          } catch (_) {}
+
+          await notifee.createChannel({
+            id: 'oneclick_alerts_v5',
+            name: 'HRMS Notifications & Alerts',
+            importance: AndroidImportance.HIGH,
+            sound: 'notice11',
+            vibration: true,
+            vibrationPattern: [300, 500],
+            lights: true,
+            badge: true,
+          });
+
           await notifee.createChannel({
             id: 'oneclick_alerts_v4',
-            name: 'HRMS Notifications & Alerts',
+            name: 'HRMS Notifications & Alerts (v4)',
             importance: AndroidImportance.HIGH,
             sound: 'notice11',
             vibration: true,
@@ -146,16 +161,20 @@ class NotificationService {
       const title = notification?.title || data?.title || 'One Click HRMS';
       const body = notification?.body || data?.body || '';
 
+      const notifId = (data?.notificationId && String(data.notificationId).trim()) 
+        ? String(data.notificationId).trim() 
+        : `hrms_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+
       await notifee.displayNotification({
-        id: data?.notificationId || undefined,
+        id: notifId,
         title,
         body,
         data: data || {},
         android: {
-          channelId: 'oneclick_alerts_v4',
+          channelId: 'oneclick_alerts_v5',
           importance: AndroidImportance.HIGH,
           sound: 'notice11', // Distinctive HRMS sound chime
-          smallIcon: 'ic_launcher',
+          smallIcon: 'ic_notification',
           color: '#1268D9',
           vibrationPattern: [300, 500],
           pressAction: {

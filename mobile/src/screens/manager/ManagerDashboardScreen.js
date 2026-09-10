@@ -219,15 +219,23 @@ const ManagerDashboardScreen = ({ navigation }) => {
       const last = todayRecord.punchLog[todayRecord.punchLog.length - 1];
       if (!last.punchOutTime) {
         isPunchedIn = true;
-        punchInTimeStr = new Date(last.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        punchInTimeStr = last.punchInTime
+          ? new Date(last.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+          : "--:--";
         punchSub = `In since ${punchInTimeStr}`;
       } else {
+        if (last.punchInTime) {
+          punchInTimeStr = new Date(last.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        }
         punchSub = `Out · ${formatHours(todayRecord.totalHours)}`;
       }
     } else if (todayRecord.punchInTime && !todayRecord.punchOutTime) {
       isPunchedIn = true;
       punchInTimeStr = new Date(todayRecord.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       punchSub = `In since ${punchInTimeStr}`;
+    } else if (todayRecord.punchInTime && todayRecord.punchOutTime) {
+      punchInTimeStr = new Date(todayRecord.punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      punchSub = `Out · ${formatHours(todayRecord.totalHours)}`;
     }
   }
 
@@ -342,7 +350,12 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       styles.punchBtn,
                       isPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
                     ]}
-                    onPress={() => navigation.navigate("CheckInCheckOut")}
+                    onPress={() =>
+                      navigation.navigate("CheckInCheckOut", {
+                        initialAction: isPunchedIn ? "out" : "in",
+                        todayRecord,
+                      })
+                    }
                     activeOpacity={0.85}
                   >
                     <Ionicons

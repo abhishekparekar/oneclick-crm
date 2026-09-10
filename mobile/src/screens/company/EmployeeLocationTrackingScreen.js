@@ -22,7 +22,7 @@ import { COLORS } from "../../theme/tokens";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-const EmployeeLocationTrackingScreen = ({ navigation }) => {
+const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   const webViewRef = useRef(null);
 
   // Mode: "live" (all fleet) or "trail" (selected employee route)
@@ -41,7 +41,7 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     distanceKm: 0,
     totalPoints: 0,
   });
-  const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // today, yesterday
+  const [selectedDateFilter, setSelectedDateFilter] = useState("today"); // today, yesterday, or YYYY-MM-DD
 
   // Helper to post messages into the Leaflet WebView
   const postToMap = (data) => {
@@ -61,9 +61,12 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
         selectedId: selectedEmployee?._id,
       });
     } else if (viewMode === "trail" && trailData.trail) {
+      const activeTrail = (trailData.cleanTrail && trailData.cleanTrail.length > 0)
+        ? trailData.cleanTrail
+        : trailData.trail;
       postToMap({
         type: "UPDATE_TRAIL",
-        trail: trailData.trail,
+        trail: activeTrail,
         halts: trailData.halts || [],
         employeeName: selectedEmployee?.name,
         startTime: trailData.startTime,
@@ -109,17 +112,10 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchLiveLocations();
-      const interval = setInterval(() => {
-        fetchLiveLocations(true);
-      }, 4000); // 4s auto-refresh for real-time live map
-      return () => clearInterval(interval);
-    }, [mapReady, viewMode])
-  );
-
   const getDateValue = (filter) => {
+    if (filter && typeof filter === "string" && /^\d{4}-\d{2}-\d{2}$/.test(filter)) {
+      return filter;
+    }
     const d = new Date();
     if (filter === "yesterday") {
       d.setDate(d.getDate() - 1);
@@ -140,9 +136,12 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       setTrailData(data);
 
       if (mapReady) {
+        const activeTrail = (data.cleanTrail && data.cleanTrail.length > 0)
+          ? data.cleanTrail
+          : (data.trail || []);
         postToMap({
           type: "UPDATE_TRAIL",
-          trail: data.trail || [],
+          trail: activeTrail,
           halts: data.halts || [],
           employeeName: selectedEmployee?.name,
           startTime: data.startTime,
@@ -153,8 +152,36 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
       console.warn("[LocationTracking] Trail fetch error:", err.message);
     } finally {
       setLoadingTrail(false);
+      setRefreshing(false);
     }
   };
+
+  // Manual refresh only - no auto interval polling
+  const handleManualRefresh = () => {
+    if (viewMode === "trail" && selectedEmployee?._id) {
+      fetchTrailHistory(selectedEmployee._id, getDateValue(selectedDateFilter));
+    } else {
+      fetchLiveLocations(true);
+    }
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      const params = route?.params;
+      if (params?.employeeId) {
+        setViewMode("trail");
+        const empId = typeof params.employeeId === "object" ? params.employeeId._id : params.employeeId;
+        const targetDate = params.date || "today";
+        setSelectedDateFilter(targetDate);
+        const empName = params.employeeName || "Employee";
+        setSelectedEmployee({ _id: empId, name: empName });
+        fetchTrailHistory(empId, getDateValue(targetDate));
+      } else {
+        fetchLiveLocations();
+      }
+      // Manual refresh only: NO setInterval auto-refresh
+    }, [route?.params])
+  );
 
   const handleSelectEmployee = (emp) => {
     setSelectedEmployee(emp);
@@ -707,10 +734,10 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
 
           <TouchableOpacity
             style={styles.iconCircleBtn}
-            onPress={() => fetchLiveLocations(true)}
+            onPress={handleManualRefresh}
             activeOpacity={0.7}
           >
-            {refreshing ? (
+            {refreshing || loadingTrail || loadingLive ? (
               <ActivityIndicator size="small" color="#2563EB" />
             ) : (
               <Ionicons name="refresh" size={19} color="#2563EB" />
@@ -829,6 +856,18 @@ const EmployeeLocationTrackingScreen = ({ navigation }) => {
                   Yesterday
                 </Text>
               </TouchableOpacity>
+
+              {selectedDateFilter !== "today" && selectedDateFilter !== "yesterday" && (
+                <TouchableOpacity
+                  style={[styles.dateChip, styles.dateChipActive]}
+                  onPress={() => handleDateChange(selectedDateFilter)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.dateChipText, styles.dateChipTextActive]}>
+                    {selectedDateFilter}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Trail Metrics */}

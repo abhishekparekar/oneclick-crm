@@ -204,7 +204,7 @@ const HRDashboardScreen = ({ navigation }) => {
       if (isRefresh) {
         setRefreshing(true);
         if (refreshUserProfile) await refreshUserProfile().catch(() => {});
-      } else {
+      } else if (!data) {
         setLoading(true);
       }
       setError("");
@@ -404,7 +404,12 @@ const HRDashboardScreen = ({ navigation }) => {
                 styles.checkInBtn,
                 isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
               ]} 
-              onPress={() => navigation.navigate("CheckInCheckOut")} 
+              onPress={() =>
+                navigation.navigate("CheckInCheckOut", {
+                  initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                  todayRecord: todayRecord,
+                })
+              } 
               activeOpacity={0.9}
             >
               {isCurrentlyPunchedIn ? (

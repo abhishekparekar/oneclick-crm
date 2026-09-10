@@ -437,7 +437,12 @@ export default function EmployeeDashboard({ navigation }) {
             {canAccessAttendance && (
               <TouchableOpacity
                 style={styles.heroPunchBtn}
-                onPress={() => navigation.navigate("CheckInCheckOut")}
+                onPress={() =>
+                  navigation.navigate("CheckInCheckOut", {
+                    initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                    todayRecord: todayAttendance,
+                  })
+                }
                 activeOpacity={0.85}
               >
                 <View
@@ -587,7 +592,16 @@ export default function EmployeeDashboard({ navigation }) {
               )}
 
               {canAccessAttendance && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CheckInCheckOut")} activeOpacity={0.7}>
+                <TouchableOpacity
+                  style={styles.quickAccessItem}
+                  onPress={() =>
+                    navigation.navigate("CheckInCheckOut", {
+                      initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                      todayRecord: todayAttendance,
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
                   <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
                     <Ionicons name="time" size={20} color="#10B981" />
                   </View>
