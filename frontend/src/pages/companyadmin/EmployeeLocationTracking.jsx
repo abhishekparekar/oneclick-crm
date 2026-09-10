@@ -55,7 +55,6 @@ const EmployeeLocationTracking = () => {
   const [statusFilter, setStatusFilter] = useState("all"); // "all" | "active" | "halt" | "moving" | "hr_mgr" | "low_bat"
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString("en-CA"));
-  const [trailPathMode, setTrailPathMode] = useState("pure"); // "pure" (Pure GPS) | "road" (Road Snapped) | "both" (Compare Both)
   const [mapReady, setMapReady] = useState(false);
   const [isRadarSweepActive, setIsRadarSweepActive] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -489,12 +488,12 @@ const EmployeeLocationTracking = () => {
           ? trailData.trail
           : trailData.cleanTrail || [];
 
-      const activePoints = trailPathMode === "road" ? roadPoints : rawCleanPoints;
+      const activePoints = rawCleanPoints;
       const isStationary = trailData.isStationaryAllDay || trailData.distanceKm === 0 || activePoints.length < 2;
 
       if (isStationary) {
         // Employee stayed at one location all day: DO NOT DRAW SPIDERWEB LINES!
-        const pt = activePoints[0] || roadPoints[0];
+        const pt = activePoints[0];
         const stationaryIcon = L.divIcon({
           html: `
             <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
@@ -574,72 +573,28 @@ const EmployeeLocationTracking = () => {
         }
       };
 
-      const roadLatLngs = roadPoints.map((pt) => [pt.latitude, pt.longitude]);
       const pureLatLngs = rawCleanPoints.map((pt) => [pt.latitude, pt.longitude]);
 
-      if (trailPathMode === "pure") {
-        // 🎯 1. Pure GPS Actual Route: Directly from phone sensors without OSRM artificial detour
-        const polylineGlow = L.polyline(pureLatLngs, {
-          color: "#064E3B",
-          weight: 8,
-          opacity: 0.45,
-          lineJoin: "round",
-        });
-        polylineLayerRef.current.addLayer(polylineGlow);
+      // 🎯 Pure GPS Actual Route: Directly from phone sensors without OSRM artificial detour
+      const polylineGlow = L.polyline(pureLatLngs, {
+        color: "#064E3B",
+        weight: 8,
+        opacity: 0.45,
+        lineJoin: "round",
+      });
+      polylineLayerRef.current.addLayer(polylineGlow);
 
-        const polyline = L.polyline(pureLatLngs, {
-          color: "#10B981",
-          weight: 5,
-          opacity: 0.95,
-          smoothFactor: 1.0,
-          lineJoin: "round",
-          lineCap: "round",
-        });
-        polylineLayerRef.current.addLayer(polyline);
+      const polyline = L.polyline(pureLatLngs, {
+        color: "#10B981",
+        weight: 5,
+        opacity: 0.95,
+        smoothFactor: 1.0,
+        lineJoin: "round",
+        lineCap: "round",
+      });
+      polylineLayerRef.current.addLayer(polyline);
 
-        drawArrows(rawCleanPoints);
-      } else if (trailPathMode === "road") {
-        // 🛣️ 2. Road Snapped Route: Aligned to OpenStreetMap road network in Royal Blue
-        const polylineGlow = L.polyline(roadLatLngs, {
-          color: "#1E40AF",
-          weight: 8,
-          opacity: 0.5,
-          lineJoin: "round",
-        });
-        polylineLayerRef.current.addLayer(polylineGlow);
-
-        const polyline = L.polyline(roadLatLngs, {
-          color: "#2563EB",
-          weight: 5,
-          opacity: 0.95,
-          smoothFactor: 1.2,
-          lineJoin: "round",
-          lineCap: "round",
-        });
-        polylineLayerRef.current.addLayer(polyline);
-
-        drawArrows(roadPoints);
-      } else if (trailPathMode === "both") {
-        // ⚡ 3. Both Modes Together: Solid Royal Blue road route with Emerald accent
-        const polylineRoad = L.polyline(roadLatLngs, {
-          color: "#2563EB",
-          weight: 6,
-          opacity: 0.85,
-          lineJoin: "round",
-        });
-        polylineLayerRef.current.addLayer(polylineRoad);
-
-        const polylinePure = L.polyline(pureLatLngs, {
-          color: "#10B981",
-          weight: 4,
-          opacity: 0.95,
-          lineJoin: "round",
-          lineCap: "round",
-        });
-        polylineLayerRef.current.addLayer(polylinePure);
-
-        drawArrows(rawCleanPoints);
-      }
+      drawArrows(rawCleanPoints);
 
       // Start Marker (Green Flag)
       const startPt = activePoints[0];
@@ -745,7 +700,7 @@ const EmployeeLocationTracking = () => {
         mapInstanceRef.current?.invalidateSize({ pan: false });
       }, 200);
     }
-  }, [employees, viewMode, trailData, selectedEmployee, mapReady, trailPathMode]);
+  }, [employees, viewMode, trailData, selectedEmployee, mapReady]);
 
   // Center on employee when clicked in list
   const handleSelectStaff = (emp) => {
@@ -962,15 +917,13 @@ const EmployeeLocationTracking = () => {
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
                   एकूण प्रवास (Travel)
                 </p>
-                <h3 className="text-lg sm:text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 tracking-tight truncate">
-                  {trailPathMode === "road" && trailData?.roadDistanceKm
-                    ? `${trailData.roadDistanceKm} km`
-                    : trailData?.pureDistanceKm
+                <h3 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
+                  {trailData?.pureDistanceKm
                     ? `${trailData.pureDistanceKm} km`
                     : trailData?.distanceText || `${trailData?.distanceKm || 0} km`}
                 </h3>
-                <p className="text-[10px] font-bold text-muted-foreground mt-0.5 truncate">
-                  {trailPathMode === "road" ? "🛣️ Road Network" : "🎯 Pure GPS"}
+                <p className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                  🎯 Pure GPS Telemetry
                 </p>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center border border-blue-500/20 flex-shrink-0 group-hover:scale-105 transition-transform">
@@ -1181,45 +1134,11 @@ const EmployeeLocationTracking = () => {
             </div>
           </div>
 
-          {/* Route Mode Switcher (In Trail Mode) */}
+          {/* Pure GPS Telemetry Indicator */}
           {viewMode === "trail" && (
-            <div className="absolute top-14 right-14 z-20 bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-border/80 p-1 rounded-xl shadow-md flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setTrailPathMode("road")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
-                  trailPathMode === "road"
-                    ? "bg-blue-600 text-white shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="रस्त्यानुसार जोडलेला अचूक मार्ग (Road Snapped Network)"
-              >
-                🛣️ Road
-              </button>
-              <button
-                type="button"
-                onClick={() => setTrailPathMode("pure")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
-                  trailPathMode === "pure"
-                    ? "bg-emerald-600 text-white shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="कच्चा फोन सेन्सर डेटा (Raw Sensor GPS)"
-              >
-                🎯 Pure GPS
-              </button>
-              <button
-                type="button"
-                onClick={() => setTrailPathMode("both")}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold transition-all cursor-pointer ${
-                  trailPathMode === "both"
-                    ? "bg-purple-600 text-white shadow-xs"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                title="दोन्ही मार्ग एकत्र पहा (Compare Both)"
-              >
-                ⚡ Both
-              </button>
+            <div className="absolute top-14 right-14 z-20 bg-background/90 dark:bg-slate-900/90 backdrop-blur-md border border-emerald-500/30 px-3 py-1.5 rounded-xl shadow-md flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span>🎯 Pure GPS Telemetry</span>
             </div>
           )}
 
@@ -1455,10 +1374,8 @@ const EmployeeLocationTracking = () => {
                 {selectedEmployee && (
                   <div className="flex items-center gap-2 pl-2 border-l border-border">
                     <span className="font-black text-foreground">{selectedEmployee.name}:</span>
-                    <span className="font-extrabold text-blue-600 dark:text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20 text-[11px]">
-                      {trailPathMode === "road" && trailData?.roadDistanceKm
-                        ? `${trailData.roadDistanceKm} km (Road)`
-                        : trailData?.pureDistanceKm
+                    <span className="font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20 text-[11px]">
+                      {trailData?.pureDistanceKm
                         ? `${trailData.pureDistanceKm} km (Pure GPS)`
                         : trailData?.distanceText || `${trailData?.distanceKm || 0} km`} प्रवास
                     </span>

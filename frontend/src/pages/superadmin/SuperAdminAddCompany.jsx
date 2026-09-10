@@ -65,7 +65,7 @@ const SuperAdminAddCompany = () => {
     return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
   };
 
-  const [formData, setFormData] = useState({
+  const createInitialFormData = () => ({
     companyName: "",
     ownerName: "",
     ownerEmail: "",
@@ -84,7 +84,10 @@ const SuperAdminAddCompany = () => {
     trialDays: 7,
     startDate: getTodayStr(),
     endDate: getFutureDateStr(7),
-    subscribedModules: ["attendance", "leave", "payroll", "tasks", "projects", "reports", "performance", "recruitment", "mobileApp", "webAdmin", "leads"],
+    subscribedModules: [
+      "attendance", "leave", "payroll", "tasks", "projects", 
+      "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
+    ],
     moduleLimits: {
       attendance: 0,
       leave: 0,
@@ -93,12 +96,15 @@ const SuperAdminAddCompany = () => {
       leads: 0,
       projects: 0,
       reports: 0,
+      location_tracking: 0,
     },
     adminName: "",
     adminEmail: "",
     adminPhone: "",
     adminPassword: "",
   });
+
+  const [formData, setFormData] = useState(createInitialFormData);
 
   const { data: plansData, isLoading: plansLoading } = useQuery({
     queryKey: ["superAdminPlans"],
@@ -133,8 +139,19 @@ const SuperAdminAddCompany = () => {
         endDate: getFutureDateStr(days, prev.startDate || getTodayStr()),
         subscribedModules: (Array.isArray(first.modules) && first.modules.length > 0)
           ? ensureDefaultAndSuiteModules(first.modules)
-          : prev.subscribedModules,
-        moduleLimits: first.moduleLimits || prev.moduleLimits || {},
+          : (prev.subscribedModules || []),
+        moduleLimits: {
+          attendance: 0,
+          leave: 0,
+          payroll: 0,
+          tasks: 0,
+          leads: 0,
+          projects: 0,
+          reports: 0,
+          location_tracking: 0,
+          ...(prev.moduleLimits || {}),
+          ...(first.moduleLimits || {})
+        },
       }));
     }
   }, [activePlans]);
@@ -154,8 +171,19 @@ const SuperAdminAddCompany = () => {
         endDate: getFutureDateStr(days, prev.startDate || getTodayStr()),
         subscribedModules: (Array.isArray(plan.modules) && plan.modules.length > 0)
           ? ensureDefaultAndSuiteModules(plan.modules)
-          : prev.subscribedModules,
-        moduleLimits: plan.moduleLimits || prev.moduleLimits || {},
+          : (prev.subscribedModules || []),
+        moduleLimits: {
+          attendance: 0,
+          leave: 0,
+          payroll: 0,
+          tasks: 0,
+          leads: 0,
+          projects: 0,
+          reports: 0,
+          location_tracking: 0,
+          ...(prev.moduleLimits || {}),
+          ...(plan.moduleLimits || {})
+        },
       }));
     } else {
       setFormData(prev => ({
@@ -334,12 +362,7 @@ const SuperAdminAddCompany = () => {
               type="button"
               onClick={() => {
                 setSuccessData(null);
-                setFormData({
-                  companyName: "", ownerName: "", ownerEmail: "", ownerPhone: "",
-                  email: "", phone: "", address: "", city: "", state: "", pincode: "",
-                  industryType: "Technology", planName: "Trial", employeeLimit: 50,
-                  adminName: "", adminEmail: "", adminPhone: "", adminPassword: "",
-                });
+                setFormData(createInitialFormData());
               }}
               className="px-5 py-2.5 rounded-xl border border-sa-border/30 dark:border-white/10 bg-sa-bg text-xs font-extrabold text-sa-text hover:bg-sa-border/40 transition-all cursor-pointer"
             >
@@ -751,13 +774,13 @@ const SuperAdminAddCompany = () => {
                   </p>
                 </div>
                 <span className="text-xs font-mono font-bold text-[#f59e0b]">
-                  {DISPLAY_MODULES.filter(m => formData.subscribedModules.includes(m.key)).length} / {DISPLAY_MODULES.length} Selected
+                  {(DISPLAY_MODULES || []).filter(m => (formData.subscribedModules || []).includes(m.key)).length} / {DISPLAY_MODULES.length} Selected
                 </span>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 p-3.5 rounded-xl bg-sa-bg/60 border border-sa-border/30 dark:border-white/10">
                 {DISPLAY_MODULES.map((item) => {
-                  const isChecked = formData.subscribedModules.includes(item.key);
+                  const isChecked = (formData.subscribedModules || []).includes(item.key);
                   return (
                     <label 
                       key={item.key} 
@@ -792,7 +815,7 @@ const SuperAdminAddCompany = () => {
               </div>
 
               {/* Granular Seat Allocation per Module */}
-              {formData.subscribedModules.some((m) => ["tasks", "leads", "projects", "attendance", "reports", "location_tracking"].includes(m)) && (
+              {(formData.subscribedModules || []).some((m) => ["tasks", "leads", "projects", "attendance", "reports", "location_tracking"].includes(m)) && (
                 <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                   <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                     <Users size={13} className="text-[#f59e0b]" />
@@ -802,7 +825,7 @@ const SuperAdminAddCompany = () => {
                     Set how many employees can access each module. Leave 0 to allow all company seats.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {MODULE_CAP_ITEMS.filter((m) => formData.subscribedModules.includes(m.key)).map((m) => (
+                    {MODULE_CAP_ITEMS.filter((m) => (formData.subscribedModules || []).includes(m.key)).map((m) => (
                       <div key={m.key} className="bg-sa-surface p-2.5 rounded-xl border border-sa-border/40 dark:border-white/10">
                         <label
                           className="text-[10px] font-black uppercase tracking-wider block mb-1"
@@ -820,9 +843,9 @@ const SuperAdminAddCompany = () => {
                           className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
                         />
                         <p className="text-[9px] text-sa-text-secondary mt-1">
-                          {formData.moduleLimits?.[m.key] > 0
-                            ? `Max ${formData.moduleLimits[m.key]} employee seats`
-                            : `Max ${formData.employeeLimit} employee seats`}
+                          {Number(formData.moduleLimits?.[m.key]) > 0
+                            ? `Max ${formData.moduleLimits?.[m.key]} employee seats`
+                            : `Max ${formData.employeeLimit || 10} employee seats`}
                         </p>
                       </div>
                     ))}
@@ -856,11 +879,11 @@ const SuperAdminAddCompany = () => {
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
                 <span className="text-sa-text-secondary font-semibold">Seat Quota:</span>
-                <span className="font-black text-sa-text">{formData.employeeLimit} Seats</span>
+                <span className="font-black text-sa-text">{formData.employeeLimit || 0} Seats</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
                 <span className="text-sa-text-secondary font-semibold">Subscription Days:</span>
-                <span className="font-black text-sa-text">{formData.trialDays} Days</span>
+                <span className="font-black text-sa-text">{formData.trialDays || 0} Days</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
                 <span className="text-sa-text-secondary font-semibold">Valid Period:</span>
@@ -870,12 +893,12 @@ const SuperAdminAddCompany = () => {
                 <div className="flex justify-between mb-1.5">
                   <span className="text-sa-text-secondary font-semibold">Enabled Modules:</span>
                   <span className="font-bold text-[#f59e0b]">
-                    {DISPLAY_MODULES.filter(m => formData.subscribedModules.includes(m.key)).length} Active
+                    {(DISPLAY_MODULES || []).filter(m => (formData.subscribedModules || []).includes(m.key)).length} Active
                   </span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {DISPLAY_MODULES
-                    .filter(m => formData.subscribedModules.includes(m.key))
+                  {(DISPLAY_MODULES || [])
+                    .filter(m => (formData.subscribedModules || []).includes(m.key))
                     .map((item) => (
                       <span key={item.key} className="px-1.5 py-0.5 rounded bg-sa-bg text-[9.5px] font-extrabold uppercase text-sa-text-secondary border border-sa-border/40">
                         {item.label || item.key}

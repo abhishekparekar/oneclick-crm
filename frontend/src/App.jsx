@@ -4,6 +4,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { ToastProvider } from "./components/leads/Toast";
 import AppRoutes from "./routes/AppRoutes";
 import { Toaster } from "react-hot-toast";
+import ErrorBoundary from "./components/common/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,16 +19,18 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <ToastProvider>
-            <AppRoutes />
-            <Toaster position="top-right" reverseOrder={false} />
-          </ToastProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <ToastProvider>
+              <AppRoutes />
+              <Toaster position="top-right" reverseOrder={false} />
+            </ToastProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
