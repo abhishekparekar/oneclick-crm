@@ -16,12 +16,19 @@ const AppNavigator = () => {
   
   useEffect(() => {
     if (isAuthenticated) {
-      NotificationService.requestPermissions()
-        .then(() => NotificationService.getFCMToken())
-        .catch(() => {});
-      const unsubscribeOnMessage = NotificationService.onMessage();
-      const unsubscribeRefresh = NotificationService.listenForTokenRefresh();
-      NotificationService.setupInteractions(navigationRef);
+      let unsubscribeOnMessage = () => {};
+      let unsubscribeRefresh = () => {};
+
+      try {
+        NotificationService.requestPermissions()
+          .then(() => NotificationService.getFCMToken())
+          .catch(() => {});
+        unsubscribeOnMessage = NotificationService.onMessage() || (() => {});
+        unsubscribeRefresh = NotificationService.listenForTokenRefresh() || (() => {});
+        NotificationService.setupInteractions(navigationRef);
+      } catch (e) {
+        console.warn("[AppNavigator] Notification setup notice:", e?.message);
+      }
       
       // Auto-refresh profile & permissions whenever app comes to foreground
       let lastSync = Date.now();
@@ -33,9 +40,9 @@ const AppNavigator = () => {
       });
 
       return () => {
-        if (unsubscribeOnMessage) unsubscribeOnMessage();
-        if (unsubscribeRefresh) unsubscribeRefresh();
-        appStateSub.remove();
+        try { if (unsubscribeOnMessage) unsubscribeOnMessage(); } catch (_) {}
+        try { if (unsubscribeRefresh) unsubscribeRefresh(); } catch (_) {}
+        try { if (appStateSub && appStateSub.remove) appStateSub.remove(); } catch (_) {}
       };
     }
   }, [isAuthenticated]);

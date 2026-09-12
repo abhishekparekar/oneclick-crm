@@ -105,7 +105,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: data.user };
     } catch (error) {
       const message =
-        error.response?.data?.message || "Login failed. Please try again.";
+        error.response?.data?.message ||
+        (error.message?.includes("Network Error") || error.code === "ECONNABORTED"
+          ? "Unable to connect to server. Please check your internet connection."
+          : "Login failed. Please try again.");
       console.error("[AuthContext] Login failed:", message);
       return { success: false, message };
     }

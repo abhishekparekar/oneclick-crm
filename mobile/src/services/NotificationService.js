@@ -132,10 +132,15 @@ class NotificationService {
    * Listen for FCM token refresh and update backend
    */
   static listenForTokenRefresh(userToken) {
-    return onTokenRefresh(getMessaging(), async (fcmToken) => {
-      console.log('[NotificationService] FCM Token Refreshed:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'none');
-      await this.sendTokenToBackend(fcmToken, userToken);
-    });
+    try {
+      return onTokenRefresh(getMessaging(), async (fcmToken) => {
+        console.log('[NotificationService] FCM Token Refreshed:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'none');
+        await this.sendTokenToBackend(fcmToken, userToken);
+      });
+    } catch (err) {
+      console.warn('[NotificationService] listenForTokenRefresh notice:', err?.message);
+      return () => {};
+    }
   }
 
   static async sendTokenToBackend(fcmToken, userToken, retries = 3) {
@@ -228,10 +233,15 @@ class NotificationService {
    * Listen for foreground messages
    */
   static onMessage() {
-    return onMessage(getMessaging(), async remoteMessage => {
-      console.log('A new FCM message arrived in foreground!', JSON.stringify(remoteMessage));
-      await this.displayNotification(remoteMessage);
-    });
+    try {
+      return onMessage(getMessaging(), async remoteMessage => {
+        console.log('A new FCM message arrived in foreground!', JSON.stringify(remoteMessage));
+        await this.displayNotification(remoteMessage);
+      });
+    } catch (err) {
+      console.warn('[NotificationService] onMessage setup notice:', err?.message);
+      return () => {};
+    }
   }
 
   /**
