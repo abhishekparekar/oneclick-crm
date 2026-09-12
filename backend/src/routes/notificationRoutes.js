@@ -12,6 +12,7 @@ const { requireRole } = require("../middleware/permissionHelper");
 const { createNotificationRules } = require("../validators/notificationValidators");
 
 const admin = require("firebase-admin");
+const router = express.Router();
 
 router.get("/firebase-status", (req, res) => {
   res.json({
