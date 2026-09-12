@@ -60,6 +60,11 @@ export const AuthProvider = ({ children }) => {
               setUser(null);
             }
           });
+        // Ensure FCM token is registered with backend for push alerts
+        try {
+          const NotificationService = require("../services/NotificationService").default;
+          NotificationService.getFCMToken(storedToken).catch(() => {});
+        } catch (_) {}
       } else {
         console.log("[AuthContext] No stored token found");
       }

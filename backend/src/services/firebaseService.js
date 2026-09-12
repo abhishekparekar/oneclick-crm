@@ -118,7 +118,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
         title,
         body,
         sound: 'default',
-        channelId: 'oneclick_alerts_default',
+        channelId: 'oneclick_alerts_v7',
         priority: 'high',
         defaultSound: true,
         defaultVibrateTimings: true,

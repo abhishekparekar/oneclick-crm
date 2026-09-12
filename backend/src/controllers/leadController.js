@@ -2317,6 +2317,22 @@ const addLeadNote = async (req, res) => {
 
     await lead.save();
 
+    // Notify assigned staff & admins about the new note (excluding note creator)
+    const companyId = getCompanyId(req);
+    const notifData = { leadId: lead._id.toString(), leadName: lead.name };
+    const notePreview = note.trim().length > 80 ? note.trim().slice(0, 80) + '...' : note.trim();
+    const noteTitle = `New Note on Lead: ${lead.name}`;
+    const noteBody = `${req.user?.name || "Staff Member"} added a note on lead "${lead.name}": ${notePreview}`;
+    const dedupKey = `lead_note_${lead._id}_${Math.floor(Date.now() / 15000)}`;
+
+    try {
+      const assignedUserId = lead.assignedTo ? (lead.assignedTo._id || lead.assignedTo) : null;
+      if (assignedUserId && assignedUserId.toString() !== req.user?._id?.toString()) {
+        await notifyUserOrEmployee(companyId, assignedUserId, noteTitle, noteBody, "lead_note", notifData, `${dedupKey}_${assignedUserId}`);
+      }
+      await notifyCompanyAdmins(companyId, [req.user?._id, assignedUserId], noteTitle, noteBody, "lead_note", notifData, dedupKey);
+    } catch (_) {}
+
     return res.status(201).json({ success: true, message: "Note added", note: noteObj, ...noteObj });
   } catch (err) {
     return res.status(500).json({ message: err.message });

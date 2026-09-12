@@ -211,10 +211,12 @@ const ManagerLayout = ({
   let activeTabLabel = "Home";
   if (activeTabOverride) {
     const overrideMatch = dynamicTabs.find(
-      t => t.screen === activeTabOverride ||
+      t => !t.isCenter && (
+           t.screen === activeTabOverride ||
            t.label === activeTabOverride ||
-           t.label.toLowerCase() === String(activeTabOverride).toLowerCase() ||
-           t.screen.toLowerCase() === String(activeTabOverride).toLowerCase()
+           (t.label || '').toLowerCase() === String(activeTabOverride).toLowerCase() ||
+           (t.screen || '').toLowerCase() === String(activeTabOverride).toLowerCase()
+      )
     );
     if (overrideMatch) {
       activeTabLabel = overrideMatch.label;

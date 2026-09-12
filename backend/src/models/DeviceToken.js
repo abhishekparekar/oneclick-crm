@@ -11,7 +11,8 @@ const deviceTokenSchema = new mongoose.Schema(
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Company",
-      required: true,
+      required: false,
+      default: null,
       index: true,
     },
     employeeId: {

@@ -16,7 +16,11 @@ const AppNavigator = () => {
   
   useEffect(() => {
     if (isAuthenticated) {
+      NotificationService.requestPermissions()
+        .then(() => NotificationService.getFCMToken())
+        .catch(() => {});
       const unsubscribeOnMessage = NotificationService.onMessage();
+      const unsubscribeRefresh = NotificationService.listenForTokenRefresh();
       NotificationService.setupInteractions(navigationRef);
       
       // Auto-refresh profile & permissions whenever app comes to foreground
@@ -29,7 +33,8 @@ const AppNavigator = () => {
       });
 
       return () => {
-        unsubscribeOnMessage();
+        if (unsubscribeOnMessage) unsubscribeOnMessage();
+        if (unsubscribeRefresh) unsubscribeRefresh();
         appStateSub.remove();
       };
     }

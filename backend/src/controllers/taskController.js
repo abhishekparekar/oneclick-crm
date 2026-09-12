@@ -1675,6 +1675,24 @@ exports.addTaskComment = async (req, res) => {
             performedBy: req.user._id
         });
 
+        // Notify task assignees & supervisors about the new comment
+        notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            `New Comment on Task: ${task.title}`,
+            `${req.user.name || "A team member"} added a comment on task "${task.title}": ${comment ? (comment.length > 80 ? comment.slice(0, 80) + '...' : comment) : 'Media attachment added'}.`,
+            "task_update",
+            { taskId: task._id.toString(), action: "comment_added" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: `New Comment: ${task.title}`,
+                assigneeBody: `${req.user.name || "Team member"} commented on your task "${task.title}".`,
+                supervisorTitle: `Comment on Task: ${task.title}`,
+                supervisorBody: `${req.user.name || "Team member"} added a comment on task "${task.title}".`
+            }
+        ).catch(err => console.error("notifyTaskAll (comment) error:", err));
+
         res.json({ success: true, data: task });
     } catch (error) {
         res.status(500).json({ success: false, message: "Server error" });

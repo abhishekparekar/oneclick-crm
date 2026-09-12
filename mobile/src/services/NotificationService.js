@@ -60,6 +60,7 @@ class NotificationService {
         // Create high importance notification channel with standard system sound
         try {
           try {
+            await notifee.deleteChannel('oneclick_alerts_default');
             await notifee.deleteChannel('oneclick_alerts_v6');
             await notifee.deleteChannel('oneclick_alerts_v5');
             await notifee.deleteChannel('oneclick_alerts_v4');
@@ -67,9 +68,10 @@ class NotificationService {
           } catch (_) {}
 
           await notifee.createChannel({
-            id: 'oneclick_alerts_default',
+            id: 'oneclick_alerts_v7',
             name: 'HRMS Notifications & Alerts',
             importance: AndroidImportance.HIGH,
+            sound: 'default',
             vibration: true,
             vibrationPattern: [300, 500],
             lights: true,
@@ -199,8 +201,9 @@ class NotificationService {
         body,
         data: data || {},
         android: {
-          channelId: 'oneclick_alerts_default',
+          channelId: 'oneclick_alerts_v7',
           importance: AndroidImportance.HIGH,
+          sound: 'default',
           smallIcon: 'ic_notification',
           color: '#1268D9',
           vibrationPattern: [300, 500],
