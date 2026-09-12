@@ -1,11 +1,13 @@
 const mongoose = require("mongoose");
 const dns = require("dns");
 
-// Force Node.js to use public DNS servers (fixes Windows querySrv ECONNREFUSED for MongoDB Atlas)
-try {
-  dns.setServers(["8.8.8.8", "8.8.4.4"]);
-} catch (e) {
-  console.warn("[DB] Could not custom set DNS servers:", e.message);
+// Force Node.js to use public DNS servers only on Windows (fixes Windows querySrv ECONNREFUSED for MongoDB Atlas)
+if (process.platform === "win32") {
+  try {
+    dns.setServers(["8.8.8.8", "8.8.4.4"]);
+  } catch (e) {
+    console.warn("[DB] Could not custom set DNS servers:", e.message);
+  }
 }
 
 const seedInitialData = async () => {

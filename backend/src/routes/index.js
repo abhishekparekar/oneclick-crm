@@ -21,6 +21,7 @@ const { checkSubscription } = require("../middleware/subscriptionMiddleware");
 
 const router = express.Router();
 router.get("/health", async (req, res) => {
+  const admin = require("firebase-admin");
   try {
     const mongoose = require("mongoose");
     const User = require("../models/User");
@@ -28,6 +29,10 @@ router.get("/health", async (req, res) => {
     res.json({
       status: "ok",
       message: "Oneclick API is running",
+      firebase: {
+        initialized: admin.apps.length > 0,
+        appsCount: admin.apps.length,
+      },
       database: {
         host: mongoose.connection.host,
         name: mongoose.connection.name,
@@ -38,6 +43,10 @@ router.get("/health", async (req, res) => {
     res.status(500).json({
       status: "error",
       message: "Health check database query failed",
+      firebase: {
+        initialized: admin.apps.length > 0,
+        appsCount: admin.apps.length,
+      },
       error: err.message
     });
   }

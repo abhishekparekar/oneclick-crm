@@ -102,6 +102,13 @@ app.get("/", (req, res) => {
   res.json({ message: "Welcome to Oneclick API" });
 });
 
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+  } catch (_) {}
+  next();
+});
+
 app.use("/api", apiRoutes);
 
 app.use(notFound);
