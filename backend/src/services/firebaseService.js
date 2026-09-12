@@ -139,10 +139,9 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
       notification: {
         title,
         body,
-        sound: 'default',
-        channelId: 'oneclick_alerts_v7',
+        sound: 'mixkit_bell_notification_933',
+        channelId: 'oneclick_alerts_v8',
         priority: 'high',
-        defaultSound: true,
         defaultVibrateTimings: true,
         icon: 'ic_notification',
       },
@@ -150,7 +149,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
     apns: {
       payload: {
         aps: {
-          sound: 'default',
+          sound: 'mixkit_bell_notification_933.wav',
           badge: 1,
         },
       },
