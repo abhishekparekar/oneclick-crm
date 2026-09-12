@@ -9,21 +9,57 @@ import {
   Paperclip, Trash2, Check, User, Repeat, Flag, ShieldCheck
 } from "lucide-react";
 import TaskAttachmentField from "./TaskAttachmentField";
+import CustomDateTimeField from "../common/CustomDateTimeField";
 
-const getTodayDateString = () => {
+const getNowDateTimeString = () => {
   const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
   const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const mins = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${mins}`;
 };
 
-const getTodayDateTimeString = () => {
+const getDefaultEndDateTimeString = () => {
   const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
   const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}T10:00`;
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  let h = 18;
+  let m = 0;
+  if (d.getHours() >= 18) {
+    h = Math.min(d.getHours() + 2, 23);
+    m = d.getMinutes();
+  }
+  return `${year}-${month}-${day}T${pad(h)}:${pad(m)}`;
+};
+
+const formatToDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  const year = d.getFullYear();
+  const month = pad(d.getMonth() + 1);
+  const day = pad(d.getDate());
+  const hours = pad(d.getHours());
+  const mins = pad(d.getMinutes());
+  return `${year}-${month}-${day}T${hours}:${mins}`;
+};
+
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+    const [y, m, d] = val.trim().slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 const PRIORITIES = [
@@ -74,11 +110,11 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
     repeatType: "daily",
     weeklyDays: [],
     monthlyDates: [],
-    startDate: getTodayDateString(),
-    endDate: "",
+    startDate: getNowDateTimeString(),
+    endDate: getDefaultEndDateTimeString(),
     deadlineTime: "18:00",
-    nextFollowUpDate: getTodayDateTimeString(),
-    finishDate: "",
+    nextFollowUpDate: getNowDateTimeString(),
+    finishDate: getDefaultEndDateTimeString(),
     checklist: [],
     attachments: [],
   };
@@ -88,18 +124,39 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
   const [searchTerm, setSearchTerm] = useState("");
   const [newChecklistItem, setNewChecklistItem] = useState("");
 
-  // Initialize/Sync Department & Self Assignment
+  // Initialize/Sync Department, Self Assignment, and current Start Date/Time
   useEffect(() => {
     if (isOpen) {
+      const nowStr = getNowDateTimeString();
+      const endStr = getDefaultEndDateTimeString();
       if (!canAssignOthers) {
         const selfDeptId = authUser?.departmentId?._id || authUser?.departmentId || (departments[0]?._id || departments[0]?.id || "");
         setForm(prev => ({
           ...prev,
+          startDate: nowStr,
+          nextFollowUpDate: nowStr,
+          endDate: prev.endDate || endStr,
+          finishDate: prev.finishDate || endStr,
           assignedTo: defaultSelfId ? [defaultSelfId] : prev.assignedTo,
           departmentId: prev.departmentId || selfDeptId
         }));
       } else if (departments.length > 0 && !form.departmentId) {
-        setForm(prev => ({ ...prev, departmentId: departments[0]._id || departments[0].id }));
+        setForm(prev => ({
+          ...prev,
+          startDate: nowStr,
+          nextFollowUpDate: nowStr,
+          endDate: prev.endDate || endStr,
+          finishDate: prev.finishDate || endStr,
+          departmentId: departments[0]._id || departments[0].id
+        }));
+      } else {
+        setForm(prev => ({
+          ...prev,
+          startDate: nowStr,
+          nextFollowUpDate: nowStr,
+          endDate: prev.endDate || endStr,
+          finishDate: prev.finishDate || endStr,
+        }));
       }
     }
   }, [isOpen, canAssignOthers, defaultSelfId, departments]);
@@ -179,7 +236,15 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
         return;
       }
     }
-    setForm(initialForm);
+    const freshStart = getNowDateTimeString();
+    const freshEnd = getDefaultEndDateTimeString();
+    setForm({
+      ...initialForm,
+      startDate: freshStart,
+      nextFollowUpDate: freshStart,
+      endDate: freshEnd,
+      finishDate: freshEnd
+    });
     onClose();
   };
 
@@ -194,7 +259,8 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
         const timePart = prev.nextFollowUpDate && prev.nextFollowUpDate.includes("T")
           ? prev.nextFollowUpDate.split("T")[1]
           : "10:00";
-        updated.nextFollowUpDate = value ? `${value}T${timePart}` : "";
+        const datePart = value && value.includes("T") ? value.split("T")[0] : value;
+        updated.nextFollowUpDate = datePart ? `${datePart}T${timePart}` : "";
       }
       return updated;
     });
@@ -229,14 +295,24 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
       return;
     }
 
+    const timeFromEnd = form.endDate && form.endDate.includes("T")
+      ? form.endDate.split("T")[1]
+      : (form.deadlineTime || "18:00");
+
     const submitData = {
       ...form,
+      startDate: form.startDate,
+      startDateTime: form.startDate,
+      endDate: form.endDate,
+      endDateTime: form.endDate,
+      deadlineTime: timeFromEnd,
       departmentId: finalDeptId || form.departmentId,
       assignedTo: assignedList,
       assignmentType: !canAssignOthers ? "self" : (assignedList.length > 1 ? "multiple_employees" : "employee")
     };
     if (form.repeatEnabled) {
       delete submitData.endDate;
+      delete submitData.endDateTime;
     }
     mutation.mutate(submitData);
   };
@@ -494,52 +570,46 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Start Date <span className="text-rose-500">*</span>
+                    Start Date &amp; Time <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      required 
-                      type="date" 
-                      name="startDate" 
-                      value={form.startDate} 
-                      onChange={handleChange} 
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
-                    />
-                  </div>
+                  <CustomDateTimeField
+                    required
+                    type="datetime-local"
+                    name="startDate"
+                    value={form.startDate}
+                    onChange={handleChange}
+                    icon={Calendar}
+                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Due Date / Deadline <span className="text-rose-500">*</span>
+                    End Date &amp; Time <span className="text-rose-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Clock size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      required 
-                      type="date" 
-                      name="endDate" 
-                      value={form.endDate} 
-                      onChange={handleChange} 
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
-                    />
-                  </div>
+                  <CustomDateTimeField
+                    required
+                    type="datetime-local"
+                    name="endDate"
+                    value={form.endDate}
+                    onChange={handleChange}
+                    icon={Clock}
+                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                  />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
                     Next Follow-up Date &amp; Time
                   </label>
-                  <div className="relative">
-                    <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                      type="datetime-local" 
-                      name="nextFollowUpDate" 
-                      value={form.nextFollowUpDate} 
-                      onChange={handleChange} 
-                      className="w-full pl-8 pr-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
-                    />
-                  </div>
+                  <CustomDateTimeField
+                    type="datetime-local"
+                    name="nextFollowUpDate"
+                    value={form.nextFollowUpDate}
+                    onChange={handleChange}
+                    icon={Calendar}
+                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                  />
                 </div>
               </div>
             ) : (
@@ -570,33 +640,35 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
                     </select>
                   </div>
 
-                  {/* Start Date */}
+                  {/* Start Date & Time */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      Start Date <span className="text-rose-500">*</span>
+                      Start Date &amp; Time <span className="text-rose-500">*</span>
                     </label>
-                    <input 
-                      required 
-                      type="date" 
-                      name="startDate" 
-                      value={form.startDate} 
-                      onChange={handleChange} 
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
+                    <CustomDateTimeField
+                      required
+                      type="datetime-local"
+                      name="startDate"
+                      value={form.startDate}
+                      onChange={handleChange}
+                      icon={null}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
                     />
                   </div>
 
-                  {/* Finish Date */}
+                  {/* Finish Date / End Date & Time */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      Finish Date <span className="text-rose-500">*</span>
+                      End Date &amp; Time <span className="text-rose-500">*</span>
                     </label>
-                    <input 
-                      required 
-                      type="date" 
-                      name="finishDate" 
-                      value={form.finishDate} 
-                      onChange={handleChange} 
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
+                    <CustomDateTimeField
+                      required
+                      type="datetime-local"
+                      name="finishDate"
+                      value={form.finishDate}
+                      onChange={handleChange}
+                      icon={null}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
                     />
                   </div>
 
@@ -605,12 +677,13 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
                     <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
                       Follow-up Date &amp; Time
                     </label>
-                    <input 
-                      type="datetime-local" 
-                      name="nextFollowUpDate" 
-                      value={form.nextFollowUpDate} 
-                      onChange={handleChange} 
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono" 
+                    <CustomDateTimeField
+                      type="datetime-local"
+                      name="nextFollowUpDate"
+                      value={form.nextFollowUpDate}
+                      onChange={handleChange}
+                      icon={null}
+                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
                     />
                   </div>
                 </div>

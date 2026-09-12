@@ -1856,11 +1856,13 @@ const createTask = async (req, res, next) => {
     const seqNumber = counter.currentSequence;
     const taskId = `T-${seqNumber}`;
 
-    const endDt = endDate ? new Date(endDate) : new Date();
-    if (deadlineTime) {
+    const rawEnd = req.body.endDateTime || endDate;
+    const endDt = rawEnd ? new Date(rawEnd) : new Date();
+    if (typeof rawEnd === "string" && !rawEnd.includes("T") && deadlineTime) {
       const [hours, mins] = deadlineTime.split(":");
       endDt.setHours(parseInt(hours), parseInt(mins), 0, 0);
     }
+    const isOverdueNow = Date.now() >= endDt.getTime();
 
     const newTask = new Task({
       companyId,
@@ -1876,7 +1878,8 @@ const createTask = async (req, res, next) => {
       startDateTime: startDt,
       endDateTime: endDt,
       nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : startDt,
-      status: "pending",
+      status: isOverdueNow ? "overdue" : "pending",
+      reminderStage: isOverdueNow ? 3 : 0,
       isLive: true,
       liveAt: new Date(),
       attachments: attachments || [],
@@ -2029,8 +2032,25 @@ const updateTask = async (req, res, next) => {
 
     if (title) task.title = title;
     if (description !== undefined) task.description = description;
-    if (priority) task.priority = priority;
     if (dueDate) task.dueDate = dueDate;
+    if (req.body.endDateTime || req.body.endDate) {
+      const eDate = req.body.endDateTime || req.body.endDate;
+      task.endDateTime = new Date(eDate);
+      task.dueDate = new Date(eDate);
+      if (task.status === "overdue" && task.endDateTime.getTime() > Date.now()) {
+        task.status = "pending";
+        task.reminderStage = 0;
+      } else if (task.status === "pending" && task.endDateTime.getTime() <= Date.now()) {
+        task.status = "overdue";
+        task.reminderStage = 3;
+      }
+    }
+    if (req.body.startDateTime || req.body.startDate) {
+      task.startDateTime = new Date(req.body.startDateTime || req.body.startDate);
+    }
+    if (req.body.nextFollowUpDate !== undefined) {
+      task.nextFollowUpDate = req.body.nextFollowUpDate ? new Date(req.body.nextFollowUpDate) : null;
+    }
     if (assignmentType) task.assignmentType = assignmentType;
     if (dependsOn) task.dependsOn = dependsOn;
     if (estimatedHours !== undefined) task.estimatedHours = estimatedHours;

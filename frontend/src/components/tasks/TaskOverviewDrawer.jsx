@@ -21,8 +21,15 @@ const STATUS_CONFIG = {
 };
 
 const formatDate = (dateStr) => {
-  if (!dateStr) return "N/A";
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  if (!dateStr) return "—";
+  if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    const [y, m, d] = dateStr.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 export default function TaskOverviewDrawer({ taskId, onClose, departments = [], employees = [] }) {

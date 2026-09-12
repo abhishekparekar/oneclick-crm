@@ -7,11 +7,29 @@ import { isValidGpsPoint } from "../utils/locationUtils";
 
 const QUEUE_STORAGE_KEY = "@hrms_offline_location_queue";
 const TRACKING_STATE_KEY = "@hrms_location_tracking_active";
+const SESSION_DATE_KEY = "@hrms_location_session_date";
+const SESSION_EXPIRY_KEY = "@hrms_location_session_expiry";
 const NOTIFICATION_CHANNEL_ID = "location_tracking_channel";
 const NOTIFICATION_ID = "employee_location_tracking_notif";
 
-// GPS points sync online to backend every 15 minutes.
-const BATCH_SYNC_INTERVAL_MS = 15 * 60 * 1000;
+// GPS points sync online to backend every 30 seconds for live route tracking
+const BATCH_SYNC_INTERVAL_MS = 30 * 1000;
+
+// Local date string YYYY-MM-DD
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// Timestamp for the next 12:00 AM (midnight)
+const getNextMidnightMs = () => {
+  const now = new Date();
+  const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+  return midnight.getTime();
+};
 
 // Configure location provider safely
 try {
@@ -45,11 +63,14 @@ class LocationTrackingService {
     this.isSyncing = false;
     this.appStateSubscription = null;
     this.syncIntervalTimer = null;
+    this.midnightTimer = null;
     this.foregroundServiceResolver = null;
     this.lastSyncTime = Date.now();
     this.memoryQueue = [];
     this.queueLoaded = false;
     this.saveDiskTimer = null;
+    this.sessionDate = null;
+    this.sessionExpiresAt = null;
   }
 
   /**
@@ -88,6 +109,7 @@ class LocationTrackingService {
       }
 
       // 3. Background Location Permission (Android 10+ / API 29+)
+      // Note: On Android 10+, this is requested non-blockingly so failures don't abort foreground service tracking
       if (Platform.Version >= 29) {
         try {
           const bgGranted = await PermissionsAndroid.check(
@@ -112,6 +134,10 @@ class LocationTrackingService {
       return true;
     } catch (err) {
       console.error("[LocationService] Error requesting permissions:", err);
+      try {
+        const fine = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION);
+        if (fine) return true;
+      } catch (_) {}
       return false;
     }
   }
@@ -169,6 +195,7 @@ class LocationTrackingService {
       const androidOptions = {
         channelId: NOTIFICATION_CHANNEL_ID,
         asForegroundService: true,
+        foregroundServiceTypes: [AndroidForegroundServiceType.FOREGROUND_SERVICE_TYPE_LOCATION],
         ongoing: true,
         autoCancel: false,
         pressAction: {
@@ -248,33 +275,55 @@ class LocationTrackingService {
 
     while (this.isTracking) {
       try {
-        // 1. Verify tracking state from AsyncStorage
+        const now = Date.now();
+        const todayStr = getTodayDateString();
+
+        // 1. Midnight (12:00 AM) auto-stop verification
+        const isPastMidnight =
+          (this.sessionExpiresAt && now >= this.sessionExpiresAt) ||
+          (this.sessionDate && this.sessionDate !== todayStr);
+
+        if (isPastMidnight) {
+          console.log("[LocationService] 🕛 12:00 AM Midnight reached in background loop! Halting tracking immediately.");
+          await this.stopLocationTracking();
+          break;
+        }
+
+        // 2. Verify tracking state and stored session expiry from AsyncStorage
         try {
           const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
-          if (active === "false") {
-            console.log("[LocationService] Storage indicates tracking explicitly stopped. Halting loop.");
-            this.isTracking = false;
+          if (active !== "true") {
+            console.log("[LocationService] Storage indicates tracking is not active. Halting loop.");
+            await this.stopLocationTracking();
+            break;
+          }
+
+          const storedExpiry = await AsyncStorage.getItem(SESSION_EXPIRY_KEY);
+          const storedSessionDate = await AsyncStorage.getItem(SESSION_DATE_KEY);
+          if (
+            (storedExpiry && now >= Number(storedExpiry)) ||
+            (storedSessionDate && storedSessionDate !== todayStr)
+          ) {
+            console.log("[LocationService] 🕛 Stored session indicates midnight reached. Halting loop immediately.");
+            await this.stopLocationTracking();
             break;
           }
         } catch (storageErr) {
           console.warn("[LocationService] AsyncStorage read notice (relying on memory state):", storageErr?.message);
         }
 
-        // 2. Continuous tracking validation (stops when punch-out occurs)
-
-        // 3. Stoppage Heartbeat: ONLY IF no new GPS coordinate has arrived from watchPosition for > 3 minutes (180s)
+        // 3. Stoppage Heartbeat: ONLY IF no new GPS coordinate has arrived from watchPosition for > 45 seconds
         // (e.g. employee stationary inside shop/building where watchPosition distanceFilter hasn't triggered)
-        const now = Date.now();
         const msSinceLastPoint = now - this.lastPointReceivedTime;
-        if (msSinceLastPoint > 180000 && !this.isPollingGps) {
+        if (msSinceLastPoint > 45000 && !this.isPollingGps) {
           console.log(`[LocationService] Stoppage detected (${Math.round(msSinceLastPoint / 1000)}s silent) - running single safe heartbeat poll`);
           this.pollCurrentGpsLocationAsync().catch(() => {});
         }
 
-        // 4. Batch Upload queued points to cloud every 15 minutes OR if 100+ points accumulated
+        // 4. Batch Upload queued points to cloud every 30 seconds OR if 10+ points accumulated
         const msSinceLastSync = now - this.lastSyncTime;
-        if ((msSinceLastSync >= BATCH_SYNC_INTERVAL_MS || this.memoryQueue.length >= 100) && !this.isSyncing) {
-          console.log(`[LocationService] 15-min batch upload triggered (${Math.round(msSinceLastSync / 60000)} min since sync, ${this.memoryQueue.length} points)`);
+        if ((msSinceLastSync >= BATCH_SYNC_INTERVAL_MS || this.memoryQueue.length >= 10) && !this.isSyncing) {
+          console.log(`[LocationService] Live batch upload triggered (${Math.round(msSinceLastSync / 1000)}s since sync, ${this.memoryQueue.length} points)`);
           this.syncQueuedLocations().catch(() => {});
         }
 
@@ -352,7 +401,25 @@ class LocationTrackingService {
 
     this.isTracking = true;
     this.lastPointReceivedTime = Date.now();
+    this.sessionDate = getTodayDateString();
+    this.sessionExpiresAt = getNextMidnightMs();
+
     await AsyncStorage.setItem(TRACKING_STATE_KEY, "true");
+    await AsyncStorage.setItem(SESSION_DATE_KEY, this.sessionDate);
+    await AsyncStorage.setItem(SESSION_EXPIRY_KEY, String(this.sessionExpiresAt));
+
+    // Clear any previous midnight timer and schedule auto-stop at 12:00 AM (midnight)
+    if (this.midnightTimer) {
+      clearTimeout(this.midnightTimer);
+      this.midnightTimer = null;
+    }
+    const msUntilMidnight = Math.max(1000, this.sessionExpiresAt - Date.now());
+    this.midnightTimer = setTimeout(() => {
+      console.log("[LocationService] 🕛 12:00 AM Midnight reached! Automatically stopping location tracking.");
+      this.stopLocationTracking().catch((err) => {
+        console.warn("[LocationService] Midnight auto-stop error:", err?.message);
+      });
+    }, msUntilMidnight);
 
     // Display persistent notification with foreground service
     await this.showForegroundNotification();
@@ -360,8 +427,10 @@ class LocationTrackingService {
     // Check battery optimization settings
     this.requestBatteryOptimizationExemption(true).catch(() => {});
 
-    // Ensure offline queue is in memory
+    // Ensure offline queue is loaded and start fresh for new session
     await this.ensureQueueLoaded();
+    this.memoryQueue = [];
+    await AsyncStorage.removeItem(QUEUE_STORAGE_KEY).catch(() => {});
 
     // Start background supervisor loop
     this.runBackgroundTrackingLoop().catch(() => {});
@@ -401,7 +470,7 @@ class LocationTrackingService {
       });
     }
 
-    // Start dedicated 5-minute cloud sync timer
+    // Start dedicated cloud sync timer
     if (this.syncIntervalTimer) {
       clearInterval(this.syncIntervalTimer);
     }
@@ -421,7 +490,13 @@ class LocationTrackingService {
           })
           .catch(() => {});
       }
-    }, 1500);
+    }, 500);
+
+    setTimeout(() => {
+      if (this.isTracking) {
+        this.syncQueuedLocations().catch(() => {});
+      }
+    }, 3000);
 
     return { success: true, message: "Location tracking started" };
   }
@@ -441,6 +516,13 @@ class LocationTrackingService {
       this.isTracking = false;
       this.isLoopRunning = false;
       this.isPollingGps = false;
+      this.sessionDate = null;
+      this.sessionExpiresAt = null;
+
+      if (this.midnightTimer) {
+        clearTimeout(this.midnightTimer);
+        this.midnightTimer = null;
+      }
 
       if (this.syncIntervalTimer) {
         clearInterval(this.syncIntervalTimer);
@@ -462,7 +544,14 @@ class LocationTrackingService {
         this.appStateSubscription = null;
       }
 
-      await AsyncStorage.removeItem(TRACKING_STATE_KEY).catch(() => {});
+      // Explicitly clear all tracking session keys in storage
+      try {
+        await AsyncStorage.multiRemove([
+          TRACKING_STATE_KEY,
+          SESSION_DATE_KEY,
+          SESSION_EXPIRY_KEY,
+        ]);
+      } catch (_) {}
 
       // Flush any remaining queued locations before stopping
       try {
@@ -470,6 +559,12 @@ class LocationTrackingService {
       } catch (syncErr) {
         console.warn("[LocationService] Pre-stop sync notice:", syncErr?.message);
       }
+
+      // Clear memory queue
+      this.memoryQueue = [];
+      try {
+        await AsyncStorage.removeItem(QUEUE_STORAGE_KEY);
+      } catch (_) {}
 
       // Resolve the Notifee foreground service Promise so Android cleanly destroys the native process
       if (this.foregroundServiceResolver) {
@@ -479,7 +574,7 @@ class LocationTrackingService {
 
       await this.hideForegroundNotification();
 
-      console.log("[LocationService] Location tracking stopped cleanly");
+      console.log("[LocationService] ✅ Location tracking stopped cleanly and completely");
       return { success: true };
     } catch (stopErr) {
       console.warn("[LocationService] Stop tracking error (handled):", stopErr?.message);
@@ -507,7 +602,7 @@ class LocationTrackingService {
       // Ensure fine location permission is granted before auto-starting
       const hasFine = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION).catch(() => false);
       if (!hasFine) {
-        console.log("[LocationService] Location permission not granted yet — skipping background auto-resume.");
+        console.log("[LocationService] Location permission not granted yet — keeping tracking OFF.");
         return;
       }
 
@@ -518,40 +613,60 @@ class LocationTrackingService {
           const u = JSON.parse(userRaw);
           if (u && u.isLocationTrackingEnabled === false) {
             console.log("[LocationService] Employee tracking is disabled by admin. Clearing tracking state.");
-            await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+            await this.stopLocationTracking();
             return;
           }
         } catch (_) {}
       }
 
       const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
-      if (active !== "true") {
+      const now = Date.now();
+      const todayStr = getTodayDateString();
+      const storedSessionDate = await AsyncStorage.getItem(SESSION_DATE_KEY);
+      const storedExpiry = await AsyncStorage.getItem(SESSION_EXPIRY_KEY);
+
+      if (
+        (storedExpiry && now >= Number(storedExpiry)) ||
+        (storedSessionDate && storedSessionDate !== todayStr)
+      ) {
+        console.log("[LocationService] Stored tracking session expired at 12:00 AM midnight. Keeping tracking OFF.");
+        await this.stopLocationTracking();
         return;
       }
 
-      // Verify today's duty status from server to decide if tracking should run
+      // Verify today's duty status from server to decide if tracking should run: user must be actively punched in today
+      let isCurrentlyPunchedIn = false;
       try {
         const res = await api.get("/attendance/my-today");
         const att = res.data?.attendance;
-
-        let isPunchedOut = false;
-        if (att && Array.isArray(att.punchLog) && att.punchLog.length > 0) {
-          const lastSession = att.punchLog[att.punchLog.length - 1];
-          isPunchedOut = Boolean(lastSession.punchInTime && lastSession.punchOutTime);
-        } else if (att && att.punchInTime && att.punchOutTime) {
-          isPunchedOut = true;
+        if (att) {
+          if (Array.isArray(att.punchLog) && att.punchLog.length > 0) {
+            const lastSession = att.punchLog[att.punchLog.length - 1];
+            isCurrentlyPunchedIn = Boolean(lastSession.punchInTime && !lastSession.punchOutTime);
+          } else if (att.punchInTime && !att.punchOutTime) {
+            isCurrentlyPunchedIn = true;
+          }
         }
 
-        if (isPunchedOut) {
-          console.log("[LocationService] Duty confirmed completed (punched out). Clearing tracking state.");
-          await AsyncStorage.removeItem(TRACKING_STATE_KEY);
+        if (!isCurrentlyPunchedIn) {
+          console.log("[LocationService] User is not currently punched in today. Tracking remains OFF.");
+          if (active === "true") {
+            await this.stopLocationTracking();
+          }
           return;
         }
       } catch (apiErr) {
-        console.log("[LocationService] Could not verify today duty status via API (falling back to storage):", apiErr?.message);
+        console.log("[LocationService] Could not verify today duty status via API:", apiErr?.message);
+        if (active !== "true") return;
+        if (storedExpiry && now >= Number(storedExpiry)) {
+          await this.stopLocationTracking();
+          return;
+        }
       }
 
-      console.log("[LocationService] Resuming background tracking session from storage state...");
+      console.log("[LocationService] Active punch-in verified. Resuming background tracking session...");
+      this.sessionDate = storedSessionDate || todayStr;
+      this.sessionExpiresAt = storedExpiry ? Number(storedExpiry) : getNextMidnightMs();
       await this.startLocationTracking();
     } catch (err) {
       console.warn("[LocationService] Auto-resume check error:", err?.message);
@@ -705,8 +820,8 @@ class LocationTrackingService {
 
           if (response.data && response.data.success) {
             totalSynced += chunk.length;
-            if (response.data.hasPunchedOut === true) {
-              console.log("[LocationService] Duty confirmed ended (punched out). Stopping tracking...");
+            if (response.data.hasPunchedOut === true || response.data.trackingAllowed === false) {
+              console.log("[LocationService] Duty confirmed ended or inactive. Stopping tracking...");
               shouldStop = true;
               break;
             }
@@ -750,16 +865,36 @@ const locationTrackingService = new LocationTrackingService();
 // Register Notifee Foreground Service task
 try {
   notifee.registerForegroundService((notification) => {
-    return new Promise((resolve) => {
-      console.log("[LocationService] Native foreground service worker started — keeping alive");
-      if (locationTrackingService) {
-        locationTrackingService.foregroundServiceResolver = resolve;
-        locationTrackingService.runBackgroundTrackingLoop().catch((err) => {
-          console.warn("[LocationService] Background loop unexpected exit:", err?.message);
-        });
-      } else {
+    return new Promise(async (resolve) => {
+      console.log("[LocationService] Native foreground service worker started");
+      if (!locationTrackingService) {
         resolve();
+        return;
       }
+
+      try {
+        const active = await AsyncStorage.getItem(TRACKING_STATE_KEY);
+        const storedSessionDate = await AsyncStorage.getItem(SESSION_DATE_KEY);
+        const storedExpiry = await AsyncStorage.getItem(SESSION_EXPIRY_KEY);
+        const now = Date.now();
+        const todayStr = getTodayDateString();
+
+        const isExpired =
+          (storedExpiry && now >= Number(storedExpiry)) ||
+          (storedSessionDate && storedSessionDate !== todayStr);
+
+        if (active !== "true" || isExpired) {
+          console.log("[LocationService] Foreground worker launched but tracking is inactive or expired. Terminating worker.");
+          await locationTrackingService.stopLocationTracking();
+          resolve();
+          return;
+        }
+      } catch (_) {}
+
+      locationTrackingService.foregroundServiceResolver = resolve;
+      locationTrackingService.runBackgroundTrackingLoop().catch((err) => {
+        console.warn("[LocationService] Background loop unexpected exit:", err?.message);
+      });
     });
   });
 } catch (err) {

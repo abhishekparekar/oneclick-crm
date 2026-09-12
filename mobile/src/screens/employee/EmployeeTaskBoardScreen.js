@@ -16,6 +16,7 @@ import { getEmployeeTasksApi, updateTaskStatusApi } from "../../api/taskService"
 import { COLORS, SPACING, SHADOWS, ROUNDING } from "../../theme/tokens";
 import { useAuth } from "../../context/AuthContext";
 import { useSocket } from "../../hooks/useSocket";
+import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 
 const COLUMNS = [
   { label: "Backlog", value: "backlog", icon: "cube-outline" },
@@ -164,7 +165,7 @@ const EmployeeTaskBoardScreen = ({ navigation }) => {
                       </Text>
                     </View>
                     <Text style={styles.dateText}>
-                      {task.endDateTime ? new Date(task.endDateTime).toLocaleDateString() : "No due date"}
+                      {task.endDateTime ? formatDateToDDMMYYYY(task.endDateTime) : "No due date"}
                     </Text>
                   </View>
 

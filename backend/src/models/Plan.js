@@ -12,7 +12,8 @@ const MODULES = [
   "whatsapp",
   "mobileApp",
   "webAdmin",
-  "leads"
+  "leads",
+  "location_tracking"
 ];
 
 const planSchema = new mongoose.Schema(

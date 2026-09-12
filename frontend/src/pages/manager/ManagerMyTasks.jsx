@@ -13,13 +13,25 @@ import {
 } from "lucide-react";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 const getTaskFormattedDueDate = (t) => {
-  const raw = t.dueDate || t.endDate || t.endDateTime || t.finishDate || t.startDate;
+  const raw = t.endDateTime || t.endDate || t.dueDate || t.finishDate || t.startDate;
   if (!raw) return { text: "No Due Date", isOverdue: false };
   const d = new Date(raw);
   if (isNaN(d.getTime())) return { text: "No Due Date", isOverdue: false };
-  const formatted = d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const isOverdue = !["complete", "completed", "done", "late_complete", "re_complete", "cancelled"].includes((t.status || "").toLowerCase()) && d < new Date();
+  const formatted = formatDateDDMMYYYY(d);
+  const isOverdue = !["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((t.status || "").toLowerCase()) && Date.now() >= d.getTime();
   return { text: formatted, isOverdue };
 };
 
@@ -323,7 +335,7 @@ export default function ManagerMyTasks() {
       t.title || "",
       t.status || "Pending",
       t.priority || "Medium",
-      t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB") : ""
+      t.dueDate ? formatDateDDMMYYYY(t.dueDate) : ""
     ]);
 
     const csvContent = [headers.join(","), ...rows.map(r => r.map(c => `"${c}"`).join(","))].join("\n");
@@ -649,7 +661,7 @@ export default function ManagerMyTasks() {
 
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold text-[11px] shadow-2xs">
-              From: {filters.startDate}
+              From: {formatDateDDMMYYYY(filters.startDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
@@ -658,7 +670,7 @@ export default function ManagerMyTasks() {
 
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold text-[11px] shadow-2xs">
-              To: {filters.endDate}
+              To: {formatDateDDMMYYYY(filters.endDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
@@ -719,7 +731,7 @@ export default function ManagerMyTasks() {
                       </div>
                       <h4 className="text-xs font-bold text-slate-900 dark:text-white line-clamp-2">{t.title}</h4>
                       <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800/80 text-[10px] text-slate-400">
-                        <span className="font-mono">{t.dueDate ? new Date(t.dueDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "No Due Date"}</span>
+                        <span className="font-mono">{t.dueDate ? formatDateDDMMYYYY(t.dueDate) : "No Due Date"}</span>
                       </div>
                     </div>
                   ))}
@@ -819,7 +831,7 @@ export default function ManagerMyTasks() {
                         </div>
                         {t.nextFollowUpDate && (
                           <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                            Follow-up: {new Date(t.nextFollowUpDate).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })}
+                            Follow-up: {formatDateDDMMYYYY(t.nextFollowUpDate)}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                           </p>
                         )}
                       </td>
@@ -853,8 +865,10 @@ export default function ManagerMyTasks() {
           {filteredTasks.map(t => {
             const status = (t.status || "pending").toLowerCase();
             const statusCfg = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
-            const deadline = t.dueDate || t.endDateTime ? new Date(t.dueDate || t.endDateTime) : null;
-            const isOverdue = deadline && !["complete", "completed", "done", "late_complete", "cancelled"].includes(status) && deadline < new Date();
+            const rawDue = t.endDateTime || t.endDate || t.dueDate;
+            const deadline = rawDue ? new Date(rawDue) : null;
+            const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(status);
+            const isOverdue = deadline && !isNaN(deadline.getTime()) && !isDone && Date.now() >= deadline.getTime();
 
             return (
               <div
@@ -879,7 +893,7 @@ export default function ManagerMyTasks() {
                     <div className="flex items-center gap-1 text-slate-500">
                       <CalendarClock size={11} className={isOverdue ? "text-rose-500" : "text-slate-400"} />
                       <span className={`font-mono ${isOverdue ? "text-rose-600 font-bold" : ""}`}>
-                        {deadline ? deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "No Date"}
+                        {deadline ? formatDateDDMMYYYY(deadline) : "No Date"}
                       </span>
                     </div>
 

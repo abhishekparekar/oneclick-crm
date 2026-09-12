@@ -4,6 +4,7 @@ import { createEmployeeTaskApi, uploadTaskMediaApi } from "../../api/employeeApi
 import { X, Calendar, Clock, Upload, Plus, Circle, CheckCircle, Flame, AlertCircle, FileText } from "lucide-react";
 import { toast } from "react-hot-toast";
 import { useAuth } from "../../context/AuthContext";
+import CustomDateTimeField from "../common/CustomDateTimeField";
 
 const getTodayDateString = () => {
   const d = new Date();
@@ -11,6 +12,18 @@ const getTodayDateString = () => {
   const month = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+    const [y, m, d] = val.trim().slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
@@ -408,14 +421,17 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-800 mb-1.5">Start Generating <span className="text-red-500">*</span></label>
-                    <input 
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1.5">
+                      Start Generating <span className="text-red-500">*</span>
+                    </label>
+                    <CustomDateTimeField 
                       required
                       type="date" 
                       name="startDate" 
                       value={form.startDate} 
                       onChange={handleChange} 
-                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all"
+                      icon={null}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
                     />
                   </div>
                   <div>
@@ -434,13 +450,16 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-[11px] font-bold text-slate-800 mb-1.5">Stop Repeating On (Optional)</label>
-                  <input 
+                  <label className="block text-[11px] font-bold text-slate-800 mb-1.5">
+                    Stop Repeating On (Optional)
+                  </label>
+                  <CustomDateTimeField 
                     type="date" 
                     name="finishDate" 
                     value={form.finishDate} 
                     onChange={handleChange} 
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all placeholder:text-slate-400"
+                    icon={null}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
                     placeholder="DD/MM/YYYY"
                   />
                 </div>
@@ -458,29 +477,31 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Start Date</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        name="startDate" 
-                        value={form.startDate} 
-                        onChange={handleChange} 
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all"
-                      />
-                    </div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                      Start Date
+                    </label>
+                    <CustomDateTimeField 
+                      type="date" 
+                      name="startDate" 
+                      value={form.startDate} 
+                      onChange={handleChange} 
+                      icon={null}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
+                    />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">End Date</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        name="endDate" 
-                        value={form.endDate} 
-                        onChange={handleChange} 
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all"
-                      />
-                    </div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                      End Date
+                    </label>
+                    <CustomDateTimeField 
+                      type="date" 
+                      name="endDate" 
+                      value={form.endDate} 
+                      onChange={handleChange} 
+                      icon={null}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
+                    />
                   </div>
 
                   <div>
@@ -497,16 +518,17 @@ export default function EmployeeTaskCreateModal({ isOpen, onClose }) {
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-bold text-slate-500 mb-1">Follow-up Date</label>
-                    <div className="relative">
-                      <input 
-                        type="date" 
-                        name="followUpDate" 
-                        value={form.followUpDate} 
-                        onChange={handleChange} 
-                        className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all"
-                      />
-                    </div>
+                    <label className="block text-[11px] font-bold text-slate-500 mb-1">
+                      Follow-up Date
+                    </label>
+                    <CustomDateTimeField 
+                      type="date" 
+                      name="followUpDate" 
+                      value={form.followUpDate} 
+                      onChange={handleChange} 
+                      icon={null}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-semibold text-slate-700 focus:outline-none focus:border-[#f97316] transition-all font-mono"
+                    />
                   </div>
 
                 </div>

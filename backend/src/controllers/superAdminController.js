@@ -12,9 +12,11 @@ const LoginHistory = require("../models/LoginHistory");
 const SystemSetting = require("../models/SystemSetting");
 const Backup = require("../models/Backup");
 const CompanyRequest = require("../models/CompanyRequest");
+const Notification = require("../models/Notification");
 const formatUser = require("../utils/formatUser");
 const generateTempPassword = require("../utils/generateTempPassword");
 const { bustSubscriptionCache } = require("../middleware/subscriptionMiddleware");
+const { sendPasswordResetEmail } = require("../services/notificationService");
 
 const createCompany = async (req, res, next) => {
   try {
@@ -778,10 +780,99 @@ const deletePlan = async (req, res, next) => {
 const getSubscriptions = async (req, res, next) => {
   try {
     const subscriptions = await Subscription.find()
-      .populate("companyId", "companyName")
-      .populate("planId", "planName")
+      .populate("companyId", "companyName email phone ownerName ownerEmail ownerPhone logo")
+      .populate("planId", "planName priceMonthly priceYearly employeeLimit")
       .sort({ createdAt: -1 });
-    res.json({ subscriptions, count: subscriptions.length });
+
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    let expiring7DaysCount = 0;
+    let expiring30DaysCount = 0;
+    let expiredCount = 0;
+
+    subscriptions.forEach((sub) => {
+      if (sub.endDate) {
+        const end = new Date(sub.endDate);
+        if (end < now || sub.status === "expired") {
+          expiredCount++;
+        } else if (sub.status !== "cancelled") {
+          if (end <= in7Days) {
+            expiring7DaysCount++;
+            expiring30DaysCount++;
+          } else if (end <= in30Days) {
+            expiring30DaysCount++;
+          }
+        }
+      }
+    });
+
+    res.json({ 
+      subscriptions, 
+      count: subscriptions.length,
+      expiryStats: {
+        expiring7Days: expiring7DaysCount,
+        expiring30Days: expiring30DaysCount,
+        expired: expiredCount,
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const syncSubscriptionExpiryNotifications = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+    const expiringSubs = await Subscription.find({
+      status: { $in: ["active", "trial"] },
+      endDate: { $gte: now, $lte: in30Days },
+    })
+      .populate("companyId", "companyName ownerEmail")
+      .lean();
+
+    const superAdmins = await User.find({ role: "SuperAdmin" }).select("_id email").lean();
+
+    let createdCount = 0;
+    for (const sub of expiringSubs) {
+      const companyName = sub.companyId?.companyName || "A tenant company";
+      const daysLeft = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      const urgency = daysLeft <= 7 ? "Urgent 7-Day Alert" : "30-Day Expiry Notice";
+      const formattedDate = new Date(sub.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+
+      for (const sa of superAdmins) {
+        const existing = await Notification.findOne({
+          userId: sa._id,
+          type: "subscription_expiry",
+          "data.subscriptionId": sub._id,
+          createdAt: { $gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+        });
+
+        if (!existing) {
+          await Notification.create({
+            userId: sa._id,
+            companyId: sub.companyId?._id || null,
+            title: `⚠️ ${urgency}: ${companyName}`,
+            body: `${companyName}'s subscription (${sub.planName}) is set to expire on ${formattedDate} (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining). Renewal required.`,
+            type: "subscription_expiry",
+            data: {
+              subscriptionId: sub._id,
+              companyId: sub.companyId?._id,
+              daysLeft,
+              endDate: sub.endDate,
+              planName: sub.planName,
+            },
+          });
+          createdCount++;
+        }
+      }
+    }
+
+    res.json({ success: true, message: `Synced expiry notifications (${createdCount} new created)`, createdCount });
   } catch (error) {
     next(error);
   }
@@ -1108,11 +1199,32 @@ const resetUserPassword = async (req, res, next) => {
     const newPassword = req.body?.password?.trim();
     const temporaryPassword = newPassword || generateTempPassword();
     user.password = temporaryPassword;
-    await user.save();
+    user.isPasswordResetRequired = true;
 
-    await AuditLog.create({ action: `Reset password for user ${user.email}`, module: 'Users', performedBy: req.user._id, companyId: user.companyId });
+    // Generate token and link
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
 
-    res.json({ message: "Password reset successfully", temporaryPassword, email: user.email });
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+
+    // Dispatch email with reset link and temporary credentials
+    await sendPasswordResetEmail(user.email, user.name, resetUrl, temporaryPassword);
+
+    await AuditLog.create({ 
+      action: `Sent password reset email and link for user ${user.email}`, 
+      module: 'Users', 
+      performedBy: req.user._id, 
+      companyId: user.companyId 
+    });
+
+    res.json({ 
+      success: true,
+      message: `Password reset link sent to ${user.email}`, 
+      temporaryPassword, 
+      resetUrl,
+      email: user.email 
+    });
   } catch (error) {
     next(error);
   }
@@ -1666,6 +1778,7 @@ module.exports = {
   extendTrial,
   deleteSubscription,
   updateSubscription,
+  syncSubscriptionExpiryNotifications,
   getPayments,
   createManualPayment,
   updatePaymentStatus,

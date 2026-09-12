@@ -109,6 +109,8 @@ const DashboardStack = () => (
     <Stack.Screen name="CompanyTaskDetails" component={CompanyTaskDetailsScreen} />
     <Stack.Screen name="CompanyCreateTask" component={CompanyCreateTaskScreen} />
     <Stack.Screen name="EmployeeCreateTask" component={CompanyCreateTaskScreen} />
+    <Stack.Screen name="ManagerCreateTask" component={CompanyCreateTaskScreen} />
+    <Stack.Screen name="CreateTask" component={CompanyCreateTaskScreen} />
     <Stack.Screen name="SalaryStructureList" component={SalaryStructureScreen} />
     <Stack.Screen name="PayrollList" component={PayrollListScreen} initialParams={{ activeTab: "history" }} />
     <Stack.Screen name="GeneratePayroll" component={PayrollListScreen} initialParams={{ activeTab: "generate" }} />

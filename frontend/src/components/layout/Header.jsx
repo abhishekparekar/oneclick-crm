@@ -367,130 +367,132 @@ const Header = ({ onMenuClick }) => {
       <div className="flex items-center space-x-2">
 
         {/* ── Quick Create Dropdown Button (+ Add Lead & + Add Task) ────── */}
-        <div className="relative" ref={quickCreateRef}>
-          <button
-            type="button"
-            onClick={() => {
-              setQuickCreateOpen((prev) => !prev);
-              setProfileOpen(false);
-              setNotifOpen(false);
-            }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1268D9] hover:bg-[#0D50B8] text-white font-black text-xs shadow-sm shadow-[#1268D9]/25 hover:shadow-md transition-all cursor-pointer"
-            title="Quick Create Lead or Task"
-          >
-            <Plus size={14} strokeWidth={3} />
-            <span className="hidden sm:inline">Create</span>
-            <ChevronDown size={12} className={`transition-transform duration-200 ${quickCreateOpen ? "rotate-180" : ""}`} />
-          </button>
+        {!isSuperAdmin && (
+          <div className="relative" ref={quickCreateRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickCreateOpen((prev) => !prev);
+                setProfileOpen(false);
+                setNotifOpen(false);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1268D9] hover:bg-[#0D50B8] text-white font-black text-xs shadow-sm shadow-[#1268D9]/25 hover:shadow-md transition-all cursor-pointer"
+              title="Quick Create Lead or Task"
+            >
+              <Plus size={14} strokeWidth={3} />
+              <span className="hidden sm:inline">Create</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${quickCreateOpen ? "rotate-180" : ""}`} />
+            </button>
 
-          {quickCreateOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150 p-1.5 space-y-1">
-              <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
-                <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Quick Actions</p>
+            {quickCreateOpen && (
+              <div className="absolute right-0 top-full mt-2 w-64 bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-150 p-1.5 space-y-1">
+                <div className="px-3 py-1.5 border-b border-slate-100 dark:border-slate-800/80">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Quick Actions</p>
+                </div>
+
+                {/* Add Lead */}
+                {hasPermission("leads") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickCreateOpen(false);
+                      const path =
+                        user?.role === "SuperAdmin"
+                          ? "/superadmin/dashboard"
+                          : user?.role === "HR"
+                          ? "/hr/leads?create=true"
+                          : user?.role === "Manager"
+                          ? "/manager/leads?create=true"
+                          : user?.role === "Employee"
+                          ? "/employee/leads?create=true"
+                          : "/company/leads?create=true";
+                      navigate(path);
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-[#1268D9]/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-[#1268D9]/15 border border-[#1268D9]/30 text-[#1268D9] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <Magnet size={16} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-[#1268D9] transition-colors">
+                        Add New Lead
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">
+                        Capture inquiry &amp; schedule follow-up
+                      </p>
+                    </div>
+                  </button>
+                )}
+
+                {/* Add Task */}
+                {hasPermission("tasks") && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickCreateOpen(false);
+                      const path =
+                        user?.role === "SuperAdmin"
+                          ? "/superadmin/dashboard"
+                          : user?.role === "HR"
+                          ? "/hr/tasks?create=true"
+                          : user?.role === "Manager"
+                          ? "/manager/my-tasks?create=true"
+                          : user?.role === "Employee"
+                          ? "/employee/my-tasks?create=true"
+                          : "/company/tasks?create=true";
+                      navigate(path);
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-blue-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <CheckSquare size={16} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                        Create Work Task
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">
+                        Assign task, checklist &amp; deadline
+                      </p>
+                    </div>
+                  </button>
+                )}
+
+                {/* Company Request */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuickCreateOpen(false);
+                    const path =
+                      user?.role === "SuperAdmin"
+                        ? "/superadmin/company-requests?create=true"
+                        : user?.role === "HR"
+                        ? "/hr/requests?create=true"
+                        : user?.role === "Manager"
+                        ? "/manager/requests?create=true"
+                        : user?.role === "Employee"
+                        ? "/employee/requests?create=true"
+                        : "/company/requests?create=true";
+                    navigate(path);
+                  }}
+                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-emerald-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                    <MessageSquare size={16} strokeWidth={2.2} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                      Company Request
+                    </p>
+                    <p className="text-[10px] text-slate-400 font-medium truncate">
+                      Broadcast requirements or queries
+                    </p>
+                  </div>
+                </button>
               </div>
-
-              {/* Add Lead */}
-              {hasPermission("leads") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickCreateOpen(false);
-                    const path =
-                      user?.role === "SuperAdmin"
-                        ? "/superadmin/dashboard"
-                        : user?.role === "HR"
-                        ? "/hr/leads?create=true"
-                        : user?.role === "Manager"
-                        ? "/manager/leads?create=true"
-                        : user?.role === "Employee"
-                        ? "/employee/leads?create=true"
-                        : "/company/leads?create=true";
-                    navigate(path);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-[#1268D9]/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-[#1268D9]/15 border border-[#1268D9]/30 text-[#1268D9] flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                    <Magnet size={16} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-[#1268D9] transition-colors">
-                      Add New Lead
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium truncate">
-                      Capture inquiry &amp; schedule follow-up
-                    </p>
-                  </div>
-                </button>
-              )}
-
-              {/* Add Task */}
-              {hasPermission("tasks") && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickCreateOpen(false);
-                    const path =
-                      user?.role === "SuperAdmin"
-                        ? "/superadmin/dashboard"
-                        : user?.role === "HR"
-                        ? "/hr/tasks?create=true"
-                        : user?.role === "Manager"
-                        ? "/manager/my-tasks?create=true"
-                        : user?.role === "Employee"
-                        ? "/employee/my-tasks?create=true"
-                        : "/company/tasks?create=true";
-                    navigate(path);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-blue-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                    <CheckSquare size={16} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                      Create Work Task
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium truncate">
-                      Assign task, checklist &amp; deadline
-                    </p>
-                  </div>
-                </button>
-              )}
-
-              {/* Company Request */}
-              <button
-                type="button"
-                onClick={() => {
-                  setQuickCreateOpen(false);
-                  const path =
-                    user?.role === "SuperAdmin"
-                      ? "/superadmin/company-requests?create=true"
-                      : user?.role === "HR"
-                      ? "/hr/requests?create=true"
-                      : user?.role === "Manager"
-                      ? "/manager/requests?create=true"
-                      : user?.role === "Employee"
-                      ? "/employee/requests?create=true"
-                      : "/company/requests?create=true";
-                  navigate(path);
-                }}
-                className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-emerald-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
-              >
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                  <MessageSquare size={16} strokeWidth={2.2} />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                    Company Request
-                  </p>
-                  <p className="text-[10px] text-slate-400 font-medium truncate">
-                    Broadcast requirements or queries
-                  </p>
-                </div>
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* ── Dark Mode Toggle ──────────────────────────────────────────────── */}
         <button

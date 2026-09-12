@@ -5,7 +5,8 @@ const notificationSchema = new mongoose.Schema(
         companyId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Company",
-            required: true,
+            required: false,
+            default: null,
             index: true,
         },
         userId: {
@@ -57,14 +58,100 @@ const notificationSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        idempotencyKey: {
+            type: String,
+            index: true,
+            sparse: true,
+        },
     },
     {
         timestamps: true,
     }
 );
 
+notificationSchema.index({ companyId: 1, createdAt: -1 });
+notificationSchema.index({ userId: 1, type: 1, createdAt: -1 });
+
 const DeviceToken = require("./DeviceToken");
 const { sendPushNotification } = require("../services/firebaseService");
+
+/**
+ * Universal Deduplicated Notification Creation Engine
+ * Guarantees exactly ONE notification per user per event.
+ */
+notificationSchema.statics.createDeduplicated = async function ({
+    companyId,
+    userId,
+    title,
+    body,
+    type = "system",
+    data = {},
+    idempotencyKey = null,
+    dedupWindowSeconds = 30,
+}) {
+    if (!userId) return null;
+    const cleanUserId = (userId._id || userId).toString();
+    const cleanTitle = (title || "").trim();
+    const cleanBody = (body || "").trim();
+
+    // 1. If explicit idempotencyKey provided, check for existing document
+    if (idempotencyKey) {
+        const existing = await this.findOne({ idempotencyKey }).lean();
+        if (existing) {
+            return existing;
+        }
+    }
+
+    // 2. Debounce window check for identical recipient + type + title + target entity
+    const targetEntityId = String(
+        data?.taskId || data?.leadId || data?.attendanceId || data?.templateId || data?.id || ""
+    );
+    const cutoffTime = new Date(Date.now() - dedupWindowSeconds * 1000);
+
+    const dupQuery = {
+        userId: cleanUserId,
+        type,
+        title: cleanTitle,
+        createdAt: { $gte: cutoffTime }
+    };
+
+    if (targetEntityId) {
+        dupQuery.$or = [
+            { "data.taskId": targetEntityId },
+            { "data.leadId": targetEntityId },
+            { "data.attendanceId": targetEntityId },
+            { "data.templateId": targetEntityId },
+            { "data.id": targetEntityId }
+        ];
+    }
+
+    const recentDuplicate = await this.findOne(dupQuery).lean();
+    if (recentDuplicate) {
+        return recentDuplicate;
+    }
+
+    // 3. Fallback auto idempotency key if not explicitly given (scoped to debounce window)
+    const timeWindow = Math.floor(Date.now() / (dedupWindowSeconds * 1000));
+    const autoKey = targetEntityId ? `${type}_${targetEntityId}_${cleanUserId}_${timeWindow}` : undefined;
+    const finalIdempotencyKey = idempotencyKey || autoKey;
+
+    if (finalIdempotencyKey) {
+        const existingWithKey = await this.findOne({ idempotencyKey: finalIdempotencyKey }).lean();
+        if (existingWithKey) {
+            return existingWithKey;
+        }
+    }
+
+    return await this.create({
+        companyId: companyId || null,
+        userId: cleanUserId,
+        title: cleanTitle,
+        body: cleanBody,
+        type,
+        data,
+        idempotencyKey: finalIdempotencyKey || undefined
+    });
+};
 
 notificationSchema.pre("save", function () {
     this._wasNew = this.isNew;
@@ -73,45 +160,76 @@ notificationSchema.pre("save", function () {
 notificationSchema.post("save", async function (doc) {
     try {
         // Robust check for new document insertion
-        const isNewDoc = this._wasNew || this.$wasNew || this.wasNew || doc._wasNew || doc.$wasNew || doc.wasNew ||
-                         (doc.createdAt && doc.updatedAt && Math.abs(doc.createdAt.getTime() - doc.updatedAt.getTime()) < 1500);
+        const isNewDoc =
+            this._wasNew ||
+            this.$wasNew ||
+            this.wasNew ||
+            doc._wasNew ||
+            doc.$wasNew ||
+            doc.wasNew ||
+            (doc.createdAt &&
+                doc.updatedAt &&
+                Math.abs(doc.createdAt.getTime() - doc.updatedAt.getTime()) < 1500);
+
         if (isNewDoc) {
-            // 1. Emit Socket.io event for instant in-app notification update
+            // 1. Emit Socket.io event strictly to recipient's room
             try {
                 const socketHelper = require("../socket");
                 const io = socketHelper.getIO();
                 if (io && doc.userId) {
                     const uIdStr = doc.userId.toString();
-                    io.to(uIdStr).emit("notification:received", doc);
                     io.to(uIdStr).emit("new_notification", doc);
-                    io.emit(`notification:${uIdStr}`, doc);
+                    io.to(uIdStr).emit("notification:received", doc);
                 }
             } catch (sockErr) {
                 // Socket not initialized or not connected yet
             }
 
-            // 2. Send FCM Mobile Push Notification
-            const deviceTokens = await DeviceToken.find({
-                $or: [{ userId: doc.userId }, { employeeId: doc.userId }],
-                isActive: true
-            });
-            if (deviceTokens.length > 0) {
-                const tokens = deviceTokens.map((dt) => dt.fcmToken).filter(Boolean);
-                if (tokens.length > 0) {
-                    sendPushNotification(tokens, doc.title, doc.body, {
-                        type: doc.type || "system",
-                        ...(doc.data || {}),
-                        notificationId: doc._id.toString(),
-                    }).catch(err => console.error("Background FCM Error:", err));
+            // 2. Send FCM Mobile Push Notification (Tokens strictly deduplicated)
+            let recipientUserId = doc.userId;
+            try {
+                const User = require("./User");
+                const Employee = require("./Employee");
+                const u = await User.findById(doc.userId).select("_id").lean();
+                if (!u) {
+                    const emp = await Employee.findById(doc.userId).select("userId").lean();
+                    if (emp?.userId) {
+                        recipientUserId = emp.userId;
+                    }
                 }
+            } catch (_) {}
+
+            // Strictly query active tokens that belong to this intended recipient user
+            const deviceTokens = await DeviceToken.find({
+                userId: recipientUserId,
+                isActive: true
+            }).sort({ updatedAt: -1 }).lean();
+
+            // Strict deduplication: 1 latest active token per physical device/platform per user
+            const seenKeys = new Set();
+            const uniqueTokens = [];
+            for (const dt of deviceTokens) {
+                if (!dt.fcmToken) continue;
+                const devKey = `${(dt.userId || "").toString()}_${dt.deviceId || dt.platform || "android"}`;
+                if (!seenKeys.has(devKey) && !seenKeys.has(dt.fcmToken)) {
+                    seenKeys.add(devKey);
+                    seenKeys.add(dt.fcmToken);
+                    uniqueTokens.push(dt.fcmToken);
+                }
+            }
+
+            if (uniqueTokens.length > 0) {
+                sendPushNotification(uniqueTokens, doc.title, doc.body, {
+                    type: doc.type || "system",
+                    ...(doc.data || {}),
+                    notificationId: doc._id.toString(),
+                }).catch(err => console.error("Background FCM Error:", err));
             }
         }
     } catch (error) {
         console.error("Error in Notification post-save hook:", error);
     }
 });
-
-notificationSchema.index({ companyId: 1, createdAt: -1 });
 
 const Notification = mongoose.model("Notification", notificationSchema);
 

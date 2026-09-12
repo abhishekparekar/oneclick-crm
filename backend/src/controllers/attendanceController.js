@@ -10,7 +10,7 @@ const User = require("../models/User");
 const Department = require("../models/Department");
 const Designation = require("../models/Designation");
 const { calculateDistance } = require("../utils/geoUtils");
-const { notifyUser, notifyRole, notifyDeptManagers } = require("../utils/notificationHelper");
+const { notifyUser, notifyRole, notifyDeptManagers, notifyAttendancePunch } = require("../utils/notificationHelper");
 
 // Get date string (YYYY-MM-DD)
 const getDateKey = (d = new Date()) => {
@@ -273,18 +273,16 @@ const checkIn = async (req, res, next) => {
       }).catch(() => {});
     }
 
-    // Non-blocking asynchronous notifications: return response instantly without waiting!
+    // Single deduplicated asynchronous notification dispatch
     const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
-    const empName = employee.user?.name || (employee.firstName ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "Employee");
-    const notifyTitle = `Punch In: ${empName}`;
-    const notifyBody = `${empName} punched in at ${timeStr}. Status: ${status}.`;
-
-    Promise.allSettled([
-      employee.userId ? notifyUser(employee.userId, req.companyId, "Punched In Successfully", `You punched in at ${timeStr}.`, "attendance", { attendanceId: attendance._id }) : Promise.resolve(),
-      notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
-      notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
-      employee.departmentId ? notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }) : Promise.resolve(),
-    ]).catch((err) => console.error("[AttendanceNotify] Async punch-in notify error:", err));
+    notifyAttendancePunch({
+      companyId: req.companyId,
+      employee,
+      action: "punch_in",
+      timeStr,
+      status,
+      attendanceId: attendance._id
+    }).catch((err) => console.error("[AttendanceNotify] Async punch-in notify error:", err));
 
     return res.status(201).json({
       success: true,
@@ -491,18 +489,16 @@ const checkOut = async (req, res, next) => {
       },
     }).catch(() => {});
 
-    // Non-blocking asynchronous notifications: return response instantly without waiting!
+    // Single deduplicated asynchronous notification dispatch
     const timeStr = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true, timeZone: "Asia/Kolkata" });
-    const empName = employee.user?.name || (employee.firstName ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "Employee");
-    const notifyTitle = `Punch Out: ${empName}`;
-    const notifyBody = `${empName} punched out at ${timeStr}. Total hours: ${formatTotalHours(totalHours)}.`;
-
-    Promise.allSettled([
-      employee.userId ? notifyUser(employee.userId, req.companyId, "Punched Out Successfully", `You punched out at ${timeStr}. Total hours today: ${formatTotalHours(totalHours)}.`, "attendance", { attendanceId: attendance._id }) : Promise.resolve(),
-      notifyRole(req.companyId, "CompanyAdmin", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
-      notifyRole(req.companyId, "HR", notifyTitle, notifyBody, "attendance", { employeeId: employee._id }),
-      employee.departmentId ? notifyDeptManagers(req.companyId, employee.departmentId, notifyTitle, notifyBody, "attendance", { employeeId: employee._id }) : Promise.resolve(),
-    ]).catch((err) => console.error("[AttendanceNotify] Async punch-out notify error:", err));
+    notifyAttendancePunch({
+      companyId: req.companyId,
+      employee,
+      action: "punch_out",
+      timeStr,
+      totalHours: formatTotalHours(totalHours),
+      attendanceId: attendance._id
+    }).catch((err) => console.error("[AttendanceNotify] Async punch-out notify error:", err));
 
     return res.json({ success: true, attendance });
   } catch (error) {

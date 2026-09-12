@@ -48,8 +48,8 @@ const MANAGER_SECTIONS = [
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
-      { label: "Live Location Radar", path: "/manager/location-tracking", icon: Navigation, module: "attendance" },
-      { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance" },
+      { label: "Live Employee Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
+      { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },
@@ -116,15 +116,29 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {MANAGER_SECTIONS.map((section, idx) => {
           const liveSubscribed = profileData?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
-            if (!item.module) return true;
-            const norm = String(item.module).toLowerCase().trim();
+            if (!item.module && !item.modules) return true;
             if (Array.isArray(liveSubscribed)) {
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
-              if (!subs.includes(norm)) return false;
+              if (item.modules) {
+                const hasMatch = item.modules.some(m => subs.includes(String(m).toLowerCase().trim()));
+                if (!hasMatch) return false;
+              } else {
+                const norm = String(item.module).toLowerCase().trim();
+                if (!subs.includes(norm)) return false;
+              }
             }
             if (Array.isArray(assignedModules) && assignedModules.length > 0) {
               const assigned = assignedModules.map(m => String(m).toLowerCase().trim());
-              if (!assigned.includes(norm)) return false;
+              if (item.modules) {
+                const hasMatch = item.modules.some(m => assigned.includes(String(m).toLowerCase().trim()));
+                if (!hasMatch) return false;
+              } else {
+                const norm = String(item.module).toLowerCase().trim();
+                if (!assigned.includes(norm)) return false;
+              }
+            }
+            if (item.modules) {
+              return item.modules.some(m => hasPermission(m, "view") || hasPermission(m));
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

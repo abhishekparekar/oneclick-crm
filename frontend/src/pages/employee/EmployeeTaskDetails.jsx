@@ -9,6 +9,7 @@ import {
   updateEmployeeTaskChecklistApi
 } from "../../api/employeeApi";
 import TaskStatusModal from "../../components/tasks/TaskStatusModal";
+import CustomDateTimeField from "../../components/common/CustomDateTimeField";
 import {
   ArrowLeft, CheckSquare, Clock, Calendar as CalendarIcon, Send, FileText,
   User, Building, ShieldCheck, CheckCircle2, AlertCircle, MessageSquare,
@@ -51,18 +52,25 @@ const toDateTimeLocal = (dateVal) => {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 const formatFollowUpDateTime = (dateStr) => {
   if (!dateStr) return "Not Set";
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return "Not Set";
-  return d.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const pad = (n) => String(n).padStart(2, "0");
+  const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${timeStr}`;
 };
 
 // ── POPUP ACTION MODAL ───────────────────────────────────────────────────────
@@ -168,7 +176,7 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
         const startDate = new Date(taskStartDate);
         startDate.setHours(0, 0, 0, 0);
         if (selectedDate < startDate) {
-          const startStr = startDate.toLocaleDateString("en-GB");
+          const startStr = formatDateDDMMYYYY(startDate);
           setErrorMsg(`Follow-up date cannot be before the task's start date (${startStr}).`);
           return;
         }
@@ -233,7 +241,7 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
                   (When to check progress next)
                 </span>
               </label>
-              <input
+              <CustomDateTimeField
                 type="datetime-local"
                 required
                 value={nextFollowUpDate}
@@ -410,14 +418,39 @@ export default function EmployeeTaskDetails() {
   }
 
   const task = taskRes || {};
+  const checklistItems = task.checklist || task.subtasks || [];
+  const completedChecklistCount = checklistItems.filter(c => c.isCompleted || c.completed).length;
+  const totalChecklistCount = checklistItems.length;
+
+  const toggleChecklistMut = useMutation({
+    mutationFn: (newChecklist) => updateEmployeeTaskChecklistApi(taskId, newChecklist),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["employeeTaskDetails", taskId]);
+    }
+  });
+
+  const handleToggleChecklistItem = (idx) => {
+    if (!task) return;
+    const currentList = task.checklist || task.subtasks || [];
+    const newChecklist = [...currentList];
+    const isDone = newChecklist[idx].isCompleted || newChecklist[idx].completed;
+    newChecklist[idx] = {
+      ...newChecklist[idx],
+      isCompleted: !isDone,
+      completed: !isDone
+    };
+    toggleChecklistMut.mutate(newChecklist);
+  };
+
   const currentRawStatus = (task.myStatus || task.statusKey || task.status || "pending").toLowerCase();
   const normalizedSt = normalizeStatus(currentRawStatus);
   const isCompleted = normalizedSt === "complete" || normalizedSt === "late_complete" || currentRawStatus === "re_complete";
   const isLateCompleted = normalizedSt === "late_complete" || currentRawStatus === "late_complete" || currentRawStatus === "re_late_complete";
   const isCancelled = normalizedSt === "cancelled" || currentRawStatus === "cancelled";
 
-  const isOverdueTime = !isCompleted && Boolean(task.dueDate || task.endDateTime) && new Date(task.dueDate || task.endDateTime) < new Date();
-  const isOverdue = !isCompleted && (normalizedSt === "overdue" || isOverdueTime);
+  const rawDue = task.endDateTime || task.endDate || task.dueDate;
+  const isOverdueTime = !isCompleted && !isCancelled && Boolean(rawDue) && !isNaN(new Date(rawDue).getTime()) && Date.now() >= new Date(rawDue).getTime();
+  const isOverdue = !isCompleted && !isCancelled && (rawDue ? isOverdueTime : normalizedSt === "overdue");
   const isInProgress = normalizedSt === "in_process";
   const isPending = normalizedSt === "pending";
 
@@ -432,7 +465,9 @@ export default function EmployeeTaskDetails() {
     if (!val) return "Not Scheduled";
     const d = new Date(val);
     if (isNaN(d.getTime())) return "Not Scheduled";
-    return `${d.toLocaleDateString("en-GB")}, ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}`;
+    const pad = (n) => String(n).padStart(2, "0");
+    const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${timeStr}`;
   };
 
   const openActionModal = (type) => {
@@ -570,9 +605,53 @@ export default function EmployeeTaskDetails() {
             </div>
 
             {/* Description & Instructions */}
-            <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed shadow-2xs">
+            <div className="min-h-[140px] max-h-72 p-3 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-y-auto shadow-2xs">
               {task.description || "No specific detailed description provided for this task."}
             </div>
+
+            {checklistItems && checklistItems.length > 0 && (
+              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between text-[10.5px]">
+                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                    <CheckSquare size={12} className="text-teal-600 dark:text-teal-400" />
+                    <span>Complete {completedChecklistCount || 0}</span>
+                  </span>
+                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
+                    {totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0}%
+                  </span>
+                </div>
+
+                <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
+                    style={{ width: `${totalChecklistCount > 0 ? (completedChecklistCount / totalChecklistCount) * 100 : 0}%` }}
+                  />
+                </div>
+
+                <div className="space-y-1 pt-0.5 max-h-60 overflow-y-auto pr-1">
+                  {checklistItems.map((item, idx) => (
+                    <label 
+                      key={idx} 
+                      className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all cursor-pointer text-xs shadow-2xs ${
+                        item.isCompleted || item.completed
+                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
+                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold hover:border-teal-500/50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.isCompleted || item.completed || false}
+                        onChange={() => handleToggleChecklistItem(idx)}
+                        className="mt-0.5 rounded text-amber-500 focus:ring-0 cursor-pointer shrink-0"
+                      />
+                      <span className="flex-1 break-words leading-relaxed text-xs">
+                        {item.title}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Key Dates & Meta Specs Grid */}
             <div className="space-y-1.5 pt-1">
@@ -586,7 +665,7 @@ export default function EmployeeTaskDetails() {
                 <div className="p-2 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 space-y-0.5 shadow-2xs">
                   <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Start Date</span>
                   <span className="font-mono font-black text-slate-900 dark:text-white block text-xs">
-                    {task.startDate || task.startDateTime ? new Date(task.startDate || task.startDateTime).toLocaleDateString("en-GB") : "—"}
+                    {formatDateDDMMYYYY(task.startDate || task.startDateTime)}
                   </span>
                 </div>
 
@@ -594,7 +673,7 @@ export default function EmployeeTaskDetails() {
                 <div className={`p-2 rounded-lg border space-y-0.5 shadow-2xs ${isOverdueTime ? "bg-rose-50 border-rose-300 dark:bg-rose-950/40 dark:border-rose-800" : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80"}`}>
                   <span className="text-[9.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 block">Due Date</span>
                   <span className={`font-mono font-black block text-xs ${isOverdueTime ? "text-rose-700 dark:text-rose-300" : "text-slate-900 dark:text-white"}`}>
-                    {task.dueDate || task.endDateTime || task.finishDate ? new Date(task.dueDate || task.endDateTime || task.finishDate).toLocaleDateString("en-GB") : "—"}
+                    {formatDateDDMMYYYY(task.dueDate || task.endDateTime || task.finishDate)}
                   </span>
                 </div>
 
@@ -767,7 +846,7 @@ export default function EmployeeTaskDetails() {
                         </span>
                       </div>
                       <span className="font-mono text-slate-500 dark:text-slate-400 font-bold text-[10px]">
-                        {new Date(c.createdAt || Date.now()).toLocaleDateString("en-GB")}
+                        {formatDateDDMMYYYY(c.createdAt || Date.now())}
                       </span>
                     </div>
 

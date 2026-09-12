@@ -1,6 +1,19 @@
 import { useState, useEffect } from "react";
 import { Layers, Calendar, Paperclip, X, FileText, CheckCircle, Clock } from "lucide-react";
 import { uploadTaskMediaApi } from "../../api/employeeApi";
+import CustomDateTimeField from "../common/CustomDateTimeField";
+
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}/.test(val.trim())) {
+    const [y, m, d] = val.trim().slice(0, 10).split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
 
 const getSmartStatusOptions = (task) => {
   if (!task) return [];
@@ -216,7 +229,7 @@ export default function TaskStatusModal({
               </span>
               <span className="text-[10px] text-slate-400 lowercase font-normal">(when to contact/follow-up next)</span>
             </label>
-            <input
+            <CustomDateTimeField
               type="datetime-local"
               value={nextFollowUpDate}
               onChange={(e) => setNextFollowUpDate(e.target.value)}

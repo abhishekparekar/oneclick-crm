@@ -120,7 +120,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
         <View style={styles.headerRow}>
           <View>
             <Text style={styles.title}>Reports & Analytics</Text>
-            <Text style={styles.subtitle}>Summary and report links</Text>
+            <Text style={styles.subtitle}>Executive overview and analytics directory</Text>
           </View>
         </View>
         
@@ -128,25 +128,25 @@ const ReportsDashboardScreen = ({ navigation }) => {
         
         {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { borderTopColor: "#2563eb" }]}>
-            <Text style={styles.statLabel}>TOTAL COMPANIES</Text>
-            <Text style={[styles.statValue, { color: "#2563eb" }]}>{summary?.totalCompanies ?? "-"}</Text>
+          <View style={[styles.statBox, { borderLeftColor: "#2563EB", borderLeftWidth: 3.5 }]}>
+            <Text style={styles.statLabel}>COMPANIES</Text>
+            <Text style={[styles.statValue, { color: "#0F172A" }]}>{summary?.totalCompanies ?? "-"}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#10b981" }]}>
-            <Text style={styles.statLabel}>ACTIVE COMPANIES</Text>
-            <Text style={[styles.statValue, { color: "#10b981" }]}>{summary?.activeCompanies ?? "-"}</Text>
+          <View style={[styles.statBox, { borderLeftColor: "#10B981", borderLeftWidth: 3.5 }]}>
+            <Text style={styles.statLabel}>ACTIVE</Text>
+            <Text style={[styles.statValue, { color: "#10B981" }]}>{summary?.activeCompanies ?? "-"}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#C2410C" }]}>
-            <Text style={styles.statLabel}>TOTAL EMPLOYEES</Text>
-            <Text style={[styles.statValue, { color: "#C2410C" }]}>{summary?.totalEmployees ?? "-"}</Text>
+          <View style={[styles.statBox, { borderLeftColor: "#C2410C", borderLeftWidth: 3.5 }]}>
+            <Text style={styles.statLabel}>EMPLOYEES</Text>
+            <Text style={[styles.statValue, { color: "#0F172A" }]}>{summary?.totalEmployees ?? "-"}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#7c3aed" }]}>
-            <Text style={styles.statLabel}>TOTAL REVENUE</Text>
-            <Text style={[styles.statValue, { color: "#7c3aed" }]}>₹{summary?.totalRevenue?.toLocaleString("en-IN") ?? 0}</Text>
+          <View style={[styles.statBox, { borderLeftColor: "#7C3AED", borderLeftWidth: 3.5 }]}>
+            <Text style={styles.statLabel}>REVENUE</Text>
+            <Text style={[styles.statValue, { color: "#7C3AED" }]}>₹{summary?.totalRevenue?.toLocaleString("en-IN") ?? 0}</Text>
           </View>
         </View>
 
-        <Text style={styles.section}>Available Reports</Text>
+        <Text style={styles.section}>AVAILABLE REPORTS</Text>
 
         {/* Menu Cards */}
         {reportItems.map((item, idx) => (
@@ -163,7 +163,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
               <Text style={styles.menuTitle}>{item.title}</Text>
               <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
             </View>
-            <Ionicons name="chevron-forward-outline" size={16} color="#94a3b8" />
+            <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
           </TouchableOpacity>
         ))}
       </ScrollView>
@@ -172,58 +172,58 @@ const ReportsDashboardScreen = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  content: { padding: 16, paddingBottom: 40 },
-  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
-  title: { fontSize: 22, fontFamily: FONTS.displayBold, color: "#0f172a" },
-  subtitle: { fontSize: 13, color: "#64748b", fontFamily: FONTS.bodyMedium, marginTop: 2 },
-  error: { color: "#dc2626", marginBottom: 12, fontFamily: FONTS.bodySemiBold },
+  container: { flex: 1, backgroundColor: "#F8FAFC" },
+  content: { padding: 14, paddingBottom: 40 },
+  headerRow: { marginBottom: 14 },
+  title: { fontSize: 20, fontFamily: FONTS.displayBold, color: "#0F172A" },
+  subtitle: { fontSize: 12, color: "#64748B", fontFamily: FONTS.bodyMedium, marginTop: 2 },
+  error: { color: "#DC2626", marginBottom: 12, fontFamily: FONTS.bodySemiBold, fontSize: 12 },
   
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     marginBottom: 16,
+    gap: 8,
   },
   statBox: {
     width: "48%",
-    backgroundColor: "#ffffff",
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderTopWidth: 4,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
-  statLabel: { fontSize: 9, color: "#64748b", fontFamily: FONTS.bodyBold, marginBottom: 6, letterSpacing: 0.5 },
-  statValue: { fontSize: 20, fontFamily: FONTS.displayBold },
+  statLabel: { fontSize: 9.5, color: "#64748B", fontFamily: FONTS.bodyBold, marginBottom: 4, letterSpacing: 0.5 },
+  statValue: { fontSize: 18, fontFamily: FONTS.displayBold },
   
-  section: { fontSize: 15, fontFamily: FONTS.displayBold, color: "#0f172a", marginTop: 12, marginBottom: 12 },
+  section: { fontSize: 11, fontFamily: FONTS.bodyBold, color: "#64748B", letterSpacing: 0.8, marginBottom: 10, marginTop: 4 },
   
   menuCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    padding: 14,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    backgroundColor: "#FFFFFF",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 9,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -233,15 +233,15 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   menuTitle: {
-    fontSize: 14,
-    fontFamily: FONTS.displayBold,
-    color: "#0f172a",
-    marginBottom: 3,
+    fontSize: 13.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+    marginBottom: 2,
   },
   menuSubtitle: {
     fontSize: 11,
     fontFamily: FONTS.bodyMedium,
-    color: "#64748b",
+    color: "#64748B",
   },
 });
 

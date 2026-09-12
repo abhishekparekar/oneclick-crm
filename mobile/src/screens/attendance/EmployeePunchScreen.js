@@ -270,26 +270,29 @@ const EmployeePunchScreen = ({ navigation, route }) => {
           user?.isLocationTrackingEnabled ??
           false;
 
-        const isHrOrAdmin = user?.role === "hr" || user?.role === "HR" || user?.role === "admin" || user?.role === "ADMIN";
-        if (trackingEnabled && !isHrOrAdmin) {
-          setTimeout(() => {
-            locationTrackingService.startLocationTracking().catch((trkErr) => {
-              console.warn("[Punch] Tracking start notice:", trkErr);
-            });
-          }, 400);
+        if (trackingEnabled) {
+          console.log("[Punch] Activating live location tracking...");
+          locationTrackingService.startLocationTracking().catch((trkErr) => {
+            console.warn("[Punch] Tracking start notice:", trkErr);
+          });
         } else {
-          console.log("[Punch] Location tracking is not enabled for this user (Office/HR staff). Tracking omitted.");
+          console.log("[Punch] Location tracking is not enabled for this user. Tracking omitted.");
         }
-        Alert.alert("Success", "Clocked In successfully!", [
-          {
-            text: "OK",
-            onPress: () => {
-              if (isMountedRef.current && navigation && navigation.canGoBack && navigation.canGoBack()) {
-                navigation.goBack();
-              }
+
+        Alert.alert(
+          "Success",
+          "Clocked In successfully!" + (trackingEnabled ? "\n\n📍 Live Route Tracking Active" : ""),
+          [
+            {
+              text: "OK",
+              onPress: () => {
+                if (isMountedRef.current && navigation && navigation.canGoBack && navigation.canGoBack()) {
+                  navigation.goBack();
+                }
+              },
             },
-          },
-        ]);
+          ]
+        );
       } else {
         try {
           // Flush any pending GPS trip points with 1s timeout to prevent UI delay

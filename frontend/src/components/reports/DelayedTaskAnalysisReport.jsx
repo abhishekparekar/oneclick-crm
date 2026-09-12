@@ -10,6 +10,18 @@ import {
   TrendingUp, Briefcase, Calendar, Bell, FileText, LayoutList, LayoutGrid
 } from "lucide-react";
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 const toSafeArray = (val) => {
   if (!val) return [];
   if (Array.isArray(val)) return val;
@@ -143,7 +155,7 @@ const DelayedTaskAnalysisReport = ({ fallbackTasks = [], fallbackEmployees = [],
         const assignedBy = t.assignedBy?.fullName || t.assignedBy?.name || "Manager";
         
         const dueDateObj = t.dueDate ? new Date(t.dueDate) : t.endDateTime ? new Date(t.endDateTime) : new Date();
-        const dueDate = dueDateObj.toLocaleDateString("en-GB");
+        const dueDate = formatDateDDMMYYYY(dueDateObj);
         
         const statusRaw = (t.status || "").toLowerCase();
         const isCompleted = statusRaw.includes("complete") || statusRaw === "done";
@@ -162,7 +174,7 @@ const DelayedTaskAnalysisReport = ({ fallbackTasks = [], fallbackEmployees = [],
           ? "bg-rose-100 text-rose-800 dark:bg-rose-950/60 dark:text-rose-300 border-rose-300"
           : "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border-amber-300";
         
-        const completionDate = isCompleted && completionDateObj ? completionDateObj.toLocaleDateString("en-GB") : "— (Still Pending)";
+        const completionDate = isCompleted && completionDateObj ? formatDateDDMMYYYY(completionDateObj) : "— (Still Pending)";
         const delayReason = t.delayReason || "Not specified";
         
         const priority = t.priority || "Medium";

@@ -39,6 +39,7 @@ router
   .delete(controller.deletePlan);
 router.patch("/plans/:id/status", controller.updatePlanStatus);
 router.get("/subscriptions", controller.getSubscriptions);
+router.post("/subscriptions/sync-expiry-notifications", controller.syncSubscriptionExpiryNotifications);
 router.post("/subscriptions/assign", controller.assignSubscription);
 router.put("/subscriptions/:id", controller.updateSubscription);
 router.patch("/subscriptions/:id/renew", controller.renewSubscription);

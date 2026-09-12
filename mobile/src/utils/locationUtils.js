@@ -108,9 +108,10 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   const hardwareSpeedKmh = (Number(point.speed) || 0) * 3.6;
   const effectiveSpeedKmh = Math.max(hardwareSpeedKmh, calculatedSpeedKmh);
 
+  // Initial session anchor (previousPoint == null): Allow up to 150m accuracy to anchor punch-in location
   // Bike/Vehicle moving (> 8 km/h or resuming from stoppage): Allow up to 95m accuracy
   // Stationary/Walking (<= 8 km/h): Keep strict 70m accuracy to prevent indoor drift
-  const maxAcc = (effectiveSpeedKmh > 8.0 || isResumingFromStoppage) ? 95 : 70;
+  const maxAcc = !previousPoint ? 150 : (effectiveSpeedKmh > 8.0 || isResumingFromStoppage ? 95 : 70);
 
   if (!isNaN(accuracy) && accuracy > maxAcc) {
     console.log(`[LocationFilter] Dropped GPS point due to accuracy: ${accuracy}m (max: ${maxAcc}m, spd: ${effectiveSpeedKmh.toFixed(1)} km/h)`);

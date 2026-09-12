@@ -34,6 +34,7 @@ import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { captureGPSLocation } from "../../utils/locationService";
 import * as ImagePicker from "expo-image-picker";
 import { uploadSelfieToFirebase } from "../../utils/firebaseStorage";
+import locationTrackingService from "../../services/locationTrackingService";
 
 const { width } = Dimensions.get("window");
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -325,8 +326,23 @@ const MyAttendanceScreen = ({ navigation }) => {
         punchInLocation: coords,
         ...(finalSelfieUri ? { punchInSelfie: finalSelfieUri } : {}),
       };
-      await punchInApi(payload);
-      Alert.alert("✅ Clocked In!", "You have successfully punched in. Have a great day!");
+      const punchRes = await punchInApi(payload);
+
+      const trackingEnabled =
+        punchRes?.data?.isLocationTrackingEnabled ??
+        punchRes?.data?.data?.isLocationTrackingEnabled ??
+        user?.isLocationTrackingEnabled ??
+        false;
+
+      if (trackingEnabled) {
+        locationTrackingService.startLocationTracking().catch(() => {});
+      }
+
+      Alert.alert(
+        "✅ Clocked In!",
+        "You have successfully punched in. Have a great day!" +
+          (trackingEnabled ? "\n\n📍 Live Route Tracking Active" : "")
+      );
       setGpsCaptured(false);
       setGpsCoords(null);
       setSelfieUri(null);
@@ -386,6 +402,8 @@ const MyAttendanceScreen = ({ navigation }) => {
         ...(finalSelfieUri ? { punchOutSelfie: finalSelfieUri } : {}),
       };
       await punchOutApi(payload);
+      locationTrackingService.stopLocationTracking().catch(() => {});
+
       Alert.alert("✅ Clocked Out!", "You have successfully punched out. See you tomorrow!");
       setGpsCaptured(false);
       setGpsCoords(null);

@@ -20,6 +20,7 @@ const {
   resolveEventParameters,
   analyzeWhatsAppError,
 } = require("../services/whatsappService");
+const { resolveToUserIds } = require("../utils/notificationHelper");
 
 const getCompanyId = (req) => {
   return req.user?.companyId || req.user?._id || null;
@@ -33,80 +34,88 @@ const buildCompanyQuery = (req, base = {}) => {
   return base;
 };
 
-// ── FCM Push Helper ───────────────────────────────────────────
-const pushFCMToUserIds = async (userIds, title, body, type, data = {}) => {
-  try {
-    if (!userIds || userIds.length === 0) return;
-    const cleanIds = userIds.map(id => id?.toString()).filter(Boolean);
-    const tokens = await DeviceToken.find({ userId: { $in: cleanIds }, isActive: true }).select("fcmToken").lean();
-    const fcmTokens = tokens.map(t => t.fcmToken).filter(Boolean);
-    if (fcmTokens.length === 0) return;
-    const pushData = { type: String(type || "lead"), ...Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) };
-    await sendPushNotification(fcmTokens, title, body, pushData);
-  } catch (err) {
-    console.error("[leadController pushFCMToUserIds]:", err.message);
-  }
-};
-
 // ── Notification Helpers ─────────────────────────────────────
-const notifyCompanyAdmins = async (companyId, excludeUserId, title, body, type = "lead", data = {}) => {
+const notifyCompanyAdmins = async (companyId, excludeUserIds, title, body, type = "lead", data = {}, idempotencyKeyPrefix = null) => {
   try {
     if (!companyId) return;
+    const excludeList = Array.isArray(excludeUserIds) ? excludeUserIds : (excludeUserIds ? [excludeUserIds] : []);
+    const excludeSet = new Set(
+      excludeList.map(id => (id ? (id._id ? id._id.toString() : id.toString()) : "")).filter(Boolean)
+    );
+
     const adminUsers = await User.find({
       $or: [{ companyId }, { _id: companyId }],
       role: { $regex: /^(companyadmin|company_admin|admin|hr)$/i },
       isActive: true,
-      ...(excludeUserId ? { _id: { $ne: excludeUserId } } : {}),
-    }).select("_id");
+    }).select("_id").lean();
 
-    const userIds = adminUsers.map(a => a._id.toString());
-    for (const admin of adminUsers) {
-      await Notification.create({
-        companyId,
-        userId: admin._id,
-        title,
-        body,
-        type,
-        data,
-      });
-    }
-    // FCM push to all admins
-    await pushFCMToUserIds(userIds, title, body, type, data);
+    const targetAdmins = adminUsers.filter(a => !excludeSet.has(a._id.toString()));
+    const entityId = data?.leadId || "";
+    const windowKey = Math.floor(Date.now() / 15000);
+
+    await Promise.all(
+      targetAdmins.map(admin => {
+        const uId = admin._id.toString();
+        const idKey = idempotencyKeyPrefix
+          ? `${idempotencyKeyPrefix}_${uId}`
+          : (entityId ? `lead_admin_${type}_${entityId}_${uId}_${windowKey}` : null);
+
+        return Notification.createDeduplicated({
+          companyId,
+          userId: uId,
+          title,
+          body,
+          type,
+          data,
+          idempotencyKey: idKey
+        });
+      })
+    );
   } catch (err) {
     console.error("[notifyCompanyAdmins error]:", err.message);
   }
 };
 
-const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "lead_assigned", data = {}) => {
+const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "lead_assigned", data = {}, idempotencyKey = null) => {
   try {
-    if (!targetId) return;
-    let targetUserId = targetId;
+    if (!targetId) return null;
 
-    const emp = await Employee.findById(targetId).select("userId companyId");
-    if (emp && emp.userId) {
-      targetUserId = emp.userId;
-      if (!companyId) companyId = emp.companyId;
+    // Robust resolution of Employee ObjectId, User ObjectId, or string to canonical User ObjectId
+    const resolvedUserIds = await resolveToUserIds(targetId, companyId);
+    if (!resolvedUserIds || resolvedUserIds.length === 0) {
+      console.warn(`[notifyUserOrEmployee] Could not resolve targetId to a User: ${targetId}`);
+      return null;
+    }
+    const cleanUserId = resolvedUserIds[0];
+
+    // Ensure companyId is resolved if not passed
+    let validCompanyId = companyId;
+    if (!validCompanyId) {
+      const usr = await User.findById(cleanUserId).select("companyId").lean();
+      if (usr && usr.companyId) validCompanyId = usr.companyId;
+    }
+    if (!validCompanyId && data?.leadId) {
+      const ld = await Lead.findById(data.leadId).select("companyId").lean();
+      if (ld && ld.companyId) validCompanyId = ld.companyId;
     }
 
-    if (!companyId) {
-      const usr = await User.findById(targetUserId).select("companyId");
-      if (usr && usr.companyId) companyId = usr.companyId;
-    }
+    const entityId = data?.leadId || "";
+    // 15-second debounce window key to prevent double clicks without permanently blocking re-assignment
+    const windowKey = Math.floor(Date.now() / 15000);
+    const finalKey = idempotencyKey || (entityId ? `lead_user_${type}_${entityId}_${cleanUserId}_${windowKey}` : null);
 
-    if (!companyId || !targetUserId) return;
-
-    await Notification.create({
-      companyId,
-      userId: targetUserId,
+    return await Notification.createDeduplicated({
+      companyId: validCompanyId || null,
+      userId: cleanUserId,
       title,
       body,
       type,
       data,
+      idempotencyKey: finalKey
     });
-    // FCM push to assigned user's device
-    await pushFCMToUserIds([(targetUserId._id || targetUserId).toString()], title, body, type, data);
   } catch (err) {
     console.error("[notifyUserOrEmployee error]:", err.message);
+    return null;
   }
 };
 
@@ -524,6 +533,7 @@ const getLeads = async (req, res) => {
       notes: l.notes,
       whatsappOptIn: l.whatsappOptIn,
       createdAt: l.createdAt,
+      nextFollowUpDate: l.nextFollowUpDate || null,
       statusId: l.statusId?._id?.toString() || l.statusId,
       status: l.statusId
         ? { id: l.statusId._id.toString(), name: l.statusId.name, color: l.statusId.color }
@@ -581,11 +591,11 @@ const createLead = async (req, res) => {
       targetStatusId = defStatus?._id;
     }
 
-    let resolvedAssignedTo = assignedTo;
+    let resolvedAssignedTo = null;
     if (assignedTo && assignedTo !== "unassigned") {
-      const emp = await Employee.findById(assignedTo).select("userId");
-      if (emp && emp.userId) {
-        resolvedAssignedTo = emp.userId;
+      const resolvedIds = await resolveToUserIds(assignedTo, companyId);
+      if (resolvedIds.length > 0) {
+        resolvedAssignedTo = resolvedIds[0];
       }
     } else if (req.user?.role?.toLowerCase() === "employee") {
       resolvedAssignedTo = req.user?._id;
@@ -659,27 +669,31 @@ const createLead = async (req, res) => {
       ? `${newLead.company}`
       : newLead.whatsappPhone || newLead.phone || "No contact";
 
-    // 1. Notify Company Admins & HR
-    await notifyCompanyAdmins(
-      companyId,
-      req.user?._id,
-      `🎯 New Lead Captured: ${newLead.name}`,
-      `${creatorName} added a new lead "${newLead.name}" (${contactInfo}) via ${newLead.source || "Walk-in"}.`,
-      "lead",
-      { leadId: newLead._id.toString(), leadName: newLead.name }
-    );
-
-    // 2. If assigned to a specific staff member on creation, notify them
+    // 1. If assigned to a specific staff member on creation, notify them directly
     if (resolvedAssignedTo && resolvedAssignedTo.toString() !== req.user?._id?.toString()) {
       await notifyUserOrEmployee(
-        companyId,
+        newLead.companyId || companyId,
         resolvedAssignedTo,
-        `📋 Lead Assigned: ${newLead.name}`,
+        `Lead Assigned: ${newLead.name}`,
         `You have been assigned a new lead "${newLead.name}" (${contactInfo}) by ${creatorName}.`,
         "lead_assigned",
         { leadId: newLead._id.toString(), leadName: newLead.name }
       );
     }
+
+    // 2. Notify Company Admins & HR (strictly excluding creator and the assignee already notified above)
+    const excludeFromAdmins = [
+      req.user?._id,
+      ...(resolvedAssignedTo ? [resolvedAssignedTo] : [])
+    ];
+    await notifyCompanyAdmins(
+      companyId,
+      excludeFromAdmins,
+      `New Lead Captured: ${newLead.name}`,
+      `${creatorName} added a new lead "${newLead.name}" (${contactInfo}) via ${newLead.source || "Walk-in"}.`,
+      "lead",
+      { leadId: newLead._id.toString(), leadName: newLead.name }
+    );
 
     return res.status(201).json(formatted);
   } catch (err) {
@@ -711,6 +725,7 @@ const getLeadById = async (req, res) => {
       notes: lead.notes,
       whatsappOptIn: lead.whatsappOptIn,
       createdAt: lead.createdAt,
+      nextFollowUpDate: lead.nextFollowUpDate || null,
       dateOfBirth: lead.dateOfBirth,
       anniversaryDate: lead.anniversaryDate,
       assignedTo: lead.assignedTo
@@ -748,9 +763,9 @@ const updateLead = async (req, res) => {
     if (updateData.assignedTo === "" || updateData.assignedTo === "unassigned") {
       updateData.assignedTo = null;
     } else if (updateData.assignedTo) {
-      const emp = await Employee.findById(updateData.assignedTo).select("userId");
-      if (emp && emp.userId) {
-        updateData.assignedTo = emp.userId;
+      const resolvedIds = await resolveToUserIds(updateData.assignedTo, companyId);
+      if (resolvedIds.length > 0) {
+        updateData.assignedTo = resolvedIds[0];
       }
     }
 
@@ -771,68 +786,104 @@ const updateLead = async (req, res) => {
     // ── Check if Status Changed (Won, Closed, or Stage Update) ──
     if (updateData.statusId && prevLead.statusId?._id?.toString() !== updateData.statusId.toString()) {
       const newStatusName = updated.statusId?.name || "Updated";
+      let followUpFormatted = "";
+      let followUpDateStr = "";
+      let followUpTimeStr = "";
+      if (updated.nextFollowUpDate) {
+        const d = new Date(updated.nextFollowUpDate);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, "0");
+          const month = String(d.getMonth() + 1).padStart(2, "0");
+          const year = d.getFullYear();
+          followUpDateStr = `${day}/${month}/${year}`;
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, "0");
+          const ampm = hours >= 12 ? "PM" : "AM";
+          hours = hours % 12 || 12;
+          followUpTimeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+          followUpFormatted = `${followUpDateStr} at ${followUpTimeStr}`;
+        }
+      }
+
       const isWon =
         newStatusName.toLowerCase().includes("won") ||
         newStatusName.toLowerCase().includes("closed") ||
         newStatusName.toLowerCase().includes("confirm");
+      const isLost =
+        newStatusName.toLowerCase().includes("lost") ||
+        newStatusName.toLowerCase().includes("drop") ||
+        newStatusName.toLowerCase().includes("reject");
 
       const title = isWon
         ? `🎉 Lead Won & Confirmed: ${updated.name}`
-        : `📌 Lead Status Changed: ${updated.name} ➔ ${newStatusName}`;
+        : isLost
+        ? `Lead Closed (Lost): ${updated.name}`
+        : `Lead Stage Updated: ${updated.name} ➔ ${newStatusName}`;
+
       const body = isWon
-        ? `${req.user?.name || "Staff Member"} marked lead "${updated.name}" as ${newStatusName}${updated.estimatedValue ? ` (Value: ₹${updated.estimatedValue})` : ""}.`
-        : `${req.user?.name || "Staff Member"} updated status of lead "${updated.name}" to "${newStatusName}".`;
+        ? `${req.user?.name || "Staff Member"} marked lead "${updated.name}" as ${newStatusName}${updated.estimatedValue ? ` (Deal Value: ₹${Number(updated.estimatedValue).toLocaleString("en-IN")})` : ""}.`
+        : isLost
+        ? `${req.user?.name || "Staff Member"} closed lead "${updated.name}" as ${newStatusName}.`
+        : `${req.user?.name || "Staff Member"} updated stage of "${updated.name}" to "${newStatusName}"${followUpFormatted ? `. Next follow-up: ${followUpFormatted}` : ""}.`;
 
       updated.leadActivities = updated.leadActivities || [];
       updated.leadActivities.unshift({
-        title: `Status Changed: ${newStatusName}`,
-        description: `Status updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}`,
+        title: isWon ? `Lead Won: ${newStatusName}` : isLost ? `Lead Closed (Lost): ${newStatusName}` : `Stage Updated: ${newStatusName}`,
+        description: `Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}`,
         type: "STATUS_CHANGE",
         createdAt: new Date(),
       });
       await updated.save();
 
-      // 1. Notify Company Admins & HR
-      await notifyCompanyAdmins(companyId, req.user?._id, title, body, "lead_status", {
-        leadId: updated._id,
+      const notificationData = {
+        leadId: updated._id.toString(),
+        leadName: updated.name,
         status: newStatusName,
-      });
+        statusId: updated.statusId?._id?.toString() || updated.statusId?.toString(),
+        nextFollowUpDate: updated.nextFollowUpDate ? updated.nextFollowUpDate.toISOString() : null,
+        followUpDate: followUpDateStr,
+        followUpTime: followUpTimeStr,
+      };
 
-      // 2. Notify Assigned Staff if different from updater
-      if (updated.assignedTo && updated.assignedTo._id?.toString() !== req.user?._id?.toString()) {
-        await notifyUserOrEmployee(companyId, updated.assignedTo._id, title, body, "lead_status", {
-          leadId: updated._id,
-          status: newStatusName,
-        });
+      const dedupKey = `stage_update_${updated._id}_${updateData.statusId}_${Math.floor(Date.now() / 15000)}`;
+
+      // 1. Notify Assigned Staff if different from updater
+      const assignedUserId = updated.assignedTo?._id || updated.assignedTo;
+      if (assignedUserId && assignedUserId.toString() !== req.user?._id?.toString()) {
+        await notifyUserOrEmployee(companyId, assignedUserId, title, body, "lead_status", notificationData, `${dedupKey}_${assignedUserId}`);
       }
+
+      // 2. Notify Company Admins & HR (excluding updater and assigned staff)
+      await notifyCompanyAdmins(companyId, [req.user?._id, assignedUserId], title, body, "lead_status", notificationData, dedupKey);
     }
 
     // ── Check if Lead was Assigned / Reassigned ──
-    const prevAssigneeId = prevLead.assignedTo?.toString();
+    const prevAssigneeId = prevLead.assignedTo ? prevLead.assignedTo.toString() : null;
     const newAssigneeId = updateData.assignedTo ? updateData.assignedTo.toString() : null;
+    const isAssigneeExplicitlySent = Object.prototype.hasOwnProperty.call(req.body, "assignedTo");
 
-    if (newAssigneeId && prevAssigneeId !== newAssigneeId) {
+    if (newAssigneeId && (prevAssigneeId !== newAssigneeId || isAssigneeExplicitlySent)) {
       const assignedName = updated.assignedTo?.name || "Staff Member";
       const assignerName = req.user?.name || "Admin";
 
       // 1. Notify newly assigned user
       await notifyUserOrEmployee(
-        companyId,
+        updated.companyId || companyId,
         newAssigneeId,
-        `📋 Lead Assigned: ${updated.name}`,
+        `Lead Assigned: ${updated.name}`,
         `You have been assigned lead "${updated.name}" (${updated.company || updated.whatsappPhone || ""}) by ${assignerName}.`,
         "lead_assigned",
-        { leadId: updated._id, leadName: updated.name }
+        { leadId: updated._id.toString(), leadName: updated.name }
       );
 
-      // 2. Notify Admins if assigner is not admin
+      // 2. Notify Admins (strictly excluding assigner and new assignee)
       await notifyCompanyAdmins(
-        companyId,
-        req.user?._id,
-        `🔄 Lead Assigned: ${updated.name}`,
+        updated.companyId || companyId,
+        [req.user?._id, newAssigneeId],
+        `Lead Assigned: ${updated.name}`,
         `Lead "${updated.name}" was assigned to ${assignedName} by ${assignerName}.`,
         "lead",
-        { leadId: updated._id, leadName: updated.name, assignedTo: assignedName }
+        { leadId: updated._id.toString(), leadName: updated.name, assignedTo: assignedName }
       );
     }
 
@@ -847,6 +898,7 @@ const updateLead = async (req, res) => {
       productService: updated.productService,
       company: updated.company || updated.productService || "",
       estimatedValue: updated.estimatedValue || null,
+      nextFollowUpDate: updated.nextFollowUpDate || null,
       assignedTo: updated.assignedTo
         ? {
           id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
@@ -878,15 +930,21 @@ const updateLead = async (req, res) => {
 const updateLeadStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { statusId } = req.body;
+    const { statusId, nextFollowUpDate } = req.body;
     if (!statusId) return res.status(400).json({ message: "statusId is required" });
 
     const prevLead = await Lead.findById(id).populate("statusId", "name");
     if (!prevLead) return res.status(404).json({ message: "Lead not found" });
 
+    const updateFields = { statusId };
+    if (nextFollowUpDate) {
+      updateFields.nextFollowUpDate = new Date(nextFollowUpDate);
+      updateFields.followUpNotified = false;
+    }
+
     const updated = await Lead.findByIdAndUpdate(
       id,
-      { statusId },
+      updateFields,
       { new: true }
     )
       .populate("statusId", "name color")
@@ -895,15 +953,35 @@ const updateLeadStatus = async (req, res) => {
 
     if (!updated) return res.status(404).json({ message: "Lead not found" });
 
-    // Log activity if status actually changed
-    if (prevLead.statusId?._id?.toString() !== statusId.toString()) {
+    // Format follow-up if present
+    let followUpFormatted = "";
+    let followUpDateStr = "";
+    let followUpTimeStr = "";
+    if (updated.nextFollowUpDate) {
+      const d = new Date(updated.nextFollowUpDate);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        followUpDateStr = `${day}/${month}/${year}`;
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+        const ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12 || 12;
+        followUpTimeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+        followUpFormatted = `${followUpDateStr} at ${followUpTimeStr}`;
+      }
+    }
+
+    // Log activity if status actually changed or follow-up updated
+    if (prevLead.statusId?._id?.toString() !== statusId.toString() || nextFollowUpDate) {
       const newStatusName = updated.statusId?.name || "Updated";
       const companyId = getCompanyId(req);
 
       updated.leadActivities = updated.leadActivities || [];
       updated.leadActivities.unshift({
-        title: `Status Changed: ${newStatusName}`,
-        description: `Status updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}`,
+        title: `Stage Updated: ${newStatusName}`,
+        description: `Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}`,
         type: "STATUS_CHANGE",
         createdAt: new Date(),
       });
@@ -913,14 +991,41 @@ const updateLeadStatus = async (req, res) => {
         newStatusName.toLowerCase().includes("won") ||
         newStatusName.toLowerCase().includes("closed") ||
         newStatusName.toLowerCase().includes("confirm");
+      const isLost =
+        newStatusName.toLowerCase().includes("lost") ||
+        newStatusName.toLowerCase().includes("drop") ||
+        newStatusName.toLowerCase().includes("reject");
+
       const title = isWon
         ? `🎉 Lead Won: ${updated.name}`
-        : `📌 Status Changed: ${updated.name} ➔ ${newStatusName}`;
-      const body = `${req.user?.name || "Staff"} updated status of "${updated.name}" to "${newStatusName}".`;
+        : isLost
+        ? `Lead Closed (Lost): ${updated.name}`
+        : `Lead Stage Updated: ${updated.name} ➔ ${newStatusName}`;
 
-      await notifyCompanyAdmins(companyId, req.user?._id, title, body, "lead_status", {
-        leadId: updated._id, status: newStatusName,
-      });
+      const body = isWon
+        ? `${req.user?.name || "Staff Member"} marked lead "${updated.name}" as ${newStatusName}${updated.estimatedValue ? ` (Deal Value: ₹${Number(updated.estimatedValue).toLocaleString("en-IN")})` : ""}.`
+        : isLost
+        ? `${req.user?.name || "Staff Member"} closed lead "${updated.name}" as ${newStatusName}.`
+        : `${req.user?.name || "Staff Member"} updated stage of "${updated.name}" to "${newStatusName}"${followUpFormatted ? `. Next follow-up: ${followUpFormatted}` : ""}.`;
+
+      const notificationData = {
+        leadId: updated._id.toString(),
+        leadName: updated.name,
+        status: newStatusName,
+        statusId: updated.statusId?._id?.toString() || updated.statusId?.toString(),
+        nextFollowUpDate: updated.nextFollowUpDate ? updated.nextFollowUpDate.toISOString() : null,
+        followUpDate: followUpDateStr,
+        followUpTime: followUpTimeStr,
+      };
+
+      const dedupKey = `stage_update_${updated._id}_${statusId}_${Math.floor(Date.now() / 15000)}`;
+
+      const assignedUserId = updated.assignedTo?._id || updated.assignedTo;
+      if (assignedUserId && assignedUserId.toString() !== req.user?._id?.toString()) {
+        await notifyUserOrEmployee(companyId, assignedUserId, title, body, "lead_status", notificationData, `${dedupKey}_${assignedUserId}`);
+      }
+
+      await notifyCompanyAdmins(companyId, [req.user?._id, assignedUserId], title, body, "lead_status", notificationData, dedupKey);
     }
 
     return res.json({
@@ -932,6 +1037,7 @@ const updateLeadStatus = async (req, res) => {
       status: updated.statusId
         ? { id: updated.statusId._id.toString(), name: updated.statusId.name, color: updated.statusId.color }
         : null,
+      nextFollowUpDate: updated.nextFollowUpDate || null,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -1025,9 +1131,15 @@ const importLeads = async (req, res) => {
     const companyId = getCompanyId(req);
     await seedDefaultsForCompany(companyId);
 
-    const { leads } = req.body;
+    const { leads, assignedTo } = req.body;
     if (!Array.isArray(leads) || leads.length === 0) {
       return res.status(400).json({ message: "No valid leads provided" });
+    }
+
+    let resolvedAssignedTo = null;
+    if (assignedTo && assignedTo !== "unassigned") {
+      const resolvedIds = await resolveToUserIds(assignedTo, companyId);
+      if (resolvedIds.length > 0) resolvedAssignedTo = resolvedIds[0];
     }
 
     const defStatus =
@@ -1043,6 +1155,12 @@ const importLeads = async (req, res) => {
       }
       if (!stId) stId = defStatus?._id;
 
+      let itemAssignee = resolvedAssignedTo;
+      if (item.assignedTo && item.assignedTo !== "unassigned") {
+        const itemResolved = await resolveToUserIds(item.assignedTo, companyId);
+        if (itemResolved.length > 0) itemAssignee = itemResolved[0];
+      }
+
       await Lead.create({
         companyId,
         name: item.name,
@@ -1052,10 +1170,37 @@ const importLeads = async (req, res) => {
         statusId: stId,
         source: item.source || "Walk-in",
         productService: item.productService || null,
+        assignedTo: itemAssignee || null,
         notes: item.notes || null,
         whatsappOptIn: item.whatsappOptIn !== undefined ? item.whatsappOptIn : true,
       });
       createdCount++;
+    }
+
+    if (resolvedAssignedTo && createdCount > 0) {
+      const assigneeUser = await User.findById(resolvedAssignedTo).select("name email").lean();
+      const assigneeName = assigneeUser?.name || "Staff Member";
+      const assignerName = req.user?.name || "Admin";
+
+      // 1. Notify assigned user
+      await notifyUserOrEmployee(
+        companyId,
+        resolvedAssignedTo,
+        `${createdCount} Leads Assigned to You`,
+        `You have been assigned ${createdCount} imported lead(s) by ${assignerName}.`,
+        "lead_assigned",
+        { count: createdCount }
+      );
+
+      // 2. Notify Admins
+      await notifyCompanyAdmins(
+        companyId,
+        [req.user?._id, resolvedAssignedTo],
+        `Imported Leads Assigned`,
+        `${createdCount} imported lead(s) were assigned to ${assigneeName} by ${assignerName}.`,
+        "lead",
+        { count: createdCount, assignedTo: assigneeName }
+      );
     }
 
     return res.json({
@@ -1134,11 +1279,11 @@ const bulkAssign = async (req, res) => {
       return res.status(400).json({ message: "leadIds array is required" });
     }
 
-    let resolvedAssignee = assignedTo;
+    let resolvedAssignee = null;
     if (assignedTo && assignedTo !== "unassigned") {
-      const emp = await Employee.findById(assignedTo).select("userId");
-      if (emp && emp.userId) {
-        resolvedAssignee = emp.userId;
+      const resolvedIds = await resolveToUserIds(assignedTo, companyId);
+      if (resolvedIds.length > 0) {
+        resolvedAssignee = resolvedIds[0];
       }
     }
 
@@ -1146,25 +1291,24 @@ const bulkAssign = async (req, res) => {
     await Lead.updateMany({ _id: { $in: leadIds } }, { $set: updateData });
 
     if (resolvedAssignee) {
-      const assigneeUser =
-        (await User.findById(resolvedAssignee)) || (await Employee.findById(assignedTo));
-      const assigneeName = assigneeUser?.name || assigneeUser?.fullName || "Staff Member";
+      const assigneeUser = await User.findById(resolvedAssignee).select("name email").lean();
+      const assigneeName = assigneeUser?.name || "Staff Member";
 
       // 1. Notify newly assigned user
       await notifyUserOrEmployee(
         companyId,
         resolvedAssignee,
-        `📋 ${leadIds.length} Leads Assigned to You`,
+        `${leadIds.length} Leads Assigned to You`,
         `You have been assigned ${leadIds.length} lead(s) by ${req.user?.name || "Admin"}.`,
         "lead_assigned",
         { count: leadIds.length }
       );
 
-      // 2. Notify Admins
+      // 2. Notify Admins (strictly excluding assigner and assignee)
       await notifyCompanyAdmins(
         companyId,
-        req.user?._id,
-        `🔄 Bulk Lead Assignment`,
+        [req.user?._id, resolvedAssignee],
+        `Bulk Lead Assignment`,
         `${req.user?.name || "Staff"} assigned ${leadIds.length} lead(s) to ${assigneeName}.`,
         "lead",
         { count: leadIds.length, assignedTo: assigneeName }
@@ -2888,26 +3032,16 @@ const importMapLeads = async (req, res) => {
       }
     }
 
-    let resolvedAssignedTo = assignedTo;
+    let resolvedAssignedTo = null;
     if (assignedTo && assignedTo !== "unassigned") {
       try {
-        if (mongoose.Types.ObjectId.isValid(assignedTo)) {
-          const emp = await Employee.findById(assignedTo).select("userId");
-          if (emp && emp.userId) {
-            resolvedAssignedTo = emp.userId;
-          }
-        } else {
-          resolvedAssignedTo = null;
+        const resolvedIds = await resolveToUserIds(assignedTo, validCompanyId);
+        if (resolvedIds.length > 0) {
+          resolvedAssignedTo = resolvedIds[0];
         }
       } catch (_) {
         resolvedAssignedTo = null;
       }
-    } else {
-      resolvedAssignedTo = null;
-    }
-
-    if (resolvedAssignedTo && !mongoose.Types.ObjectId.isValid(resolvedAssignedTo)) {
-      resolvedAssignedTo = null;
     }
 
     const validCompanyId = companyId && mongoose.Types.ObjectId.isValid(companyId) ? companyId : null;
@@ -3001,6 +3135,32 @@ const importMapLeads = async (req, res) => {
       });
 
       createdLeads.push(newLead);
+    }
+
+    if (resolvedAssignedTo && createdLeads.length > 0) {
+      const assigneeUser = await User.findById(resolvedAssignedTo).select("name email").lean();
+      const assigneeName = assigneeUser?.name || "Staff Member";
+      const assignerName = req.user?.name || "Admin";
+
+      // 1. Notify assigned staff member
+      await notifyUserOrEmployee(
+        validCompanyId,
+        resolvedAssignedTo,
+        `${createdLeads.length} Leads Assigned to You`,
+        `You have been assigned ${createdLeads.length} new lead(s) discovered from Map Search by ${assignerName}.`,
+        "lead_assigned",
+        { count: createdLeads.length, source: "Google Maps" }
+      );
+
+      // 2. Notify Admins
+      await notifyCompanyAdmins(
+        validCompanyId,
+        [req.user?._id, resolvedAssignedTo],
+        `Map Leads Assigned`,
+        `${createdLeads.length} leads from Map Search were assigned to ${assigneeName} by ${assignerName}.`,
+        "lead",
+        { count: createdLeads.length, assignedTo: assigneeName }
+      );
     }
 
     return res.json({

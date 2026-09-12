@@ -14,6 +14,18 @@ import {
 
 const COLORS = ["#163832", "#235347", "#387363", "#569684", "#70b2a0", "#8bcbb9", "#a8e2d0"];
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 const TaskDetailedReport = ({ fallbackTasks = [], taskSummary, departments = [], showCharts = false }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -191,8 +203,8 @@ const TaskDetailedReport = ({ fallbackTasks = [], taskSummary, departments = [],
       t.status || "pending",
       t.priority || "medium",
       `"${(t.assignedTo || []).map(a => a.fullName || a.firstName || a.name || a.email).filter(Boolean).join(", ")}"`,
-      (t.startDateTime || t.startDate) ? new Date(t.startDateTime || t.startDate).toLocaleDateString() : "—",
-      (t.endDateTime || t.deadlineTime || t.dueDate || t.endDate) ? new Date(t.endDateTime || t.deadlineTime || t.dueDate || t.endDate).toLocaleDateString() : "—"
+      (t.startDateTime || t.startDate) ? formatDateDDMMYYYY(t.startDateTime || t.startDate) : "—",
+      (t.endDateTime || t.deadlineTime || t.dueDate || t.endDate) ? formatDateDDMMYYYY(t.endDateTime || t.deadlineTime || t.dueDate || t.endDate) : "—"
     ]);
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
@@ -604,7 +616,7 @@ const TaskDetailedReport = ({ fallbackTasks = [], taskSummary, departments = [],
                         </span>
                       </td>
                       <td className="p-2.5 font-mono text-[10px] text-ca-text-secondary dark:text-[#8EB69B]">
-                        {task.endDateTime ? new Date(task.endDateTime).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        {task.endDateTime ? formatDateDDMMYYYY(task.endDateTime) : "—"}
                       </td>
                       <td className="p-2.5">
                         <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${

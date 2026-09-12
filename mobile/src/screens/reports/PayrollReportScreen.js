@@ -1,16 +1,23 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from "react-native";
+import React, { useCallback, useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  TextInput,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { PieChart } from "react-native-chart-kit";
+import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
 import { getPayrollSummaryApi } from "../../api/reportService";
+import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
-
 import { FONTS } from "../../theme/tokens";
-import { Ionicons } from "@expo/vector-icons";
 
-const { width } = Dimensions.get("window");
+const fmt = (v) => `₹${(Number(v) || 0).toLocaleString("en-IN")}`;
 
 const PayrollReportScreen = () => {
   const [summary, setSummary] = useState(null);
@@ -19,7 +26,11 @@ const PayrollReportScreen = () => {
   const [error, setError] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const [downloading, setDownloading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const loadSummary = async (refresh = false) => {
     try {
@@ -42,258 +53,467 @@ const PayrollReportScreen = () => {
     }, [month, year])
   );
 
+  const filteredPayrolls = useMemo(() => {
+    const list = summary?.list || [];
+    return list.filter((p) => {
+      const emp = p.employeeId || {};
+      const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+      const s = search.toLowerCase();
+      const matchSearch = !s || empName.toLowerCase().includes(s);
+      const isPaid = (p.status || "").toLowerCase() === "paid";
+      const matchStatus =
+        statusFilter === "all" ||
+        (statusFilter === "paid" && isPaid) ||
+        (statusFilter === "due" && !isPaid);
+      return matchSearch && matchStatus;
+    });
+  }, [summary, search, statusFilter]);
+
+  // Excel Export
+  const handleExportExcel = async () => {
+    if (exportingExcel) return;
+    try {
+      setExportingExcel(true);
+      const fileName = `Payroll_Report_${month ? `Month_${month}` : "AllMonths"}_${year || "AllYears"}`;
+      const summaryRows = [
+        ["Report", "Company Payroll Summary Report"],
+        ["Period", `${month ? `Month ${month}` : "All Months"}, ${year || "All Years"}`],
+        ["Generated On", new Date().toLocaleString("en-IN")],
+        ["Total Payroll Expense", summary?.totalPayroll || 0],
+        ["Total Paid", summary?.paid || 0],
+        ["Total Due", summary?.due || 0],
+      ];
+      const headers = ["#", "Staff Name", "Period", "Attendance Rate", "Performance", "Net Salary", "Status"];
+      const rows = filteredPayrolls.map((p, idx) => {
+        const emp = p.employeeId || {};
+        const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+        return [
+          idx + 1,
+          empName,
+          `${p.month || ""} ${p.year || ""}`,
+          p.attendanceRate !== undefined ? `${p.attendanceRate.toFixed(1)}%` : "—",
+          p.performanceScore !== undefined ? `${p.performanceScore.toFixed(1)}%` : "—",
+          p.netSalary || 0,
+          (p.status || "generated").toUpperCase(),
+        ];
+      });
+
+      await exportToExcel({
+        fileName,
+        sheetName: "Payroll Report",
+        summaryRows,
+        headers,
+        rows,
+      });
+    } catch (err) {
+      console.warn("Excel export error:", err);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  // PDF Export
   const handleDownload = async () => {
-    if (!summary || !summary.list) return;
-    setDownloading(true);
+    if (!summary || !summary.list || downloading) return;
+    try {
+      setDownloading(true);
+      const rows = filteredPayrolls
+        .map((p) => {
+          const emp = p.employeeId || {};
+          const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+          return `
+            <tr>
+              <td>${empName}</td>
+              <td>${p.month || ""} ${p.year || ""}</td>
+              <td>₹${(p.netSalary || 0).toLocaleString("en-IN")}</td>
+              <td>${(p.status || "generated").toUpperCase()}</td>
+            </tr>
+          `;
+        })
+        .join("");
 
-    const rows = summary.list.map(p => {
-      const empName = p.employeeId ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "Unknown";
-      const attRate = p.attendanceRate !== undefined ? `${p.attendanceRate.toFixed(1)}%` : "100.0%";
-      const perfScore = p.performanceScore !== undefined ? `${p.performanceScore.toFixed(1)}%` : "100.0%";
-      return `
-        <tr>
-          <td>${empName}</td>
-          <td>${p.month} ${p.year}</td>
-          <td>${attRate}</td>
-          <td>${perfScore}</td>
-          <td>₹${p.netSalary.toLocaleString("en-IN")}</td>
-          <td>${p.status.toUpperCase()}</td>
-        </tr>
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 10px;">
+          <h2 style="color: #0F172A; margin-bottom: 4px;">Payroll Report</h2>
+          <p style="color: #64748B; font-size: 11px; margin-top: 0;">Period: ${month ? month + "/" : ""}${year || "All Time"}</p>
+          <div style="display: flex; gap: 8px; margin: 12px 0;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px; border-radius: 6px; flex: 1;">Total: <b>₹${(summary.totalPayroll || 0).toLocaleString("en-IN")}</b></div>
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 8px; border-radius: 6px; flex: 1; color: #059669;">Paid: <b>₹${(summary.paid || 0).toLocaleString("en-IN")}</b></div>
+            <div style="background: #FEF3C7; border: 1px solid #FDE68A; padding: 8px; border-radius: 6px; flex: 1; color: #D97706;">Due: <b>₹${(summary.due || 0).toLocaleString("en-IN")}</b></div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <thead>
+              <tr style="background-color: #F1F5F9; text-align: left;">
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Staff</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Period</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Net Salary</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       `;
-    }).join("");
 
-    const html = `
-      <div class="summary">
-        <div class="stat-box">Total Payroll<div class="stat-value">₹${summary.totalPayroll.toLocaleString("en-IN")}</div></div>
-        <div class="stat-box">Paid<div class="stat-value" style="color: #16a34a">₹${summary.paid.toLocaleString("en-IN")}</div></div>
-        <div class="stat-box">Due<div class="stat-value" style="color: #f59e0b">₹${summary.due.toLocaleString("en-IN")}</div></div>
-      </div>
-      <h2>Payroll Details (Based on Attendance & Performance)</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>Team Member</th>
-            <th>Period</th>
-            <th>Attendance Rate</th>
-            <th>Performance Score</th>
-            <th>Net Salary</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    `;
-
-    await generateAndSharePDF(`Payroll Report - ${month ? month + '/' : ''}${year || 'All Time'}`, html);
-    setDownloading(false);
+      await generateAndSharePDF(`Payroll Report - ${month ? month + "/" : ""}${year || "All Time"}`, html);
+    } catch (err) {
+      console.warn("PDF export error:", err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading && !summary) {
     return (
-      <View style={{ flex: 1 }}>
-        <ReportHeader title="Payroll Report" month={month} year={year} setMonth={setMonth} setYear={setYear} onDownload={() => {}} />
+      <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+        <ReportHeader
+          title="Payroll Report"
+          month={month}
+          year={year}
+          setMonth={setMonth}
+          setYear={setYear}
+          onDownload={() => {}}
+        />
         <Loader />
       </View>
     );
   }
 
-  const chartData = [
-    { name: "Paid", population: summary?.paid || 0, color: "#10b981", legendFontColor: "#475569", legendFontSize: 12 },
-    { name: "Due", population: summary?.due || 0, color: "#f59e0b", legendFontColor: "#475569", legendFontSize: 12 },
-  ].filter(d => d.population > 0);
-
   return (
     <View style={styles.container}>
-      <ReportHeader 
-        title="Payroll Report" 
-        month={month} 
-        year={year} 
-        setMonth={setMonth} 
-        setYear={setYear} 
-        onDownload={handleDownload} 
+      <ReportHeader
+        title="Payroll Report"
+        month={month}
+        year={year}
+        setMonth={setMonth}
+        setYear={setYear}
+        onDownload={handleDownload}
         downloading={downloading}
+        onExportExcel={handleExportExcel}
+        exportingExcel={exportingExcel}
       />
+
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSummary(true)} />}
       >
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { borderTopColor: "#2563eb", width: "100%" }]}>
-            <Text style={styles.statLabel}>TOTAL PAYROLL</Text>
-            <Text style={[styles.statValue, { color: "#2563eb" }]}>₹{summary?.totalPayroll?.toLocaleString("en-IN") || 0}</Text>
+        {/* Compact KPI Deck */}
+        <View style={styles.kpiGrid}>
+          <View style={[styles.kpiCard, { borderLeftColor: "#0284C7" }]}>
+            <Text style={styles.kpiLabel}>TOTAL PAYROLL</Text>
+            <Text style={[styles.kpiVal, { color: "#0F172A" }]}>{fmt(summary?.totalPayroll)}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#10b981" }]}>
-            <Text style={styles.statLabel}>PAID</Text>
-            <Text style={[styles.statValue, { color: "#10b981" }]}>₹{summary?.paid?.toLocaleString("en-IN") || 0}</Text>
+
+          <View style={[styles.kpiCard, { borderLeftColor: "#10B981" }]}>
+            <Text style={styles.kpiLabel}>PAID OUT</Text>
+            <Text style={[styles.kpiVal, { color: "#059669" }]}>{fmt(summary?.paid)}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#f59e0b" }]}>
-            <Text style={styles.statLabel}>DUE / PENDING</Text>
-            <Text style={[styles.statValue, { color: "#f59e0b" }]}>₹{summary?.due?.toLocaleString("en-IN") || 0}</Text>
+
+          <View style={[styles.kpiCard, { borderLeftColor: "#F59E0B" }]}>
+            <Text style={styles.kpiLabel}>OUTSTANDING / DUE</Text>
+            <Text style={[styles.kpiVal, { color: "#D97706" }]}>{fmt(summary?.due)}</Text>
           </View>
         </View>
 
-        {/* Chart */}
-        {chartData.length > 0 && (
-          <View style={styles.chartCard}>
-            <Text style={styles.sectionTitle}>Payment Breakdown</Text>
-            <PieChart
-              data={chartData}
-              width={width - 64}
-              height={180}
-              chartConfig={{ color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})` }}
-              accessor={"population"}
-              backgroundColor={"transparent"}
-              paddingLeft={"15"}
-              center={[10, 0]}
-              absolute
-            />
+        {/* Filter Toolbar */}
+        <View style={styles.filterCard}>
+          <View style={styles.statusPillsRow}>
+            {[
+              { label: "All", value: "all" },
+              { label: "Paid", value: "paid" },
+              { label: "Due", value: "due" },
+            ].map((opt) => {
+              const isSel = statusFilter === opt.value;
+              return (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={[styles.statusPill, isSel && styles.statusPillActive]}
+                  onPress={() => setStatusFilter(opt.value)}
+                >
+                  <Text style={[styles.statusPillText, isSel && styles.statusPillTextActive]}>
+                    {opt.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
+
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={13} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search staff by name..."
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={14} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
         {/* List */}
-        <Text style={[styles.sectionTitle, { marginHorizontal: 16, marginTop: 24 }]}>Detailed Payroll Log</Text>
-        <View style={styles.listContainer}>
-          {summary?.list && summary.list.length > 0 ? (
-            summary.list.map((p, idx) => {
-              const empName = p.employeeId ? `${p.employeeId.firstName} ${p.employeeId.lastName}` : "Unknown";
-              const initials = empName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-              
-              // Define pill colors
-              let badgeBg = "rgba(245, 158, 11, 0.1)"; // Amber 10% (due)
-              let badgeText = "#f59e0b";
-              if (p.status === 'paid') {
-                badgeBg = "rgba(16, 185, 129, 0.1)"; // Emerald 10%
-                badgeText = "#10b981";
-              }
+        {filteredPayrolls.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="cash-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No Payroll Records Found</Text>
+            <Text style={styles.emptySub}>No payroll data available for the chosen filters.</Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {filteredPayrolls.map((p, idx) => {
+              const emp = p.employeeId || {};
+              const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+              const isPaid = (p.status || "").toLowerCase() === "paid";
 
               return (
-                <View key={p._id} style={[styles.listItem, idx !== summary.list.length - 1 && styles.listItemBorder]}>
-                  <View style={styles.avatarContainer}>
-                    <Text style={styles.avatarText}>{initials}</Text>
-                  </View>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{empName}</Text>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="calendar-outline" size={11} color="#64748b" style={{ marginRight: 4 }} />
-                      <Text style={styles.itemSub}>{p.month} {p.year}</Text>
-                      <Text style={styles.divider}>•</Text>
-                      <Ionicons name="trending-up" size={11} color="#10b981" style={{ marginRight: 4 }} />
-                      <Text style={styles.itemSub}>Perf: {p.performanceScore !== undefined ? `${p.performanceScore.toFixed(0)}%` : "100%"}</Text>
+                <View key={p._id || idx} style={styles.payrollCard}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.avatarMini}>
+                      <Text style={styles.avatarText}>{empName.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.empNameText} numberOfLines={1}>{empName}</Text>
+                      <Text style={styles.empSubText}>
+                        Period: {p.month || ""} {p.year || ""}
+                      </Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.statusTag,
+                        isPaid ? styles.statusPaid : styles.statusDue,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusTagText,
+                          isPaid ? { color: "#059669" } : { color: "#D97706" },
+                        ]}
+                      >
+                        {isPaid ? "PAID" : "DUE"}
+                      </Text>
                     </View>
                   </View>
-                  <View style={styles.statusCol}>
-                    <Text style={styles.amountText}>₹{p.netSalary?.toLocaleString("en-IN")}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
-                      <Text style={[styles.statusBadgeText, { color: badgeText }]}>
-                        {p.status.toUpperCase()}
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.cardFooter}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>ATTENDANCE</Text>
+                      <Text style={styles.metaVal}>
+                        {p.attendanceRate !== undefined ? `${p.attendanceRate.toFixed(1)}%` : "100%"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>PERFORMANCE</Text>
+                      <Text style={styles.metaVal}>
+                        {p.performanceScore !== undefined ? `${p.performanceScore.toFixed(1)}%` : "—"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>NET SALARY</Text>
+                      <Text style={[styles.metaVal, { color: "#059669", fontFamily: FONTS.displayBold }]}>
+                        {fmt(p.netSalary)}
                       </Text>
                     </View>
                   </View>
                 </View>
               );
-            })
-          ) : (
-            <Text style={styles.emptyText}>No payroll records found for this period.</Text>
-          )}
-        </View>
+            })}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  content: { paddingBottom: 40 },
-  error: { color: "#dc2626", margin: 16, textAlign: "center", fontFamily: FONTS.bodySemiBold },
-  statsGrid: {
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  content: {
+    padding: 10,
+    paddingBottom: 40,
+  },
+  kpiGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 16,
-    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 8,
   },
-  statBox: {
-    width: "48%",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderTopWidth: 4,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  kpiCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderLeftWidth: 3,
+  },
+  kpiLabel: {
+    fontSize: 8,
+    fontFamily: FONTS.bodyBold,
+    color: "#64748B",
+  },
+  kpiVal: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  filterCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+    gap: 6,
+  },
+  statusPillsRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  statusPill: {
+    flex: 1,
+    paddingVertical: 5,
     alignItems: "center",
+    borderRadius: 6,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  statLabel: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyBold, marginBottom: 8, letterSpacing: 0.5 },
-  statValue: { fontSize: 24, fontFamily: FONTS.displayBold },
-  chartCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
+  statusPillActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#64748B",
+  },
+  statusPillTextActive: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+  },
+  searchRow: {
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    height: 32,
+    gap: 6,
   },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 12, alignSelf: "flex-start" },
+  searchInput: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: "#0F172A",
+  },
   listContainer: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    gap: 6,
   },
-  listItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  listItemBorder: { borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  avatarContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#f1f5f9",
+  payrollCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarMini: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: "#F0FDF4",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
   },
   avatarText: {
     fontSize: 12,
     fontFamily: FONTS.displayBold,
-    color: "#64748b",
+    color: "#16A34A",
   },
-  listItemContent: { flex: 1, paddingRight: 12 },
-  itemTitle: { fontSize: 14, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 3 },
-  metaRow: { flexDirection: "row", alignItems: "center" },
-  itemSub: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyMedium },
-  divider: { fontSize: 11, color: "#cbd5e1", marginHorizontal: 6 },
-  statusCol: { alignItems: "flex-end", justifyContent: "center" },
-  amountText: { fontSize: 14, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 2 },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
+  empNameText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  empSubText: {
+    fontSize: 10,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  statusTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 5,
+  },
+  statusPaid: {
+    backgroundColor: "#ECFDF5",
+  },
+  statusDue: {
+    backgroundColor: "#FEF3C7",
+  },
+  statusTagText: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.3,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 6,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  metaCol: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 8,
+    fontFamily: FONTS.bodyBold,
+    color: "#94A3B8",
+  },
+  metaVal: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#1E293B",
+    marginTop: 1,
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 24,
     alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 8,
   },
-  statusBadgeText: { fontSize: 9, fontFamily: FONTS.bodyBold, letterSpacing: 0.3 },
-  emptyText: { textAlign: "center", color: "#94a3b8", paddingVertical: 20, fontFamily: FONTS.bodyMedium },
+  emptyTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+    marginTop: 8,
+  },
+  emptySub: {
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 3,
+  },
 });
 
 export default PayrollReportScreen;

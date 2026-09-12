@@ -11,6 +11,7 @@ import { getActiveTaskStatusesApi, submitFollowUpApi } from "../../api/taskServi
 import { getMeApi } from "../../api/authService";
 import { useAuth } from "../../context/AuthContext";
 import TaskActionModal from "../../components/TaskActionModal";
+import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 
 const TEAL = "#C2410C";
 const BORDER = "#e2e8f0";
@@ -132,7 +133,7 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
     delayText = `${getDurationString(new Date(item.endDateTime), new Date())} overdue`;
   } else if (isDone && ["complete", "completed"].includes(item.status?.toLowerCase()) && item.endDateTime) {
     const completedDate = new Date(item.updatedAt || item.endDateTime);
-    delayText = `Completed on ${completedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    delayText = `Completed on ${formatDateToDDMMYYYY(completedDate)}`;
   }
 
   // Status-based icon and gradient for the left icon box
@@ -619,7 +620,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
           {item.endDate && (
             <View style={styles.metaRow}>
               <Ionicons name="flag-outline" size={14} color="#64748b" />
-              <Text style={styles.metaText}>Due: {new Date(item.endDate).toLocaleDateString()}</Text>
+              <Text style={styles.metaText}>Due: {formatDateToDDMMYYYY(item.endDate || item.endDateTime)}</Text>
             </View>
           )}
         </View>
@@ -1362,7 +1363,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
                     {cancelModal.task.title}
                   </Text>
                   <Text style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                    {cancelModal.task.departmentId?.name || "No Department"} • {cancelModal.task.endDateTime ? new Date(cancelModal.task.endDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "No due date"}
+                    {cancelModal.task.departmentId?.name || "No Department"} • {cancelModal.task.endDateTime ? formatDateToDDMMYYYY(cancelModal.task.endDateTime) : "No due date"}
                   </Text>
                 </View>
               )}

@@ -23,6 +23,7 @@ import ManagerLayout from "../../components/ManagerLayout";
 import useManagerController from "../../controllers/managerController";
 import { getActiveTaskStatusesApi, submitFollowUpApi } from "../../api/taskService";
 import { getMeApi } from "../../api/authService";
+import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { useAuth } from "../../context/AuthContext";
 import TaskActionModal from "../../components/TaskActionModal";
 
@@ -183,7 +184,7 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
     delayText = `${getDurationString(new Date(item.endDateTime), new Date())} overdue`;
   } else if (isDone && ["complete", "completed"].includes(item.status?.toLowerCase()) && item.endDateTime) {
     const completedDate = new Date(item.updatedAt || item.endDateTime);
-    delayText = `Completed on ${completedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    delayText = `Completed on ${formatDateToDDMMYYYY(completedDate)}`;
   }
 
   let statusIconName = "ellipse-outline";
@@ -1453,7 +1454,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
                     {cancelModal.task.title}
                   </Text>
                   <Text style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
-                    {cancelModal.task.departmentId?.name || "No Department"} • {cancelModal.task.endDateTime ? new Date(cancelModal.task.endDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : "No due date"}
+                    {cancelModal.task.departmentId?.name || "No Department"} • {cancelModal.task.endDateTime ? formatDateToDDMMYYYY(cancelModal.task.endDateTime) : "No due date"}
                   </Text>
                 </View>
               )}

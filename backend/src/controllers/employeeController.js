@@ -14,6 +14,7 @@ const {
 const generateNextEmployeeCode = require("../utils/generateNextEmployeeCode");
 const tempPasswordFromPhone = require("../utils/tempPasswordFromPhone");
 const { notifyUser } = require("../utils/notificationHelper");
+const { sendPasswordResetEmail } = require("../services/notificationService");
 
 const populateEmployee = [
   { path: "userId", select: "role" },
@@ -1097,7 +1098,16 @@ const resetEmployeePassword = async (req, res, next) => {
 
     user.password = newPassword;
     user.isPasswordResetRequired = false;
+    const resetToken = user.getResetPasswordToken();
     await user.save();
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+    const targetEmail = user.email || employee.workEmail || employee.personalEmail;
+
+    if (targetEmail) {
+      await sendPasswordResetEmail(targetEmail, employee.firstName || user.name, resetUrl, newPassword);
+    }
 
     await AuditLog.create({
       action: "UPDATE",
@@ -1105,11 +1115,15 @@ const resetEmployeePassword = async (req, res, next) => {
       performedBy: req.user._id,
       companyId: req.companyId,
       entityId: employee._id,
-      newData: { resetPassword: true },
+      newData: { resetPassword: true, emailSent: Boolean(targetEmail) },
       ipAddress: req.ip,
     });
 
-    res.json({ message: `Password for ${employee.firstName || user.name} reset successfully` });
+    res.json({ 
+      success: true,
+      message: `Password reset successfully. Notification sent to ${targetEmail || "user"}.`,
+      resetUrl,
+    });
   } catch (error) {
     next(error);
   }

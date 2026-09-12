@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { createEmployeeTaskApi } from "../../api/taskService";
+import { getMyProfileApi } from "../../api/employeeService";
 import { parseDDMMYYYYToISO, formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { validateTaskDatesClient } from "../../utils/taskDateValidation";
 import { loadTaskScheduleContext } from "../../utils/loadTaskScheduleContext";
@@ -43,19 +44,49 @@ const combineDateAndTimeToISO = (dateStr, timeStr) => {
   return null;
 };
 
-const EmployeeCreateTaskScreen = ({ navigation }) => {
+const EmployeeCreateTaskScreen = ({ route, navigation }) => {
+  const { editingTask } = route?.params || {};
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState("medium");
 
-  const [startDate, setStartDate] = useState(formatDateToDDMMYYYY(new Date()));
-  const [endDate, setEndDate] = useState(formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
-  const [deadlineTime, setDeadlineTime] = useState("17:00");
-  const [nextFollowUpDate, setNextFollowUpDate] = useState(formatDateToDDMMYYYY(new Date()));
-  const [nextFollowUpTime, setNextFollowUpTime] = useState("10:00");
+  const getNowTimeStr = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const initialStartDate = editingTask?.startDateTime
+    ? formatDateToDDMMYYYY(editingTask.startDateTime)
+    : (editingTask?.startDate ? formatDateToDDMMYYYY(editingTask.startDate) : formatDateToDDMMYYYY(new Date()));
+
+  const initialStartTime = editingTask?.startDateTime
+    ? `${String(new Date(editingTask.startDateTime).getHours()).padStart(2, '0')}:${String(new Date(editingTask.startDateTime).getMinutes()).padStart(2, '0')}`
+    : (editingTask?.startTime || getNowTimeStr());
+
+  const initialEndDate = editingTask?.endDateTime
+    ? formatDateToDDMMYYYY(editingTask.endDateTime)
+    : (editingTask?.endDate ? formatDateToDDMMYYYY(editingTask.endDate) : formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
+
+  const initialEndTime = editingTask?.endDateTime
+    ? `${String(new Date(editingTask.endDateTime).getHours()).padStart(2, '0')}:${String(new Date(editingTask.endDateTime).getMinutes()).padStart(2, '0')}`
+    : (editingTask?.deadlineTime || "18:00");
+
+  const [title, setTitle] = useState(editingTask?.title || "");
+  const [description, setDescription] = useState(editingTask?.description || "");
+  const [priority, setPriority] = useState(editingTask?.priority || "medium");
+
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endDate, setEndDate] = useState(initialEndDate);
+  const [deadlineTime, setDeadlineTime] = useState(initialEndTime);
+  const [nextFollowUpDate, setNextFollowUpDate] = useState(
+    editingTask?.nextFollowUpDate ? formatDateToDDMMYYYY(editingTask.nextFollowUpDate) : formatDateToDDMMYYYY(new Date())
+  );
+  const [nextFollowUpTime, setNextFollowUpTime] = useState(
+    editingTask?.nextFollowUpDate
+      ? `${String(new Date(editingTask.nextFollowUpDate).getHours()).padStart(2, '0')}:${String(new Date(editingTask.nextFollowUpDate).getMinutes()).padStart(2, '0')}`
+      : "10:00"
+  );
 
   const [repeatEnabled, setRepeatEnabled] = useState(false);
   const [repeatType, setRepeatType] = useState("daily");
@@ -86,13 +117,11 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
   useEffect(() => {
     const initData = async () => {
       try {
-        const { getMyProfileApi } = require("../../api/employeeService");
         const profileRes = await getMyProfileApi().catch(() => null);
+        const emp = profileRes?.data?.employee || profileRes?.data || null;
+        const list = [];
 
-        if (profileRes && profileRes.data && profileRes.data.success && profileRes.data.employee) {
-          const emp = profileRes.data.employee;
-          const list = [];
-
+        if (emp) {
           if (emp.departmentId) {
             const dId = typeof emp.departmentId === "object" ? emp.departmentId?._id : emp.departmentId;
             const dName = typeof emp.departmentId === "object" ? (emp.departmentId?.name || "My Department") : "My Department";
@@ -122,20 +151,28 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
               }
             });
           }
+        }
 
-          setAssignedDepartments(list);
-
-          if (list.length > 0) {
-            setSelectedDeptId(list[0]._id);
-            setDepartmentName(list[0].name);
+        if (list.length === 0 && user) {
+          const uDeptId = typeof user.departmentId === "object" ? user.departmentId?._id : user.departmentId;
+          const uDeptName = typeof user.departmentId === "object" ? (user.departmentId?.name || "My Department") : (user.department || "My Department");
+          if (uDeptId) {
+            list.push({ _id: uDeptId, name: uDeptName });
           }
+        }
+
+        setAssignedDepartments(list);
+
+        if (list.length > 0) {
+          setSelectedDeptId(list[0]._id);
+          setDepartmentName(list[0].name);
         }
       } catch (err) {
         console.error("Failed to initialize department in EmployeeCreateTaskScreen:", err);
       }
     };
     initData();
-  }, []);
+  }, [user]);
 
   const getHelperText = () => {
     let freqText = "every day";
@@ -170,10 +207,16 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
         return Alert.alert("Invalid Task Dates", dateCheck.errors.join("\n"));
       }
 
+      const startDateTimeISO = startDate ? combineDateAndTimeToISO(startDate, startTime) : undefined;
+      const endDateTimeISO = repeatEnabled ? undefined : (endDate ? combineDateAndTimeToISO(endDate, deadlineTime) : undefined);
+
       const payload = {
         title, description, priority,
         startDate: startISO,
+        startDateTime: startDateTimeISO,
         endDate: endISO,
+        endDateTime: endDateTimeISO,
+        startTime: startTime || undefined,
         deadlineTime: deadlineTime || undefined,
         nextFollowUpDate: nextFollowUpDate ? combineDateAndTimeToISO(nextFollowUpDate, nextFollowUpTime) : undefined,
         repeatEnabled,
@@ -473,44 +516,87 @@ const EmployeeCreateTaskScreen = ({ navigation }) => {
             </View>
           )}
 
-          <View style={styles.dateRow}>
-            <View style={styles.halfCol}>
-              <AppDatePicker
-                label={repeatEnabled ? "Start Generating" : "Start Date"}
-                value={startDate}
-                onChangeText={(val) => {
-                  setStartDate(val);
-                  setNextFollowUpDate(val);
-                }}
-                compact
-              />
+          {/* Start Date & Time */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={styles.inputLabel}>Task Timeline</Text>
+            <View style={styles.dateRow}>
+              <View style={[styles.halfCol, { flex: 1.3 }]}>
+                <AppDatePicker
+                  value={startDate}
+                  onChangeText={(val) => {
+                    setStartDate(val);
+                    setNextFollowUpDate(val);
+                  }}
+                  compact
+                />
+              </View>
+              <View style={[styles.halfCol, { flex: 1 }]}>
+                <AppTimePicker
+                  value={startTime}
+                  onChangeText={setStartTime}
+                />
+              </View>
             </View>
-            <View style={styles.halfCol}>
+          </View>
+
+          {/* End Date & Time (or Daily Deadline for recurring) */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={styles.inputLabel}>{repeatEnabled ? "Daily Deadline" : "Deadline"}</Text>
+            <View style={styles.dateRow}>
               {repeatEnabled ? (
-                <AppTimePicker label="Daily Deadline" value={deadlineTime} onChangeText={setDeadlineTime} />
+                <>
+                  <View style={[styles.halfCol, { flex: 1.3 }]}>
+                    <AppDatePicker
+                      value={startDate}
+                      onChangeText={setStartDate}
+                      compact
+                    />
+                  </View>
+                  <View style={[styles.halfCol, { flex: 1 }]}>
+                    <AppTimePicker
+                      value={deadlineTime}
+                      onChangeText={setDeadlineTime}
+                    />
+                  </View>
+                </>
               ) : (
-                <AppDatePicker label="End Date" value={endDate} onChangeText={setEndDate} compact />
+                <>
+                  <View style={[styles.halfCol, { flex: 1.3 }]}>
+                    <AppDatePicker
+                      value={endDate}
+                      onChangeText={setEndDate}
+                      compact
+                    />
+                  </View>
+                  <View style={[styles.halfCol, { flex: 1 }]}>
+                    <AppTimePicker
+                      value={deadlineTime}
+                      onChangeText={setDeadlineTime}
+                    />
+                  </View>
+                </>
               )}
             </View>
           </View>
 
           {!repeatEnabled && (
-            <View style={[styles.dateRow, { marginTop: 10 }]}>
-              <View style={styles.halfCol}>
-                <AppTimePicker label="Target Time" value={deadlineTime} onChangeText={setDeadlineTime} />
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.inputLabel}>Next Follow-up</Text>
+              <View style={styles.dateRow}>
+                <View style={[styles.halfCol, { flex: 1.3 }]}>
+                  <AppDatePicker
+                    value={nextFollowUpDate}
+                    onChangeText={setNextFollowUpDate}
+                    compact
+                  />
+                </View>
+                <View style={[styles.halfCol, { flex: 1 }]}>
+                  <AppTimePicker
+                    value={nextFollowUpTime}
+                    onChangeText={setNextFollowUpTime}
+                  />
+                </View>
               </View>
-              <View style={styles.halfCol}>
-                <AppDatePicker label="Follow-up Date" value={nextFollowUpDate} onChangeText={setNextFollowUpDate} compact />
-              </View>
-            </View>
-          )}
-
-          {!repeatEnabled && (
-            <View style={[styles.dateRow, { marginTop: 10 }]}>
-              <View style={styles.halfCol}>
-                <AppTimePicker label="Follow-up Time" value={nextFollowUpTime} onChangeText={setNextFollowUpTime} />
-              </View>
-              <View style={styles.halfCol} />
             </View>
           )}
 

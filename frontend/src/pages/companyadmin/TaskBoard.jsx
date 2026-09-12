@@ -20,6 +20,18 @@ import {
 } from "lucide-react";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 // ── Status Config ─────────────────────────────────────────────────────────────
 const STATUS_CONFIG = {
   pending: { label: "Pending", hex: "#3b82f6", bg: "bg-blue-50 dark:bg-blue-950/40", text: "text-blue-700 dark:text-blue-300", border: "border-blue-200 dark:border-blue-800/60", dot: "bg-blue-500" },
@@ -138,7 +150,8 @@ const TaskCard = ({ task, onClick, activeTab }) => {
   const deadline = task.endDateTime
     ? new Date(task.endDateTime)
     : task.isTemplate && (task.finishDate || task.endDate) ? new Date(task.finishDate || task.endDate) : null;
-  const isOverdue = !task.isTemplate && deadline && !["complete", "completed", "done", "late_complete", "re_late_complete", "cancelled"].includes(status) && deadline < new Date();
+  const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(status);
+  const isOverdue = !task.isTemplate && deadline && !isNaN(deadline.getTime()) && !isDone && Date.now() >= deadline.getTime();
 
   // Subtask progress
   const checklist = task.checklist || task.subtasks || [];
@@ -188,7 +201,7 @@ const TaskCard = ({ task, onClick, activeTab }) => {
           {deadline && activeTab !== "Recurring" && (
             <div className={`flex items-center gap-1 text-[10px] sm:text-[10.5px] font-bold ${isOverdue ? "text-rose-600 dark:text-rose-400" : "text-slate-500 dark:text-slate-400"}`}>
               <CalendarClock size={11} strokeWidth={2.2} />
-              {deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}
+              {formatDateDDMMYYYY(deadline)}
               {isOverdue && <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">Overdue</span>}
             </div>
           )}
@@ -291,7 +304,7 @@ const TableRow = ({ task, onClick, activeTab }) => {
       </td>
       <td className="px-4 py-3 text-xs text-slate-700 dark:text-slate-300 font-medium whitespace-nowrap font-mono">
         {deadline && activeTab !== "Recurring" ? (
-          deadline.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+          formatDateDDMMYYYY(deadline)
         ) : task.isTemplate ? (
           <span className="text-violet-600 dark:text-violet-400 font-bold capitalize">{task.repeatType || "Recurring"}</span>
         ) : (
@@ -448,12 +461,28 @@ export default function TaskBoard() {
   const employees = Array.isArray(rawEmployees) ? rawEmployees : [];
   const allTasks = useMemo(() => {
     const raw = tasksRes?.tasks || [];
+    const now = Date.now();
     return raw.map(t => {
       if (t.isTemplate) {
         return {
           ...t,
           status: t.isActive ? "active" : "stopped"
         };
+      }
+      const st = (t.status || "pending").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+      if (!isDone) {
+        const rawEnd = t.endDateTime || t.endDate || t.dueDate;
+        if (rawEnd) {
+          const due = new Date(rawEnd);
+          if (!isNaN(due.getTime())) {
+            if (now >= due.getTime()) {
+              return { ...t, status: "overdue" };
+            } else if (st === "overdue") {
+              return { ...t, status: t.isReopened ? "re_pending" : "pending" };
+            }
+          }
+        }
       }
       return t;
     });
@@ -525,17 +554,17 @@ export default function TaskBoard() {
       } else if (filters.deadlineFilter === "tomorrow") {
         passesDeadline = d && d >= startOfTomorrow && d <= endOfTomorrow;
       } else if (filters.deadlineFilter === "overdue") {
-        const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes((task.status || "").toLowerCase());
-        passesDeadline = !isDone && d && d < now;
+        const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((task.status || "").toLowerCase());
+        passesDeadline = !isDone && d && !isNaN(d.getTime()) && now.getTime() >= d.getTime();
       }
     }
 
     let passesOverdue = true;
     if (filters.overdue) {
       const st = (task.status || "").toLowerCase();
-      const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "late-complete"].includes(st);
+      const done = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
       const due = task.endDateTime ? new Date(task.endDateTime) : null;
-      passesOverdue = !done && due && due < new Date();
+      passesOverdue = !done && due && !isNaN(due.getTime()) && Date.now() >= due.getTime();
     }
 
     return passesDate && passesDept && passesAssigned && passesStatus && passesPriority && passesDeadline && passesOverdue;
@@ -1170,7 +1199,7 @@ export default function TaskBoard() {
 
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
-              From: {filters.startDate}
+              From: {formatDateDDMMYYYY(filters.startDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
@@ -1179,7 +1208,7 @@ export default function TaskBoard() {
 
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
-              To: {filters.endDate}
+              To: {formatDateDDMMYYYY(filters.endDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>

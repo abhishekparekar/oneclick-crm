@@ -16,6 +16,7 @@ import EmployeeLayout from "../../components/EmployeeLayout";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import leadsService from "../../api/leadsService";
+import locationTrackingService from "../../services/locationTrackingService";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
@@ -119,6 +120,8 @@ export default function EmployeeDashboard({ navigation }) {
           setLeadsList(arr);
         }).catch(() => { });
       }
+      // Auto-resume background location tracking if active and duty is on
+      locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
     }, [selectedDeptId, canAccessLeads])
   );
 
@@ -433,6 +436,12 @@ export default function EmployeeDashboard({ navigation }) {
                   </Text>
                 </View>
               </View>
+              {isCurrentlyPunchedIn && (user?.isLocationTrackingEnabled || employee?.isLocationTrackingEnabled) && (
+                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(16, 185, 129, 0.22)", paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: 12, marginTop: 7, alignSelf: "flex-start", borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.45)" }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#34D399", marginRight: 5 }} />
+                  <Text style={{ color: "#ECFDF5", fontSize: 10.5, fontWeight: "700" }}>Live Route Tracking Active</Text>
+                </View>
+              )}
             </View>
             {canAccessAttendance && (
               <TouchableOpacity

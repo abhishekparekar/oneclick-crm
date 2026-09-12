@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import * as XLSX from "xlsx";
 import { useQuery } from "@tanstack/react-query";
 import {
   getCompanyAttendanceApi,
@@ -121,6 +122,7 @@ export default function AttendanceReport() {
   const [year, setYear] = useState(now.getFullYear());
   const [selectedEmp, setSelectedEmp] = useState(null);
   const [expandedRow, setExpandedRow] = useState(null);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   // ── Queries ──────────────────────────────────────────────────────────────
   const { data: deptData } = useQuery({
@@ -197,6 +199,7 @@ export default function AttendanceReport() {
   }, [dailyRaw]);
 
   // ── Monthly Grouped by Employee ──────────────────────────────────────────
+  const daysInMonth = new Date(year, month, 0).getDate();
   const monthlyByEmp = useMemo(() => {
     const map = {};
     monthlyRaw.forEach((rec) => {
@@ -216,93 +219,309 @@ export default function AttendanceReport() {
           absent: 0,
           halfDay: 0,
           onLeave: 0,
+          weeklyOff: 0,
+          holiday: 0,
+          overtime: 0,
+          totalHours: 0,
         };
       }
       map[key].records.push(rec);
       const st = (rec.status || "absent").toLowerCase().replace(/_/g, "-");
-      if (st === "present") map[key].present++;
-      else if (st === "late") map[key].late++;
-      else if (st === "absent") map[key].absent++;
-      else if (st === "half-day") map[key].halfDay++;
-      else if (st.includes("leave")) map[key].onLeave++;
-    });
-    return Object.values(map).sort((a, b) => b.present - a.present);
-  }, [monthlyRaw]);
+      if (st === "present") {
+        map[key].present++;
+      } else if (st === "late") {
+        map[key].late++;
+        map[key].present++; // Late arrival is counted as present day
+      } else if (st === "absent") {
+        map[key].absent++;
+      } else if (st === "half-day") {
+        map[key].halfDay++;
+      } else if (st.includes("leave")) {
+        map[key].onLeave++;
+      } else if (st === "weekly-off") {
+        map[key].weeklyOff++;
+      } else if (st === "holiday") {
+        map[key].holiday++;
+      }
 
-  const daysInMonth = new Date(year, month, 0).getDate();
+      const hrs = Number(rec.totalHours || 0);
+      map[key].totalHours += hrs;
+      if (hrs > 8) {
+        map[key].overtime += hrs - 8;
+      }
+    });
+
+    return Object.values(map)
+      .map((emp) => {
+        const workingDays = Math.max(0, daysInMonth - emp.weeklyOff - emp.holiday);
+        const effectiveWorkingDays =
+          workingDays > 0
+            ? workingDays
+            : (emp.present + emp.absent + emp.halfDay + emp.onLeave) || daysInMonth;
+        const attPct =
+          effectiveWorkingDays > 0
+            ? Math.min(
+                100,
+                Math.round(
+                  ((emp.present + emp.halfDay * 0.5) / effectiveWorkingDays) * 100
+                )
+              )
+            : 0;
+
+        return {
+          ...emp,
+          workingDays: effectiveWorkingDays,
+          attPct,
+          overtime: Math.round(emp.overtime * 10) / 10,
+          totalHours: Math.round(emp.totalHours * 10) / 10,
+        };
+      })
+      .sort((a, b) => b.present - a.present);
+  }, [monthlyRaw, daysInMonth]);
+
   const monthlyKPIs = useMemo(() => {
     const uniqueEmps = monthlyByEmp.length;
     const totalEntries = monthlyRaw.length;
     const present = monthlyRaw.filter((r) => r.status === "present").length;
     const late = monthlyRaw.filter((r) => r.status === "late").length;
     const absent = monthlyRaw.filter((r) => r.status === "absent").length;
-    const avgAtt = uniqueEmps > 0 && daysInMonth > 0
-      ? Math.round(((present + late) / (uniqueEmps * daysInMonth)) * 100)
-      : 0;
+    const avgAtt =
+      uniqueEmps > 0 && daysInMonth > 0
+        ? Math.round(((present + late) / (uniqueEmps * daysInMonth)) * 100)
+        : 0;
     return { uniqueEmps, totalEntries, present, late, absent, avgAtt };
   }, [monthlyRaw, monthlyByEmp, daysInMonth]);
 
-  // ── Export Daily to CSV ───────────────────────────────────────────────────
-  const exportDailyCSV = () => {
-    if (!filteredDaily.length) return;
-    const headers = ["#", "Employee Code", "Employee Name", "Department", "Designation", "Status", "Punch In", "Punch Out", "Total Hours", "Source"];
-    const rows = filteredDaily.map((rec, i) => {
-      const emp = rec.employeeId;
-      const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
-      const inTime = fmtTime(rec.punchInTime || rec.checkIn);
-      const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
-      const duration = dur(rec.punchInTime || rec.checkIn, rec.punchOutTime || rec.checkOut, rec.totalHours);
-      return [
-        i + 1,
-        `"${emp?.employeeCode || "—"}"`,
-        `"${name}"`,
-        `"${emp?.departmentId?.name || "—"}"`,
-        `"${emp?.designationId?.name || emp?.role || "Staff"}"`,
-        `"${rec.status || "absent"}"`,
-        `"${inTime}"`,
-        `"${outTime}"`,
-        `"${duration}"`,
-        `"${rec.source || "punch"}"`,
-      ];
-    });
-
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
-    link.download = `Attendance_Daily_${date}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  // ── Helper: Format Date DD/MM/YYYY ──────────────────────────────────────
+  const formatDateDDMMYYYY = (d) => {
+    if (!d) return "—";
+    try {
+      const s = String(d).slice(0, 10);
+      const parts = s.split("-");
+      if (parts.length === 3 && parts[0].length === 4) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+      const dt = new Date(d);
+      if (!isNaN(dt.getTime())) {
+        const day = String(dt.getDate()).padStart(2, "0");
+        const m = String(dt.getMonth() + 1).padStart(2, "0");
+        const y = dt.getFullYear();
+        return `${day}/${m}/${y}`;
+      }
+      return d;
+    } catch {
+      return d;
+    }
   };
 
-  // ── Export Monthly to CSV ─────────────────────────────────────────────────
-  const exportMonthlyCSV = () => {
-    if (!monthlyByEmp.length) return;
-    const headers = ["#", "Employee Code", "Employee Name", "Department", "Designation", "Present Days", "Late Days", "Absent Days", "Half Days", "Leave Days", "Attendance %"];
-    const rows = monthlyByEmp.map((emp, i) => {
-      const attPct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
-      return [
-        i + 1,
-        `"${emp.code}"`,
-        `"${emp.name}"`,
-        `"${emp.dept}"`,
-        `"${emp.desig}"`,
-        emp.present,
-        emp.late,
-        emp.absent,
-        emp.halfDay,
-        emp.onLeave,
-        `"${attPct}%"`,
-      ];
-    });
+  // ── Professional Excel (.xlsx) Export Handler (Web Admin) ─────────────────
+  const exportAttendanceExcel = async () => {
+    if (exportingExcel) return;
+    try {
+      setExportingExcel(true);
+      const wb = XLSX.utils.book_new();
 
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
-    const link = document.createElement("a");
-    link.href = encodeURI(csvContent);
-    link.download = `Attendance_Monthly_${months[month - 1]}_${year}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      if (view === "monthly") {
+        const fileName = `Attendance_Monthly_${months[month - 1]}_${year}`;
+
+        // 1. Sheet 1: Monthly Attendance Summary
+        const summaryMetadata = [
+          ["Report", "Monthly Employee Attendance Summary Report"],
+          ["Generated On", new Date().toLocaleString("en-IN")],
+          ["Period", `${months[month - 1]} ${year}`],
+          ["Calendar Days in Month", daysInMonth],
+          ["Total Enrolled Staff", monthlyKPIs.uniqueEmps],
+          ["Staff Displayed", monthlyByEmp.length],
+          ["Total Present Count", monthlyKPIs.present],
+          ["Total Late Count", monthlyKPIs.late],
+          ["Total Absent Count", monthlyKPIs.absent],
+          ["Fleet Compliance Rate", `${monthlyKPIs.avgAtt}%`],
+        ];
+
+        const summaryHeaders = [
+          "#",
+          "Employee Name",
+          "Employee ID",
+          "Department",
+          "Designation",
+          "Total Working Days",
+          "Present Days",
+          "Absent Days",
+          "Half Days",
+          "Leave Days",
+          "Weekly Off Days",
+          "Holiday Days",
+          "Late Days",
+          "Total Overtime",
+          "Attendance %",
+        ];
+
+        const summaryRows = monthlyByEmp.map((emp, i) => [
+          i + 1,
+          emp.name,
+          emp.code,
+          emp.dept,
+          emp.desig,
+          emp.workingDays,
+          emp.present,
+          emp.absent,
+          emp.halfDay,
+          emp.onLeave,
+          emp.weeklyOff,
+          emp.holiday,
+          emp.late,
+          emp.overtime > 0 ? `${emp.overtime} hrs` : "0.0 hrs",
+          `${emp.attPct}%`,
+        ]);
+
+        const wsSummaryData = [...summaryMetadata, [], summaryHeaders, ...summaryRows];
+        const wsSummary = XLSX.utils.aoa_to_sheet(wsSummaryData);
+
+        const summaryColWidths = summaryHeaders.map((h, i) => {
+          let maxLen = String(h || "").length;
+          summaryRows.forEach((r) => {
+            const val = r[i] !== undefined && r[i] !== null ? String(r[i]) : "";
+            if (val.length > maxLen) maxLen = val.length;
+          });
+          return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+        });
+        wsSummary["!cols"] = summaryColWidths;
+        XLSX.utils.book_append_sheet(wb, wsSummary, "Monthly Summary");
+
+        // 2. Sheet 2: Date-wise Attendance Details
+        const detailHeaders = [
+          "#",
+          "Date",
+          "Employee Name",
+          "Employee ID",
+          "Department",
+          "Punch In",
+          "Punch Out",
+          "Attendance Status",
+          "Late Time",
+          "Working Hours",
+          "Overtime",
+        ];
+
+        const sortedRaw = [...monthlyRaw].sort((a, b) => ((a.date || "") < (b.date || "") ? -1 : 1));
+        const detailRows = sortedRaw.map((rec, i) => {
+          const emp = rec.employeeId;
+          const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
+          const inTime = fmtTime(rec.punchInTime || rec.checkIn);
+          const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
+          const rawStatus = (rec.status || "absent").toLowerCase();
+          const totalHrs = Number(rec.totalHours) || 0;
+          const otHrs = totalHrs > 8 ? (totalHrs - 8).toFixed(1) : "0.0";
+          const lateText = rawStatus === "late" ? `${inTime} (Late Arrival)` : "None";
+
+          return [
+            i + 1,
+            formatDateDDMMYYYY(rec.date),
+            name,
+            emp?.employeeCode || "—",
+            emp?.departmentId?.name || "—",
+            inTime,
+            outTime,
+            rawStatus.toUpperCase().replace(/_/g, " "),
+            lateText,
+            `${totalHrs.toFixed(1)} hrs`,
+            `${otHrs} hrs`,
+          ];
+        });
+
+        const wsDetailData = [detailHeaders, ...detailRows];
+        const wsDetail = XLSX.utils.aoa_to_sheet(wsDetailData);
+        const detailColWidths = detailHeaders.map((h, i) => {
+          let maxLen = String(h || "").length;
+          detailRows.forEach((r) => {
+            const val = r[i] !== undefined && r[i] !== null ? String(r[i]) : "";
+            if (val.length > maxLen) maxLen = val.length;
+          });
+          return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+        });
+        wsDetail["!cols"] = detailColWidths;
+        XLSX.utils.book_append_sheet(wb, wsDetail, "Date-wise Details");
+
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
+      } else {
+        // Daily View Export (.xlsx)
+        const fileName = `Attendance_Daily_${date}`;
+
+        const summaryMetadata = [
+          ["Report", "Daily Attendance Log Report"],
+          ["Generated On", new Date().toLocaleString("en-IN")],
+          ["Date", formatDateDDMMYYYY(date)],
+          ["Total Staff Logs", filteredDaily.length],
+          ["Present Count", dailyKPIs.present],
+          ["Late Count", dailyKPIs.late],
+          ["Absent Count", dailyKPIs.absent],
+          ["Half Day Count", dailyKPIs.halfDay],
+          ["On Leave Count", dailyKPIs.onLeave],
+        ];
+
+        const dailyHeaders = [
+          "#",
+          "Date",
+          "Employee Name",
+          "Employee ID",
+          "Department",
+          "Designation",
+          "Punch In",
+          "Punch Out",
+          "Attendance Status",
+          "Late Time",
+          "Working Hours",
+          "Overtime",
+          "Source",
+        ];
+
+        const dailyRows = filteredDaily.map((rec, i) => {
+          const emp = rec.employeeId;
+          const name = `${emp?.firstName || ""} ${emp?.lastName || ""}`.trim() || "Employee";
+          const inTime = fmtTime(rec.punchInTime || rec.checkIn);
+          const outTime = fmtTime(rec.punchOutTime || rec.checkOut);
+          const rawStatus = (rec.status || "absent").toLowerCase();
+          const totalHrs = Number(rec.totalHours) || 0;
+          const otHrs = totalHrs > 8 ? (totalHrs - 8).toFixed(1) : "0.0";
+          const lateText = rawStatus === "late" ? `${inTime} (Late Arrival)` : "None";
+
+          return [
+            i + 1,
+            formatDateDDMMYYYY(rec.date),
+            name,
+            emp?.employeeCode || "—",
+            emp?.departmentId?.name || "—",
+            emp?.designationId?.name || emp?.role || "Staff",
+            inTime,
+            outTime,
+            rawStatus.toUpperCase().replace(/_/g, " "),
+            lateText,
+            `${totalHrs.toFixed(1)} hrs`,
+            `${otHrs} hrs`,
+            rec.source || "punch",
+          ];
+        });
+
+        const wsDailyData = [...summaryMetadata, [], dailyHeaders, ...dailyRows];
+        const wsDaily = XLSX.utils.aoa_to_sheet(wsDailyData);
+        const dailyColWidths = dailyHeaders.map((h, i) => {
+          let maxLen = String(h || "").length;
+          dailyRows.forEach((r) => {
+            const val = r[i] !== undefined && r[i] !== null ? String(r[i]) : "";
+            if (val.length > maxLen) maxLen = val.length;
+          });
+          return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+        });
+        wsDaily["!cols"] = dailyColWidths;
+        XLSX.utils.book_append_sheet(wb, wsDaily, "Daily Attendance");
+
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
+      }
+    } catch (err) {
+      console.error("[AttendanceReport] Error exporting Excel:", err);
+    } finally {
+      setExportingExcel(false);
+    }
   };
 
   return (
@@ -348,14 +567,21 @@ export default function AttendanceReport() {
             </button>
           </div>
 
-          {/* Export CSV Button */}
+          {/* Export Excel (.xlsx) Button */}
           <button
             type="button"
-            onClick={() => (view === "daily" ? exportDailyCSV() : exportMonthlyCSV())}
-            className="flex items-center justify-center gap-1.5 px-3.5 h-8 bg-white dark:bg-[#0D1B2E] border border-slate-200/80 dark:border-[#1C3554] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+            onClick={exportAttendanceExcel}
+            disabled={exportingExcel}
+            className={`flex items-center justify-center gap-1.5 px-3.5 h-8 bg-white dark:bg-[#0D1B2E] border border-slate-200/80 dark:border-[#1C3554] hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer ${
+              exportingExcel ? "opacity-60 cursor-not-allowed" : ""
+            }`}
           >
-            <Download size={13} className="text-blue-500" />
-            <span>Export CSV</span>
+            {exportingExcel ? (
+              <RefreshCw size={13} className="animate-spin text-emerald-600" />
+            ) : (
+              <FileSpreadsheet size={13} className="text-emerald-600" />
+            )}
+            <span>{exportingExcel ? "Exporting..." : "Export Excel"}</span>
           </button>
 
           {/* Refresh Button */}
@@ -612,11 +838,27 @@ export default function AttendanceReport() {
                 <table className="w-full text-xs">
                   <thead className="bg-slate-50/70 dark:bg-slate-900/60 border-b border-slate-200/80 dark:border-slate-800">
                     <tr>
-                      {["#", "Team Member", "Department", "Designation", "Present", "Late", "Absent", "Half Day", "Leaves", "Attendance Rate", ""].map((h, idx) => (
+                      {[
+                        "#",
+                        "Team Member",
+                        "Department",
+                        "Designation",
+                        "Work Days",
+                        "Present",
+                        "Late",
+                        "Absent",
+                        "Half Day",
+                        "Leaves",
+                        "Weekly Off",
+                        "Holiday",
+                        "Overtime",
+                        "Attendance Rate",
+                        "",
+                      ].map((h, idx) => (
                         <th
                           key={idx}
-                          className={`px-4 py-3 text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap ${
-                            idx >= 4 && idx <= 8 ? "text-center" : "text-left"
+                          className={`px-3 py-3 text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 whitespace-nowrap ${
+                            idx >= 4 && idx <= 12 ? "text-center" : "text-left"
                           }`}
                         >
                           {h}
@@ -626,7 +868,7 @@ export default function AttendanceReport() {
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                     {monthlyByEmp.map((emp, i) => {
-                      const attPct = Math.round(((emp.present + emp.late) / daysInMonth) * 100);
+                      const attPct = emp.attPct || 0;
                       const isExpanded = expandedRow === emp._id?.toString();
                       const empRecords = empDetail || [];
 
@@ -648,8 +890,8 @@ export default function AttendanceReport() {
                                 : "hover:bg-slate-50/80 dark:hover:bg-slate-850/50"
                             }`}
                           >
-                            <td className="px-4 py-3.5 text-slate-400 font-bold">{i + 1}</td>
-                            <td className="px-4 py-3.5">
+                            <td className="px-3 py-3.5 text-slate-400 font-bold">{i + 1}</td>
+                            <td className="px-3 py-3.5">
                               <div className="flex items-center gap-2.5">
                                 <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-black flex items-center justify-center text-xs shadow-2xs flex-shrink-0">
                                   {emp.name.charAt(0).toUpperCase()}
@@ -660,43 +902,65 @@ export default function AttendanceReport() {
                                 </div>
                               </div>
                             </td>
-                            <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
+                            <td className="px-3 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
                               {emp.dept}
                             </td>
-                            <td className="px-4 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
+                            <td className="px-3 py-3.5 text-slate-600 dark:text-slate-300 font-medium">
                               {emp.desig}
                             </td>
 
+                            {/* Total Working Days */}
+                            <td className="px-3 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800">
+                                {emp.workingDays}
+                              </span>
+                            </td>
+
                             {/* Counts with clean badge chips */}
-                            <td className="px-4 py-3.5 text-center">
+                            <td className="px-3 py-3.5 text-center">
                               <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-emerald-600 dark:text-emerald-400 bg-emerald-500/10">
                                 {emp.present}
                               </span>
                             </td>
-                            <td className="px-4 py-3.5 text-center">
+                            <td className="px-3 py-3.5 text-center">
                               <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10">
                                 {emp.late}
                               </span>
                             </td>
-                            <td className="px-4 py-3.5 text-center">
+                            <td className="px-3 py-3.5 text-center">
                               <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-rose-600 dark:text-rose-400 bg-rose-500/10">
                                 {emp.absent}
                               </span>
                             </td>
-                            <td className="px-4 py-3.5 text-center">
+                            <td className="px-3 py-3.5 text-center">
                               <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-purple-600 dark:text-purple-400 bg-purple-500/10">
                                 {emp.halfDay}
                               </span>
                             </td>
-                            <td className="px-4 py-3.5 text-center">
+                            <td className="px-3 py-3.5 text-center">
                               <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-blue-600 dark:text-blue-400 bg-blue-500/10">
                                 {emp.onLeave}
                               </span>
                             </td>
+                            <td className="px-3 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-slate-600 dark:text-slate-400 bg-slate-200/60 dark:bg-slate-800">
+                                {emp.weeklyOff}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10">
+                                {emp.holiday}
+                              </span>
+                            </td>
+                            <td className="px-3 py-3.5 text-center">
+                              <span className="inline-block min-w-[28px] px-2 py-0.5 rounded-md font-mono font-black text-sky-600 dark:text-sky-400 bg-sky-500/10">
+                                {emp.overtime > 0 ? `${emp.overtime}h` : "—"}
+                              </span>
+                            </td>
 
                             {/* Attendance % Wide Gradient Progress Bar */}
-                            <td className="px-4 py-3.5">
-                              <div className="flex items-center gap-2.5 min-w-[140px]">
+                            <td className="px-3 py-3.5">
+                              <div className="flex items-center gap-2 min-w-[130px]">
                                 <div className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-full h-2 overflow-hidden shadow-inner">
                                   <div
                                     className="h-full rounded-full transition-all duration-500"
@@ -726,7 +990,7 @@ export default function AttendanceReport() {
                             </td>
 
                             {/* Chevron Toggle Icon */}
-                            <td className="px-4 py-3.5 text-right">
+                            <td className="px-3 py-3.5 text-right">
                               <div className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 flex items-center justify-center">
                                 {isExpanded ? <ChevronUp size={14} /> : <ChevronRight size={14} />}
                               </div>
@@ -736,18 +1000,47 @@ export default function AttendanceReport() {
                           {/* Expanded Daily Breakdown Grid */}
                           {isExpanded && (
                             <tr key={`exp-${emp._id}`}>
-                              <td colSpan={11} className="p-0 bg-slate-50/70 dark:bg-[#0E1624]">
+                              <td colSpan={15} className="p-0 bg-slate-50/70 dark:bg-[#0E1624]">
                                 <div className="p-4 sm:p-5 space-y-3 border-y border-slate-200/80 dark:border-slate-800/80">
-                                  <div className="flex items-center justify-between">
+                                  {/* Employee Monthly Summary Bar */}
+                                  <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800">
                                     <div className="flex items-center gap-2">
-                                      <Clock size={14} className="text-blue-500" />
-                                      <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                                        Day-by-Day Punch Logs — {emp.name} ({empRecords.length} Records)
-                                      </p>
+                                      <Clock size={15} className="text-blue-500" />
+                                      <div>
+                                        <p className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                          {emp.name} — Monthly Attendance Overview
+                                        </p>
+                                        <p className="text-[10px] text-slate-400 font-medium">
+                                          {emp.code} • {emp.dept} • {emp.desig} • {months[month - 1]} {year}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <span className="text-[10.5px] font-bold text-slate-400">
-                                      {months[month - 1]} {year}
-                                    </span>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                                      <span className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 font-extrabold text-slate-700 dark:text-slate-300">
+                                        Working Days: <b>{emp.workingDays}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 font-extrabold">
+                                        Present: <b>{emp.present}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-rose-500/10 text-rose-600 font-extrabold">
+                                        Absent: <b>{emp.absent}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-purple-500/10 text-purple-600 font-extrabold">
+                                        Half Days: <b>{emp.halfDay}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 font-extrabold">
+                                        Leaves: <b>{emp.onLeave}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-extrabold">
+                                        Weekly Off: <b>{emp.weeklyOff}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-indigo-500/10 text-indigo-600 font-extrabold">
+                                        Holidays: <b>{emp.holiday}</b>
+                                      </span>
+                                      <span className="px-2 py-1 rounded-lg bg-sky-500/10 text-sky-600 font-extrabold">
+                                        Overtime: <b>{emp.overtime}h</b>
+                                      </span>
+                                    </div>
                                   </div>
 
                                   {empDetailLoading ? (
@@ -766,6 +1059,7 @@ export default function AttendanceReport() {
                                           const inT = fmtTime(dr.punchInTime || dr.checkIn);
                                           const outT = fmtTime(dr.punchOutTime || dr.checkOut);
                                           const dStr = dur(dr.punchInTime || dr.checkIn, dr.punchOutTime || dr.checkOut, dr.totalHours);
+                                          const otHrs = dr.totalHours && dr.totalHours > 8 ? (dr.totalHours - 8).toFixed(1) : null;
 
                                           return (
                                             <div
@@ -790,11 +1084,16 @@ export default function AttendanceReport() {
                                                 </div>
                                               </div>
 
-                                              {dStr !== "—" && (
-                                                <div className="text-[9.5px] text-sky-600 dark:text-sky-400 font-black font-mono pt-1 border-t border-slate-100 dark:border-slate-800 text-right">
-                                                  ⏱️ {dStr}
-                                                </div>
-                                              )}
+                                              <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 font-mono text-[9.5px]">
+                                                <span className="text-sky-600 dark:text-sky-400 font-black">
+                                                  {dStr !== "—" ? `⏱️ ${dStr}` : "—"}
+                                                </span>
+                                                {otHrs && (
+                                                  <span className="text-amber-600 dark:text-amber-400 font-extrabold bg-amber-500/10 px-1 rounded">
+                                                    +{otHrs}h OT
+                                                  </span>
+                                                )}
+                                              </div>
                                             </div>
                                           );
                                         })}

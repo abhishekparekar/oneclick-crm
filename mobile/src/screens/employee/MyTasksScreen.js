@@ -23,6 +23,7 @@ import { getEmployeeTasksApi, getActiveTaskStatusesApi, updateTaskStatusApi, sub
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import { useSocket } from "../../hooks/useSocket";
+import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 
 // ─── Priority Config ──────────────────────────────────────────────────────────
 const PRIORITY_CONFIG = {
@@ -154,7 +155,7 @@ const TaskCard = ({ item, onPress, onStatusUpdate, canCancel, onCancel }) => {
     delayText = `${getDurationString(new Date(item.endDateTime), new Date())} overdue`;
   } else if (isDone && item.status === "complete" && item.endDateTime) {
     const completedDate = new Date(item.updatedAt || item.endDateTime);
-    delayText = `Completed on ${completedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    delayText = `Completed on ${formatDateToDDMMYYYY(completedDate)}`;
   }
 
   // Status-based icon and gradient for the left icon box

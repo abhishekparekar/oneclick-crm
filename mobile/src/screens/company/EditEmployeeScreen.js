@@ -19,7 +19,7 @@ import AppButton from "../../components/AppButton";
 import Loader from "../../components/Loader";
 import AppDatePicker from "../../components/AppDatePicker";
 import { COLORS, FONTS, SHADOWS, ROUNDING, SPACING } from "../../theme/tokens";
-import { getDepartmentsApi, getDesignationsApi, getBranchesApi, getLeaveBalanceApi, updateLeaveBalanceApi } from "../../api/companyService";
+import { getDepartmentsApi, getDesignationsApi, getBranchesApi, getLeaveBalanceApi, updateLeaveBalanceApi, getModuleUsageApi } from "../../api/companyService";
 import { getEmployeeByIdApi, updateEmployeeApi } from "../../api/employeeService";
 import { useAuth } from "../../context/AuthContext";
 import {
@@ -46,6 +46,16 @@ const C = {
   green:   COLORS.success,
   greenBg: "#d1fae5",
 };
+
+const ALL_MODULES = [
+  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks", icon: "checkbox-outline" },
+  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns", icon: "magnet-outline" },
+  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization", icon: "finger-print-outline" },
+  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster", icon: "calendar-outline" },
+  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures", icon: "cash-outline" },
+  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards", icon: "folder-open-outline" },
+  { key: "reports", label: "Analytics & Reports", desc: "View operational reports & analytics", icon: "bar-chart-outline" },
+];
 
 const labelFor = (options, value) => options.find((o) => o.value === value)?.label || "";
 
@@ -140,18 +150,43 @@ const EditEmployeeScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const [assignedModules, setAssignedModules] = useState([]);
+  const [moduleUsage, setModuleUsage] = useState({});
+  const [planSubscribedModules, setPlanSubscribedModules] = useState([]);
+
+  const authCompanyModules = React.useMemo(() => {
+    const raw =
+      user?.company?.subscribedModules ??
+      user?.subscribedModules ??
+      (typeof user?.companyId === "object" && user?.companyId !== null ? user?.companyId?.subscribedModules : null);
+    return Array.isArray(raw) && raw.length > 0
+      ? raw.map((m) => String(m).toLowerCase().trim())
+      : null;
+  }, [user]);
+
+  const effectiveSubscribed = React.useMemo(() => {
+    if (Array.isArray(planSubscribedModules) && planSubscribedModules.length > 0) {
+      return planSubscribedModules.map((m) => String(m).toLowerCase().trim());
+    }
+    if (Array.isArray(authCompanyModules) && authCompanyModules.length > 0) {
+      return authCompanyModules;
+    }
+    return ["tasks", "leads", "attendance", "leave", "payroll", "projects", "reports"];
+  }, [planSubscribedModules, authCompanyModules]);
+
   useEffect(() => {
     loadAll();
   }, [employeeId]);
 
   const loadAll = async () => {
     try {
-      const [depRes, desRes, brRes, empRes, leaveRes] = await Promise.all([
+      const [depRes, desRes, brRes, empRes, leaveRes, usageRes] = await Promise.all([
         getDepartmentsApi(),
         getDesignationsApi(),
         getBranchesApi(),
         getEmployeeByIdApi(employeeId),
-        getLeaveBalanceApi(employeeId).catch(() => null)
+        getLeaveBalanceApi(employeeId).catch(() => null),
+        getModuleUsageApi().catch(() => null),
       ]);
 
       let fetchedDepts = depRes.data.departments || [];
@@ -209,6 +244,20 @@ const EditEmployeeScreen = ({ route, navigation }) => {
       setLoginRole(e.role || "Employee");
       setDocPan(e.documents?.pan || "");
       setDocOffer(e.documents?.offerLetter || "");
+
+      if (usageRes?.data) {
+        if (usageRes.data.usage) setModuleUsage(usageRes.data.usage);
+        if (Array.isArray(usageRes.data.subscribedModules)) {
+          setPlanSubscribedModules(usageRes.data.subscribedModules);
+        }
+      }
+
+      const rawAssigned = (e.assignedModules && e.assignedModules.length > 0)
+        ? e.assignedModules
+        : (e.userId?.assignedModules && e.userId.assignedModules.length > 0)
+          ? e.userId.assignedModules
+          : [];
+      setAssignedModules(rawAssigned.map((m) => String(m).toLowerCase().trim()));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load employee");
     } finally {
@@ -258,6 +307,7 @@ const EditEmployeeScreen = ({ route, navigation }) => {
         emergencyContactPhone: emergencyContactPhone.trim() || null,
         loginRole: loginRole,
         status,
+        assignedModules: (assignedModules || []).filter((m) => effectiveSubscribed.includes(m)),
         documents: {
           aadhaar: docAadhaar.trim() || null,
           pan: docPan.trim() || null,
@@ -450,6 +500,92 @@ const EditEmployeeScreen = ({ route, navigation }) => {
               onValueChange={setAllowRemotePunch}
               value={allowRemotePunch}
             />
+          </View>
+        </View>
+
+        {/* Module License & Feature Access Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <View style={[styles.cardIconBg, { backgroundColor: "#FEF3C7" }]}>
+              <Ionicons name="apps-outline" size={16} color="#D97706" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.cardTitle}>Module License & Feature Access</Text>
+              <Text style={{ fontSize: 11, color: C.sub, marginTop: 1 }}>
+                Allocate or revoke suite modules for this employee based on company plan seats.
+              </Text>
+            </View>
+          </View>
+
+          <View style={{ gap: 8, marginTop: 2 }}>
+            {ALL_MODULES.filter((m) => effectiveSubscribed.includes(m.key)).map((m) => {
+              const usageInfo = moduleUsage[m.key];
+              const isChecked = (assignedModules || []).includes(m.key);
+              const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+
+              return (
+                <TouchableOpacity
+                  key={m.key}
+                  style={[
+                    styles.moduleItemCard,
+                    isChecked && styles.moduleItemChecked,
+                    isFull && !isChecked && styles.moduleItemFull,
+                  ]}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    if (isFull && !isChecked) {
+                      Alert.alert(
+                        "Plan Limit Reached",
+                        `Seat quota for "${m.label}" (${usageInfo?.limit || 0} seats) has been fully reached. Please upgrade your plan to assign more employees.`
+                      );
+                      return;
+                    }
+                    setAssignedModules((prev) =>
+                      isChecked ? prev.filter((x) => x !== m.key) : [...prev, m.key]
+                    );
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                    <View style={{ flex: 1, marginRight: 10 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                        <Ionicons
+                          name={m.icon || "cube-outline"}
+                          size={14}
+                          color={isChecked ? "#D97706" : C.sub}
+                          style={{ marginRight: 6 }}
+                        />
+                        <Text style={[styles.moduleItemTitle, isChecked && styles.moduleItemTitleActive]}>
+                          {m.label}
+                        </Text>
+                      </View>
+                      <Text style={styles.moduleItemDesc} numberOfLines={2}>
+                        {m.desc}
+                      </Text>
+                    </View>
+
+                    <View style={[styles.moduleCheckbox, isChecked && styles.moduleCheckboxActive]}>
+                      {isChecked && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+                    </View>
+                  </View>
+
+                  <View style={styles.moduleItemFooter}>
+                    {usageInfo?.isUnlimited ? (
+                      <Text style={{ color: "#10B981", fontSize: 10.5, fontFamily: FONTS.bodyBold }}>
+                        Full plan seats ({usageInfo.used} used)
+                      </Text>
+                    ) : isFull && !isChecked ? (
+                      <Text style={{ color: "#EF4444", fontSize: 10.5, fontFamily: FONTS.bodyBold }}>
+                        Limit full — Upgrade Plan
+                      </Text>
+                    ) : (
+                      <Text style={{ color: "#D97706", fontSize: 10.5, fontFamily: FONTS.bodyMedium }}>
+                        {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
@@ -813,6 +949,55 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 16, fontFamily: FONTS.displayBold, marginBottom: 12, color: C.text },
   modalItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
   modalItemText: { fontSize: 14, color: C.text, fontFamily: FONTS.bodyBold },
+
+  moduleItemCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 12,
+  },
+  moduleItemChecked: {
+    backgroundColor: "#FFFBEB",
+    borderColor: "#F59E0B",
+  },
+  moduleItemFull: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  moduleItemTitle: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: C.text,
+  },
+  moduleItemTitleActive: {
+    color: "#92400E",
+  },
+  moduleItemDesc: {
+    fontSize: 10.5,
+    fontFamily: FONTS.body,
+    color: C.sub,
+    marginTop: 2,
+  },
+  moduleCheckbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  moduleCheckboxActive: {
+    backgroundColor: "#F59E0B",
+    borderColor: "#F59E0B",
+  },
+  moduleItemFooter: {
+    marginTop: 8,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
 });
 
 export default EditEmployeeScreen;

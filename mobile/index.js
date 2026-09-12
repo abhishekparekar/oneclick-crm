@@ -12,16 +12,22 @@ try {
     console.log('[FCM Background] Message received in background:', remoteMessage);
     try {
       const { notification, data } = remoteMessage || {};
-      const title = notification?.title || data?.title || 'One Click HRMS';
-      const body = notification?.body || data?.body || '';
+
+      // If notification payload is present, Android OS already displays it automatically in the system tray.
+      // Calling displayNotification again creates a duplicate (2x) notification!
+      if (notification) {
+        console.log('[FCM Background] System notification payload present, skipping duplicate local notification');
+        return;
+      }
+
+      const title = data?.title || 'One Click HRMS';
+      const body = data?.body || '';
 
       if (title || body) {
-        // Ensure channel exists with custom sound
         await notifee.createChannel({
-          id: 'oneclick_alerts_v5',
+          id: 'oneclick_alerts_default',
           name: 'HRMS Notifications & Alerts',
           importance: AndroidImportance.HIGH,
-          sound: 'notice11',
           vibration: true,
           vibrationPattern: [300, 500],
           lights: true,
@@ -38,9 +44,8 @@ try {
           body,
           data: data || {},
           android: {
-            channelId: 'oneclick_alerts_v5',
+            channelId: 'oneclick_alerts_default',
             importance: AndroidImportance.HIGH,
-            sound: 'notice11',
             smallIcon: 'ic_notification',
             color: '#1268D9',
             vibrationPattern: [300, 500],

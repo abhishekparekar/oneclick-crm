@@ -33,6 +33,7 @@ export const renewSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions
 export const cancelSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions/${id}/cancel`);
 export const extendTrialApi = (id, days, toDate) => api.patch(`/superadmin/subscriptions/${id}/extend-trial`, { days, toDate });
 export const deleteSubscriptionApi = (id) => api.delete(`/superadmin/subscriptions/${id}`);
+export const syncSubscriptionExpiryNotificationsApi = () => api.post("/superadmin/subscriptions/sync-expiry-notifications");
 
 // Payments
 export const getPaymentsApi = (params) => api.get("/superadmin/payments", { params });

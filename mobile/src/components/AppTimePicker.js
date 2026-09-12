@@ -14,11 +14,48 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
   const [selectedHour, setSelectedHour] = useState("17");
   const [selectedMinute, setSelectedMinute] = useState("00");
 
+  const displayTime = React.useMemo(() => {
+    if (!value) return "";
+    if (typeof value === "string") {
+      if (value.includes("T")) {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          let hours = d.getHours();
+          const minutes = String(d.getMinutes()).padStart(2, "0");
+          const ampm = hours >= 12 ? "PM" : "AM";
+          hours = hours % 12 || 12;
+          return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+        }
+      }
+      if (value.includes(":")) {
+        const parts = value.split(":");
+        let hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        if (!isNaN(hours) && !isNaN(minutes)) {
+          const ampm = hours >= 12 ? "PM" : "AM";
+          const h12 = hours % 12 || 12;
+          return `${String(h12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${ampm}`;
+        }
+      }
+    }
+    return String(value);
+  }, [value]);
+
   useEffect(() => {
-    if (value && value.includes(":")) {
-      const [h, m] = value.split(":");
-      setSelectedHour(h || "17");
-      setSelectedMinute(m || "00");
+    if (value) {
+      if (typeof value === "string" && value.includes("T")) {
+        const d = new Date(value);
+        if (!isNaN(d.getTime())) {
+          setSelectedHour(String(d.getHours()).padStart(2, "0"));
+          setSelectedMinute(String(d.getMinutes()).padStart(2, "0"));
+          return;
+        }
+      }
+      if (typeof value === "string" && value.includes(":")) {
+        const [h, m] = value.split(":");
+        setSelectedHour(h ? h.trim().padStart(2, "0") : "17");
+        setSelectedMinute(m ? m.trim().slice(0, 2).padStart(2, "0") : "00");
+      }
     }
   }, [value, modalVisible]);
 
@@ -40,7 +77,7 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
         activeOpacity={0.7}
       >
         <Text style={[styles.inputText, !value && { color: "#64748B" }]}>
-          {value || placeholder}
+          {displayTime || placeholder}
         </Text>
         <View style={styles.clockIconBtn}>
           <Ionicons name="time" size={18} color="#1D4ED8" />

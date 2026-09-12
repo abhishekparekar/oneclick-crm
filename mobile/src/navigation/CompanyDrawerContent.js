@@ -138,6 +138,15 @@ const NATIVE_SECTIONS = [
         module: "payroll",
       },
       {
+        label: "Generate Payroll",
+        screen: "GeneratePayroll",
+        icon: "calculator-outline",
+        activeIcon: "calculator",
+        color: "#D97706",
+        roles: ["CompanyAdmin", "HR"],
+        module: "payroll",
+      },
+      {
         label: "Salary Structures",
         screen: "SalaryStructureList",
         icon: "cash-outline",

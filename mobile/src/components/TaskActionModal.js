@@ -20,7 +20,7 @@ import { Audio } from "expo-av";
 import AppDatePicker from "./AppDatePicker";
 import AppTimePicker from "./AppTimePicker";
 import { uploadMediaFileApi } from "../api/taskService";
-import { parseDDMMYYYYToISO } from "../utils/dateFormatter";
+import { parseDDMMYYYYToISO, formatDateToDDMMYYYY } from "../utils/dateFormatter";
 
 const parseDDMMYYYY = (dateStr) => {
   if (!dateStr || !dateStr.includes("/")) return null;
@@ -230,7 +230,7 @@ const TaskActionModal = ({
           const startDate = new Date(task.startDateTime);
           startDate.setHours(0, 0, 0, 0);
           if (selectedDate < startDate) {
-            const startStr = startDate.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+            const startStr = formatDateToDDMMYYYY(startDate);
             return Alert.alert(
               "Invalid Date",
               `Follow-up date cannot be before the task's start date (${startStr}).`
@@ -331,7 +331,7 @@ const TaskActionModal = ({
                     <AppDatePicker
                       value={followUpDate}
                       onChangeText={setFollowUpDate}
-                      placeholder="Select date"
+                      placeholder="DD/MM/YYYY"
                       compact
                     />
                   </View>

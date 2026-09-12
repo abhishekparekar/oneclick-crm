@@ -3,11 +3,14 @@ import { AlertTriangle, CheckCircle2, Clock, CheckSquare, Layers } from "lucide-
 
 const formatDate = (isoString) => {
   if (!isoString) return "—";
-  try {
-    return new Date(isoString).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-  } catch (e) {
-    return "—";
+  if (typeof isoString === "string" && /^\d{4}-\d{2}-\d{2}$/.test(isoString.trim())) {
+    const [y, m, d] = isoString.trim().split("-");
+    return `${d}/${m}/${y}`;
   }
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 const getTaskDueDate = (t) => {

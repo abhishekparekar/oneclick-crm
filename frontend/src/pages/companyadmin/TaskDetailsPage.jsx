@@ -18,6 +18,7 @@ import TaskAttachmentField from "../../components/tasks/TaskAttachmentField";
 import { toast } from "react-hot-toast";
 import { downloadAttachment } from "../../utils/attachmentUtils";
 import AttachmentViewerModal from "../../components/common/AttachmentViewerModal";
+import CustomDateTimeField from "../../components/common/CustomDateTimeField";
 
 const STATUS_THEMES = {
   pending: { label: "Pending", bg: "bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800", dot: "bg-blue-500", banner: "from-blue-500/10 via-indigo-500/10 to-transparent" },
@@ -73,27 +74,31 @@ const safeDecodeURIComponent = (str) => {
 };
 
 const formatDate = (dateStr) => {
-  if (!dateStr) return "N/A";
-  return new Date(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  if (!dateStr) return "—";
+  if (typeof dateStr === "string" && /^\d{4}-\d{2}-\d{2}$/.test(dateStr.trim())) {
+    const [y, m, d] = dateStr.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
 const formatTime = (dateStr) => {
   if (!dateStr) return "";
-  return new Date(dateStr).toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-IN", { hour: '2-digit', minute: '2-digit' });
 };
 
 const formatDateTime = (dateStr) => {
-  if (!dateStr) return "N/A";
+  if (!dateStr) return "—";
   const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return "N/A";
-  return d.toLocaleString("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  const timeStr = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}, ${timeStr}`;
 };
 
 const MiniAvatar = ({ name, size = "w-6 h-6", textSize = "text-[9.5px]" }) => {
@@ -149,8 +154,10 @@ function FollowUpModal({ isOpen, onClose, taskId }) {
         </div>
         <form onSubmit={handleSubmit} className="p-4 space-y-3 text-xs">
           <div>
-            <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">Next Follow-Up Date &amp; Time *</label>
-            <input 
+            <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider mb-1">
+              Next Follow-Up Date &amp; Time *
+            </label>
+            <CustomDateTimeField 
               required
               type="datetime-local"
               value={nextFollowUpDate}
@@ -293,8 +300,14 @@ export default function TaskDetailsPage() {
 
   const toggleChecklistItem = (index) => {
     if (!task) return;
-    const newChecklist = [...task.checklist];
-    newChecklist[index].isCompleted = !newChecklist[index].isCompleted;
+    const currentList = task.checklist || task.subtasks || [];
+    const newChecklist = [...currentList];
+    const isDone = newChecklist[index].isCompleted || newChecklist[index].completed;
+    newChecklist[index] = {
+      ...newChecklist[index],
+      isCompleted: !isDone,
+      completed: !isDone,
+    };
     updateMutation.mutate({ checklist: newChecklist });
   };
 
@@ -341,8 +354,9 @@ export default function TaskDetailsPage() {
   }
 
   const theme = STATUS_THEMES[task.status] || STATUS_THEMES.pending;
-  const completedChecklistCount = (task.checklist || []).filter(c => c.isCompleted).length;
-  const totalChecklistCount = (task.checklist || []).length;
+  const checklistItems = task.checklist || task.subtasks || [];
+  const completedChecklistCount = checklistItems.filter(c => c.isCompleted || c.completed).length;
+  const totalChecklistCount = checklistItems.length;
 
   return (
     <div className="space-y-2.5 pb-6 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
@@ -451,9 +465,53 @@ export default function TaskDetailsPage() {
               </h2>
             </div>
 
-            <div className="p-2.5 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap shadow-2xs">
+            <div className="min-h-[140px] max-h-72 p-3 bg-slate-50 dark:bg-[#0B101B] rounded-lg border border-slate-200 dark:border-slate-700/80 text-xs text-slate-900 dark:text-slate-100 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-y-auto shadow-2xs">
               {task.description || "No specific detailed description provided for this task."}
             </div>
+
+            {checklistItems && checklistItems.length > 0 && (
+              <div className="space-y-1.5 pt-1 border-t border-slate-100 dark:border-slate-800">
+                <div className="flex items-center justify-between text-[10.5px]">
+                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
+                    <CheckSquare size={12} className="text-teal-600 dark:text-teal-400" />
+                    <span>Complete {completedChecklistCount || 0}</span>
+                  </span>
+                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
+                    {totalChecklistCount > 0 ? Math.round((completedChecklistCount / totalChecklistCount) * 100) : 0}%
+                  </span>
+                </div>
+
+                <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
+                    style={{ width: `${totalChecklistCount > 0 ? (completedChecklistCount / totalChecklistCount) * 100 : 0}%` }}
+                  />
+                </div>
+
+                <div className="space-y-1 pt-0.5 max-h-60 overflow-y-auto pr-1">
+                  {checklistItems.map((item, idx) => (
+                    <label 
+                      key={idx} 
+                      className={`flex items-start gap-2.5 p-2 rounded-lg border transition-all cursor-pointer text-xs shadow-2xs ${
+                        item.isCompleted || item.completed
+                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
+                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold hover:border-teal-500/50"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={item.isCompleted || item.completed || false}
+                        onChange={() => toggleChecklistItem(idx)}
+                        className="mt-0.5 rounded text-amber-500 focus:ring-0 cursor-pointer shrink-0"
+                      />
+                      <span className="flex-1 break-words leading-relaxed text-xs">
+                        {item.title}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5 pt-1">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-1 flex items-center justify-between">
@@ -560,48 +618,6 @@ export default function TaskDetailsPage() {
                 </div>
               </div>
             </div>
-
-            {task.checklist && task.checklist.length > 0 && (
-              <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between text-[10.5px]">
-                  <span className="font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1">
-                    <CheckSquare size={12} className="text-teal-600 dark:text-teal-400" />
-                    <span>Subtasks ({completedChecklistCount}/{totalChecklistCount})</span>
-                  </span>
-                  <span className="font-mono font-black text-teal-700 dark:text-teal-400">
-                    {Math.round((completedChecklistCount / totalChecklistCount) * 100)}%
-                  </span>
-                </div>
-
-                <div className="h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-teal-500 rounded-full transition-all duration-300"
-                    style={{ width: `${(completedChecklistCount / totalChecklistCount) * 100}%` }}
-                  />
-                </div>
-
-                <div className="space-y-1 pt-0.5">
-                  {task.checklist.map((item, idx) => (
-                    <label 
-                      key={idx} 
-                      className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer text-xs shadow-2xs ${
-                        item.isCompleted 
-                          ? "bg-slate-50/70 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 text-slate-400 line-through" 
-                          : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white font-bold"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={item.isCompleted || false}
-                        onChange={() => toggleChecklistItem(idx)}
-                        className="rounded text-amber-500 focus:ring-0 cursor-pointer"
-                      />
-                      <span className="truncate">{item.title}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {task.attachments && task.attachments.length > 0 && (
               <div className="space-y-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-800">

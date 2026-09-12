@@ -187,6 +187,15 @@ const saveDeviceToken = async (req, res, next) => {
       });
     }
 
+    let resolvedEmployeeId = req.user.employeeId;
+    if (!resolvedEmployeeId) {
+      try {
+        const Employee = require("../models/Employee");
+        const emp = await Employee.findOne({ userId: req.user._id }).select("_id").lean();
+        if (emp) resolvedEmployeeId = emp._id;
+      } catch (_) {}
+    }
+
     // Check if token exists
     let deviceToken = await DeviceToken.findOne({ fcmToken });
 
@@ -195,9 +204,7 @@ const saveDeviceToken = async (req, res, next) => {
       deviceToken.userId = req.user._id;
       deviceToken.companyId = req.user.companyId;
       deviceToken.isActive = true;
-      if (req.user.employeeId) {
-        deviceToken.employeeId = req.user.employeeId;
-      }
+      deviceToken.employeeId = resolvedEmployeeId || null;
       deviceToken.platform = platform || deviceToken.platform;
       if (deviceId) deviceToken.deviceId = deviceId;
       await deviceToken.save();
@@ -206,12 +213,31 @@ const saveDeviceToken = async (req, res, next) => {
       deviceToken = await DeviceToken.create({
         userId: req.user._id,
         companyId: req.user.companyId,
-        employeeId: req.user.employeeId,
+        employeeId: resolvedEmployeeId || null,
         fcmToken,
         platform: platform || "unknown",
         deviceId: deviceId || null,
       });
     }
+
+    // Deactivate previous active tokens for this user on the same platform
+    await DeviceToken.updateMany(
+      {
+        userId: req.user._id,
+        _id: { $ne: deviceToken._id },
+        platform: platform || deviceToken.platform || "unknown"
+      },
+      { $set: { isActive: false } }
+    );
+
+    // Also deactivate this fcmToken if it exists under ANY other user record
+    await DeviceToken.updateMany(
+      {
+        fcmToken,
+        _id: { $ne: deviceToken._id }
+      },
+      { $set: { isActive: false } }
+    );
 
     res.json({
       success: true,

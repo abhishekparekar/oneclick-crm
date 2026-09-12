@@ -138,21 +138,38 @@ export const toggleTaskTemplateApi = (id) => api.patch(`/company/tasks/templates
 
 // Salary Structure & Payroll
 export const getSalaryStructureApi = (employeeId) =>
-  api.get(`/company/payroll/salary-structure/${employeeId}`);
+  api.get(`/payroll/company/salary-structures/${employeeId}`);
 
 export const createOrUpdateSalaryStructureApi = (employeeId, data) =>
-  api.post(`/company/payroll/salary-structure/${employeeId}`, data);
+  api.post(`/payroll/company/salary-structures`, { ...data, employeeId });
 
-export const generatePayrollApi = (data) => api.post("/company/payroll/generate", data);
+export const saveSalaryStructureApi = (data) =>
+  api.post("/payroll/company/salary-structures", data);
 
-export const getCompanyPayrollApi = (params = {}) => api.get("/company/payroll/company", { params });
+export const previewPayrollApi = (data) =>
+  api.post("/payroll/company/preview", data);
+
+export const generatePayrollApi = (data) =>
+  api.post("/payroll/company/generate", data);
+
+export const getCompanyPayrollApi = (params = {}) =>
+  api.get("/payroll/company", { params });
 
 export const getEmployeePayrollApi = (employeeId) =>
-  api.get(`/company/payroll/employee/${employeeId}`);
+  api.get(`/payroll/employee/${employeeId}`);
 
-export const markPayrollPaidApi = (id) => api.patch(`/company/payroll/${id}/pay`);
+export const markPayrollPaidApi = (id) =>
+  api.patch(`/payroll/${id}/mark-paid`);
 
-export const getPayslipApi = (id) => api.get(`/company/payroll/payslip/${id}`);
+export const getPayslipApi = (id) =>
+  api.get(`/payroll/${id}`);
+
+// Company Attendance & Employees (Used by Reports & Dashboard)
+export const getCompanyAttendanceApi = (params = {}) =>
+  api.get("/company/attendance", { params });
+
+export const getCompanyEmployeesApi = (params = {}) =>
+  api.get("/company/employees", { params });
 
 // Reports
 export const getReportsDashboardSummaryApi = () => api.get("/company/reports/dashboard");
@@ -171,3 +188,5 @@ export const uploadEmployeeDocumentApi = (employeeId, data) =>
       "Content-Type": "multipart/form-data",
     },
   });
+
+export const getModuleUsageApi = () => api.get("/company/module-usage");

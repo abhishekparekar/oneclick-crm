@@ -1,16 +1,22 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from "react-native";
+import React, { useCallback, useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  TextInput,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { PieChart } from "react-native-chart-kit";
+import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
 import { getEmployeeSummaryApi } from "../../api/reportService";
+import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { FONTS } from "../../theme/tokens";
-import { Ionicons } from "@expo/vector-icons";
-
-const { width } = Dimensions.get("window");
 
 const EmployeeReportScreen = () => {
   const [summary, setSummary] = useState(null);
@@ -19,7 +25,11 @@ const EmployeeReportScreen = () => {
   const [error, setError] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+
   const [downloading, setDownloading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const loadSummary = async (refresh = false) => {
     try {
@@ -42,247 +52,448 @@ const EmployeeReportScreen = () => {
     }, [month, year])
   );
 
+  const filteredEmployees = useMemo(() => {
+    const list = summary?.list || [];
+    return list.filter((e) => {
+      const name = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase();
+      const code = (e.employeeCode || "").toLowerCase();
+      const s = search.toLowerCase();
+      const matchSearch = !s || name.includes(s) || code.includes(s);
+      const matchStatus =
+        statusFilter === "all" || (e.status || "").toLowerCase() === statusFilter;
+      return matchSearch && matchStatus;
+    });
+  }, [summary, search, statusFilter]);
+
+  // Excel Export
+  const handleExportExcel = async () => {
+    if (exportingExcel) return;
+    try {
+      setExportingExcel(true);
+      const fileName = `Employee_Report_${month ? `Month_${month}` : "AllMonths"}_${year || "AllYears"}`;
+      const summaryRows = [
+        ["Report", "Staff Roster Report"],
+        ["Generated On", new Date().toLocaleString("en-IN")],
+        ["Total Employees", summary?.totalEmployees || 0],
+        ["Active Staff", summary?.activeEmployees || 0],
+        ["Inactive Staff", summary?.inactiveEmployees || 0],
+      ];
+      const headers = ["#", "Staff Name", "Employee Code", "Department", "Designation", "Status", "Joining Date"];
+      const rows = filteredEmployees.map((e, idx) => [
+        idx + 1,
+        `${e.firstName || ""} ${e.lastName || ""}`.trim(),
+        e.employeeCode || "—",
+        e.departmentId?.name || "General",
+        e.designationId?.name || "—",
+        (e.status || "active").toUpperCase(),
+        e.createdAt ? formatDateToDDMMYYYY(e.createdAt) : "—",
+      ]);
+
+      await exportToExcel({
+        fileName,
+        sheetName: "Employees",
+        summaryRows,
+        headers,
+        rows,
+      });
+    } catch (err) {
+      console.warn("Excel export error:", err);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  // PDF Export
   const handleDownload = async () => {
-    if (!summary || !summary.list) return;
-    setDownloading(true);
-
-    const rows = summary.list.map(e => `
-      <tr>
-        <td>${e.firstName} ${e.lastName}</td>
-        <td>${e.employeeCode || 'N/A'}</td>
-        <td>${e.designationId?.name || 'N/A'}</td>
-        <td>${e.status.toUpperCase()}</td>
-        <td>${formatDateToDDMMYYYY(e.createdAt)}</td>
-      </tr>
-    `).join("");
-
-    const html = `
-      <div class="summary">
-        <div class="stat-box">Total Employees<div class="stat-value">${summary.totalEmployees}</div></div>
-        <div class="stat-box">Active<div class="stat-value" style="color: #16a34a">${summary.activeEmployees}</div></div>
-        <div class="stat-box">Inactive/Terminated<div class="stat-value" style="color: #dc2626">${summary.inactiveEmployees}</div></div>
-      </div>
-      <h2>Employee List</h2>
-      <table>
-        <thead>
+    if (!summary || !summary.list || downloading) return;
+    try {
+      setDownloading(true);
+      const rows = filteredEmployees
+        .map(
+          (e) => `
           <tr>
-            <th>Name</th>
-            <th>Employee Code</th>
-            <th>Designation</th>
-            <th>Status</th>
-            <th>Joined Date</th>
+            <td>${e.firstName} ${e.lastName}</td>
+            <td>${e.employeeCode || "N/A"}</td>
+            <td>${e.designationId?.name || "N/A"}</td>
+            <td>${(e.status || "").toUpperCase()}</td>
+            <td>${e.createdAt ? formatDateToDDMMYYYY(e.createdAt) : "N/A"}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    `;
+        `
+        )
+        .join("");
 
-    await generateAndSharePDF(`Employee Report - ${month ? month + '/' : ''}${year || 'All Time'}`, html);
-    setDownloading(false);
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 10px;">
+          <h2 style="color: #0F172A; margin-bottom: 4px;">Staff Directory Report</h2>
+          <p style="color: #64748B; font-size: 11px; margin-top: 0;">Period: ${month ? month + "/" : ""}${year || "All Time"}</p>
+          <div style="display: flex; gap: 8px; margin: 12px 0;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px; border-radius: 6px; flex: 1;">Total: <b>${summary.totalEmployees}</b></div>
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 8px; border-radius: 6px; flex: 1; color: #059669;">Active: <b>${summary.activeEmployees}</b></div>
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 8px; border-radius: 6px; flex: 1; color: #DC2626;">Inactive: <b>${summary.inactiveEmployees}</b></div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <thead>
+              <tr style="background-color: #F1F5F9; text-align: left;">
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Staff Name</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Code</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Designation</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Status</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Joining Date</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+
+      await generateAndSharePDF(`Employee Report - ${month ? month + "/" : ""}${year || "All Time"}`, html);
+    } catch (err) {
+      console.warn("PDF export error:", err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading && !summary) {
     return (
-      <View style={{ flex: 1 }}>
-        <ReportHeader title="Employee Report" month={month} year={year} setMonth={setMonth} setYear={setYear} onDownload={() => {}} />
+      <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+        <ReportHeader
+          title="Employee Report"
+          month={month}
+          year={year}
+          setMonth={setMonth}
+          setYear={setYear}
+          onDownload={() => {}}
+        />
         <Loader />
       </View>
     );
   }
 
-  const chartData = [
-    { name: "Active", population: summary?.activeEmployees || 0, color: "#10b981", legendFontColor: "#475569", legendFontSize: 12 },
-    { name: "Inactive", population: summary?.inactiveEmployees || 0, color: "#ef4444", legendFontColor: "#475569", legendFontSize: 12 },
-  ].filter(d => d.population > 0);
-
   return (
     <View style={styles.container}>
-      <ReportHeader 
-        title="Employee Report" 
-        month={month} 
-        year={year} 
-        setMonth={setMonth} 
-        setYear={setYear} 
-        onDownload={handleDownload} 
+      <ReportHeader
+        title="Employee Report"
+        month={month}
+        year={year}
+        setMonth={setMonth}
+        setYear={setYear}
+        onDownload={handleDownload}
         downloading={downloading}
+        onExportExcel={handleExportExcel}
+        exportingExcel={exportingExcel}
       />
+
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSummary(true)} />}
       >
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { borderTopColor: "#2563eb", width: "100%" }]}>
-            <Text style={styles.statLabel}>TOTAL EMPLOYEES</Text>
-            <Text style={[styles.statValue, { color: "#2563eb" }]}>{summary?.totalEmployees || 0}</Text>
+        {/* Compact KPI Deck */}
+        <View style={styles.kpiGrid}>
+          <View style={[styles.kpiCard, { borderLeftColor: "#0284C7" }]}>
+            <Text style={styles.kpiLabel}>TOTAL STAFF</Text>
+            <Text style={[styles.kpiVal, { color: "#0F172A" }]}>{summary?.totalEmployees || 0}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#10b981" }]}>
-            <Text style={styles.statLabel}>ACTIVE</Text>
-            <Text style={[styles.statValue, { color: "#10b981" }]}>{summary?.activeEmployees || 0}</Text>
+
+          <View style={[styles.kpiCard, { borderLeftColor: "#10B981" }]}>
+            <Text style={styles.kpiLabel}>ACTIVE</Text>
+            <Text style={[styles.kpiVal, { color: "#059669" }]}>{summary?.activeEmployees || 0}</Text>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#ef4444" }]}>
-            <Text style={styles.statLabel}>INACTIVE</Text>
-            <Text style={[styles.statValue, { color: "#ef4444" }]}>{summary?.inactiveEmployees || 0}</Text>
+
+          <View style={[styles.kpiCard, { borderLeftColor: "#EF4444" }]}>
+            <Text style={styles.kpiLabel}>INACTIVE</Text>
+            <Text style={[styles.kpiVal, { color: "#DC2626" }]}>{summary?.inactiveEmployees || 0}</Text>
           </View>
         </View>
 
-        {/* Chart */}
-        {chartData.length > 0 && (
-          <View style={styles.chartCard}>
-            <Text style={styles.sectionTitle}>Status Breakdown</Text>
-            <PieChart
-              data={chartData}
-              width={width - 64}
-              height={180}
-              chartConfig={{ color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})` }}
-              accessor={"population"}
-              backgroundColor={"transparent"}
-              paddingLeft={"15"}
-              center={[10, 0]}
-              absolute
-            />
+        {/* Filter Card */}
+        <View style={styles.filterCard}>
+          <View style={styles.statusPillsRow}>
+            {[
+              { label: "All", value: "all" },
+              { label: "Active", value: "active" },
+              { label: "Inactive", value: "inactive" },
+            ].map((st) => {
+              const isSel = statusFilter === st.value;
+              return (
+                <TouchableOpacity
+                  key={st.value}
+                  style={[styles.statusPill, isSel && styles.statusPillActive]}
+                  onPress={() => setStatusFilter(st.value)}
+                >
+                  <Text style={[styles.statusPillText, isSel && styles.statusPillTextActive]}>
+                    {st.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
 
-        {/* List */}
-        <Text style={[styles.sectionTitle, { marginHorizontal: 16, marginTop: 24 }]}>Employee Directory</Text>
-        <View style={styles.listContainer}>
-          {summary?.list && summary.list.length > 0 ? (
-            summary.list.map((e, idx) => {
-              const empName = `${e.firstName || ''} ${e.lastName || ''}`.trim() || 'Unknown';
-              const initials = empName.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
-              
-              // Define status pill colors
-              let statusBg = "rgba(239, 68, 68, 0.1)"; // Red 10% (inactive)
-              let statusText = "#ef4444";
-              if (e.status === 'active') {
-                statusBg = "rgba(16, 185, 129, 0.1)"; // Emerald 10%
-                statusText = "#10b981";
-              }
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={13} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by name or employee code..."
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={14} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
+        {/* Staff Cards List */}
+        {filteredEmployees.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="people-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No Staff Members Found</Text>
+            <Text style={styles.emptySub}>No employee profiles match the search criteria.</Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {filteredEmployees.map((e, idx) => {
+              const empName = `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Unknown";
+              const isActive = (e.status || "").toLowerCase() === "active";
 
               return (
-                <View key={e._id} style={[styles.listItem, idx !== summary.list.length - 1 && styles.listItemBorder]}>
-                  <View style={styles.avatarContainer}>
-                    <Text style={styles.avatarText}>{initials}</Text>
-                  </View>
-                  <View style={styles.listItemContent}>
-                    <Text style={styles.itemTitle}>{empName}</Text>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="briefcase-outline" size={11} color="#64748b" style={{ marginRight: 4 }} />
-                      <Text style={styles.itemSub} numberOfLines={1}>{e.designationId?.name || "No Designation"}</Text>
+                <View key={e._id || idx} style={styles.empCard}>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.avatarMini}>
+                      <Text style={styles.avatarText}>{empName.charAt(0).toUpperCase()}</Text>
                     </View>
-                  </View>
-                  <View style={styles.statusCol}>
-                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                      <Text style={[styles.statusBadgeText, { color: statusText }]}>
-                        {e.status.toUpperCase()}
+                    <View style={{ flex: 1, marginLeft: 8 }}>
+                      <Text style={styles.empNameText} numberOfLines={1}>{empName}</Text>
+                      <Text style={styles.empSubText}>
+                        {e.employeeCode || "—"} • {e.departmentId?.name || "General"}
                       </Text>
                     </View>
-                    <Text style={styles.dateText}>Joined: {formatDateToDDMMYYYY(e.createdAt)}</Text>
+                    <View
+                      style={[
+                        styles.statusTag,
+                        isActive ? styles.statusActive : styles.statusInactive,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.statusTagText,
+                          isActive ? { color: "#059669" } : { color: "#DC2626" },
+                        ]}
+                      >
+                        {(e.status || "active").toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.cardFooter}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>DESIGNATION</Text>
+                      <Text style={styles.metaVal}>{e.designationId?.name || "Staff Member"}</Text>
+                    </View>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>JOINING DATE</Text>
+                      <Text style={styles.metaVal}>
+                        {e.createdAt ? formatDateToDDMMYYYY(e.createdAt) : "—"}
+                      </Text>
+                    </View>
                   </View>
                 </View>
               );
-            })
-          ) : (
-            <Text style={styles.emptyText}>No employees found.</Text>
-          )}
-        </View>
+            })}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  content: { paddingBottom: 40 },
-  error: { color: "#dc2626", margin: 16, textAlign: "center", fontFamily: FONTS.bodySemiBold },
-  statsGrid: {
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  content: {
+    padding: 10,
+    paddingBottom: 40,
+  },
+  kpiGrid: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 16,
-    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 8,
   },
-  statBox: {
-    width: "48%",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderTopWidth: 4,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  kpiCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderLeftWidth: 3,
+  },
+  kpiLabel: {
+    fontSize: 8,
+    fontFamily: FONTS.bodyBold,
+    color: "#64748B",
+  },
+  kpiVal: {
+    fontSize: 14,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  filterCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+    gap: 6,
+  },
+  statusPillsRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  statusPill: {
+    flex: 1,
+    paddingVertical: 5,
     alignItems: "center",
+    borderRadius: 6,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
   },
-  statLabel: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyBold, marginBottom: 8, letterSpacing: 0.5 },
-  statValue: { fontSize: 28, fontFamily: FONTS.displayBold },
-  chartCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
+  statusPillActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  statusPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#64748B",
+  },
+  statusPillTextActive: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+  },
+  searchRow: {
+    flexDirection: "row",
     alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    height: 32,
+    gap: 6,
   },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 12, alignSelf: "flex-start" },
+  searchInput: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: "#0F172A",
+  },
   listContainer: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    gap: 6,
   },
-  listItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  listItemBorder: { borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  avatarContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: "#f1f5f9",
+  empCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  avatarMini: {
+    width: 28,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: "#EFF6FF",
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
   },
   avatarText: {
     fontSize: 12,
     fontFamily: FONTS.displayBold,
-    color: "#64748b",
+    color: "#0284C7",
   },
-  listItemContent: { flex: 1, paddingRight: 12 },
-  itemTitle: { fontSize: 14, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 3 },
-  metaRow: { flexDirection: "row", alignItems: "center" },
-  itemSub: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyMedium },
-  statusCol: { alignItems: "flex-end", justifyContent: "center" },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
+  empNameText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  empSubText: {
+    fontSize: 10,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  statusTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2.5,
+    borderRadius: 5,
+  },
+  statusActive: {
+    backgroundColor: "#ECFDF5",
+  },
+  statusInactive: {
+    backgroundColor: "#FEF2F2",
+  },
+  statusTagText: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.3,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 6,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  metaCol: {
+    flex: 1,
+  },
+  metaLabel: {
+    fontSize: 8,
+    fontFamily: FONTS.bodyBold,
+    color: "#94A3B8",
+  },
+  metaVal: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#1E293B",
+    marginTop: 1,
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 24,
     alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 8,
   },
-  statusBadgeText: { fontSize: 9, fontFamily: FONTS.bodyBold, letterSpacing: 0.3 },
-  dateText: { fontSize: 10, color: "#94a3b8", marginTop: 4, fontFamily: FONTS.bodySemiBold },
-  emptyText: { textAlign: "center", color: "#94a3b8", paddingVertical: 20, fontFamily: FONTS.bodyMedium },
+  emptyTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+    marginTop: 8,
+  },
+  emptySub: {
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 3,
+  },
 });
 
 export default EmployeeReportScreen;

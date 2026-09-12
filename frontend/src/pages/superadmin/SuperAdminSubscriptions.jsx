@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import toast from "react-hot-toast";
 import {
   getSubscriptionsApi, getPlansApi, getCompaniesApi,
   assignSubscriptionApi, renewSubscriptionApi, cancelSubscriptionApi,
-  extendTrialApi, deleteSubscriptionApi, getSuperAdminSubscriptionRequestsApi
+  extendTrialApi, deleteSubscriptionApi, getSuperAdminSubscriptionRequestsApi,
+  syncSubscriptionExpiryNotificationsApi
 } from "../../api/superAdminApi";
 import DataTable from "../../components/common/DataTable";
 import SuperAdminSubscriptionRequestsModal from "../../components/subscription/SuperAdminSubscriptionRequestsModal";
@@ -11,7 +13,8 @@ import {
   Search, Plus, MoreVertical, ExternalLink, RefreshCw, Ban,
   Calendar, AlertCircle, CheckCircle, XCircle, CreditCard,
   Building2, Briefcase, DollarSign, Clock, Sparkles, Check,
-  ArrowUpRight, ChevronDown, Shield, Trash2
+  ArrowUpRight, ChevronDown, Shield, Trash2, Download, Bell,
+  FileSpreadsheet, AlertTriangle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -155,6 +158,98 @@ const calculateDaysDiff = (fromStr, toStr) => {
   return Math.max(1, Math.round(ms / (1000 * 60 * 60 * 24)));
 };
 
+const getExpiryInfo = (sub) => {
+  if (!sub?.endDate) return { daysLeft: null, isExpired: false, isExpiring7: false, isExpiring30: false };
+  const end = new Date(sub.endDate);
+  end.setHours(23, 59, 59, 999);
+  const now = new Date();
+  const diffMs = end.getTime() - now.getTime();
+  const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const isExpired = daysLeft < 0 || sub.status === "expired";
+  const isExpiring7 = !isExpired && daysLeft <= 7 && daysLeft >= 0;
+  const isExpiring30 = !isExpired && daysLeft <= 30 && daysLeft >= 0;
+  return { daysLeft, isExpired, isExpiring7, isExpiring30 };
+};
+
+const exportToCSV = (subsToExport, filenamePrefix = "subscriptions") => {
+  if (!subsToExport || subsToExport.length === 0) {
+    toast.error("No subscription records available to export.");
+    return;
+  }
+
+  const headers = [
+    "Tenant Workspace",
+    "Tenant ID",
+    "Plan Name",
+    "Billing Cycle",
+    "Price / Amount",
+    "Subscription Status",
+    "Payment Status",
+    "Start Date",
+    "End Date",
+    "Days Remaining",
+    "Expiry Urgency",
+    "Company Email",
+    "Company Phone",
+    "Owner Name"
+  ];
+
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
+  const rows = subsToExport.map((sub) => {
+    const comp = sub.companyId || {};
+    const plan = sub.planId || {};
+    const info = getExpiryInfo(sub);
+    const planName = sub.planName || plan.planName || "Standard";
+    const amount = sub.amount || sub.price || 0;
+    const startDate = sub.startDate ? new Date(sub.startDate).toISOString().split("T")[0] : "";
+    const endDate = sub.endDate ? new Date(sub.endDate).toISOString().split("T")[0] : "";
+    
+    let urgency = "Active / Stable";
+    if (info.isExpired) urgency = "Expired";
+    else if (info.isExpiring7) urgency = "CRITICAL (<= 7 Days)";
+    else if (info.isExpiring30) urgency = "Upcoming (<= 1 Month)";
+
+    const daysRemaining = info.isExpired 
+      ? `Expired (${Math.abs(info.daysLeft)}d ago)` 
+      : `${info.daysLeft ?? "N/A"} days`;
+
+    return [
+      escapeCSV(comp.companyName || "Unknown Tenant"),
+      escapeCSV(comp._id || comp || "N/A"),
+      escapeCSV(planName),
+      escapeCSV(sub.billingCycle || "monthly"),
+      escapeCSV(amount),
+      escapeCSV(sub.status || "active"),
+      escapeCSV(sub.paymentStatus || "unpaid"),
+      escapeCSV(startDate),
+      escapeCSV(endDate),
+      escapeCSV(daysRemaining),
+      escapeCSV(urgency),
+      escapeCSV(comp.email || comp.ownerEmail || "N/A"),
+      escapeCSV(comp.phone || comp.ownerPhone || "N/A"),
+      escapeCSV(comp.ownerName || "N/A")
+    ].join(",");
+  });
+
+  const csvContent = [headers.join(","), ...rows].join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dateStr = new Date().toISOString().split("T")[0];
+  link.setAttribute("href", url);
+  link.setAttribute("download", `${filenamePrefix}_${dateStr}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  toast.success(`Exported ${subsToExport.length} subscription records successfully!`);
+};
+
 const SuperAdminSubscriptions = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -164,6 +259,8 @@ const SuperAdminSubscriptions = () => {
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isExtendModalOpen, setIsExtendModalOpen] = useState(false);
   const [isRequestsModalOpen, setIsRequestsModalOpen] = useState(false);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [syncingNotifs, setSyncingNotifs] = useState(false);
   const [selectedSub, setSelectedSub] = useState(null);
   const [activeMenu, setActiveMenu] = useState(null);
   
@@ -175,6 +272,7 @@ const SuperAdminSubscriptions = () => {
     endDate: getFutureDateStr(30),
     subscriptionDays: 30,
   });
+  const [assignDurationMode, setAssignDurationMode] = useState("calendar"); // "calendar" | "days"
   const [extendDays, setExtendDays] = useState(7);
   const [extendToDate, setExtendToDate] = useState("");
 
@@ -190,14 +288,39 @@ const SuperAdminSubscriptions = () => {
   const plans = plansData?.data?.plans || [];
   const companies = companiesData?.data?.companies || [];
 
+  // Expiry categorized groups
+  const expiring7Subs = subscriptions.filter(s => getExpiryInfo(s).isExpiring7);
+  const expiring30Subs = subscriptions.filter(s => getExpiryInfo(s).isExpiring30);
+  const expiredSubs = subscriptions.filter(s => getExpiryInfo(s).isExpired);
+
   const filteredSubscriptions = subscriptions.filter((sub) => {
     const companyName = sub.companyId?.companyName || "";
     const planName = sub.planName || sub.planId?.planName || "";
     const matchesSearch = companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           planName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || sub.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    if (!matchesSearch) return false;
+
+    const info = getExpiryInfo(sub);
+    if (statusFilter === "all") return true;
+    if (statusFilter === "expiring7") return info.isExpiring7;
+    if (statusFilter === "expiring30") return info.isExpiring30;
+    if (statusFilter === "expired") return info.isExpired || sub.status === "expired";
+    return sub.status === statusFilter;
   });
+
+  const handleSyncNotifications = async () => {
+    try {
+      setSyncingNotifs(true);
+      const res = await syncSubscriptionExpiryNotificationsApi();
+      toast.success(res?.message || "Expiry notifications synced to bell icon!");
+      queryClient.invalidateQueries(["notifications"]);
+      refetch();
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to sync notifications");
+    } finally {
+      setSyncingNotifs(false);
+    }
+  };
 
   // Calculate MRR (Monthly Recurring Revenue approximate)
   const totalMrr = subscriptions
@@ -355,24 +478,45 @@ const SuperAdminSubscriptions = () => {
     {
       header: "Timeline & Validity",
       accessor: "timeline",
-      render: (row) => (
-        <div className="text-xs space-y-0.5 py-1">
-          <div className="flex items-center space-x-1.5 text-sa-text-secondary font-medium">
-            <span className="text-[10px] uppercase font-bold text-sa-text-secondary/70 w-10">Start:</span>
-            <span className="font-extrabold text-sa-text">{row.startDate ? new Date(row.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</span>
-          </div>
-          <div className="flex items-center space-x-1.5 text-sa-text-secondary font-medium">
-            <span className="text-[10px] uppercase font-bold text-sa-text-secondary/70 w-10">End:</span>
-            <span className="font-extrabold text-sa-text">{row.endDate ? new Date(row.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</span>
-          </div>
-          {row.status === 'trial' && row.trialEndsAt && (
-            <div className="inline-flex items-center space-x-1 text-[10px] font-black text-[#06B6D4] bg-[#06B6D4]/15 px-1.5 py-0.5 rounded border border-[#06B6D4]/30 mt-1">
-              <Clock size={10} />
-              <span>Trial Ends: {new Date(row.trialEndsAt).toLocaleDateString()}</span>
+      render: (row) => {
+        const info = getExpiryInfo(row);
+        return (
+          <div className="text-xs space-y-1 py-1">
+            <div className="flex items-center space-x-1.5 text-sa-text-secondary font-medium">
+              <span className="text-[10px] uppercase font-bold text-sa-text-secondary/70 w-10">Start:</span>
+              <span className="font-extrabold text-sa-text">{row.startDate ? new Date(row.startDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</span>
             </div>
-          )}
-        </div>
-      )
+            <div className="flex items-center space-x-1.5 text-sa-text-secondary font-medium">
+              <span className="text-[10px] uppercase font-bold text-sa-text-secondary/70 w-10">End:</span>
+              <span className="font-extrabold text-sa-text">{row.endDate ? new Date(row.endDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A'}</span>
+            </div>
+            {/* Expiry & Validity Countdown Badges */}
+            {info.isExpired ? (
+              <div className="inline-flex items-center space-x-1 text-[10px] font-black text-rose-500 bg-rose-500/15 px-2 py-0.5 rounded border border-rose-500/30">
+                <AlertTriangle size={11} />
+                <span>Expired ({Math.abs(info.daysLeft)}d ago)</span>
+              </div>
+            ) : info.isExpiring7 ? (
+              <div className="inline-flex items-center space-x-1 text-[10px] font-black text-amber-500 bg-amber-500/15 px-2 py-0.5 rounded border border-amber-500/40 animate-pulse">
+                <AlertTriangle size={11} />
+                <span>Expires in {info.daysLeft} {info.daysLeft === 1 ? 'day' : 'days'}!</span>
+              </div>
+            ) : info.isExpiring30 ? (
+              <div className="inline-flex items-center space-x-1 text-[10px] font-black text-sky-400 bg-sky-400/15 px-2 py-0.5 rounded border border-sky-400/30">
+                <Clock size={11} />
+                <span>Expires in {info.daysLeft} days</span>
+              </div>
+            ) : null}
+
+            {row.status === 'trial' && row.trialEndsAt && (
+              <div className="inline-flex items-center space-x-1 text-[10px] font-black text-[#06B6D4] bg-[#06B6D4]/15 px-1.5 py-0.5 rounded border border-[#06B6D4]/30 mt-0.5">
+                <Clock size={10} />
+                <span>Trial Ends: {new Date(row.trialEndsAt).toLocaleDateString()}</span>
+              </div>
+            )}
+          </div>
+        );
+      }
     },
     {
       header: "Payment Status",
@@ -453,6 +597,76 @@ const SuperAdminSubscriptions = () => {
           <p className="text-xs text-sa-text-secondary mt-0.5">Monitor active tenant tiers, free trials, recurring renewals, and incoming company upgrade requests.</p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
+          {/* Export Dropdown */}
+          <div className="relative">
+            <button 
+              type="button"
+              onClick={() => setIsExportMenuOpen(!isExportMenuOpen)} 
+              className="px-4 py-2.5 rounded-xl text-xs font-black text-sa-text bg-sa-surface hover:bg-sa-bg border border-sa-border transition-all flex items-center space-x-2 cursor-pointer shadow-xs active:scale-95"
+            >
+              <Download size={15} className="text-[#f59e0b]" />
+              <span>Export</span>
+              <ChevronDown size={13} className={`text-sa-text-secondary transition-transform duration-200 ${isExportMenuOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {isExportMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-20" onClick={() => setIsExportMenuOpen(false)} />
+                <div className="absolute right-0 mt-2 w-64 bg-sa-surface border border-sa-border rounded-xl shadow-xl z-30 py-1.5 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-150">
+                  <div className="px-3.5 py-1.5 text-[10px] font-extrabold uppercase tracking-wider text-sa-text-secondary border-b border-sa-border/40">
+                    Export Options (.CSV)
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => { setIsExportMenuOpen(false); exportToCSV(filteredSubscriptions, "subscriptions-filtered"); }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-sa-text hover:bg-[#f59e0b]/10 hover:text-[#f59e0b] flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <FileSpreadsheet size={14} /> Current View ({filteredSubscriptions.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsExportMenuOpen(false); exportToCSV(expiring7Subs, "subscriptions-expiring-7-days"); }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-amber-500 hover:bg-amber-500/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle size={14} /> Expiring in 7 Days ({expiring7Subs.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsExportMenuOpen(false); exportToCSV(expiring30Subs, "subscriptions-expiring-1-month"); }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-sky-400 hover:bg-sky-400/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Clock size={14} /> Expiring in 1 Month ({expiring30Subs.length})
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIsExportMenuOpen(false); exportToCSV(expiredSubs, "subscriptions-expired"); }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-rose-400 hover:bg-rose-400/10 flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Ban size={14} /> Expired Plans ({expiredSubs.length})
+                    </span>
+                  </button>
+                  <div className="border-t border-sa-border/40 my-1" />
+                  <button
+                    type="button"
+                    onClick={() => { setIsExportMenuOpen(false); exportToCSV(subscriptions, "all-subscriptions"); }}
+                    className="w-full text-left px-3.5 py-2 text-xs font-bold text-sa-text hover:bg-sa-bg flex items-center justify-between transition-colors"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Briefcase size={14} /> All Subscriptions ({subscriptions.length})
+                    </span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           <button 
             type="button"
             onClick={() => setIsRequestsModalOpen(true)} 
@@ -476,6 +690,96 @@ const SuperAdminSubscriptions = () => {
             <Plus size={15} />
             <span>Assign New Plan</span>
           </button>
+        </div>
+      </div>
+
+      {/* Expiry Tracking & Notification Alert Banner */}
+      <div className="bg-gradient-to-r from-amber-500/10 via-sa-surface to-sky-500/10 border border-amber-500/30 rounded-2xl p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-500 flex items-center justify-center">
+                <Bell size={16} className={expiring7Subs.length > 0 ? "animate-bounce" : ""} />
+              </div>
+              <h3 className="text-sm font-black text-sa-text tracking-tight flex items-center gap-2">
+                Plan Expiry Notification & Lifecycle Radar
+              </h3>
+              {expiring7Subs.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-500 text-white animate-pulse">
+                  Urgent Action Needed
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-sa-text-secondary font-medium pl-9">
+              Track tenants approaching plan deadlines to prevent service downtime and trigger timely renewal outreach.
+            </p>
+          </div>
+
+          {/* Quick Metrics & 1-Click Filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "expiring7" ? "all" : "expiring7")}
+              className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 border cursor-pointer ${
+                statusFilter === "expiring7"
+                  ? "bg-amber-500 text-white border-amber-500 shadow-sm ring-2 ring-amber-500/20"
+                  : "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25"
+              }`}
+              title="Filter by plans expiring within 7 days"
+            >
+              <AlertTriangle size={14} />
+              <span>7 Days Expiry</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-500/30 dark:bg-amber-400/20">
+                {expiring7Subs.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "expiring30" ? "all" : "expiring30")}
+              className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 border cursor-pointer ${
+                statusFilter === "expiring30"
+                  ? "bg-sky-500 text-white border-sky-500 shadow-sm ring-2 ring-sky-500/20"
+                  : "bg-sky-500/15 text-sky-600 dark:text-sky-400 border-sky-500/30 hover:bg-sky-500/25"
+              }`}
+              title="Filter by plans expiring within 1 month (30 days)"
+            >
+              <Clock size={14} />
+              <span>1 Month Expiry</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-sky-500/30 dark:bg-sky-400/20">
+                {expiring30Subs.length}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setStatusFilter(statusFilter === "expired" ? "all" : "expired")}
+              className={`px-3 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 border cursor-pointer ${
+                statusFilter === "expired"
+                  ? "bg-rose-500 text-white border-rose-500 shadow-sm ring-2 ring-rose-500/20"
+                  : "bg-rose-500/10 text-rose-500 border-rose-500/25 hover:bg-rose-500/20"
+              }`}
+              title="Filter by expired plans"
+            >
+              <Ban size={14} />
+              <span>Expired</span>
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-rose-500/20">
+                {expiredSubs.length}
+              </span>
+            </button>
+
+            {/* Sync Notifications Bell Button */}
+            <button
+              type="button"
+              onClick={handleSyncNotifications}
+              disabled={syncingNotifs}
+              className="px-3 py-2 rounded-xl text-xs font-black text-sa-text bg-sa-surface hover:bg-sa-bg border border-sa-border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Sync unread alert notifications to the top header bell for upcoming expiries"
+            >
+              <RefreshCw size={13} className={syncingNotifs ? "animate-spin text-[#f59e0b]" : "text-sa-text-secondary"} />
+              <span>{syncingNotifs ? "Syncing..." : "Sync Bell Alerts"}</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -536,9 +840,11 @@ const SuperAdminSubscriptions = () => {
         <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 md:pb-0">
           {[
             { id: "all", label: "All Statuses" },
+            { id: "expiring7", label: `⚡ Expiring in 7 Days (${expiring7Subs.length})` },
+            { id: "expiring30", label: `📅 Expiring in 1 Month (${expiring30Subs.length})` },
             { id: "active", label: "Active" },
             { id: "trial", label: "Trial" },
-            { id: "expired", label: "Expired" },
+            { id: "expired", label: `Expired (${expiredSubs.length})` },
             { id: "cancelled", label: "Cancelled" },
           ].map((item) => (
             <button
@@ -658,37 +964,87 @@ const SuperAdminSubscriptions = () => {
               {/* Subscription Days & Date Range */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Subscription Days</label>
-                  <span className="text-[10px] font-bold text-[#f59e0b]">{assignData.subscriptionDays} Days Active</span>
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                    <Calendar size={13} className="text-[#f59e0b]" />
+                    <span>Subscription Duration</span>
+                  </label>
+                  <div className="flex items-center bg-sa-surface p-0.5 rounded-lg border border-sa-border/40 dark:border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => setAssignDurationMode("calendar")}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        assignDurationMode === "calendar"
+                          ? "bg-[#f59e0b] text-black shadow-2xs font-black"
+                          : "text-sa-text-secondary hover:text-sa-text"
+                      }`}
+                    >
+                      <span>Date-wise</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAssignDurationMode("days")}
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                        assignDurationMode === "days"
+                          ? "bg-[#f59e0b] text-black shadow-2xs font-black"
+                          : "text-sa-text-secondary hover:text-sa-text"
+                      }`}
+                    >
+                      <span>Days</span>
+                    </button>
+                  </div>
                 </div>
-                <input 
-                  type="number" 
-                  min="1" 
-                  value={assignData.subscriptionDays} 
-                  onChange={(e) => handleAssignDaysChange(e.target.value)}
-                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
-                />
-              </div>
 
-              <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-sa-bg/50 border border-sa-border/30">
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">From Date (Start)</label>
-                  <input 
-                    type="date" 
-                    value={assignData.startDate} 
-                    onChange={(e) => handleAssignDateChange("startDate", e.target.value)}
-                    className="w-full bg-sa-surface border border-sa-border/40 rounded-xl px-3 py-1.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10.5px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">To Date (End)</label>
-                  <input 
-                    type="date" 
-                    min={assignData.startDate}
-                    value={assignData.endDate} 
-                    onChange={(e) => handleAssignDateChange("endDate", e.target.value)}
-                    className="w-full bg-sa-surface border border-sa-border/40 rounded-xl px-3 py-1.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
-                  />
+                {assignDurationMode === "calendar" ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[9.5px] font-bold uppercase text-sa-text-secondary block mb-0.5">From Date</span>
+                      <input 
+                        type="date" 
+                        value={assignData.startDate} 
+                        onChange={(e) => handleAssignDateChange("startDate", e.target.value)}
+                        className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-2.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[9.5px] font-bold uppercase text-sa-text-secondary">Next Date</span>
+                        <span className="text-[9.5px] font-black text-[#f59e0b]">{assignData.subscriptionDays || 1} Days</span>
+                      </div>
+                      <input 
+                        type="date" 
+                        min={assignData.startDate}
+                        value={assignData.endDate} 
+                        onChange={(e) => handleAssignDateChange("endDate", e.target.value)}
+                        className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-2.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <input 
+                      type="number" 
+                      min="1" 
+                      value={assignData.subscriptionDays} 
+                      onChange={(e) => handleAssignDaysChange(e.target.value)}
+                      className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all pr-24"
+                    />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-md border border-[#f59e0b]/20 pointer-events-none">
+                      {assignData.subscriptionDays} Days Active
+                    </span>
+                  </div>
+                )}
+
+                {/* Below: Display Start Date & End Date ONLY */}
+                <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-sa-bg/60 border border-sa-border/30 dark:border-white/5 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 text-sa-text-secondary font-medium">
+                    <Calendar size={12} className="text-[#f59e0b] flex-shrink-0" />
+                    <span>Start: <strong className="text-sa-text font-bold">{assignData.startDate}</strong></span>
+                    <span className="text-sa-text-secondary">•</span>
+                    <span>End: <strong className="text-sa-text font-bold">{assignData.endDate}</strong></span>
+                  </div>
+                  <span className="font-extrabold text-[#f59e0b] text-[10px] bg-[#f59e0b]/10 px-1.5 py-0.5 rounded border border-[#f59e0b]/20 flex-shrink-0 ml-1">
+                    {assignData.subscriptionDays} Days
+                  </span>
                 </div>
               </div>
               

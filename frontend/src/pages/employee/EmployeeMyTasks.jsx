@@ -23,10 +23,22 @@ const formatCardTaskId = (t) => {
   return `T-01`;
 };
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 const getCardDueDate = (t) => {
   const d = t.dueDate || t.endDate || t.endDateTime || t.finishDate || t.startDate;
   if (!d) return "No Due Date";
-  return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(d);
 };
 
 const getPriorityShortLabel = (p) => {
@@ -38,8 +50,24 @@ const getPriorityShortLabel = (p) => {
 };
 
 const getTaskAccentColors = (t) => {
-  const status = (t.status || "pending").toLowerCase();
+  let status = (t.status || "pending").toLowerCase();
   const priority = (t.priority || "medium").toLowerCase();
+
+  // Strictly evaluate overdue based on complete date + time:
+  const done = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(status);
+  if (!t.isTemplate && !done) {
+    const rawDue = t.endDateTime || t.dueDate || t.endDate;
+    if (rawDue) {
+      const due = new Date(rawDue);
+      if (!isNaN(due.getTime())) {
+        if (Date.now() >= due.getTime()) {
+          status = "overdue";
+        } else if (status === "overdue") {
+          status = t.isReopened ? "re_pending" : "pending";
+        }
+      }
+    }
+  }
 
   let borderAccent = "border-l-blue-500";
   let statusStyle = "bg-blue-100/90 text-blue-800 border-blue-200";
@@ -378,13 +406,39 @@ export default function EmployeeMyTasks() {
     });
   }, [tasks, dateTab, filters.startDate, filters.endDate]);
 
-  // Helper to check if task is overdue in real-time
+  // Helper to check if task is overdue strictly based on complete Date + Time
   const checkIsOverdue = (task) => {
     if (task.isTemplate) return false;
     const st = (task.status || "").toLowerCase();
-    const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "cancelled"].includes(st);
-    const due = task.endDateTime || task.dueDate || task.endDate ? new Date(task.endDateTime || task.dueDate || task.endDate) : null;
-    return st === "overdue" || (!done && due && due < new Date());
+    const done = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+    if (done) return false;
+    const rawDue = task.endDateTime || task.dueDate || task.endDate;
+    if (rawDue) {
+      const due = new Date(rawDue);
+      if (!isNaN(due.getTime())) {
+        // Strictly compare complete date + time:
+        return Date.now() >= due.getTime();
+      }
+    }
+    return st === "overdue";
+  };
+
+  // Helper to get effective status based on complete Date + Time
+  const getTaskEffectiveStatus = (task) => {
+    if (!task) return "pending";
+    if (task.isTemplate) return (task.status || "pending").toLowerCase();
+    const st = (task.status || "pending").toLowerCase();
+    const done = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+    if (done) return st;
+    const rawDue = task.endDateTime || task.dueDate || task.endDate;
+    if (rawDue) {
+      const due = new Date(rawDue);
+      if (!isNaN(due.getTime())) {
+        if (Date.now() >= due.getTime()) return "overdue";
+        if (st === "overdue") return task.isReopened ? "re_pending" : "pending";
+      }
+    }
+    return st;
   };
 
   // Status counts map based on baseTabTasks
@@ -404,14 +458,11 @@ export default function EmployeeMyTasks() {
     };
 
     baseTabTasks.forEach(t => {
-      const s = (t.status || "pending").toLowerCase();
-      if (map[s] !== undefined) {
-        map[s] += 1;
+      const eff = getTaskEffectiveStatus(t);
+      if (map[eff] !== undefined) {
+        map[eff] += 1;
       } else {
         map.pending += 1;
-      }
-      if (checkIsOverdue(t) && s !== "overdue") {
-        map.overdue += 1;
       }
     });
 
@@ -467,10 +518,8 @@ export default function EmployeeMyTasks() {
 
       // Status Filter
       if (statusFilter !== "all") {
-        const s = (t.status || "pending").toLowerCase();
-        if (statusFilter === "overdue") {
-          if (!checkIsOverdue(t)) return false;
-        } else if (s !== statusFilter.toLowerCase()) {
+        const eff = getTaskEffectiveStatus(t);
+        if (eff !== statusFilter.toLowerCase()) {
           return false;
         }
       }
@@ -850,7 +899,7 @@ export default function EmployeeMyTasks() {
 
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs">
-              From: {filters.startDate}
+              From: {formatDateDDMMYYYY(filters.startDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
@@ -859,7 +908,7 @@ export default function EmployeeMyTasks() {
 
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs">
-              To: {filters.endDate}
+              To: {formatDateDDMMYYYY(filters.endDate)}
               <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
@@ -929,7 +978,7 @@ export default function EmployeeMyTasks() {
                     {t.nextFollowUpDate && (
                       <div className="py-1 px-2 bg-amber-50 dark:bg-amber-950/40 rounded-md border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-950 dark:text-amber-200">
                         <Clock size={11} className="text-amber-600 shrink-0" />
-                        <span>Next Follow-Up: <strong>{new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</strong></span>
+                        <span>Next Follow-Up: <strong>{formatDateDDMMYYYY(t.nextFollowUpDate)}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}</strong></span>
                       </div>
                     )}
                   </div>
@@ -1049,7 +1098,7 @@ export default function EmployeeMyTasks() {
                           </div>
                           {t.nextFollowUpDate && (
                             <p className="text-[10px] text-amber-600 dark:text-amber-400 font-bold mt-0.5">
-                              Follow-up: {new Date(t.nextFollowUpDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                              Follow-up: {formatDateDDMMYYYY(t.nextFollowUpDate)}, {new Date(t.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true })}
                             </p>
                           )}
                         </td>

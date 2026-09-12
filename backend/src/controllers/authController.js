@@ -1,3 +1,4 @@
+const crypto = require("crypto");
 const { validationResult } = require("express-validator");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
@@ -8,6 +9,7 @@ const generateToken = require("../utils/generateToken");
 const formatUser = require("../utils/formatUser");
 const { getUserPermissions } = require("../utils/permissionCheck");
 const connectDB = require("../config/db");
+const { sendPasswordResetEmail } = require("../services/notificationService");
 
 const registerSuperAdmin = async (req, res, next) => {
   try {
@@ -561,6 +563,85 @@ const registerCompany = async (req, res, next) => {
   }
 };
 
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = String(email || "").trim().toLowerCase();
+
+    if (!cleanEmail) {
+      return res.status(400).json({ message: "Please provide a valid registered email address" });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address" });
+    }
+
+    // Generate reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+
+    // Build reset URL
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
+
+    // Send email
+    await sendPasswordResetEmail(user.email, user.name, resetUrl);
+
+    res.status(200).json({
+      success: true,
+      message: `Password reset link has been sent to ${user.email}. Please check your inbox.`,
+      resetUrl, // Provided for convenience in dev/preview environments
+    });
+  } catch (error) {
+    console.error("[Auth] forgotPassword error:", error);
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ message: "Reset token is required" });
+    }
+
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long" });
+    }
+
+    const resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Password reset link is invalid or has expired" });
+    }
+
+    user.password = password.trim();
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+    user.isPasswordResetRequired = false;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Password reset successfully! You can now sign in with your new password.",
+    });
+  } catch (error) {
+    console.error("[Auth] resetPassword error:", error);
+    next(error);
+  }
+};
+
 module.exports = {
   registerSuperAdmin,
   login,
@@ -568,4 +649,6 @@ module.exports = {
   changePassword,
   logoutCheck,
   registerCompany,
+  forgotPassword,
+  resetPassword,
 };

@@ -196,6 +196,8 @@ const ManagerStackScreen = () => {
       <Stack.Screen name="ManagerTaskDetails" component={ManagerTaskDetailsScreen} />
       <Stack.Screen name="ManagerCreateTask" component={ManagerCreateTaskScreen} />
       <Stack.Screen name="EmployeeCreateTask" component={ManagerCreateTaskScreen} />
+      <Stack.Screen name="CompanyCreateTask" component={ManagerCreateTaskScreen} />
+      <Stack.Screen name="CreateTask" component={ManagerCreateTaskScreen} />
 
       {/* Projects */}
       <Stack.Screen name="ManagerProjects" component={ManagerProjectsScreen} />

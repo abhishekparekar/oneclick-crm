@@ -33,6 +33,7 @@ import * as DocumentPicker from "expo-document-picker";
 import { Audio } from 'expo-av';
 import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
+import { formatDateToDDMMYYYY, formatDateTimeToDDMMYYYY } from "../../utils/dateFormatter";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
 
 const STATUS_COLORS = {
@@ -507,9 +508,9 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
               <View style={styles.nativeGridCell}>
                 <Ionicons name="calendar-outline" size={15} color="#10B981" style={styles.gridCellIcon} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.nativeGridLabel}>Start Date</Text>
+                  <Text style={styles.nativeGridLabel}>Start Date & Time</Text>
                   <Text style={styles.nativeGridVal}>
-                    {task.startDateTime ? new Date(task.startDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "-"}
+                    {task.startDateTime ? formatDateTimeToDDMMYYYY(task.startDateTime) : (task.startDate ? formatDateToDDMMYYYY(task.startDate) : "-")}
                   </Text>
                 </View>
               </View>
@@ -519,7 +520,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.nativeGridLabel, isOverdueTime && { color: "#EF4444" }]}>Due Deadline</Text>
                   <Text style={[styles.nativeGridVal, isOverdueTime && { color: "#DC2626", fontFamily: FONTS.bodyBold }]}>
-                    {task.endDateTime ? new Date(task.endDateTime).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "No deadline"}
+                    {task.endDateTime ? formatDateTimeToDDMMYYYY(task.endDateTime) : (task.endDate ? formatDateToDDMMYYYY(task.endDate) : "No deadline")}
                   </Text>
                 </View>
               </View>
@@ -530,7 +531,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.nativeGridLabel, { color: "#2563EB" }]}>Next Scheduled Follow-Up</Text>
                     <Text style={[styles.nativeGridVal, { color: "#1E40AF", fontFamily: FONTS.bodyBold }]}>
-                      {new Date(task.nextFollowUpDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {formatDateTimeToDDMMYYYY(task.nextFollowUpDate)}
                     </Text>
                   </View>
                 </View>

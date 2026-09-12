@@ -310,6 +310,9 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="EmployeeTaskBoard" component={EmployeeTaskBoardScreen} />
       <Stack.Screen name="EmployeeTaskDetails" component={EmployeeTaskDetailsScreen} />
       <Stack.Screen name="EmployeeCreateTask" component={EmployeeCreateTaskScreen} />
+      <Stack.Screen name="CompanyCreateTask" component={EmployeeCreateTaskScreen} />
+      <Stack.Screen name="ManagerCreateTask" component={EmployeeCreateTaskScreen} />
+      <Stack.Screen name="CreateTask" component={EmployeeCreateTaskScreen} />
       <Stack.Screen name="Projects" component={MyProjectsScreen} />
       <Stack.Screen name="MyProjects" component={MyProjectsScreen} />
       <Stack.Screen name="EmployeeProjectDetails" component={EmployeeProjectDetailsScreen} />

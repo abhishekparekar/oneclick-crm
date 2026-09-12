@@ -24,8 +24,140 @@ import EmployeeLayout from "../../components/EmployeeLayout";
 import leadsService from "../../api/leadsService";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS, FONTS } from "../../theme/tokens";
+import AppDatePicker from "../../components/AppDatePicker";
+import AppTimePicker from "../../components/AppTimePicker";
 
 const { width } = Dimensions.get("window");
+
+const getTodayFormatted = () => {
+  const d = new Date();
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const getTomorrowFormatted = () => {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
+const getDefaultTimeFormatted = () => {
+  const d = new Date();
+  d.setHours(d.getHours() + 1);
+  d.setMinutes(0);
+  let hours = d.getHours();
+  const minutes = "00";
+  const ampm = hours >= 12 ? "PM" : "AM";
+  hours = hours % 12 || 12;
+  return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+};
+
+const getStatusBadgeColors = (statusObj) => {
+  const name = (typeof statusObj === "string" ? statusObj : (statusObj?.name || "")).toLowerCase();
+  const hex = typeof statusObj === "object" ? statusObj?.color : null;
+  if (name.includes("won") || name.includes("closed") || name.includes("confirm")) {
+    return { bg: "#064E3B", border: "#10B981", text: "#A7F3D0", dot: "#34D399" };
+  }
+  if (name.includes("lost") || name.includes("drop") || name.includes("reject")) {
+    return { bg: "#4C0519", border: "#F43F5E", text: "#FECDD3", dot: "#FB7185" };
+  }
+  if (name.includes("negotiat") || name.includes("proposal")) {
+    return { bg: "#451A03", border: "#F59E0B", text: "#FDE68A", dot: "#FBBF24" };
+  }
+  if (name.includes("qualif") || name.includes("demo")) {
+    return { bg: "#083344", border: "#06B6D4", text: "#CFFAFE", dot: "#22D3EE" };
+  }
+  if (name.includes("contact") || name.includes("pitch")) {
+    return { bg: "#2E1065", border: "#8B5CF6", text: "#EDE9FE", dot: "#A78BFA" };
+  }
+  if (hex) {
+    return { bg: "#1E293B", border: hex, text: "#F8FAFC", dot: hex };
+  }
+  return { bg: "#1E3A8A", border: "#3B82F6", text: "#DBEAFE", dot: "#60A5FA" };
+};
+
+const formatSafeDateTime = (dateVal, includeYear = true) => {
+  if (!dateVal) return "";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    const day = String(d.getDate()).padStart(2, "0");
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const month = months[d.getMonth()] || "";
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12;
+    const timeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+    return includeYear ? `${day} ${month} ${year} at ${timeStr}` : `${day} ${month} at ${timeStr}`;
+  } catch (_) {
+    return String(dateVal);
+  }
+};
+
+const formatValuation = (val) => {
+  if (!val) return "—";
+  try {
+    const cleaned = String(val).replace(/[^0-9.]/g, "");
+    const num = Number(cleaned);
+    if (isNaN(num) || cleaned === "") return String(val);
+    return `₹${num.toLocaleString("en-IN")}`;
+  } catch (_) {
+    return String(val);
+  }
+};
+
+const buildReminderIso = (dateStr, timeStr) => {
+  try {
+    let year = new Date().getFullYear();
+    let month = new Date().getMonth();
+    let day = new Date().getDate();
+
+    if (dateStr && dateStr.includes("/")) {
+      const parts = dateStr.split("/");
+      if (parts.length === 3) {
+        day = parseInt(parts[0], 10);
+        month = parseInt(parts[1], 10) - 1;
+        year = parseInt(parts[2], 10);
+      }
+    } else if (dateStr) {
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) {
+        year = parsed.getFullYear();
+        month = parsed.getMonth();
+        day = parsed.getDate();
+      }
+    }
+
+    let hours = 10;
+    let minutes = 0;
+
+    if (timeStr && (timeStr.includes("AM") || timeStr.includes("PM"))) {
+      const isPM = timeStr.toUpperCase().includes("PM");
+      const clean = timeStr.replace(/AM|PM/gi, "").trim();
+      const parts = clean.split(":");
+      hours = parseInt(parts[0], 10) || 12;
+      minutes = parseInt(parts[1], 10) || 0;
+      if (isPM && hours < 12) hours += 12;
+      if (!isPM && hours === 12) hours = 0;
+    } else if (timeStr && timeStr.includes(":")) {
+      const parts = timeStr.split(":");
+      hours = parseInt(parts[0], 10) || 0;
+      minutes = parseInt(parts[1], 10) || 0;
+    }
+
+    const dt = new Date(year, month, day, hours, minutes, 0);
+    return dt.toISOString();
+  } catch (_) {
+    return new Date().toISOString();
+  }
+};
 
 const THEME = {
   primary: "#EA580C",
@@ -60,15 +192,21 @@ const DEFAULT_TEMPLATES = [
 ];
 
 export default function EmployeeLeadDetailsScreen({ route, navigation }) {
-  const { leadId } = route.params || {};
+  const leadId =
+    route?.params?.leadId ||
+    route?.params?.id ||
+    route?.params?.lead?._id ||
+    route?.params?.lead?.id ||
+    "";
+  const initialLead = route?.params?.lead || null;
   const { user, hasPermission } = useAuth();
   const canEdit = hasPermission("leads", "edit") || hasPermission("leads");
   const canDelete = hasPermission("leads", "delete");
 
-  const [lead, setLead] = useState(null);
+  const [lead, setLead] = useState(initialLead);
   const [statuses, setStatuses] = useState([]);
   const [employees, setEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!initialLead && !!leadId);
   const [refreshing, setRefreshing] = useState(false);
 
   // Tabs: 'notes' | 'overview' | 'whatsapp'
@@ -80,51 +218,72 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
 
   // Status Change Modal
   const [statusModalVisible, setStatusModalVisible] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState(null);
+  const [stageFollowUpDate, setStageFollowUpDate] = useState(getTomorrowFormatted());
+  const [stageFollowUpTime, setStageFollowUpTime] = useState(getDefaultTimeFormatted());
+  const [includeFollowUp, setIncludeFollowUp] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [updatingStage, setUpdatingStage] = useState(false);
 
-  // Reminder Modal
+  // Reminder Modal & Follow-ups
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
   const [reminderTitle, setReminderTitle] = useState("");
+  const [reminderDate, setReminderDate] = useState(getTodayFormatted());
+  const [reminderTime, setReminderTime] = useState(getDefaultTimeFormatted());
   const [reminderNotes, setReminderNotes] = useState("");
+  const [savingReminder, setSavingReminder] = useState(false);
+  const [leadReminders, setLeadReminders] = useState([]);
 
   // Edit Lead Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editForm, setEditForm] = useState({
-    name: "",
-    whatsappPhone: "",
-    email: "",
-    company: "",
-    productService: "",
-    source: "Walk-in",
-    estimatedValue: "",
-    assignedTo: "",
-    notes: "",
+    name: initialLead?.name || "",
+    whatsappPhone: initialLead?.whatsappPhone || "",
+    email: initialLead?.email || "",
+    company: initialLead?.company || "",
+    productService: initialLead?.productService || "",
+    source: initialLead?.source || "Walk-in",
+    estimatedValue: initialLead?.estimatedValue ? String(initialLead.estimatedValue) : "",
+    assignedTo: initialLead?.assignedTo?._id || initialLead?.assignedTo?.id || initialLead?.assignedTo || "",
+    notes: initialLead?.notes || "",
   });
 
   const fetchDetails = async () => {
     try {
-      setLoading(true);
-      const [leadData, statusList, assignableUsers] = await Promise.all([
-        leadsService.getLeadById(leadId),
-        leadsService.getStatuses(),
+      if (!lead && !initialLead) setLoading(true);
+      const [leadData, statusList, assignableUsers, remList] = await Promise.all([
+        leadId
+          ? leadsService.getLeadById(leadId).catch((err) => {
+              console.warn("[EmployeeLeadDetails] getLeadById error:", err?.message || err);
+              return null;
+            })
+          : Promise.resolve(null),
+        leadsService.getStatuses().catch(() => []),
         leadsService.getAssignableUsers().catch(() => []),
+        leadsService.getReminders().catch(() => []),
       ]);
 
-      setLead(leadData);
+      const effectiveLead = leadData || lead || initialLead;
+      if (effectiveLead) {
+        setLead(effectiveLead);
+      }
       setStatuses(Array.isArray(statusList) ? statusList : []);
       setEmployees(Array.isArray(assignableUsers) ? assignableUsers : []);
+      if (Array.isArray(remList)) {
+        setLeadReminders(remList.filter((r) => String(r.leadId || r.lead?._id || r.lead) === String(leadId)));
+      }
 
-      if (leadData) {
+      if (effectiveLead) {
         setEditForm({
-          name: leadData.name || "",
-          whatsappPhone: leadData.whatsappPhone || "",
-          email: leadData.email || "",
-          company: leadData.company || "",
-          productService: leadData.productService || "",
-          source: leadData.source || "Walk-in",
-          estimatedValue: leadData.estimatedValue ? String(leadData.estimatedValue) : "",
-          assignedTo: leadData.assignedTo?._id || leadData.assignedTo?.id || leadData.assignedTo || "",
-          notes: leadData.notes || "",
+          name: effectiveLead.name || "",
+          whatsappPhone: effectiveLead.whatsappPhone || "",
+          email: effectiveLead.email || "",
+          company: effectiveLead.company || "",
+          productService: effectiveLead.productService || "",
+          source: effectiveLead.source || "Walk-in",
+          estimatedValue: effectiveLead.estimatedValue ? String(effectiveLead.estimatedValue) : "",
+          assignedTo: effectiveLead.assignedTo?._id || effectiveLead.assignedTo?.id || effectiveLead.assignedTo || "",
+          notes: effectiveLead.notes || "",
         });
       }
     } catch (err) {
@@ -136,7 +295,11 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
   };
 
   useEffect(() => {
-    if (leadId) fetchDetails();
+    if (leadId) {
+      fetchDetails();
+    } else if (!initialLead) {
+      setLoading(false);
+    }
   }, [leadId]);
 
   const onRefresh = useCallback(() => {
@@ -144,24 +307,96 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
     fetchDetails();
   }, [leadId]);
 
-  // Quick Status Change
-  const handleStatusChange = async (newStatusId) => {
+  // ── Open Stage & Follow-Up Modal ─────────────────────────
+  const openStageModal = () => {
+    const curStId = lead?.statusId || lead?.status?.id || lead?.status?._id || (statuses[0]?.id || statuses[0]?._id);
+    setSelectedStageId(curStId);
+
+    if (lead?.nextFollowUpDate) {
+      const d = new Date(lead.nextFollowUpDate);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        setStageFollowUpDate(`${day}/${month}/${year}`);
+        let hours = d.getHours();
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+        const ampm = hours >= 12 ? "PM" : "AM";
+        hours = hours % 12 || 12;
+        setStageFollowUpTime(`${String(hours).padStart(2, "0")}:${minutes} ${ampm}`);
+      } else {
+        setStageFollowUpDate(getTomorrowFormatted());
+        setStageFollowUpTime(getDefaultTimeFormatted());
+      }
+    } else {
+      setStageFollowUpDate(getTomorrowFormatted());
+      setStageFollowUpTime(getDefaultTimeFormatted());
+    }
+    setIncludeFollowUp(true);
+    setStatusModalVisible(true);
+  };
+
+  // ── Save Stage and Follow-up Atomically ─────────────────────
+  const handleSaveStageAndFollowUp = async () => {
+    if (updatingStage) return;
+    if (!selectedStageId) {
+      return Alert.alert("Required", "Please select a pipeline stage.");
+    }
     try {
-      setUpdating(true);
-      const updated = await leadsService.updateLead(leadId, { statusId: newStatusId });
-      const newStatusObj = statuses.find((s) => (s.id || s._id) === newStatusId);
+      setUpdatingStage(true);
+      const newStatusObj = statuses.find((s) => (s.id || s._id) === selectedStageId);
+      let followUpIso = null;
+      if (includeFollowUp && stageFollowUpDate && stageFollowUpTime) {
+        followUpIso = buildReminderIso(stageFollowUpDate, stageFollowUpTime);
+      }
+
+      const payload = {
+        statusId: selectedStageId,
+        ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
+      };
+
+      // Optimistic UI update
       setLead((prev) => ({
         ...prev,
-        statusId: newStatusId,
-        status: newStatusObj || updated?.status || prev?.status,
+        statusId: selectedStageId,
+        status: newStatusObj || prev?.status,
+        ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
       }));
+
+      const updated = await leadsService.updateLead(leadId, payload);
+      if (updated?.status) {
+        setLead((prev) => ({
+          ...prev,
+          ...updated,
+          status: updated.status,
+        }));
+      }
+
+      // Also create reminder entry if follow-up scheduled so it reflects in Scheduled Reminders list
+      if (followUpIso) {
+        try {
+          await leadsService.createReminder({
+            title: `Follow-up: ${newStatusObj?.name || "Stage Review"}`,
+            notes: `Stage updated to ${newStatusObj?.name || "Updated"}. Scheduled follow-up.`,
+            leadId: leadId,
+            dueDate: followUpIso,
+            serviceDate: followUpIso,
+            priority: "High",
+          });
+        } catch (_) {}
+      }
+
       setStatusModalVisible(false);
-      Alert.alert("Success", "Pipeline stage updated!");
+      Alert.alert(
+        "Stage Updated 🎉",
+        `Pipeline stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`
+      );
       fetchDetails();
     } catch (err) {
-      Alert.alert("Error", "Failed to update stage.");
+      Alert.alert("Error", "Failed to update stage. Please try again.");
+      fetchDetails();
     } finally {
-      setUpdating(false);
+      setUpdatingStage(false);
     }
   };
 
@@ -206,25 +441,57 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
     }
   };
 
-  // Schedule Reminder
+  // Schedule Reminder with Date/Time, duplicate prevention, and nextFollowUpDate sync
   const handleAddReminder = async () => {
     if (!reminderTitle.trim()) return Alert.alert("Required", "Reminder title is required.");
+    if (savingReminder) return;
+
     try {
-      setUpdating(true);
-      await leadsService.createReminder({
-        title: reminderTitle,
-        notes: reminderNotes,
+      setSavingReminder(true);
+      const dueIso = buildReminderIso(reminderDate, reminderTime);
+
+      const newRem = await leadsService.createReminder({
+        title: reminderTitle.trim(),
+        notes: reminderNotes.trim(),
         leadId: leadId,
+        dueDate: dueIso,
+        serviceDate: dueIso,
       });
+
+      if (newRem) {
+        setLeadReminders((prev) => [newRem, ...prev]);
+      }
+
+      // Sync nextFollowUpDate on lead so follow-up banner and push notifications stay in sync
+      try {
+        await leadsService.updateLead(leadId, {
+          nextFollowUpDate: dueIso,
+          followUpNotified: false,
+        });
+        setLead((prev) => ({ ...prev, nextFollowUpDate: dueIso }));
+      } catch (_) {}
+
+      // Add a note in the timeline about the scheduled reminder
+      try {
+        const timeFormatted = reminderTime || "";
+        const dateFormatted = reminderDate || "";
+        const noteStamp = `• [Scheduled Reminder] "${reminderTitle.trim()}" on ${dateFormatted} at ${timeFormatted}${reminderNotes.trim() ? ` - ${reminderNotes.trim()}` : ""}`;
+        const currentNotes = lead?.notes ? `${noteStamp}\n${lead.notes}` : noteStamp;
+        await leadsService.updateLead(leadId, { notes: currentNotes });
+        setLead((prev) => ({ ...prev, notes: currentNotes, nextFollowUpDate: dueIso }));
+      } catch (_) {}
+
       setReminderModalVisible(false);
       setReminderTitle("");
       setReminderNotes("");
+      setReminderDate(getTodayFormatted());
+      setReminderTime(getDefaultTimeFormatted());
       fetchDetails();
-      Alert.alert("Success", "Follow-up reminder scheduled!");
+      Alert.alert("Success", "Follow-up reminder scheduled successfully!");
     } catch (err) {
-      Alert.alert("Error", "Failed to schedule reminder.");
+      Alert.alert("Error", "Failed to schedule reminder. Please try again.");
     } finally {
-      setUpdating(false);
+      setSavingReminder(false);
     }
   };
 
@@ -362,14 +629,24 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
       <View style={styles.container}>
         <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
 
-        {loading && !refreshing ? (
+        {loading && !refreshing && !lead ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={THEME.primary} />
             <Text style={styles.loadingText}>Loading lead profile...</Text>
           </View>
         ) : !lead ? (
           <View style={styles.center}>
-            <Text style={{ color: THEME.textMuted }}>Lead not found.</Text>
+            <Ionicons name="person-outline" size={48} color={THEME.textMuted} style={{ marginBottom: 10 }} />
+            <Text style={{ color: THEME.textPrimary, fontFamily: FONTS.displayBold, fontSize: 16 }}>Lead Not Found</Text>
+            <Text style={{ color: THEME.textMuted, fontSize: 12.5, marginTop: 4, textAlign: "center", paddingHorizontal: 30 }}>
+              The requested lead profile could not be loaded. Please check your connection or return to leads.
+            </Text>
+            <TouchableOpacity
+              style={{ marginTop: 16, backgroundColor: THEME.primary, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+              onPress={fetchDetails}
+            >
+              <Text style={{ color: "#FFF", fontFamily: FONTS.bodyBold, fontSize: 13 }}>Retry Loading</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <ScrollView
@@ -379,45 +656,65 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
           >
             {/* ═════════ 1. HERO SUMMARY CARD ═════════ */}
             <LinearGradient colors={["#0F172A", "#1E293B"]} style={styles.heroSummaryCard}>
+              {/* Top Row: Avatar, Name, & Prominent Status Badge */}
               <View style={styles.heroTopRow}>
                 <View style={styles.heroAvatarCircle}>
                   <Text style={styles.heroAvatarLetter}>
-                    {(lead.name || "L").charAt(0).toUpperCase()}
+                    {(lead?.name || "L").charAt(0).toUpperCase()}
                   </Text>
                 </View>
 
                 <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text style={styles.heroLeadName} numberOfLines={1}>{lead.name}</Text>
+                  <Text style={styles.heroLeadName} numberOfLines={1}>{lead?.name || "Lead Profile"}</Text>
                   <Text style={styles.heroMetaSubtitle} numberOfLines={1}>
-                    {lead.company ? `${lead.company} • ` : ""}{lead.source || "Direct Lead"}
+                    {lead?.company ? `${lead.company} • ` : ""}{lead?.source || "Direct Lead"}
                   </Text>
                 </View>
 
-                {lead.estimatedValue ? (
-                  <View style={styles.dealPill}>
-                    <Text style={styles.dealPillLabel}>VALUATION</Text>
-                    <Text style={styles.dealPillAmount}>
-                      ₹{Number(lead.estimatedValue).toLocaleString()}
-                    </Text>
-                  </View>
-                ) : null}
+                {/* Highly Visible Status Badge / Chip */}
+                {(() => {
+                  const sBadge = getStatusBadgeColors(lead?.status);
+                  return (
+                    <View style={[styles.heroStatusBadge, { backgroundColor: sBadge.bg, borderColor: sBadge.border }]}>
+                      <View style={[styles.heroStatusDot, { backgroundColor: sBadge.dot }]} />
+                      <Text style={[styles.heroStatusText, { color: sBadge.text }]}>
+                        {lead?.status?.name || (typeof lead?.status === "string" ? lead.status : "New Prospect")}
+                      </Text>
+                    </View>
+                  );
+                })()}
               </View>
 
               {/* Stage Selector & Action Row */}
               <View style={styles.heroActionRow}>
-                <TouchableOpacity
-                  style={[styles.stageBadgeDropdown, { backgroundColor: statusColor + "22", borderColor: statusColor }]}
-                  activeOpacity={0.8}
-                  onPress={() => setStatusModalVisible(true)}
-                >
-                  <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
-                  <Text style={[styles.stageBadgeText, { color: "#FFF" }]}>
-                    Stage: {lead.status?.name || "New Prospect"}
-                  </Text>
-                  <Ionicons name="chevron-down" size={13} color="#FFF" style={{ marginLeft: 4 }} />
-                </TouchableOpacity>
+                <View style={{ flex: 1, marginRight: 8 }}>
+                  <Text style={styles.stageSectionMicroLabel}>CURRENT PIPELINE STAGE</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
+                    <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                    <Text style={styles.prominentStageTitle} numberOfLines={1}>
+                      {lead?.status?.name || (typeof lead?.status === "string" ? lead.status : "New Prospect")}
+                    </Text>
+                  </View>
+                </View>
 
-                <View style={{ flexDirection: "row", gap: 8 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <TouchableOpacity
+                    style={[styles.prominentStageButton, updatingStage && { opacity: 0.7 }]}
+                    activeOpacity={0.8}
+                    onPress={openStageModal}
+                    disabled={updatingStage}
+                  >
+                    {updatingStage ? (
+                      <ActivityIndicator size="small" color="#FFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="swap-horizontal" size={13} color="#FFF" style={{ marginRight: 4 }} />
+                        <Text style={styles.prominentStageBtnText}>Update Stage</Text>
+                        <Ionicons name="chevron-down" size={12} color="#FFF" style={{ marginLeft: 3 }} />
+                      </>
+                    )}
+                  </TouchableOpacity>
+
                   {canEdit && (
                     <TouchableOpacity
                       style={styles.heroCircleBtn}
@@ -427,18 +724,20 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                       <Feather name="edit-2" size={15} color="#FFFFFF" />
                     </TouchableOpacity>
                   )}
-
-                  {canDelete && (
-                    <TouchableOpacity
-                      style={[styles.heroCircleBtn, { backgroundColor: "rgba(239, 68, 68, 0.25)" }]}
-                      onPress={handleDelete}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="trash-outline" size={16} color="#FECACA" />
-                    </TouchableOpacity>
-                  )}
                 </View>
               </View>
+
+              {/* Next Follow-up Banner inside Hero if scheduled */}
+              {lead?.nextFollowUpDate ? (
+                <View style={styles.heroFollowUpStrip}>
+                  <Ionicons name="time" size={12} color="#DDD6FE" style={{ marginRight: 5 }} />
+                  <Text style={styles.heroFollowUpStripText} numberOfLines={1}>
+                    Next Follow-up: <Text style={{ fontFamily: FONTS.displayBold, color: "#FFFFFF" }}>
+                      {formatSafeDateTime(lead.nextFollowUpDate, true)}
+                    </Text>
+                  </Text>
+                </View>
+              ) : null}
             </LinearGradient>
 
             {/* ═════════ 2. DIRECT ACTION BUTTONS ═════════ */}
@@ -474,6 +773,71 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                 <Ionicons name="alarm" size={17} color={THEME.violet} />
                 <Text style={[styles.actionBtnLabel, { color: THEME.violet }]}>Reminder</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* ═════════ SCHEDULED REMINDERS & FOLLOW-UP CARD ═════════ */}
+            <View style={styles.remindersCard}>
+              <View style={styles.remindersHeaderRow}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="alarm" size={16} color={THEME.violet} />
+                  <Text style={styles.remindersHeaderTitle}>SCHEDULED REMINDERS & FOLLOW-UP</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.addReminderHeaderBtn}
+                  onPress={() => setReminderModalVisible(true)}
+                >
+                  <Ionicons name="add-circle" size={14} color="#FFF" />
+                  <Text style={styles.addReminderHeaderBtnText}>Schedule</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Next Follow-up banner if scheduled */}
+              {lead?.nextFollowUpDate ? (
+                <View style={styles.nextFollowUpBanner}>
+                  <View style={styles.nextFollowUpIconWrap}>
+                    <Ionicons name="time" size={16} color="#7C3AED" />
+                  </View>
+                  <View style={{ flex: 1, marginLeft: 8 }}>
+                    <Text style={styles.nextFollowUpLabel}>NEXT SCHEDULED FOLLOW-UP</Text>
+                    <Text style={styles.nextFollowUpTime}>
+                      {formatSafeDateTime(lead.nextFollowUpDate, true)}
+                    </Text>
+                  </View>
+                  <View style={styles.nextFollowUpBadge}>
+                    <Text style={styles.nextFollowUpBadgeText}>Upcoming</Text>
+                  </View>
+                </View>
+              ) : null}
+
+              {/* Reminders List */}
+              {leadReminders.length > 0 ? (
+                <View style={{ marginTop: 6, gap: 6 }}>
+                  {leadReminders.map((rem, idx) => {
+                    const rDate = rem.dueDate || rem.serviceDate;
+                    return (
+                      <View key={rem._id || rem.id || idx} style={styles.reminderItemRow}>
+                        <View style={styles.reminderDot} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.reminderItemTitle}>{rem.title || rem.serviceName || "Follow-up Reminder"}</Text>
+                          {rDate ? (
+                            <Text style={styles.reminderItemDate}>
+                              Due: {formatSafeDateTime(rDate, true)}
+                            </Text>
+                          ) : null}
+                          {rem.notes ? (
+                            <Text style={styles.reminderItemNotes} numberOfLines={2}>{rem.notes}</Text>
+                          ) : null}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : !lead.nextFollowUpDate ? (
+                <View style={styles.emptyRemindersRow}>
+                  <Ionicons name="calendar-outline" size={18} color={THEME.textMuted} />
+                  <Text style={styles.emptyRemindersText}>No follow-up reminders scheduled yet.</Text>
+                </View>
+              ) : null}
             </View>
 
             {/* ═════════ 3. SEGMENTED TABS ═════════ */}
@@ -585,7 +949,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                   </TouchableOpacity>
                 </View>
 
-                {(!lead?.documents || lead.documents.length === 0) ? (
+                {(!Array.isArray(lead?.documents) || lead.documents.length === 0) ? (
                   <View style={styles.emptyDocWrap}>
                     <Ionicons name="document-text-outline" size={28} color="#CBD5E1" />
                     <Text style={styles.emptyNoteText}>No documents or proposals attached yet.</Text>
@@ -610,7 +974,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                             {doc.name}
                           </Text>
                           <Text style={styles.docSubText}>
-                            {doc.size ? `${doc.size} • ` : ""}{doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "Attached"}
+                            {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
                           </Text>
                         </TouchableOpacity>
 
@@ -731,6 +1095,33 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     </View>
                   </View>
 
+                  {/* Field: Next Follow-up */}
+                  <TouchableOpacity
+                    style={styles.infoRow}
+                    onPress={openStageModal}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.infoIconWrap, { backgroundColor: "#F5F3FF" }]}>
+                      <Ionicons name="time" size={15} color="#7C3AED" />
+                    </View>
+                    <View style={styles.infoCol}>
+                      <Text style={styles.infoLabel}>Next Follow-up Date & Time</Text>
+                      <Text
+                        style={[
+                          styles.infoValue,
+                          {
+                            color: lead.nextFollowUpDate ? "#6D28D9" : THEME.textMuted,
+                            fontFamily: lead.nextFollowUpDate ? FONTS.displayBold : FONTS.body,
+                          },
+                        ]}
+                      >
+                        {lead.nextFollowUpDate
+                          ? formatSafeDateTime(lead.nextFollowUpDate, true)
+                          : "Not scheduled (Tap to set)"}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
                   <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
                     <View style={[styles.infoIconWrap, { backgroundColor: THEME.bg }]}>
                       <Ionicons name="calendar-outline" size={15} color={THEME.textMuted} />
@@ -738,7 +1129,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     <View style={styles.infoCol}>
                       <Text style={styles.infoLabel}>Registration Date</Text>
                       <Text style={styles.infoValue}>
-                        {lead.createdAt ? new Date(lead.createdAt).toLocaleString() : "Recently"}
+                        {formatSafeDateTime(lead.createdAt, true) || "Recently"}
                       </Text>
                     </View>
                   </View>
@@ -772,71 +1163,269 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-        {/* ── MODAL: STAGE SELECTOR ── */}
-        <Modal visible={statusModalVisible} animationType="slide" transparent>
+        {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
+        <Modal
+          visible={statusModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
+        >
           <View style={styles.modalBackdrop}>
-            <View style={styles.modalContainer}>
+            <View style={styles.stageModalContainer}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalHeading}>Select Pipeline Stage</Text>
-                <TouchableOpacity onPress={() => setStatusModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={THEME.textMuted} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
+                  <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !updatingStage && setStatusModalVisible(false)}
+                  disabled={updatingStage}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={20} color={THEME.textMuted} />
                 </TouchableOpacity>
               </View>
 
-              {statuses.map((st) => {
-                const stId = st.id || st._id;
-                const isSelected = (lead?.statusId || lead?.status?.id || lead?.status?._id) === stId;
-                const color = st.color || THEME.primary;
-                return (
-                  <TouchableOpacity
-                    key={stId}
-                    style={[styles.statusOptionRow, isSelected && { backgroundColor: color + "14", borderColor: color }]}
-                    onPress={() => handleStatusChange(stId)}
-                    disabled={updating}
-                  >
-                    <View style={[styles.stageDot, { backgroundColor: color }]} />
-                    <Text style={[styles.statusOptionText, isSelected && { color: color, fontFamily: FONTS.displayBold }]}>
-                      {st.name}
-                    </Text>
-                    {isSelected && <Ionicons name="checkmark-circle" size={18} color={color} />}
-                  </TouchableOpacity>
-                );
-              })}
+              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                {/* 1. Current Stage Display */}
+                <View style={styles.stageCurrentBox}>
+                  <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
+                  <View style={styles.stageCurrentPill}>
+                    <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                    <Text style={styles.stageCurrentText}>{lead.status?.name || "New Prospect"}</Text>
+                  </View>
+                </View>
+
+                {/* 2. Select New Stage */}
+                <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
+                <View style={{ gap: 6 }}>
+                  {statuses.map((st) => {
+                    const isSelected = (selectedStageId || lead?.statusId) === (st.id || st._id);
+                    return (
+                      <TouchableOpacity
+                        key={st.id || st._id}
+                        style={[
+                          styles.stageChoiceRow,
+                          isSelected && styles.stageChoiceRowSelected,
+                          updatingStage && { opacity: 0.6 }
+                        ]}
+                        onPress={() => setSelectedStageId(st.id || st._id)}
+                        disabled={updatingStage}
+                        activeOpacity={0.7}
+                      >
+                        <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
+                        <Text style={[styles.stageChoiceText, isSelected && { color: THEME.primary, fontFamily: FONTS.displayBold }]}>
+                          {st.name}
+                        </Text>
+                        {isSelected && (
+                          <Ionicons name="checkmark-circle" size={18} color={THEME.primary} style={{ marginLeft: "auto" }} />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                {/* 3. Next Follow-up Date & Time */}
+                <View style={styles.stageFollowUpSection}>
+                  <View style={styles.stageFollowUpHeader}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+                      <Text style={styles.stageFollowUpTitle}>NEXT FOLLOW-UP SCHEDULE</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setIncludeFollowUp(!includeFollowUp)}
+                      activeOpacity={0.7}
+                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                    >
+                      <Ionicons
+                        name={includeFollowUp ? "checkbox" : "square-outline"}
+                        size={16}
+                        color={includeFollowUp ? "#7C3AED" : THEME.textMuted}
+                      />
+                      <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: includeFollowUp ? "#7C3AED" : THEME.textMuted }}>
+                        {includeFollowUp ? "Schedule" : "Skip"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {includeFollowUp && (
+                    <View style={{ marginTop: 8 }}>
+                      {/* Date & Time Row */}
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <View style={{ flex: 1.2 }}>
+                          <Text style={styles.pickerSubLabel}>DATE</Text>
+                          <AppDatePicker
+                            value={stageFollowUpDate}
+                            onChange={setStageFollowUpDate}
+                            placeholder="Select Date"
+                            disabled={updatingStage}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.pickerSubLabel}>TIME</Text>
+                          <AppTimePicker
+                            value={stageFollowUpTime}
+                            onChange={setStageFollowUpTime}
+                            placeholder="Select Time"
+                            disabled={updatingStage}
+                          />
+                        </View>
+                      </View>
+
+                      {/* Quick Preset Buttons */}
+                      <View style={styles.quickDateRow}>
+                        <TouchableOpacity
+                          style={styles.quickDateChip}
+                          onPress={() => setStageFollowUpDate(getTomorrowFormatted())}
+                          disabled={updatingStage}
+                        >
+                          <Text style={styles.quickDateChipText}>Tomorrow</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.quickDateChip}
+                          onPress={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + 3);
+                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                          }}
+                          disabled={updatingStage}
+                        >
+                          <Text style={styles.quickDateChipText}>In 3 Days</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.quickDateChip}
+                          onPress={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + 7);
+                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                          }}
+                          disabled={updatingStage}
+                        >
+                          <Text style={styles.quickDateChipText}>Next Week</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </ScrollView>
+
+              {/* Footer Action Buttons */}
+              <View style={styles.modalActionRow}>
+                <TouchableOpacity
+                  style={styles.modalCancelBtn}
+                  onPress={() => !updatingStage && setStatusModalVisible(false)}
+                  disabled={updatingStage}
+                >
+                  <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalSubmitBtn, updatingStage && { opacity: 0.6 }]}
+                  onPress={handleSaveStageAndFollowUp}
+                  disabled={updatingStage}
+                  activeOpacity={0.8}
+                >
+                  {updatingStage ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <ActivityIndicator size="small" color="#FFF" />
+                      <Text style={styles.modalSubmitBtnText}>Updating...</Text>
+                    </View>
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Ionicons name="checkmark-sharp" size={15} color="#FFF" />
+                      <Text style={styles.modalSubmitBtnText}>Update Stage</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </Modal>
 
         {/* ── MODAL: SCHEDULE REMINDER ── */}
-        <Modal visible={reminderModalVisible} animationType="slide" transparent>
+        <Modal
+          visible={reminderModalVisible}
+          animationType="slide"
+          transparent
+          onRequestClose={() => !savingReminder && setReminderModalVisible(false)}
+        >
           <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <View style={styles.modalContainer}>
+            <View style={[styles.modalContainer, { maxWidth: 360 }]}>
               <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalHeading}>Schedule Reminder</Text>
-                <TouchableOpacity onPress={() => setReminderModalVisible(false)}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <Ionicons name="alarm" size={18} color={THEME.violet} />
+                  <Text style={styles.modalHeading}>Schedule Reminder</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => !savingReminder && setReminderModalVisible(false)}
+                  disabled={savingReminder}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                   <Ionicons name="close" size={22} color={THEME.textMuted} />
                 </TouchableOpacity>
               </View>
 
-              <Text style={styles.fieldLabel}>Reminder Title *</Text>
-              <TextInput
-                style={styles.fieldInput}
-                placeholder="e.g. Call client regarding proposal"
-                value={reminderTitle}
-                onChangeText={setReminderTitle}
-              />
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <Text style={styles.fieldLabel}>Reminder Title *</Text>
+                <TextInput
+                  style={styles.fieldInput}
+                  placeholder="e.g. Call client regarding proposal"
+                  value={reminderTitle}
+                  onChangeText={setReminderTitle}
+                  editable={!savingReminder}
+                />
 
-              <Text style={styles.fieldLabel}>Notes / Agenda</Text>
-              <TextInput
-                style={[styles.fieldInput, { height: 60, textAlignVertical: "top" }]}
-                placeholder="Any details for this follow-up..."
-                multiline
-                value={reminderNotes}
-                onChangeText={setReminderNotes}
-              />
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                  <View style={{ flex: 1 }}>
+                    <AppDatePicker
+                      label="Reminder Date *"
+                      value={reminderDate}
+                      onChangeText={setReminderDate}
+                      placeholder="DD/MM/YYYY"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <AppTimePicker
+                      label="Reminder Time *"
+                      value={reminderTime}
+                      onChangeText={setReminderTime}
+                      placeholder="HH:MM AM/PM"
+                    />
+                  </View>
+                </View>
 
-              <TouchableOpacity style={styles.primarySubmitBtn} onPress={handleAddReminder} disabled={updating}>
-                {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primarySubmitBtnText}>Schedule Reminder</Text>}
-              </TouchableOpacity>
+                <Text style={styles.fieldLabel}>Notes / Agenda</Text>
+                <TextInput
+                  style={[styles.fieldInput, { height: 65, textAlignVertical: "top" }]}
+                  placeholder="Any details for this follow-up..."
+                  multiline
+                  value={reminderNotes}
+                  onChangeText={setReminderNotes}
+                  editable={!savingReminder}
+                />
+
+                <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+                  <TouchableOpacity
+                    style={[styles.cancelBtn, savingReminder && { opacity: 0.6 }, { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9", borderWidth: 1, borderColor: THEME.border }]}
+                    onPress={() => setReminderModalVisible(false)}
+                    disabled={savingReminder}
+                  >
+                    <Text style={{ fontSize: 13, fontFamily: FONTS.bodyBold, color: THEME.textSecondary }}>Cancel</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.primarySubmitBtn, { flex: 1.6, marginTop: 0 }, (!reminderTitle.trim() || savingReminder) && { opacity: 0.6 }]}
+                    onPress={handleAddReminder}
+                    disabled={!reminderTitle.trim() || savingReminder}
+                  >
+                    {savingReminder ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.primarySubmitBtnText}>Save Reminder</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
             </View>
           </KeyboardAvoidingView>
         </Modal>
@@ -1410,5 +1999,344 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 13,
     fontFamily: FONTS.displayBold,
+  },
+  remindersCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    marginHorizontal: 12,
+    marginBottom: 8,
+  },
+  remindersHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  remindersHeaderTitle: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#7C3AED",
+    letterSpacing: 0.5,
+  },
+  addReminderHeaderBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#7C3AED",
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    borderRadius: 6,
+    gap: 4,
+  },
+  addReminderHeaderBtnText: {
+    color: "#FFF",
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyBold,
+  },
+  nextFollowUpBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F3FF",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    borderRadius: 10,
+    padding: 9,
+    marginBottom: 6,
+  },
+  nextFollowUpIconWrap: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    backgroundColor: "#EDE9FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  nextFollowUpLabel: {
+    fontSize: 9.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#7C3AED",
+    letterSpacing: 0.5,
+  },
+  nextFollowUpTime: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#4C1D95",
+    marginTop: 1,
+  },
+  nextFollowUpBadge: {
+    backgroundColor: "#7C3AED",
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
+    borderRadius: 6,
+  },
+  nextFollowUpBadgeText: {
+    color: "#FFF",
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+  },
+  reminderItemRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    gap: 8,
+  },
+  reminderDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: "#7C3AED",
+    marginTop: 4,
+  },
+  reminderItemTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  reminderItemDate: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#7C3AED",
+    marginTop: 1,
+  },
+  reminderItemNotes: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    marginTop: 2,
+  },
+  emptyRemindersRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 6,
+  },
+  emptyRemindersText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+
+  // ── Hero Status & Follow-Up Highlights ──
+  heroStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  heroStatusDot: {
+    width: 6.5,
+    height: 6.5,
+    borderRadius: 3.5,
+  },
+  heroStatusText: {
+    fontSize: 11,
+    fontFamily: FONTS.displayBold,
+    letterSpacing: 0.3,
+    includeFontPadding: false,
+  },
+  prominentStageButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: THEME.primary,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  prominentStageBtnText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+  },
+  stageSectionMicroLabel: {
+    fontSize: 8.5,
+    fontFamily: FONTS.displayBold,
+    color: "#94A3B8",
+    letterSpacing: 0.5,
+  },
+  prominentStageTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#FFFFFF",
+  },
+  heroFollowUpStrip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(124, 58, 237, 0.25)",
+    borderWidth: 1,
+    borderColor: "rgba(196, 181, 253, 0.4)",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4.5,
+    marginTop: 8,
+  },
+  heroFollowUpStripText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#DDD6FE",
+    flex: 1,
+  },
+
+  // ── Integrated Stage & Follow-Up Modal Styles ──
+  stageModalContainer: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 14,
+    maxHeight: "88%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  stageCurrentBox: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    padding: 8,
+  },
+  stageFieldMiniLabel: {
+    fontSize: 9.5,
+    fontFamily: FONTS.displayBold,
+    color: "#64748B",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  stageCurrentPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 2,
+  },
+  stageCurrentText: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+  },
+  stageChoiceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    backgroundColor: THEME.bg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  stageChoiceRowSelected: {
+    backgroundColor: THEME.primaryBg,
+    borderColor: THEME.primary,
+  },
+  stageChoiceText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  stageFollowUpSection: {
+    backgroundColor: "#FBFBFE",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#EDE9FE",
+    padding: 10,
+    marginTop: 12,
+  },
+  stageFollowUpHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: 4,
+  },
+  stageFollowUpTitle: {
+    fontSize: 10,
+    fontFamily: FONTS.displayBold,
+    color: "#7C3AED",
+    letterSpacing: 0.4,
+  },
+  pickerSubLabel: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
+    color: "#64748B",
+    marginBottom: 2,
+    letterSpacing: 0.3,
+  },
+  quickDateRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  quickDateChip: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#F5F3FF",
+    borderWidth: 1,
+    borderColor: "#DDD6FE",
+    borderRadius: 6,
+    paddingVertical: 4.5,
+  },
+  quickDateChipText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#7C3AED",
+  },
+  modalActionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+  },
+  modalCancelBtn: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+  },
+  modalCancelBtnText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: "#475569",
+  },
+  modalSubmitBtn: {
+    flex: 1.6,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 9,
+    borderRadius: 8,
+    backgroundColor: THEME.primary,
+  },
+  modalSubmitBtnText: {
+    fontSize: 12,
+    fontFamily: FONTS.displayBold,
+    color: "#FFFFFF",
   },
 });

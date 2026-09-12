@@ -258,7 +258,7 @@ const TrackingAllowance = () => {
           <Link
             to={liveRadarPath}
             className="w-8 h-8 rounded-lg bg-card border border-border hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors shadow-2xs"
-            title="Back to Live Radar"
+            title="Back to Live Tracking"
           >
             <ArrowLeft size={15} />
           </Link>
@@ -313,7 +313,7 @@ const TrackingAllowance = () => {
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-black shadow-xs hover:bg-primary/90 transition-all cursor-pointer"
           >
             <Navigation size={12} />
-            <span>Live Radar →</span>
+            <span>Live Tracking →</span>
           </Link>
         </div>
       </div>
@@ -716,10 +716,10 @@ const TrackingAllowance = () => {
                             </button>
                           )}
 
-                          {/* Link to view GPS trail for this day on Radar */}
+                          {/* Link to view GPS trail for this day in Live Tracking */}
                           <Link
                             to={`${liveRadarPath}?employeeId=${row.employeeId}&date=${row.date}`}
-                            title="View GPS Route on Radar"
+                            title="View GPS Route in Live Tracking"
                             className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-all"
                           >
                             <Eye size={13} />

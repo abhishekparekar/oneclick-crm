@@ -3,10 +3,13 @@ import { View, Text, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import AppButton from "../../components/AppButton";
 import { checkInApi, checkOutApi, getMyTodayApi } from "../../api/attendanceService";
+import { useAuth } from "../../context/AuthContext";
+import locationTrackingService from "../../services/locationTrackingService";
 
 const nowText = () => new Date().toLocaleString();
 
 const CheckInCheckOutScreen = () => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [todayRecord, setTodayRecord] = useState(null);
   const [message, setMessage] = useState("");
@@ -36,7 +39,14 @@ const CheckInCheckOutScreen = () => {
     setLoading(true);
     setMessage("");
     try {
-      await checkInApi({ punchInLocation: locationPlaceholder });
+      const res = await checkInApi({ punchInLocation: locationPlaceholder });
+      const trackingEnabled =
+        res?.data?.isLocationTrackingEnabled ??
+        user?.isLocationTrackingEnabled ??
+        false;
+      if (trackingEnabled) {
+        locationTrackingService.startLocationTracking().catch(() => {});
+      }
       setMessage(`Checked in at ${nowText()}`);
       await loadToday();
     } catch (error) {
@@ -51,6 +61,7 @@ const CheckInCheckOutScreen = () => {
     setMessage("");
     try {
       await checkOutApi({ punchOutLocation: locationPlaceholder });
+      locationTrackingService.stopLocationTracking().catch(() => {});
       setMessage(`Checked out at ${nowText()}`);
       await loadToday();
     } catch (error) {

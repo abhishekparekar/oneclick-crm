@@ -32,6 +32,7 @@ import leadsService from "../../api/leadsService";
 import { getMyNotificationsApi } from "../../api/notificationService";
 import { getMyTodayApi, punchInApi, punchOutApi } from "../../api/attendanceService";
 import { captureGPSLocation } from "../../utils/locationService";
+import locationTrackingService from "../../services/locationTrackingService";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 import { useFocusEffect } from "@react-navigation/native";
 
@@ -219,9 +220,21 @@ const CompanyDashboard = ({ navigation }) => {
       }
 
       if (action === "in") {
-        await punchInApi({ punchInLocation: coords });
-        Alert.alert("Success", "Clocked-In successfully!");
+        const punchRes = await punchInApi({ punchInLocation: coords });
+        const trackingEnabled =
+          punchRes?.data?.isLocationTrackingEnabled ??
+          punchRes?.data?.data?.isLocationTrackingEnabled ??
+          user?.isLocationTrackingEnabled ??
+          false;
+        if (trackingEnabled) {
+          locationTrackingService.startLocationTracking().catch(() => {});
+        }
+        Alert.alert(
+          "Success",
+          "Clocked-In successfully!" + (trackingEnabled ? "\n\n📍 Live Route Tracking Active" : "")
+        );
       } else {
+        locationTrackingService.stopLocationTracking().catch(() => {});
         await punchOutApi({ punchOutLocation: coords });
         Alert.alert("Success", "Clocked-Out successfully!");
       }

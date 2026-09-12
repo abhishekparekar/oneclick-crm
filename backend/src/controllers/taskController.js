@@ -154,13 +154,18 @@ exports.createTask = async (req, res) => {
         if (!isRepeatOn) {
             const { taskId, seqNumber } = await generateNextTaskId(companyId);
 
-            const endDt = new Date(safeEndDate);
-            if (deadlineTime && typeof deadlineTime === "string" && deadlineTime.includes(":")) {
+            const rawEnd = req.body.endDateTime || endDate;
+            let endDt = rawEnd && !isNaN(new Date(rawEnd).getTime()) ? new Date(rawEnd) : new Date(safeEndDate);
+            if (rawEnd && typeof rawEnd === "string" && !rawEnd.includes("T") && deadlineTime && typeof deadlineTime === "string" && deadlineTime.includes(":")) {
                 const [hours, mins] = deadlineTime.split(":");
                 if (!isNaN(parseInt(hours, 10)) && !isNaN(parseInt(mins, 10))) {
                     endDt.setHours(parseInt(hours, 10), parseInt(mins, 10), 0, 0);
                 }
             }
+
+            const finalEndDateTime = isNaN(endDt.getTime()) ? new Date(startDt.getTime() + 86400000) : endDt;
+            // Overdue check strictly based on complete date + time:
+            const isOverdueNow = Date.now() >= finalEndDateTime.getTime();
 
             const newTask = new Task({
                 companyId,
@@ -174,9 +179,10 @@ exports.createTask = async (req, res) => {
                 description: description ? String(description).trim() : "",
                 priority: safePriority,
                 startDateTime: startDt,
-                endDateTime: isNaN(endDt.getTime()) ? new Date(startDt.getTime() + 86400000) : endDt,
+                endDateTime: finalEndDateTime,
                 nextFollowUpDate: nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime()) ? new Date(nextFollowUpDate) : startDt,
-                status: "pending",
+                status: isOverdueNow ? "overdue" : "pending",
+                reminderStage: isOverdueNow ? 3 : 0,
                 isLive: true,
                 liveAt: new Date(),
                 attachments: safeAttachments,
@@ -197,7 +203,7 @@ exports.createTask = async (req, res) => {
                 console.error("TaskActivity creation error:", actErr);
             }
 
-            // Notify assigned employees + CompanyAdmin + managers
+            // Notify assigned employees + CompanyAdmin + managers (strictly 1 notification per recipient)
             notifyTaskAll(
                 companyId,
                 assigneeIds,
@@ -205,7 +211,14 @@ exports.createTask = async (req, res) => {
                 "New Task Assigned",
                 `You have been assigned a new task: ${title}`,
                 "task",
-                { taskId: newTask._id.toString() }
+                { taskId: newTask._id.toString() },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "New Task Assigned",
+                    assigneeBody: `You have been assigned a new task: ${title}`,
+                    supervisorTitle: "Task Created",
+                    supervisorBody: `New task "${title}" was created by ${req.user.name || "Admin"}.`
+                }
             ).catch(err => console.error("Error sending task notification:", err));
 
             return res.status(201).json({ success: true, task: newTask, data: { task: newTask } });
@@ -253,7 +266,7 @@ exports.createTask = async (req, res) => {
 
         await newTemplate.save();
 
-        // Notify assigned employees + CompanyAdmin + managers for recurring task
+        // Notify assigned employees + CompanyAdmin + managers for recurring task (strictly 1 notification per recipient)
         notifyTaskAll(
             companyId,
             assigneeIds,
@@ -261,7 +274,14 @@ exports.createTask = async (req, res) => {
             "Recurring Task Set Up",
             `A new recurring task schedule (${safeRepeatType}) has been set up: ${title}`,
             "task_template",
-            { templateId: newTemplate._id.toString() }
+            { templateId: newTemplate._id.toString() },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Recurring Task Assigned",
+                assigneeBody: `A recurring task schedule (${safeRepeatType}) has been assigned to you: ${title}`,
+                supervisorTitle: "Recurring Task Created",
+                supervisorBody: `A new recurring task schedule (${safeRepeatType}) "${title}" was created by ${req.user.name || "Admin"}.`
+            }
         ).catch(err => console.error("Error sending recurring task notification:", err));
 
         // If template start date is today/past, attempt immediate generation for today
@@ -381,12 +401,31 @@ exports.getTasks = async (req, res) => {
                 return obj;
             });
         } else {
-            tasks = await Task.find(query).sort({ createdAt: -1 })
+            const rawDocs = await Task.find(query).sort({ createdAt: -1 })
                 .populate("assignedTo", "firstName lastName email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
                 .populate({ path: "projectId", select: "name", strictPopulate: false })
                 .lean();
+
+            const now = Date.now();
+            tasks = rawDocs.map(task => {
+                const s = (task.status || "pending").toLowerCase();
+                const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(s);
+                const rawDue = task.endDateTime || task.endDate;
+                if (!isDone && rawDue) {
+                    const dueTime = new Date(rawDue).getTime();
+                    if (!isNaN(dueTime)) {
+                        // Strict check on complete date + time:
+                        if (now >= dueTime) {
+                            task.status = "overdue";
+                        } else if (s === "overdue") {
+                            task.status = task.isReopened ? "re_pending" : "pending";
+                        }
+                    }
+                }
+                return task;
+            });
         }
 
         res.json({ success: true, tasks });
@@ -432,6 +471,21 @@ exports.getTaskDetails = async (req, res) => {
             task.isTemplate = true;
             task.status = template.status || "pending";
             task.assignees = task.assignedTo || [];
+        } else {
+            // Strict complete date + time overdue check for active live tasks
+            const s = (task.status || "pending").toLowerCase();
+            const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(s);
+            const rawDue = task.endDateTime || task.endDate;
+            if (!isDone && rawDue) {
+                const dueTime = new Date(rawDue).getTime();
+                if (!isNaN(dueTime)) {
+                    if (Date.now() >= dueTime) {
+                        task.status = "overdue";
+                    } else if (s === "overdue") {
+                        task.status = task.isReopened ? "re_pending" : "pending";
+                    }
+                }
+            }
         }
 
         const timeline = await TaskActivity.find({ taskId: task._id }).sort({ createdAt: 1 })
@@ -446,7 +500,7 @@ exports.getTaskDetails = async (req, res) => {
 
 exports.updateTask = async (req, res) => {
     try {
-        const { title, description, departmentId, assignedTo, priority, endDate, deadlineTime } = req.body;
+        const { title, description, departmentId, assignedTo, priority, startDate, startDateTime, endDate, endDateTime, deadlineTime, nextFollowUpDate } = req.body;
 
         if (!departmentId) {
             return res.status(400).json({ success: false, message: "Department is required." });
@@ -479,6 +533,23 @@ exports.updateTask = async (req, res) => {
         if (assignedTo) task.assignedTo = assignedTo;
         if (priority) task.priority = priority;
         if (req.body.checklist !== undefined) task.checklist = req.body.checklist;
+        if (req.body.attachments !== undefined) task.attachments = req.body.attachments;
+
+        const rawStart = startDate || startDateTime;
+        if (rawStart) {
+            const startDt = new Date(rawStart);
+            if (!isNaN(startDt.getTime())) {
+                if (isTemplate) {
+                    task.startDate = startDt;
+                } else {
+                    task.startDateTime = startDt;
+                }
+            }
+        }
+
+        if (nextFollowUpDate !== undefined) {
+            task.nextFollowUpDate = nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime()) ? new Date(nextFollowUpDate) : null;
+        }
 
         if (isTemplate) {
             // Update recurring properties
@@ -490,11 +561,14 @@ exports.updateTask = async (req, res) => {
             if (finishDate !== undefined) task.finishDate = finishDate ? new Date(finishDate) : null;
         }
 
-        if (endDate) {
-            const endDt = new Date(endDate);
-            if (deadlineTime) {
+        const rawEnd = endDate || endDateTime;
+        if (rawEnd) {
+            const endDt = new Date(rawEnd);
+            if (typeof rawEnd === "string" && !rawEnd.includes("T") && deadlineTime && typeof deadlineTime === "string" && deadlineTime.includes(":")) {
                 const [hours, mins] = deadlineTime.split(":");
-                endDt.setHours(parseInt(hours), parseInt(mins), 0, 0);
+                if (!isNaN(parseInt(hours, 10)) && !isNaN(parseInt(mins, 10))) {
+                    endDt.setHours(parseInt(hours, 10), parseInt(mins, 10), 0, 0);
+                }
             }
 
             const scheduleCheck = await validateTaskSchedule(task.companyId, {
@@ -514,6 +588,14 @@ exports.updateTask = async (req, res) => {
                 task.endDate = endDt;
             } else {
                 task.endDateTime = endDt;
+                // Strict Overdue logic based on complete date + time:
+                if (task.status === "overdue" && endDt.getTime() > Date.now()) {
+                    task.status = task.isReopened ? "re_pending" : "pending";
+                    task.reminderStage = 0;
+                } else if (["pending", "in_process", "re_pending", "re_in_process"].includes(task.status) && endDt.getTime() <= Date.now()) {
+                    task.status = "overdue";
+                    task.reminderStage = 3;
+                }
             }
         }
 
@@ -590,7 +672,14 @@ exports.inProcessTask = async (req, res) => {
             "Task Started",
             `Task "${task.title}" has been started (In Process).`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "in_process", status: "in_process" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task In Progress",
+                assigneeBody: `Task "${task.title}" is now In Process.`,
+                supervisorTitle: "Task Started: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} started working on "${task.title}".`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -634,7 +723,14 @@ exports.completeTask = async (req, res) => {
                 "Recurring Task Completed",
                 `Recurring task "${task.title}" has been completed.`,
                 "task_update",
-                { taskId: task._id.toString() }
+                { taskId: task._id.toString(), action: "completed", status: "complete" },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "Recurring Task Completed",
+                    assigneeBody: `Recurring task "${task.title}" was completed.`,
+                    supervisorTitle: "Task Completed: " + task.title,
+                    supervisorBody: `${req.user.name || "Assignee"} marked recurring task "${task.title}" as completed.`
+                }
             ).catch(err => console.error("notifyTaskAll error:", err));
             return res.json({ success: true, data: task });
         }
@@ -682,7 +778,14 @@ exports.completeTask = async (req, res) => {
                 "Task Completed Late",
                 `Task "${task.title}" has been completed late.`,
                 "task_update",
-                { taskId: task._id.toString() }
+                { taskId: task._id.toString(), action: "late_completed", status: "late_complete" },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "Task Completed Late",
+                    assigneeBody: `Task "${task.title}" was completed after deadline.`,
+                    supervisorTitle: "Task Completed Late: " + task.title,
+                    supervisorBody: `${req.user.name || "Assignee"} completed overdue task "${task.title}".`
+                }
             ).catch(err => console.error("notifyTaskAll error:", err));
 
             return res.json({ success: true, data: task });
@@ -720,7 +823,14 @@ exports.completeTask = async (req, res) => {
             "Task Completed",
             `Task "${task.title}" has been completed.`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "completed", status: "complete" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Completed",
+                assigneeBody: `Task "${task.title}" has been marked completed.`,
+                supervisorTitle: "Task Completed: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} marked task "${task.title}" as completed.`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -764,7 +874,14 @@ exports.lateCompleteTask = async (req, res) => {
                 "Recurring Task Completed Late",
                 `Recurring task "${task.title}" has been completed late.`,
                 "task_update",
-                { taskId: task._id.toString() }
+                { taskId: task._id.toString(), action: "late_completed", status: "late_complete" },
+                {
+                    excludeUserId: req.user._id,
+                    assigneeTitle: "Recurring Task Completed Late",
+                    assigneeBody: `Recurring task "${task.title}" was completed after deadline.`,
+                    supervisorTitle: "Task Completed Late: " + task.title,
+                    supervisorBody: `${req.user.name || "Assignee"} completed overdue recurring task "${task.title}".`
+                }
             ).catch(err => console.error("notifyTaskAll error:", err));
             return res.json({ success: true, data: task });
         }
@@ -809,7 +926,14 @@ exports.lateCompleteTask = async (req, res) => {
             "Task Completed Late",
             `Task "${task.title}" has been completed late.`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "late_completed", status: "late_complete" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Completed Late",
+                assigneeBody: `Task "${task.title}" has been completed late.`,
+                supervisorTitle: "Task Completed Late: " + task.title,
+                supervisorBody: `${req.user.name || "Assignee"} completed overdue task "${task.title}".`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });
@@ -874,7 +998,14 @@ exports.reopenTask = async (req, res) => {
             "Task Re-opened",
             `Task "${task.title}" has been re-opened.`,
             "task_update",
-            { taskId: task._id.toString() }
+            { taskId: task._id.toString(), action: "reopened", status: task.status },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Re-opened",
+                assigneeBody: `Task "${task.title}" was re-opened by ${req.user.name || "Manager"}.`,
+                supervisorTitle: "Task Re-opened: " + task.title,
+                supervisorBody: `${req.user.name || "Manager"} re-opened task "${task.title}".`
+            }
         ).catch(err => console.error("notifyTaskAll error:", err));
 
         res.json({ success: true, data: task });

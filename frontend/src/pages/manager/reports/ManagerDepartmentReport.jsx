@@ -6,6 +6,18 @@ import {
 
 const COMPLETED_STATUSES = ["complete", "completed", "done", "re_complete", "late_complete", "re_late_complete"];
 
+const formatDateDDMMYYYY = (val) => {
+  if (!val) return "—";
+  if (typeof val === "string" && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+    const [y, m, d] = val.trim().split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
 function getStatusStyle(s) {
   const sl = (s || "").toLowerCase();
   if (sl === "late_complete" || sl === "late-complete" || sl === "re_late_complete" || sl === "late complete") {
@@ -350,7 +362,7 @@ export default function ManagerDepartmentReport({ deptPerformanceList = [] }) {
                     {due && (
                       <div className="hidden sm:flex items-center gap-1 text-[11px] text-ca-text-secondary font-semibold">
                         <Calendar size={12} />
-                        {new Date(due).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}
+                        {formatDateDDMMYYYY(due)}
                       </div>
                     )}
                     <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase border ${pill}`}>

@@ -513,13 +513,15 @@ export const leadsService = {
       ...reminderData,
       isCompleted: false,
       lead: matchedLead,
-      dueDate: new Date().toISOString(),
+      dueDate: reminderData.dueDate || reminderData.serviceDate || new Date().toISOString(),
     };
     const updated = [newReminder, ...list];
     await setLocalData(STORAGE_KEYS.REMINDERS, updated);
 
     try {
-      await api.post("/leads-engine/reminders", reminderData);
+      const response = await api.post("/leads-engine/reminders", reminderData);
+      if (response?.data?.reminder) return response.data.reminder;
+      if (response?.data?.data) return response.data.data;
     } catch (_) {}
 
     return newReminder;

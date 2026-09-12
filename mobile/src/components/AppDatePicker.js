@@ -37,10 +37,32 @@ const AppDatePicker = ({
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); // 0-11
   const [viewMode, setViewMode] = useState("calendar"); // 'calendar' | 'month' | 'year'
 
+  const displayValue = useMemo(() => {
+    if (!value) return "";
+    if (typeof value === "string") {
+      if (value.includes("/")) return value;
+      const d = new Date(value);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const year = d.getFullYear();
+        return `${day}/${month}/${year}`;
+      }
+      return value;
+    }
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      const day = String(value.getDate()).padStart(2, "0");
+      const month = String(value.getMonth() + 1).padStart(2, "0");
+      const year = value.getFullYear();
+      return `${day}/${month}/${year}`;
+    }
+    return String(value);
+  }, [value]);
+
   // Parse initial value into selected date state
   useEffect(() => {
-    if (value && typeof value === "string" && value.includes("/")) {
-      const parts = value.split("/");
+    if (displayValue && typeof displayValue === "string" && displayValue.includes("/")) {
+      const parts = displayValue.split("/");
       if (parts.length === 3) {
         const day = parseInt(parts[0], 10);
         const month = parseInt(parts[1], 10) - 1;
@@ -51,7 +73,7 @@ const AppDatePicker = ({
         }
       }
     }
-  }, [value, modalVisible]);
+  }, [displayValue, modalVisible]);
 
   // Today helpers
   const today = useMemo(() => new Date(), []);
@@ -61,15 +83,15 @@ const AppDatePicker = ({
 
   // Selected date components
   const selectedDateComponents = useMemo(() => {
-    if (!value || typeof value !== "string" || !value.includes("/")) return null;
-    const parts = value.split("/");
+    if (!displayValue || typeof displayValue !== "string" || !displayValue.includes("/")) return null;
+    const parts = displayValue.split("/");
     if (parts.length !== 3) return null;
     return {
       day: parseInt(parts[0], 10),
       month: parseInt(parts[1], 10) - 1,
       year: parseInt(parts[2], 10),
     };
-  }, [value]);
+  }, [displayValue]);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -153,7 +175,7 @@ const AppDatePicker = ({
           style={[styles.input, compact && styles.inputCompact]}
           placeholder={placeholder}
           placeholderTextColor="#64748B"
-          value={value}
+          value={displayValue}
           onChangeText={onChangeText}
           keyboardType="numeric"
           maxLength={10}

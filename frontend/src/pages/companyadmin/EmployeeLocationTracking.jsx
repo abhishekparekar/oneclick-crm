@@ -813,7 +813,7 @@ const EmployeeLocationTracking = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-foreground tracking-tight">
-                Live Employee Location Radar
+                Live Employee Tracking
               </h1>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
                 <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
@@ -827,7 +827,7 @@ const EmployeeLocationTracking = () => {
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
               <Radio size={12} className="text-cyan-500 animate-pulse" />
-              <span>Real-time Satellite Telemetry • 4s Pulse • Pure GPS Tracking</span>
+              <span>Real-time Field Telemetry • 4s Sync • Live GPS Tracking</span>
             </p>
           </div>
         </div>
@@ -845,7 +845,7 @@ const EmployeeLocationTracking = () => {
               }`}
             >
               <Navigation size={13} className={viewMode === "live" ? "text-blue-500" : ""} />
-              <span>Live Radar</span>
+              <span>Live Map</span>
             </button>
 
             <button
@@ -991,7 +991,7 @@ const EmployeeLocationTracking = () => {
             <div className="bg-card p-2.5 sm:p-3 rounded-xl border border-border border-t-[3px] border-t-emerald-500 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-between group">
               <div className="min-w-0">
                 <p className="text-[10px] font-black uppercase text-muted-foreground tracking-wider truncate">
-                  ट्रॅकिंग चालू (Active Radar)
+                  ट्रॅकिंग चालू (Active Tracking)
                 </p>
                 <h3 className="text-lg sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 tracking-tight truncate">
                   {activeTrackingCount} <span className="text-xs font-bold text-muted-foreground">/ {employees.length}</span>
@@ -1075,7 +1075,7 @@ const EmployeeLocationTracking = () => {
               </span>
               <span className="text-xs font-extrabold text-foreground tracking-tight whitespace-nowrap">
                 {viewMode === "live"
-                  ? `Live Radar (${onlineCount} Active)`
+                  ? `Live Map (${onlineCount} Active)`
                   : selectedEmployee?.name || "Route Trail"}
               </span>
               <span className="hidden sm:inline-block text-[10px] text-muted-foreground font-semibold border-l border-border pl-2">
@@ -1107,7 +1107,7 @@ const EmployeeLocationTracking = () => {
                       : "text-muted-foreground hover:text-foreground font-semibold"
                   }`}
                 >
-                  Tactical
+                  Dark View
                 </button>
                 <button
                   type="button"

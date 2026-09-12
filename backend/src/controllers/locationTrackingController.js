@@ -134,17 +134,14 @@ const syncBatchLocations = async (req, res) => {
       });
     }
 
-    // ── Enforce Duty Hours Only (Employee must be actively punched in today or yesterday for overnight shifts) ──
+    // ── Enforce Duty Hours Only (Tracking valid ONLY when actively punched in today; stops on Punch Out or 12:00 AM) ──
     const todayIst = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const todayUtc = new Date().toISOString().split("T")[0];
-    const yesterdayDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const yesterdayIst = yesterdayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    const yesterdayUtc = yesterdayDate.toISOString().split("T")[0];
 
     const todayAtt = await Attendance.findOne({
       employeeId,
       companyId,
-      date: { $in: [todayIst, todayUtc, yesterdayIst, yesterdayUtc] },
+      date: { $in: [todayIst, todayUtc] },
     }).sort({ createdAt: -1 }).select("punchInTime punchOutTime punchLog");
 
     let isOnDuty = false;
@@ -162,6 +159,26 @@ const syncBatchLocations = async (req, res) => {
         hasPunchedOut = Boolean(todayAtt.punchOutTime);
         isOnDuty = hasPunchedIn && !hasPunchedOut;
       }
+    }
+
+    if (!isOnDuty) {
+      // Duty ended or employee not punched in today: Deactivate tracking and do NOT record points
+      await Employee.findByIdAndUpdate(employeeId, {
+        $set: {
+          "lastLocation.isTrackingActive": false,
+        },
+      }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        trackingAllowed: false,
+        hasPunchedOut: Boolean(hasPunchedOut) || !hasPunchedIn,
+        hasPunchedIn: Boolean(hasPunchedIn),
+        message: hasPunchedOut
+          ? "Duty ended (punched out). Location tracking is stopped."
+          : "Duty inactive / not punched in for today. Location tracking remains OFF.",
+        syncedCount: 0,
+      });
     }
 
     // Filter and sanitize valid points
@@ -324,10 +341,10 @@ const getLiveEmployeeLocations = async (req, res) => {
     const yesterdayIst = yesterdayDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     const yesterdayUtc = yesterdayDate.toISOString().slice(0, 10);
 
-    // 1. Fetch today's (or overnight yesterday's) attendance records to know punch status (In/Out)
+    // 1. Fetch today's attendance records to know punch status (In/Out)
     const attendances = await Attendance.find({
       employeeId: { $in: employeeIds },
-      date: { $in: [todayIst, todayUtc, yesterdayIst, yesterdayUtc] },
+      date: { $in: [todayIst, todayUtc] },
     }).sort({ createdAt: 1 }).lean();
 
     const attendanceMap = new Map();

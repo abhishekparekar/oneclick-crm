@@ -51,13 +51,44 @@ try {
  * @param {object} data - Additional data payload
  * @returns {Promise<object>} - FCM response
  */
+const recentPushCache = new Map(); // cacheKey -> timestamp
+
 const sendPushNotification = async (tokens, title, body, data = {}) => {
   if (!admin.apps.length) {
     console.warn("Firebase Admin not initialized. Skipping push notification.");
     return null;
   }
 
-  if (!tokens || tokens.length === 0) {
+  const rawTokens = [...new Set((Array.isArray(tokens) ? tokens : [tokens]).filter(Boolean))];
+  if (rawTokens.length === 0) {
+    return null;
+  }
+
+  const now = Date.now();
+  const cleanTitle = (title || '').trim();
+  const cleanBody = (body || '').trim();
+
+  // Deduplicate against duplicate delivery to the same token within 5 seconds
+  const uniqueTokens = [];
+  for (const t of rawTokens) {
+    const cacheKey = `${t}_${cleanTitle}_${cleanBody}`;
+    const lastSent = recentPushCache.get(cacheKey);
+    if (lastSent && now - lastSent < 5000) {
+      console.log(`[FCM] Debouncing duplicate push notification to token ${t.slice(0, 15)}... within 5s`);
+      continue;
+    }
+    recentPushCache.set(cacheKey, now);
+    uniqueTokens.push(t);
+  }
+
+  // Periodic cleanup of cache
+  if (recentPushCache.size > 2000) {
+    for (const [key, time] of recentPushCache.entries()) {
+      if (now - time > 15000) recentPushCache.delete(key);
+    }
+  }
+
+  if (uniqueTokens.length === 0) {
     return null;
   }
 
@@ -86,10 +117,10 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
       notification: {
         title,
         body,
-        sound: 'notice11',
-        channelId: 'oneclick_alerts_v5',
+        sound: 'default',
+        channelId: 'oneclick_alerts_default',
         priority: 'high',
-        defaultSound: false,
+        defaultSound: true,
         defaultVibrateTimings: true,
         icon: 'ic_notification',
       },
@@ -97,7 +128,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
     apns: {
       payload: {
         aps: {
-          sound: 'notice11.wav',
+          sound: 'default',
           badge: 1,
         },
       },
@@ -108,7 +139,7 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
       body: String(body || ''),
       notificationId: notifId,
     },
-    tokens,
+    tokens: uniqueTokens,
   };
 
   try {
@@ -124,9 +155,9 @@ const sendPushNotification = async (tokens, title, body, data = {}) => {
             errCode === 'messaging/registration-token-not-registered' ||
             errCode === 'messaging/invalid-registration-token'
           ) {
-            staleTokens.push(tokens[idx]);
+            staleTokens.push(uniqueTokens[idx]);
           } else {
-            otherErrors.push({ token: tokens[idx], error: resp.error?.message || resp.error });
+            otherErrors.push({ token: uniqueTokens[idx], error: resp.error?.message || resp.error });
           }
         }
       });

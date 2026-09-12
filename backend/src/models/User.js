@@ -67,6 +67,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: ["attendance", "leave", "tasks", "leads", "payroll", "projects", "reports"],
     },
+    resetPasswordToken: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpire: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -100,6 +108,23 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
     console.error("[User] Password comparison error:", error.message);
     return false;
   }
+};
+
+userSchema.methods.getResetPasswordToken = function () {
+  const crypto = require("crypto");
+  // Generate token
+  const resetToken = crypto.randomBytes(32).toString("hex");
+
+  // Hash token and set to resetPasswordToken field
+  this.resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(resetToken)
+    .digest("hex");
+
+  // Set expire to 1 hour
+  this.resetPasswordExpire = Date.now() + 60 * 60 * 1000;
+
+  return resetToken;
 };
 
 const User = mongoose.model("User", userSchema);

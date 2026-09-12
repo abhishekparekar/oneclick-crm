@@ -52,6 +52,7 @@ const SuperAdminAddCompany = () => {
   
   const [isCustomIndustry, setIsCustomIndustry] = useState(false);
   const [customIndustryText, setCustomIndustryText] = useState("");
+  const [subDurationMode, setSubDurationMode] = useState("calendar"); // "calendar" | "days"
 
   const getTodayStr = () => new Date().toISOString().split("T")[0];
   const getFutureDateStr = (days = 7, fromDateStr) => {
@@ -89,14 +90,14 @@ const SuperAdminAddCompany = () => {
       "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
     ],
     moduleLimits: {
-      attendance: 0,
-      leave: 0,
-      payroll: 0,
-      tasks: 0,
-      leads: 0,
-      projects: 0,
-      reports: 0,
-      location_tracking: 0,
+      attendance: "",
+      leave: "",
+      payroll: "",
+      tasks: "",
+      leads: "",
+      projects: "",
+      reports: "",
+      location_tracking: "",
     },
     adminName: "",
     adminEmail: "",
@@ -141,14 +142,14 @@ const SuperAdminAddCompany = () => {
           ? ensureDefaultAndSuiteModules(first.modules)
           : (prev.subscribedModules || []),
         moduleLimits: {
-          attendance: 0,
-          leave: 0,
-          payroll: 0,
-          tasks: 0,
-          leads: 0,
-          projects: 0,
-          reports: 0,
-          location_tracking: 0,
+          attendance: "",
+          leave: "",
+          payroll: "",
+          tasks: "",
+          leads: "",
+          projects: "",
+          reports: "",
+          location_tracking: "",
           ...(prev.moduleLimits || {}),
           ...(first.moduleLimits || {})
         },
@@ -173,14 +174,14 @@ const SuperAdminAddCompany = () => {
           ? ensureDefaultAndSuiteModules(plan.modules)
           : (prev.subscribedModules || []),
         moduleLimits: {
-          attendance: 0,
-          leave: 0,
-          payroll: 0,
-          tasks: 0,
-          leads: 0,
-          projects: 0,
-          reports: 0,
-          location_tracking: 0,
+          attendance: "",
+          leave: "",
+          payroll: "",
+          tasks: "",
+          leads: "",
+          projects: "",
+          reports: "",
+          location_tracking: "",
           ...(prev.moduleLimits || {}),
           ...(plan.moduleLimits || {})
         },
@@ -229,27 +230,29 @@ const SuperAdminAddCompany = () => {
     setFormData(prev => ({ ...prev, adminPassword: pwd }));
   };
 
-  const handleChange = (e) => {
-    const { name, value, checked } = e.target;
-    if (name === "subscribedModules") {
-      const mod = value;
-      setFormData(prev => {
-        const current = prev.subscribedModules || [];
-        let next;
-        if (mod === "attendance") {
-          if (checked) {
-            next = Array.from(new Set([...current, "attendance", "leave", "payroll"]));
-          } else {
-            next = current.filter(m => m !== "attendance" && m !== "leave" && m !== "payroll");
-          }
+  const toggleModule = (modKey) => {
+    setFormData(prev => {
+      const current = prev.subscribedModules || [];
+      const isChecked = current.includes(modKey);
+      let next;
+      if (modKey === "attendance") {
+        if (!isChecked) {
+          next = Array.from(new Set([...current, "attendance", "leave", "payroll"]));
         } else {
-          next = checked ? [...current, mod] : current.filter(m => m !== mod);
+          next = current.filter(m => m !== "attendance" && m !== "leave" && m !== "payroll");
         }
-        return { ...prev, subscribedModules: next };
-      });
-    } else if (name.startsWith("moduleLimit_")) {
+      } else {
+        next = !isChecked ? [...current, modKey] : current.filter(m => m !== modKey);
+      }
+      return { ...prev, subscribedModules: next };
+    });
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    if (name.startsWith("moduleLimit_")) {
       const modKey = name.replace("moduleLimit_", "");
-      const numVal = Math.max(0, parseInt(value, 10) || 0);
+      const numVal = value === "" ? "" : Math.max(0, parseInt(value, 10) || 0);
       setFormData(prev => {
         const currentLimits = { ...(prev.moduleLimits || {}) };
         if (modKey === "attendance") {
@@ -265,7 +268,7 @@ const SuperAdminAddCompany = () => {
       setFormData(prev => ({
         ...prev,
         [name]: (name === "employeeLimit" || name === "storageLimit" || name === "trialDays")
-          ? Number(value) || 0
+          ? (value === "" ? "" : Number(value))
           : value
       }));
     }
@@ -284,8 +287,18 @@ const SuperAdminAddCompany = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    const sanitizedModuleLimits = {};
+    if (formData.moduleLimits) {
+      Object.entries(formData.moduleLimits).forEach(([k, v]) => {
+        sanitizedModuleLimits[k] = (v === "" || v === null || v === undefined) ? 0 : (Number(v) || 0);
+      });
+    }
     const finalPayload = {
       ...formData,
+      employeeLimit: Number(formData.employeeLimit) || 10,
+      storageLimit: Number(formData.storageLimit) || 5,
+      trialDays: Number(formData.trialDays) || 7,
+      moduleLimits: sanitizedModuleLimits,
       industryType: isCustomIndustry ? (customIndustryText.trim() || "Other") : formData.industryType
     };
     mutation.mutate(finalPayload);
@@ -710,53 +723,92 @@ const SuperAdminAddCompany = () => {
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Subscription Days</label>
-                    <span className="text-[10px] font-bold text-[#f59e0b]">{formData.trialDays} Days Duration</span>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider flex items-center gap-1.5">
+                      <Calendar size={13} className="text-[#f59e0b]" />
+                      <span>Subscription Duration</span>
+                    </label>
+                    <div className="flex items-center bg-sa-surface p-0.5 rounded-lg border border-sa-border/40 dark:border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setSubDurationMode("calendar")}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          subDurationMode === "calendar"
+                            ? "bg-[#f59e0b] text-black shadow-2xs font-black"
+                            : "text-sa-text-secondary hover:text-sa-text"
+                        }`}
+                      >
+                        <span>Date-wise</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSubDurationMode("days")}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                          subDurationMode === "days"
+                            ? "bg-[#f59e0b] text-black shadow-2xs font-black"
+                            : "text-sa-text-secondary hover:text-sa-text"
+                        }`}
+                      >
+                        <span>Days</span>
+                      </button>
+                    </div>
                   </div>
-                  <input 
-                    type="number" 
-                    name="trialDays" 
-                    min="1" 
-                    value={formData.trialDays} 
-                    onChange={(e) => handleSubscriptionDaysChange(e.target.value)}
-                    className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all"
-                    placeholder="7" 
-                  />
-                  <p className="text-[10px] text-sa-text-secondary mt-1">Total active subscription duration.</p>
-                </div>
-              </div>
 
-              {/* Date Selection: From Date to To Date */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 p-3.5 rounded-xl bg-sa-bg/40 border border-sa-border/30 dark:border-white/10">
-                <div>
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    <Calendar size={13} className="text-[#f59e0b]" />
-                    <span>From Date (Start Date)</span>
-                  </label>
-                  <input 
-                    type="date" 
-                    name="startDate" 
-                    value={formData.startDate} 
-                    onChange={(e) => handleDateChange("startDate", e.target.value)}
-                    className="w-full bg-sa-surface border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
-                  />
-                  <p className="text-[10px] text-sa-text-secondary mt-1 font-medium">Subscription starts on this date.</p>
-                </div>
+                  {subDurationMode === "calendar" ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <span className="text-[9.5px] font-bold uppercase text-sa-text-secondary block mb-0.5">From Date</span>
+                        <input 
+                          type="date" 
+                          name="startDate" 
+                          value={formData.startDate} 
+                          onChange={(e) => handleDateChange("startDate", e.target.value)}
+                          className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-2.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[9.5px] font-bold uppercase text-sa-text-secondary">Next Date</span>
+                          <span className="text-[9.5px] font-black text-[#f59e0b]">{formData.trialDays || 1} Days</span>
+                        </div>
+                        <input 
+                          type="date" 
+                          name="endDate" 
+                          min={formData.startDate}
+                          value={formData.endDate} 
+                          onChange={(e) => handleDateChange("endDate", e.target.value)}
+                          className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-2.5 py-2 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="relative">
+                      <input 
+                        type="number" 
+                        name="trialDays" 
+                        min="1" 
+                        value={formData.trialDays} 
+                        onChange={(e) => handleSubscriptionDaysChange(e.target.value)}
+                        className="w-full bg-sa-bg border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all pr-24"
+                        placeholder="7" 
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-[#f59e0b] bg-[#f59e0b]/10 px-2 py-0.5 rounded-md border border-[#f59e0b]/20 pointer-events-none">
+                        {formData.trialDays || 0} Days Total
+                      </span>
+                    </div>
+                  )}
 
-                <div>
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    <Calendar size={13} className="text-[#f59e0b]" />
-                    <span>To Date (End Date)</span>
-                  </label>
-                  <input 
-                    type="date" 
-                    name="endDate" 
-                    min={formData.startDate}
-                    value={formData.endDate} 
-                    onChange={(e) => handleDateChange("endDate", e.target.value)}
-                    className="w-full bg-sa-surface border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
-                  />
-                  <p className="text-[10px] text-sa-text-secondary mt-1 font-medium">Subscription active until this date.</p>
+                  {/* Below: Display Start Date & End Date ONLY */}
+                  <div className="mt-1.5 px-3 py-1.5 rounded-xl bg-sa-bg/60 border border-sa-border/30 dark:border-white/5 flex items-center justify-between text-[11px]">
+                    <div className="flex items-center gap-1.5 text-sa-text-secondary font-medium">
+                      <Calendar size={12} className="text-[#f59e0b] flex-shrink-0" />
+                      <span>Start: <strong className="text-sa-text font-bold">{formData.startDate}</strong></span>
+                      <span className="text-sa-text-secondary">•</span>
+                      <span>End: <strong className="text-sa-text font-bold">{formData.endDate}</strong></span>
+                    </div>
+                    <span className="font-extrabold text-[#f59e0b] text-[10px] bg-[#f59e0b]/10 px-1.5 py-0.5 rounded border border-[#f59e0b]/20 flex-shrink-0 ml-1">
+                      {formData.trialDays || 0} Days
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -782,22 +834,16 @@ const SuperAdminAddCompany = () => {
                 {DISPLAY_MODULES.map((item) => {
                   const isChecked = (formData.subscribedModules || []).includes(item.key);
                   return (
-                    <label 
+                    <button 
+                      type="button"
                       key={item.key} 
-                      className={`flex items-center space-x-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                      onClick={() => toggleModule(item.key)}
+                      className={`flex items-center space-x-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none text-left ${
                         isChecked 
                           ? "bg-[#f59e0b]/15 border-[#f59e0b]/40 text-[#f59e0b] shadow-2xs" 
                           : "bg-sa-surface border-sa-border/40 dark:border-white/10 text-sa-text-secondary hover:text-sa-text hover:border-sa-border/80"
                       }`}
                     >
-                      <input 
-                        type="checkbox" 
-                        name="subscribedModules"
-                        value={item.key}
-                        checked={isChecked}
-                        onChange={handleChange}
-                        className="sr-only"
-                      />
                       <div className={`w-4 h-4 rounded flex items-center justify-center border transition-all flex-shrink-0 ${
                         isChecked ? "bg-[#f59e0b] border-transparent text-white" : "border-sa-border/60 bg-sa-bg"
                       }`}>
@@ -809,7 +855,7 @@ const SuperAdminAddCompany = () => {
                           <span className="text-[9px] font-semibold text-emerald-500 truncate block mt-0.5">{item.subtext}</span>
                         )}
                       </div>
-                    </label>
+                    </button>
                   );
                 })}
               </div>
@@ -819,10 +865,10 @@ const SuperAdminAddCompany = () => {
                 <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                   <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                     <Users size={13} className="text-[#f59e0b]" />
-                    <span>Per-Module Employee Seat Caps (Optional Sub-Quota — 0 = All Seats)</span>
+                    <span>Per-Module Employee Seat Caps (Optional Sub-Quota — Leave Blank for All Seats)</span>
                   </p>
                   <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
-                    Set how many employees can access each module. Leave 0 to allow all company seats.
+                    Set how many employees can access each module. Leave blank to allow all company seats.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                     {MODULE_CAP_ITEMS.filter((m) => (formData.subscribedModules || []).includes(m.key)).map((m) => (
@@ -837,15 +883,22 @@ const SuperAdminAddCompany = () => {
                           type="number"
                           name={`moduleLimit_${m.key}`}
                           min="0"
-                          value={formData.moduleLimits?.[m.key] || 0}
+                          value={
+                            formData.moduleLimits?.[m.key] === 0 ||
+                            formData.moduleLimits?.[m.key] === "0" ||
+                            formData.moduleLimits?.[m.key] === undefined ||
+                            formData.moduleLimits?.[m.key] === null
+                              ? ""
+                              : formData.moduleLimits[m.key]
+                          }
                           onChange={handleChange}
-                          placeholder="0 = All Company Seats"
+                          placeholder="All company seats"
                           className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-lg px-2.5 py-1.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b]"
                         />
                         <p className="text-[9px] text-sa-text-secondary mt-1">
                           {Number(formData.moduleLimits?.[m.key]) > 0
-                            ? `Max ${formData.moduleLimits?.[m.key]} employee seats`
-                            : `Max ${formData.employeeLimit || 10} employee seats`}
+                            ? `Max ${formData.moduleLimits[m.key]} employee seats`
+                            : `All company seats allowed (Max ${formData.employeeLimit || 10})`}
                         </p>
                       </div>
                     ))}

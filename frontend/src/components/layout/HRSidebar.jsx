@@ -44,8 +44,8 @@ const HR_NAV_SECTIONS = [
       { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare, module: "tasks" },
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Attendance Report", path: "/hr/attendance-report", icon: FileSpreadsheet, module: "attendance" },
-      { label: "Live Location Radar", path: "/hr/location-tracking", icon: Navigation, module: "attendance" },
-      { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance" },
+      { label: "Live Employee Tracking", path: "/hr/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
+      { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },
       { label: "Regularization", path: "/hr/regularization", icon: UserCheck, module: "attendance" },
       { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
@@ -138,15 +138,29 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
         {HR_NAV_SECTIONS.map((section, idx) => {
           const liveSubscribed = empProfile?.companyId?.subscribedModules || empProfile?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
-            if (!item.module) return true;
-            const norm = String(item.module).toLowerCase().trim();
+            if (!item.module && !item.modules) return true;
             if (Array.isArray(liveSubscribed)) {
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
-              if (!subs.includes(norm)) return false;
+              if (item.modules) {
+                const hasMatch = item.modules.some(m => subs.includes(String(m).toLowerCase().trim()));
+                if (!hasMatch) return false;
+              } else {
+                const norm = String(item.module).toLowerCase().trim();
+                if (!subs.includes(norm)) return false;
+              }
             }
             if (Array.isArray(assignedModules) && assignedModules.length > 0) {
               const assigned = assignedModules.map(m => String(m).toLowerCase().trim());
-              if (!assigned.includes(norm)) return false;
+              if (item.modules) {
+                const hasMatch = item.modules.some(m => assigned.includes(String(m).toLowerCase().trim()));
+                if (!hasMatch) return false;
+              } else {
+                const norm = String(item.module).toLowerCase().trim();
+                if (!assigned.includes(norm)) return false;
+              }
+            }
+            if (item.modules) {
+              return item.modules.some(m => hasPermission(m, "view") || hasPermission(m));
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

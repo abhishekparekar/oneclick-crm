@@ -80,8 +80,8 @@ const COMPANY_SECTIONS = [
       { label: "Employees", path: "/company/employees", icon: Users },
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Attendance Report", path: "/company/attendance-report", icon: FileSpreadsheet, module: "attendance" },
-      { label: "Live Location Radar", path: "/company/location-tracking", icon: Navigation, module: "attendance" },
-      { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance" },
+      { label: "Live Employee Tracking", path: "/company/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
+      { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },
@@ -348,11 +348,19 @@ const CompanyAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
         {COMPANY_SECTIONS.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
-            if (!item.module) return true;
+            if (!item.module && !item.modules) return true;
             if (Array.isArray(liveSubscribed)) {
-              const norm = String(item.module).toLowerCase().trim();
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());
-              if (!subs.includes(norm)) return false;
+              if (item.modules) {
+                const hasMatch = item.modules.some(m => subs.includes(String(m).toLowerCase().trim()));
+                if (!hasMatch) return false;
+              } else {
+                const norm = String(item.module).toLowerCase().trim();
+                if (!subs.includes(norm)) return false;
+              }
+            }
+            if (item.modules) {
+              return item.modules.some(m => hasPermission(m, "view") || hasPermission(m));
             }
             return hasPermission(item.module, "view") || hasPermission(item.module);
           });

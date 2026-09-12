@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -13,12 +13,12 @@ import {
   Dimensions,
   Switch,
   ScrollView,
+  Image,
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { Ionicons } from "@expo/vector-icons";
-import AppButton from "../../components/AppButton";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import PhotoPickerField from "../../components/PhotoPickerField";
-import DatePickerModal from "../../components/DatePickerModal";
+import AppDatePicker from "../../components/AppDatePicker";
 import { COLORS, FONTS, SHADOWS, ROUNDING, SPACING } from "../../theme/tokens";
 import {
   getDepartmentsApi,
@@ -27,975 +27,2111 @@ import {
   createDepartmentApi,
   createDesignationApi,
   createBranchApi,
+  getModuleUsageApi,
 } from "../../api/companyService";
-import { createEmployeeApi } from "../../api/employeeService";
-import { EMPLOYMENT_TYPES, WORK_MODES, LOGIN_ROLES } from "./employeeConstants";
+import { createEmployeeApi, getEmployeesApi } from "../../api/employeeService";
 import { useAuth } from "../../context/AuthContext";
-import { isValidDDMMYYYY, parseDDMMYYYYToISO } from "../../utils/dateFormatter";
+import { parseDDMMYYYYToISO } from "../../utils/dateFormatter";
 
 const { width } = Dimensions.get("window");
 
-// ── Design Tokens ────────────────────────────────────────────
-const C = {
-  bg:      COLORS.background,
-  card:    COLORS.white,
-  border:  "#cbd5e1",
-  primary: COLORS.primary,
-  pBg:     "#f0fdfa", // Teal light background
-  pBorder: "#ccfbf1", // Teal light border
-  text:    COLORS.text.dark,
-  sub:     COLORS.text.muted,
-  muted:   COLORS.text.light,
-  red:     COLORS.danger,
-  redBg:   "#fee2e2",
-  green:   COLORS.success,
-  greenBg: "#d1fae5",
+// ── Palette & Design Tokens ───────────────────────────────────
+const THEME = {
+  bg: "#F8FAFC",
+  card: "#FFFFFF",
+  cardSubtle: "#F1F5F9",
+  border: "#E2E8F0",
+  borderActive: "#F59E0B",
+  primary: "#F59E0B",
+  primaryDark: "#D97706",
+  primaryLight: "#FEF3C7",
+  textPrimary: "#0F172A",
+  textSecondary: "#475569",
+  textMuted: "#94A3B8",
+  danger: "#EF4444",
+  dangerBg: "#FEE2E2",
+  success: "#10B981",
+  successBg: "#D1FAE5",
+  blue: "#2563EB",
+  blueBg: "#EFF6FF",
 };
 
-const STEPS = [
-  { key: "personal", label: "Personal",  icon: "person-outline"        },
-  { key: "job",      label: "Job Info",  icon: "briefcase-outline"      },
-  { key: "salary",   label: "Salary",    icon: "cash-outline"           },
-  { key: "access",   label: "Access",    icon: "shield-checkmark-outline"},
+// ── Modules Catalog matching Web ALL_MODULES ───────────────────
+const ALL_MODULES = [
+  { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks", icon: "checkbox-outline" },
+  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns", icon: "magnet-outline" },
+  { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization", icon: "finger-print-outline" },
+  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster", icon: "calendar-outline" },
+  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures", icon: "cash-outline" },
+  { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards", icon: "folder-open-outline" },
+  { key: "reports", label: "Analytics & Reports", desc: "View operational reports & analytics", icon: "bar-chart-outline" },
 ];
 
-const labelFor = (opts, val) => opts.find((o) => o.value === val)?.label || "";
+// ── 7 Steps Definition matching Web ────────────────────────────
+const STEPS = [
+  { id: 1, label: "Basic Info", desc: "Personal info & photo", icon: "person-outline" },
+  { id: 2, label: "Job Details", desc: "Role, dept & modules", icon: "briefcase-outline" },
+  { id: 3, label: "Address", desc: "Location & emergency", icon: "location-outline" },
+  { id: 4, label: "Salary", desc: "CTC & allowances", icon: "cash-outline" },
+  { id: 5, label: "Bank & ID", desc: "Banking, PAN & Aadhaar", icon: "card-outline" },
+  { id: 6, label: "Documents", desc: "Attach verified proofs", icon: "document-text-outline" },
+  { id: 7, label: "Review", desc: "Verify & register", icon: "checkmark-done-circle-outline" },
+];
 
-// ─── Field Label ──────────────────────────────────────────────
-const FieldLabel = ({ text, required }) => (
-  <Text style={styles.fieldLabel}>
-    {text}
-    {required && <Text style={{ color: C.red }}> *</Text>}
-  </Text>
-);
+const GENDER_OPTIONS = [
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other" },
+];
 
-// ─── Text Field ───────────────────────────────────────────────
-const Field = ({ label, required, children }) => (
-  <View style={styles.fieldWrap}>
-    <FieldLabel text={label} required={required} />
-    {children}
-  </View>
-);
+const MARITAL_OPTIONS = [
+  { value: "single", label: "Single" },
+  { value: "married", label: "Married" },
+  { value: "divorced", label: "Divorced" },
+];
 
-// ─── Styled Input ─────────────────────────────────────────────
-const SInput = ({ style, ...props }) => (
-  <TextInput style={[styles.input, style]} placeholderTextColor={C.muted} {...props} />
-);
+const EMPLOYMENT_TYPES = [
+  { value: "full_time", label: "Full Time" },
+  { value: "part_time", label: "Part Time" },
+  { value: "contract", label: "Contract" },
+  { value: "internship", label: "Internship" },
+];
 
-// ─── Picker Row ───────────────────────────────────────────────
-const PickerRow = ({ label, required, display, placeholder = "Tap to select", onPress, icon }) => (
-  <Field label={label} required={required}>
-    <TouchableOpacity style={styles.picker} onPress={onPress} activeOpacity={0.75}>
-      <Ionicons name={icon || "chevron-down"} size={16} color={display ? C.primary : C.muted} style={{ marginRight: 8 }} />
-      <Text style={[styles.pickerText, !display && styles.pickerPh]} numberOfLines={1}>
-        {display || placeholder}
-      </Text>
-      <Ionicons name="chevron-down" size={14} color={C.muted} />
-    </TouchableOpacity>
-  </Field>
-);
+const WORK_MODES = [
+  { value: "office", label: "On-Site / Office" },
+  { value: "remote", label: "Remote / Work From Home" },
+  { value: "hybrid", label: "Hybrid" },
+];
 
-// ─── Option Chips ─────────────────────────────────────────────
-const ChipGroup = ({ options, value, onChange }) => (
-  <View style={styles.chipRow}>
-    {options.map((opt) => (
-      <TouchableOpacity
-        key={opt.value}
-        style={[styles.chip, value === opt.value && styles.chipActive]}
-        onPress={() => onChange(opt.value)}
-        activeOpacity={0.75}
-      >
-        <Text style={[styles.chipText, value === opt.value && styles.chipTextActive]}>
-          {opt.label}
-        </Text>
-      </TouchableOpacity>
-    ))}
-  </View>
-);
+const EMERGENCY_RELATIONSHIPS = [
+  { value: "Parent", label: "Parent / Father / Mother" },
+  { value: "Spouse", label: "Spouse" },
+  { value: "Sibling", label: "Brother / Sister" },
+  { value: "Friend", label: "Friend / Relative" },
+];
 
-// ─── Step Indicator ───────────────────────────────────────────
-const StepIndicator = ({ steps, current }) => (
-  <View style={styles.stepRow}>
-    {steps.map((s, i) => {
-      const done    = i < current;
-      const active  = i === current;
-      return (
-        <React.Fragment key={s.key}>
-          <View style={styles.stepItem}>
-            <View style={[
-              styles.stepDot,
-              done   && styles.stepDotDone,
-              active && styles.stepDotActive,
-            ]}>
-              {done
-                ? <Ionicons name="checkmark" size={13} color="#fff" />
-                : <Text style={[styles.stepNum, active && { color: "#fff" }]}>{i + 1}</Text>
-              }
-            </View>
-            <Text style={[styles.stepLabel, active && styles.stepLabelActive, done && styles.stepLabelDone]}>
-              {s.label}
-            </Text>
-          </View>
-          {i < steps.length - 1 && (
-            <View style={[styles.stepLine, done && styles.stepLineDone]} />
-          )}
-        </React.Fragment>
-      );
-    })}
-  </View>
-);
+const BANK_ACCOUNT_TYPES = [
+  { value: "savings", label: "Savings Account" },
+  { value: "current", label: "Salary / Current Account" },
+];
 
-// ─── Inline Add-New Form (inside sheet) ───────────────────────
-const AddNewForm = ({ type, departments, onSave, onCancel }) => {
-  const [name,       setName]       = useState("");
-  const [desc,       setDesc]       = useState("");
-  const [deptId,     setDeptId]     = useState("");
-  const [deptName,   setDeptName]   = useState("");
-  const [city,       setCity]       = useState("");
-  const [address,    setAddress]    = useState("");
-  const [saving,     setSaving]     = useState(false);
-  const [deptModal,  setDeptModal]  = useState(false);
-
-  const handleSave = async () => {
-    if (!name.trim()) { Alert.alert("Required", "Name is required"); return; }
-    if (type === "designation" && !deptId) { Alert.alert("Required", "Please select a department"); return; }
-    setSaving(true);
-    try {
-      let res;
-      if (type === "department") {
-        res = await createDepartmentApi({ name: name.trim(), description: desc.trim() });
-        const created = res?.data?.department || res?.data?.data || res?.data;
-        if (!created) throw new Error("Could not create department");
-        onSave(created, "department");
-      } else if (type === "designation") {
-        res = await createDesignationApi({ name: name.trim(), description: desc.trim(), departmentId: deptId });
-        const created = res?.data?.designation || res?.data?.data || res?.data;
-        if (!created) throw new Error("Could not create designation");
-        onSave(created, "designation");
-      } else if (type === "branch") {
-        res = await createBranchApi({ branchName: name.trim(), city: city.trim(), address: address.trim() });
-        const created = res?.data?.branch || res?.data?.data || res?.data;
-        if (!created) throw new Error("Could not create branch");
-        onSave(created, "branch");
-      }
-    } catch (err) {
-      Alert.alert("Error", err.response?.data?.message || err.message || `Failed to create ${type}`);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const typeLabel = { department: "Department", designation: "Designation", branch: "Branch" }[type];
-
-  return (
-    <View style={styles.addForm}>
-      <View style={styles.addFormHeader}>
-        <Text style={styles.addFormTitle}>New {typeLabel}</Text>
-        <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-          <Ionicons name="close-circle" size={22} color={C.muted} />
-        </TouchableOpacity>
-      </View>
-
-      <SInput placeholder={type === "branch" ? "Branch name *" : "Name *"} value={name} onChangeText={setName} />
-
-      {type === "designation" && (
-        <>
-          <TouchableOpacity style={styles.input} onPress={() => setDeptModal(true)}>
-            <Text style={[styles.pickerText, !deptId && styles.pickerPh]}>
-              {deptName || "Select Department *"}
-            </Text>
-          </TouchableOpacity>
-          <Modal visible={deptModal} transparent animationType="fade">
-            <View style={styles.subOverlay}>
-              <View style={styles.subBox}>
-                <Text style={styles.subTitle}>Select Department</Text>
-                <FlatList
-                  data={departments}
-                  keyExtractor={(d) => d._id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.subItem} onPress={() => { setDeptId(item._id); setDeptName(item.name); setDeptModal(false); }}>
-                      <Text style={styles.subItemText}>{item.name}</Text>
-                    </TouchableOpacity>
-                  )}
-                  ListEmptyComponent={<Text style={styles.emptyText}>No departments yet.</Text>}
-                />
-                <TouchableOpacity style={styles.subCancel} onPress={() => setDeptModal(false)}>
-                  <Text style={styles.subCancelText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </Modal>
-        </>
-      )}
-
-      {type === "branch" && (
-        <SInput placeholder="City" value={city} onChangeText={setCity} />
-      )}
-
-      <SInput
-        placeholder={type === "branch" ? "Address (optional)" : "Description (optional)"}
-        value={type === "branch" ? address : desc}
-        onChangeText={type === "branch" ? setAddress : setDesc}
-        multiline
-        style={{ height: 64, textAlignVertical: "top" }}
-      />
-
-      <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.7 }]} onPress={handleSave} disabled={saving}>
-        {saving
-          ? <ActivityIndicator size="small" color="#fff" />
-          : <>
-              <Ionicons name="checkmark-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.saveBtnText}>Save & Select</Text>
-            </>
-        }
-      </TouchableOpacity>
-    </View>
-  );
-};
-
+// ═══════════════════════════════════════════════════════════════
+// MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════
 const AddEmployeeScreen = ({ navigation }) => {
   const { user } = useAuth();
-  const availableRoles = user?.role === "CompanyAdmin"
-    ? LOGIN_ROLES
-    : user?.role === "Manager"
-      ? LOGIN_ROLES.filter((r) => r.value === "Employee")
-      : LOGIN_ROLES.filter((r) => r.value !== "HR");
+
+  // Company plan subscribed modules
+  const authCompanyModules = useMemo(() => {
+    const raw =
+      user?.company?.subscribedModules ??
+      user?.subscribedModules ??
+      (typeof user?.companyId === "object" && user?.companyId !== null ? user?.companyId?.subscribedModules : null);
+    return Array.isArray(raw) && raw.length > 0
+      ? raw.map((m) => String(m).toLowerCase().trim())
+      : null;
+  }, [user]);
+
+  const [activeStep, setActiveStep] = useState(1);
+  const [submitting, setSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
 
   // Reference data
-  const [departments,  setDepartments]  = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
-  const [branches,     setBranches]     = useState([]);
-  const [refsLoading,  setRefsLoading]  = useState(true);
+  const [branches, setBranches] = useState([]);
+  const [managers, setManagers] = useState([]);
+  const [moduleUsage, setModuleUsage] = useState({});
+  const [planSubscribedModules, setPlanSubscribedModules] = useState([]);
+  const [refsLoading, setRefsLoading] = useState(true);
 
-  // Step control
-  const [step, setStep] = useState(0);
+  // Quick Create Modal states
+  const [quickModal, setQuickModal] = useState(null); // 'dept' | 'desig' | 'branch'
+  const [quickForm, setQuickForm] = useState({ name: "", code: "", departmentId: "", city: "" });
+  const [quickSaving, setQuickSaving] = useState(false);
 
-  // ── Step 1: Personal ─────────────────────────────────────────
-  const [photo,      setPhoto]      = useState("");
-  const [firstName,  setFirstName]  = useState("");
-  const [lastName,   setLastName]   = useState("");
-  const [email,      setEmail]      = useState("");
-  const [phone,      setPhone]      = useState("");
-  const [gender,     setGender]     = useState("prefer_not_say");
+  // Dropdown Picker Modal states
+  const [activePickerModal, setActivePickerModal] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // ── Step 2: Job ──────────────────────────────────────────────
-  const [joiningDate,     setJoiningDate]     = useState("");
-  const [departmentId,    setDepartmentId]    = useState("");   // primary (first selected)
-  const [departmentName,  setDepartmentName]  = useState("");
-  const [departmentIds,   setDepartmentIds]   = useState([]);   // multi-select array
-  const [departmentNames, setDepartmentNames] = useState([]);   // labels for display
-  const [designationId,   setDesignationId]   = useState("");
-  const [designationName, setDesignationName] = useState("");
-  const [branchId,        setBranchId]        = useState("");
-  const [branchName,      setBranchName]      = useState("");
-  const [employmentType,  setEmploymentType]  = useState("full-time");
-  const [workMode,        setWorkMode]        = useState("office");
-  const [allowRemotePunch,setAllowRemotePunch]= useState(false);
-  const [datePickerOpen,  setDatePickerOpen]  = useState(false);
+  // Initial Form Data matching Web
+  const [formData, setFormData] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    password: "",
+    photo: "",
+    gender: "male",
+    dateOfBirth: "",
+    maritalStatus: "single",
 
-  // ── Step 3: Salary ───────────────────────────────────────────
-  const [basicSalary,  setBasicSalary]  = useState("");
-  const [hra,          setHra]          = useState("");
-  const [ta,           setTa]           = useState("");
-  const [otherAllow,   setOtherAllow]   = useState("");
-  const [pf,           setPf]           = useState("");
-  const [tax,          setTax]          = useState("");
-  const [otherDeduct,  setOtherDeduct]  = useState("");
+    accessibleDepartments: [],
+    departmentId: "",
+    designationId: "",
+    branchId: "",
+    reportingManagerId: "",
+    role: "Employee",
+    managerAccessLevel: "department",
+    employmentType: "full_time",
+    workMode: "office",
+    allowRemotePunch: false,
+    isLocationTrackingEnabled: false,
+    joiningDate: new Date().toISOString().slice(0, 10),
+    confirmationDate: "",
+    noticePeriod: "30_days",
 
-  // ── Step 3: Leaves (Leave Balance) ───────────────────────────
-  const [casualLeaves, setCasualLeaves] = useState("0");
-  const [sickLeaves,   setSickLeaves]   = useState("0");
-  const [annualLeaves, setAnnualLeaves] = useState("0");
-  const [unpaidLeaves, setUnpaidLeaves] = useState("0");
+    address: {
+      street: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: "India",
+    },
+    permanentAddress: {
+      street: "",
+      city: "",
+      state: "",
+      pincode: "",
+      country: "India",
+      sameAsCurrent: false,
+    },
+    emergencyContact: {
+      name: "",
+      relationship: "Parent",
+      phone: "",
+    },
 
-  // ── Step 4: Access ───────────────────────────────────────────
-  const [loginRole, setLoginRole] = useState("Employee");
+    salaryDetails: {
+      ctc: 360000,
+      basicSalary: 180000,
+      hra: 72000,
+      conveyance: 19200,
+      medicalAllowance: 15000,
+      specialAllowance: 73800,
+      otherAllowance: 0,
+      pfEmployee: 21600,
+      pfEmployer: 21600,
+      esiEmployee: 0,
+      esiEmployer: 0,
+      professionalTax: 2400,
+      tds: 0,
+    },
 
-  // Pickers / modals
-  const [modal,    setModal]    = useState(null); // "department"|"designation"|"branch"|"workMode"
-  const [addingNew, setAddingNew] = useState(null);
+    bankDetails: {
+      bankName: "",
+      accountNumber: "",
+      ifscCode: "",
+      accountType: "savings",
+    },
+    aadhaarNumber: "",
+    panNumber: "",
+    documents: [],
+    assignedModules: authCompanyModules || [
+      "tasks", "leads", "attendance", "leave", "payroll", "projects", "reports"
+    ],
+  });
 
-  // Form state
-  const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState("");
+  // Effective subscribed modules
+  const subscribedModules = useMemo(() => {
+    if (Array.isArray(planSubscribedModules) && planSubscribedModules.length > 0) {
+      return planSubscribedModules.map((m) => String(m).toLowerCase().trim());
+    }
+    if (Array.isArray(authCompanyModules) && authCompanyModules.length > 0) {
+      return authCompanyModules;
+    }
+    return ["tasks", "leads", "attendance", "leave", "payroll", "projects", "reports"];
+  }, [planSubscribedModules, authCompanyModules]);
 
-  useEffect(() => { loadRefs(); }, []);
+  // Load all reference data on mount
+  useEffect(() => {
+    loadAllReferences();
+  }, []);
 
-  const loadRefs = async () => {
+  const loadAllReferences = async () => {
     setRefsLoading(true);
     try {
-      const [d, des, b] = await Promise.all([getDepartmentsApi(), getDesignationsApi(), getBranchesApi()]);
-      
-      let fetchedDepts = d.data.departments || [];
-      if (user?.role === "Manager") {
-        const primaryDeptId = user.departmentId?._id || user.departmentId;
-        const allowedDeptIds = (user.accessibleDepartments || []).map(dept => dept._id || dept);
-        
-        const managerDeptIds = [];
-        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
-        allowedDeptIds.forEach(id => {
-          if (id) managerDeptIds.push(id.toString());
-        });
+      const [deptRes, desigRes, branchRes, empRes, usageRes] = await Promise.allSettled([
+        getDepartmentsApi(),
+        getDesignationsApi(),
+        getBranchesApi(),
+        getEmployeesApi({ limit: 1000 }),
+        getModuleUsageApi(),
+      ]);
 
-        fetchedDepts = fetchedDepts.filter(dept => managerDeptIds.includes((dept._id || dept).toString()));
+      if (deptRes.status === "fulfilled" && deptRes.value?.data?.departments) {
+        setDepartments(deptRes.value.data.departments);
       }
-
-      setDepartments(fetchedDepts);
-      setDesignations(des.data.designations || []);
-      setBranches(b.data.branches       || []);
-    } catch { setError("Failed to load reference data"); }
-    finally { setRefsLoading(false); }
-  };
-
-  const filteredDesignations = departmentIds.length > 0
-    ? designations.filter((d) => {
-        const dId = d.departmentId?._id || d.departmentId;
-        return departmentIds.includes(dId);
-      })
-    : designations;
-
-  const handleNewItemSaved = (item, type) => {
-    if (!item) return;
-    const itemId = item._id || item.id;
-    if (type === "department") {
-      setDepartments((p) => [...p.filter(d => (d._id || d.id) !== itemId), item]);
-      setDepartmentId(itemId);
-      setDepartmentName(item.name);
-      setDepartmentIds((p) => [...p.filter(id => id !== itemId), itemId]);
-      setDepartmentNames((p) => [...p.filter(n => n !== item.name), item.name]);
-      setDesignationId("");
-      setDesignationName("");
-    } else if (type === "designation") {
-      setDesignations((p) => [...p.filter(d => (d._id || d.id) !== itemId), item]);
-      setDesignationId(itemId);
-      setDesignationName(item.name);
-      if (item.departmentId) {
-        const dId = item.departmentId._id || item.departmentId.id || item.departmentId;
-        const dObj = departments.find((d) => (d._id || d.id) === dId);
-        if (dObj) {
-          setDepartmentId(dObj._id || dObj.id);
-          setDepartmentName(dObj.name);
-          setDepartmentIds((p) => (p.includes(dObj._id || dObj.id) ? p : [...p, dObj._id || dObj.id]));
-          setDepartmentNames((p) => (p.includes(dObj.name) ? p : [...p, dObj.name]));
+      if (desigRes.status === "fulfilled" && desigRes.value?.data?.designations) {
+        setDesignations(desigRes.value.data.designations);
+      }
+      if (branchRes.status === "fulfilled" && branchRes.value?.data?.branches) {
+        setBranches(branchRes.value.data.branches);
+      }
+      if (empRes.status === "fulfilled" && empRes.value?.data?.employees) {
+        setManagers(empRes.value.data.employees);
+      }
+      if (usageRes.status === "fulfilled" && usageRes.value?.data) {
+        const d = usageRes.value.data;
+        if (d.usage) setModuleUsage(d.usage);
+        if (Array.isArray(d.subscribedModules) && d.subscribedModules.length > 0) {
+          setPlanSubscribedModules(d.subscribedModules);
+          // Default assigned modules to subscribed modules
+          setFormData((prev) => ({
+            ...prev,
+            assignedModules: d.subscribedModules.map((m) => String(m).toLowerCase().trim()),
+          }));
         }
       }
-    } else if (type === "branch") {
-      setBranches((p) => [...p.filter(b => (b._id || b.id) !== itemId), item]);
-      setBranchId(itemId);
-      setBranchName(item.branchName || item.name);
+    } catch (err) {
+      console.error("Failed to load employee reference data:", err);
+    } finally {
+      setRefsLoading(false);
     }
-    setAddingNew(null);
-    setModal(null);
   };
 
-  // ── Computed salary totals ────────────────────────────────────
-  const n = (v) => parseFloat(v) || 0;
-  const grossSalary  = n(basicSalary) + n(hra) + n(ta) + n(otherAllow);
-  const totalDeduct  = n(pf) + n(tax) + n(otherDeduct);
-  const netSalary    = grossSalary - totalDeduct;
+  // Auto-calculate Indian Salary Split when CTC changes
+  const handleCtcChange = (annualCtc) => {
+    const ctc = Number(annualCtc) || 0;
+    const basic = Math.round(ctc * 0.5);
+    const hra = Math.round(basic * 0.4);
+    const conveyance = 19200;
+    const medical = 15000;
+    const pfEmp = Math.round(basic * 0.12);
+    const pfEmplr = Math.round(basic * 0.12);
+    const pt = 2400;
+    const special = Math.max(0, ctc - (basic + hra + conveyance + medical + pfEmplr));
 
-  // ── Validation per step ───────────────────────────────────────
-  const validateStep = (s) => {
-    if (s === 0) {
-      if (!firstName.trim())      return "First name is required";
-      if (!lastName.trim())       return "Last name is required";
-      if (!email.trim())          return "Email is required";
-      if (!/\S+@\S+\.\S+/.test(email)) return "Enter a valid email address";
-      if (!phone.trim())          return "Phone number is required";
-      if (!/^\d{10}$/.test(phone.trim())) return "Phone must be exactly 10 digits";
+    setFormData((prev) => ({
+      ...prev,
+      salaryDetails: {
+        ...prev.salaryDetails,
+        ctc,
+        basicSalary: basic,
+        hra,
+        conveyance,
+        medicalAllowance: medical,
+        specialAllowance: special,
+        pfEmployee: pfEmp,
+        pfEmployer: pfEmplr,
+        professionalTax: pt,
+      },
+    }));
+  };
+
+  // Instant per-field validation matching Web
+  const clearError = (field) => {
+    setFormErrors((prev) => {
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+  };
+
+  const validateField = (field, val) => {
+    let err = "";
+    const v = val !== undefined && val !== null ? String(val) : "";
+
+    if (field === "firstName") {
+      if (!v.trim()) err = "First name is required";
+      else if (v.trim().length < 2) err = "First name must be at least 2 characters";
+      else if (!/^[A-Za-z\s.'-]+$/.test(v.trim())) err = "Only letters allowed in first name";
+    } else if (field === "email") {
+      if (!v.trim()) err = "Email address is required";
+      else if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(v.trim())) {
+        err = "Enter a valid email address (e.g. name@company.com)";
+      }
+    } else if (field === "phone") {
+      const digits = v.replace(/\D/g, "");
+      if (!digits) err = "Mobile number is required";
+      else if (!/^[6-9]/.test(digits)) err = "Mobile number must start with 6, 7, 8, or 9";
+      else if (digits.length !== 10) err = `Mobile number must be 10 digits (${digits.length}/10)`;
+    } else if (field === "role") {
+      if (!v) err = "Please select a system role";
+    } else if (field === "emergencyPhone") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 10) err = `Emergency phone must be 10 digits (${digits.length}/10)`;
+      else if (digits && !/^[6-9]/.test(digits)) err = "Phone number must start with 6, 7, 8, or 9";
+    } else if (field === "pincode") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 6) err = "Pincode must be exactly 6 digits";
+    } else if (field === "panNumber") {
+      if (v.trim()) {
+        const pan = v.trim().toUpperCase();
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) err = "Invalid PAN format (e.g. ABCDE1234F)";
+      }
+    } else if (field === "aadhaarNumber") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && digits.length !== 12) err = `Aadhaar must be 12 digits (${digits.length}/12)`;
+    } else if (field === "ifscCode") {
+      if (v.trim()) {
+        const ifsc = v.trim().toUpperCase();
+        if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) err = "Invalid IFSC format (e.g. SBIN0001234)";
+      }
+    } else if (field === "accountNumber") {
+      const digits = v.replace(/\D/g, "");
+      if (digits && (digits.length < 9 || digits.length > 18)) err = "Account number must be 9-18 digits";
     }
-    if (s === 1) {
-      if (!joiningDate.trim())    return "Joining date is required";
-      if (!isValidDDMMYYYY(joiningDate)) return "Joining date format must be DD/MM/YYYY";
-      if (departmentIds.length === 0 && !departmentId) return "Please select at least one department";
+
+    setFormErrors((prev) => {
+      if (err) return { ...prev, [field]: err };
+      const copy = { ...prev };
+      delete copy[field];
+      return copy;
+    });
+
+    return err;
+  };
+
+  // Per-step validation
+  const validateStep = (step) => {
+    const errors = {};
+    if (step === 1) {
+      const fn = validateField("firstName", formData.firstName);
+      const em = validateField("email", formData.email);
+      const ph = validateField("phone", formData.phone);
+      if (fn) errors.firstName = fn;
+      if (em) errors.email = em;
+      if (ph) errors.phone = ph;
     }
-    if (s === 2) {
-      if (!basicSalary.trim())    return "Basic salary is required";
-      if (isNaN(parseFloat(basicSalary)) || parseFloat(basicSalary) <= 0) return "Basic salary must be a positive number";
+    if (step === 2) {
+      const rl = validateField("role", formData.role);
+      if (rl) errors.role = rl;
     }
-    return null;
+    if (step === 3) {
+      if (formData.emergencyContact?.phone) {
+        const ep = validateField("emergencyPhone", formData.emergencyContact.phone);
+        if (ep) errors.emergencyPhone = ep;
+      }
+      if (formData.address?.pincode) {
+        const pin = validateField("pincode", formData.address.pincode);
+        if (pin) errors.pincode = pin;
+      }
+    }
+    if (step === 5) {
+      if (formData.panNumber) {
+        const pan = validateField("panNumber", formData.panNumber);
+        if (pan) errors.panNumber = pan;
+      }
+      if (formData.aadhaarNumber) {
+        const aadh = validateField("aadhaarNumber", formData.aadhaarNumber);
+        if (aadh) errors.aadhaarNumber = aadh;
+      }
+      if (formData.bankDetails?.ifscCode) {
+        const ifsc = validateField("ifscCode", formData.bankDetails.ifscCode);
+        if (ifsc) errors.ifscCode = ifsc;
+      }
+      if (formData.bankDetails?.accountNumber) {
+        const acc = validateField("accountNumber", formData.bankDetails.accountNumber);
+        if (acc) errors.accountNumber = acc;
+      }
+    }
+    return errors;
   };
 
   const handleNext = () => {
-    const err = validateStep(step);
-    if (err) { setError(err); return; }
-    setError("");
-    setStep((s) => s + 1);
+    const errors = validateStep(activeStep);
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      Alert.alert("Required Fields", "Please correct the highlighted fields before proceeding.");
+      return;
+    }
+    setFormErrors({});
+    setActiveStep((s) => Math.min(s + 1, STEPS.length));
   };
 
-  const handleBack = () => { setError(""); setStep((s) => s - 1); };
+  const handleBack = () => {
+    setFormErrors({});
+    setActiveStep((s) => Math.max(s - 1, 1));
+  };
 
-  const handleSubmit = async () => {
-    const err = validateStep(step);
-    if (err) { setError(err); return; }
-    setError(""); setLoading(true);
+  // Quick Create Handlers
+  const handleQuickSubmit = async () => {
+    if (!quickForm.name.trim()) {
+      Alert.alert("Required", "Please enter a name");
+      return;
+    }
+    setQuickSaving(true);
     try {
-      const payload = {
-        firstName: firstName.trim(),
-        lastName:  lastName.trim(),
-        email:     email.trim(),
-        phone:     phone.trim(),
-        photo:     photo || "",
-        gender,
-        joiningDate:    parseDDMMYYYYToISO(joiningDate.trim()),
-        departmentId: departmentIds.length > 0 ? departmentIds[0] : departmentId,
-        departmentIds: departmentIds.length > 0 ? departmentIds : (departmentId ? [departmentId] : []),
-        designationId,
-        branchId,
-        employmentType,
-        workMode,
-        allowRemotePunch,
-        loginRole,
-        salary:        basicSalary ? parseFloat(basicSalary) : 0,
-        salaryDetails: {
-          basic:         n(basicSalary),
-          hra:           n(hra),
-          travelAllowance: n(ta),
-          otherAllowances: n(otherAllow),
-          grossSalary,
-          pf:            n(pf),
-          incomeTax:     n(tax),
-          otherDeductions: n(otherDeduct),
-          netSalary,
-        },
-        leaveBalance: {
-          casual: parseInt(casualLeaves) || 0,
-          sick: parseInt(sickLeaves) || 0,
-          annual: parseInt(annualLeaves) || 0,
-          unpaid: parseInt(unpaidLeaves) || 0,
-        },
-        address: "",
-        emergencyContactName: "",
-        emergencyContactPhone: "",
-        documents: { aadhaar: "", pan: "", offerLetter: "" },
-      };
-      const { data } = await createEmployeeApi(payload);
-      Alert.alert(
-        "✅ Employee Created!",
-        `Employee ID: ${data.employee?.employeeCode || "—"}\nName: ${data.employee?.firstName} ${data.employee?.lastName}\n\nLogin Credentials:\nEmail: ${data.login?.email}\nTemp Password: ${data.login?.temporaryPassword}\nRole: ${data.login?.role}\n\n⚠️ Ask employee to change password on first login.`,
-        [{ text: "Done", onPress: () => navigation.goBack() }]
-      );
+      if (quickModal === "dept") {
+        const res = await createDepartmentApi({
+          name: quickForm.name.trim(),
+          code: quickForm.code.trim() || quickForm.name.trim().slice(0, 3).toUpperCase(),
+        });
+        const created = res?.data?.department || res?.data?.data || res?.data;
+        if (created?._id) {
+          setDepartments((prev) => [...prev, created]);
+          setFormData((prev) => ({
+            ...prev,
+            accessibleDepartments: [...(prev.accessibleDepartments || []), created._id],
+            departmentId: prev.departmentId || created._id,
+          }));
+          Alert.alert("Success", "Department created and selected!");
+        }
+      } else if (quickModal === "desig") {
+        const res = await createDesignationApi({
+          name: quickForm.name.trim(),
+          departmentId: quickForm.departmentId || formData.accessibleDepartments?.[0] || undefined,
+        });
+        const created = res?.data?.designation || res?.data?.data || res?.data;
+        if (created?._id) {
+          setDesignations((prev) => [...prev, created]);
+          setFormData((prev) => ({ ...prev, designationId: created._id }));
+          Alert.alert("Success", "Designation created and selected!");
+        }
+      } else if (quickModal === "branch") {
+        const res = await createBranchApi({
+          branchName: quickForm.name.trim(),
+          city: quickForm.city.trim(),
+        });
+        const created = res?.data?.branch || res?.data?.data || res?.data;
+        if (created?._id) {
+          setBranches((prev) => [...prev, created]);
+          setFormData((prev) => ({ ...prev, branchId: created._id }));
+          Alert.alert("Success", "Branch created and selected!");
+        }
+      }
+      setQuickModal(null);
+      setQuickForm({ name: "", code: "", departmentId: "", city: "" });
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to create employee");
+      Alert.alert("Error", err.response?.data?.message || "Failed to create item");
     } finally {
-      setLoading(false);
+      setQuickSaving(false);
     }
   };
 
-  // ── Modal helpers ─────────────────────────────────────────────
-  const getModalTitle = () =>
-    ({ department: "Department", designation: "Designation", branch: "Branch", workMode: "Work Mode", loginRole: "Role" }[modal] || "Select");
-  const getModalData = () =>
-    modal === "department"  ? departments :
-    modal === "designation" ? filteredDesignations :
-    modal === "branch"      ? branches :
-    modal === "loginRole"   ? availableRoles :
-    modal === "workMode"    ? WORK_MODES : [];
-  const canAddNew = user?.role !== "Manager" && ["department", "designation", "branch"].includes(modal);
+  // Final Registration Handler
+  const handleFinalSubmit = async () => {
+    if (submitting) return;
 
-  // ── Render step content ───────────────────────────────────────
-  const renderStep = () => {
-    switch (step) {
-      // ── STEP 1: Personal ─────────────────────────────────────
-      case 0:
-        return (
-          <View>
-            <PhotoPickerField photo={photo} onPhotoChange={setPhoto} label="Profile Photo (Optional)" />
+    // Validate all critical steps
+    for (const s of [1, 2, 3, 5]) {
+      const errs = validateStep(s);
+      if (Object.keys(errs).length > 0) {
+        setFormErrors(errs);
+        setActiveStep(s);
+        Alert.alert("Validation Error", `Please fix the errors in Step ${s} before registering.`);
+        return;
+      }
+    }
 
-            <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 6 }}>
-                <Field label="First Name" required>
-                  <SInput placeholder="John" value={firstName} onChangeText={setFirstName} />
-                </Field>
-              </View>
-              <View style={{ flex: 1, marginLeft: 6 }}>
-                <Field label="Last Name" required>
-                  <SInput placeholder="Doe" value={lastName} onChangeText={setLastName} />
-                </Field>
-              </View>
-            </View>
-            <View style={styles.row}>
-              <View style={{ flex: 1, marginRight: 6 }}>
-                <Field label="Email Address" required>
-                  <SInput placeholder="john@company.com" value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" />
-                </Field>
-              </View>
-              <View style={{ flex: 1, marginLeft: 6 }}>
-                <Field label="Phone Number" required>
-                  <SInput placeholder="9876543210" value={phone} onChangeText={setPhone} keyboardType="phone-pad" maxLength={10} />
-                </Field>
-              </View>
-            </View>
+    setSubmitting(true);
+    try {
+      const sanitizeEmploymentType = (v) => {
+        if (!v) return "full-time";
+        return v.toLowerCase().replace(/_/g, "-");
+      };
 
-            <Field label="Gender">
-              <ChipGroup
-                options={[
-                  { value: "male",           label: "Male"         },
-                  { value: "female",         label: "Female"       },
-                  { value: "other",          label: "Other"        },
-                  { value: "prefer_not_say", label: "Prefer not to say" },
-                ]}
-                value={gender}
-                onChange={setGender}
-              />
-            </Field>
-          </View>
-        );
+      const payload = {
+        firstName: formData.firstName.trim(),
+        middleName: formData.middleName?.trim() || undefined,
+        lastName: formData.lastName?.trim() || "",
+        email: formData.email.trim().toLowerCase(),
+        phone: formData.phone?.trim() || "",
+        password: formData.password?.trim() || undefined,
+        photo: formData.photo || undefined,
+        gender: formData.gender,
+        dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
+        maritalStatus: formData.maritalStatus || undefined,
 
-      // ── STEP 2: Job ──────────────────────────────────────────
+        departmentId: formData.accessibleDepartments?.[0] || formData.departmentId || undefined,
+        accessibleDepartments: formData.accessibleDepartments || [],
+        designationId: formData.designationId || undefined,
+        branchId: formData.branchId || undefined,
+        reportingManagerId: formData.reportingManagerId || undefined,
+        role: formData.role || "Employee",
+        loginRole: formData.role || "Employee",
+        managerAccessLevel:
+          formData.role === "Manager" || formData.role === "HR" ? formData.managerAccessLevel : undefined,
+        employmentType: sanitizeEmploymentType(formData.employmentType),
+        workMode: formData.workMode || "office",
+        allowRemotePunch: Boolean(formData.allowRemotePunch),
+        isLocationTrackingEnabled: Boolean(formData.isLocationTrackingEnabled),
+        joiningDate: formData.joiningDate ? new Date(formData.joiningDate).toISOString() : undefined,
+        confirmationDate: formData.confirmationDate ? new Date(formData.confirmationDate).toISOString() : undefined,
+        noticePeriod: formData.noticePeriod || undefined,
+
+        address: formData.address,
+        permanentAddress: formData.permanentAddress,
+        emergencyContact: formData.emergencyContact,
+        salaryDetails: formData.salaryDetails || undefined,
+        bankDetails: formData.bankDetails || undefined,
+        aadhaarNumber: formData.aadhaarNumber?.trim() || undefined,
+        panNumber: formData.panNumber?.trim() || undefined,
+        documents: {},
+        assignedModules: (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)),
+      };
+
+      const { data } = await createEmployeeApi(payload);
+
+      Alert.alert(
+        "🎉 Employee Registered!",
+        `Employee Code: ${data?.employee?.employeeCode || "Created"}\nName: ${data?.employee?.firstName} ${data?.employee?.lastName || ""}\n\nLogin Credentials:\nEmail: ${data?.login?.email || formData.email}\nTemp Password: ${data?.login?.temporaryPassword || "Assigned"}\nRole: ${data?.login?.role || formData.role}\n\nThe employee can now log in using these credentials.`,
+        [{ text: "Done", onPress: () => navigation.goBack() }]
+      );
+    } catch (err) {
+      Alert.alert("Registration Failed", err.response?.data?.message || "Failed to create employee.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Helper names
+  const displayName = `${formData.firstName || "New"} ${formData.lastName || "Employee"}`.trim();
+  const selectedDeptName =
+    departments.find((d) => formData.accessibleDepartments?.includes(d._id))?.name || "General";
+  const selectedDesigName = designations.find((d) => d._id === formData.designationId)?.name || "Staff";
+
+  // ── Render Step Content ───────────────────────────────────────
+  const renderCurrentStep = () => {
+    switch (activeStep) {
+      // ═════════ STEP 1: Basic Info ═════════
       case 1:
         return (
-          <View>
-            <Field label="Joining Date" required>
-              <TouchableOpacity style={styles.datePicker} onPress={() => setDatePickerOpen(true)}>
-                <Ionicons name="calendar-outline" size={18} color={joiningDate ? C.primary : C.muted} style={{ marginRight: 8 }} />
-                <Text style={[styles.pickerText, !joiningDate && styles.pickerPh]}>
-                  {joiningDate || "DD/MM/YYYY"}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={C.muted} />
-              </TouchableOpacity>
-            </Field>
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="person" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Basic Information</Text>
+                <Text style={styles.stepPaneSubtitle}>Candidate personal identity & contact details</Text>
+              </View>
+            </View>
 
+            <PhotoPickerField
+              photo={formData.photo}
+              onPhotoChange={(uri) => setFormData((p) => ({ ...p, photo: uri }))}
+              label="Candidate Photo"
+            />
 
-            {/* ── Multi-Select Department ─────────────────────── */}
-            <Field label="Department" required>
-              <TouchableOpacity
-                style={styles.picker}
-                onPress={() => { setAddingNew(null); setModal("department"); }}
-                activeOpacity={0.75}
-              >
-                <Ionicons name="business-outline" size={16} color={departmentIds.length > 0 ? C.primary : C.muted} style={{ marginRight: 8 }} />
-                <Text style={[styles.pickerText, departmentIds.length === 0 && styles.pickerPh]} numberOfLines={1}>
-                  {departmentIds.length > 0 ? `${departmentIds.length} selected` : "Tap to select departments"}
-                </Text>
-                <Ionicons name="chevron-down" size={14} color={C.muted} />
-              </TouchableOpacity>
-              {departmentNames.length > 0 && (
-                <View style={styles.chipRow}>
-                  {departmentNames.map((name, idx) => (
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                First Name <Text style={styles.req}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, formErrors.firstName && styles.inputError]}
+                placeholder="Enter first name"
+                placeholderTextColor={THEME.textMuted}
+                value={formData.firstName}
+                onChangeText={(v) => {
+                  setFormData((p) => ({ ...p, firstName: v }));
+                  if (formErrors.firstName || v.trim().length >= 2) validateField("firstName", v);
+                }}
+              />
+              {formErrors.firstName && <Text style={styles.errorText}>{formErrors.firstName}</Text>}
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Middle Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Middle name"
+                  placeholderTextColor={THEME.textMuted}
+                  value={formData.middleName}
+                  onChangeText={(v) => setFormData((p) => ({ ...p, middleName: v }))}
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Last name"
+                  placeholderTextColor={THEME.textMuted}
+                  value={formData.lastName}
+                  onChangeText={(v) => setFormData((p) => ({ ...p, lastName: v }))}
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Email Address (Login ID) <Text style={styles.req}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, formErrors.email && styles.inputError]}
+                placeholder="name@company.com"
+                placeholderTextColor={THEME.textMuted}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={formData.email}
+                onChangeText={(v) => {
+                  const clean = v.trim();
+                  setFormData((p) => ({ ...p, email: clean }));
+                  if (formErrors.email || clean.includes("@")) validateField("email", clean);
+                }}
+              />
+              {formErrors.email && <Text style={styles.errorText}>{formErrors.email}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Mobile / WhatsApp Phone <Text style={styles.req}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textInput, formErrors.phone && styles.inputError]}
+                placeholder="10-digit mobile number"
+                placeholderTextColor={THEME.textMuted}
+                keyboardType="phone-pad"
+                maxLength={10}
+                value={formData.phone}
+                onChangeText={(v) => {
+                  const digits = v.replace(/\D/g, "").slice(0, 10);
+                  setFormData((p) => ({ ...p, phone: digits }));
+                  validateField("phone", digits);
+                }}
+              />
+              {formErrors.phone && <Text style={styles.errorText}>{formErrors.phone}</Text>}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Gender</Text>
+              <View style={styles.chipsRow}>
+                {GENDER_OPTIONS.map((g) => {
+                  const isSel = formData.gender === g.value;
+                  return (
                     <TouchableOpacity
-                      key={departmentIds[idx]}
-                      style={styles.selectedChip}
-                      onPress={() => {
-                        const newIds = departmentIds.filter((_, i) => i !== idx);
-                        const newNames = departmentNames.filter((_, i) => i !== idx);
-                        setDepartmentIds(newIds);
-                        setDepartmentNames(newNames);
-                        setDepartmentId(newIds[0] || "");
-                        setDepartmentName(newNames[0] || "");
-                      }}
+                      key={g.value}
+                      style={[styles.chipPill, isSel && styles.chipPillActive]}
+                      onPress={() => setFormData((p) => ({ ...p, gender: g.value }))}
+                      activeOpacity={0.8}
                     >
-                      <Text style={styles.selectedChipText}>{name}</Text>
-                      <Ionicons name="close-circle" size={14} color={C.primary} style={{ marginLeft: 4 }} />
+                      <Text style={[styles.chipPillText, isSel && styles.chipPillTextActive]}>{g.label}</Text>
                     </TouchableOpacity>
-                  ))}
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={{ flex: 1, marginRight: 6 }}>
+                <AppDatePicker
+                  label="Date of Birth"
+                  value={formData.dateOfBirth}
+                  onChangeText={(val) => setFormData((p) => ({ ...p, dateOfBirth: val }))}
+                  placeholder="DD/MM/YYYY"
+                  compact
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Marital Status</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("maritalStatus")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {MARITAL_OPTIONS.find((m) => m.value === formData.maritalStatus)?.label || "Select"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Custom Initial Password</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter password (optional)"
+                placeholderTextColor={THEME.textMuted}
+                value={formData.password}
+                onChangeText={(v) => setFormData((p) => ({ ...p, password: v }))}
+              />
+              <Text style={styles.helperText}>Default is employee's phone number or auto-generated secure code.</Text>
+            </View>
+          </View>
+        );
+
+      // ═════════ STEP 2: Job Details & Module Access ═════════
+      case 2:
+        return (
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="briefcase" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Job & Organizational Hierarchy</Text>
+                <Text style={styles.stepPaneSubtitle}>Role, branch, department & suite module licensing</Text>
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>
+                  System Role <Text style={styles.req}>*</Text>
+                </Text>
+                <TouchableOpacity
+                  style={[styles.dropdownBtn, formErrors.role && styles.inputError]}
+                  onPress={() => setActivePickerModal("role")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>{formData.role || "Select Role"}</Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+                {formErrors.role && <Text style={styles.errorText}>{formErrors.role}</Text>}
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={styles.label}>Branch Office</Text>
+                  <TouchableOpacity onPress={() => setQuickModal("branch")}>
+                    <Text style={styles.linkActionText}>+ New</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("branch")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                    {branches.find((b) => b._id === formData.branchId)?.branchName || "Select Branch"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Multi-Select Accessible Departments */}
+            <View style={styles.inputGroup}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                <Text style={styles.label}>Accessible Departments (Multi-Select)</Text>
+                <TouchableOpacity onPress={() => setQuickModal("dept")}>
+                  <Text style={styles.linkActionText}>+ New Dept</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.dropdownBtn}
+                onPress={() => setActivePickerModal("accessibleDepartments")}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                  {formData.accessibleDepartments?.length > 0
+                    ? `${formData.accessibleDepartments.length} Departments Selected`
+                    : "Select accessible departments..."}
+                </Text>
+                <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+              </TouchableOpacity>
+
+              {/* Selected Department Chips */}
+              {formData.accessibleDepartments?.length > 0 && (
+                <View style={styles.chipsRow}>
+                  {formData.accessibleDepartments.map((deptId) => {
+                    const dept = departments.find((d) => d._id === deptId);
+                    if (!dept) return null;
+                    return (
+                      <View key={deptId} style={styles.badgeChip}>
+                        <Text style={styles.badgeChipText}>{dept.name}</Text>
+                        <TouchableOpacity
+                          onPress={() => {
+                            const updated = formData.accessibleDepartments.filter((id) => id !== deptId);
+                            setFormData((p) => ({
+                              ...p,
+                              accessibleDepartments: updated,
+                              departmentId: updated[0] || "",
+                            }));
+                          }}
+                        >
+                          <Ionicons name="close-circle" size={14} color="#D97706" style={{ marginLeft: 4 }} />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
                 </View>
               )}
-            </Field>
+            </View>
 
-            <PickerRow
-              label="Role" required
-              display={availableRoles.find(r => r.value === loginRole)?.label || loginRole}
-              placeholder="Select role"
-              icon="people-outline"
-              onPress={() => { setAddingNew(null); setModal("loginRole"); }}
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={styles.label}>Designation</Text>
+                  <TouchableOpacity onPress={() => setQuickModal("desig")}>
+                    <Text style={styles.linkActionText}>+ New</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("designation")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                    {designations.find((d) => d._id === formData.designationId)?.name || "Select Designation"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Reporting Manager</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("manager")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText} numberOfLines={1}>
+                    {managers.find((m) => m._id === formData.reportingManagerId)
+                      ? `${managers.find((m) => m._id === formData.reportingManagerId).firstName} ${managers.find((m) => m._id === formData.reportingManagerId).lastName || ""}`
+                      : "Select Manager"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Employment Type</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("employmentType")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {EMPLOYMENT_TYPES.find((t) => t.value === formData.employmentType)?.label || "Full Time"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Work Mode</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("workMode")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {WORK_MODES.find((m) => m.value === formData.workMode)?.label || "On-Site"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <AppDatePicker
+              label="Joining Date"
+              value={formData.joiningDate}
+              onChangeText={(val) => setFormData((p) => ({ ...p, joiningDate: val }))}
+              placeholder="DD/MM/YYYY"
+              compact
             />
-            <PickerRow
-              label="Branch"
-              display={branchName}
-              placeholder="Select branch"
-              icon="location-outline"
-              onPress={() => { setAddingNew(null); setModal("branch"); }}
-            />
 
-            <Field label="Employment Type">
-              <ChipGroup options={EMPLOYMENT_TYPES} value={employmentType} onChange={setEmploymentType} />
-            </Field>
+            {/* ═════════ MODULE LICENSE & FEATURE ACCESS ═════════ */}
+            <View style={styles.moduleSectionCard}>
+              <View style={styles.moduleHeaderRow}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.moduleSectionTitle}>MODULE LICENSE & FEATURE ACCESS</Text>
+                  <Text style={styles.moduleSectionSub}>
+                    Select suite modules this employee can access according to company plan seat limits.
+                  </Text>
+                </View>
+                <View style={styles.modulePlanBadge}>
+                  <Text style={styles.modulePlanBadgeText}>Plan Enforced</Text>
+                </View>
+              </View>
 
-            <PickerRow
-              label="Work Mode"
-              display={labelFor(WORK_MODES, workMode)}
-              icon="laptop-outline"
-              onPress={() => setModal("workMode")}
-            />
+              <View style={styles.modulesGrid}>
+                {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).map((m) => {
+                  const usageInfo = moduleUsage[m.key];
+                  const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+                  const isChecked = (formData.assignedModules || []).includes(m.key);
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 10, marginTop: 10 }}>
+                  return (
+                    <TouchableOpacity
+                      key={m.key}
+                      style={[
+                        styles.moduleCard,
+                        isChecked && styles.moduleCardChecked,
+                        isFull && !isChecked && styles.moduleCardFull,
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={() => {
+                        if (isFull && !isChecked) {
+                          Alert.alert(
+                            "Plan Limit Reached",
+                            `The seat limit for "${m.label}" (${usageInfo?.limit || 0} seats) has been fully reached. Upgrade your plan to assign more employees.`
+                          );
+                          return;
+                        }
+                        setFormData((prev) => {
+                          const cur = prev.assignedModules || [];
+                          return {
+                            ...prev,
+                            assignedModules: isChecked ? cur.filter((x) => x !== m.key) : [...cur, m.key],
+                          };
+                        });
+                      }}
+                    >
+                      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+                        <View style={{ flex: 1, marginRight: 8 }}>
+                          <View style={{ flexDirection: "row", alignItems: "center" }}>
+                            <Ionicons
+                              name={m.icon || "cube-outline"}
+                              size={14}
+                              color={isChecked ? THEME.primaryDark : THEME.textSecondary}
+                              style={{ marginRight: 5 }}
+                            />
+                            <Text style={[styles.moduleCardTitle, isChecked && styles.moduleCardTitleActive]}>
+                              {m.label}
+                            </Text>
+                          </View>
+                          <Text style={styles.moduleCardDesc} numberOfLines={2}>
+                            {m.desc}
+                          </Text>
+                        </View>
+
+                        <View style={[styles.checkboxCircle, isChecked && styles.checkboxCircleActive]}>
+                          {isChecked && <Ionicons name="checkmark" size={12} color="#FFFFFF" />}
+                        </View>
+                      </View>
+
+                      {/* Seat Usage Indicator */}
+                      <View style={styles.moduleCardFooter}>
+                        {usageInfo?.isUnlimited ? (
+                          <Text style={{ color: THEME.success, fontSize: 10, fontFamily: FONTS.bodyBold }}>
+                            Unlimited ({usageInfo.used} used)
+                          </Text>
+                        ) : isFull && !isChecked ? (
+                          <Text style={{ color: THEME.danger, fontSize: 10, fontFamily: FONTS.bodyBold }}>
+                            Quota Full ({usageInfo?.limit} max)
+                          </Text>
+                        ) : (
+                          <Text style={{ color: THEME.primaryDark, fontSize: 10, fontFamily: FONTS.bodyMedium }}>
+                            {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used
+                          </Text>
+                        )}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+
+            {/* Remote Punch & Location Tracking Switches */}
+            <View style={styles.toggleRowCard}>
               <View style={{ flex: 1, paddingRight: 10 }}>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: C.text, marginBottom: 2 }}>Allow Remote Punch</Text>
-                <Text style={{ fontSize: 12, color: C.sub }}>Bypass office location restriction for field work.</Text>
+                <Text style={styles.toggleTitle}>Allow Remote GPS Punch</Text>
+                <Text style={styles.toggleSubtitle}>Allows marking attendance outside office geofence</Text>
               </View>
               <Switch
-                trackColor={{ false: "#cbd5e1", true: "#34d399" }}
-                thumbColor={allowRemotePunch ? "#10b981" : "#f1f5f9"}
-                ios_backgroundColor="#cbd5e1"
-                onValueChange={setAllowRemotePunch}
-                value={allowRemotePunch}
+                trackColor={{ false: "#CBD5E1", true: "#FDE68A" }}
+                thumbColor={formData.allowRemotePunch ? THEME.primary : "#F8FAFC"}
+                onValueChange={(val) => setFormData((p) => ({ ...p, allowRemotePunch: val }))}
+                value={formData.allowRemotePunch}
+              />
+            </View>
+
+            <View style={styles.toggleRowCard}>
+              <View style={{ flex: 1, paddingRight: 10 }}>
+                <Text style={styles.toggleTitle}>Live GPS Location Tracking (Field Staff)</Text>
+                <Text style={styles.toggleSubtitle}>
+                  Enable live travel route tracking on mobile punch-in. Keep OFF for office staff.
+                </Text>
+              </View>
+              <Switch
+                trackColor={{ false: "#CBD5E1", true: "#FDE68A" }}
+                thumbColor={formData.isLocationTrackingEnabled ? THEME.primary : "#F8FAFC"}
+                onValueChange={(val) => setFormData((p) => ({ ...p, isLocationTrackingEnabled: val }))}
+                value={formData.isLocationTrackingEnabled}
               />
             </View>
           </View>
         );
 
-      // ── STEP 3: Salary ───────────────────────────────────────
-      case 2:
-        return (
-          <View>
-            {/* Earnings */}
-            <View style={styles.salarySection}>
-              <View style={styles.salarySectionHeader}>
-                <Ionicons name="trending-up-outline" size={16} color={C.green} style={{ marginRight: 6 }} />
-                <Text style={styles.salarySectionTitle}>Earnings (Monthly)</Text>
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Field label="Basic Salary" required>
-                    <SInput placeholder="0.00" value={basicSalary} onChangeText={setBasicSalary} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-                <View style={{ flex: 1, marginLeft: 6 }}>
-                  <Field label="HRA">
-                    <SInput placeholder="0.00" value={hra} onChangeText={setHra} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Field label="Travel Allowance">
-                    <SInput placeholder="0.00" value={ta} onChangeText={setTa} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-                <View style={{ flex: 1, marginLeft: 6 }}>
-                  <Field label="Other Allowances">
-                    <SInput placeholder="0.00" value={otherAllow} onChangeText={setOtherAllow} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-              </View>
-            </View>
-
-            {/* Deductions */}
-            <View style={[styles.salarySection, { marginTop: 12 }]}>
-              <View style={styles.salarySectionHeader}>
-                <Ionicons name="trending-down-outline" size={16} color={C.red} style={{ marginRight: 6 }} />
-                <Text style={[styles.salarySectionTitle, { color: C.red }]}>Deductions (Monthly)</Text>
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Field label="PF">
-                    <SInput placeholder="0.00" value={pf} onChangeText={setPf} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-                <View style={{ flex: 1, marginLeft: 6 }}>
-                  <Field label="Income Tax">
-                    <SInput placeholder="0.00" value={tax} onChangeText={setTax} keyboardType="decimal-pad" />
-                  </Field>
-                </View>
-              </View>
-
-              <Field label="Other Deductions">
-                <SInput placeholder="0.00" value={otherDeduct} onChangeText={setOtherDeduct} keyboardType="decimal-pad" />
-              </Field>
-            </View>
-
-            {/* Summary */}
-            <View style={styles.salarySummary}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Gross Salary</Text>
-                <Text style={styles.summaryValue}>₹ {grossSalary.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Total Deductions</Text>
-                <Text style={[styles.summaryValue, { color: C.red }]}>- ₹ {totalDeduct.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Text>
-              </View>
-              <View style={[styles.summaryRow, styles.summaryNetRow]}>
-                <Text style={styles.summaryNetLabel}>Net Take-Home</Text>
-                <Text style={styles.summaryNetValue}>₹ {netSalary.toLocaleString("en-IN", { minimumFractionDigits: 2 })}</Text>
-              </View>
-            </View>
-
-            {/* Leave Balance */}
-            <View style={[styles.salarySection, { marginTop: 16 }]}>
-              <View style={styles.salarySectionHeader}>
-                <Ionicons name="calendar-outline" size={16} color={C.primary} style={{ marginRight: 6 }} />
-                <Text style={styles.salarySectionTitle}>Annual Leave Quotas</Text>
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Field label="Casual Leaves">
-                    <SInput placeholder="e.g. 0" value={casualLeaves} onChangeText={setCasualLeaves} keyboardType="numeric" />
-                  </Field>
-                </View>
-                <View style={{ flex: 1, marginLeft: 6 }}>
-                  <Field label="Sick Leaves">
-                    <SInput placeholder="e.g. 0" value={sickLeaves} onChangeText={setSickLeaves} keyboardType="numeric" />
-                  </Field>
-                </View>
-              </View>
-
-              <View style={styles.row}>
-                <View style={{ flex: 1, marginRight: 6 }}>
-                  <Field label="Annual Leaves">
-                    <SInput placeholder="e.g. 0" value={annualLeaves} onChangeText={setAnnualLeaves} keyboardType="numeric" />
-                  </Field>
-                </View>
-                <View style={{ flex: 1, marginLeft: 6 }}>
-                  <Field label="Unpaid Leaves">
-                    <SInput placeholder="e.g. 0" value={unpaidLeaves} onChangeText={setUnpaidLeaves} keyboardType="numeric" />
-                  </Field>
-                </View>
-              </View>
-            </View>
-          </View>
-        );
-
-      // ── STEP 4: Access ───────────────────────────────────────
+      // ═════════ STEP 3: Address & Emergency Contact ═════════
       case 3:
         return (
-          <View>
-            <View style={styles.accessInfo}>
-              <Ionicons name="information-circle-outline" size={18} color={C.primary} style={{ marginTop: 1, marginRight: 8 }} />
-              <Text style={styles.accessInfoText}>
-                A temporary password will be auto-generated and shared after account creation. Employee must change it on first login.
-              </Text>
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="location" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Address & Emergency Contact</Text>
+                <Text style={styles.stepPaneSubtitle}>Residential location and family emergency contacts</Text>
+              </View>
             </View>
 
-            {/* Review summary */}
-            <View style={styles.reviewCard}>
-              <Text style={styles.reviewTitle}>Review Summary</Text>
-              {[
-                ["Name",        `${firstName} ${lastName}`],
-                ["Email",       email],
-                ["Phone",       phone],
-                ["Role",        availableRoles.find(r => r.value === loginRole)?.label || loginRole],
-                ["Department",  departmentName],
-                ["Branch",      branchName],
-                ["Joining",     joiningDate],
-                ["Type",        labelFor(EMPLOYMENT_TYPES, employmentType)],
-                ["Net Salary",  `₹ ${netSalary.toLocaleString("en-IN", { minimumFractionDigits: 2 })}/mo`],
-              ].map(([k, v]) => (
-                <View key={k} style={styles.reviewRow}>
-                  <Text style={styles.reviewKey}>{k}</Text>
-                  <Text style={styles.reviewVal} numberOfLines={1}>{v || "—"}</Text>
-                </View>
-              ))}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Current Residential Street</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter street address"
+                placeholderTextColor={THEME.textMuted}
+                value={formData.address?.street}
+                onChangeText={(v) =>
+                  setFormData((p) => ({ ...p, address: { ...p.address, street: v } }))
+                }
+              />
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>City</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter city"
+                  placeholderTextColor={THEME.textMuted}
+                  value={formData.address?.city}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({ ...p, address: { ...p.address, city: v } }))
+                  }
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>State</Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter state"
+                  placeholderTextColor={THEME.textMuted}
+                  value={formData.address?.state}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({ ...p, address: { ...p.address, state: v } }))
+                  }
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Pincode</Text>
+              <TextInput
+                style={[styles.textInput, formErrors.pincode && styles.inputError]}
+                placeholder="6-digit pincode"
+                placeholderTextColor={THEME.textMuted}
+                keyboardType="numeric"
+                maxLength={6}
+                value={formData.address?.pincode}
+                onChangeText={(v) => {
+                  const digits = v.replace(/\D/g, "").slice(0, 6);
+                  setFormData((p) => ({ ...p, address: { ...p.address, pincode: digits } }));
+                  if (digits) validateField("pincode", digits);
+                  else clearError("pincode");
+                }}
+              />
+              {formErrors.pincode && <Text style={styles.errorText}>{formErrors.pincode}</Text>}
+            </View>
+
+            <View style={styles.subSectionDivider}>
+              <Text style={styles.subSectionTitle}>EMERGENCY CONTACT</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Contact Person Name</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter emergency contact person"
+                placeholderTextColor={THEME.textMuted}
+                value={formData.emergencyContact?.name}
+                onChangeText={(v) =>
+                  setFormData((p) => ({ ...p, emergencyContact: { ...p.emergencyContact, name: v } }))
+                }
+              />
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Relationship</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("relationship")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {EMERGENCY_RELATIONSHIPS.find((r) => r.value === formData.emergencyContact?.relationship)?.label ||
+                      "Parent"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Emergency Phone</Text>
+                <TextInput
+                  style={[styles.textInput, formErrors.emergencyPhone && styles.inputError]}
+                  placeholder="10-digit number"
+                  placeholderTextColor={THEME.textMuted}
+                  keyboardType="phone-pad"
+                  maxLength={10}
+                  value={formData.emergencyContact?.phone}
+                  onChangeText={(v) => {
+                    const digits = v.replace(/\D/g, "").slice(0, 10);
+                    setFormData((p) => ({
+                      ...p,
+                      emergencyContact: { ...p.emergencyContact, phone: digits },
+                    }));
+                    if (digits) validateField("emergencyPhone", digits);
+                    else clearError("emergencyPhone");
+                  }}
+                />
+                {formErrors.emergencyPhone && (
+                  <Text style={styles.errorText}>{formErrors.emergencyPhone}</Text>
+                )}
+              </View>
             </View>
           </View>
         );
 
-      default: return null;
+      // ═════════ STEP 4: Salary & Compensation ═════════
+      case 4:
+        return (
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="cash" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Salary Structure & Allowances</Text>
+                <Text style={styles.stepPaneSubtitle}>Standard Indian payroll breakup with auto CTC calculation</Text>
+              </View>
+            </View>
+
+            {/* CTC Auto Split Card */}
+            <View style={styles.ctcHighlightCard}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.ctcHighlightLabel}>ANNUAL COST TO COMPANY (CTC)</Text>
+                <Text style={styles.ctcHighlightAmount}>
+                  ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+                </Text>
+                <Text style={styles.ctcHighlightNote}>Auto-splits Basic, HRA, PF & Special Allowance</Text>
+              </View>
+              <View style={{ width: 130 }}>
+                <Text style={styles.label}>Set CTC (₹)</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono, fontWeight: "bold" }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.ctc || "")}
+                  onChangeText={handleCtcChange}
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Basic Salary (Annual)</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.basicSalary || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, basicSalary: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>House Rent Allowance (HRA)</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.hra || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, hra: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Special Allowance</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.specialAllowance || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, specialAllowance: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Provident Fund (Employee)</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.pfEmployee || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, pfEmployee: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Professional Tax (PT)</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.professionalTax || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, professionalTax: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>TDS / Tax Withholding</Text>
+                <TextInput
+                  style={[styles.textInput, { fontFamily: FONTS.mono }]}
+                  keyboardType="numeric"
+                  value={String(formData.salaryDetails?.tds || "")}
+                  onChangeText={(v) =>
+                    setFormData((p) => ({
+                      ...p,
+                      salaryDetails: { ...p.salaryDetails, tds: Number(v) || 0 },
+                    }))
+                  }
+                />
+              </View>
+            </View>
+          </View>
+        );
+
+      // ═════════ STEP 5: Bank & Identity Proofs ═════════
+      case 5:
+        return (
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="card" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Banking & Identity Proofs</Text>
+                <Text style={styles.stepPaneSubtitle}>Salary bank deposit and PAN/Aadhaar compliance</Text>
+              </View>
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>Aadhaar Card Number</Text>
+                <TextInput
+                  style={[styles.textInput, formErrors.aadhaarNumber && styles.inputError]}
+                  placeholder="12-digit Aadhaar"
+                  placeholderTextColor={THEME.textMuted}
+                  keyboardType="numeric"
+                  maxLength={12}
+                  value={formData.aadhaarNumber}
+                  onChangeText={(v) => {
+                    const digits = v.replace(/\D/g, "").slice(0, 12);
+                    setFormData((p) => ({ ...p, aadhaarNumber: digits }));
+                    if (digits) validateField("aadhaarNumber", digits);
+                    else clearError("aadhaarNumber");
+                  }}
+                />
+                {formErrors.aadhaarNumber && (
+                  <Text style={styles.errorText}>{formErrors.aadhaarNumber}</Text>
+                )}
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>PAN Number</Text>
+                <TextInput
+                  style={[styles.textInput, formErrors.panNumber && styles.inputError]}
+                  placeholder="ABCDE1234F"
+                  placeholderTextColor={THEME.textMuted}
+                  autoCapitalize="characters"
+                  maxLength={10}
+                  value={formData.panNumber}
+                  onChangeText={(v) => {
+                    const pan = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 10);
+                    setFormData((p) => ({ ...p, panNumber: pan }));
+                    if (pan) validateField("panNumber", pan);
+                    else clearError("panNumber");
+                  }}
+                />
+                {formErrors.panNumber && <Text style={styles.errorText}>{formErrors.panNumber}</Text>}
+              </View>
+            </View>
+
+            <View style={styles.subSectionDivider}>
+              <Text style={styles.subSectionTitle}>SALARY BANK ACCOUNT</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Bank Name</Text>
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter bank name (e.g. HDFC Bank)"
+                placeholderTextColor={THEME.textMuted}
+                value={formData.bankDetails?.bankName}
+                onChangeText={(v) =>
+                  setFormData((p) => ({
+                    ...p,
+                    bankDetails: { ...p.bankDetails, bankName: v },
+                  }))
+                }
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Bank Account Number</Text>
+              <TextInput
+                style={[styles.textInput, formErrors.accountNumber && styles.inputError]}
+                placeholder="Account number"
+                placeholderTextColor={THEME.textMuted}
+                keyboardType="numeric"
+                maxLength={18}
+                value={formData.bankDetails?.accountNumber}
+                onChangeText={(v) => {
+                  const digits = v.replace(/\D/g, "").slice(0, 18);
+                  setFormData((p) => ({
+                    ...p,
+                    bankDetails: { ...p.bankDetails, accountNumber: digits },
+                  }));
+                  if (digits) validateField("accountNumber", digits);
+                  else clearError("accountNumber");
+                }}
+              />
+              {formErrors.accountNumber && (
+                <Text style={styles.errorText}>{formErrors.accountNumber}</Text>
+              )}
+            </View>
+
+            <View style={styles.rowTwo}>
+              <View style={[styles.inputGroup, { flex: 1, marginRight: 6 }]}>
+                <Text style={styles.label}>IFSC Code</Text>
+                <TextInput
+                  style={[styles.textInput, formErrors.ifscCode && styles.inputError]}
+                  placeholder="SBIN0001234"
+                  placeholderTextColor={THEME.textMuted}
+                  autoCapitalize="characters"
+                  maxLength={11}
+                  value={formData.bankDetails?.ifscCode}
+                  onChangeText={(v) => {
+                    const ifsc = v.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 11);
+                    setFormData((p) => ({
+                      ...p,
+                      bankDetails: { ...p.bankDetails, ifscCode: ifsc },
+                    }));
+                    if (ifsc) validateField("ifscCode", ifsc);
+                    else clearError("ifscCode");
+                  }}
+                />
+                {formErrors.ifscCode && <Text style={styles.errorText}>{formErrors.ifscCode}</Text>}
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
+                <Text style={styles.label}>Account Type</Text>
+                <TouchableOpacity
+                  style={styles.dropdownBtn}
+                  onPress={() => setActivePickerModal("accountType")}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.dropdownBtnText}>
+                    {BANK_ACCOUNT_TYPES.find((t) => t.value === formData.bankDetails?.accountType)?.label ||
+                      "Savings"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        );
+
+      // ═════════ STEP 6: Document Vault ═════════
+      case 6:
+        return (
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="document-text" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Candidate Document Vault</Text>
+                <Text style={styles.stepPaneSubtitle}>Attach Aadhaar, PAN, Resume, Offer Letter or Certificates</Text>
+              </View>
+            </View>
+
+            <View style={styles.docUploadCard}>
+              <Ionicons name="cloud-upload-outline" size={32} color={THEME.primary} />
+              <Text style={styles.docUploadTitle}>Upload Candidate Verified Proofs</Text>
+              <Text style={styles.docUploadSub}>PDF, PNG, JPG files up to 5MB supported</Text>
+              <TouchableOpacity
+                style={styles.docChooseBtn}
+                activeOpacity={0.8}
+                onPress={() => {
+                  Alert.alert(
+                    "Attach Proof",
+                    "Choose document type to attach",
+                    [
+                      {
+                        text: "Resume / CV",
+                        onPress: () => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            documents: [
+                              ...(prev.documents || []),
+                              { title: "Resume_Candidate.pdf", type: "pdf", date: new Date().toLocaleDateString() },
+                            ],
+                          }));
+                        },
+                      },
+                      {
+                        text: "Aadhaar Card",
+                        onPress: () => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            documents: [
+                              ...(prev.documents || []),
+                              { title: "Aadhaar_Verified.pdf", type: "pdf", date: new Date().toLocaleDateString() },
+                            ],
+                          }));
+                        },
+                      },
+                      {
+                        text: "PAN Card",
+                        onPress: () => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            documents: [
+                              ...(prev.documents || []),
+                              { title: "PAN_Card.jpg", type: "image", date: new Date().toLocaleDateString() },
+                            ],
+                          }));
+                        },
+                      },
+                      { text: "Cancel", style: "cancel" },
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="add-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.docChooseBtnText}>Add Document Proof</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Attached Documents List */}
+            {formData.documents?.length === 0 ? (
+              <View style={styles.emptyBox}>
+                <Ionicons name="folder-outline" size={24} color={THEME.textMuted} />
+                <Text style={styles.emptyBoxText}>No document proofs attached yet (optional)</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8, marginTop: 10 }}>
+                {formData.documents.map((doc, idx) => (
+                  <View key={idx} style={styles.docItemRow}>
+                    <Ionicons
+                      name={doc.type === "pdf" ? "document-text" : "image"}
+                      size={18}
+                      color={THEME.primaryDark}
+                      style={{ marginRight: 8 }}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.docItemTitle} numberOfLines={1}>{doc.title}</Text>
+                      <Text style={styles.docItemDate}>{doc.date}</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          documents: prev.documents.filter((_, i) => i !== idx),
+                        }));
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Ionicons name="trash-outline" size={16} color={THEME.danger} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+          </View>
+        );
+
+      // ═════════ STEP 7: Review & Create ═════════
+      case 7:
+        return (
+          <View style={styles.stepPane}>
+            <View style={styles.stepPaneHeader}>
+              <View style={styles.stepPaneIconBox}>
+                <Ionicons name="checkmark-done-circle" size={16} color="#D97706" />
+              </View>
+              <View>
+                <Text style={styles.stepPaneTitle}>Final Review & Registration</Text>
+                <Text style={styles.stepPaneSubtitle}>Verify candidate details before creating account</Text>
+              </View>
+            </View>
+
+            <View style={styles.reviewCard}>
+              <View style={styles.reviewAvatarRow}>
+                <View style={styles.reviewAvatar}>
+                  <Text style={styles.reviewAvatarLetter}>
+                    {displayName.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={styles.reviewName}>{displayName}</Text>
+                  <Text style={styles.reviewSub}>{formData.email}</Text>
+                  <Text style={styles.reviewSub}>{formData.phone}</Text>
+                </View>
+                <View style={styles.roleTag}>
+                  <Text style={styles.roleTagText}>{formData.role}</Text>
+                </View>
+              </View>
+
+              <View style={styles.reviewGrid}>
+                <View style={styles.reviewGridItem}>
+                  <Text style={styles.reviewGridKey}>Department</Text>
+                  <Text style={styles.reviewGridVal}>{selectedDeptName}</Text>
+                </View>
+                <View style={styles.reviewGridItem}>
+                  <Text style={styles.reviewGridKey}>Designation</Text>
+                  <Text style={styles.reviewGridVal}>{selectedDesigName}</Text>
+                </View>
+                <View style={styles.reviewGridItem}>
+                  <Text style={styles.reviewGridKey}>Annual CTC</Text>
+                  <Text style={[styles.reviewGridVal, { color: THEME.success, fontWeight: "bold" }]}>
+                    ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+                  </Text>
+                </View>
+                <View style={styles.reviewGridItem}>
+                  <Text style={styles.reviewGridKey}>Work Mode</Text>
+                  <Text style={styles.reviewGridVal}>
+                    {WORK_MODES.find((m) => m.value === formData.workMode)?.label || "Office"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Assigned Module Licenses Chips */}
+            <View style={styles.reviewModulesCard}>
+              <Text style={styles.reviewModulesTitle}>
+                ASSIGNED MODULE LICENSES ({(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length})
+              </Text>
+              <View style={styles.chipsRow}>
+                {(formData.assignedModules || [])
+                  .filter((m) => subscribedModules.includes(m))
+                  .map((mKey) => {
+                    const mod = ALL_MODULES.find((x) => x.key === mKey);
+                    return (
+                      <View key={mKey} style={styles.moduleBadgePill}>
+                        <Ionicons name="checkmark-circle" size={12} color="#D97706" style={{ marginRight: 4 }} />
+                        <Text style={styles.moduleBadgeText}>{mod?.label || mKey}</Text>
+                      </View>
+                    );
+                  })}
+              </View>
+            </View>
+
+            <View style={styles.securityNoticeCard}>
+              <Ionicons name="shield-checkmark" size={16} color="#D97706" style={{ marginRight: 8 }} />
+              <Text style={styles.securityNoticeText}>
+                Credentials will be auto-generated and permissions instantly applied. The employee will be required to change password on first login.
+              </Text>
+            </View>
+          </View>
+        );
+
+      default:
+        return null;
     }
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: C.bg }}>
-      {/* ── Top Header ─────────────────────────────────────── */}
-      <View style={styles.topHeader}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color={C.text} />
+    <View style={styles.screen}>
+      {/* ── Top Header ── */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.headerBackBtn}
+          onPress={() => navigation.goBack()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Ionicons name="arrow-back" size={20} color={THEME.textPrimary} />
         </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.topTitle}>Add New Employee</Text>
-          <Text style={styles.topSub}>Step {step + 1} of {STEPS.length} — {STEPS[step].label}</Text>
+        <View style={{ flex: 1, marginLeft: 8 }}>
+          <Text style={styles.headerTitle}>Add New Employee</Text>
+          <Text style={styles.headerSubtitle}>
+            Step {activeStep} of {STEPS.length}: {STEPS[activeStep - 1]?.label}
+          </Text>
         </View>
       </View>
 
-      {/* ── Step Indicator ─────────────────────────────────── */}
-      <View style={styles.stepBar}>
-        <StepIndicator steps={STEPS} current={step} />
+      {/* ── Live Mini Candidate Header ── */}
+      <View style={styles.miniCandidateBar}>
+        <View style={styles.miniAvatar}>
+          <Text style={styles.miniAvatarText}>
+            {displayName.charAt(0).toUpperCase()}
+          </Text>
+        </View>
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <Text style={styles.miniName} numberOfLines={1}>{displayName}</Text>
+          <Text style={styles.miniMeta} numberOfLines={1}>
+            {selectedDesigName} • {selectedDeptName} • {formData.role}
+          </Text>
+        </View>
+        <View style={styles.miniCtcTag}>
+          <Text style={styles.miniCtcText}>
+            ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+          </Text>
+        </View>
       </View>
 
-      {/* ── Form Body ──────────────────────────────────────── */}
+      {/* ── 7-Step Horizontal Stepper ── */}
+      <View style={styles.stepperContainer}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.stepperScroll}
+        >
+          {STEPS.map((s) => {
+            const isActive = activeStep === s.id;
+            const isDone = activeStep > s.id;
+            return (
+              <TouchableOpacity
+                key={s.id}
+                style={[
+                  styles.stepTab,
+                  isActive && styles.stepTabActive,
+                  isDone && styles.stepTabDone,
+                ]}
+                onPress={() => {
+                  // Allow navigating back or to steps that are validated
+                  if (s.id <= activeStep) setActiveStep(s.id);
+                  else {
+                    const errs = validateStep(activeStep);
+                    if (Object.keys(errs).length === 0) setActiveStep(s.id);
+                    else Alert.alert("Required", "Complete current step before proceeding.");
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View
+                  style={[
+                    styles.stepNumberCircle,
+                    isActive && styles.stepNumberActive,
+                    isDone && styles.stepNumberDone,
+                  ]}
+                >
+                  {isDone ? (
+                    <Ionicons name="checkmark" size={11} color="#FFFFFF" />
+                  ) : (
+                    <Text style={[styles.stepNumberText, isActive && styles.stepNumberTextActive]}>
+                      {s.id}
+                    </Text>
+                  )}
+                </View>
+                <Text
+                  style={[
+                    styles.stepTabText,
+                    isActive && styles.stepTabTextActive,
+                    isDone && styles.stepTabTextDone,
+                  ]}
+                >
+                  {s.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* ── Form Body Scroll View ── */}
       <KeyboardAwareScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={styles.body}
+        contentContainerStyle={styles.bodyScrollContent}
         keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        enableOnAndroid={true}
-        extraScrollHeight={20}
+        enableOnAndroid
+        extraScrollHeight={80}
       >
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardIconBg}>
-              <Ionicons name={STEPS[step].icon} size={18} color={C.primary} />
-            </View>
-            <Text style={styles.cardTitle}>{STEPS[step].label} Information</Text>
-          </View>
-          {renderStep()}
-        </View>
-
-        {/* Error */}
-        {!!error && (
-          <View style={styles.errorBox}>
-            <Ionicons name="alert-circle-outline" size={16} color={C.red} style={{ marginRight: 6 }} />
-            <Text style={styles.errorText}>{error}</Text>
-          </View>
-        )}
-
-        {/* Navigation Buttons */}
-        <View style={styles.navRow}>
-          {step > 0 ? (
-            <TouchableOpacity style={styles.backBtnRow} onPress={handleBack}>
-              <Ionicons name="chevron-back" size={16} color={C.sub} style={{ marginRight: 4 }} />
-              <Text style={styles.backBtnText}>Back</Text>
-            </TouchableOpacity>
-          ) : <View style={{ flex: 1 }} />}
-
-          {step < STEPS.length - 1 ? (
-            <TouchableOpacity style={styles.nextBtn} onPress={handleNext} activeOpacity={0.85}>
-              <Text style={styles.nextBtnText}>Continue</Text>
-              <Ionicons name="chevron-forward" size={16} color="#fff" style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[styles.nextBtn, { backgroundColor: C.green, paddingHorizontal: 24 }]}
-              onPress={handleSubmit}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              {loading
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <>
-                    <Ionicons name="checkmark-circle-outline" size={16} color="#fff" style={{ marginRight: 6 }} />
-                    <Text style={styles.nextBtnText}>Create Employee</Text>
-                  </>
-              }
-            </TouchableOpacity>
-          )}
-        </View>
+        {renderCurrentStep()}
       </KeyboardAwareScrollView>
 
-      {/* ── Date Picker Modal ─────────────────────────── */}
-      <DatePickerModal
-        visible={datePickerOpen}
-        onClose={() => setDatePickerOpen(false)}
-        onSelect={(d) => setJoiningDate(d)}
-        initialDate={joiningDate}
-      />
+      {/* ── Bottom Action Footer ── */}
+      <View style={styles.bottomBar}>
+        {activeStep > 1 ? (
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={submitting}>
+            <Ionicons name="arrow-back" size={16} color={THEME.textSecondary} style={{ marginRight: 4 }} />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 80 }} />
+        )}
 
-      {/* ══════════════ PICKER BOTTOM SHEET ══════════════════ */}
-      <Modal visible={!!modal} transparent animationType="slide">
-        <View style={styles.sheetOverlay}>
-          <View style={styles.sheet}>
-            {/* Sheet header */}
-            <View style={styles.sheetHandle} />
-            <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>
-                {modal === "department"
-                  ? `Select Departments (${departmentIds.length} selected)`
-                  : canAddNew ? `Select ${getModalTitle()}` : getModalTitle()}
+        {activeStep < STEPS.length ? (
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext} activeOpacity={0.8}>
+            <Text style={styles.nextButtonText}>Next Step</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFFFFF" style={{ marginLeft: 4 }} />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[styles.registerButton, submitting && { opacity: 0.7 }]}
+            onPress={handleFinalSubmit}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.registerButtonText}>Register Employee</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* ═════════ SELECTION MODALS ═════════ */}
+      {/* 1. Generic Selection Modal */}
+      <Modal visible={!!activePickerModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {activePickerModal === "role" && "Select System Role"}
+                {activePickerModal === "branch" && "Select Branch Office"}
+                {activePickerModal === "designation" && "Select Job Designation"}
+                {activePickerModal === "manager" && "Select Reporting Manager"}
+                {activePickerModal === "employmentType" && "Select Employment Type"}
+                {activePickerModal === "workMode" && "Select Work Mode"}
+                {activePickerModal === "maritalStatus" && "Select Marital Status"}
+                {activePickerModal === "relationship" && "Select Relationship"}
+                {activePickerModal === "accountType" && "Select Account Type"}
+                {activePickerModal === "accessibleDepartments" && "Select Accessible Departments"}
               </Text>
-              <TouchableOpacity onPress={() => { setModal(null); setAddingNew(null); }}>
-                <Ionicons name="close" size={22} color={C.sub} />
+              <TouchableOpacity onPress={() => { setActivePickerModal(null); setSearchQuery(""); }}>
+                <Ionicons name="close-circle" size={22} color={THEME.textMuted} />
               </TouchableOpacity>
             </View>
 
-            {refsLoading && !addingNew && (
-              <View style={styles.sheetLoading}>
-                <ActivityIndicator color={C.primary} />
-                <Text style={styles.sheetLoadingText}>Loading…</Text>
-              </View>
+            {/* Department Multi-Select Items */}
+            {activePickerModal === "accessibleDepartments" && (
+              <FlatList
+                data={departments}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => {
+                  const isChecked = formData.accessibleDepartments?.includes(item._id);
+                  return (
+                    <TouchableOpacity
+                      style={[styles.modalListItem, isChecked && styles.modalListItemChecked]}
+                      onPress={() => {
+                        const cur = formData.accessibleDepartments || [];
+                        const next = isChecked ? cur.filter((id) => id !== item._id) : [...cur, item._id];
+                        setFormData((p) => ({
+                          ...p,
+                          accessibleDepartments: next,
+                          departmentId: next[0] || "",
+                        }));
+                      }}
+                    >
+                      <Text style={[styles.modalListText, isChecked && styles.modalListTextChecked]}>
+                        {item.name}
+                      </Text>
+                      <View style={[styles.checkboxSquare, isChecked && styles.checkboxSquareActive]}>
+                        {isChecked && <Ionicons name="checkmark" size={13} color="#FFFFFF" />}
+                      </View>
+                    </TouchableOpacity>
+                  );
+                }}
+                ListFooterComponent={
+                  <TouchableOpacity
+                    style={styles.modalDoneBtn}
+                    onPress={() => setActivePickerModal(null)}
+                  >
+                    <Text style={styles.modalDoneBtnText}>Done Selecting</Text>
+                  </TouchableOpacity>
+                }
+              />
             )}
 
-            {addingNew ? (
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ padding: 16 }}>
-                <AddNewForm
-                  type={addingNew}
-                  departments={departments}
-                  onSave={handleNewItemSaved}
-                  onCancel={() => setAddingNew(null)}
-                />
-              </ScrollView>
-            ) : (
-              <>
-                {canAddNew && (
-                  <TouchableOpacity style={styles.addNewBtn} onPress={() => setAddingNew(modal)}>
-                    <Ionicons name="add-circle-outline" size={18} color={C.primary} style={{ marginRight: 8 }} />
-                    <Text style={styles.addNewBtnText}>+ Add New {getModalTitle()}</Text>
+            {/* Role List */}
+            {activePickerModal === "role" && (
+              <FlatList
+                data={["Employee", "Manager", "HR"]}
+                keyExtractor={(item) => item}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.role === item && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, role: item }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.role === item && styles.modalListTextChecked]}>
+                      {item === "Employee" ? "Employee (Standard Staff)" : item === "Manager" ? "Manager (Team & Task Leader)" : "HR (Human Resources Manager)"}
+                    </Text>
+                    {formData.role === item && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
                   </TouchableOpacity>
                 )}
-                <FlatList
-                  data={getModalData()}
-                  keyExtractor={(item, i) => item._id || item.value || String(i)}
-                  renderItem={({ item }) => {
-                    const sel =
-                      (modal === "department"  && departmentIds.includes(item._id)) ||
-                      (modal === "designation" && item._id === designationId) ||
-                      (modal === "branch"      && item._id === branchId) ||
-                      (modal === "loginRole"   && item.value === loginRole) ||
-                      (modal === "workMode"    && item.value === workMode);
-                    return (
-                      <TouchableOpacity
-                        style={[styles.sheetItem, sel && styles.sheetItemActive]}
-                        onPress={() => {
-                          if (modal === "department") {
-                            // Multi-select: toggle
-                            if (departmentIds.includes(item._id)) {
-                              const newIds = departmentIds.filter(id => id !== item._id);
-                              const newNames = departmentNames.filter((_, i) => departmentIds[i] !== item._id);
-                              setDepartmentIds(newIds);
-                              setDepartmentNames(newNames);
-                              setDepartmentId(newIds[0] || "");
-                              setDepartmentName(newNames[0] || "");
-                            } else {
-                              const newIds = [...departmentIds, item._id];
-                              const newNames = [...departmentNames, item.name];
-                              setDepartmentIds(newIds);
-                              setDepartmentNames(newNames);
-                              setDepartmentId(newIds[0]);
-                              setDepartmentName(newNames[0]);
-                            }
-                            return; // keep modal open for multi-select
-                          } else if (modal === "designation") {
-                            setDesignationId(item._id); setDesignationName(item.name);
-                            if (!departmentId && item.departmentId) {
-                              const dId = item.departmentId._id || item.departmentId;
-                              const dObj = departments.find((d) => d._id === dId);
-                              if (dObj) { setDepartmentId(dObj._id); setDepartmentName(dObj.name); }
-                            }
-                          } else if (modal === "branch") {
-                            setBranchId(item._id); setBranchName(item.branchName);
-                          } else if (modal === "loginRole") {
-                            setLoginRole(item.value);
-                          } else if (modal === "workMode") {
-                            setWorkMode(item.value);
-                          }
-                          setModal(null);
-                        }}
-                      >
-                        <View style={{ flex: 1 }}>
-                          <Text style={[styles.sheetItemText, sel && styles.sheetItemTextActive]}>
-                            {item.label || item.name || item.branchName}
-                          </Text>
-                          {modal === "designation" && item.departmentId?.name && (
-                            <Text style={styles.sheetItemSub}>Dept: {item.departmentId.name}</Text>
-                          )}
-                          {modal === "branch" && (item.city || item.address) && (
-                            <Text style={styles.sheetItemSub}>{[item.city, item.address].filter(Boolean).join(" · ")}</Text>
-                          )}
-                        </View>
-                        {sel && <Ionicons name="checkmark-circle" size={18} color={C.primary} />}
-                      </TouchableOpacity>
-                    );
-                  }}
-                  ListEmptyComponent={
-                    !refsLoading && (
-                      <View style={styles.emptyBox}>
-                        <Ionicons name="folder-open-outline" size={42} color="#d1d5db" />
-                        <Text style={styles.emptyText}>
-                          {canAddNew ? `No ${modal}s yet. Tap "+ Add New" above.` : "No options available"}
-                        </Text>
-                      </View>
-                    )
-                  }
-                />
-                <TouchableOpacity style={styles.sheetCancel} onPress={() => { setModal(null); setAddingNew(null); }}>
-                  <Text style={styles.sheetCancelText}>Cancel</Text>
-                </TouchableOpacity>
-              </>
+              />
             )}
+
+            {/* Branch List */}
+            {activePickerModal === "branch" && (
+              <FlatList
+                data={branches}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.branchId === item._id && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, branchId: item._id }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.branchId === item._id && styles.modalListTextChecked]}>
+                      {item.branchName} ({item.city || "Headquarters"})
+                    </Text>
+                    {formData.branchId === item._id && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Designation List */}
+            {activePickerModal === "designation" && (
+              <FlatList
+                data={designations}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.designationId === item._id && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, designationId: item._id }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.designationId === item._id && styles.modalListTextChecked]}>
+                      {item.name}
+                    </Text>
+                    {formData.designationId === item._id && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Reporting Manager List */}
+            {activePickerModal === "manager" && (
+              <FlatList
+                data={managers}
+                keyExtractor={(item) => item._id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.reportingManagerId === item._id && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, reportingManagerId: item._id }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.reportingManagerId === item._id && styles.modalListTextChecked]}>
+                      {item.firstName} {item.lastName} ({item.employeeCode || "Staff"})
+                    </Text>
+                    {formData.reportingManagerId === item._id && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Employment Type List */}
+            {activePickerModal === "employmentType" && (
+              <FlatList
+                data={EMPLOYMENT_TYPES}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.employmentType === item.value && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, employmentType: item.value }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.employmentType === item.value && styles.modalListTextChecked]}>
+                      {item.label}
+                    </Text>
+                    {formData.employmentType === item.value && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Work Mode List */}
+            {activePickerModal === "workMode" && (
+              <FlatList
+                data={WORK_MODES}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.workMode === item.value && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, workMode: item.value }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.workMode === item.value && styles.modalListTextChecked]}>
+                      {item.label}
+                    </Text>
+                    {formData.workMode === item.value && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Marital Status List */}
+            {activePickerModal === "maritalStatus" && (
+              <FlatList
+                data={MARITAL_OPTIONS}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.maritalStatus === item.value && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({ ...p, maritalStatus: item.value }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.maritalStatus === item.value && styles.modalListTextChecked]}>
+                      {item.label}
+                    </Text>
+                    {formData.maritalStatus === item.value && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Emergency Relationship List */}
+            {activePickerModal === "relationship" && (
+              <FlatList
+                data={EMERGENCY_RELATIONSHIPS}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.emergencyContact?.relationship === item.value && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({
+                        ...p,
+                        emergencyContact: { ...p.emergencyContact, relationship: item.value },
+                      }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.emergencyContact?.relationship === item.value && styles.modalListTextChecked]}>
+                      {item.label}
+                    </Text>
+                    {formData.emergencyContact?.relationship === item.value && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+
+            {/* Account Type List */}
+            {activePickerModal === "accountType" && (
+              <FlatList
+                data={BANK_ACCOUNT_TYPES}
+                keyExtractor={(item) => item.value}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.modalListItem, formData.bankDetails?.accountType === item.value && styles.modalListItemChecked]}
+                    onPress={() => {
+                      setFormData((p) => ({
+                        ...p,
+                        bankDetails: { ...p.bankDetails, accountType: item.value },
+                      }));
+                      setActivePickerModal(null);
+                    }}
+                  >
+                    <Text style={[styles.modalListText, formData.bankDetails?.accountType === item.value && styles.modalListTextChecked]}>
+                      {item.label}
+                    </Text>
+                    {formData.bankDetails?.accountType === item.value && <Ionicons name="checkmark" size={16} color={THEME.primaryDark} />}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* 2. Quick Create Modal (Dept / Desig / Branch) */}
+      <Modal visible={!!quickModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {quickModal === "dept" && "Create New Department"}
+                {quickModal === "desig" && "Create New Designation"}
+                {quickModal === "branch" && "Create New Branch"}
+              </Text>
+              <TouchableOpacity onPress={() => setQuickModal(null)}>
+                <Ionicons name="close-circle" size={22} color={THEME.textMuted} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ padding: 16 }}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>
+                  {quickModal === "branch" ? "Branch Name *" : "Name *"}
+                </Text>
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter name"
+                  placeholderTextColor={THEME.textMuted}
+                  value={quickForm.name}
+                  onChangeText={(v) => setQuickForm((p) => ({ ...p, name: v }))}
+                />
+              </View>
+
+              {quickModal === "dept" && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Department Code (Optional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. ENG, HR, SLS"
+                    placeholderTextColor={THEME.textMuted}
+                    value={quickForm.code}
+                    onChangeText={(v) => setQuickForm((p) => ({ ...p, code: v }))}
+                  />
+                </View>
+              )}
+
+              {quickModal === "branch" && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>City (Optional)</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="e.g. Mumbai, Bangalore"
+                    placeholderTextColor={THEME.textMuted}
+                    value={quickForm.city}
+                    onChangeText={(v) => setQuickForm((p) => ({ ...p, city: v }))}
+                  />
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={[styles.saveActionBtn, quickSaving && { opacity: 0.7 }]}
+                onPress={handleQuickSubmit}
+                disabled={quickSaving}
+              >
+                {quickSaving ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+                    <Text style={styles.saveActionBtnText}>Save & Select</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -1003,322 +2139,773 @@ const AddEmployeeScreen = ({ navigation }) => {
   );
 };
 
-// ─── Styles ───────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// STYLES
+// ═══════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  // Header
-  topHeader: {
+  screen: {
+    flex: 1,
+    backgroundColor: THEME.bg,
+  },
+  header: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: C.card,
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 50 : 40,
+    paddingTop: Platform.OS === "ios" ? 48 : 16,
     paddingBottom: 12,
+    backgroundColor: THEME.card,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: THEME.border,
   },
-  backBtn:  { marginRight: 12, padding: 4 },
-  topTitle: { fontSize: 16, fontFamily: FONTS.displayBold, color: C.text },
-  topSub:   { fontSize: 11, color: C.muted, marginTop: 2, fontFamily: FONTS.body },
-
-  // Step bar
-  stepBar: {
-    backgroundColor: C.card,
+  headerBackBtn: {
+    padding: 6,
+    borderRadius: 8,
+    backgroundColor: THEME.cardSubtle,
+  },
+  headerTitle: {
+    fontSize: 16,
+    fontFamily: FONTS.displayBold,
+    color: THEME.textPrimary,
+  },
+  headerSubtitle: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.textSecondary,
+    marginTop: 1,
+  },
+  miniCandidateBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFBEB",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#FDE68A",
+  },
+  miniAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: "#F59E0B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  miniAvatarText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.displayBold,
+    fontSize: 15,
+  },
+  miniName: {
+    fontSize: 13,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  miniMeta: {
+    fontSize: 10.5,
+    fontFamily: FONTS.body,
+    color: "#92400E",
+    marginTop: 1,
+  },
+  miniCtcTag: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  miniCtcText: {
+    fontSize: 11,
+    fontFamily: FONTS.mono,
+    fontWeight: "bold",
+    color: "#B45309",
+  },
+  stepperContainer: {
+    backgroundColor: THEME.card,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.border,
+  },
+  stepperScroll: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  stepTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: THEME.cardSubtle,
+  },
+  stepTabActive: {
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  stepTabDone: {
+    backgroundColor: "#ECFDF5",
+  },
+  stepNumberCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: THEME.border,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 6,
+  },
+  stepNumberActive: {
+    backgroundColor: THEME.primary,
+  },
+  stepNumberDone: {
+    backgroundColor: THEME.success,
+  },
+  stepNumberText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textSecondary,
+  },
+  stepNumberTextActive: {
+    color: "#FFFFFF",
+  },
+  stepTabText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.textSecondary,
+  },
+  stepTabTextActive: {
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+  },
+  stepTabTextDone: {
+    color: "#065F46",
+  },
+  bodyScrollContent: {
+    padding: 16,
+    paddingBottom: 40,
+  },
+  stepPane: {
+    backgroundColor: THEME.card,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 16,
+  },
+  stepPaneHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.cardSubtle,
+    paddingBottom: 10,
+  },
+  stepPaneIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#FEF3C7",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  stepPaneTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.displayBold,
+    color: THEME.textPrimary,
+  },
+  stepPaneSubtitle: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    marginTop: 1,
+  },
+  inputGroup: {
+    marginBottom: 12,
+  },
+  label: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+    marginBottom: 5,
+  },
+  req: {
+    color: THEME.danger,
+    fontWeight: "bold",
+  },
+  textInput: {
+    height: 42,
+    backgroundColor: THEME.cardSubtle,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 12.5,
+    fontFamily: FONTS.body,
+    color: THEME.textPrimary,
+  },
+  inputError: {
+    borderColor: THEME.danger,
+    backgroundColor: "#FEF2F2",
+  },
+  errorText: {
+    color: THEME.danger,
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyMedium,
+    marginTop: 3,
+  },
+  helperText: {
+    color: THEME.textMuted,
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    marginTop: 3,
+  },
+  rowTwo: {
+    flexDirection: "row",
+  },
+  chipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 4,
+  },
+  chipPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: THEME.cardSubtle,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  chipPillActive: {
+    backgroundColor: "#FEF3C7",
+    borderColor: THEME.primary,
+  },
+  chipPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.textSecondary,
+  },
+  chipPillTextActive: {
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+  },
+  badgeChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  badgeChipText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+  },
+  dropdownBtn: {
+    height: 42,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: THEME.cardSubtle,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+  },
+  dropdownBtnText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.body,
+    color: THEME.textPrimary,
+    flex: 1,
+  },
+  linkActionText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#D97706",
+  },
+  moduleSectionCard: {
+    backgroundColor: "#FAFAFA",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 12,
+    marginVertical: 10,
+  },
+  moduleHeaderRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  moduleSectionTitle: {
+    fontSize: 11.5,
+    fontFamily: FONTS.displayBold,
+    color: THEME.textPrimary,
+  },
+  moduleSectionSub: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    marginTop: 2,
+  },
+  modulePlanBadge: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  modulePlanBadgeText: {
+    fontSize: 9.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#B45309",
+  },
+  modulesGrid: {
+    gap: 8,
+  },
+  moduleCard: {
+    backgroundColor: THEME.card,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 10,
+  },
+  moduleCardChecked: {
+    backgroundColor: "#FFFBEB",
+    borderColor: THEME.primary,
+  },
+  moduleCardFull: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+  },
+  moduleCardTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  moduleCardTitleActive: {
+    color: "#92400E",
+  },
+  moduleCardDesc: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+    marginTop: 2,
+  },
+  checkboxCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: THEME.border,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  checkboxCircleActive: {
+    backgroundColor: THEME.primary,
+    borderColor: THEME.primary,
+  },
+  moduleCardFooter: {
+    marginTop: 6,
+    paddingTop: 6,
+    borderTopWidth: 1,
+    borderTopColor: THEME.cardSubtle,
+  },
+  toggleRowCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: THEME.cardSubtle,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 12,
+    marginTop: 8,
+  },
+  toggleTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  toggleSubtitle: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    marginTop: 2,
+  },
+  subSectionDivider: {
+    borderTopWidth: 1,
+    borderTopColor: THEME.cardSubtle,
+    paddingTop: 12,
+    marginTop: 6,
+    marginBottom: 8,
+  },
+  subSectionTitle: {
+    fontSize: 11,
+    fontFamily: FONTS.displayBold,
+    color: THEME.textSecondary,
+    letterSpacing: 0.5,
+  },
+  ctcHighlightCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#FFFBEB",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    padding: 14,
+    marginBottom: 14,
+  },
+  ctcHighlightLabel: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+    letterSpacing: 0.5,
+  },
+  ctcHighlightAmount: {
+    fontSize: 18,
+    fontFamily: FONTS.mono,
+    fontWeight: "bold",
+    color: "#B45309",
+    marginVertical: 2,
+  },
+  ctcHighlightNote: {
+    fontSize: 9.5,
+    fontFamily: FONTS.body,
+    color: "#B45309",
+  },
+  docUploadCard: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: THEME.border,
+    borderRadius: 14,
+    backgroundColor: THEME.cardSubtle,
+    padding: 18,
+  },
+  docUploadTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+    marginTop: 8,
+  },
+  docUploadSub: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+    marginTop: 2,
+  },
+  docChooseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: THEME.primary,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  docChooseBtnText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+  },
+  emptyBox: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  emptyBoxText: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+    marginTop: 6,
+  },
+  docItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: THEME.cardSubtle,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 10,
+  },
+  docItemTitle: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  docItemDate: {
+    fontSize: 9.5,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+  },
+  reviewCard: {
+    backgroundColor: THEME.cardSubtle,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 14,
+    marginBottom: 12,
+  },
+  reviewAvatarRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 1,
+    borderBottomColor: THEME.border,
+    paddingBottom: 12,
+    marginBottom: 12,
+  },
+  reviewAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: THEME.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  reviewAvatarLetter: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.displayBold,
+    fontSize: 20,
+  },
+  reviewName: {
+    fontSize: 14,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  reviewSub: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    marginTop: 1,
+  },
+  roleTag: {
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+  },
+  roleTagText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#B45309",
+    textTransform: "uppercase",
+  },
+  reviewGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  reviewGridItem: {
+    width: "48%",
+    backgroundColor: THEME.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 8,
+  },
+  reviewGridKey: {
+    fontSize: 9.5,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textMuted,
+    textTransform: "uppercase",
+  },
+  reviewGridVal: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.textPrimary,
+    marginTop: 2,
+  },
+  reviewModulesCard: {
+    backgroundColor: "#FFFBEB",
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    padding: 12,
+    marginBottom: 12,
+  },
+  reviewModulesTitle: {
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+    marginBottom: 8,
+  },
+  moduleBadgePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  moduleBadgeText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#B45309",
+  },
+  securityNoticeCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: THEME.cardSubtle,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: THEME.border,
+    padding: 12,
+  },
+  securityNoticeText: {
+    flex: 1,
+    fontSize: 10.5,
+    fontFamily: FONTS.body,
+    color: THEME.textSecondary,
+    lineHeight: 15,
+  },
+  bottomBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: THEME.card,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: THEME.border,
+  },
+  backButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: THEME.border,
+  },
+  backButtonText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textSecondary,
+  },
+  nextButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: THEME.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 10,
+  },
+  nextButtonText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#FFFFFF",
+  },
+  registerButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#10B981",
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
+  },
+  registerButtonText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#FFFFFF",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalBox: {
+    backgroundColor: THEME.card,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: THEME.border,
   },
-  stepRow:  { flexDirection: "row", alignItems: "center" },
-  stepItem: { alignItems: "center", width: 60 },
-  stepDot: {
-    width: 28, height: 28, borderRadius: 14,
-    backgroundColor: C.border,
-    alignItems: "center", justifyContent: "center",
-    marginBottom: 4,
-  },
-  stepDotActive: { backgroundColor: C.primary },
-  stepDotDone:   { backgroundColor: C.green   },
-  stepNum:   { fontSize: 11, fontFamily: FONTS.bodyBold, color: C.muted },
-  stepLabel: { fontSize: 9.5, color: C.muted, fontFamily: FONTS.bodySemiBold, textAlign: "center" },
-  stepLabelActive: { color: C.primary },
-  stepLabelDone:   { color: C.green   },
-  stepLine: {
-    flex: 1, height: 2, backgroundColor: C.border, marginBottom: 18,
-  },
-  stepLineDone: { backgroundColor: C.green },
-
-  // Body
-  body: { padding: 16, paddingBottom: 40 },
-
-  // Card
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 18,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: C.border,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  cardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  cardIconBg: {
-    width: 36, height: 36, borderRadius: 10,
-    backgroundColor: C.pBg,
-    alignItems: "center", justifyContent: "center",
-    marginRight: 10,
-  },
-  cardTitle: { fontSize: 14, fontFamily: FONTS.displayBold, color: C.text },
-
-  // Fields
-  fieldWrap: { marginBottom: 14 },
-  fieldLabel: {
-    fontSize: 10, fontFamily: FONTS.bodyBold, color: C.sub,
-    letterSpacing: 0.4, marginBottom: 7, textTransform: "uppercase",
-  },
-  input: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
+  modalTitle: {
     fontSize: 14,
-    color: C.text,
+    fontFamily: FONTS.displayBold,
+    color: THEME.textPrimary,
+  },
+  modalListItem: {
     flexDirection: "row",
     alignItems: "center",
-  },
-  row: { flexDirection: "row" },
-
-  // Picker
-  picker: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-  pickerText: { flex: 1, fontSize: 14, color: C.text, fontFamily: FONTS.bodyMedium },
-  pickerPh:   { color: C.muted, fontFamily: FONTS.body },
-
-  // Date picker
-  datePicker: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#f8fafc",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: C.border,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-  },
-
-  // Chips
-  chipRow: { flexDirection: "row", flexWrap: "wrap" },
-  chip: {
-    paddingHorizontal: 13,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: "#f1f5f9",
-    borderWidth: 1,
-    borderColor: C.border,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  chipActive:    { backgroundColor: C.pBg, borderColor: C.pBorder },
-  chipText:      { fontSize: 12, fontFamily: FONTS.bodySemiBold, color: C.sub  },
-  // Selected department tags shown below picker
-  selectedChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.pBg,
-    borderWidth: 1,
-    borderColor: C.pBorder,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    marginRight: 6,
-    marginTop: 6,
-  },
-  selectedChipText: { fontSize: 12, fontFamily: FONTS.bodySemiBold, color: C.primary },
-  chipTextActive:{ color: C.primary },
-
-  // Salary
-  salarySection: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  salarySectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
-  salarySectionTitle:  { fontSize: 12, fontFamily: FONTS.bodyBold, color: C.green },
-  salarySummary: {
-    backgroundColor: C.card,
-    borderRadius: 12,
-    marginTop: 12,
-    borderWidth: 1.5,
-    borderColor: C.pBorder,
-    overflow: "hidden",
-  },
-  summaryRow: {
-    flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: C.border,
+    borderBottomColor: THEME.cardSubtle,
   },
-  summaryLabel: { fontSize: 13, color: C.sub,  fontFamily: FONTS.bodyMedium },
-  summaryValue: { fontSize: 13, color: C.text, fontFamily: FONTS.bodyBold },
-  summaryNetRow:   { backgroundColor: C.pBg, borderBottomWidth: 0 },
-  summaryNetLabel: { fontSize: 14, color: C.primary, fontFamily: FONTS.bodyBold },
-  summaryNetValue: { fontSize: 16, color: C.primary, fontFamily: FONTS.displayBold },
-
-  // Access
-  accessInfo: {
-    flexDirection: "row",
-    backgroundColor: C.pBg,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 18,
-    borderWidth: 1,
-    borderColor: C.pBorder,
+  modalListItemChecked: {
+    backgroundColor: "#FFFBEB",
   },
-  accessInfoText: { flex: 1, fontSize: 12, color: C.sub, fontFamily: FONTS.bodyMedium, lineHeight: 18 },
-
-  roleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 12,
+  modalListText: {
+    fontSize: 13,
+    fontFamily: FONTS.body,
+    color: THEME.textPrimary,
+  },
+  modalListTextChecked: {
+    fontFamily: FONTS.bodyBold,
+    color: "#92400E",
+  },
+  checkboxSquare: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
     borderWidth: 1.5,
-    borderColor: C.border,
-    backgroundColor: "#f8fafc",
-    marginBottom: 10,
+    borderColor: THEME.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  roleCardActive: { borderColor: C.pBorder, backgroundColor: C.pBg },
-  roleIcon:       { width: 40, height: 40, borderRadius: 20, backgroundColor: C.border, alignItems: "center", justifyContent: "center", marginRight: 12 },
-  roleIconActive: { backgroundColor: C.primary },
-  roleLabel:      { fontSize: 14, fontFamily: FONTS.bodyBold, color: C.text, marginBottom: 2 },
-  roleLabelActive:{ color: C.primary },
-  roleDesc:       { fontSize: 11, color: C.muted, fontFamily: FONTS.bodyMedium },
-
-  // Review
-  reviewCard: {
-    backgroundColor: "#f8fafc",
+  checkboxSquareActive: {
+    backgroundColor: THEME.primary,
+    borderColor: THEME.primary,
+  },
+  modalDoneBtn: {
+    backgroundColor: THEME.primary,
+    margin: 16,
+    paddingVertical: 12,
     borderRadius: 12,
-    padding: 14,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: C.border,
+    alignItems: "center",
   },
-  reviewTitle: { fontSize: 12, fontFamily: FONTS.bodyBold, color: C.sub, textTransform: "uppercase", letterSpacing: 0.4, marginBottom: 10 },
-  reviewRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: C.border },
-  reviewKey: { fontSize: 12, color: C.muted, fontFamily: FONTS.bodyMedium },
-  reviewVal: { fontSize: 12, color: C.text,  fontFamily: FONTS.bodyBold, maxWidth: "60%", textAlign: "right" },
-
-  // Error
-  errorBox: {
+  modalDoneBtnText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+    fontSize: 13,
+  },
+  saveActionBtn: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: C.redBg,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-  },
-  errorText: { flex: 1, fontSize: 13, color: C.red, fontFamily: FONTS.bodySemiBold },
-
-  // Nav buttons
-  navRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 20 },
-  backBtnRow: { flexDirection: "row", alignItems: "center", paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: C.border },
-  backBtnText:{ fontSize: 14, fontFamily: FONTS.bodyBold, color: C.sub },
-  nextBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: C.primary,
+    justifyContent: "center",
+    backgroundColor: THEME.primary,
+    paddingVertical: 12,
     borderRadius: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-    shadowColor: C.primary,
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    marginTop: 8,
   },
-  nextBtnText: { fontSize: 14, fontFamily: FONTS.bodyBold, color: "#fff" },
-
-  // Bottom Sheet
-  sheetOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" },
-  sheet: { backgroundColor: C.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "80%", paddingBottom: 20 },
-  sheetHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: C.border, alignSelf: "center", marginTop: 10, marginBottom: 6 },
-  sheetHeader: {
-    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+  saveActionBtnText: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+    fontSize: 13,
   },
-  sheetTitle: { fontSize: 15, fontFamily: FONTS.displayBold, color: C.text },
-  sheetLoading: { flexDirection: "row", alignItems: "center", padding: 16 },
-  sheetLoadingText: { marginLeft: 10, color: C.sub, fontSize: 14 },
-
-  addNewBtn: {
-    flexDirection: "row", alignItems: "center",
-    marginHorizontal: 16, marginVertical: 10,
-    padding: 12, borderRadius: 10,
-    borderWidth: 1.5, borderColor: C.pBorder,
-    borderStyle: "dashed", backgroundColor: C.pBg,
-  },
-  addNewBtnText: { fontSize: 14, fontFamily: FONTS.bodyBold, color: C.primary },
-
-  sheetItem: {
-    flexDirection: "row", alignItems: "center",
-    paddingVertical: 14, paddingHorizontal: 16,
-    borderBottomWidth: 1, borderBottomColor: C.border,
-  },
-  sheetItemActive: { backgroundColor: C.pBg },
-  sheetItemText:   { fontSize: 14, color: C.text,    fontFamily: FONTS.body },
-  sheetItemTextActive: { color: C.primary, fontFamily: FONTS.bodyBold },
-  sheetItemSub:    { fontSize: 11, color: C.muted,   marginTop: 2 },
-
-  emptyBox:  { alignItems: "center", padding: 32 },
-  emptyText: { marginTop: 10, fontSize: 13, color: C.muted, textAlign: "center" },
-
-  sheetCancel: { alignItems: "center", paddingVertical: 14, borderTopWidth: 1, borderTopColor: C.border, marginTop: 4 },
-  sheetCancelText: { fontSize: 14, color: C.sub, fontFamily: FONTS.bodySemiBold },
-
-  // Add New inline form
-  addForm: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  addFormHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
-  addFormTitle:  { fontSize: 14, fontFamily: FONTS.displayBold, color: C.text },
-  saveBtn: {
-    flexDirection: "row", alignItems: "center", justifyContent: "center",
-    backgroundColor: C.primary, borderRadius: 10,
-    paddingVertical: 11, marginTop: 4,
-  },
-  saveBtnText: { color: "#fff", fontFamily: FONTS.bodyBold, fontSize: 14 },
-
-  // Sub-modal (dept for designation)
-  subOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
-  subBox:     { backgroundColor: C.card, borderRadius: 16, width: "100%", maxHeight: 380, padding: 16, elevation: 8 },
-  subTitle:   { fontSize: 15, fontFamily: FONTS.displayBold, color: C.text, marginBottom: 10 },
-  subItem:    { paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: C.border },
-  subItemText:{ fontSize: 14, color: C.text, fontFamily: FONTS.body },
-  subCancel:  { marginTop: 10, alignItems: "center", paddingVertical: 10, borderTopWidth: 1, borderTopColor: C.border },
-  subCancelText: { fontSize: 14, color: C.sub, fontFamily: FONTS.bodySemiBold },
 });
 
 export default AddEmployeeScreen;

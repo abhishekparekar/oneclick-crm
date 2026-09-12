@@ -14,6 +14,7 @@ import EmployeeLayout from "../../components/EmployeeLayout";
 import AppCard from "../../components/AppCard";
 import { getEmployeeProjectTasksApi } from "../../api/projectService";
 import { updateTaskStatusApi } from "../../api/taskService";
+import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 
 const STATUS_OPTIONS = [
   { label: "Todo", value: "pending", color: "#64748b" },
@@ -130,7 +131,7 @@ const EmployeeProjectTasksScreen = ({ route, navigation }) => {
                         </Text>
                       </View>
                       <Text style={styles.dateText}>
-                        {task.endDateTime ? `Due: ${new Date(task.endDateTime).toLocaleDateString()}` : "No due date"}
+                        {task.endDateTime ? `Due: ${formatDateToDDMMYYYY(task.endDateTime)}` : "No due date"}
                       </Text>
                     </View>
 

@@ -10,10 +10,18 @@ import {
 } from '@react-native-firebase/messaging';
 import notifee, { AndroidImportance, EventType } from '@notifee/react-native';
 import { Platform, PermissionsAndroid } from 'react-native';
+import { Audio } from 'expo-av';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api, { getApiBaseUrl } from '../api/api';
 
 class NotificationService {
+  /**
+   * Play the custom notification bell chime in the foreground
+   */
+  static async playBellChime() {
+    // Custom bell chime disabled per user request: standard system notification sound used instead
+  }
+
   /**
    * Request permissions and initialize Notifee channels for Android
    */
@@ -49,39 +57,19 @@ class NotificationService {
           await notifee.requestPermission();
         } catch (_) {}
 
-        // Create high importance notification channel with custom chime sound
+        // Create high importance notification channel with standard system sound
         try {
           try {
+            await notifee.deleteChannel('oneclick_alerts_v6');
+            await notifee.deleteChannel('oneclick_alerts_v5');
             await notifee.deleteChannel('oneclick_alerts_v4');
+            await notifee.deleteChannel('notice11-sound');
           } catch (_) {}
 
           await notifee.createChannel({
-            id: 'oneclick_alerts_v5',
+            id: 'oneclick_alerts_default',
             name: 'HRMS Notifications & Alerts',
             importance: AndroidImportance.HIGH,
-            sound: 'notice11',
-            vibration: true,
-            vibrationPattern: [300, 500],
-            lights: true,
-            badge: true,
-          });
-
-          await notifee.createChannel({
-            id: 'oneclick_alerts_v4',
-            name: 'HRMS Notifications & Alerts (v4)',
-            importance: AndroidImportance.HIGH,
-            sound: 'notice11',
-            vibration: true,
-            vibrationPattern: [300, 500],
-            lights: true,
-            badge: true,
-          });
-
-          await notifee.createChannel({
-            id: 'notice11-sound',
-            name: 'HRMS Notifications (Legacy)',
-            importance: AndroidImportance.HIGH,
-            sound: 'notice11',
             vibration: true,
             vibrationPattern: [300, 500],
             lights: true,
@@ -151,6 +139,8 @@ class NotificationService {
     }
   }
 
+  static _recentDisplayIds = new Set();
+
   /**
    * Display a local notification using Notifee (typically used when app is in foreground)
    */
@@ -163,7 +153,14 @@ class NotificationService {
 
       const notifId = (data?.notificationId && String(data.notificationId).trim()) 
         ? String(data.notificationId).trim() 
-        : `hrms_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
+        : `hrms_${title.trim()}_${body.trim()}`;
+
+      if (this._recentDisplayIds.has(notifId)) {
+        console.log('[NotificationService] Skipping duplicate display for:', notifId);
+        return;
+      }
+      this._recentDisplayIds.add(notifId);
+      setTimeout(() => this._recentDisplayIds.delete(notifId), 6000);
 
       await notifee.displayNotification({
         id: notifId,
@@ -171,9 +168,8 @@ class NotificationService {
         body,
         data: data || {},
         android: {
-          channelId: 'oneclick_alerts_v5',
+          channelId: 'oneclick_alerts_default',
           importance: AndroidImportance.HIGH,
-          sound: 'notice11', // Distinctive HRMS sound chime
           smallIcon: 'ic_notification',
           color: '#1268D9',
           vibrationPattern: [300, 500],
@@ -182,7 +178,7 @@ class NotificationService {
           },
         },
         ios: {
-          sound: 'notice11.wav',
+          sound: 'default',
         },
       });
     }

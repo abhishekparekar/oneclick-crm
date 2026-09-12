@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, Dimensions } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
-const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
+const DatePickerModal = ({ visible, onClose, onSelect, onSelectDate, initialDate }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [selectedDay, setSelectedDay] = useState(null);
@@ -10,16 +10,25 @@ const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
 
   useEffect(() => {
     if (visible) {
-      let initialY = new Date().getFullYear() - 25; // default to 25 years ago for DOB
+      let initialY = new Date().getFullYear();
       let initialM = new Date().getMonth();
-      let initialD = null;
+      let initialD = new Date().getDate();
 
       if (initialDate) {
-        const parts = initialDate.split("/");
-        if (parts.length === 3) {
-          initialD = parseInt(parts[0], 10);
-          initialM = parseInt(parts[1], 10) - 1;
-          initialY = parseInt(parts[2], 10);
+        if (typeof initialDate === "string" && initialDate.includes("/")) {
+          const parts = initialDate.split("/");
+          if (parts.length === 3) {
+            initialD = parseInt(parts[0], 10);
+            initialM = parseInt(parts[1], 10) - 1;
+            initialY = parseInt(parts[2], 10);
+          }
+        } else {
+          const d = new Date(initialDate);
+          if (!isNaN(d.getTime())) {
+            initialD = d.getDate();
+            initialM = d.getMonth();
+            initialY = d.getFullYear();
+          }
         }
       }
 
@@ -86,7 +95,9 @@ const DatePickerModal = ({ visible, onClose, onSelect, initialDate }) => {
     setSelectedDay(day);
     const dayStr = String(day).padStart(2, "0");
     const monthStr = String(currentMonth + 1).padStart(2, "0");
-    onSelect(`${dayStr}/${monthStr}/${currentYear}`);
+    const formatted = `${dayStr}/${monthStr}/${currentYear}`;
+    if (typeof onSelect === "function") onSelect(formatted);
+    if (typeof onSelectDate === "function") onSelectDate(formatted);
     onClose();
   };
 

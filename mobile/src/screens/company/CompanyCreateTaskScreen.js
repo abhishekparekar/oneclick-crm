@@ -48,7 +48,7 @@ const combineDateAndTimeToISO = (dateStr, timeStr) => {
 };
 
 const CompanyCreateTaskScreen = ({ route, navigation }) => {
-  const { editingTask, isRecurring } = route.params || {};
+  const { editingTask, isRecurring } = route?.params || {};
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
@@ -67,9 +67,31 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const [assigneeIds, setAssigneeIds] = useState(initialAssigneeIds);
   const [selectedDeptId, setSelectedDeptId] = useState(editingTask?.departmentId?._id || editingTask?.departmentId || "");
 
-  const [startDate, setStartDate] = useState(editingTask?.startDate ? formatDateToDDMMYYYY(editingTask.startDate) : formatDateToDDMMYYYY(new Date()));
-  const [endDate, setEndDate] = useState(editingTask?.endDate ? formatDateToDDMMYYYY(editingTask.endDate) : formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
-  const [deadlineTime, setDeadlineTime] = useState(editingTask?.deadlineTime || "17:00");
+  const getNowTimeStr = () => {
+    const d = new Date();
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  };
+
+  const initialStartDate = editingTask?.startDateTime
+    ? formatDateToDDMMYYYY(editingTask.startDateTime)
+    : (editingTask?.startDate ? formatDateToDDMMYYYY(editingTask.startDate) : formatDateToDDMMYYYY(new Date()));
+
+  const initialStartTime = editingTask?.startDateTime
+    ? `${String(new Date(editingTask.startDateTime).getHours()).padStart(2, '0')}:${String(new Date(editingTask.startDateTime).getMinutes()).padStart(2, '0')}`
+    : (editingTask?.startTime || getNowTimeStr());
+
+  const initialEndDate = editingTask?.endDateTime
+    ? formatDateToDDMMYYYY(editingTask.endDateTime)
+    : (editingTask?.endDate ? formatDateToDDMMYYYY(editingTask.endDate) : formatDateToDDMMYYYY(new Date(Date.now() + 86400000 * 3)));
+
+  const initialEndTime = editingTask?.endDateTime
+    ? `${String(new Date(editingTask.endDateTime).getHours()).padStart(2, '0')}:${String(new Date(editingTask.endDateTime).getMinutes()).padStart(2, '0')}`
+    : (editingTask?.deadlineTime || "18:00");
+
+  const [startDate, setStartDate] = useState(initialStartDate);
+  const [startTime, setStartTime] = useState(initialStartTime);
+  const [endDate, setEndDate] = useState(initialEndDate);
+  const [deadlineTime, setDeadlineTime] = useState(initialEndTime);
   const [nextFollowUpDate, setNextFollowUpDate] = useState(editingTask?.nextFollowUpDate ? formatDateToDDMMYYYY(editingTask.nextFollowUpDate) : formatDateToDDMMYYYY(new Date()));
   const [nextFollowUpTime, setNextFollowUpTime] = useState(editingTask?.nextFollowUpDate ? `${String(new Date(editingTask.nextFollowUpDate).getHours()).padStart(2, '0')}:${String(new Date(editingTask.nextFollowUpDate).getMinutes()).padStart(2, '0')}` : "10:00");
 
@@ -116,20 +138,22 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           return { data: { employees: [] } };
         });
 
-        if (deptRes.data?.departments) {
-          setDepartments(deptRes.data.departments);
-          if (deptRes.data.departments.length === 1 && !selectedDeptId) {
-            setSelectedDeptId(deptRes.data.departments[0]._id);
+        const deptList = deptRes.data?.departments || (Array.isArray(deptRes.data) ? deptRes.data : []);
+        if (deptList && deptList.length > 0) {
+          setDepartments(deptList);
+          if (deptList.length === 1 && !selectedDeptId) {
+            setSelectedDeptId(deptList[0]._id);
           }
         }
-        if (empRes.data?.employees) {
-          setEmployees(empRes.data.employees);
-          if (!editingTask && empRes.data.employees.length > 0) {
-            setAssigneeIds([empRes.data.employees[0]._id]);
+        const empList = empRes.data?.employees || (Array.isArray(empRes.data) ? empRes.data : []);
+        if (empList && empList.length > 0) {
+          setEmployees(empList);
+          if (!editingTask && empList.length > 0) {
+            setAssigneeIds([empList[0]._id]);
           }
         }
       } catch (err) {
-        Alert.alert("Error", "Failed to load employees and departments.");
+        console.error("Failed to load employees and departments:", err);
       } finally {
         setLoading(false);
       }
@@ -146,15 +170,17 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
   const [modalDeptId, setModalDeptId] = useState("");
 
   const availableEmployees = React.useMemo(() => {
+    if (!Array.isArray(employees)) return [];
     return employees.filter(e => {
-      const matchName = `${e.firstName} ${e.lastName}`.toLowerCase().includes(empSearch.toLowerCase());
+      if (!e) return false;
+      const matchName = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase().includes((empSearch || "").toLowerCase());
       if (!modalDeptId) return matchName;
       if (e.role === "Manager") return matchName;
       
       const matchesDept = (dept) => {
         if (!dept) return false;
         const id = typeof dept === "object" ? dept._id : dept;
-        return id && modalDeptId && id.toString() === modalDeptId.toString();
+        return id && modalDeptId && String(id) === String(modalDeptId);
       };
       
       const matchDept = matchesDept(e.departmentId) || 
@@ -193,6 +219,8 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
 
       const startISO = startDate ? parseDDMMYYYYToISO(startDate) : null;
       const endISO = repeatEnabled ? startISO : (endDate ? parseDDMMYYYYToISO(endDate) : null);
+      const startDateTimeISO = startDate ? combineDateAndTimeToISO(startDate, startTime) : null;
+      const endDateTimeISO = repeatEnabled ? null : (endDate ? combineDateAndTimeToISO(endDate, deadlineTime) : null);
       const scheduleContext = await loadTaskScheduleContext(user?.role);
       const dateCheck = validateTaskDatesClient({
         startDateISO: startISO,
@@ -211,7 +239,10 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
         departmentId: selectedDeptId || null,
         assignedTo: finalAssignees,
         startDate: startISO,
+        startDateTime: startDateTimeISO,
         endDate: endISO,
+        endDateTime: endDateTimeISO,
+        startTime: startTime || null,
         deadlineTime: deadlineTime || null,
         nextFollowUpDate: repeatEnabled ? null : (nextFollowUpDate ? combineDateAndTimeToISO(nextFollowUpDate, nextFollowUpTime) : null),
         repeatEnabled,
@@ -616,48 +647,93 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
             </View>
           )}
 
-          <View style={styles.row}>
-            <View style={styles.half}>
-              <AppDatePicker
-                label={repeatEnabled ? "Start Generating" : "Start Date"}
-                value={startDate}
-                onChangeText={(val) => { setStartDate(val); setNextFollowUpDate(val); }}
-                compact
-              />
+          {/* Start Date & Time */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={styles.inputLabel}>Task Timeline</Text>
+            <View style={styles.row}>
+              <View style={[styles.half, { flex: 1.3 }]}>
+                <AppDatePicker
+                  value={startDate}
+                  onChangeText={(val) => {
+                    setStartDate(val);
+                    if (!editingTask) setNextFollowUpDate(val);
+                  }}
+                  compact
+                />
+              </View>
+              <View style={[styles.half, { flex: 1 }]}>
+                <AppTimePicker
+                  value={startTime}
+                  onChangeText={setStartTime}
+                />
+              </View>
             </View>
-            <View style={styles.half}>
+          </View>
+
+          {/* End Date & Time (or Daily Deadline for recurring) */}
+          <View style={{ marginBottom: 12 }}>
+            <Text style={styles.inputLabel}>{repeatEnabled ? "Daily Deadline" : "Deadline"}</Text>
+            <View style={styles.row}>
               {repeatEnabled ? (
-                <AppTimePicker label="Daily Deadline" value={deadlineTime} onChangeText={setDeadlineTime} />
+                <>
+                  <View style={[styles.half, { flex: 1.3 }]}>
+                    <AppDatePicker
+                      value={startDate}
+                      onChangeText={setStartDate}
+                      compact
+                    />
+                  </View>
+                  <View style={[styles.half, { flex: 1 }]}>
+                    <AppTimePicker
+                      value={deadlineTime}
+                      onChangeText={setDeadlineTime}
+                    />
+                  </View>
+                </>
               ) : (
-                <AppDatePicker label="End Date" value={endDate} onChangeText={setEndDate} compact />
+                <>
+                  <View style={[styles.half, { flex: 1.3 }]}>
+                    <AppDatePicker
+                      value={endDate}
+                      onChangeText={setEndDate}
+                      compact
+                    />
+                  </View>
+                  <View style={[styles.half, { flex: 1 }]}>
+                    <AppTimePicker
+                      value={deadlineTime}
+                      onChangeText={setDeadlineTime}
+                    />
+                  </View>
+                </>
               )}
             </View>
           </View>
 
           {!repeatEnabled && (
-            <View style={[styles.row, { marginTop: 10 }]}>
-              <View style={styles.half}>
-                <AppTimePicker label="Time Deadline" value={deadlineTime} onChangeText={setDeadlineTime} />
+            <View style={{ marginBottom: 12 }}>
+              <Text style={styles.inputLabel}>Next Follow-up</Text>
+              <View style={styles.row}>
+                <View style={[styles.half, { flex: 1.3 }]}>
+                  <AppDatePicker
+                    value={nextFollowUpDate}
+                    onChangeText={setNextFollowUpDate}
+                    compact
+                  />
+                </View>
+                <View style={[styles.half, { flex: 1 }]}>
+                  <AppTimePicker
+                    value={nextFollowUpTime}
+                    onChangeText={setNextFollowUpTime}
+                  />
+                </View>
               </View>
-              <View style={styles.half}>
-                <AppDatePicker label="Follow-up Date" value={nextFollowUpDate} onChangeText={setNextFollowUpDate} compact />
-              </View>
-            </View>
-          )}
-
-          {!repeatEnabled && (
-            <View style={[styles.row, { marginTop: 10 }]}>
-              <View style={styles.half}>
-                <AppTimePicker label="Follow-up Time" value={nextFollowUpTime} onChangeText={setNextFollowUpTime} />
-              </View>
-              <View style={styles.half} />
             </View>
           )}
 
           {repeatEnabled && (
-            <View style={{ marginTop: 14 }}>
+            <View style={{ marginTop: 6 }}>
               <AppDatePicker label="Stop Repeating On (Optional)" value={finishDate} onChangeText={setFinishDate} compact />
-              
               <View style={styles.recurringInfoBanner}>
                 <Ionicons name="information-circle-outline" size={18} color="#7C3AED" style={{ marginRight: 6 }} />
                 <Text style={styles.recurringInfoText}>
@@ -818,7 +894,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
 
             <ScrollView style={{ maxHeight: 300 }} showsVerticalScrollIndicator={false}>
               {departments
-                .filter(dept => dept.name.toLowerCase().includes(deptSearch.toLowerCase()))
+                .filter(dept => (dept?.name || "").toLowerCase().includes((deptSearch || "").toLowerCase()))
                 .map(dept => {
                   const isSelected = selectedDeptId === dept._id;
                   return (

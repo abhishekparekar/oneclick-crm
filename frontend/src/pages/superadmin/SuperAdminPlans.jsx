@@ -13,8 +13,9 @@ import {
 
 const MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects", 
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
 ];
+
 
 /* ─── Palette-Enforced Status Badge ────────────────────────────────────── */
 const PlanStatusBadge = ({ status }) => {
@@ -596,13 +597,35 @@ const SuperAdminPlans = () => {
                     <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default seats allocated.</p>
                   </div>
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Subscription Days</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Subscription Days</label>
+                      <span className="text-[10px] font-bold text-[#f59e0b]">
+                        {formData.trialDays} Days Duration {formData.trialDays >= 365 ? `(${Math.round(formData.trialDays / 365)} Yr)` : formData.trialDays >= 30 ? `(${Math.round(formData.trialDays / 30)} Mo)` : ""}
+                      </span>
+                    </div>
                     <input type="number" name="trialDays" required min="0" value={formData.trialDays} onChange={handleChange}
                       className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default validity / trial duration in days.</p>
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <span className="text-[9.5px] text-sa-text-secondary font-semibold">Quick Presets:</span>
+                      {[7, 14, 30, 90, 180, 365].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, trialDays: d }))}
+                          className={`px-2 py-0.5 rounded-md text-[9.5px] font-bold transition-all cursor-pointer border ${
+                            Number(formData.trialDays) === d
+                              ? "bg-[#f59e0b] text-black border-[#f59e0b]"
+                              : "bg-sa-bg text-sa-text-secondary border-sa-border hover:border-sa-text-secondary"
+                          }`}
+                        >
+                          {d === 365 ? "1 Year" : `${d}D`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
+
 
               {/* Section 4: Key Value Features */}
               <div className="space-y-2">

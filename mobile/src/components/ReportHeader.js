@@ -1,7 +1,15 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, StatusBar } from "react-native";
-import { Picker } from "@react-native-picker/picker";
-import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ActivityIndicator,
+  Modal,
+  ScrollView,
+  StatusBar,
+} from "react-native";
+import { Ionicons, Feather } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { FONTS } from "../theme/tokens";
@@ -24,139 +32,386 @@ const MONTHS = [
 
 const YEARS = ["", "2024", "2025", "2026", "2027"];
 
-const ReportHeader = ({ title, month, year, setMonth, setYear, onDownload, downloading }) => {
+const ReportHeader = ({
+  title,
+  month,
+  year,
+  setMonth,
+  setYear,
+  onDownload,
+  downloading = false,
+  onExportExcel,
+  exportingExcel = false,
+  extraFilters,
+}) => {
   const navigation = useNavigation();
   const insets = useSafeAreaInsets();
 
+  const [showMonthModal, setShowMonthModal] = useState(false);
+  const [showYearModal, setShowYearModal] = useState(false);
+
+  const selectedMonthLabel =
+    MONTHS.find((m) => String(m.value) === String(month))?.label || "Month";
+  const selectedYearLabel = year ? String(year) : "All Years";
+
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+    <View style={[styles.container, { paddingTop: insets.top + 6 }]}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+
+      {/* Top Bar: Back Button, Title, and Export Buttons */}
       <View style={styles.topRow}>
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          <TouchableOpacity onPress={() => { if (navigation.canGoBack()) navigation.goBack(); }} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={22} color="#0f172a" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{title}</Text>
-        </View>
-        <TouchableOpacity style={styles.downloadBtn} onPress={onDownload} disabled={downloading}>
-          {downloading ? (
-            <ActivityIndicator size="small" color="#fff" />
-          ) : (
-            <>
-              <Ionicons name="arrow-down-circle" size={16} color="#fff" style={{ marginRight: 6 }} />
-              <Text style={styles.downloadBtnText}>PDF</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.filterRow}>
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={month}
-            onValueChange={(itemValue) => setMonth(itemValue)}
-            style={styles.picker}
-            dropdownIconColor="#475569"
-            mode="dropdown"
+        <View style={styles.leftGroup}>
+          <TouchableOpacity
+            onPress={() => {
+              if (navigation.canGoBack()) navigation.goBack();
+            }}
+            style={styles.backBtn}
+            activeOpacity={0.7}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            {MONTHS.map((m) => (
-              <Picker.Item
-                key={m.label}
-                label={m.label}
-                value={m.value}
-                color="#0f172a"
-                style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }}
-              />
-            ))}
-          </Picker>
+            <Ionicons name="chevron-back" size={20} color="#0F172A" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle} numberOfLines={1}>
+            {title}
+          </Text>
         </View>
 
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={year}
-            onValueChange={(itemValue) => setYear(itemValue)}
-            style={styles.picker}
-            dropdownIconColor="#475569"
-            mode="dropdown"
-          >
-            <Picker.Item label="All Years" value="" color="#0f172a" style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
-            {YEARS.filter(Boolean).map((y) => (
-              <Picker.Item key={y} label={y} value={y} color="#0f172a" style={{ fontSize: 13, fontFamily: FONTS.bodyMedium }} />
-            ))}
-          </Picker>
+        <View style={styles.actionGroup}>
+          {onExportExcel && (
+            <TouchableOpacity
+              style={[
+                styles.excelBtn,
+                exportingExcel && { opacity: 0.6 },
+              ]}
+              onPress={onExportExcel}
+              disabled={exportingExcel || downloading}
+              activeOpacity={0.8}
+            >
+              {exportingExcel ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="document-text" size={13} color="#FFFFFF" />
+                  <Text style={styles.btnLabel}>Excel</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {onDownload && (
+            <TouchableOpacity
+              style={[
+                styles.pdfBtn,
+                downloading && { opacity: 0.6 },
+              ]}
+              onPress={onDownload}
+              disabled={downloading || exportingExcel}
+              activeOpacity={0.8}
+            >
+              {downloading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="arrow-down-circle" size={13} color="#FFFFFF" />
+                  <Text style={styles.btnLabel}>PDF</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       </View>
+
+      {/* Compact Filters Row */}
+      <View style={styles.filterRow}>
+        <TouchableOpacity
+          style={styles.pillDropdown}
+          onPress={() => setShowMonthModal(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="calendar-outline" size={13} color="#64748B" />
+          <Text style={styles.pillText} numberOfLines={1}>
+            {selectedMonthLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color="#94A3B8" />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.pillDropdown}
+          onPress={() => setShowYearModal(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="time-outline" size={13} color="#64748B" />
+          <Text style={styles.pillText} numberOfLines={1}>
+            {selectedYearLabel}
+          </Text>
+          <Ionicons name="chevron-down" size={12} color="#94A3B8" />
+        </TouchableOpacity>
+      </View>
+
+      {extraFilters && <View style={styles.extraFilterRow}>{extraFilters}</View>}
+
+      {/* Month Selector Modal */}
+      <Modal visible={showMonthModal} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowMonthModal(false)}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Month</Text>
+              <TouchableOpacity onPress={() => setShowMonthModal(false)}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 320 }}>
+              {MONTHS.map((m) => {
+                const isSelected = String(m.value) === String(month);
+                return (
+                  <TouchableOpacity
+                    key={m.label}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setMonth(m.value);
+                      setShowMonthModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextActive,
+                      ]}
+                    >
+                      {m.label}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={16} color="#0284C7" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Year Selector Modal */}
+      <Modal visible={showYearModal} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalBackdrop}
+          activeOpacity={1}
+          onPress={() => setShowYearModal(false)}
+        >
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Year</Text>
+              <TouchableOpacity onPress={() => setShowYearModal(false)}>
+                <Ionicons name="close" size={20} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={{ maxHeight: 260 }}>
+              {YEARS.map((y) => {
+                const isSelected = String(y) === String(year);
+                return (
+                  <TouchableOpacity
+                    key={y || "all"}
+                    style={[
+                      styles.modalOption,
+                      isSelected && styles.modalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setYear(y);
+                      setShowYearModal(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isSelected && styles.modalOptionTextActive,
+                      ]}
+                    >
+                      {y ? y : "All Years"}
+                    </Text>
+                    {isSelected && (
+                      <Ionicons name="checkmark" size={16} color="#0284C7" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: "#ffffff",
-    paddingHorizontal: 16,
-    paddingBottom: 14,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 12,
+    paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#e2e8f0",
+    borderBottomColor: "#F1F5F9",
+    elevation: 2,
+    shadowColor: "#0F172A",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   topRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 8,
   },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    backgroundColor: "#f1f5f9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-  },
-  title: {
-    fontSize: 17,
-    fontFamily: FONTS.displayBold,
-    color: "#0f172a",
-    fontWeight: "800",
-  },
-  downloadBtn: {
-    backgroundColor: "#2563eb",
+  leftGroup: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 8,
-    shadowColor: "#2563eb",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
+    flex: 1,
+    marginRight: 8,
   },
-  downloadBtnText: {
-    color: "#ffffff",
-    fontSize: 12,
+  backBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 8,
+  },
+  headerTitle: {
+    fontSize: 15,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+    fontWeight: "800",
+    flex: 1,
+  },
+  actionGroup: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  excelBtn: {
+    backgroundColor: "#10B981",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5.5,
+    borderRadius: 7,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  pdfBtn: {
+    backgroundColor: "#2563EB",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 5.5,
+    borderRadius: 7,
+    shadowColor: "#2563EB",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  btnLabel: {
+    color: "#FFFFFF",
+    fontSize: 11,
     fontFamily: FONTS.bodyBold,
     fontWeight: "700",
   },
   filterRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     gap: 8,
   },
-  pickerContainer: {
+  pillDropdown: {
     flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: "#cbd5e1",
-    borderRadius: 10,
-    backgroundColor: "#ffffff",
-    height: 46,
-    justifyContent: "center",
-    overflow: "hidden",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
   },
-  picker: {
+  pillText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyMedium,
+    color: "#1E293B",
+    flex: 1,
+    marginHorizontal: 6,
+  },
+  extraFilterRow: {
+    marginTop: 6,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalSheet: {
     width: "100%",
-    height: 46,
-    color: "#0f172a",
+    maxWidth: 320,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    marginBottom: 6,
+  },
+  modalTitle: {
+    fontSize: 13.5,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+    fontWeight: "700",
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    marginVertical: 1,
+  },
+  modalOptionActive: {
+    backgroundColor: "#F0F9FF",
+  },
+  modalOptionText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.body,
+    color: "#334155",
+  },
+  modalOptionTextActive: {
+    color: "#0284C7",
+    fontFamily: FONTS.bodyBold,
+    fontWeight: "700",
   },
 });
 

@@ -212,7 +212,7 @@ const SuperAdminUsers = () => {
   const resetPasswordMutation = useMutation({
     mutationFn: resetUserPasswordApi,
     onSuccess: (data) => {
-      alert(`Password reset successfully!\nEmail: ${data?.data?.email || 'User'}\nTemporary Password: ${data?.data?.temporaryPassword}\n\nPlease copy this securely and transmit to the user.`);
+      alert(`Password reset link sent!\nEmail: ${data?.data?.email || 'User'}\nA password reset link has been sent to their email.\nTemporary Password: ${data?.data?.temporaryPassword || 'N/A'}`);
     },
     onError: (err) => alert(err.response?.data?.message || "Failed to reset password")
   });

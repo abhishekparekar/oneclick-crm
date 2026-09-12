@@ -6,6 +6,8 @@ const {
   changePassword,
   logoutCheck,
   registerCompany,
+  forgotPassword,
+  resetPassword,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const {
@@ -19,6 +21,8 @@ const router = express.Router();
 router.post("/register-superadmin", registerSuperAdminRules, registerSuperAdmin);
 router.post("/register-company", registerCompanyRules, registerCompany);
 router.post("/login", loginRules, login);
+router.post("/forgot-password", forgotPassword);
+router.post("/reset-password/:token", resetPassword);
 router.get("/me", protect, getMe);
 router.post("/change-password", protect, changePassword);
 router.get("/logout-check", protect, logoutCheck);

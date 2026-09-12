@@ -470,18 +470,24 @@ const generateRecurringTasks = async () => {
 const checkTaskDeadlinesAndReminders = async () => {
   try {
     const now = new Date();
-    const { notifyTaskAll, sendNotificationToEmployees } = require("../utils/notificationHelper");
+    const nowTime = now.getTime();
+    const { notifyTaskAll } = require("../utils/notificationHelper");
 
-    // Fetch active incomplete tasks
+    // Fetch active incomplete or previously overdue tasks to strictly enforce complete date + time logic
     const activeTasks = await Task.find({
-      status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
-      endDateTime: { $ne: null }
+      status: { $in: ["pending", "re_pending", "in_process", "re_in_process", "overdue"] },
+      $or: [
+        { endDateTime: { $ne: null } },
+        { endDate: { $ne: null } }
+      ]
     });
 
     for (const task of activeTasks) {
-      const dueTime = new Date(task.endDateTime);
-      const diffMs = dueTime.getTime() - now.getTime();
-      const diffMinutes = Math.round(diffMs / 60000);
+      const rawDue = task.endDateTime || task.endDate;
+      const dueTime = new Date(rawDue);
+      if (isNaN(dueTime.getTime())) continue;
+
+      const dueTimestamp = dueTime.getTime();
       const timeStr = dueTime.toLocaleTimeString("en-IN", {
         hour: "2-digit",
         minute: "2-digit",
@@ -491,65 +497,77 @@ const checkTaskDeadlinesAndReminders = async () => {
 
       const currentStage = task.reminderStage || 0;
 
-      // ── Stage 1: 2-Hour Advance Notice (120 min >= diff > 30 min) ──
-      if (diffMinutes <= 120 && diffMinutes > 30 && currentStage < 1) {
-        task.reminderStage = 1;
-        task.lastReminderSentAt = now;
-        await task.save();
+      // ── Strict Overdue Evaluation based on complete Date + Time ──
+      // Once the selected End Date & Time has passed -> automatically mark the task as Overdue
+      if (nowTime >= dueTimestamp) {
+        if (task.status !== "overdue") {
+          task.status = "overdue";
+          task.reminderStage = 3;
+          task.lastReminderSentAt = now;
+          await task.save();
 
-        await notifyTaskAll(
-          task.companyId,
-          task.assignedTo || [],
-          task.departmentId || null,
-          "⏰ Task Due in 2 Hours",
-          `Task "${task.title}" is due at ${timeStr}. Please wrap up pending work.`,
-          "task",
-          { taskId: task._id.toString(), stage: 1 }
-        ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
-      }
+          await TaskActivity.create({
+            companyId: task.companyId,
+            taskId: task._id,
+            action: "overdue",
+            remarks: `Task automatically marked as overdue at ${timeStr}`,
+            performedBy: task.assignedBy
+          }).catch(() => {});
 
-      // ── Stage 2: 30-Minute Urgent Notice (30 min >= diff > 0 min) ──
-      else if (diffMinutes <= 30 && diffMinutes > 0 && currentStage < 2) {
-        task.reminderStage = 2;
-        task.lastReminderSentAt = now;
-        await task.save();
+          // Notify both assignees and supervisors (CompanyAdmin + Managers)
+          await notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            "🚨 Task Overdue Alert",
+            `Task "${task.title}" has crossed its deadline (${timeStr})! Immediate action or follow-up required.`,
+            "task",
+            { taskId: task._id.toString(), stage: 3 }
+          ).catch(e => console.error("[CRON] Stage 3 overdue error:", e));
+        }
+      } else {
+        // Before the selected End Date & Time -> task must NOT be marked Overdue
+        if (task.status === "overdue") {
+          task.status = task.isReopened ? "re_pending" : "pending";
+          task.reminderStage = 0;
+          await task.save();
+        }
 
-        await notifyTaskAll(
-          task.companyId,
-          task.assignedTo || [],
-          task.departmentId || null,
-          "⚠️ Urgent: Task Due in 30 Mins",
-          `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
-          "task",
-          { taskId: task._id.toString(), stage: 2 }
-        ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
-      }
+        const diffMs = dueTimestamp - nowTime;
+        const diffMinutes = Math.floor(diffMs / 60000);
 
-      // ── Stage 3: Deadline Crossed / Overdue Escalation (diff <= 0) ──
-      else if (diffMinutes <= 0 && currentStage < 3) {
-        task.status = "overdue";
-        task.reminderStage = 3;
-        task.lastReminderSentAt = now;
-        await task.save();
+        // ── Stage 1: 2-Hour Advance Notice (120 min >= diff > 30 min) ──
+        if (diffMinutes <= 120 && diffMinutes > 30 && currentStage < 1) {
+          task.reminderStage = 1;
+          task.lastReminderSentAt = now;
+          await task.save();
 
-        await TaskActivity.create({
-          companyId: task.companyId,
-          taskId: task._id,
-          action: "overdue",
-          remarks: `Task automatically marked as overdue at ${timeStr}`,
-          performedBy: task.assignedBy
-        }).catch(() => {});
+          await notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            "⏰ Task Due in 2 Hours",
+            `Task "${task.title}" is due at ${timeStr}. Please wrap up pending work.`,
+            "task",
+            { taskId: task._id.toString(), stage: 1 }
+          ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
+        }
+        // ── Stage 2: 30-Minute Urgent Notice (30 min >= diff > 0 min) ──
+        else if (diffMinutes <= 30 && diffMinutes > 0 && currentStage < 2) {
+          task.reminderStage = 2;
+          task.lastReminderSentAt = now;
+          await task.save();
 
-        // Notify both assignees and supervisors (CompanyAdmin + Managers)
-        await notifyTaskAll(
-          task.companyId,
-          task.assignedTo || [],
-          task.departmentId || null,
-          "🚨 Task Overdue Alert",
-          `Task "${task.title}" has crossed its deadline (${timeStr})! Immediate action or follow-up required.`,
-          "task",
-          { taskId: task._id.toString(), stage: 3 }
-        ).catch(e => console.error("[CRON] Stage 3 overdue error:", e));
+          await notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            "⚠️ Urgent: Task Due in 30 Mins",
+            `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
+            "task",
+            { taskId: task._id.toString(), stage: 2 }
+          ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
+        }
       }
     }
   } catch (error) {
@@ -604,5 +622,6 @@ module.exports = {
   sendMidDayTaskReminders,
   sendEveningTaskReminders,
   checkTaskDeadlinesAndReminders,
+  checkOverdueTasks: checkTaskDeadlinesAndReminders,
   processSingleTemplate
 };

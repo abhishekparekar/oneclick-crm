@@ -1,16 +1,28 @@
-import React, { useCallback, useState } from "react";
-import { View, Text, StyleSheet, ScrollView, RefreshControl, Dimensions } from "react-native";
+import React, { useCallback, useState, useMemo } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  RefreshControl,
+  TouchableOpacity,
+  TextInput,
+} from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
-import { PieChart } from "react-native-chart-kit";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
 import { getTaskSummaryApi } from "../../api/reportService";
+import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
 import { FONTS } from "../../theme/tokens";
 
-const { width } = Dimensions.get("window");
+const PRIORITY_COLORS = {
+  high: { bg: "#FEF2F2", text: "#DC2626" },
+  medium: { bg: "#FEF3C7", text: "#D97706" },
+  low: { bg: "#EFF6FF", text: "#2563EB" },
+};
 
 const TaskReportScreen = () => {
   const [summary, setSummary] = useState(null);
@@ -19,7 +31,11 @@ const TaskReportScreen = () => {
   const [error, setError] = useState("");
   const [month, setMonth] = useState("");
   const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+
   const [downloading, setDownloading] = useState(false);
+  const [exportingExcel, setExportingExcel] = useState(false);
 
   const loadSummary = async (refresh = false) => {
     try {
@@ -42,280 +58,453 @@ const TaskReportScreen = () => {
     }, [month, year])
   );
 
+  const filteredTasks = useMemo(() => {
+    const list = summary?.list || [];
+    return list.filter((t) => {
+      const s = search.toLowerCase();
+      const matchSearch = !s || (t.title || "").toLowerCase().includes(s);
+      const matchPriority =
+        priorityFilter === "all" || (t.priority || "").toLowerCase() === priorityFilter;
+      return matchSearch && matchPriority;
+    });
+  }, [summary, search, priorityFilter]);
+
+  // Excel Export
+  const handleExportExcel = async () => {
+    if (exportingExcel) return;
+    try {
+      setExportingExcel(true);
+      const fileName = `Task_Report_${month ? `Month_${month}` : "AllMonths"}_${year || "AllYears"}`;
+      const summaryRows = [
+        ["Report", "Company Task Summary Report"],
+        ["Period", `${month ? `Month ${month}` : "All Months"}, ${year || "All Years"}`],
+        ["Generated On", new Date().toLocaleString("en-IN")],
+        ["Total Tasks", summary?.totalTasks || 0],
+        ["On Time", summary?.onTimeTasks || summary?.onTime || 0],
+        ["Delayed", summary?.delayedTasks || summary?.delayed || 0],
+        ["Pending", summary?.pendingTasks || 0],
+        ["Overdue", summary?.overdueTasks || 0],
+      ];
+      const headers = ["#", "Task Title", "Status", "Priority", "Due Date", "Assignee"];
+      const rows = filteredTasks.map((t, idx) => [
+        idx + 1,
+        t.title || "Task",
+        (t.status || "todo").toUpperCase(),
+        (t.priority || "medium").toUpperCase(),
+        t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : "—",
+        t.assignedTo?.name || "—",
+      ]);
+
+      await exportToExcel({
+        fileName,
+        sheetName: "Tasks",
+        summaryRows,
+        headers,
+        rows,
+      });
+    } catch (err) {
+      console.warn("Excel export error:", err);
+    } finally {
+      setExportingExcel(false);
+    }
+  };
+
+  // PDF Export
   const handleDownload = async () => {
-    if (!summary || !summary.list) return;
-    setDownloading(true);
-
-    const rows = summary.list.map(t => `
-      <tr>
-        <td>${t.title}</td>
-        <td>${t.status.toUpperCase()}</td>
-        <td>${t.priority.toUpperCase()}</td>
-        <td>${t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : 'N/A'}</td>
-      </tr>
-    `).join("");
-
-    const html = `
-      <div class="summary">
-        <div class="stat-box">Total Tasks<div class="stat-value">${summary.totalTasks}</div></div>
-        <div class="stat-box">On Time<div class="stat-value" style="color: #16a34a">${summary.onTimeTasks || summary.onTime || 0}</div></div>
-        <div class="stat-box">Delayed<div class="stat-value" style="color: #f97316">${summary.delayedTasks || summary.delayed || 0}</div></div>
-        <div class="stat-box">Pending<div class="stat-value" style="color: #f59e0b">${summary.pendingTasks}</div></div>
-        <div class="stat-box">Overdue<div class="stat-value" style="color: #dc2626">${summary.overdueTasks}</div></div>
-      </div>
-      <h2>Task Details</h2>
-      <table>
-        <thead>
+    if (!summary || !summary.list || downloading) return;
+    try {
+      setDownloading(true);
+      const rows = filteredTasks
+        .map(
+          (t) => `
           <tr>
-            <th>Task Title</th>
-            <th>Status</th>
-            <th>Priority</th>
-            <th>Due Date</th>
+            <td>${t.title}</td>
+            <td>${(t.status || "").toUpperCase()}</td>
+            <td>${(t.priority || "").toUpperCase()}</td>
+            <td>${t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : "N/A"}</td>
           </tr>
-        </thead>
-        <tbody>
-          ${rows}
-        </tbody>
-      </table>
-    `;
+        `
+        )
+        .join("");
 
-    await generateAndSharePDF(`Task Report - ${month ? month + '/' : ''}${year || 'All Time'}`, html);
-    setDownloading(false);
+      const html = `
+        <div style="font-family: Arial, sans-serif; padding: 10px;">
+          <h2 style="color: #0F172A; margin-bottom: 4px;">Task Executive Report</h2>
+          <p style="color: #64748B; font-size: 11px; margin-top: 0;">Period: ${month ? month + "/" : ""}${year || "All Time"}</p>
+          <div style="display: flex; gap: 8px; margin: 12px 0;">
+            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; padding: 8px; border-radius: 6px; flex: 1;">Total: <b>${summary.totalTasks}</b></div>
+            <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 8px; border-radius: 6px; flex: 1; color: #059669;">On Time: <b>${summary.onTimeTasks || summary.onTime || 0}</b></div>
+            <div style="background: #FEF3C7; border: 1px solid #FDE68A; padding: 8px; border-radius: 6px; flex: 1; color: #D97706;">Pending: <b>${summary.pendingTasks}</b></div>
+            <div style="background: #FEF2F2; border: 1px solid #FECACA; padding: 8px; border-radius: 6px; flex: 1; color: #DC2626;">Overdue: <b>${summary.overdueTasks}</b></div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
+            <thead>
+              <tr style="background-color: #F1F5F9; text-align: left;">
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Title</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Status</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Priority</th>
+                <th style="padding: 6px; border: 1px solid #CBD5E1;">Due Date</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+
+      await generateAndSharePDF(`Task Report - ${month ? month + "/" : ""}${year || "All Time"}`, html);
+    } catch (err) {
+      console.warn("PDF export error:", err);
+    } finally {
+      setDownloading(false);
+    }
   };
 
   if (loading && !summary) {
     return (
-      <View style={{ flex: 1 }}>
-        <ReportHeader title="Task Report" month={month} year={year} setMonth={setMonth} setYear={setYear} onDownload={() => {}} />
+      <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+        <ReportHeader
+          title="Task Report"
+          month={month}
+          year={year}
+          setMonth={setMonth}
+          setYear={setYear}
+          onDownload={() => {}}
+        />
         <Loader />
       </View>
     );
   }
 
-  const chartData = [
-    { name: "On Time", population: summary?.onTimeTasks || summary?.onTime || 0, color: "#10b981", legendFontColor: "#475569", legendFontSize: 12 },
-    { name: "Delayed", population: summary?.delayedTasks || summary?.delayed || 0, color: "#ea580c", legendFontColor: "#475569", legendFontSize: 12 },
-    { name: "Pending", population: summary?.pendingTasks || 0, color: "#f59e0b", legendFontColor: "#475569", legendFontSize: 12 },
-    { name: "Overdue", population: summary?.overdueTasks || 0, color: "#ef4444", legendFontColor: "#475569", legendFontSize: 12 },
-  ].filter(d => d.population > 0);
-
   return (
     <View style={styles.container}>
-      <ReportHeader 
-        title="Task Report" 
-        month={month} 
-        year={year} 
-        setMonth={setMonth} 
-        setYear={setYear} 
-        onDownload={handleDownload} 
+      <ReportHeader
+        title="Task Report"
+        month={month}
+        year={year}
+        setMonth={setMonth}
+        setYear={setYear}
+        onDownload={handleDownload}
         downloading={downloading}
+        onExportExcel={handleExportExcel}
+        exportingExcel={exportingExcel}
       />
+
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSummary(true)} />}
       >
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-        
-        {/* Stats Grid */}
-        <View style={styles.statsGrid}>
-          <View style={[styles.statBox, { borderTopColor: "#3b82f6" }]}>
-            <Text style={styles.statLabel}>TOTAL</Text>
-            <Text style={[styles.statValue, { color: "#3b82f6" }]}>{summary?.totalTasks || 0}</Text>
+        {/* Compact 5-KPI Deck */}
+        <View style={styles.kpiDeck}>
+          <View style={styles.kpiRow}>
+            <View style={[styles.kpiCard, { borderLeftColor: "#0284C7" }]}>
+              <Text style={styles.kpiLabel}>TOTAL TASKS</Text>
+              <Text style={[styles.kpiVal, { color: "#0F172A" }]}>{summary?.totalTasks || 0}</Text>
+            </View>
+
+            <View style={[styles.kpiCard, { borderLeftColor: "#10B981" }]}>
+              <Text style={styles.kpiLabel}>ON TIME</Text>
+              <Text style={[styles.kpiVal, { color: "#059669" }]}>
+                {summary?.onTimeTasks || summary?.onTime || 0}
+              </Text>
+            </View>
+
+            <View style={[styles.kpiCard, { borderLeftColor: "#F97316" }]}>
+              <Text style={styles.kpiLabel}>DELAYED</Text>
+              <Text style={[styles.kpiVal, { color: "#EA580C" }]}>
+                {summary?.delayedTasks || summary?.delayed || 0}
+              </Text>
+            </View>
           </View>
-          <View style={[styles.statBox, { borderTopColor: "#10b981" }]}>
-            <Text style={styles.statLabel}>ON TIME</Text>
-            <Text style={[styles.statValue, { color: "#10b981" }]}>{summary?.onTimeTasks || summary?.onTime || 0}</Text>
-          </View>
-          <View style={[styles.statBox, { borderTopColor: "#ea580c" }]}>
-            <Text style={styles.statLabel}>DELAYED</Text>
-            <Text style={[styles.statValue, { color: "#ea580c" }]}>{summary?.delayedTasks || summary?.delayed || 0}</Text>
-          </View>
-          <View style={[styles.statBox, { borderTopColor: "#f59e0b" }]}>
-            <Text style={styles.statLabel}>PENDING</Text>
-            <Text style={[styles.statValue, { color: "#f59e0b" }]}>{summary?.pendingTasks || 0}</Text>
-          </View>
-          <View style={[styles.statBox, { borderTopColor: "#ef4444", width: "100%" }]}>
-            <Text style={styles.statLabel}>OVERDUE</Text>
-            <Text style={[styles.statValue, { color: "#ef4444" }]}>{summary?.overdueTasks || 0}</Text>
+
+          <View style={styles.kpiRow}>
+            <View style={[styles.kpiCard, { borderLeftColor: "#F59E0B" }]}>
+              <Text style={styles.kpiLabel}>PENDING</Text>
+              <Text style={[styles.kpiVal, { color: "#D97706" }]}>{summary?.pendingTasks || 0}</Text>
+            </View>
+
+            <View style={[styles.kpiCard, { borderLeftColor: "#EF4444" }]}>
+              <Text style={styles.kpiLabel}>OVERDUE</Text>
+              <Text style={[styles.kpiVal, { color: "#DC2626" }]}>{summary?.overdueTasks || 0}</Text>
+            </View>
           </View>
         </View>
 
-        {/* Chart */}
-        {chartData.length > 0 && (
-          <View style={styles.chartCard}>
-            <Text style={styles.sectionTitle}>Task Breakdown</Text>
-            <PieChart
-              data={chartData}
-              width={width - 64}
-              height={180}
-              chartConfig={{ color: (opacity = 1) => `rgba(37, 99, 235, ${opacity})` }}
-              accessor={"population"}
-              backgroundColor={"transparent"}
-              paddingLeft={"15"}
-              center={[10, 0]}
-              absolute
-            />
+        {/* Filters */}
+        <View style={styles.filterCard}>
+          <View style={styles.priorityRow}>
+            {[
+              { label: "All", value: "all" },
+              { label: "High", value: "high" },
+              { label: "Medium", value: "medium" },
+              { label: "Low", value: "low" },
+            ].map((p) => {
+              const isSel = priorityFilter === p.value;
+              return (
+                <TouchableOpacity
+                  key={p.value}
+                  style={[styles.priorityPill, isSel && styles.priorityPillActive]}
+                  onPress={() => setPriorityFilter(p.value)}
+                >
+                  <Text style={[styles.priorityPillText, isSel && styles.priorityPillTextActive]}>
+                    {p.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
 
-        {/* List */}
-        <Text style={[styles.sectionTitle, { marginHorizontal: 16, marginTop: 24 }]}>Detailed Tasks List</Text>
-        <View style={styles.listContainer}>
-          {summary?.list && summary.list.length > 0 ? (
-            summary.list.map((task, idx) => {
-              // Define priority badge styles
-              let prioBg = "rgba(16, 185, 129, 0.1)"; // Low (Green)
-              let prioText = "#10b981";
-              if (task.priority?.toLowerCase() === 'high') {
-                prioBg = "rgba(239, 68, 68, 0.1)"; // High (Red)
-                prioText = "#ef4444";
-              } else if (task.priority?.toLowerCase() === 'medium') {
-                prioBg = "rgba(245, 158, 11, 0.1)"; // Medium (Amber)
-                prioText = "#f59e0b";
-              }
+          <View style={styles.searchRow}>
+            <Ionicons name="search" size={13} color="#94A3B8" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search tasks by title..."
+              value={search}
+              onChangeText={setSearch}
+            />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <Ionicons name="close-circle" size={14} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
 
-              // Define status pill colors
-              let statusBg = "rgba(245, 158, 11, 0.1)"; // Pending (Amber)
-              let statusText = "#f59e0b";
-              if (task.status?.toLowerCase() === 'completed' || task.status?.toLowerCase() === 'done') {
-                statusBg = "rgba(16, 185, 129, 0.1)"; // Completed (Green)
-                statusText = "#10b981";
-              } else if (task.status?.toLowerCase() === 'in-progress' || task.status?.toLowerCase() === 'active') {
-                statusBg = "rgba(59, 130, 246, 0.1)"; // Active (Blue)
-                statusText = "#3b82f6";
-              } else if (task.status?.toLowerCase() === 'overdue') {
-                statusBg = "rgba(239, 68, 68, 0.1)"; // Overdue (Red)
-                statusText = "#ef4444";
-              }
+        {/* Task Cards List */}
+        {filteredTasks.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="checkbox-outline" size={36} color="#CBD5E1" />
+            <Text style={styles.emptyTitle}>No Tasks Found</Text>
+            <Text style={styles.emptySub}>No tasks match the active filters or date period.</Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            {filteredTasks.map((t, idx) => {
+              const pri = (t.priority || "medium").toLowerCase();
+              const priCfg = PRIORITY_COLORS[pri] || PRIORITY_COLORS.medium;
+              const isCompleted = (t.status || "").toLowerCase() === "done" || (t.status || "").toLowerCase() === "completed";
 
               return (
-                <View key={task._id} style={[styles.listItem, idx !== summary.list.length - 1 && styles.listItemBorder]}>
-                  <View style={styles.taskIconContainer}>
-                    <Ionicons name="document-text-outline" size={20} color="#64748b" />
-                  </View>
-                  <View style={styles.listItemContent}>
-                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
-                      <Text style={styles.taskTitle} numberOfLines={1}>{task.title}</Text>
-                      <View style={[styles.prioBadge, { backgroundColor: prioBg }]}>
-                        <Text style={[styles.prioBadgeText, { color: prioText }]}>{task.priority.toUpperCase()}</Text>
-                      </View>
+                <View key={t._id || idx} style={styles.taskCard}>
+                  <View style={styles.cardHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.taskTitle} numberOfLines={2}>
+                        {t.title}
+                      </Text>
                     </View>
-                    <View style={styles.metaRow}>
-                      <Ionicons name="calendar-outline" size={11} color="#64748b" style={{ marginRight: 4 }} />
-                      <Text style={styles.taskSub}>{task.endDateTime ? formatDateToDDMMYYYY(task.endDateTime) : 'No due date'}</Text>
+
+                    <View style={[styles.priBadge, { backgroundColor: priCfg.bg }]}>
+                      <Text style={[styles.priText, { color: priCfg.text }]}>
+                        {pri.toUpperCase()}
+                      </Text>
                     </View>
                   </View>
-                  <View style={styles.statusCol}>
-                    <View style={[styles.statusBadge, { backgroundColor: statusBg }]}>
-                      <Text style={[styles.statusBadgeText, { color: statusText }]}>
-                        {task.status.toUpperCase()}
+
+                  <View style={styles.cardDivider} />
+
+                  <View style={styles.cardFooter}>
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>STATUS</Text>
+                      <Text
+                        style={[
+                          styles.metaVal,
+                          isCompleted ? { color: "#059669" } : { color: "#0F172A" },
+                        ]}
+                      >
+                        {(t.status || "todo").toUpperCase()}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>DUE DATE</Text>
+                      <Text style={styles.metaVal}>
+                        {t.endDateTime ? formatDateToDDMMYYYY(t.endDateTime) : "No Due Date"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.metaCol}>
+                      <Text style={styles.metaLabel}>ASSIGNEE</Text>
+                      <Text style={styles.metaVal} numberOfLines={1}>
+                        {t.assignedTo?.name || "Unassigned"}
                       </Text>
                     </View>
                   </View>
                 </View>
               );
-            })
-          ) : (
-            <Text style={styles.emptyText}>No tasks found for this period.</Text>
-          )}
-        </View>
+            })}
+          </View>
+        )}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8fafc" },
-  content: { paddingBottom: 40 },
-  error: { color: "#dc2626", margin: 16, textAlign: "center", fontFamily: FONTS.bodySemiBold },
-  statsGrid: {
+  container: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+  },
+  content: {
+    padding: 10,
+    paddingBottom: 40,
+  },
+  kpiDeck: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+  },
+  kpiRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    padding: 16,
-    justifyContent: "space-between",
+    gap: 6,
+    marginBottom: 6,
   },
-  statBox: {
-    width: "48%",
-    backgroundColor: "#fff",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 12,
-    borderTopWidth: 4,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-    alignItems: "center",
+  kpiCard: {
+    flex: 1,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 8,
+    padding: 8,
+    borderLeftWidth: 3,
   },
-  statLabel: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyBold, marginBottom: 8, letterSpacing: 0.5 },
-  statValue: { fontSize: 28, fontFamily: FONTS.displayBold },
-  chartCard: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  kpiLabel: {
+    fontSize: 8,
+    fontFamily: FONTS.bodyBold,
+    color: "#64748B",
   },
-  sectionTitle: { fontSize: 15, fontFamily: FONTS.displayBold, color: "#1e293b", marginBottom: 12, alignSelf: "flex-start" },
-  listContainer: {
-    backgroundColor: "#fff",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1.5,
-    borderColor: "rgba(226, 232, 240, 0.8)",
-    shadowColor: "#0f172a",
-    shadowOpacity: 0.04,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+  kpiVal: {
+    fontSize: 14,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "800",
+    marginTop: 2,
   },
-  listItem: { flexDirection: "row", alignItems: "center", paddingVertical: 12 },
-  listItemBorder: { borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  taskIconContainer: {
-    width: 38,
-    height: 38,
+  filterCard: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 10,
-    backgroundColor: "#f1f5f9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 12,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginBottom: 8,
+    gap: 6,
   },
-  listItemContent: { flex: 1, paddingRight: 12 },
-  taskTitle: { fontSize: 14, fontFamily: FONTS.displayBold, color: "#1e293b", marginRight: 6, flexShrink: 1 },
-  prioBadge: {
+  priorityRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  priorityPill: {
+    flex: 1,
+    paddingVertical: 5,
+    alignItems: "center",
+    borderRadius: 6,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  priorityPillActive: {
+    backgroundColor: "#0F172A",
+    borderColor: "#0F172A",
+  },
+  priorityPillText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#64748B",
+  },
+  priorityPillTextActive: {
+    color: "#FFFFFF",
+    fontFamily: FONTS.bodyBold,
+  },
+  searchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 7,
+    paddingHorizontal: 8,
+    height: 32,
+    gap: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: "#0F172A",
+  },
+  listContainer: {
+    gap: 6,
+  },
+  taskCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 10,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  cardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+  taskTitle: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  priBadge: {
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 4,
-    alignItems: "center",
-    justifyContent: "center",
+    marginLeft: 6,
   },
-  prioBadgeText: {
+  priText: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
+    letterSpacing: 0.3,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: "#F1F5F9",
+    marginVertical: 6,
+  },
+  cardFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  metaCol: {
+    flex: 1,
+  },
+  metaLabel: {
     fontSize: 8,
     fontFamily: FONTS.bodyBold,
+    color: "#94A3B8",
   },
-  metaRow: { flexDirection: "row", alignItems: "center" },
-  taskSub: { fontSize: 11, color: "#64748b", fontFamily: FONTS.bodyMedium },
-  statusCol: { alignItems: "flex-end", justifyContent: "center" },
-  statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 999,
+  metaVal: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyMedium,
+    color: "#1E293B",
+    marginTop: 1,
+  },
+  emptyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 24,
     alignItems: "center",
-    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    marginTop: 8,
   },
-  statusBadgeText: { fontSize: 9, fontFamily: FONTS.bodyBold, letterSpacing: 0.3 },
-  emptyText: { textAlign: "center", color: "#94a3b8", paddingVertical: 20, fontFamily: FONTS.bodyMedium },
+  emptyTitle: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+    marginTop: 8,
+  },
+  emptySub: {
+    fontSize: 11,
+    color: "#64748B",
+    textAlign: "center",
+    marginTop: 3,
+  },
 });
 
 export default TaskReportScreen;
