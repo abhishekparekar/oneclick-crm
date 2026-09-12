@@ -19,7 +19,12 @@ class NotificationService {
    * Play the custom notification bell chime in the foreground
    */
   static async playBellChime() {
-    // Custom bell chime disabled per user request: standard system notification sound used instead
+    try {
+      const { sound } = await Audio.Sound.createAsync(
+        require('../notification/mixkit-bell-notification-933.wav')
+      );
+      await sound.playAsync();
+    } catch (_) {}
   }
 
   /**
@@ -57,9 +62,10 @@ class NotificationService {
           await notifee.requestPermission();
         } catch (_) {}
 
-        // Create high importance notification channel with standard system sound
+        // Create high importance notification channel with custom mixkit bell sound
         try {
           try {
+            await notifee.deleteChannel('oneclick_alerts_v7');
             await notifee.deleteChannel('oneclick_alerts_default');
             await notifee.deleteChannel('oneclick_alerts_v6');
             await notifee.deleteChannel('oneclick_alerts_v5');
@@ -68,10 +74,10 @@ class NotificationService {
           } catch (_) {}
 
           await notifee.createChannel({
-            id: 'oneclick_alerts_v7',
+            id: 'oneclick_alerts_v8',
             name: 'HRMS Notifications & Alerts',
             importance: AndroidImportance.HIGH,
-            sound: 'default',
+            sound: 'mixkit_bell_notification_933',
             vibration: true,
             vibrationPattern: [300, 500],
             lights: true,
@@ -201,9 +207,9 @@ class NotificationService {
         body,
         data: data || {},
         android: {
-          channelId: 'oneclick_alerts_v7',
+          channelId: 'oneclick_alerts_v8',
           importance: AndroidImportance.HIGH,
-          sound: 'default',
+          sound: 'mixkit_bell_notification_933',
           smallIcon: 'ic_notification',
           color: '#1268D9',
           vibrationPattern: [300, 500],
@@ -212,7 +218,7 @@ class NotificationService {
           },
         },
         ios: {
-          sound: 'default',
+          sound: 'mixkit_bell_notification_933.wav',
         },
       });
     }

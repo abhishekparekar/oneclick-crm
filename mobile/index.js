@@ -25,10 +25,10 @@ try {
 
       if (title || body) {
         await notifee.createChannel({
-          id: 'oneclick_alerts_v7',
+          id: 'oneclick_alerts_v8',
           name: 'HRMS Notifications & Alerts',
           importance: AndroidImportance.HIGH,
-          sound: 'default',
+          sound: 'mixkit_bell_notification_933',
           vibration: true,
           vibrationPattern: [300, 500],
           lights: true,
@@ -45,9 +45,9 @@ try {
           body,
           data: data || {},
           android: {
-            channelId: 'oneclick_alerts_v7',
+            channelId: 'oneclick_alerts_v8',
             importance: AndroidImportance.HIGH,
-            sound: 'default',
+            sound: 'mixkit_bell_notification_933',
             smallIcon: 'ic_notification',
             color: '#1268D9',
             vibrationPattern: [300, 500],

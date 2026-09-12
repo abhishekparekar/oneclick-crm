@@ -33,7 +33,7 @@
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
     <meta-data
         android:name="com.google.firebase.messaging.default_notification_channel_id"
-        android:value="oneclick_alerts_v7"
+        android:value="oneclick_alerts_v8"
         tools:replace="android:value"/>
     <meta-data
         android:name="com.google.firebase.messaging.default_notification_icon"
