@@ -10,22 +10,44 @@ try {
   let serviceAccount = null;
 
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
-    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    try {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } catch (_) {}
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT_PATH) {
     const fullPath = path.resolve(process.cwd(), process.env.FIREBASE_SERVICE_ACCOUNT_PATH);
     if (fs.existsSync(fullPath)) {
       serviceAccount = require(fullPath);
     }
-  } else {
-    // Check standard locations in project
+  }
+
+  if (!serviceAccount && process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    try {
+      const decoded = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+      serviceAccount = JSON.parse(decoded);
+    } catch (_) {}
+  }
+
+  if (!serviceAccount) {
+    try {
+      const b64 = require("../config/firebaseAccountBase64");
+      if (b64) {
+        const decoded = Buffer.from(b64, 'base64').toString('utf8');
+        serviceAccount = JSON.parse(decoded);
+      }
+    } catch (_) {}
+  }
+
+  if (!serviceAccount) {
     const defaultPaths = [
       path.resolve(process.cwd(), "firebase-admin.json"),
       path.resolve(__dirname, "../../firebase-admin.json"),
     ];
     for (const p of defaultPaths) {
       if (fs.existsSync(p)) {
-        serviceAccount = require(p);
-        break;
+        try {
+          serviceAccount = require(p);
+          break;
+        } catch (_) {}
       }
     }
   }
