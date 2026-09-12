@@ -13,11 +13,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation, DrawerActions } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useAppData } from "../context/AppDataContext";
+import { getInitials, getSafePhotoUrl } from "../utils/avatarUtils";
 
 const EmployeeLayout = ({
   children,
   navigation: propNavigation,
   title = "One Click",
+  showBack = false,
   rightActionType = "default", // "default", "tasks", "projects", "profile", "none"
   onRightActionPress = {}, // callbacks: { onSearch, onFilter, onPlus, onEdit }
   headerRightElement = null,
@@ -50,15 +52,6 @@ const EmployeeLayout = ({
     }
   };
 
-  const getInitials = (name) => {
-    if (!name) return "EE";
-    const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.slice(0, 2).toUpperCase();
-  };
-
   const getGreeting = () => {
     const hrs = new Date().getHours();
     if (hrs < 12) return "Good Morning";
@@ -69,7 +62,7 @@ const EmployeeLayout = ({
   const unreadNotificationsVal = employeeDashboard?.unreadNotificationsCount || 0;
   const unreadAnnouncementsCount = employeeDashboard?.announcements?.filter(a => !a.isRead)?.length || 0;
 
-  const photoUrl = employeeDashboard?.employee?.photo?.trim() || "";
+  const photoUrl = getSafePhotoUrl(employeeDashboard?.employee?.photo || user?.photo);
   const showPlaceholder = !photoUrl || imgError;
 
   const isDashboard = title === "Home" || title === "Dashboard";
@@ -90,13 +83,29 @@ const EmployeeLayout = ({
         ]}
       >
         <View style={styles.headerLeft}>
-          <TouchableOpacity
-            onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
-            style={styles.menuBtn}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="menu-outline" size={26} color="#0F172A" />
-          </TouchableOpacity>
+          {showBack ? (
+            <TouchableOpacity
+              onPress={() => {
+                if (navigation.canGoBack()) {
+                  navigation.goBack();
+                } else {
+                  navigation.navigate("MainTabs");
+                }
+              }}
+              style={styles.menuBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="arrow-back" size={24} color="#0F172A" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+              style={styles.menuBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="menu-outline" size={26} color="#0F172A" />
+            </TouchableOpacity>
+          )}
           {isDashboard ? (
             <View style={styles.headerTitleContainer}>
               <Text style={styles.dashboardTitleText}>Dashboard</Text>

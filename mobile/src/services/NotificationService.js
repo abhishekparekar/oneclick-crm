@@ -87,21 +87,35 @@ class NotificationService {
   }
 
   /**
+   * Get or generate a persistent installation device ID
+   */
+  static async getInstallationDeviceId() {
+    try {
+      let devId = await AsyncStorage.getItem("hrms_device_id");
+      if (!devId) {
+        devId = `dev_${Platform.OS}_${Date.now()}_${Math.random().toString(36).substring(2, 10)}`;
+        await AsyncStorage.setItem("hrms_device_id", devId);
+      }
+      return devId;
+    } catch (_) {
+      return `dev_${Platform.OS}_fallback`;
+    }
+  }
+
+  /**
    * Get the FCM token and optionally send it to the backend
    */
   static async getFCMToken(userToken) {
     try {
       const fcmToken = await getToken(getMessaging());
       if (fcmToken) {
-        console.log('FCM Token:', fcmToken);
-        // If user is authenticated, send to backend
-        if (userToken) {
-          await this.sendTokenToBackend(fcmToken, userToken);
-        }
+        console.log('[NotificationService] FCM Token obtained:', fcmToken.slice(0, 20) + '...');
+        // If user is authenticated or stored token exists, send to backend
+        await this.sendTokenToBackend(fcmToken, userToken);
         return fcmToken;
       }
     } catch (error) {
-      console.error('Error getting FCM token:', error);
+      console.error('[NotificationService] Error getting FCM token:', error?.message || error);
     }
     return null;
   }
@@ -111,30 +125,47 @@ class NotificationService {
    */
   static listenForTokenRefresh(userToken) {
     return onTokenRefresh(getMessaging(), async (fcmToken) => {
-      console.log('FCM Token Refreshed:', fcmToken);
-      if (userToken) {
-        await this.sendTokenToBackend(fcmToken, userToken);
-      }
+      console.log('[NotificationService] FCM Token Refreshed:', fcmToken ? fcmToken.slice(0, 20) + '...' : 'none');
+      await this.sendTokenToBackend(fcmToken, userToken);
     });
   }
 
-  static async sendTokenToBackend(fcmToken, userToken) {
-    if (!fcmToken || !userToken) {
+  static async sendTokenToBackend(fcmToken, userToken, retries = 3) {
+    if (!fcmToken) {
       return;
     }
-    try {
-      await api.post(
-        '/notifications/register-device',
-        { fcmToken, platform: Platform.OS },
-        { headers: { Authorization: `Bearer ${userToken}` } }
-      );
-      console.log('✓ FCM Token registered successfully on backend');
-    } catch (error) {
-      if (error?.response?.status === 401) {
-        // Expected when user logs out or session is expired
-        console.log('[NotificationService] Device registration skipped: user is not logged in');
-      } else {
-        console.error('Error sending FCM token to backend:', error?.response?.data || error.message);
+    let authHeaderToken = userToken;
+    if (!authHeaderToken) {
+      try {
+        authHeaderToken = await AsyncStorage.getItem("hrms_token");
+      } catch (_) {}
+    }
+    if (!authHeaderToken) {
+      console.log('[NotificationService] No auth token available, skipping device registration for now');
+      return;
+    }
+
+    const deviceId = await this.getInstallationDeviceId();
+
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await api.post(
+          '/notifications/register-device',
+          { fcmToken, platform: Platform.OS, deviceId },
+          { headers: { Authorization: `Bearer ${authHeaderToken}` } }
+        );
+        console.log('✓ FCM Token registered successfully on backend (deviceId: ' + deviceId + ')');
+        break;
+      } catch (error) {
+        if (error?.response?.status === 401) {
+          // Expected when user logs out or session is expired
+          console.log('[NotificationService] Device registration skipped: user is not authenticated');
+          break;
+        }
+        console.warn(`[NotificationService] Device registration attempt ${attempt}/${retries} notice:`, error?.response?.data || error.message);
+        if (attempt < retries) {
+          await new Promise(r => setTimeout(r, 1000 * attempt));
+        }
       }
     }
   }
@@ -253,6 +284,7 @@ class NotificationService {
     const projectId = data.projectId || data.id || notification.projectId;
     const payrollId = data.payrollId || data.payslipId || data.id || notification.payrollId;
     const announcementId = data.announcementId || data.id || notification.announcementId;
+    const leadId = data.leadId || data.id || notification.leadId;
 
     try {
       const userStr = await AsyncStorage.getItem("hrms_user");
@@ -275,6 +307,20 @@ class NotificationService {
         } else {
           if (taskId) nav.navigate('CompanyTaskDetails', { taskId });
           else nav.navigate('TaskBoard');
+        }
+      } else if (type.includes('lead') || leadId) {
+        if (role === 'employee' || role === 'staff') {
+          if (leadId) nav.navigate('EmployeeLeads', { leadId });
+          else nav.navigate('EmployeeLeads');
+        } else if (role === 'manager') {
+          if (leadId) nav.navigate('LeadDetails', { leadId });
+          else nav.navigate('LeadsEngine', { screen: 'LeadsDashboard' });
+        } else if (role === 'hr') {
+          if (leadId) nav.navigate('HRLeadDetails', { leadId });
+          else nav.navigate('HRLeads');
+        } else {
+          if (leadId) nav.navigate('LeadDetails', { leadId });
+          else nav.navigate('LeadsEngine', { screen: 'LeadsDashboard' });
         }
       } else if (type.includes('leave') || leaveId) {
         if (role === 'employee' || role === 'staff') {

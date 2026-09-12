@@ -106,6 +106,8 @@ const DashboardStack = () => (
     <Stack.Screen name="CompanyProjectDetails" component={CompanyProjectDetailsScreen} />
     <Stack.Screen name="CompanyCreateProject" component={CompanyCreateProjectScreen} />
     <Stack.Screen name="TaskBoard" component={TaskBoardScreen} />
+    <Stack.Screen name="Tasks" component={TaskBoardScreen} />
+    <Stack.Screen name="CompanyTasks" component={TaskBoardScreen} />
     <Stack.Screen name="CompanyTaskDetails" component={CompanyTaskDetailsScreen} />
     <Stack.Screen name="CompanyCreateTask" component={CompanyCreateTaskScreen} />
     <Stack.Screen name="EmployeeCreateTask" component={CompanyCreateTaskScreen} />

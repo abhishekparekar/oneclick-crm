@@ -1539,7 +1539,7 @@ const getMyTasks = async (req, res, next) => {
     let tasks;
     if (isTemplate) {
       const TaskTemplate = require("../models/TaskTemplate");
-      tasks = await TaskTemplate.find({ companyId, assignedTo: manager._id })
+      tasks = await TaskTemplate.find({ companyId, assignedTo: { $in: [manager._id, req.user._id] } })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
@@ -1558,7 +1558,7 @@ const getMyTasks = async (req, res, next) => {
         t.assignees = t.assignedTo || [];
       });
     } else {
-      tasks = await Task.find({ companyId, assignedTo: manager._id, status: { $ne: "cancelled" } })
+      tasks = await Task.find({ companyId, assignedTo: { $in: [manager._id, req.user._id] }, status: { $ne: "cancelled" } })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
@@ -1608,12 +1608,26 @@ const getTeamTasks = async (req, res, next) => {
       }).select("_id").lean();
       teamIds = filtered.map(e => e._id);
     }
+    let teamFilterOr = [
+      { assignedTo: { $in: teamIds } },
+      { assignedBy: req.user._id }
+    ];
+    if (manager.departmentId) {
+      teamFilterOr.push({ departmentId: manager.departmentId });
+    }
+    if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
+      teamFilterOr.push({ departmentId: { $in: manager.accessibleDepartments } });
+    }
+
     if (isTemplate) {
       const TaskTemplate = require("../models/TaskTemplate");
-      let filter = { companyId, assignedTo: { $in: teamIds } };
+      let filter = { companyId, $or: teamFilterOr };
       if (priority) filter.priority = priority;
       if (projectId) filter.projectId = projectId;
-      if (employeeId) filter.assignedTo = employeeId;
+      if (employeeId) {
+        delete filter.$or;
+        filter.assignedTo = employeeId;
+      }
       if (search && search.trim()) {
         filter.title = new RegExp(search.trim(), "i");
       }
@@ -1644,7 +1658,7 @@ const getTeamTasks = async (req, res, next) => {
       });
     }
 
-    let filter = { companyId, assignedTo: { $in: teamIds } };
+    let filter = { companyId, $or: teamFilterOr };
     
     if (status) {
       filter.status = status;
@@ -1653,7 +1667,10 @@ const getTeamTasks = async (req, res, next) => {
     }
     if (priority) filter.priority = priority;
     if (projectId) filter.projectId = projectId;
-    if (employeeId) filter.assignedTo = employeeId;
+    if (employeeId) {
+      delete filter.$or;
+      filter.assignedTo = employeeId;
+    }
     
     if (search && search.trim()) {
       filter.title = new RegExp(search.trim(), "i");

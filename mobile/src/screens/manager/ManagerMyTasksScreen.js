@@ -373,7 +373,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
   const [activeTab, setActiveTab] = useState("myTasks"); // "myTasks", "teamTasks"
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all_time");
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
   const {
     myManagerTasks,
@@ -713,13 +713,18 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
       const isSameDay = (d) => {
         if (!d) return false;
         const date = new Date(d);
-        return date.getFullYear() === targetDay.getFullYear() &&
-               date.getMonth() === targetDay.getMonth() &&
-               date.getDate() === targetDay.getDate();
+        return (
+          date.getFullYear() === targetDay.getFullYear() &&
+          date.getMonth() === targetDay.getMonth() &&
+          date.getDate() === targetDay.getDate()
+        );
       };
-      return isSameDay(task.startDateTime || task.startDate) ||
-             isSameDay(task.nextFollowUpDate) ||
-             isSameDay(task.endDateTime || task.endDate);
+      return (
+        isSameDay(task.startDateTime || task.startDate) ||
+        isSameDay(task.nextFollowUpDate) ||
+        isSameDay(task.endDateTime || task.endDate) ||
+        isSameDay(task.createdAt)
+      );
     };
 
     const checkRangeMatch = (startRange, endRange) => {
@@ -728,25 +733,62 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
         const date = new Date(d);
         return date >= startRange && date < endRange;
       };
-      return isBetween(task.startDateTime || task.startDate) ||
-             isBetween(task.nextFollowUpDate) ||
-             isBetween(task.endDateTime || task.endDate);
+      return (
+        isBetween(task.startDateTime || task.startDate) ||
+        isBetween(task.nextFollowUpDate) ||
+        isBetween(task.endDateTime || task.endDate) ||
+        isBetween(task.createdAt)
+      );
     };
 
+    let matched = false;
     switch (tabKey) {
       case "today":
-        return checkDayMatch(today);
+        matched = checkDayMatch(today);
+        break;
       case "yesterday":
-        return checkDayMatch(yesterday);
+        matched = checkDayMatch(yesterday);
+        break;
       case "this_week":
-        return checkRangeMatch(startOfWeek, endOfWeek);
+        matched = checkRangeMatch(startOfWeek, endOfWeek);
+        break;
       case "last_month":
-        return checkRangeMatch(startOfLastMonth, startOfThisMonth);
+        matched = checkRangeMatch(startOfLastMonth, startOfThisMonth);
+        break;
       case "this_month":
-        return checkRangeMatch(startOfThisMonth, startOfNextMonth);
+        matched = checkRangeMatch(startOfThisMonth, startOfNextMonth);
+        break;
       default:
         return true;
     }
+    if (matched) return true;
+
+    // Check multi-day span
+    const rawStart = task.startDateTime || task.startDate || task.createdAt;
+    const rawEnd = task.endDateTime || task.endDate || task.finishDate || rawStart;
+    if (rawStart && rawEnd) {
+      const taskStart = new Date(rawStart).getTime();
+      const taskEnd = new Date(rawEnd).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+      const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999).getTime();
+
+      switch (tabKey) {
+        case "today":
+          return taskStart <= endOfToday && taskEnd >= today.getTime();
+        case "yesterday":
+          return taskStart <= endOfYesterday && taskEnd >= yesterday.getTime();
+        case "this_week":
+          return taskStart < endOfWeek.getTime() && taskEnd >= startOfWeek.getTime();
+        case "last_month":
+          return taskStart < startOfThisMonth.getTime() && taskEnd >= startOfLastMonth.getTime();
+        case "this_month":
+          return taskStart < startOfNextMonth.getTime() && taskEnd >= startOfThisMonth.getTime();
+        default:
+          return true;
+      }
+    }
+
+    return false;
   };
 
   const matchesDeadlineComingFilter = (task, filterVal) => {

@@ -119,9 +119,11 @@ const useManagerController = () => {
   }, []);
 
   const [myManagerTasks, setMyManagerTasks] = useState([]);
+  const isFetchingMyTasksRef = useRef(false);
   const fetchMyManagerTasks = useCallback(async (force = false) => {
-    if (loadingTasks) return;
+    if (isFetchingMyTasksRef.current) return;
     if (!force && myManagerTasks.length > 0) return;
+    isFetchingMyTasksRef.current = true;
     setLoadingTasks(true);
     setTasksError(null);
     try {
@@ -135,17 +137,20 @@ const useManagerController = () => {
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);
     } finally {
+      isFetchingMyTasksRef.current = false;
       setLoadingTasks(false);
     }
-  }, []);
+  }, [myManagerTasks.length]);
 
   const [teamTasks, setTeamTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
   const [tasksError, setTasksError] = useState(null);
+  const isFetchingTeamTasksRef = useRef(false);
 
   const fetchTeamTasks = useCallback(async (force = false, params = {}) => {
-    if (loadingTasks) return;
+    if (isFetchingTeamTasksRef.current) return;
     if (!force && teamTasks.length > 0 && Object.keys(params).length === 0) return;
+    isFetchingTeamTasksRef.current = true;
     setLoadingTasks(true);
     setTasksError(null);
     try {
@@ -159,9 +164,10 @@ const useManagerController = () => {
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);
     } finally {
+      isFetchingTeamTasksRef.current = false;
       setLoadingTasks(false);
     }
-  }, []);
+  }, [teamTasks.length]);
 
   const createTeamTask = useCallback(async (payload) => {
     const res = await managerApi.createTask(payload);

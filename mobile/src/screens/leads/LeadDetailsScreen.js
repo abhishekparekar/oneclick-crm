@@ -56,6 +56,9 @@ const getDefaultTimeFormatted = () => {
 };
 
 const getStatusBadgeColors = (statusObj) => {
+  if (!statusObj) {
+    return { bg: "#1E3A8A", border: "#3B82F6", text: "#DBEAFE", dot: "#60A5FA" };
+  }
   const name = (typeof statusObj === "string" ? statusObj : (statusObj?.name || "")).toLowerCase();
   const hex = typeof statusObj === "object" ? statusObj?.color : null;
   if (name.includes("won") || name.includes("closed") || name.includes("confirm")) {
@@ -95,21 +98,109 @@ const formatSafeDateTime = (dateVal, includeYear = true) => {
     const timeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
     return includeYear ? `${day} ${month} ${year} at ${timeStr}` : `${day} ${month} at ${timeStr}`;
   } catch (_) {
-    return String(dateVal);
+    return String(dateVal || "");
   }
 };
 
 const formatValuation = (val) => {
-  if (!val) return "—";
+  if (val === null || val === undefined || val === "") return "—";
   try {
-    const cleaned = String(val).replace(/[^0-9.]/g, "");
+    let raw = val;
+    if (typeof val === "object" && val !== null) {
+      raw = val.$numberDecimal || val.amount || val.value || "";
+    }
+    const cleaned = String(raw).replace(/[^0-9.]/g, "");
     const num = Number(cleaned);
-    if (isNaN(num) || cleaned === "") return String(val);
+    if (isNaN(num) || cleaned === "") return String(raw || "—");
     return `₹${num.toLocaleString("en-IN")}`;
   } catch (_) {
-    return String(val);
+    return "—";
   }
 };
+
+const parseLeadNotes = (rawNotes) => {
+  if (!rawNotes) return [];
+  if (Array.isArray(rawNotes)) {
+    return rawNotes
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const time = item.createdAt ? `[${formatSafeDateTime(item.createdAt, false)}] ` : "";
+          const author = item.author || item.createdBy?.name || "";
+          const noteText = item.note || item.text || item.content || item.comment || "";
+          const authorStr = author ? ` (${author})` : "";
+          return `${time}${noteText}${authorStr}`.trim();
+        }
+        return String(item || "");
+      })
+      .filter((n) => typeof n === "string" && n.trim().length > 0);
+  }
+  if (typeof rawNotes === "string") {
+    return rawNotes
+      .split("\n")
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0);
+  }
+  return [String(rawNotes)];
+};
+
+class LeadDetailsErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn("[LeadDetailsErrorBoundary] Caught rendering error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <CompanyAdminLayout
+          navigation={this.props.navigation}
+          activeTab="Leads"
+          headerTitle="Lead Profile"
+          showSearch={false}
+        >
+          <View style={{ flex: 1, backgroundColor: "#F8FAFC", justifyContent: "center", alignItems: "center", padding: 24 }}>
+            <Ionicons name="alert-circle-outline" size={50} color="#EF4444" style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 16, fontFamily: FONTS.displayBold, color: "#0F172A", marginBottom: 6 }}>
+              Unable to display lead profile
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: FONTS.body, color: "#64748B", textAlign: "center", marginBottom: 20, lineHeight: 18 }}>
+              An unexpected display issue occurred with this lead's data. Tap below to retry or return to Leads.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {this.props.navigation?.canGoBack() && (
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: "#CBD5E1" }}
+                  onPress={() => this.props.navigation.goBack()}
+                >
+                  <Text style={{ fontFamily: FONTS.bodyBold, color: "#475569", fontSize: 13 }}>Go Back</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={{ backgroundColor: "#1268D9", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                onPress={() => {
+                  this.setState({ hasError: false, error: null });
+                  if (this.props.onRetry) this.props.onRetry();
+                }}
+              >
+                <Text style={{ color: "#FFF", fontFamily: FONTS.bodyBold, fontSize: 13 }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </CompanyAdminLayout>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const buildReminderIso = (dateStr, timeStr) => {
   try {
@@ -213,14 +304,18 @@ const DEFAULT_TEMPLATES = [
   },
 ];
 
-export default function LeadDetailsScreen({ route, navigation }) {
+function LeadDetailsScreenComponent({ route, navigation }) {
   const leadId =
     route?.params?.leadId ||
     route?.params?.id ||
     route?.params?.lead?._id ||
     route?.params?.lead?.id ||
+    route?.params?.params?.leadId ||
+    route?.params?.params?.id ||
+    route?.params?.params?.lead?._id ||
+    route?.params?.params?.lead?.id ||
     "";
-  const initialLead = route?.params?.lead || null;
+  const initialLead = route?.params?.lead || route?.params?.params?.lead || null;
   const { user } = useAuth();
   const currentUserId = user?._id || user?.id || "";
   const [lead, setLead] = useState(initialLead);
@@ -605,34 +700,38 @@ export default function LeadDetailsScreen({ route, navigation }) {
 
   // ── Direct Communications ────────────────────────────────────
   const handleWhatsApp = (customMsg = null) => {
-    if (!lead?.whatsappPhone) return Alert.alert("No Number", "WhatsApp phone not available.");
-    let cleanPhone = lead.whatsappPhone.replace(/[^0-9]/g, "");
+    const rawPhone = lead?.whatsappPhone || lead?.phone;
+    if (!rawPhone) return Alert.alert("No Number", "WhatsApp phone not available.");
+    let cleanPhone = String(rawPhone).replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+    const clientName = typeof lead?.name === "string" ? lead.name : "Client";
     const msg = customMsg
-      ? customMsg.replace("{name}", lead.name || "Client")
-      : `Hello ${lead.name || ""}, thank you for contacting OneClick HRMS!`;
+      ? String(customMsg).replace("{name}", clientName)
+      : `Hello ${clientName}, thank you for contacting OneClick HRMS!`;
     Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {
       Alert.alert("WhatsApp Error", "Could not open WhatsApp app on this device.");
     });
   };
 
   const handleSendCloudWhatsApp = async (tpl = null) => {
-    if (!lead?.whatsappPhone) return Alert.alert("No Number", "WhatsApp phone number is missing.");
+    const rawPhone = lead?.whatsappPhone || lead?.phone;
+    if (!rawPhone) return Alert.alert("No Number", "WhatsApp phone number is missing.");
     const targetTpl = tpl || selectedTemplate || templates[0];
     if (!targetTpl) return Alert.alert("Select Template", "Please select a template to send.");
 
     setSendingCloudMsg(true);
-    let cleanPhone = lead.whatsappPhone.replace(/[^0-9]/g, "");
+    let cleanPhone = String(rawPhone).replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
 
     const varCount = Math.max(getTemplateVarCount(targetTpl), 1);
     const finalParams = [];
     let formattedBody = targetTpl.bodyText || targetTpl.message || "";
 
+    const clientName = typeof lead?.name === "string" ? lead.name : "Client";
     for (let i = 1; i <= varCount; i++) {
       const val = varValues[i] !== undefined && varValues[i] !== null && String(varValues[i]).trim() !== ""
         ? String(varValues[i])
-        : (i === 1 ? (lead.name || "Client") : `Value ${i}`);
+        : (i === 1 ? clientName : `Value ${i}`);
       finalParams.push(val);
       formattedBody = formattedBody.replace(new RegExp(`\\{\\{${i}\\}\\}`, "g"), val);
     }
@@ -646,7 +745,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
         params: finalParams,
         variables: varValues,
         variableValues: varValues,
-        mediaUrl: mediaUrl.trim(),
+        mediaUrl: typeof mediaUrl === "string" ? mediaUrl.trim() : "",
         mediaType: targetTpl.headerType || "NONE",
         text: formattedBody,
       });
@@ -654,7 +753,8 @@ export default function LeadDetailsScreen({ route, navigation }) {
       // Log note on timeline
       const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString();
       const noteEntry = `• [${timestamp}] WhatsApp Template "${targetTpl.name}" sent to +${cleanPhone}`;
-      const updatedNotes = lead?.notes ? `${noteEntry}\n${lead.notes}` : noteEntry;
+      const currentNotesStr = typeof lead?.notes === "string" ? lead.notes : "";
+      const updatedNotes = currentNotesStr ? `${noteEntry}\n${currentNotesStr}` : noteEntry;
       await leadsService.updateLead(leadId, { notes: updatedNotes });
       setLead((p) => ({ ...p, notes: updatedNotes }));
 
@@ -677,8 +777,9 @@ export default function LeadDetailsScreen({ route, navigation }) {
   };
 
   const handleCall = () => {
-    if (!lead?.whatsappPhone) return Alert.alert("No Number", "Phone number not available.");
-    Linking.openURL(`tel:${lead.whatsappPhone}`);
+    const rawPhone = lead?.whatsappPhone || lead?.phone;
+    if (!rawPhone) return Alert.alert("No Number", "Phone number not available.");
+    Linking.openURL(`tel:${rawPhone}`);
   };
 
   const handleEmail = () => {
@@ -688,10 +789,8 @@ export default function LeadDetailsScreen({ route, navigation }) {
 
   const statusColor = lead?.status?.color || THEME.primary;
 
-  // Split timeline notes into structured items
-  const parsedNotes = lead?.notes
-    ? lead.notes.split("\n").filter((n) => n.trim().length > 0)
-    : [];
+  // Split timeline notes into structured items crash-proof
+  const parsedNotes = parseLeadNotes(lead?.notes || lead?.leadNotes);
 
   return (
     <CompanyAdminLayout
@@ -885,7 +984,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   <View style={styles.compactValueRow}>
                     <Ionicons name="logo-whatsapp" size={11} color="#10B981" style={{ marginRight: 3 }} />
                     <Text style={[styles.compactCellValue, { color: "#10B981" }]} numberOfLines={1}>
-                      {lead.whatsappPhone || "—"}
+                      {lead?.whatsappPhone || "—"}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -897,12 +996,12 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   activeOpacity={0.7}
                 >
                   <Text style={styles.compactCellLabel}>
-                    {lead.phone && lead.phone !== lead.whatsappPhone ? "ALT PHONE" : "PHONE"}
+                    {lead?.phone && lead?.phone !== lead?.whatsappPhone ? "ALT PHONE" : "PHONE"}
                   </Text>
                   <View style={styles.compactValueRow}>
                     <Ionicons name="call" size={11} color={THEME.blue} style={{ marginRight: 3 }} />
                     <Text style={[styles.compactCellValue, { color: THEME.blue }]} numberOfLines={1}>
-                      {lead.phone || lead.whatsappPhone || "—"}
+                      {lead?.phone || lead?.whatsappPhone || "—"}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -910,16 +1009,16 @@ export default function LeadDetailsScreen({ route, navigation }) {
                 {/* Field 3: Email */}
                 <TouchableOpacity
                   style={[styles.compactCell, { flex: 1.2 }]}
-                  onPress={lead.email ? handleEmail : undefined}
-                  activeOpacity={lead.email ? 0.7 : 1}
+                  onPress={lead?.email ? handleEmail : undefined}
+                  activeOpacity={lead?.email ? 0.7 : 1}
                 >
                   <Text style={styles.compactCellLabel}>EMAIL</Text>
                   <View style={styles.compactValueRow}>
-                    {lead.email ? (
+                    {lead?.email ? (
                       <Ionicons name="mail" size={11} color={THEME.textSecondary} style={{ marginRight: 3 }} />
                     ) : null}
-                    <Text style={[styles.compactCellValue, lead.email && { color: THEME.textPrimary }]} numberOfLines={1}>
-                      {lead.email || "—"}
+                    <Text style={[styles.compactCellValue, lead?.email && { color: THEME.textPrimary }]} numberOfLines={1}>
+                      {lead?.email || "—"}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -933,9 +1032,13 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   <View style={styles.compactValueRow}>
                     <Ionicons name="person-outline" size={11} color="#4F46E5" style={{ marginRight: 3 }} />
                     <Text style={[styles.compactCellValue, { color: "#4F46E5" }]} numberOfLines={1}>
-                      {lead.assignedTo?.name
-                        ? `${lead.assignedTo.name}${lead.assignedTo.departmentId?.name || lead.assignedTo.department ? ` (${lead.assignedTo.departmentId?.name || lead.assignedTo.department})` : ""}`
-                        : "Unassigned"}
+                      {(() => {
+                        if (!lead?.assignedTo) return "Unassigned";
+                        if (typeof lead.assignedTo === "string") return lead.assignedTo;
+                        const repName = lead.assignedTo.name || "Employee";
+                        const repDept = lead.assignedTo.departmentId?.name || lead.assignedTo.department;
+                        return repDept ? `${repName} (${repDept})` : repName;
+                      })()}
                     </Text>
                   </View>
                 </View>
@@ -946,7 +1049,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   <View style={styles.compactValueRow}>
                     <Ionicons name="business-outline" size={11} color="#64748B" style={{ marginRight: 3 }} />
                     <Text style={styles.compactCellValue} numberOfLines={1}>
-                      {lead.company || lead.productService || "Individual"}
+                      {lead?.company || lead?.productService || "Individual"}
                     </Text>
                   </View>
                 </View>
@@ -960,7 +1063,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                   <View style={styles.compactValueRow}>
                     <Ionicons name="link-outline" size={11} color="#D97706" style={{ marginRight: 3 }} />
                     <Text style={styles.compactCellValue} numberOfLines={1}>
-                      {lead.source || "Direct"}
+                      {lead?.source || "Direct"}
                     </Text>
                   </View>
                 </View>
@@ -968,8 +1071,8 @@ export default function LeadDetailsScreen({ route, navigation }) {
                 {/* Field 7: Estimated Valuation */}
                 <View style={[styles.compactCell, { flex: 0.9 }]}>
                   <Text style={styles.compactCellLabel}>VALUATION</Text>
-                  <Text style={[styles.compactCellValue, { color: lead.estimatedValue ? THEME.success : THEME.textMuted, fontFamily: FONTS.displayBold }]} numberOfLines={1}>
-                    {formatValuation(lead.estimatedValue)}
+                  <Text style={[styles.compactCellValue, { color: lead?.estimatedValue ? THEME.success : THEME.textMuted, fontFamily: FONTS.displayBold }]} numberOfLines={1}>
+                    {formatValuation(lead?.estimatedValue)}
                   </Text>
                 </View>
 
@@ -981,18 +1084,18 @@ export default function LeadDetailsScreen({ route, navigation }) {
                 >
                   <Text style={styles.compactCellLabel}>NEXT FOLLOW-UP</Text>
                   <View style={styles.compactValueRow}>
-                    <Ionicons name="time-outline" size={11} color={lead.nextFollowUpDate ? "#7C3AED" : THEME.textMuted} style={{ marginRight: 3 }} />
+                    <Ionicons name="time-outline" size={11} color={lead?.nextFollowUpDate ? "#7C3AED" : THEME.textMuted} style={{ marginRight: 3 }} />
                     <Text
                       style={[
                         styles.compactCellValue,
                         {
-                          color: lead.nextFollowUpDate ? "#6D28D9" : THEME.textMuted,
-                          fontFamily: lead.nextFollowUpDate ? FONTS.bodyBold : FONTS.body,
+                          color: lead?.nextFollowUpDate ? "#6D28D9" : THEME.textMuted,
+                          fontFamily: lead?.nextFollowUpDate ? FONTS.bodyBold : FONTS.body,
                         },
                       ]}
                       numberOfLines={1}
                     >
-                      {lead.nextFollowUpDate
+                      {lead?.nextFollowUpDate
                         ? formatSafeDateTime(lead.nextFollowUpDate, false)
                         : "Tap to set"}
                     </Text>
@@ -1018,7 +1121,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
               </View>
 
               {/* Next Follow-up banner if scheduled */}
-              {lead.nextFollowUpDate ? (
+              {lead?.nextFollowUpDate ? (
                 <View style={styles.nextFollowUpBanner}>
                   <View style={styles.nextFollowUpIconWrap}>
                     <Ionicons name="time" size={16} color="#7C3AED" />
@@ -1058,7 +1161,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                     );
                   })}
                 </View>
-              ) : !lead.nextFollowUpDate ? (
+              ) : !lead?.nextFollowUpDate ? (
                 <View style={styles.emptyRemindersRow}>
                   <Ionicons name="calendar-outline" size={18} color={THEME.textMuted} />
                   <Text style={styles.emptyRemindersText}>No follow-up reminders scheduled yet.</Text>
@@ -1327,7 +1430,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                         {/* Render Header Media in Preview */}
                         {selectedTemplate.headerType === "IMAGE" && (
                           <View style={styles.bubbleMediaImageWrap}>
-                            {mediaUrl && (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://")) ? (
+                            {typeof mediaUrl === "string" && (mediaUrl.startsWith("http://") || mediaUrl.startsWith("https://")) ? (
                               <Image source={{ uri: mediaUrl }} style={styles.bubbleMediaImage} resizeMode="cover" />
                             ) : (
                               <View style={styles.bubbleMediaPlaceholder}>
@@ -1342,7 +1445,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                             <Ionicons name="document-text" size={20} color="#DC2626" />
                             <View style={{ flex: 1, marginLeft: 6 }}>
                               <Text style={styles.bubbleMediaDocTitle} numberOfLines={1}>
-                                {mediaUrl ? mediaUrl.split("/").pop() : "Attached Document.pdf"}
+                                {typeof mediaUrl === "string" && mediaUrl.includes("/") ? mediaUrl.split("/").pop() : "Attached Document.pdf"}
                               </Text>
                               <Text style={styles.bubbleMediaDocSub}>PDF Document Header</Text>
                             </View>
@@ -1431,7 +1534,7 @@ export default function LeadDetailsScreen({ route, navigation }) {
                       </TouchableOpacity>
                     </View>
                     <Text style={styles.nativeSnippetBody} numberOfLines={2}>
-                      {t.text.replace("{name}", lead.name || "Client")}
+                      {String(t?.text || "").replace("{name}", typeof lead?.name === "string" ? lead.name : "Client")}
                     </Text>
                   </View>
                 ))}
@@ -1440,38 +1543,41 @@ export default function LeadDetailsScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-        {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
-        <Modal
-          visible={statusModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.stageModalContainer}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
-                  <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => !updatingStage && setStatusModalVisible(false)}
-                  disabled={updatingStage}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-                {/* 1. Current Stage Display */}
-                <View style={styles.stageCurrentBox}>
-                  <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
-                  <View style={styles.stageCurrentPill}>
-                    <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
-                    <Text style={styles.stageCurrentText}>{lead.status?.name || "New Prospect"}</Text>
+        {/* ── MODALS (GUARDED TO ONLY MOUNT IF LEAD IS LOADED) ── */}
+        {lead ? (
+          <>
+            {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
+            <Modal
+              visible={statusModalVisible}
+              animationType="fade"
+              transparent
+              onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
+            >
+              <View style={styles.modalBackdrop}>
+                <View style={styles.stageModalContainer}>
+                  <View style={styles.modalHeaderRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
+                      <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => !updatingStage && setStatusModalVisible(false)}
+                      disabled={updatingStage}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close" size={20} color={THEME.textMuted} />
+                    </TouchableOpacity>
                   </View>
-                </View>
+
+                  <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                    {/* 1. Current Stage Display */}
+                    <View style={styles.stageCurrentBox}>
+                      <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
+                      <View style={styles.stageCurrentPill}>
+                        <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                        <Text style={styles.stageCurrentText}>{lead?.status?.name || (typeof lead?.status === "string" ? lead.status : "New Prospect")}</Text>
+                      </View>
+                    </View>
 
                 {/* 2. Select New Stage */}
                 <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
@@ -1818,8 +1924,18 @@ export default function LeadDetailsScreen({ route, navigation }) {
             </View>
           </View>
         </Modal>
+        </>
+        ) : null}
       </View>
     </CompanyAdminLayout>
+  );
+}
+
+export default function LeadDetailsScreen(props) {
+  return (
+    <LeadDetailsErrorBoundary navigation={props.navigation}>
+      <LeadDetailsScreenComponent {...props} />
+    </LeadDetailsErrorBoundary>
   );
 }
 

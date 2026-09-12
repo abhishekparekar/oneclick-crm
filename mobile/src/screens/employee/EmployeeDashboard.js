@@ -113,7 +113,7 @@ export default function EmployeeDashboard({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
-      getEmployeeDashboardCached(false, params);
+      getEmployeeDashboardCached(false, params).catch(() => {});
       if (canAccessLeads) {
         leadsService.getLeads().then((res) => {
           const arr = Array.isArray(res) ? res : res?.data || [];
@@ -717,7 +717,7 @@ export default function EmployeeDashboard({ navigation }) {
                     >
                       <View style={styles.recentLeadAvatar}>
                         <Text style={styles.recentLeadAvatarText}>
-                          {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                          {(String(lead?.name || "LD")).slice(0, 2).toUpperCase()}
                         </Text>
                       </View>
                       <View style={styles.recentLeadMeta}>
@@ -814,10 +814,10 @@ export default function EmployeeDashboard({ navigation }) {
               >
                 <View style={[styles.eventDateBlock, { backgroundColor: "#fffbeb" }]}>
                   <Text style={[styles.eventDateDay, { color: "#d97706" }]}>
-                    {ann.createdAt ? new Date(ann.createdAt).getDate() : "!"}
+                    {ann.createdAt && !isNaN(new Date(ann.createdAt).getTime()) ? new Date(ann.createdAt).getDate() : "!"}
                   </Text>
                   <Text style={[styles.eventDateMonth, { color: "#b45309" }]}>
-                    {ann.createdAt ? new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short" }).toUpperCase() : "NEW"}
+                    {ann.createdAt && !isNaN(new Date(ann.createdAt).getTime()) ? new Date(ann.createdAt).toLocaleDateString("en-US", { month: "short" }).toUpperCase() : "NEW"}
                   </Text>
                 </View>
                 <View style={styles.eventInfo}>
@@ -831,30 +831,34 @@ export default function EmployeeDashboard({ navigation }) {
             ))}
 
             {/* Real Holidays */}
-            {holidays.slice(0, 3).map((holiday, idx) => (
-              <TouchableOpacity
-                key={`hol-${idx}`}
-                style={[styles.eventCard, (idx < holidays.slice(0, 3).length - 1 || announcements.length > 0) && styles.eventCardBorder]}
-                activeOpacity={0.75}
-                onPress={() => navigation.navigate("EmployeeHolidayDetails", { holiday })}
-              >
-                <View style={[styles.eventDateBlock, { backgroundColor: "#fef2f2" }]}>
-                  <Text style={[styles.eventDateDay, { color: "#ef4444" }]}>
-                    {new Date(holiday.date).getDate()}
-                  </Text>
-                  <Text style={[styles.eventDateMonth, { color: "#991b1b" }]}>
-                    {new Date(holiday.date).toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
-                  </Text>
-                </View>
-                <View style={styles.eventInfo}>
-                  <Text style={styles.eventTitle} numberOfLines={1}>{holiday.name}</Text>
-                  <Text style={styles.eventTime} numberOfLines={1}>Public Holiday</Text>
-                </View>
-                <View style={[styles.eventBadge, { backgroundColor: "#fef2f2" }]}>
-                  <Text style={[styles.eventBadgeText, { color: "#ef4444" }]}>Holiday</Text>
-                </View>
-              </TouchableOpacity>
-            ))}
+            {holidays.slice(0, 3).map((holiday, idx) => {
+              const holDate = holiday?.date ? new Date(holiday.date) : null;
+              const isDateValid = holDate && !isNaN(holDate.getTime());
+              return (
+                <TouchableOpacity
+                  key={`hol-${idx}`}
+                  style={[styles.eventCard, (idx < holidays.slice(0, 3).length - 1 || announcements.length > 0) && styles.eventCardBorder]}
+                  activeOpacity={0.75}
+                  onPress={() => navigation.navigate("EmployeeHolidayDetails", { holiday })}
+                >
+                  <View style={[styles.eventDateBlock, { backgroundColor: "#fef2f2" }]}>
+                    <Text style={[styles.eventDateDay, { color: "#ef4444" }]}>
+                      {isDateValid ? holDate.getDate() : "--"}
+                    </Text>
+                    <Text style={[styles.eventDateMonth, { color: "#991b1b" }]}>
+                      {isDateValid ? holDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase() : "HOL"}
+                    </Text>
+                  </View>
+                  <View style={styles.eventInfo}>
+                    <Text style={styles.eventTitle} numberOfLines={1}>{holiday.name || "Holiday"}</Text>
+                    <Text style={styles.eventTime} numberOfLines={1}>Public Holiday</Text>
+                  </View>
+                  <View style={[styles.eventBadge, { backgroundColor: "#fef2f2" }]}>
+                    <Text style={[styles.eventBadgeText, { color: "#ef4444" }]}>Holiday</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
 
             {announcements.length === 0 && holidays.length === 0 && (
               <Text style={styles.emptyText}>

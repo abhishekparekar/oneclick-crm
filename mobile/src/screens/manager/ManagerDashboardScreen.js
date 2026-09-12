@@ -185,7 +185,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
     return list;
   }, [manager]);
 
-  if (loadingDashboard && !dashboardData) {
+  if (!dashboardData && !dashboardError) {
     return (
       <ManagerLayout navigation={navigation} title="Dashboard">
         <View style={styles.centerBox}>
@@ -254,7 +254,10 @@ const ManagerDashboardScreen = ({ navigation }) => {
     { label: "Leave", value: onLeave, color: "#3B82F6" },
   ];
 
-  const userName = user?.firstName || user?.name?.split(" ")[0] || user?.fullName?.split(" ")[0] || "Manager";
+  const userName = user?.firstName ||
+    (typeof user?.name === "string" && user.name.trim() ? user.name.trim().split(/\s+/)[0] : "") ||
+    (typeof user?.fullName === "string" && user.fullName.trim() ? user.fullName.trim().split(/\s+/)[0] : "") ||
+    "Manager";
   const dateString = liveTime.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
   const clockStr = liveTime.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -813,7 +816,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
               <View style={styles.leadKpiRow}>
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
-                  onPress={() => navigation.navigate("LeadsEngine")}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList" })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{leadStats.total}</Text>
@@ -822,7 +825,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#8B5CF6" }]}
-                  onPress={() => navigation.navigate("LeadsEngine")}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "contacted" } })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{leadStats.contacted}</Text>
@@ -831,7 +834,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
-                  onPress={() => navigation.navigate("LeadsEngine")}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "in_progress" } })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.leadKpiNum}>{leadStats.inProgress}</Text>
@@ -840,7 +843,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
 
                 <TouchableOpacity
                   style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
-                  onPress={() => navigation.navigate("LeadsEngine")}
+                  onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "won" } })}
                   activeOpacity={0.75}
                 >
                   <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{leadStats.won}</Text>
@@ -855,16 +858,23 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   {leadsList.slice(0, 3).map((lead, idx) => {
                     const sName = lead.status?.name || "New";
                     const sColor = lead.status?.color || (sName.toLowerCase().includes("won") ? "#10B981" : sName.toLowerCase().includes("contact") ? "#3B82F6" : "#8B5CF6");
+                    const targetLeadId = lead.id || lead._id || lead.leadId;
                     return (
                       <TouchableOpacity
-                        key={lead.id || lead._id || String(idx)}
+                        key={targetLeadId || String(idx)}
                         style={styles.recentLeadItem}
-                        onPress={() => navigation.navigate("LeadsEngine")}
+                        onPress={() => {
+                          if (targetLeadId) {
+                            navigation.navigate("LeadsEngine", { screen: "LeadDetails", params: { leadId: targetLeadId } });
+                          } else {
+                            navigation.navigate("LeadsEngine");
+                          }
+                        }}
                         activeOpacity={0.75}
                       >
                         <View style={styles.recentLeadAvatar}>
                           <Text style={styles.recentLeadAvatarText}>
-                            {(lead.name || "LD").slice(0, 2).toUpperCase()}
+                            {(String(lead?.name || "LD")).slice(0, 2).toUpperCase()}
                           </Text>
                         </View>
                         <View style={styles.recentLeadMeta}>

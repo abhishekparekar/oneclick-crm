@@ -65,6 +65,9 @@ const ROUTE_TO_TAB = {
   LeadsDashboard: "Leads",
   LeadsList: "Leads",
   LeadDetails: "Leads",
+  LeadDetailsScreen: "Leads",
+  HRLeadDetails: "Leads",
+  EmployeeLeadDetails: "Leads",
   LeadReminders: "Leads",
   LeadCampaigns: "Leads",
   LeadSettings: "Leads",
@@ -97,6 +100,9 @@ const HIDE_BOTTOM_NAV_SCREENS = [
   "CompanyProjectDetails",
   "CompanyCreateProject",
   "LeadDetails",
+  "LeadDetailsScreen",
+  "HRLeadDetails",
+  "EmployeeLeadDetails",
   "LeadSettings",
   "LeadCampaigns",
   "LeadReminders",
@@ -154,7 +160,9 @@ const CompanyAdminLayout = ({
     }
   }, [navigation, isFocused]);
 
-  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const userRole = (user?.role || "").toLowerCase();
+  const isManager = userRole === "manager";
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads") || activeTab === "Leads" || isManager;
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
@@ -370,6 +378,8 @@ const CompanyAdminLayout = ({
           return "ManagerAnnouncements";
         case "CompanyCreateTask":
           return "ManagerCreateTask";
+        case "RegularizationApproval":
+          return "ManagerRegularization";
         default:
           return baseScreen;
       }
@@ -377,15 +387,26 @@ const CompanyAdminLayout = ({
     return baseScreen;
   };
 
+  const handleToggleDrawer = () => {
+    try {
+      navigation.dispatch(DrawerActions.toggleDrawer());
+    } catch (_) {
+      let p = navigation.getParent?.();
+      while (p) {
+        try {
+          p.dispatch(DrawerActions.toggleDrawer());
+          return;
+        } catch (_) {
+          p = p.getParent?.();
+        }
+      }
+    }
+  };
+
   const handleQuickNav = (screenName, params = {}) => {
     setFabVisible(false);
     if (screenName === "OpenDrawer") {
-      try {
-        navigation.dispatch(DrawerActions.toggleDrawer());
-      } catch (_) {
-        const parent = navigation.getParent?.();
-        if (parent) parent.dispatch(DrawerActions.toggleDrawer());
-      }
+      handleToggleDrawer();
       return;
     }
 
@@ -486,6 +507,10 @@ const CompanyAdminLayout = ({
           return;
         }
       } else if (role === "manager") {
+        if (pState?.routeNames?.includes("ManagerTabs")) {
+          p.navigate("ManagerTabs", { screen: target, params });
+          return;
+        }
         if (pState?.routeNames?.includes("ManagerStack")) {
           p.navigate("ManagerStack", { screen: target, params });
           return;
@@ -535,7 +560,6 @@ const CompanyAdminLayout = ({
     return name.slice(0, 2).toUpperCase();
   };
 
-  const userRole = (user?.role || "").toLowerCase();
   const isCompanyAdmin = userRole === "companyadmin" || userRole === "superadmin" || userRole === "admin";
   const hideBottomNav = propHideBottomNav !== undefined
     ? propHideBottomNav
@@ -565,7 +589,13 @@ const CompanyAdminLayout = ({
                 if (navigation.canGoBack()) {
                   navigation.goBack();
                 } else {
-                  navigation.navigate("CompanyDashboard");
+                  if (userRole === "manager") {
+                    handleQuickNav("ManagerDashboard");
+                  } else if (userRole === "employee" || userRole === "team member") {
+                    handleQuickNav("EmployeeDashboard");
+                  } else {
+                    handleQuickNav("CompanyDashboard");
+                  }
                 }
               }}
               style={styles.menuBtn}
@@ -575,7 +605,7 @@ const CompanyAdminLayout = ({
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+              onPress={handleToggleDrawer}
               style={styles.menuBtn}
               activeOpacity={0.7}
             >
@@ -723,7 +753,9 @@ const CompanyAdminLayout = ({
         >
           <View style={styles.modalContent}>
             <View style={styles.modalHeaderIndicator} />
-            <Text style={styles.modalTitle}>Admin Quick Actions</Text>
+            <Text style={styles.modalTitle}>
+              {isCompanyAdmin ? "Admin Quick Actions" : (userRole === "manager" ? "Manager Quick Actions" : "Quick Actions")}
+            </Text>
 
             {(hasPermission("leads", "create") || hasPermission("leads")) && (
               <TouchableOpacity

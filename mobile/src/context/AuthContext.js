@@ -93,6 +93,10 @@ export const AuthProvider = ({ children }) => {
       console.log("[AuthContext] Login successful, token received");
       await persistAuth(data.token, data.user);
       console.log("[AuthContext] User logged in:", data.user?.email);
+      try {
+        const NotificationService = require("../services/NotificationService").default;
+        NotificationService.getFCMToken(data.token).catch(() => {});
+      } catch (_) {}
       return { success: true, user: data.user };
     } catch (error) {
       const message =

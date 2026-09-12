@@ -192,14 +192,99 @@ const DEFAULT_TEMPLATES = [
   },
 ];
 
-export default function HRLeadDetailsScreen({ route, navigation }) {
+const parseLeadNotes = (rawNotes) => {
+  if (!rawNotes) return [];
+  if (Array.isArray(rawNotes)) {
+    return rawNotes
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const time = item.createdAt ? `[${formatSafeDateTime(item.createdAt, false)}] ` : "";
+          const author = item.author || item.createdBy?.name || "";
+          const noteText = item.note || item.text || item.content || item.comment || "";
+          const authorStr = author ? ` (${author})` : "";
+          return `${time}${noteText}${authorStr}`.trim();
+        }
+        return String(item || "");
+      })
+      .filter((n) => typeof n === "string" && n.trim().length > 0);
+  }
+  if (typeof rawNotes === "string") {
+    return rawNotes
+      .split("\n")
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0);
+  }
+  return [String(rawNotes)];
+};
+
+class HRLeadDetailsErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn("[HRLeadDetailsErrorBoundary] Caught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <View style={{ flex: 1, backgroundColor: "#F8FAFC" }}>
+          <StatusBar barStyle="light-content" backgroundColor="#0F172A" />
+          <HRHeader title="Lead Profile" showBack={true} />
+          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: 24 }}>
+            <Ionicons name="alert-circle-outline" size={50} color="#EF4444" style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 16, fontFamily: FONTS.displayBold, color: "#0F172A", marginBottom: 6 }}>
+              Unable to display lead profile
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: FONTS.body, color: "#64748B", textAlign: "center", marginBottom: 20, lineHeight: 18 }}>
+              An unexpected display issue occurred with this lead's data. Tap below to retry or return to Leads.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {this.props.navigation?.canGoBack() && (
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: "#CBD5E1" }}
+                  onPress={() => this.props.navigation.goBack()}
+                >
+                  <Text style={{ fontFamily: FONTS.bodyBold, color: "#475569", fontSize: 13 }}>Go Back</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={{ backgroundColor: "#1268D9", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                onPress={() => {
+                  this.setState({ hasError: false, error: null });
+                  if (this.props.onRetry) this.props.onRetry();
+                }}
+              >
+                <Text style={{ color: "#FFF", fontFamily: FONTS.bodyBold, fontSize: 13 }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function HRLeadDetailsScreenComponent({ route, navigation }) {
   const leadId =
     route?.params?.leadId ||
     route?.params?.id ||
     route?.params?.lead?._id ||
     route?.params?.lead?.id ||
+    route?.params?.params?.leadId ||
+    route?.params?.params?.id ||
+    route?.params?.params?.lead?._id ||
+    route?.params?.params?.lead?.id ||
     "";
-  const initialLead = route?.params?.lead || null;
+  const initialLead = route?.params?.lead || route?.params?.params?.lead || null;
   const { user } = useAuth();
   const currentUserId = user?._id || user?.id || "";
 
@@ -655,11 +740,12 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
   // Direct Communications
   const handleWhatsApp = (customMsg = null) => {
     if (!lead?.whatsappPhone) return Alert.alert("No Number", "WhatsApp phone not available.");
-    let cleanPhone = lead.whatsappPhone.replace(/[^0-9]/g, "");
+    let cleanPhone = String(lead.whatsappPhone).replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
-    const msg = customMsg
-      ? customMsg.replace("{name}", lead.name || "Client")
-      : `Hello ${lead.name || ""}, thank you for connecting with us!`;
+    const clientName = typeof lead?.name === "string" ? lead.name : "Client";
+    const msg = typeof customMsg === "string"
+      ? customMsg.replace("{name}", clientName)
+      : `Hello ${clientName}, thank you for connecting with us!`;
     Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {
       Alert.alert("WhatsApp Error", "Could not open WhatsApp app on this device.");
     });
@@ -671,7 +757,7 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
     if (!targetTpl) return Alert.alert("Select Template", "Please select a template to send.");
 
     setSendingCloudMsg(true);
-    let cleanPhone = lead.whatsappPhone.replace(/[^0-9]/g, "");
+    let cleanPhone = String(lead.whatsappPhone).replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
 
     const varCount = Math.max(getTemplateVarCount(targetTpl), 1);
@@ -681,7 +767,7 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
     for (let i = 1; i <= varCount; i++) {
       const val = varValues[i] !== undefined && varValues[i] !== null && String(varValues[i]).trim() !== ""
         ? String(varValues[i])
-        : (i === 1 ? (lead.name || "Client") : `Value ${i}`);
+        : (i === 1 ? (typeof lead?.name === "string" ? lead.name : "Client") : `Value ${i}`);
       finalParams.push(val);
       formattedBody = formattedBody.replace(new RegExp(`\\{\\{${i}\\}\\}`, "g"), val);
     }
@@ -695,7 +781,7 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
         params: finalParams,
         variables: varValues,
         variableValues: varValues,
-        mediaUrl: mediaUrl.trim(),
+        mediaUrl: (mediaUrl || "").trim(),
         mediaType: targetTpl.headerType || "NONE",
         text: formattedBody,
       });
@@ -726,18 +812,16 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
 
   const handleCall = () => {
     if (!lead?.whatsappPhone) return Alert.alert("No Number", "Phone number not available.");
-    Linking.openURL(`tel:${lead.whatsappPhone}`);
+    Linking.openURL(`tel:${String(lead.whatsappPhone).replace(/[^0-9+]/g, "")}`);
   };
 
   const handleEmail = () => {
     if (!lead?.email) return Alert.alert("No Email", "Email address not available.");
-    Linking.openURL(`mailto:${lead.email}`);
+    Linking.openURL(`mailto:${String(lead.email).trim()}`);
   };
 
   const statusColor = lead?.status?.color || THEME.primary;
-  const parsedNotes = lead?.notes
-    ? lead.notes.split("\n").filter((n) => n.trim().length > 0)
-    : [];
+  const parsedNotes = parseLeadNotes(lead?.notes);
 
   const assignedRepName = lead?.assignedTo?.name;
   const assignedRepDept = lead?.assignedTo?.departmentId?.name || lead?.assignedTo?.department;
@@ -777,7 +861,7 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
             <View style={styles.heroTopRow}>
               <View style={styles.heroAvatarCircle}>
                 <Text style={styles.heroAvatarLetter}>
-                  {(lead?.name || "L").charAt(0).toUpperCase()}
+                  {String(lead?.name || "L").charAt(0).toUpperCase()}
                 </Text>
               </View>
 
@@ -1502,7 +1586,7 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
                     </TouchableOpacity>
                   </View>
                   <Text style={styles.nativeSnippetBody} numberOfLines={2}>
-                    {t.text.replace("{name}", lead.name || "Client")}
+                    {String(t?.text || "").replace("{name}", typeof lead?.name === "string" ? lead.name : "Client")}
                   </Text>
                 </View>
               ))}
@@ -1511,38 +1595,41 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
         </ScrollView>
       )}
 
-      {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
-      <Modal
-        visible={statusModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.stageModalContainer}>
-            <View style={styles.modalHeaderRow}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
-                <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => !updatingStage && setStatusModalVisible(false)}
-                disabled={updatingStage}
-                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              >
-                <Ionicons name="close" size={20} color={THEME.textMuted} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-              {/* 1. Current Stage Display */}
-              <View style={styles.stageCurrentBox}>
-                <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
-                <View style={styles.stageCurrentPill}>
-                  <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
-                  <Text style={styles.stageCurrentText}>{lead.status?.name || "New Prospect"}</Text>
+      {/* ── MODALS (GUARDED TO ONLY MOUNT IF LEAD IS LOADED) ── */}
+      {lead ? (
+        <>
+          {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
+          <Modal
+            visible={statusModalVisible}
+            animationType="fade"
+            transparent
+            onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
+          >
+            <View style={styles.modalBackdrop}>
+              <View style={styles.stageModalContainer}>
+                <View style={styles.modalHeaderRow}>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                    <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
+                    <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => !updatingStage && setStatusModalVisible(false)}
+                    disabled={updatingStage}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close" size={20} color={THEME.textMuted} />
+                  </TouchableOpacity>
                 </View>
-              </View>
+
+                <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                  {/* 1. Current Stage Display */}
+                  <View style={styles.stageCurrentBox}>
+                    <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
+                    <View style={styles.stageCurrentPill}>
+                      <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                      <Text style={styles.stageCurrentText}>{lead?.status?.name || (typeof lead?.status === "string" ? lead.status : "New Prospect")}</Text>
+                    </View>
+                  </View>
 
               {/* 2. Select New Stage */}
               <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
@@ -1891,7 +1978,17 @@ export default function HRLeadDetailsScreen({ route, navigation }) {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+        </>
+      ) : null}
     </View>
+  );
+}
+
+export default function HRLeadDetailsScreen(props) {
+  return (
+    <HRLeadDetailsErrorBoundary navigation={props.navigation}>
+      <HRLeadDetailsScreenComponent {...props} />
+    </HRLeadDetailsErrorBoundary>
   );
 }
 

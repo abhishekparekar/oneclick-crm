@@ -142,7 +142,19 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
         setAddModalVisible(true);
         navigation.setParams({ openAddModal: undefined, timestamp: undefined });
       }
-    }, [loadData, route?.params?.openAddModal, route?.params?.timestamp])
+      if (route?.params?.leadId || route?.params?.id) {
+        const targetLeadId = route?.params?.leadId || route?.params?.id;
+        leadsService.getLeads().then((allLeads) => {
+          const list = Array.isArray(allLeads) ? allLeads : (allLeads?.data || allLeads?.leads || []);
+          const found = list.find((l) => (l.id || l._id) === targetLeadId);
+          if (found) {
+            setSelectedLead(found);
+            setDetailsModalVisible(true);
+          }
+        }).catch(() => {});
+        navigation.setParams({ leadId: undefined, id: undefined });
+      }
+    }, [loadData, route?.params?.openAddModal, route?.params?.leadId, route?.params?.id, route?.params?.timestamp])
   );
 
   const onRefresh = () => {

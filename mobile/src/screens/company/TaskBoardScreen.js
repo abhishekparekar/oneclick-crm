@@ -391,7 +391,7 @@ const TaskBoardScreen = ({ navigation }) => {
   const [bulkShifting, setBulkShifting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-  const [dateFilter, setDateFilter] = useState("today"); // Date period filter inside collapsible panel
+  const [dateFilter, setDateFilter] = useState("all_time"); // Date period filter inside collapsible panel (defaults to all_time)
   const [showFilter, setShowFilter] = useState(false);
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
@@ -534,7 +534,8 @@ const TaskBoardScreen = ({ navigation }) => {
       const aId = (a?._id || a?.id || a)?.toString();
       return aId === myUserId || (myEmployeeId && aId === myEmployeeId);
     });
-    const matchCreator = (t.createdBy?._id || t.createdBy)?.toString() === myUserId;
+    const creatorId = (t.assignedBy?._id || t.assignedBy || t.createdBy?._id || t.createdBy)?.toString();
+    const matchCreator = creatorId === myUserId || (myEmployeeId && creatorId === myEmployeeId);
     return matchAssignee || matchCreator;
   };
 
@@ -628,7 +629,36 @@ const TaskBoardScreen = ({ navigation }) => {
       }
     };
 
-    return candidateDates.some(checkSingleDate);
+    if (candidateDates.some(checkSingleDate)) return true;
+
+    // Check if task spans across the target period (ongoing multi-day tasks)
+    const rawStart = task.startDateTime || task.startDate || task.createdAt;
+    const rawEnd = task.endDateTime || task.endDate || task.finishDate || rawStart;
+    if (rawStart && rawEnd) {
+      const taskStart = new Date(rawStart).getTime();
+      const taskEnd = new Date(rawEnd).getTime();
+      const endOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999).getTime();
+      const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999).getTime();
+
+      switch (tabKey) {
+        case "today":
+          return taskStart <= endOfToday && taskEnd >= today.getTime();
+        case "yesterday":
+          return taskStart <= endOfYesterday && taskEnd >= yesterday.getTime();
+        case "this_week":
+          return taskStart < endOfWeek.getTime() && taskEnd >= startOfWeek.getTime();
+        case "last_month":
+          return taskStart < startOfThisMonth.getTime() && taskEnd >= startOfLastMonth.getTime();
+        case "this_month":
+          return taskStart < startOfNextMonth.getTime() && taskEnd >= startOfThisMonth.getTime();
+        case "next_month":
+          return taskStart < startOfAfterNextMonth.getTime() && taskEnd >= startOfNextMonth.getTime();
+        default:
+          return true;
+      }
+    }
+
+    return false;
   };
 
   // ── Date Filters List inside collapsible panel ──────────────────────────────

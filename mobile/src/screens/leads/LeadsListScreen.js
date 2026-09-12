@@ -428,7 +428,7 @@ export default function LeadsListScreen({ navigation, route }) {
           if (bulkMode) {
             toggleSelectLead(item.id || item._id);
           } else {
-            navigation.navigate("LeadDetails", { leadId: item.id || item._id });
+            navigation.navigate("LeadDetails", { leadId: item.id || item._id, lead: item });
           }
         }}
         onLongPress={() => {
@@ -524,12 +524,10 @@ export default function LeadsListScreen({ navigation, route }) {
     );
   };
 
-  const Layout = isManager ? ManagerLayout : (isEmployee ? EmployeeLayout : CompanyAdminLayout);
-  const layoutProps = isManager 
-    ? { navigation, title: "Lead CRM Directory", activeTabOverride: "Leads" }
-    : (isEmployee 
-        ? { navigation, title: "Lead CRM Directory" } 
-        : { navigation, activeTab: "Leads", headerTitle: "Lead CRM Directory", showSearch: false });
+  const Layout = isEmployee ? EmployeeLayout : CompanyAdminLayout;
+  const layoutProps = isEmployee 
+    ? { navigation, title: "Lead CRM Directory" } 
+    : { navigation, activeTab: "Leads", headerTitle: "Lead CRM Directory", showSearch: false };
 
   return (
     <Layout

@@ -276,6 +276,10 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="MainTabs" component={EmployeeBottomTabs} options={{ headerShown: false }} />
       <Stack.Screen name="LeadsEngine" component={EmployeeLeadsScreen} />
       <Stack.Screen name="EmployeeLeads" component={EmployeeLeadsScreen} />
+      <Stack.Screen name="LeadDetails" component={EmployeeLeadDetailsScreen} />
+      <Stack.Screen name="LeadDetailsScreen" component={EmployeeLeadDetailsScreen} />
+      <Stack.Screen name="EmployeeLeadDetails" component={EmployeeLeadDetailsScreen} />
+      <Stack.Screen name="HRLeadDetails" component={EmployeeLeadDetailsScreen} />
 
       {/* Secondary Screens */}
       <Stack.Screen name="CheckInCheckOut" component={EmployeePunchScreen} />
@@ -302,11 +306,11 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       <Stack.Screen name="EmployeeEditProfile" component={EmployeeEditProfileScreen} />
       <Stack.Screen name="EmployeeDocuments" component={EmployeeDocumentsScreen} />
-      <Stack.Screen name="LeadDetails" component={EmployeeLeadDetailsScreen} />
-      <Stack.Screen name="LeadDetailsScreen" component={EmployeeLeadDetailsScreen} />
-      <Stack.Screen name="EmployeeLeadDetails" component={EmployeeLeadDetailsScreen} />
 
       {/* Task & Project Secondary Screens */}
+      <Stack.Screen name="Tasks" component={MyTasksScreen} />
+      <Stack.Screen name="MyTasks" component={MyTasksScreen} />
+      <Stack.Screen name="TaskBoard" component={MyTasksScreen} />
       <Stack.Screen name="EmployeeTaskBoard" component={EmployeeTaskBoardScreen} />
       <Stack.Screen name="EmployeeTaskDetails" component={EmployeeTaskDetailsScreen} />
       <Stack.Screen name="EmployeeCreateTask" component={EmployeeCreateTaskScreen} />

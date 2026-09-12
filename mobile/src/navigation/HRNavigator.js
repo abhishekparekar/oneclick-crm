@@ -273,6 +273,8 @@ const HRStackScreen = () => {
       <Stack.Screen name="AttendanceSettings"          component={AttendanceSettingsScreen} />
       <Stack.Screen name="HRProjectList"               component={HRProjectListScreen} />
       <Stack.Screen name="HRTaskBoard"                 component={HRTaskBoardScreen} />
+      <Stack.Screen name="TaskBoard"                   component={HRTaskBoardScreen} />
+      <Stack.Screen name="Tasks"                       component={HRTaskBoardScreen} />
       <Stack.Screen name="HRProjectDetails"            component={HRProjectDetailsScreen} />
       <Stack.Screen name="HRTaskDetails"               component={HRTaskDetailsScreen} />
       <Stack.Screen name="EmployeeTaskDetails"         component={HRTaskDetailsScreen} />

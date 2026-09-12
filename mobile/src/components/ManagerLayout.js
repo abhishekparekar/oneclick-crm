@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "../context/AuthContext";
 import { getMyNotificationsApi } from "../api/notificationService";
 import { useLayout } from "../context/LayoutContext";
+import { getInitials } from "../utils/avatarUtils";
 
 const MANAGER_PRIMARY = "#1268D9";
 const MANAGER_AVATAR_BG = "#1268D9";
@@ -106,6 +107,8 @@ const ManagerLayout = ({
   onFilterPress = null,
   filterActive = false,
   hideFab = false,
+  headerTitle = null,
+  headerRightElement = null,
 }) => {
   const { user, hasPermission, refreshUserProfile } = useAuth();
   const insets = useSafeAreaInsets();
@@ -235,18 +238,26 @@ const ManagerLayout = ({
     }
   }, [activeTabLabel]);
 
-  const getInitials = (name) => {
-    if (!name) return "MG";
-    const parts = name.split(" ");
-    if (parts.length > 1) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
+
+  const handleToggleDrawer = () => {
+    try {
+      navigation.dispatch(DrawerActions.toggleDrawer());
+    } catch (_) {
+      let p = navigation.getParent?.();
+      while (p) {
+        try {
+          p.dispatch(DrawerActions.toggleDrawer());
+          return;
+        } catch (_) {
+          p = p.getParent?.();
+        }
+      }
     }
-    return name.slice(0, 2).toUpperCase();
   };
 
   const navigateToTab = (screen) => {
     if (screen === "OpenDrawer") {
-      navigation.dispatch(DrawerActions.openDrawer());
+      handleToggleDrawer();
       return;
     }
 
@@ -331,7 +342,7 @@ const ManagerLayout = ({
             </TouchableOpacity>
           ) : (
             <TouchableOpacity
-              onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())}
+              onPress={handleToggleDrawer}
               style={styles.menuBtn}
               activeOpacity={0.7}
               accessibilityLabel="Open Manager Menu"
@@ -340,7 +351,7 @@ const ManagerLayout = ({
             </TouchableOpacity>
           )}
           <View style={styles.titleBlock}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{title === "Manager" ? "Dashboard" : title}</Text>
+            <Text style={styles.headerTitle} numberOfLines={1}>{headerTitle || (title === "Manager" ? "Dashboard" : title)}</Text>
             <Text style={styles.companySubtitle} numberOfLines={1}>
               {subtitle || user?.companyName || "Oneclick"}
             </Text>
@@ -348,6 +359,7 @@ const ManagerLayout = ({
         </View>
 
         <View style={styles.headerRight}>
+          {headerRightElement}
           {rightActionType === "profile" ? (
             <View style={styles.headerActionRow}>
               {onRightActionPress.onSettings && (
@@ -432,7 +444,7 @@ const ManagerLayout = ({
                 onPress={() => navigation.navigate("ManagerTabs", { screen: "ManagerProfile" })}
                 activeOpacity={0.7}
               >
-                <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
+                <Text style={styles.avatarText}>{getInitials(user?.name, "MG")}</Text>
               </TouchableOpacity>
             </>
           )}

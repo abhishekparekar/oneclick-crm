@@ -184,12 +184,14 @@ const NotificationsScreen = ({ navigation }) => {
         const projectId = data.projectId || data.id || notif.projectId || (type.includes("project") ? notif.relatedId : null);
         const payrollId = data.payrollId || data.payslipId || data.id || notif.payrollId || (type.includes("payroll") || type.includes("payslip") ? notif.relatedId : null);
         const announcementId = data.announcementId || data.id || notif.announcementId || (type.includes("announcement") ? notif.relatedId : null);
+        const leadId = data.leadId || data.id || notif.leadId || (type.includes("lead") ? notif.relatedId : null);
 
         const userRole = (user?.role || "").toLowerCase();
 
         if (isEmployeeRole(user?.role) || userRole === "employee" || userRole === "staff") {
-            if (type.includes("lead")) {
-                navigation.navigate("LeadsEngine");
+            if (type.includes("lead") || leadId) {
+                if (leadId) navigation.navigate("EmployeeLeads", { leadId });
+                else navigation.navigate("EmployeeLeads");
             } else if (type.includes("request")) {
                 navigation.navigate("CompanyRequests");
             } else if (type.includes("leave") || leaveId) {
@@ -213,8 +215,9 @@ const NotificationsScreen = ({ navigation }) => {
                 navigation.navigate("EmployeeNotificationDetails", { notification: notif });
             }
         } else if (userRole === "manager") {
-            if (type.includes("lead")) {
-                navigation.navigate("LeadsEngine");
+            if (type.includes("lead") || leadId) {
+                if (leadId) navigation.navigate("LeadDetails", { leadId });
+                else navigation.navigate("LeadsEngine");
             } else if (type.includes("request")) {
                 navigation.navigate("CompanyRequests");
             } else if (type.includes("leave") || leaveId) {
@@ -235,8 +238,9 @@ const NotificationsScreen = ({ navigation }) => {
                 navigation.navigate("ManagerNotificationDetailsScreen", { notification: notif });
             }
         } else if (userRole === "hr") {
-            if (type.includes("lead")) {
-                navigation.navigate("LeadsEngine");
+            if (type.includes("lead") || leadId) {
+                if (leadId) navigation.navigate("HRLeadDetails", { leadId });
+                else navigation.navigate("HRLeads");
             } else if (type.includes("request")) {
                 navigation.navigate("CompanyRequests");
             } else if (type.includes("leave") || leaveId) {
@@ -258,8 +262,9 @@ const NotificationsScreen = ({ navigation }) => {
             }
         } else {
             // CompanyAdmin / SuperAdmin
-            if (type.includes("lead")) {
-                navigation.navigate("LeadsEngine");
+            if (type.includes("lead") || leadId) {
+                if (leadId) navigation.navigate("LeadDetails", { leadId });
+                else navigation.navigate("LeadsEngine");
             } else if (type.includes("request")) {
                 navigation.navigate("CompanyRequests");
             } else if (type.includes("leave") || leaveId) {

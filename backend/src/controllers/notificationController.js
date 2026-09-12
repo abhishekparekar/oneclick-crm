@@ -202,39 +202,42 @@ const saveDeviceToken = async (req, res, next) => {
     if (deviceToken) {
       // Update existing token
       deviceToken.userId = req.user._id;
-      deviceToken.companyId = req.user.companyId;
+      deviceToken.companyId = req.user.companyId || deviceToken.companyId;
       deviceToken.isActive = true;
-      deviceToken.employeeId = resolvedEmployeeId || null;
-      deviceToken.platform = platform || deviceToken.platform;
+      deviceToken.employeeId = resolvedEmployeeId || deviceToken.employeeId || null;
+      deviceToken.platform = platform || deviceToken.platform || "android";
       if (deviceId) deviceToken.deviceId = deviceId;
       await deviceToken.save();
     } else {
       // Create new token
       deviceToken = await DeviceToken.create({
         userId: req.user._id,
-        companyId: req.user.companyId,
+        companyId: req.user.companyId || null,
         employeeId: resolvedEmployeeId || null,
         fcmToken,
-        platform: platform || "unknown",
+        platform: platform || "android",
         deviceId: deviceId || null,
+        isActive: true,
       });
     }
 
-    // Deactivate previous active tokens for this user on the same platform
-    await DeviceToken.updateMany(
-      {
-        userId: req.user._id,
-        _id: { $ne: deviceToken._id },
-        platform: platform || deviceToken.platform || "unknown"
-      },
-      { $set: { isActive: false } }
-    );
+    // 1. If deviceId is provided, deactivate older tokens for this user only if they share the SAME deviceId
+    if (deviceId) {
+      await DeviceToken.updateMany(
+        {
+          userId: req.user._id,
+          deviceId,
+          _id: { $ne: deviceToken._id }
+        },
+        { $set: { isActive: false } }
+      );
+    }
 
-    // Also deactivate this fcmToken if it exists under ANY other user record
+    // 2. If this exact fcmToken was previously active under a DIFFERENT user account, re-assign/deactivate it
     await DeviceToken.updateMany(
       {
         fcmToken,
-        _id: { $ne: deviceToken._id }
+        userId: { $ne: req.user._id }
       },
       { $set: { isActive: false } }
     );

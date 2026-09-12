@@ -183,7 +183,7 @@ export const leadsService = {
     try {
       const response = await api.get(`/leads-engine/leads/${id}`);
       if (response?.data?.data) return response.data.data;
-      if (response?.data && response.data.name) return response.data;
+      if (response?.data && (response.data._id || response.data.id || response.data.name)) return response.data;
     } catch (_) {}
 
     const list = await getLocalData(STORAGE_KEYS.LEADS, DEFAULT_LEADS);

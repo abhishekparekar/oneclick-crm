@@ -87,8 +87,22 @@ const EmployeeTaskBoardScreen = ({ navigation }) => {
   const getPriorityConfig = (priority) => COLORS.priority[priority?.toLowerCase()] || COLORS.priority.low;
   const getStatusConfig = (status) => COLORS.status[status?.toLowerCase()] || COLORS.status.todo;
 
+  const mapStatusToColumn = (status) => {
+    if (!status) return "todo";
+    const s = String(status).toLowerCase().replace(/-/g, "_");
+    if (s === "pending" || s === "re_pending" || s === "todo") return "todo";
+    if (s === "in_process" || s === "in_progress" || s === "re_in_process" || s === "working") return "in-progress";
+    if (s === "complete" || s === "completed" || s === "done" || s === "late_complete" || s === "re_late_complete" || s === "re_complete") return "completed";
+    if (s === "backlog") return "backlog";
+    if (s === "planning") return "planning";
+    if (s === "review") return "review";
+    if (s === "testing") return "testing";
+    if (s === "blocked") return "blocked";
+    return s;
+  };
+
   const getColumnTasks = (colVal) => {
-    return tasks.filter((t) => (t.status || "todo") === colVal);
+    return tasks.filter((t) => mapStatusToColumn(t.status) === colVal);
   };
 
   return (

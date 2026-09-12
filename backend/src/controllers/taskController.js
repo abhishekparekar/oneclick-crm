@@ -338,14 +338,15 @@ exports.getTasks = async (req, res) => {
         let rbacOr = null;
         if (req.user.role === "Employee") {
             rbacOr = [
-                employeeId ? { assignedTo: employeeId } : null,
+                employeeId ? { assignedTo: { $in: [employeeId, req.user._id] } } : { assignedTo: req.user._id },
+                { assignedBy: req.user._id },
                 allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds }, assignmentType: { $in: ["department", "company", "company_wide"] } } : null,
                 { assignmentType: { $in: ["company", "company_wide"] } }
             ].filter(Boolean);
         } else if (req.user.role === "Manager" || req.user.role === "TeamLeader") {
             rbacOr = [
                 { assignedBy: req.user._id },
-                employeeId ? { assignedTo: employeeId } : null,
+                employeeId ? { assignedTo: { $in: [employeeId, req.user._id] } } : { assignedTo: req.user._id },
                 allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds } } : null
             ].filter(Boolean);
         } // Admins see all
@@ -608,6 +609,24 @@ exports.updateTask = async (req, res) => {
             remarks: isTemplate ? "Recurring task template was updated" : "Task details were updated",
             performedBy: req.user._id
         });
+
+        // Notify assigned employees + supervisors about task update
+        notifyTaskAll(
+            task.companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            "Task Updated",
+            `Task "${task.title}" has been updated.`,
+            "task_update",
+            { taskId: task._id.toString(), action: "updated" },
+            {
+                excludeUserId: req.user._id,
+                assigneeTitle: "Task Updated: " + task.title,
+                assigneeBody: `Task "${task.title}" was updated by ${req.user.name || "Admin"}.`,
+                supervisorTitle: "Task Updated: " + task.title,
+                supervisorBody: `Task "${task.title}" was updated by ${req.user.name || "Admin"}.`
+            }
+        ).catch(err => console.error("[notifyTaskAll updateTask error]:", err));
 
         res.json({ success: true, data: task, message: "Task updated successfully" });
     } catch (error) {

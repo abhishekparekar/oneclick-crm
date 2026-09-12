@@ -58,6 +58,9 @@ const getDefaultTimeFormatted = () => {
 };
 
 const getStatusBadgeColors = (statusObj) => {
+  if (!statusObj) {
+    return { bg: "#1E3A8A", border: "#3B82F6", text: "#DBEAFE", dot: "#60A5FA" };
+  }
   const name = (typeof statusObj === "string" ? statusObj : (statusObj?.name || "")).toLowerCase();
   const hex = typeof statusObj === "object" ? statusObj?.color : null;
   if (name.includes("won") || name.includes("closed") || name.includes("confirm")) {
@@ -97,21 +100,104 @@ const formatSafeDateTime = (dateVal, includeYear = true) => {
     const timeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
     return includeYear ? `${day} ${month} ${year} at ${timeStr}` : `${day} ${month} at ${timeStr}`;
   } catch (_) {
-    return String(dateVal);
+    return String(dateVal || "");
   }
 };
 
 const formatValuation = (val) => {
-  if (!val) return "—";
+  if (val === null || val === undefined || val === "") return "—";
   try {
-    const cleaned = String(val).replace(/[^0-9.]/g, "");
+    let raw = val;
+    if (typeof val === "object" && val !== null) {
+      raw = val.$numberDecimal || val.amount || val.value || "";
+    }
+    const cleaned = String(raw).replace(/[^0-9.]/g, "");
     const num = Number(cleaned);
-    if (isNaN(num) || cleaned === "") return String(val);
+    if (isNaN(num) || cleaned === "") return String(raw || "—");
     return `₹${num.toLocaleString("en-IN")}`;
   } catch (_) {
-    return String(val);
+    return "—";
   }
 };
+
+const parseLeadNotes = (rawNotes) => {
+  if (!rawNotes) return [];
+  if (Array.isArray(rawNotes)) {
+    return rawNotes
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const time = item.createdAt ? `[${formatSafeDateTime(item.createdAt, false)}] ` : "";
+          const author = item.author || item.createdBy?.name || "";
+          const noteText = item.note || item.text || item.content || item.comment || "";
+          const authorStr = author ? ` (${author})` : "";
+          return `${time}${noteText}${authorStr}`.trim();
+        }
+        return String(item || "");
+      })
+      .filter((n) => typeof n === "string" && n.trim().length > 0);
+  }
+  if (typeof rawNotes === "string") {
+    return rawNotes
+      .split("\n")
+      .map((n) => (typeof n === "string" ? n.trim() : ""))
+      .filter((n) => n.length > 0);
+  }
+  return [String(rawNotes)];
+};
+
+class EmployeeLeadDetailsErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn("[EmployeeLeadDetailsErrorBoundary] Caught error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <EmployeeLayout navigation={this.props.navigation} title="Lead Profile" showBack={true}>
+          <View style={{ flex: 1, backgroundColor: "#F8FAFC", justifyContent: "center", alignItems: "center", padding: 24 }}>
+            <Ionicons name="alert-circle-outline" size={50} color="#EF4444" style={{ marginBottom: 12 }} />
+            <Text style={{ fontSize: 16, fontFamily: FONTS.displayBold, color: "#0F172A", marginBottom: 6 }}>
+              Unable to display lead profile
+            </Text>
+            <Text style={{ fontSize: 13, fontFamily: FONTS.body, color: "#64748B", textAlign: "center", marginBottom: 20, lineHeight: 18 }}>
+              An unexpected display issue occurred with this lead's data. Tap below to retry or return to Leads.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {this.props.navigation?.canGoBack() && (
+                <TouchableOpacity
+                  style={{ paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: "#CBD5E1" }}
+                  onPress={() => this.props.navigation.goBack()}
+                >
+                  <Text style={{ fontFamily: FONTS.bodyBold, color: "#475569", fontSize: 13 }}>Go Back</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={{ backgroundColor: "#1268D9", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 }}
+                onPress={() => {
+                  this.setState({ hasError: false, error: null });
+                  if (this.props.onRetry) this.props.onRetry();
+                }}
+              >
+                <Text style={{ color: "#FFF", fontFamily: FONTS.bodyBold, fontSize: 13 }}>Retry</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </EmployeeLayout>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 const buildReminderIso = (dateStr, timeStr) => {
   try {
@@ -191,14 +277,18 @@ const DEFAULT_TEMPLATES = [
   },
 ];
 
-export default function EmployeeLeadDetailsScreen({ route, navigation }) {
+function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const leadId =
     route?.params?.leadId ||
     route?.params?.id ||
     route?.params?.lead?._id ||
     route?.params?.lead?.id ||
+    route?.params?.params?.leadId ||
+    route?.params?.params?.id ||
+    route?.params?.params?.lead?._id ||
+    route?.params?.params?.lead?.id ||
     "";
-  const initialLead = route?.params?.lead || null;
+  const initialLead = route?.params?.lead || route?.params?.params?.lead || null;
   const { user, hasPermission } = useAuth();
   const canEdit = hasPermission("leads", "edit") || hasPermission("leads");
   const canDelete = hasPermission("leads", "delete");
@@ -598,17 +688,23 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
 
   // Communications
   const handleWhatsApp = (customMsg = null) => {
-    if (!lead?.whatsappPhone) return Alert.alert("No Number", "WhatsApp phone not available.");
-    const cleanPhone = lead.whatsappPhone.replace(/[^0-9]/g, "");
+    const rawPhone = lead?.whatsappPhone || lead?.phone;
+    if (!rawPhone) return Alert.alert("No Number", "WhatsApp phone not available.");
+    let cleanPhone = String(rawPhone).replace(/[^0-9]/g, "");
+    if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
+    const clientName = typeof lead?.name === "string" ? lead.name : "Client";
     const msg = customMsg
-      ? customMsg.replace("{name}", lead.name || "Client")
-      : `Hello ${lead.name || ""}, thank you for contacting us!`;
-    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`);
+      ? String(customMsg).replace("{name}", clientName)
+      : `Hello ${clientName}, thank you for contacting us!`;
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {
+      Alert.alert("WhatsApp Error", "Could not open WhatsApp app on this device.");
+    });
   };
 
   const handleCall = () => {
-    if (!lead?.whatsappPhone) return Alert.alert("No Number", "Phone number not available.");
-    Linking.openURL(`tel:${lead.whatsappPhone}`);
+    const rawPhone = lead?.whatsappPhone || lead?.phone;
+    if (!rawPhone) return Alert.alert("No Number", "Phone number not available.");
+    Linking.openURL(`tel:${rawPhone}`);
   };
 
   const handleEmail = () => {
@@ -617,11 +713,9 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
   };
 
   const statusColor = lead?.status?.color || THEME.primary;
-  const parsedNotes = lead?.notes
-    ? lead.notes.split("\n").filter((n) => n.trim().length > 0)
-    : [];
+  const parsedNotes = parseLeadNotes(lead?.notes || lead?.leadNotes);
 
-  const assignedRepName = lead?.assignedTo?.name;
+  const assignedRepName = lead?.assignedTo?.name || (typeof lead?.assignedTo === "string" ? lead.assignedTo : null);
   const assignedRepDept = lead?.assignedTo?.departmentId?.name || lead?.assignedTo?.department;
 
   return (
@@ -660,7 +754,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
               <View style={styles.heroTopRow}>
                 <View style={styles.heroAvatarCircle}>
                   <Text style={styles.heroAvatarLetter}>
-                    {(lead?.name || "L").charAt(0).toUpperCase()}
+                    {String(lead?.name || "L").charAt(0).toUpperCase()}
                   </Text>
                 </View>
 
@@ -1059,7 +1153,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     </View>
                     <View style={styles.infoCol}>
                       <Text style={styles.infoLabel}>Email Address</Text>
-                      <Text style={styles.infoValue}>{lead.email || "Not provided"}</Text>
+                      <Text style={styles.infoValue}>{lead?.email || "Not provided"}</Text>
                     </View>
                   </View>
 
@@ -1069,11 +1163,11 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     </View>
                     <View style={styles.infoCol}>
                       <Text style={styles.infoLabel}>Company / Org</Text>
-                      <Text style={styles.infoValue}>{lead.company || "Individual Prospect"}</Text>
+                      <Text style={styles.infoValue}>{lead?.company || "Individual Prospect"}</Text>
                     </View>
                   </View>
 
-                  {lead.productService ? (
+                  {lead?.productService ? (
                     <View style={styles.infoRow}>
                       <View style={[styles.infoIconWrap, { backgroundColor: THEME.amberBg }]}>
                         <Ionicons name="pricetag" size={15} color={THEME.primary} />
@@ -1091,7 +1185,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     </View>
                     <View style={styles.infoCol}>
                       <Text style={styles.infoLabel}>Lead Source</Text>
-                      <Text style={styles.infoValue}>{lead.source || "Direct"}</Text>
+                      <Text style={styles.infoValue}>{lead?.source || "Direct"}</Text>
                     </View>
                   </View>
 
@@ -1110,12 +1204,12 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                         style={[
                           styles.infoValue,
                           {
-                            color: lead.nextFollowUpDate ? "#6D28D9" : THEME.textMuted,
-                            fontFamily: lead.nextFollowUpDate ? FONTS.displayBold : FONTS.body,
+                            color: lead?.nextFollowUpDate ? "#6D28D9" : THEME.textMuted,
+                            fontFamily: lead?.nextFollowUpDate ? FONTS.displayBold : FONTS.body,
                           },
                         ]}
                       >
-                        {lead.nextFollowUpDate
+                        {lead?.nextFollowUpDate
                           ? formatSafeDateTime(lead.nextFollowUpDate, true)
                           : "Not scheduled (Tap to set)"}
                       </Text>
@@ -1129,7 +1223,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                     <View style={styles.infoCol}>
                       <Text style={styles.infoLabel}>Registration Date</Text>
                       <Text style={styles.infoValue}>
-                        {formatSafeDateTime(lead.createdAt, true) || "Recently"}
+                        {formatSafeDateTime(lead?.createdAt, true) || "Recently"}
                       </Text>
                     </View>
                   </View>
@@ -1141,7 +1235,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
             {activeTab === "whatsapp" && (
               <View style={styles.tabContentBlock}>
                 <Text style={styles.sectionHeaderTitle}>PRE-CRAFTED WHATSAPP TEMPLATES</Text>
-                <Text style={styles.templateSubGuide}>Tap any template to send directly to {lead.name}:</Text>
+                <Text style={styles.templateSubGuide}>Tap any template to send directly to {lead?.name || "Client"}:</Text>
 
                 {DEFAULT_TEMPLATES.map((t, idx) => (
                   <View key={idx} style={styles.templateCard}>
@@ -1155,7 +1249,7 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
                         <Text style={styles.sendWhatsAppBtnText}>Send</Text>
                       </TouchableOpacity>
                     </View>
-                    <Text style={styles.templateBodyText}>{t.text.replace("{name}", lead.name || "Client")}</Text>
+                    <Text style={styles.templateBodyText}>{String(t?.text || "").replace("{name}", typeof lead?.name === "string" ? lead.name : "Client")}</Text>
                   </View>
                 ))}
               </View>
@@ -1163,38 +1257,41 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
           </ScrollView>
         )}
 
-        {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
-        <Modal
-          visible={statusModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
-        >
-          <View style={styles.modalBackdrop}>
-            <View style={styles.stageModalContainer}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
-                  <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => !updatingStage && setStatusModalVisible(false)}
-                  disabled={updatingStage}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
-                {/* 1. Current Stage Display */}
-                <View style={styles.stageCurrentBox}>
-                  <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
-                  <View style={styles.stageCurrentPill}>
-                    <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
-                    <Text style={styles.stageCurrentText}>{lead.status?.name || "New Prospect"}</Text>
+        {/* ── MODALS (GUARDED TO ONLY MOUNT IF LEAD IS LOADED) ── */}
+        {lead ? (
+          <>
+            {/* ── MODAL: STAGE SELECTION & NEXT FOLLOW-UP ── */}
+            <Modal
+              visible={statusModalVisible}
+              animationType="fade"
+              transparent
+              onRequestClose={() => !updatingStage && setStatusModalVisible(false)}
+            >
+              <View style={styles.modalBackdrop}>
+                <View style={styles.stageModalContainer}>
+                  <View style={styles.modalHeaderRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="swap-horizontal" size={18} color={THEME.primary} />
+                      <Text style={styles.modalHeading}>Update Stage & Follow-up</Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => !updatingStage && setStatusModalVisible(false)}
+                      disabled={updatingStage}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name="close" size={20} color={THEME.textMuted} />
+                    </TouchableOpacity>
                   </View>
-                </View>
+
+                  <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
+                    {/* 1. Current Stage Display */}
+                    <View style={styles.stageCurrentBox}>
+                      <Text style={styles.stageFieldMiniLabel}>CURRENT STAGE</Text>
+                      <View style={styles.stageCurrentPill}>
+                        <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
+                        <Text style={styles.stageCurrentText}>{lead?.status?.name || (typeof lead?.status === "string" ? lead.status : "New Prospect")}</Text>
+                      </View>
+                    </View>
 
                 {/* 2. Select New Stage */}
                 <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
@@ -1495,8 +1592,18 @@ export default function EmployeeLeadDetailsScreen({ route, navigation }) {
             </View>
           </KeyboardAvoidingView>
         </Modal>
+          </>
+        ) : null}
       </View>
     </EmployeeLayout>
+  );
+}
+
+export default function EmployeeLeadDetailsScreen(props) {
+  return (
+    <EmployeeLeadDetailsErrorBoundary navigation={props.navigation}>
+      <EmployeeLeadDetailsScreenComponent {...props} />
+    </EmployeeLeadDetailsErrorBoundary>
   );
 }
 

@@ -153,12 +153,10 @@ export default function LeadsDashboardScreen({ navigation }) {
     Linking.openURL(`tel:${phone}`);
   };
 
-  const Layout = isManager ? ManagerLayout : (isEmployee ? EmployeeLayout : CompanyAdminLayout);
-  const layoutProps = isManager
-    ? { navigation, title: "Lead Engine", activeTabOverride: "Leads" }
-    : (isEmployee
-      ? { navigation, title: "Lead CRM" }
-      : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false });
+  const Layout = isEmployee ? EmployeeLayout : CompanyAdminLayout;
+  const layoutProps = isEmployee
+    ? { navigation, title: "Lead CRM", activeTabOverride: "Leads" }
+    : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false };
 
   return (
     <Layout
@@ -394,7 +392,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                       key={l.id || l._id || idx}
                       style={styles.compactLeadCard}
                       activeOpacity={0.8}
-                      onPress={() => navigation.navigate("LeadDetails", { leadId: l.id || l._id })}
+                      onPress={() => navigation.navigate("LeadDetails", { leadId: l.id || l._id, lead: l })}
                     >
                       <View style={[styles.miniAvatar, { backgroundColor: avatarColor }]}>
                         <Text style={styles.miniAvatarText}>

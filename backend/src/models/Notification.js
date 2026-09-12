@@ -186,44 +186,59 @@ notificationSchema.post("save", async function (doc) {
             }
 
             // 2. Send FCM Mobile Push Notification (Tokens strictly deduplicated)
-            let recipientUserId = doc.userId;
+            const recipientIdStr = (doc.userId || "").toString();
+            const candidateIds = new Set();
+            if (recipientIdStr) candidateIds.add(recipientIdStr);
+
             try {
                 const User = require("./User");
                 const Employee = require("./Employee");
                 const u = await User.findById(doc.userId).select("_id").lean();
-                if (!u) {
+                if (u) {
+                    candidateIds.add(u._id.toString());
+                    const emp = await Employee.findOne({ userId: u._id }).select("_id").lean();
+                    if (emp) candidateIds.add(emp._id.toString());
+                } else {
                     const emp = await Employee.findById(doc.userId).select("userId").lean();
-                    if (emp?.userId) {
-                        recipientUserId = emp.userId;
+                    if (emp) {
+                        candidateIds.add(emp._id.toString());
+                        if (emp.userId) candidateIds.add((emp.userId._id || emp.userId).toString());
                     }
                 }
             } catch (_) {}
 
-            // Strictly query active tokens that belong to this intended recipient user
+            const candidateList = [...candidateIds];
+
+            // Strictly query active tokens that belong to this intended recipient user or employee
             const deviceTokens = await DeviceToken.find({
-                userId: recipientUserId,
+                $or: [
+                    { userId: { $in: candidateList } },
+                    { employeeId: { $in: candidateList } }
+                ],
                 isActive: true
             }).sort({ updatedAt: -1 }).lean();
 
-            // Strict deduplication: 1 latest active token per physical device/platform per user
-            const seenKeys = new Set();
+            // Strict deduplication: exactly 1 copy per physical device token
+            const seenTokens = new Set();
             const uniqueTokens = [];
             for (const dt of deviceTokens) {
                 if (!dt.fcmToken) continue;
-                const devKey = `${(dt.userId || "").toString()}_${dt.deviceId || dt.platform || "android"}`;
-                if (!seenKeys.has(devKey) && !seenKeys.has(dt.fcmToken)) {
-                    seenKeys.add(devKey);
-                    seenKeys.add(dt.fcmToken);
-                    uniqueTokens.push(dt.fcmToken);
+                const tokenStr = dt.fcmToken.trim();
+                if (!seenTokens.has(tokenStr)) {
+                    seenTokens.add(tokenStr);
+                    uniqueTokens.push(tokenStr);
                 }
             }
 
             if (uniqueTokens.length > 0) {
+                console.log(`[FCM Push] Dispatching "${doc.title}" to ${uniqueTokens.length} active device(s) for user/employee ${recipientIdStr}`);
                 sendPushNotification(uniqueTokens, doc.title, doc.body, {
                     type: doc.type || "system",
                     ...(doc.data || {}),
                     notificationId: doc._id.toString(),
                 }).catch(err => console.error("Background FCM Error:", err));
+            } else {
+                console.log(`[FCM Push] No active device tokens found for recipient ${recipientIdStr}`);
             }
         }
     } catch (error) {

@@ -7,11 +7,12 @@ import AuthNavigator from "./AuthNavigator";
 import { getNavigatorForRole } from "../utils/roleNavigation";
 import ChangePasswordScreen from "../screens/auth/ChangePasswordScreen";
 import NotificationService from "../services/NotificationService";
+import RoleErrorBoundary from "../components/RoleErrorBoundary";
 
 export const navigationRef = createNavigationContainerRef();
 
 const AppNavigator = () => {
-  const { isLoading, isAuthenticated, user, refreshUserProfile } = useAuth();
+  const { isLoading, isAuthenticated, user, logout, refreshUserProfile } = useAuth();
   
   useEffect(() => {
     if (isAuthenticated) {
@@ -43,9 +44,13 @@ const AppNavigator = () => {
       return <ChangePasswordScreen />;
     }
     const Navigator = getNavigatorForRole(user?.role);
-    return Navigator ? <Navigator /> : <AuthNavigator />;
+    if (!Navigator) return <AuthNavigator />;
+    return (
+      <RoleErrorBoundary role={user?.role} onLogout={logout}>
+        <Navigator />
+      </RoleErrorBoundary>
+    );
   };
-
 
   return (
     <NavigationContainer ref={navigationRef}>

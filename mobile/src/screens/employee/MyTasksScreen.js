@@ -503,7 +503,8 @@ export default function MyTasksScreen({ route, navigation }) {
       };
       return formatDateStr(t.startDateTime || t.startDate) === targetDayStr ||
              formatDateStr(t.nextFollowUpDate) === targetDayStr ||
-             formatDateStr(t.endDateTime || t.endDate) === targetDayStr;
+             formatDateStr(t.endDateTime || t.endDate) === targetDayStr ||
+             formatDateStr(t.createdAt) === targetDayStr;
     };
 
     const checkRangeMatch = (startRange, endRange) => {
@@ -518,30 +519,73 @@ export default function MyTasksScreen({ route, navigation }) {
       };
       return isBetween(t.startDateTime || t.startDate) ||
              isBetween(t.nextFollowUpDate) ||
-             isBetween(t.endDateTime || t.endDate);
+             isBetween(t.endDateTime || t.endDate) ||
+             isBetween(t.createdAt);
     };
 
+    let matched = false;
     switch (dateTab) {
-      case "Today": return checkDayMatch(todayStr);
-      case "Yesterday": return checkDayMatch(yesterdayStr);
+      case "Today": matched = checkDayMatch(todayStr); break;
+      case "Yesterday": matched = checkDayMatch(yesterdayStr); break;
       case "This Week": {
         const first = now.getDate() - now.getDay();
         const s = new Date(now); s.setDate(first);
         const e = new Date(now); e.setDate(first + 6);
-        return checkRangeMatch(s, e);
+        matched = checkRangeMatch(s, e);
+        break;
       }
       case "This Month": {
         const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         const startOfNextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return checkRangeMatch(startOfThisMonth, startOfNextMonth);
+        matched = checkRangeMatch(startOfThisMonth, startOfNextMonth);
+        break;
       }
       case "Last Month": {
         const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lme = new Date(now.getFullYear(), now.getMonth(), 0);
-        return checkRangeMatch(lm, lme);
+        matched = checkRangeMatch(lm, lme);
+        break;
       }
       default: return true;
     }
+    if (matched) return true;
+
+    // Check multi-day span
+    const rawStart = t.startDateTime || t.startDate || t.createdAt;
+    const rawEnd = t.endDateTime || t.endDate || t.finishDate || rawStart;
+    if (rawStart && rawEnd) {
+      const taskStart = new Date(rawStart).getTime();
+      const taskEnd = new Date(rawEnd).getTime();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0).getTime();
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      const startOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0, 0).getTime();
+      const endOfYesterday = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59, 999).getTime();
+
+      switch (dateTab) {
+        case "Today":
+          return taskStart <= endOfToday && taskEnd >= startOfToday;
+        case "Yesterday":
+          return taskStart <= endOfYesterday && taskEnd >= startOfYesterday;
+        case "This Week": {
+          const first = now.getDate() - now.getDay();
+          const s = new Date(now); s.setDate(first); s.setHours(0, 0, 0, 0);
+          const e = new Date(now); e.setDate(first + 6); e.setHours(23, 59, 59, 999);
+          return taskStart <= e.getTime() && taskEnd >= s.getTime();
+        }
+        case "This Month": {
+          const s = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+          const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+          return taskStart <= e.getTime() && taskEnd >= s.getTime();
+        }
+        case "Last Month": {
+          const s = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+          const e = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+          return taskStart <= e.getTime() && taskEnd >= s.getTime();
+        }
+      }
+    }
+
+    return false;
   };
 
   const matchesDeadlineComingFilter = (t, filterVal) => {
