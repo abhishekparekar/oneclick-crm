@@ -493,10 +493,11 @@ const getManagerTeam = async (req, res, next) => {
         { path: "accessibleDepartments", select: "name" },
         { path: "designationId", select: "name" },
         { path: "branchId", select: "branchName" },
+        { path: "userId", select: "role profileImage name email assignedModules" },
       ])
       .select(
         "fullName firstName lastName employeeCode email phone photo status role " +
-        "departmentId departmentIds designationId branchId joiningDate employmentType workMode reportingManagerName accessibleDepartments"
+        "departmentId departmentIds designationId branchId joiningDate employmentType workMode reportingManagerName accessibleDepartments permissions assignedModules userId"
       )
       .lean();
 

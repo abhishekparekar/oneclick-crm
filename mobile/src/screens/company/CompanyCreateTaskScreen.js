@@ -26,6 +26,7 @@ import { loadTaskScheduleContext } from "../../utils/loadTaskScheduleContext";
 import TaskAttachmentPicker from "../../components/TaskAttachmentPicker";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
+import { hasTaskModuleAccess } from "../../utils/taskAccessHelper";
 
 const combineDateAndTimeToISO = (dateStr, timeStr) => {
   if (!dateStr) return null;
@@ -146,11 +147,11 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
           }
         }
         const empList = empRes.data?.employees || (Array.isArray(empRes.data) ? empRes.data : []);
-        if (empList && empList.length > 0) {
-          setEmployees(empList);
-          if (!editingTask && empList.length > 0) {
-            setAssigneeIds([empList[0]._id]);
-          }
+        // Strictly filter to employees with Task Module access enabled
+        const taskEligibleEmps = empList.filter(hasTaskModuleAccess);
+        setEmployees(taskEligibleEmps);
+        if (!editingTask && taskEligibleEmps.length > 0) {
+          setAssigneeIds([taskEligibleEmps[0]._id]);
         }
       } catch (err) {
         console.error("Failed to load employees and departments:", err);
@@ -173,6 +174,7 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
     if (!Array.isArray(employees)) return [];
     return employees.filter(e => {
       if (!e) return false;
+      if (!hasTaskModuleAccess(e)) return false;
       const matchName = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase().includes((empSearch || "").toLowerCase());
       if (!modalDeptId) return matchName;
       if (e.role === "Manager") return matchName;
@@ -212,9 +214,11 @@ const CompanyCreateTaskScreen = ({ route, navigation }) => {
       let finalAssignees = [];
       if (assignmentType === "multiple") finalAssignees = assigneeIds;
       else if (assignmentType === "department") {
-        finalAssignees = employees.filter(emp => (emp.departmentId?._id || emp.departmentId) === selectedDeptId).map(emp => emp._id);
+        finalAssignees = employees
+          .filter(emp => (emp.departmentId?._id || emp.departmentId) === selectedDeptId && hasTaskModuleAccess(emp))
+          .map(emp => emp._id);
       } else if (assignmentType === "company") {
-        finalAssignees = employees.map(emp => emp._id);
+        finalAssignees = employees.filter(hasTaskModuleAccess).map(emp => emp._id);
       }
 
       const startISO = startDate ? parseDDMMYYYYToISO(startDate) : null;

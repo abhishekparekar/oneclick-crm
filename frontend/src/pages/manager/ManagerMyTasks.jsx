@@ -348,6 +348,7 @@ export default function ManagerMyTasks() {
 
   const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
   const employees = rawMembers.map(m => ({
+    ...m,
     _id: m._id,
     name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
     firstName: m.firstName || m.name,

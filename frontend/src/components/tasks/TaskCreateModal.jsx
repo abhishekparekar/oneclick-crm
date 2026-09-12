@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import TaskAttachmentField from "./TaskAttachmentField";
 import CustomDateTimeField from "../common/CustomDateTimeField";
+import { hasTaskModuleAccess } from "../../utils/taskAccessHelper";
 
 const getNowDateTimeString = () => {
   const d = new Date();
@@ -161,16 +162,22 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
     }
   }, [isOpen, canAssignOthers, defaultSelfId, departments]);
 
+  // Only employees with Task Module access are eligible for task assignment
+  const taskEligibleEmployees = useMemo(() => {
+    if (!Array.isArray(employees)) return [];
+    return employees.filter(hasTaskModuleAccess);
+  }, [employees]);
+
   // Filter Employees based on the Selected Department with robust name and ID matching
   const departmentFilteredEmployees = useMemo(() => {
-    if (!employees || employees.length === 0) return [];
-    if (!form.departmentId || form.departmentId === "all") return employees;
+    if (taskEligibleEmployees.length === 0) return [];
+    if (!form.departmentId || form.departmentId === "all") return taskEligibleEmployees;
 
     const targetDeptId = form.departmentId.toString();
     const deptObj = departments.find(d => (d._id || d.id || "").toString() === targetDeptId);
     const targetDeptName = (deptObj?.name || deptObj?.departmentName || "").trim().toLowerCase();
 
-    const filtered = employees.filter(e => {
+    const filtered = taskEligibleEmployees.filter(e => {
       // 1. Direct departmentId matching
       const d1 = (e.departmentId?._id || e.departmentId || e.department?._id || e.department || "").toString();
       if (d1 && d1 === targetDeptId) return true;
@@ -192,8 +199,8 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
       return false;
     });
 
-    return filtered.length > 0 ? filtered : employees;
-  }, [employees, departments, form.departmentId]);
+    return filtered;
+  }, [taskEligibleEmployees, departments, form.departmentId]);
 
   const handleAddChecklistItem = () => {
     if (!newChecklistItem.trim()) return;

@@ -24,6 +24,7 @@ import TaskAttachmentPicker from "../../components/TaskAttachmentPicker";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { useQueryClient } from "@tanstack/react-query";
+import { hasTaskModuleAccess } from "../../utils/taskAccessHelper";
 
 const combineDateAndTimeToISO = (dateStr, timeStr) => {
   if (!dateStr) return null;
@@ -197,6 +198,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
     if (!Array.isArray(teamData)) return [];
     return teamData.filter(e => {
       if (!e) return false;
+      if (!hasTaskModuleAccess(e)) return false;
       const matchName = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase().includes((empSearch || "").toLowerCase());
       if (!selectedDeptId) return matchName;
       
