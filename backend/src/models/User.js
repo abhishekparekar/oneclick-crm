@@ -63,15 +63,42 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isLocationTrackingEnabled: {
+      type: Boolean,
+      default: false,
+    },
     assignedModules: {
       type: [String],
       default: ["attendance", "leave", "tasks", "leads", "payroll", "projects", "reports"],
+    },
+    permissions: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {},
     },
     resetPasswordToken: {
       type: String,
       default: null,
     },
     resetPasswordExpire: {
+      type: Date,
+      default: null,
+    },
+    // ─── One User One Login Per Platform ─────────────────────────────────────
+    // Stores SHA-256 hash of the currently active JWT for each platform.
+    // Null = no active session. Set on login, cleared on logout.
+    activeWebToken: {
+      type: String,
+      default: null,
+    },
+    activeWebTokenExpire: {
+      type: Date,
+      default: null,
+    },
+    activeMobileToken: {
+      type: String,
+      default: null,
+    },
+    activeMobileTokenExpire: {
       type: Date,
       default: null,
     },

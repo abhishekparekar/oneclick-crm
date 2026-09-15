@@ -148,25 +148,47 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
     }
   };
 
-  const getSolidColor = (status) => {
+  const getDayCellStyle = (status, isToday, isFuture) => {
     switch (status) {
-      case "present": return "#10b981";
-      case "late": return "#f59e0b";
+      case "present":
+        return { bg: "#10b981", text: "#ffffff", border: "#10b981" };
+      case "late":
+        return { bg: "#f59e0b", text: "#ffffff", border: "#f59e0b" };
       case "half-day":
-      case "half_day": return "#f59e0b";
-      case "absent": return "#ef4444";
-      case "paid_leave": return "#3b82f6";
-      case "unpaid_leave": return "#ec4899";
+      case "half_day":
+        return { bg: "#eab308", text: "#ffffff", border: "#eab308" };
+      case "absent":
+        return { bg: "#ef4444", text: "#ffffff", border: "#ef4444" };
+      case "paid_leave":
+        return { bg: "#3b82f6", text: "#ffffff", border: "#3b82f6" };
+      case "unpaid_leave":
+        return { bg: "#ec4899", text: "#ffffff", border: "#ec4899" };
       case "holiday":
-      case "weekly_off": return "#9ca3af";
-      default: return "#9ca3af";
+        return { bg: "#8b5cf6", text: "#ffffff", border: "#8b5cf6" };
+      case "weekly_off":
+        return { bg: "#94a3b8", text: "#ffffff", border: "#94a3b8" };
+      default:
+        return {
+          bg: isToday ? "#e0e7ff" : "#f1f5f9",
+          text: isToday ? "#1d4ed8" : (isFuture ? "#94a3b8" : "#334155"),
+          border: isToday ? "#3b82f6" : "#e2e8f0",
+        };
     }
   };
 
   const renderCalendar = () => {
-    const days = monthlyData?.days || [];
+    const totalDaysInMonth = new Date(currentYear, currentMonth, 0).getDate();
     const firstDayDate = new Date(currentYear, currentMonth - 1, 1);
     const startOffset = firstDayDate.getDay();
+    const todayStr = getLocalDateString();
+
+    const dataMap = new Map();
+    if (monthlyData?.days && Array.isArray(monthlyData.days)) {
+      monthlyData.days.forEach((d) => {
+        if (d.day) dataMap.set(Number(d.day), d);
+        if (d.date) dataMap.set(d.date, d);
+      });
+    }
 
     const calendarGrid = [];
 
@@ -175,33 +197,43 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
       calendarGrid.push(<View key={`pad-${i}`} style={styles.dayCellWrapper} />);
     }
 
-    // Push days
-    days.forEach((day, index) => {
-      const isToday = day.date === getLocalDateString();
-      const solidBg = getSolidColor(day.status);
+    // Always render all days in the month (1 to totalDaysInMonth)
+    for (let dayNum = 1; dayNum <= totalDaysInMonth; dayNum++) {
+      const dateStr = `${currentYear}-${String(currentMonth).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+      const dayData = dataMap.get(dayNum) || dataMap.get(dateStr);
+      const status = dayData?.status || "";
+      const isToday = dateStr === todayStr;
+      const isFuture = dateStr > todayStr;
+      const cellStyle = getDayCellStyle(status, isToday, isFuture);
 
       calendarGrid.push(
         <TouchableOpacity
-          key={`day-${index}`}
+          key={`day-${dayNum}`}
           onPress={() => {
-            navigation.navigate("AttendanceDetails", { date: day.date });
+            navigation.navigate("AttendanceDetails", { date: dateStr });
           }}
           style={styles.dayCellWrapper}
           activeOpacity={0.7}
         >
-          <View style={[styles.calendarDayCell, { backgroundColor: solidBg }, isToday && styles.todayCell]}>
-            <Text style={styles.calendarDayText}>
-              {day.day}
+          <View
+            style={[
+              styles.calendarDayCell,
+              { backgroundColor: cellStyle.bg, borderColor: cellStyle.border, borderWidth: isToday ? 2 : 1 },
+              isToday && styles.todayCell,
+            ]}
+          >
+            <Text style={[styles.calendarDayText, { color: cellStyle.text }]}>
+              {dayNum}
             </Text>
           </View>
         </TouchableOpacity>
       );
-    });
+    }
 
     return <View style={styles.calendarGridContainer}>{calendarGrid}</View>;
   };
 
-  const summary = monthlyData?.summary || { present: 0, late: 0, absent: 0, halfDay: 0 };
+  const summary = monthlyData?.summary || { present: 0, late: 0, absent: 0, halfDays: 0 };
 
   return (
     <EmployeeLayout navigation={navigation} title="Attendance Calendar">
@@ -264,7 +296,7 @@ const EmployeeMonthlyAttendanceScreen = ({ navigation }) => {
                 <Text style={styles.statLabel}>Absent</Text>
               </View>
               <View style={styles.statBox}>
-                <Text style={[styles.statVal, { color: "#7c3aed" }]}>{summary.halfDay || 0}</Text>
+                <Text style={[styles.statVal, { color: "#7c3aed" }]}>{summary.halfDays ?? summary.halfDay ?? 0}</Text>
                 <Text style={styles.statLabel}>Half Day</Text>
               </View>
             </View>

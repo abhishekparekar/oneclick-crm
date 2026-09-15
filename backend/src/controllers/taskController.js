@@ -14,6 +14,9 @@ const TaskTemplate = require("../models/TaskTemplate");
 const TaskActivity = require("../models/TaskActivity");
 const CompanyTaskCounter = require("../models/CompanyTaskCounter");
 const Employee = require("../models/Employee");
+const Department = require("../models/Department");
+const User = require("../models/User");
+const Project = require("../models/Project");
 const { notifyRole, notifyTaskAll } = require("../utils/notificationHelper");
 const { processSingleTemplate } = require("../cron/taskCron");
 const { validateTaskSchedule } = require("../utils/taskScheduleUtils");
@@ -84,9 +87,16 @@ exports.createTask = async (req, res) => {
         let rawAssignees = Array.isArray(assignedTo) ? assignedTo : (assignedTo ? [assignedTo] : []);
         let assigneeIds = rawAssignees.filter(id => id && mongoose.Types.ObjectId.isValid(id));
         
-        if (req.user.role === "Employee" && assigneeIds.length === 0) {
-            const selfEmployee = await Employee.findOne({ userId: req.user._id, companyId }).lean();
-            if (selfEmployee) assigneeIds = [selfEmployee._id];
+        if (assigneeIds.length === 0) {
+            if (assignmentType === "self" || req.user.role === "Employee") {
+                const selfEmployee = await Employee.findOne({ userId: req.user._id, companyId }).lean();
+                if (selfEmployee) assigneeIds = [selfEmployee._id];
+            } else if (cleanDeptId) {
+                const deptEmployees = await Employee.find({ companyId, departmentId: cleanDeptId, status: "active" }).select("_id").lean();
+                if (deptEmployees.length > 0) {
+                    assigneeIds = deptEmployees.map(e => e._id);
+                }
+            }
         }
 
         const isRepeatOn = repeatEnabled === true || repeatEnabled === "true";
@@ -311,16 +321,29 @@ exports.getTasks = async (req, res) => {
     try {
         const { departmentId, assignedTo, startDate, endDate, status, projectId } = req.query;
         const isTemplate = req.query.isTemplate === 'true' || req.query.isTemplate === true;
-        const query = { companyId: req.user.companyId };
+        const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
+        const query = { companyId };
         if (!isTemplate) {
-            query.isLive = true;
+            query.isLive = { $ne: false };
         } else {
             query.isActive = true;
         }
 
         // Resolve corresponding Employee record
-        const employee = await Employee.findOne({ userId: req.user._id, companyId: req.user.companyId }).lean();
-        const employeeId = employee ? employee._id : null;
+        let employee = null;
+        if (req.user?.employeeId) {
+            employee = await Employee.findOne({ _id: req.user.employeeId, companyId }).lean();
+        }
+        if (!employee && req.user?._id) {
+            employee = await Employee.findOne({ userId: req.user._id, companyId }).lean();
+        }
+        if (!employee && req.user?.email) {
+            employee = await Employee.findOne({ email: new RegExp(`^${req.user.email.trim()}$`, "i"), companyId }).lean();
+        }
+        if (!employee && req.user?._id) {
+            employee = await Employee.findOne({ userId: req.user._id }).lean();
+        }
+        const employeeId = employee ? employee._id : (req.user?.employeeId || null);
 
         let allowedDeptIds = [];
         if (employee) {
@@ -337,16 +360,18 @@ exports.getTasks = async (req, res) => {
         // Apply RBAC
         let rbacOr = null;
         if (req.user.role === "Employee") {
+            const userIdentifiers = [employeeId, req.user._id, req.user?.employeeId].filter(Boolean);
             rbacOr = [
-                employeeId ? { assignedTo: { $in: [employeeId, req.user._id] } } : { assignedTo: req.user._id },
+                { assignedTo: { $in: userIdentifiers } },
                 { assignedBy: req.user._id },
                 allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds }, assignmentType: { $in: ["department", "company", "company_wide"] } } : null,
                 { assignmentType: { $in: ["company", "company_wide"] } }
             ].filter(Boolean);
         } else if (req.user.role === "Manager" || req.user.role === "TeamLeader") {
+            const userIdentifiers = [employeeId, req.user._id, req.user?.employeeId].filter(Boolean);
             rbacOr = [
                 { assignedBy: req.user._id },
-                employeeId ? { assignedTo: { $in: [employeeId, req.user._id] } } : { assignedTo: req.user._id },
+                { assignedTo: { $in: userIdentifiers } },
                 allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds } } : null
             ].filter(Boolean);
         } // Admins see all
@@ -402,8 +427,24 @@ exports.getTasks = async (req, res) => {
                 return obj;
             });
         } else {
+            const nowDate = new Date();
+            // Automatically mark any active overdue tasks in DB so query results & status filters match exactly
+            await Task.updateMany(
+                {
+                    companyId,
+                    status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
+                    $or: [
+                        { endDateTime: { $ne: null, $lt: nowDate } },
+                        { endDate: { $ne: null, $lt: nowDate } }
+                    ]
+                },
+                {
+                    $set: { status: "overdue", reminderStage: 3 }
+                }
+            ).catch(() => {});
+
             const rawDocs = await Task.find(query).sort({ createdAt: -1 })
-                .populate("assignedTo", "firstName lastName email")
+                .populate("assignedTo", "firstName lastName fullName name photo employeeCode email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
                 .populate({ path: "projectId", select: "name", strictPopulate: false })
@@ -411,6 +452,7 @@ exports.getTasks = async (req, res) => {
 
             const now = Date.now();
             tasks = rawDocs.map(task => {
+                task.assignees = task.assignedTo || [];
                 const s = (task.status || "pending").toLowerCase();
                 const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(s);
                 const rawDue = task.endDateTime || task.endDate;
@@ -441,7 +483,7 @@ exports.getTaskDetails = async (req, res) => {
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId })
             .populate({
                 path: "assignedTo",
-                select: "firstName lastName departmentName departmentId departmentIds",
+                select: "firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds",
                 populate: [
                     { path: "departmentId", select: "name" },
                     { path: "departmentIds", select: "name" }
@@ -456,7 +498,7 @@ exports.getTaskDetails = async (req, res) => {
             const template = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.user.companyId })
                 .populate({
                     path: "assignedTo",
-                    select: "firstName lastName departmentName departmentId departmentIds",
+                    select: "firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds",
                     populate: [
                         { path: "departmentId", select: "name" },
                         { path: "departmentIds", select: "name" }
@@ -473,6 +515,48 @@ exports.getTaskDetails = async (req, res) => {
             task.status = template.status || "pending";
             task.assignees = task.assignedTo || [];
         } else {
+            const taskObj = task.toObject ? task.toObject() : { ...task };
+
+            // If any item in assignedTo is an unpopulated ObjectId or string, populate it
+            const hasRawIds = Array.isArray(taskObj.assignedTo) && taskObj.assignedTo.some(a => typeof a === "string" || a instanceof mongoose.Types.ObjectId || (a && !a.firstName && !a.name));
+            if (hasRawIds) {
+                const unpopulatedIds = taskObj.assignedTo.map(a => (typeof a === "object" && a?._id) ? a._id : a).filter(Boolean);
+                const populatedEmps = await Employee.find({ _id: { $in: unpopulatedIds } })
+                    .select("firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds")
+                    .populate("departmentId", "name")
+                    .populate("departmentIds", "name")
+                    .lean();
+                if (populatedEmps && populatedEmps.length > 0) {
+                    taskObj.assignedTo = populatedEmps;
+                }
+            }
+
+            // Fallback: If assignedTo is empty in DB, resolve from department active employees or creator
+            if ((!taskObj.assignedTo || taskObj.assignedTo.length === 0) && taskObj.departmentId) {
+                const deptId = taskObj.departmentId._id || taskObj.departmentId;
+                const deptEmployees = await Employee.find({ companyId: req.user.companyId, departmentId: deptId, status: "active" })
+                    .select("firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds")
+                    .populate("departmentId", "name")
+                    .populate("departmentIds", "name")
+                    .lean();
+                if (deptEmployees && deptEmployees.length > 0) {
+                    taskObj.assignedTo = deptEmployees;
+                    Task.updateOne({ _id: taskObj._id }, { $set: { assignedTo: deptEmployees.map(e => e._id) } }).catch(() => {});
+                }
+            }
+            if ((!taskObj.assignedTo || taskObj.assignedTo.length === 0) && taskObj.assignedBy) {
+                const creatorEmployee = await Employee.findOne({ companyId: req.user.companyId, userId: taskObj.assignedBy._id || taskObj.assignedBy })
+                    .select("firstName lastName fullName name photo employeeCode departmentName departmentId departmentIds")
+                    .populate("departmentId", "name")
+                    .populate("departmentIds", "name")
+                    .lean();
+                if (creatorEmployee) {
+                    taskObj.assignedTo = [creatorEmployee];
+                    Task.updateOne({ _id: taskObj._id }, { $set: { assignedTo: [creatorEmployee._id] } }).catch(() => {});
+                }
+            }
+            task = taskObj;
+
             // Strict complete date + time overdue check for active live tasks
             const s = (task.status || "pending").toLowerCase();
             const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(s);
@@ -481,18 +565,28 @@ exports.getTaskDetails = async (req, res) => {
                 const dueTime = new Date(rawDue).getTime();
                 if (!isNaN(dueTime)) {
                     if (Date.now() >= dueTime) {
-                        task.status = "overdue";
+                        if (task.status !== "overdue") {
+                            task.status = "overdue";
+                            task.reminderStage = 3;
+                            await Task.updateOne({ _id: task._id }, { $set: { status: "overdue", reminderStage: 3 } }).catch(() => {});
+                        }
                     } else if (s === "overdue") {
                         task.status = task.isReopened ? "re_pending" : "pending";
+                        task.reminderStage = 0;
+                        await Task.updateOne({ _id: task._id }, { $set: { status: task.status, reminderStage: 0 } }).catch(() => {});
                     }
                 }
             }
         }
 
+        const taskObj = task.toObject ? task.toObject() : task;
+        taskObj.assignees = task.assignedTo || [];
+        taskObj.assignedTo = task.assignedTo || [];
+
         const timeline = await TaskActivity.find({ taskId: task._id }).sort({ createdAt: 1 })
             .populate("performedBy", "name");
 
-        res.json({ success: true, data: { task, timeline }, task, timeline });
+        res.json({ success: true, data: { task: taskObj, timeline }, task: taskObj, timeline });
     } catch (error) {
         console.error("getTaskDetails error:", error);
         res.status(500).json({ success: false, message: "Server error: " + error.message });
@@ -652,6 +746,9 @@ exports.inProcessTask = async (req, res) => {
         const targetStatus = (currentStatus === "re_pending" || currentStatus === "re_open" || currentStatus === "re_overdue") ? "re_in_process" : "in_process";
 
         task.status = targetStatus;
+        if (noteText) {
+            task.finalRemarks = noteText;
+        }
         if (!isTemplate) {
             task.timerActive = true;
             if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
@@ -666,6 +763,19 @@ exports.inProcessTask = async (req, res) => {
             fileName: att.fileName || att.name || "Attachment",
             fileType: att.fileType || att.type || ""
         }));
+
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
 
         const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated to in-process");
         if (!task.comments) task.comments = [];
@@ -711,7 +821,7 @@ exports.inProcessTask = async (req, res) => {
 exports.completeTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] completeTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const { finalRemarks, remarks, remark, comment, nextFollowUpDate, attachments } = req.body;
         const noteText = (finalRemarks || remarks || remark || comment || "Task completed").trim();
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
@@ -729,11 +839,25 @@ exports.completeTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
         if (isTemplate) {
             task.status = "complete";
+            task.finalRemarks = noteText;
             await task.save();
             await TaskActivity.create({
-                companyId: task.companyId, taskId: task._id, action: "completed", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+                companyId: task.companyId, taskId: task._id, action: "completed", remarks: noteText, attachments: formattedAttachments, performedBy: req.user._id
             });
             notifyTaskAll(
                 task.companyId,
@@ -757,6 +881,13 @@ exports.completeTask = async (req, res) => {
         const now = new Date();
         const isPastDue = task.endDateTime && now > new Date(task.endDateTime);
 
+        // Follow up date persistence
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
+
         if (task.status === "overdue" || isPastDue) {
             const end = new Date(task.endDateTime);
             const diffMs = Math.abs(now - end);
@@ -767,27 +898,24 @@ exports.completeTask = async (req, res) => {
             task.status = "late_complete";
             task.timerActive = false;
             task.lateCompletedAt = now;
-            task.finalRemarks = finalRemarks;
-            task.nextFollowUpDate = null;
+            task.finalRemarks = noteText;
             task.delayedDuration = { days, hours, minutes };
 
-            const remarkToUse = (typeof finalRemarks === 'string' && finalRemarks.trim()) ? finalRemarks : '';
-            if (remarkToUse || formattedAttachments.length > 0) {
-                if (!task.comments) task.comments = [];
-                task.comments.push({
-                    comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                    senderName: req.user.name,
-                    senderRole: req.user.role,
-                    addedBy: req.user._id,
-                    attachments: formattedAttachments,
-                    createdAt: new Date()
-                });
-            }
+            const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Completed late");
+            if (!task.comments) task.comments = [];
+            task.comments.push({
+                comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+                senderName: req.user.name,
+                senderRole: req.user.role,
+                addedBy: req.user._id,
+                attachments: formattedAttachments,
+                createdAt: new Date()
+            });
 
             await task.save();
 
             await TaskActivity.create({
-                companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+                companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
             });
 
             notifyTaskAll(
@@ -813,26 +941,23 @@ exports.completeTask = async (req, res) => {
         task.status = "complete";
         task.timerActive = false;
         task.completedAt = now;
-        task.finalRemarks = finalRemarks;
-        task.nextFollowUpDate = null;
+        task.finalRemarks = noteText;
 
-        const remarkToUse = (typeof finalRemarks === 'string' && finalRemarks.trim()) ? finalRemarks : '';
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
-            });
-        }
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Completed");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "completed", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "completed", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -862,7 +987,7 @@ exports.completeTask = async (req, res) => {
 exports.lateCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] lateCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const { finalRemarks, remarks, remark, comment, nextFollowUpDate, attachments } = req.body;
         const noteText = (finalRemarks || remarks || remark || comment || "Task completed late").trim();
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
@@ -880,11 +1005,25 @@ exports.lateCompleteTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
         if (isTemplate) {
             task.status = "late_complete";
+            task.finalRemarks = noteText;
             await task.save();
             await TaskActivity.create({
-                companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+                companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: noteText, attachments: formattedAttachments, performedBy: req.user._id
             });
             notifyTaskAll(
                 task.companyId,
@@ -906,7 +1045,7 @@ exports.lateCompleteTask = async (req, res) => {
         }
 
         const now = new Date();
-        const end = new Date(task.endDateTime);
+        const end = new Date(task.endDateTime || task.endDate || now);
         const diffMs = Math.abs(now - end);
         const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
@@ -915,27 +1054,29 @@ exports.lateCompleteTask = async (req, res) => {
         task.status = "late_complete";
         task.timerActive = false;
         task.lateCompletedAt = now;
-        task.finalRemarks = finalRemarks;
-        task.nextFollowUpDate = null;
+        task.finalRemarks = noteText;
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
         task.delayedDuration = { days, hours, minutes };
 
-        const remarkToUse = (typeof finalRemarks === 'string' && finalRemarks.trim()) ? finalRemarks : '';
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
-            });
-        }
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Completed late");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "late_completed", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1048,31 +1189,43 @@ exports.reInProcessTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
         task.status = "re_in_process";
         task.timerActive = true;
+        if (noteText) task.finalRemarks = noteText;
         if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
             task.nextFollowUpDate = new Date(nextFollowUpDate);
         } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
             task.nextFollowUpDate = null;
         }
 
-        const remarkToUse = (typeof remarks === 'string' && remarks.trim()) ? remarks : '';
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
-            });
-        }
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-started in process");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "re_in_process", remarks, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "re_in_process", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1095,7 +1248,7 @@ exports.reInProcessTask = async (req, res) => {
 exports.reCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] reCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const { finalRemarks, remarks, remark, comment, nextFollowUpDate, attachments } = req.body;
         const noteText = (finalRemarks || remarks || remark || comment || "Task re-completed").trim();
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
@@ -1106,16 +1259,80 @@ exports.reCompleteTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
+        const now = new Date();
+        const isPastDue = task.endDateTime && now > new Date(task.endDateTime);
+
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
+
+        if (task.status === "overdue" || task.status === "re_overdue" || isPastDue) {
+            const end = new Date(task.endDateTime || task.endDate || now);
+            const diffMs = Math.abs(now - end);
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+
+            task.status = "re_late_complete";
+            task.timerActive = false;
+            task.lateCompletedAt = now;
+            task.finalRemarks = noteText;
+            task.delayedDuration = { days, hours, minutes };
+
+            const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-completed late");
+            if (!task.comments) task.comments = [];
+            task.comments.push({
+                comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+                senderName: req.user.name,
+                senderRole: req.user.role,
+                addedBy: req.user._id,
+                attachments: formattedAttachments,
+                createdAt: new Date()
+            });
+
+            await task.save();
+
+            await TaskActivity.create({
+                companyId: task.companyId, taskId: task._id, action: "re_late_complete", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
+            });
+
+            notifyTaskAll(
+                task.companyId,
+                task.assignedTo || [],
+                task.departmentId || null,
+                "Task Completed Late",
+                `Task "${task.title}" has been completed late.`,
+                "task_update",
+                { taskId: task._id.toString() }
+            ).catch(err => console.error("notifyTaskAll error:", err));
+
+            return res.json({ success: true, data: task });
+        }
+
         task.status = "re_complete";
         task.timerActive = false;
-        task.completedAt = new Date();
+        task.completedAt = now;
         task.finalRemarks = noteText;
-        task.nextFollowUpDate = null;
 
         const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-completed");
         if (!task.comments) task.comments = [];
         task.comments.push({
-            comment: remarkToUse,
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
             senderName: req.user.name,
             senderRole: req.user.role,
             addedBy: req.user._id,
@@ -1126,7 +1343,7 @@ exports.reCompleteTask = async (req, res) => {
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "re_complete", remarks: noteText, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "re_complete", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1149,7 +1366,7 @@ exports.reCompleteTask = async (req, res) => {
 exports.reLateCompleteTask = async (req, res) => {
     logDebug(`[${new Date().toISOString()}] reLateCompleteTask request received. Body: ${JSON.stringify(req.body)}\n`);
     try {
-        const { finalRemarks, remarks, remark, comment, attachments } = req.body;
+        const { finalRemarks, remarks, remark, comment, nextFollowUpDate, attachments } = req.body;
         const noteText = (finalRemarks || remarks || remark || comment || "Task re-completed late").trim();
         const task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
@@ -1160,29 +1377,52 @@ exports.reLateCompleteTask = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
-        task.status = "re_late_complete";
-        task.timerActive = false;
-        task.lateCompletedAt = new Date();
-        task.finalRemarks = noteText;
-        task.nextFollowUpDate = null;
-
-        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-late completed");
-        if (remarkToUse || formattedAttachments.length > 0) {
-            if (!task.comments) task.comments = [];
-            task.comments.push({
-                comment: remarkToUse ? 'Status updated: ' + remarkToUse : 'Status updated with attachment',
-                senderName: req.user.name,
-                senderRole: req.user.role,
-                addedBy: req.user._id,
-                attachments: formattedAttachments,
-                createdAt: new Date()
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
             });
         }
+
+        const now = new Date();
+        const end = new Date(task.endDateTime || task.endDate || now);
+        const diffMs = Math.abs(now - end);
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+        const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+
+        task.status = "re_late_complete";
+        task.timerActive = false;
+        task.lateCompletedAt = now;
+        task.finalRemarks = noteText;
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            task.nextFollowUpDate = null;
+        }
+        task.delayedDuration = { days, hours, minutes };
+
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : "Status updated: Re-late completed");
+        if (!task.comments) task.comments = [];
+        task.comments.push({
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
+            senderName: req.user.name,
+            senderRole: req.user.role,
+            addedBy: req.user._id,
+            attachments: formattedAttachments,
+            createdAt: new Date()
+        });
 
         await task.save();
 
         await TaskActivity.create({
-            companyId: task.companyId, taskId: task._id, action: "re_late_complete", remarks: finalRemarks, attachments: formattedAttachments, performedBy: req.user._id
+            companyId: task.companyId, taskId: task._id, action: "re_late_complete", remarks: noteText, nextFollowUpDate: task.nextFollowUpDate, attachments: formattedAttachments, performedBy: req.user._id
         });
 
         notifyTaskAll(
@@ -1580,15 +1820,20 @@ exports.submitFollowUp = async (req, res) => {
         logDebug(`[${new Date().toISOString()}] submitFollowUp request received. Body: ${JSON.stringify(req.body)}\n`);
 
         const { id } = req.params;
-        const { nextFollowUpDate, remark, attachments } = req.body;
+        const { nextFollowUpDate, remark, remarks, comment, attachments } = req.body;
+        const noteText = (remark || remarks || comment || "").trim();
 
         const task = await Task.findById(id);
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
             task.nextFollowUpDate = new Date(nextFollowUpDate);
-        } else {
+        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
             task.nextFollowUpDate = null;
+        }
+
+        if (noteText) {
+            task.finalRemarks = noteText;
         }
 
         const formattedAttachments = (attachments || []).map(att => ({
@@ -1597,10 +1842,23 @@ exports.submitFollowUp = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
-        if (remark || formattedAttachments.length > 0) {
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
+        if (noteText || formattedAttachments.length > 0) {
             if (!task.comments) task.comments = [];
             task.comments.push({
-                comment: remark ? `Follow-up completed: ${remark}` : `Follow-up completed with attachment`,
+                comment: noteText ? `Follow-up completed: ${noteText}` : `Follow-up completed with attachment`,
                 senderName: req.user.name,
                 senderRole: req.user.role,
                 addedBy: req.user._id,
@@ -1615,7 +1873,7 @@ exports.submitFollowUp = async (req, res) => {
             companyId: task.companyId,
             taskId: task._id,
             action: "follow_up",
-            remarks: remark || (task.nextFollowUpDate ? "Next follow-up date scheduled" : "Follow-up update submitted"),
+            remarks: noteText || (task.nextFollowUpDate ? "Next follow-up date scheduled" : "Follow-up update submitted"),
             nextFollowUpDate: task.nextFollowUpDate,
             attachments: formattedAttachments,
             performedBy: req.user._id
@@ -1627,7 +1885,7 @@ exports.submitFollowUp = async (req, res) => {
             task.assignedTo || [],
             task.departmentId || null,
             "Task Follow-up Updated",
-            `A follow-up was submitted by ${req.user.name} for task: ${task.title}. ${remark ? 'Remark: ' + remark : ''}`,
+            `A follow-up was submitted by ${req.user.name} for task: ${task.title}. ${noteText ? 'Remark: ' + noteText : ''}`,
             "task_update",
             { taskId: task._id.toString() }
         ).catch(err => console.error("Error sending follow-up notification:", err));
@@ -1655,13 +1913,32 @@ exports.addTaskComment = async (req, res) => {
         const userName = req.user.name || "User";
         const userRole = req.user.role || "Employee";
 
+        const formattedAttachments = (attachments || []).map(att => ({
+            fileUrl: att.fileUrl || att.url || "",
+            fileName: att.fileName || att.name || "Attachment",
+            fileType: att.fileType || att.type || ""
+        }));
+
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
         if (!task.comments) task.comments = [];
         task.comments.push({
             comment: comment ? comment.trim() : "",
             senderName: userName,
             senderRole: userRole,
             addedBy: req.user._id,
-            attachments: attachments || [],
+            attachments: formattedAttachments,
             createdAt: new Date()
         });
 
@@ -1672,6 +1949,7 @@ exports.addTaskComment = async (req, res) => {
             taskId: task._id,
             action: "comment_added",
             remarks: comment,
+            attachments: formattedAttachments,
             performedBy: req.user._id
         });
 
@@ -1850,7 +2128,7 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
     try {
         const { status, remarks, remark, finalRemarks, comment, nextFollowUpDate, attachments, newEndDate } = req.body;
         const targetStatus = status || "in_process";
-        const noteText = (remarks || remark || finalRemarks || comment || "").trim();
+        const noteText = (finalRemarks || remarks || remark || comment || "").trim();
         
         let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
         let isTemplate = false;
@@ -1866,7 +2144,19 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
             fileType: att.fileType || att.type || ""
         }));
 
-        task.status = targetStatus;
+        if (formattedAttachments.length > 0) {
+            if (!task.attachments) task.attachments = [];
+            formattedAttachments.forEach(att => {
+                task.attachments.push({
+                    fileUrl: att.fileUrl,
+                    fileName: att.fileName,
+                    fileType: att.fileType,
+                    uploadedAt: new Date(),
+                    uploadedBy: req.user._id
+                });
+            });
+        }
+
         if (newEndDate && !isNaN(new Date(newEndDate).getTime())) {
             task.endDateTime = new Date(newEndDate);
         }
@@ -1876,17 +2166,52 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
             task.nextFollowUpDate = null;
         }
 
-        if (["complete", "completed", "done", "re_complete", "re_completed"].includes(targetStatus)) {
-            task.completedAt = new Date();
-            task.timerActive = false;
-        } else if (["in_process", "in-process", "in_progress", "re_in_process"].includes(targetStatus)) {
-            task.timerActive = true;
+        if (noteText) {
+            task.finalRemarks = noteText;
         }
 
-        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : `Status updated to ${targetStatus.replace(/_/g, " ")}`);
+        const now = new Date();
+        const isPastDue = task.endDateTime && now > new Date(task.endDateTime);
+        const isLate = ["late_complete", "re_late_complete", "late_completed"].includes(targetStatus) ||
+            ((task.status === "overdue" || task.status === "re_overdue" || isPastDue) &&
+             ["complete", "completed", "done", "re_complete", "re_completed"].includes(targetStatus));
+
+        if (isLate) {
+            const effectiveStatus = (targetStatus.startsWith("re_") || task.status === "re_overdue") ? "re_late_complete" : "late_complete";
+            task.status = effectiveStatus;
+            task.lateCompletedAt = now;
+            task.timerActive = false;
+            const end = new Date(task.endDateTime || task.endDate || now);
+            const diffMs = Math.abs(now - end);
+            const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+            const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+            task.delayedDuration = { days, hours, minutes };
+        } else if (["complete", "completed", "done"].includes(targetStatus)) {
+            task.status = "complete";
+            task.completedAt = now;
+            task.timerActive = false;
+        } else if (["re_complete", "re_completed"].includes(targetStatus)) {
+            task.status = "re_complete";
+            task.completedAt = now;
+            task.timerActive = false;
+        } else if (["in_process", "in-process", "in_progress"].includes(targetStatus)) {
+            task.status = "in_process";
+            task.timerActive = true;
+        } else if (["re_in_process"].includes(targetStatus)) {
+            task.status = "re_in_process";
+            task.timerActive = true;
+        } else if (["pending", "re_pending"].includes(targetStatus)) {
+            task.status = targetStatus;
+            task.timerActive = false;
+        } else {
+            task.status = targetStatus;
+        }
+
+        const remarkToUse = noteText || (formattedAttachments.length > 0 ? "Status updated with attachment" : `Status updated to ${task.status.replace(/_/g, " ")}`);
         if (!task.comments) task.comments = [];
         task.comments.push({
-            comment: remarkToUse,
+            comment: remarkToUse.startsWith("Status updated") ? remarkToUse : 'Status updated: ' + remarkToUse,
             senderName: req.user.name,
             senderRole: req.user.role,
             addedBy: req.user._id,
@@ -1899,8 +2224,8 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
         await TaskActivity.create({
             companyId: task.companyId,
             taskId: task._id,
-            action: targetStatus,
-            remarks: remarkToUse,
+            action: task.status,
+            remarks: noteText || remarkToUse,
             nextFollowUpDate: task.nextFollowUpDate,
             attachments: formattedAttachments,
             performedBy: req.user._id
@@ -1911,7 +2236,7 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
             task.assignedTo || [],
             task.departmentId || null,
             `Task Status Updated: ${task.title}`,
-            `Task status changed to "${targetStatus.replace(/_/g, " ")}" by ${req.user.name}`,
+            `Task status changed to "${task.status.replace(/_/g, " ")}" by ${req.user.name}`,
             "task_update",
             { taskId: task._id.toString() }
         ).catch(err => console.error("notifyTaskAll error:", err));

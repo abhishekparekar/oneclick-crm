@@ -115,23 +115,26 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
       }
 
       let targetStatus = task.status || "pending";
-      let payloadFollowUp = nextFollowUpDate;
+      let payloadFollowUp = nextFollowUpDate || null;
+
+      const due = task.dueDate || task.endDateTime ? new Date(task.dueDate || task.endDateTime) : null;
+      const isPastDue = due && due < new Date();
 
       if (actionType === "in_process") {
-        targetStatus = "in_process";
+        targetStatus = (task.status === "re_pending" || task.status === "re_open" || task.status === "re_overdue") ? "re_in_process" : "in_process";
       } else if (actionType === "follow_up") {
-        targetStatus = "in_process";
+        targetStatus = (task.status === "re_in_process" || task.status === "re_pending") ? "re_in_process" : "in_process";
       } else if (actionType === "complete") {
-        targetStatus = "complete";
-        payloadFollowUp = null;
+        targetStatus = isPastDue ? "late_complete" : "complete";
       } else if (actionType === "late_complete") {
         targetStatus = "late_complete";
-        payloadFollowUp = null;
       }
 
       await updateEmployeeTaskStatusApi(task._id, targetStatus, {
         nextFollowUpDate: payloadFollowUp,
         remark: remarks,
+        remarks: remarks,
+        finalRemarks: remarks,
         attachments: attachmentsList
       });
 

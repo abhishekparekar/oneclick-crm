@@ -19,7 +19,7 @@ export const updateTaskStatusApi = (id, actionOrPayload, payload = "") => {
   let payloadObj = {};
 
   if (typeof actionOrPayload === "object" && actionOrPayload !== null) {
-    payloadObj = actionOrPayload;
+    payloadObj = { ...actionOrPayload };
     actionStr = actionOrPayload.status || actionOrPayload.statusKey || "status";
   } else if (typeof payload === "object" && payload !== null) {
     actionStr = String(actionOrPayload || "");
@@ -30,12 +30,20 @@ export const updateTaskStatusApi = (id, actionOrPayload, payload = "") => {
     payloadObj = { status: actionStr, remarks: remarkText, cancelReason: remarkText, finalRemarks: remarkText };
   }
 
+  if (payloadObj.remarks && !payloadObj.finalRemarks) {
+    payloadObj.finalRemarks = payloadObj.remarks;
+  } else if (payloadObj.finalRemarks && !payloadObj.remarks) {
+    payloadObj.remarks = payloadObj.finalRemarks;
+  }
+
   const normalizedAction = actionStr.toLowerCase().replace(/-/g, "_");
 
-  return api.patch(`/tasks/${id}/${actionStr}`, payloadObj).catch(() =>
-    api.patch(`/tasks/${id}/${normalizedAction}`, payloadObj).catch(() =>
-      api.patch(`/employee/tasks/${id}/status`, payloadObj).catch(() =>
-        api.patch(`/company/tasks/${id}/status`, payloadObj)
+  return api.patch(`/tasks/${id}/status`, payloadObj).catch(() =>
+    api.patch(`/tasks/${id}/${actionStr}`, payloadObj).catch(() =>
+      api.patch(`/tasks/${id}/${normalizedAction}`, payloadObj).catch(() =>
+        api.patch(`/employee/tasks/${id}/status`, payloadObj).catch(() =>
+          api.patch(`/company/tasks/${id}/status`, payloadObj)
+        )
       )
     )
   );

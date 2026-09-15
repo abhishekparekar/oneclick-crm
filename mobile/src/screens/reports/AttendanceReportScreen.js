@@ -18,6 +18,7 @@ import {
   getCompanyEmployeesApi,
   getDepartmentsApi,
 } from "../../api/companyService";
+import { getBIAttendanceReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
@@ -95,6 +96,7 @@ const AttendanceReportScreen = () => {
   const [attendanceRecords, setAttendanceRecords] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
+  const [biData, setBiData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
@@ -107,22 +109,46 @@ const AttendanceReportScreen = () => {
         if (isRefresh) setRefreshing(true);
         else setLoading(true);
 
-        const params = {};
+        const params = { refresh: isRefresh };
         if (viewMode === "daily") {
           params.date = date;
+          params.startDate = date;
+          params.endDate = date;
         } else {
           if (month) params.month = Number(month);
           if (year) params.year = Number(year);
         }
 
-        const [attRes, empRes, deptRes] = await Promise.all([
-          getCompanyAttendanceApi(params).catch(() => ({ data: { attendance: [] } })),
-          getCompanyEmployeesApi({ limit: 1000 }).catch(() => ({ data: { employees: [] } })),
+        const [biRes, deptRes] = await Promise.all([
+          getBIAttendanceReportApi(params).catch(() => null),
           getDepartmentsApi().catch(() => ({ data: { departments: [] } })),
         ]);
 
-        setAttendanceRecords(attRes.data?.attendance || []);
-        setEmployees(empRes.data?.employees || []);
+        const biPayload = biRes?.data?.data || biRes?.data;
+        if (biPayload && (biPayload.monthlySummary || biPayload.records)) {
+          setBiData(biPayload);
+          setAttendanceRecords(biPayload.records || []);
+          if (biPayload.monthlySummary) {
+            setEmployees(
+              biPayload.monthlySummary.map((m) => ({
+                _id: m.employeeId || m._id,
+                fullName: m.employeeName,
+                employeeCode: m.employeeCode,
+                departmentId: { name: m.department },
+                status: "active",
+              }))
+            );
+          }
+        } else {
+          // Graceful fallback to legacy company endpoints
+          const [attRes, empRes] = await Promise.all([
+            getCompanyAttendanceApi(params).catch(() => ({ data: { attendance: [] } })),
+            getCompanyEmployeesApi({ limit: 1000 }).catch(() => ({ data: { employees: [] } })),
+          ]);
+          setAttendanceRecords(attRes.data?.attendance || []);
+          setEmployees(empRes.data?.employees || []);
+        }
+
         const depts = deptRes.data?.departments || deptRes.data || [];
         setDepartments(Array.isArray(depts) ? depts : []);
       } catch (err) {
@@ -150,6 +176,29 @@ const AttendanceReportScreen = () => {
 
   // ── Monthly Employee-Wise Attendance Aggregation (Source of truth matching Web) ──
   const monthlyByEmp = useMemo(() => {
+    if (biData?.monthlySummary && Array.isArray(biData.monthlySummary) && biData.monthlySummary.length > 0) {
+      return biData.monthlySummary.map((m) => ({
+        _id: m.employeeId || m._id,
+        name: m.employeeName || "Employee",
+        code: m.employeeCode || "—",
+        dept: m.department || "General",
+        deptId: m.departmentId || m.department,
+        desig: m.branch || "Staff",
+        workingDays: m.totalWorkingDays || daysInMonth,
+        present: m.presentDays || 0,
+        absent: m.absentDays || 0,
+        halfDay: m.halfDays || 0,
+        onLeave: m.leaveDays || 0,
+        weeklyOff: m.weeklyOffDays || 0,
+        holiday: m.holidayDays || 0,
+        late: m.lateDays || 0,
+        totalHours: m.totalWorkingHours || 0,
+        overtime: m.totalOvertime || 0,
+        attPct: m.attendancePercentage || 0,
+        records: [],
+      })).sort((a, b) => b.present - a.present);
+    }
+
     const map = {};
     attendanceRecords.forEach((rec) => {
       const emp = rec.employeeId;

@@ -59,6 +59,12 @@ const getSmartStatusOptions = (task) => {
 
   // 4. Re-pending state
   if (rawStatus === "re_pending") {
+    if (isOverdue) {
+      return [
+        { value: "re_in_process", label: "Re-In Process" },
+        { value: "late_complete", label: "Late Completed" },
+      ];
+    }
     return [
       { value: "re_in_process", label: "Re-In Process" },
       { value: "re_complete", label: "Re-Completed" },
@@ -67,10 +73,15 @@ const getSmartStatusOptions = (task) => {
 
   // 5. Re-in-process state
   if (rawStatus === "re_in_process") {
+    if (isOverdue) {
+      return [
+        { value: "re_in_process", label: "Re-In Process (Update Follow-up)" },
+        { value: "late_complete", label: "Late Completed" },
+      ];
+    }
     return [
       { value: "re_in_process", label: "Re-In Process (Update Follow-up)" },
       { value: "re_complete", label: "Re-Completed" },
-      ...(isOverdue ? [{ value: "late_complete", label: "Late Completed" }] : [])
     ];
   }
 
@@ -84,8 +95,7 @@ const getSmartStatusOptions = (task) => {
 
   return [
     { value: "in_process", label: "In Process" },
-    { value: "complete", label: "Completed" },
-    { value: "late_complete", label: "Late Completed" },
+    ...(isOverdue ? [{ value: "late_complete", label: "Late Completed" }] : [{ value: "complete", label: "Completed" }]),
   ];
 };
 
@@ -180,6 +190,7 @@ export default function TaskStatusModal({
       status,
       nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate).toISOString() : null,
       remarks: remarks.trim(),
+      finalRemarks: remarks.trim(),
       attachments,
     });
   };

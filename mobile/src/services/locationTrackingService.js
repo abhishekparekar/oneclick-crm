@@ -37,7 +37,7 @@ try {
     skipPermissionRequests: false,
     authorizationLevel: "auto",
     enableBackgroundLocationUpdates: false,
-    locationProvider: "auto",
+    locationProvider: "android", // Direct native Android GPS_PROVIDER (Satellite only, no cell tower)
   });
 } catch (e) {
   console.warn("[LocationService] setRNConfiguration notice:", e?.message);
@@ -695,18 +695,8 @@ class LocationTrackingService {
       try {
         Geolocation.getCurrentPosition(
           (pos) => finish(pos?.coords, null),
-          (err) => {
-            try {
-              Geolocation.getCurrentPosition(
-                (fallbackPos) => finish(fallbackPos?.coords, null),
-                (fallbackErr) => finish(null, fallbackErr || err),
-                { enableHighAccuracy: false, timeout: 6000, maximumAge: 30000 }
-              );
-            } catch (fbEx) {
-              finish(null, fbEx);
-            }
-          },
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 10000 }
+          (err) => finish(null, err),
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 3000 }
         );
       } catch (ex) {
         finish(null, ex);
@@ -781,7 +771,7 @@ class LocationTrackingService {
       if (this.memoryQueue.length === 0 && this.isTracking && !this.isPollingGps) {
         try {
           const freshCoord = await this.getCurrentLocation();
-          if (freshCoord && freshCoord.latitude && freshCoord.longitude) {
+          if (freshCoord && freshCoord.latitude && freshCoord.longitude && (!freshCoord.accuracy || freshCoord.accuracy <= 25)) {
             this.memoryQueue.push({
               latitude: Number(freshCoord.latitude.toFixed(6)),
               longitude: Number(freshCoord.longitude.toFixed(6)),

@@ -436,7 +436,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && overdueTasksCount > 0 && (
                   <TouchableOpacity
                     style={styles.alertActionChip}
-                    onPress={() => navigation.navigate("ManagerTasks")}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
                     activeOpacity={0.8}
                   >
                     <View style={[styles.alertIconBox, { backgroundColor: "#FFFBEB" }]}>
@@ -613,7 +613,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 {canAccessTasks && (
                   <TouchableOpacity
                     style={[styles.kpiBox, { borderLeftColor: "#EF4444" }]}
-                    onPress={() => navigation.navigate("ManagerTasks", { status: "overdue" })}
+                    onPress={() => navigation.navigate("ManagerTasks", { taskFilter: "overdue", status: "overdue", activeTab: "teamTasks", dateFilter: "all_time" })}
                     activeOpacity={0.8}
                   >
                     <View style={styles.kpiTopRow}>

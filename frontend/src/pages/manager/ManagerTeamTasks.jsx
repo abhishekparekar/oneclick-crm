@@ -112,7 +112,7 @@ export default function ManagerTeamTasks() {
   const [statusFilter, setStatusFilter] = useState("");
   const [viewMode, setViewMode] = useState("list"); // 'cards' | 'kanban' | 'list'
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("All Time");
+  const [activeTab, setActiveTab] = useState("Today");
   const navigate = useNavigate();
 
   const [filters, setFilters] = useState({

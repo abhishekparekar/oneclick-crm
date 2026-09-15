@@ -125,8 +125,18 @@ export const deleteTask = async (id) => {
 };
 
 export const updateTaskStatus = async (id, action, payload = {}) => {
-  const res = await api.patch(`/tasks/${id}/${action}`, payload);
-  return res.data;
+  const payloadObj = typeof payload === "object" && payload !== null ? { ...payload } : { remarks: String(payload || "") };
+  if (!payloadObj.status && action) payloadObj.status = action;
+  if (payloadObj.remarks && !payloadObj.finalRemarks) payloadObj.finalRemarks = payloadObj.remarks;
+  else if (payloadObj.finalRemarks && !payloadObj.remarks) payloadObj.remarks = payloadObj.finalRemarks;
+
+  try {
+    const res = await api.patch(`/tasks/${id}/status`, payloadObj);
+    return res.data;
+  } catch (err) {
+    const res = await api.patch(`/tasks/${id}/${action}`, payloadObj);
+    return res.data;
+  }
 };
 
 export const addTaskComment = async (id, comment, attachments = []) => {

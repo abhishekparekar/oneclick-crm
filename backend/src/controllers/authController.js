@@ -10,6 +10,10 @@ const formatUser = require("../utils/formatUser");
 const { getUserPermissions } = require("../utils/permissionCheck");
 const connectDB = require("../config/db");
 const { sendPasswordResetEmail } = require("../services/notificationService");
+const { hashToken, detectPlatform } = require("../middleware/authMiddleware");
+
+// Roles that bypass One-User-One-Login enforcement (system admins)
+const BYPASS_SESSION_ROLES = ["SuperAdmin", "SubSuperAdmin"];
 
 const registerSuperAdmin = async (req, res, next) => {
   try {
@@ -157,10 +161,38 @@ const login = async (req, res, next) => {
       return res.status(401).json({ message: "Account is deactivated" });
     }
 
+    // ─── One User One Login Per Platform — Session Enforcement ───────────────
+    if (!BYPASS_SESSION_ROLES.includes(user.role)) {
+      const platform = detectPlatform(req);
+      const activeField = platform === "mobile" ? "activeMobileToken" : "activeWebToken";
+      const expireField = platform === "mobile" ? "activeMobileTokenExpire" : "activeWebTokenExpire";
+      const existingHash = user[activeField];
+      const existingExpire = user[expireField];
+
+      const isExpired = existingExpire && new Date(existingExpire) < new Date();
+      const isActiveSession = existingHash && existingHash !== "LOGGED_OUT" && !isExpired;
+
+      if (isActiveSession) {
+        const { force } = req.body || {};
+        if (force === true) {
+          console.log(`[Auth Login] Overriding existing ${platform} session for: ${user.email} (force=true)`);
+        } else {
+          console.warn(`[Auth Login] Active ${platform} session exists for: ${user.email}. Prompting confirmation.`);
+          return res.status(409).json({
+            success: false,
+            code: "SESSION_CONFLICT",
+            platform,
+            message: "Your account is already logged in on another device.",
+          });
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     const token = generateToken(user._id);
 
     const userObj = formatUser(user);
-    userObj.permissions = await getUserPermissions(user._id, user.companyId, user.role);
+    userObj.permissions = await getUserPermissions(user._id, user.companyId, user.role, user);
 
     // Attach Company subscription modules & details
     if (user.companyId) {
@@ -225,16 +257,32 @@ const login = async (req, res, next) => {
       userObj.departmentId = employee.departmentId;
       userObj.accessibleDepartments = employee.accessibleDepartments || [];
       userObj.profileImage = employee.photo || userObj.profileImage;
+      userObj.isLocationTrackingEnabled = Boolean(employee.isLocationTrackingEnabled);
       userObj.employee = {
         _id: employee._id,
         assignedModules: userObj.assignedModules,
         photo: employee.photo,
         designation: employee.designationName || employee.designation,
         employeeCode: employee.employeeCode,
+        isLocationTrackingEnabled: Boolean(employee.isLocationTrackingEnabled),
       };
     } else if (user.role === "CompanyAdmin" && userObj.company) {
       userObj.assignedModules = userObj.subscribedModules || [];
     }
+
+    // ─── Store active session token hash ──────────────────────────────────────
+    if (!BYPASS_SESSION_ROLES.includes(user.role)) {
+      const platform = detectPlatform(req);
+      const activeField = platform === "mobile" ? "activeMobileToken" : "activeWebToken";
+      const expireField = platform === "mobile" ? "activeMobileTokenExpire" : "activeWebTokenExpire";
+      await User.findByIdAndUpdate(user._id, {
+        [activeField]: hashToken(token),
+        [expireField]: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        lastLoginAt: new Date(),
+      });
+      console.log(`[Auth Login] Session token stored for ${user.email} on platform: ${platform}`);
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     res.json({
       success: true,
@@ -250,7 +298,7 @@ const login = async (req, res, next) => {
 
 const getMe = async (req, res) => {
   const userObj = formatUser(req.user);
-  userObj.permissions = await getUserPermissions(req.user._id, req.user.companyId, req.user.role);
+  userObj.permissions = await getUserPermissions(req.user._id, req.user.companyId, req.user.role, req.user);
 
   // Attach Company subscription details
   if (req.user.companyId) {
@@ -315,12 +363,14 @@ const getMe = async (req, res) => {
     userObj.departmentId = employeeObj.departmentId;
     userObj.accessibleDepartments = employeeObj.accessibleDepartments || [];
     userObj.profileImage = employeeObj.photo || userObj.profileImage;
+    userObj.isLocationTrackingEnabled = Boolean(employeeObj.isLocationTrackingEnabled);
     userObj.employee = {
       _id: employeeObj._id,
       assignedModules: userObj.assignedModules,
       photo: employeeObj.photo,
       designation: employeeObj.designationName || employeeObj.designation,
       employeeCode: employeeObj.employeeCode,
+      isLocationTrackingEnabled: Boolean(employeeObj.isLocationTrackingEnabled),
     };
   } else if (req.user.role === "CompanyAdmin" && userObj.company) {
     userObj.assignedModules = userObj.subscribedModules || [];
@@ -642,9 +692,35 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+// ─── Logout — clears only the platform-specific active session token ──────────
+const logout = async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.json({ success: true, message: "Logged out" });
+    }
+
+    if (!BYPASS_SESSION_ROLES.includes(req.user.role)) {
+      const platform = req.platform || detectPlatform(req);
+      const activeField = platform === "mobile" ? "activeMobileToken" : "activeWebToken";
+      const expireField = platform === "mobile" ? "activeMobileTokenExpire" : "activeWebTokenExpire";
+      await User.findByIdAndUpdate(req.user._id, {
+        [activeField]: "LOGGED_OUT",
+        [expireField]: null,
+      });
+      console.log(`[Auth Logout] Cleared ${platform} session for: ${req.user.email}`);
+    }
+
+    return res.json({ success: true, message: "Logged out successfully" });
+  } catch (error) {
+    console.error("[Auth] Logout error:", error.message);
+    return res.json({ success: true, message: "Logged out" }); // Always succeed
+  }
+};
+
 module.exports = {
   registerSuperAdmin,
   login,
+  logout,
   getMe,
   changePassword,
   logoutCheck,

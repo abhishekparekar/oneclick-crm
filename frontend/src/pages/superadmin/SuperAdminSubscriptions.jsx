@@ -322,6 +322,37 @@ const SuperAdminSubscriptions = () => {
     }
   };
 
+  const handleRenew = (id) => {
+    const sub = subscriptions.find(s => s._id === id);
+    const companyName = sub?.companyId?.companyName || "this company";
+    const cycle = sub?.billingCycle || "monthly";
+    if (!window.confirm(`Activate / Renew subscription for ${companyName}?\n\nThis will extend the subscription by 1 ${cycle === "yearly" ? "year" : "month"} and set status to Active.`)) return;
+    renewMutation.mutate(id, {
+      onSuccess: () => toast.success(`Subscription activated/renewed for ${companyName}!`),
+      onError: (err) => toast.error(err?.response?.data?.message || "Failed to activate/renew subscription"),
+    });
+  };
+
+  const handleCancel = (id) => {
+    const sub = subscriptions.find(s => s._id === id);
+    const companyName = sub?.companyId?.companyName || "this company";
+    if (!window.confirm(`Cancel subscription for ${companyName}?\n\nThe subscription will be marked as cancelled.`)) return;
+    cancelMutation.mutate(id, {
+      onSuccess: () => toast.success(`Subscription cancelled for ${companyName}.`),
+      onError: (err) => toast.error(err?.response?.data?.message || "Failed to cancel subscription"),
+    });
+  };
+
+  const handleDelete = (id) => {
+    const sub = subscriptions.find(s => s._id === id);
+    const companyName = sub?.companyId?.companyName || "this company";
+    if (!window.confirm(`PERMANENTLY DELETE subscription for ${companyName}?\n\nThis cannot be undone. The company's plan will be reverted.`)) return;
+    deleteMutation.mutate(id, {
+      onSuccess: () => toast.success(`Subscription deleted for ${companyName}.`),
+      onError: (err) => toast.error(err?.response?.data?.message || "Failed to delete subscription"),
+    });
+  };
+
   // Calculate MRR (Monthly Recurring Revenue approximate)
   const totalMrr = subscriptions
     .filter(s => s.status === 'active')

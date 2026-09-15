@@ -73,16 +73,24 @@ const TaskActionModal = ({
 
   const normalizedActionType = (actionType || "").toLowerCase().replace(/-/g, "_");
 
-  // Auto-set follow-up date for daily recurring tasks when starting
+  // Auto-set follow-up date for existing follow-up or daily recurring tasks when starting
   React.useEffect(() => {
     if (visible) {
       // Reset state when modal opens
       setRemarks("");
       setAttachments([]);
-      setFollowUpDate(null);
 
-      // For daily recurring templates → auto-fill today's date as follow-up
-      if (
+      if (task?.nextFollowUpDate) {
+        const d = new Date(task.nextFollowUpDate);
+        if (!isNaN(d.getTime())) {
+          setFollowUpDate(formatDateToDDMMYYYY(d));
+          const h = String(d.getHours()).padStart(2, "0");
+          const m = String(d.getMinutes()).padStart(2, "0");
+          setFollowUpTime(`${h}:${m}`);
+        } else {
+          setFollowUpDate(null);
+        }
+      } else if (
         normalizedActionType === "in_process" &&
         task?.isTemplate &&
         task?.repeatType?.toLowerCase() === "daily"
@@ -92,6 +100,8 @@ const TaskActionModal = ({
         const mm = String(today.getMonth() + 1).padStart(2, "0");
         const yyyy = today.getFullYear();
         setFollowUpDate(`${dd}/${mm}/${yyyy}`);
+      } else {
+        setFollowUpDate(null);
       }
     }
   }, [visible, normalizedActionType, task]);
@@ -265,9 +275,11 @@ const TaskActionModal = ({
         }
       }
       
+      const payloadFollowUp = followUpDate ? combineDateAndTimeToISO(followUpDate, followUpTime) : null;
       onSubmit({
-        remarks,
-        nextFollowUpDate: (normalizedActionType === "in_process" || normalizedActionType === "follow_up") ? (followUpDate ? combineDateAndTimeToISO(followUpDate, followUpTime) : null) : null,
+        remarks: remarks.trim(),
+        finalRemarks: remarks.trim(),
+        nextFollowUpDate: payloadFollowUp,
         attachments: finalAttachments,
       });
     } catch (err) {
@@ -323,27 +335,25 @@ const TaskActionModal = ({
               </View>
             )}
 
-            {(normalizedActionType === "in_process" || normalizedActionType === "follow_up") && (
-              <View style={styles.field}>
-                <Text style={styles.label}>Next Follow-up Date &amp; Time *</Text>
-                <View style={{ flexDirection: "row", alignItems: "center" }}>
-                  <View style={{ flex: 1.4, marginRight: 8 }}>
-                    <AppDatePicker
-                      value={followUpDate}
-                      onChangeText={setFollowUpDate}
-                      placeholder="DD/MM/YYYY"
-                      compact
-                    />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppTimePicker
-                      value={followUpTime}
-                      onChangeText={setFollowUpTime}
-                    />
-                  </View>
+            <View style={styles.field}>
+              <Text style={styles.label}>Next Follow-up Date &amp; Time {(normalizedActionType === "in_process" || normalizedActionType === "follow_up") ? "*" : "(Optional)"}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <View style={{ flex: 1.4, marginRight: 8 }}>
+                  <AppDatePicker
+                    value={followUpDate}
+                    onChangeText={setFollowUpDate}
+                    placeholder="DD/MM/YYYY"
+                    compact
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppTimePicker
+                    value={followUpTime}
+                    onChangeText={setFollowUpTime}
+                  />
                 </View>
               </View>
-            )}
+            </View>
 
             <View style={styles.field}>
               <Text style={styles.label}>{normalizedActionType === "in_process" ? "Remarks / Progress" : "Final Remarks"} *</Text>

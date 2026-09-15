@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
-import { getTaskSummaryApi } from "../../api/reportService";
+import { getTaskSummaryApi, getBITaskReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
@@ -42,8 +42,27 @@ const TaskReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const { data } = await getTaskSummaryApi({ month, year });
-      setSummary(data);
+      
+      const res = await getBITaskReportApi({ month, year, refresh }).catch(() => null);
+      if (res?.data?.data) {
+        const bi = res.data.data;
+        setSummary({
+          totalTasks: bi.kpis?.total || 0,
+          onTimeTasks: bi.kpis?.completed || 0,
+          delayedTasks: bi.kpis?.lateCompleted || 0,
+          pendingTasks: bi.kpis?.pending || 0,
+          overdueTasks: bi.kpis?.overdue || 0,
+          completionRate: bi.kpis?.completionRate || 0,
+          list: bi.records || [],
+          priorityDistribution: bi.priorityDistribution || [],
+          statusDistribution: bi.statusDistribution || [],
+          departmentAnalytics: bi.departmentAnalytics || [],
+          employeeAnalytics: bi.employeeAnalytics || [],
+        });
+      } else {
+        const { data } = await getTaskSummaryApi({ month, year });
+        setSummary(data);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load task summary");
     } finally {
@@ -62,7 +81,8 @@ const TaskReportScreen = () => {
     const list = summary?.list || [];
     return list.filter((t) => {
       const s = search.toLowerCase();
-      const matchSearch = !s || (t.title || "").toLowerCase().includes(s);
+      const assigneeName = t.assignedTo?.name || t.assignedTo?.fullName || t.assignedToName || "";
+      const matchSearch = !s || (t.title || "").toLowerCase().includes(s) || assigneeName.toLowerCase().includes(s);
       const matchPriority =
         priorityFilter === "all" || (t.priority || "").toLowerCase() === priorityFilter;
       return matchSearch && matchPriority;

@@ -34,6 +34,111 @@ const formatStoppageDuration = (minutes) => {
 };
 
 /**
+ * Calculate true travel distance from GPS points, filtering out stationary jitter (odometer creep).
+ * If all points remain within stationary radius (< 75m), returns 0 meters.
+ */
+const calculateTrueGpsDistanceMeters = (pts) => {
+  if (!Array.isArray(pts) || pts.length < 2) return 0;
+
+  // 1. Strict Pure Satellite GPS filter (Satellite accuracy <= 25m; cell tower/network fixes are > 25m)
+  const accuratePts = pts.filter((p) => p.accuracy && Number(p.accuracy) <= 25);
+  const candidatePts = accuratePts.length >= 2 ? accuratePts : pts.filter((p) => !p.accuracy || Number(p.accuracy) <= 30);
+  if (candidatePts.length < 2) return 0;
+
+  // 2. Excursion / Teleportation Filter: Suppress points that jump out and snap back within 90s
+  const cleaned = [candidatePts[0]];
+  for (let i = 1; i < candidatePts.length; i++) {
+    const prev = cleaned[cleaned.length - 1];
+    const cur = candidatePts[i];
+    const distFromPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, cur.latitude, cur.longitude);
+    const dt = Math.max(1, (new Date(cur.timestamp) - new Date(prev.timestamp)) / 1000);
+    const speed = (distFromPrev / dt) * 3.6;
+
+    let isExcursion = false;
+    if (distFromPrev > 35) {
+      for (let look = 1; look <= 45 && i + look < candidatePts.length; look++) {
+        const next = candidatePts[i + look];
+        const dtNext = (new Date(next.timestamp) - new Date(cur.timestamp)) / 1000;
+        if (dtNext > 90) break;
+        const distToPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, next.latitude, next.longitude);
+        if (distToPrev < 35) {
+          isExcursion = true;
+          break;
+        }
+      }
+    }
+
+    if (isExcursion || speed > 100) continue;
+    cleaned.push(cur);
+  }
+
+  if (cleaned.length < 2) return 0;
+
+  // 3. Spatial Displacement Check: If user stayed within premise radius (< 120m), return 0
+  const origin = cleaned[0];
+  let maxDisp = 0;
+  let minLat = origin.latitude;
+  let maxLat = origin.latitude;
+  let minLng = origin.longitude;
+  let maxLng = origin.longitude;
+
+  for (const pt of cleaned) {
+    const d = getHaversineDistanceMeters(origin.latitude, origin.longitude, pt.latitude, pt.longitude);
+    if (d > maxDisp) maxDisp = d;
+    if (pt.latitude < minLat) minLat = pt.latitude;
+    if (pt.latitude > maxLat) maxLat = pt.latitude;
+    if (pt.longitude < minLng) minLng = pt.longitude;
+    if (pt.longitude > maxLng) maxLng = pt.longitude;
+  }
+
+  const boundingDiag = getHaversineDistanceMeters(minLat, minLng, maxLat, maxLng);
+
+  // If user stayed at the same premises/office location (< 180m):
+  if (maxDisp < 180 && boundingDiag < 300) {
+    return 0;
+  }
+
+  // 4. True road travel calculation (Anchor-based stationary deadband = 90m)
+  let totalDistMeters = 0;
+  let anchor = cleaned[0];
+  let isMoving = false;
+  let lastMovingPt = anchor;
+
+  for (let i = 1; i < cleaned.length; i++) {
+    const cur = cleaned[i];
+    const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, cur.latitude, cur.longitude);
+    const distFromLast = getHaversineDistanceMeters(lastMovingPt.latitude, lastMovingPt.longitude, cur.latitude, cur.longitude);
+    const dtSec = Math.max(1, (new Date(cur.timestamp) - new Date(lastMovingPt.timestamp)) / 1000);
+    const impliedSpeed = (distFromLast / dtSec) * 3.6;
+    const sensorSpeed = (Number(cur.speed) || 0) * 3.6;
+    const effSpeed = Math.max(sensorSpeed, impliedSpeed);
+
+    if (!isMoving) {
+      if (distFromAnchor >= 90 && effSpeed >= 6.0) {
+        isMoving = true;
+        if (impliedSpeed <= 100) {
+          totalDistMeters += distFromAnchor;
+          lastMovingPt = cur;
+        }
+        anchor = cur;
+      }
+    } else {
+      if (impliedSpeed > 100 && distFromLast > 150) continue;
+      if (distFromAnchor < 40 && effSpeed < 3.0) {
+        isMoving = false;
+        anchor = cur;
+      } else if (distFromLast >= 25) {
+        totalDistMeters += distFromLast;
+        lastMovingPt = cur;
+        anchor = cur;
+      }
+    }
+  }
+
+  return totalDistMeters < 150 ? 0 : Math.round(totalDistMeters);
+};
+
+/**
  * Snap raw GPS waypoints to real street road geometry via OSRM (OpenStreetMap Routing)
  * This guarantees lines follow streets around corners and NEVER slice through buildings/houses!
  */
@@ -186,6 +291,12 @@ const syncBatchLocations = async (req, res) => {
     for (const pt of locations) {
       const lat = Number(pt.latitude);
       const lng = Number(pt.longitude);
+      const acc = Number(pt.accuracy) || 0;
+
+      // Drop cell-tower / network triangulation fixes (> 25m) - Pure Satellite GPS only
+      if (acc > 25) {
+        continue;
+      }
 
       if (
         !isNaN(lat) &&
@@ -323,7 +434,20 @@ const getLiveEmployeeLocations = async (req, res) => {
         $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
       });
       if (ownEmp) {
+        const hasAccess = Boolean(
+          ownEmp.isLocationTrackingEnabled ||
+          (Array.isArray(ownEmp.assignedModules) && ownEmp.assignedModules.some((m) => ["location", "locationtracking", "location_tracking", "tracking"].includes(String(m).toLowerCase()))) ||
+          req.user.isLocationTrackingEnabled ||
+          req.user.employee?.isLocationTrackingEnabled ||
+          req.user.permissions?.locationTracking === true ||
+          req.user.permissions?.location === true
+        );
+        if (!hasAccess) {
+          return res.status(403).json({ success: false, message: "Location tracking access is not enabled for your account" });
+        }
         employeeQuery._id = ownEmp._id;
+      } else {
+        return res.status(404).json({ success: false, message: "Employee profile not found" });
       }
     }
     // If CompanyAdmin or HR: employeeQuery matches all active staff (Employees, HR & Managers)
@@ -353,13 +477,17 @@ const getLiveEmployeeLocations = async (req, res) => {
     });
 
     // 2. Fetch today's continuous GPS trail history from EmployeeLocation for stoppage duration calculation
-    const startOfToday = new Date(Date.now() - 24 * 60 * 60 * 1000); // look back 24 hrs to capture active trip
+    // Calculate exact start of today in IST (UTC+5:30) to NEVER leak yesterday's points into today's travel!
+    const [y, m, d] = todayIst.split("-").map(Number);
+    const istOffsetMs = 5.5 * 60 * 60 * 1000;
+    const startOfTodayIst = new Date(Date.UTC(y, m - 1, d, 0, 0, 0, 0) - istOffsetMs);
+    const endOfTodayIst = new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999) - istOffsetMs);
 
     const recentLocationAgg = await EmployeeLocation.aggregate([
       {
         $match: {
           employeeId: { $in: employeeIds },
-          timestamp: { $gte: startOfToday },
+          timestamp: { $gte: startOfTodayIst, $lte: endOfTodayIst },
         },
       },
       { $sort: { timestamp: 1 } },
@@ -384,46 +512,34 @@ const getLiveEmployeeLocations = async (req, res) => {
 
     const locHistoryMap = new Map();
     recentLocationAgg.forEach((item) => {
+      const empIdStr = item._id.toString();
       const allPts = Array.isArray(item.allPoints) ? item.allPoints : [];
+      const att = attendanceMap.get(empIdStr);
+
       let todayDistanceMeters = 0;
-
-      if (allPts.length > 1) {
-        let lastAcc = allPts[0];
-        for (let i = 1; i < allPts.length; i++) {
-          const cur = allPts[i];
-          const dist = getHaversineDistanceMeters(
-            lastAcc.latitude,
-            lastAcc.longitude,
-            cur.latitude,
-            cur.longitude
-          );
-
-          // Skip GPS speed-spikes (> 130 km/h)
-          const timeDiffSec = Math.max(1, (new Date(cur.timestamp) - new Date(lastAcc.timestamp)) / 1000);
-          const speedKmh = (dist / timeDiffSec) * 3.6;
-          if (speedKmh > 130 && dist > 300) continue;
-
-          // Skip micro-jitter (under 8 meters if stationary)
-          const reportedSpeed = (cur.speed || 0) * 3.6;
-          if (dist < 8 && reportedSpeed < 2.5) continue;
-
-          todayDistanceMeters += dist;
-          lastAcc = cur;
+      // Duty distance must ONLY be calculated if employee has punched in today
+      // and only on points recorded on or after punchInTime!
+      if (att && att.punchInTime) {
+        const punchInMs = new Date(att.punchInTime).getTime();
+        let dutyPts = allPts.filter((p) => new Date(p.timestamp).getTime() >= punchInMs);
+        if (att.punchOutTime) {
+          const punchOutMs = new Date(att.punchOutTime).getTime();
+          dutyPts = dutyPts.filter((p) => new Date(p.timestamp).getTime() <= punchOutMs);
         }
+        todayDistanceMeters = calculateTrueGpsDistanceMeters(dutyPts);
+      } else {
+        todayDistanceMeters = 0;
       }
-
-      // Ignore room flutter under 25 meters
-      if (todayDistanceMeters < 25) todayDistanceMeters = 0;
 
       const todayDistanceKm = Number((todayDistanceMeters / 1000).toFixed(2));
       let todayDistanceText = "0 km";
       if (todayDistanceKm >= 1.0) {
         todayDistanceText = `${todayDistanceKm.toFixed(2)} km`;
-      } else if (todayDistanceKm > 0) {
+      } else if (todayDistanceMeters > 0) {
         todayDistanceText = `${Math.round(todayDistanceMeters)} m`;
       }
 
-      locHistoryMap.set(item._id.toString(), {
+      locHistoryMap.set(empIdStr, {
         latest: item.latestPoint,
         trail: allPts.slice(-30).reverse(),
         todayDistanceMeters: Math.round(todayDistanceMeters),
@@ -569,8 +685,8 @@ const getLiveEmployeeLocations = async (req, res) => {
             for (let i = 1; i < trail.length; i++) {
               const pt = trail[i];
               const dist = getHaversineDistanceMeters(latitude, longitude, pt.latitude, pt.longitude);
-              // Within 45m GPS jitter and walking/stopped speed <= 3.5 km/h
-              if (dist <= 45 && (pt.speed || 0) <= 3.5) {
+              // Within 65m GPS jitter and walking/stopped speed <= 3.5 km/h
+              if (dist <= 65 && (pt.speed || 0) <= 3.5) {
                 stoppageStartTime = new Date(pt.timestamp);
               } else {
                 break; // previous point was on the move
@@ -617,9 +733,9 @@ const getLiveEmployeeLocations = async (req, res) => {
         stoppageDurationMinutes: stoppageDurationMinutes,
         stoppageText: stoppageText,
         stoppedSince: stoppedSince,
-        todayDistanceKm: locData?.todayDistanceKm || 0,
-        todayDistanceMeters: locData?.todayDistanceMeters || 0,
-        todayDistanceText: locData?.todayDistanceText || "0 km",
+        todayDistanceKm: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceKm || 0 : 0,
+        todayDistanceMeters: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceMeters || 0 : 0,
+        todayDistanceText: todayAtt && todayAtt.punchInTime ? locData?.todayDistanceText || "0 km" : "0 km",
         attendanceStatus: todayAtt ? todayAtt.status : "absent",
         punchInTime: todayAtt ? todayAtt.punchInTime : null,
         punchOutTime: todayAtt ? todayAtt.punchOutTime : null,
@@ -722,6 +838,31 @@ const getEmployeeLocationTrail = async (req, res) => {
     const { date } = req.query; // YYYY-MM-DD or today
     const companyId = req.user.companyId || (req.user.company && (req.user.company._id || req.user.company));
 
+    let targetEmployeeId = employeeId;
+    const isEmployee = req.user.role === "Employee" || req.user.role === "employee";
+    if (isEmployee) {
+      const ownEmp = await Employee.findOne({
+        companyId,
+        $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      });
+      if (!ownEmp) {
+        return res.status(404).json({ success: false, message: "Employee profile not found" });
+      }
+      const hasAccess = Boolean(
+        ownEmp.isLocationTrackingEnabled ||
+        (Array.isArray(ownEmp.assignedModules) && ownEmp.assignedModules.some((m) => ["location", "locationtracking", "location_tracking", "tracking"].includes(String(m).toLowerCase()))) ||
+        req.user.isLocationTrackingEnabled ||
+        req.user.employee?.isLocationTrackingEnabled ||
+        req.user.permissions?.locationTracking === true ||
+        req.user.permissions?.location === true
+      );
+      if (!hasAccess) {
+        return res.status(403).json({ success: false, message: "Location tracking access is not enabled for your account" });
+      }
+      // For Employee role, always safely scope to their own Employee record
+      targetEmployeeId = ownEmp._id;
+    }
+
     // Calculate exact IST day window (UTC + 5:30)
     let startOfDay, endOfDay;
     if (date && typeof date === "string" && date.includes("-")) {
@@ -740,7 +881,7 @@ const getEmployeeLocationTrail = async (req, res) => {
     }
 
     const rawTrail = await EmployeeLocation.find({
-      employeeId: new mongoose.Types.ObjectId(employeeId.toString()),
+      employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
       companyId: new mongoose.Types.ObjectId(companyId.toString()),
       timestamp: { $gte: startOfDay, $lte: endOfDay },
     })
@@ -773,9 +914,10 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Filter out poor GPS fixes (accuracy <= 35m eliminates coarse cell-tower and indoor multipath building reflections)
-    const validPoints = rawTrail.filter((p) => !p.accuracy || p.accuracy <= 35);
-    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail.filter((p) => !p.accuracy || p.accuracy <= 50);
+    // 1. Pure Satellite GPS filter: hardware GPS satellites have accuracy <= 25m.
+    // Cell Tower and Wi-Fi triangulation produce > 25m up to 1500m.
+    const validPoints = rawTrail.filter((p) => p.accuracy && Number(p.accuracy) <= 25);
+    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail.filter((p) => !p.accuracy || p.accuracy <= 30);
     if (candidatePoints.length < 2) candidatePoints = rawTrail;
 
     // 1b. Discard cold-start cell-tower glitch at point[0]:
@@ -838,16 +980,16 @@ const getEmployeeLocationTrail = async (req, res) => {
           continue;
         }
 
-        // Excursion loop filter: look ahead up to 6 points to see if path jumps away into buildings and returns back
+        // Excursion loop filter: look ahead up to 45 points or 90s to see if path jumps away and returns
         let isExcursion = false;
-        if (dist > 30) {
-          for (let look = 1; look <= 6 && i + look < candidatePoints.length; look++) {
+        if (dist > 35) {
+          for (let look = 1; look <= 45 && i + look < candidatePoints.length; look++) {
             const future = candidatePoints[i + look];
+            const dtFuture = Math.max(1, (new Date(future.timestamp) - new Date(cur.timestamp)) / 1000);
+            if (dtFuture > 90) break;
             const distFuture = getHaversineDistanceMeters(prev.latitude, prev.longitude, future.latitude, future.longitude);
-            const dtFuture = Math.max(1, (new Date(future.timestamp) - new Date(prev.timestamp)) / 1000);
-            const speedFuture = (distFuture / dtFuture) * 3.6;
 
-            if (dist > 45 && distFuture < 35 && speedFuture < 35) {
+            if (dist > 35 && distFuture < 35) {
               isExcursion = true;
               break;
             }
@@ -865,50 +1007,66 @@ const getEmployeeLocationTrail = async (req, res) => {
       }
     }
 
-    // 2. Calculate accurate real-world cumulative distance
-    let totalDistanceMeters = 0;
-    let lastAccepted = candidatePoints[0];
-    let maxSpeed = 0;
-    const movingSpeeds = [];
+    // Fetch Attendance record to check punchInLocation
+    const targetDateStr = date && typeof date === "string" && date.includes("-")
+      ? date
+      : new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
 
-    for (let i = 1; i < candidatePoints.length; i++) {
-      const cur = candidatePoints[i];
-      const spd = Number(cur.speed) || 0;
-      if (spd > maxSpeed) maxSpeed = spd;
+    const attendanceRecord = await Attendance.findOne({
+      employeeId: new mongoose.Types.ObjectId(targetEmployeeId.toString()),
+      companyId: new mongoose.Types.ObjectId(companyId.toString()),
+      date: targetDateStr,
+    }).select("punchInTime punchOutTime punchInLocation").lean().catch(() => null);
 
-      const dist = getHaversineDistanceMeters(lastAccepted.latitude, lastAccepted.longitude, cur.latitude, cur.longitude);
-      const dtSeconds = Math.max(1, (new Date(cur.timestamp) - new Date(lastAccepted.timestamp)) / 1000);
-      const impliedSpeed = (dist / dtSeconds) * 3.6;
-
-      // Skip teleport jump glitches (> 80 km/h over > 40m on city streets)
-      if (impliedSpeed > 80 && dist > 40) continue;
-
-      // Skip micro-jitter (under 8 meters if stationary)
-      const reportedSpeed = (cur.speed || 0) * 3.6;
-      if (dist < 8 && reportedSpeed < 2.5) continue;
-
-      totalDistanceMeters += dist;
-      if (spd > 0) movingSpeeds.push(spd);
-      lastAccepted = cur;
+    let punchInCoord = candidatePoints[0];
+    if (attendanceRecord?.punchInLocation?.latitude && attendanceRecord?.punchInLocation?.longitude) {
+      const punchLat = Number(attendanceRecord.punchInLocation.latitude);
+      const punchLng = Number(attendanceRecord.punchInLocation.longitude);
+      // Only trust punchInLocation if it is in the same vicinity (<= 1000m) of recorded GPS
+      if (getHaversineDistanceMeters(punchLat, punchLng, candidatePoints[0].latitude, candidatePoints[0].longitude) <= 1000) {
+        punchInCoord = { latitude: punchLat, longitude: punchLng };
+      }
     }
 
     const firstTime = new Date(candidatePoints[0].timestamp);
     const lastTime = new Date(candidatePoints[candidatePoints.length - 1].timestamp);
     const totalDayMinutes = Math.max(1, Math.round((lastTime - firstTime) / 60000));
 
-    // If total movement across the entire day is under 25 meters (e.g. at desk all day):
-    if (totalDistanceMeters < 25) {
+    // 2. Spatial Displacement Check: Detect if employee stayed at the same location after Punch In
+    let maxDisplacementFromStart = 0;
+    let minLat = candidatePoints[0].latitude;
+    let maxLat = candidatePoints[0].latitude;
+    let minLng = candidatePoints[0].longitude;
+    let maxLng = candidatePoints[0].longitude;
+
+    for (const pt of candidatePoints) {
+      const d = getHaversineDistanceMeters(punchInCoord.latitude, punchInCoord.longitude, pt.latitude, pt.longitude);
+      if (d > maxDisplacementFromStart) maxDisplacementFromStart = d;
+      if (pt.latitude < minLat) minLat = pt.latitude;
+      if (pt.latitude > maxLat) maxLat = pt.latitude;
+      if (pt.longitude < minLng) minLng = pt.longitude;
+      if (pt.longitude > maxLng) maxLng = pt.longitude;
+    }
+
+    const boundingDiagonalMeters = getHaversineDistanceMeters(minLat, minLng, maxLat, maxLng);
+
+    // If employee stayed at the same location (all points within stationary/premise radius):
+    if (maxDisplacementFromStart < 180 && boundingDiagonalMeters < 300) {
       const basePoint = candidatePoints[0];
       return res.status(200).json({
         success: true,
         data: {
           trail: [basePoint],
           cleanTrail: [basePoint],
+          roadTrail: [basePoint],
+          rawSensorPoints: [basePoint],
           isStationaryAllDay: true,
           rawCount: rawTrail.length,
           cleanCount: 1,
           totalPoints: rawTrail.length,
           distanceKm: 0,
+          pureDistanceKm: 0,
+          roadDistanceKm: 0,
           distanceMeters: 0,
           distanceText: "0 km",
           todayDistanceText: "0 km",
@@ -938,11 +1096,16 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // ── Build Clean Trail & Detect Real Halts ──
-    const ANCHOR_RADIUS_METERS = 25;
+    // ── Build Clean Trail & Detect Real Halts (Anchor-Based Deadband) ──
+    const ANCHOR_STATIONARY_RADIUS = 90;
     let anchor = candidatePoints[0];
     const cleanTrail = [anchor];
     const halts = [];
+    const movingSpeeds = [];
+    let totalDistanceMeters = 0;
+    let isMoving = false;
+    let lastAcceptedMovingPoint = anchor;
+    let maxSpeed = 0;
 
     let currentHalt = {
       latitude: anchor.latitude,
@@ -954,56 +1117,145 @@ const getEmployeeLocationTrail = async (req, res) => {
 
     for (let i = 1; i < candidatePoints.length; i++) {
       const pt = candidatePoints[i];
-      const spd = (Number(pt.speed) || 0) * 3.6;
       const distFromAnchor = getHaversineDistanceMeters(anchor.latitude, anchor.longitude, pt.latitude, pt.longitude);
+      const distFromLast = getHaversineDistanceMeters(lastAcceptedMovingPoint.latitude, lastAcceptedMovingPoint.longitude, pt.latitude, pt.longitude);
+      const dtSeconds = Math.max(1, (new Date(pt.timestamp) - new Date(lastAcceptedMovingPoint.timestamp)) / 1000);
+      const impliedSpeed = (distFromLast / dtSeconds) * 3.6;
+      const sensorSpeed = (Number(pt.speed) || 0) * 3.6;
+      const effectiveSpeed = Math.max(sensorSpeed, impliedSpeed);
 
-      if (distFromAnchor < ANCHOR_RADIUS_METERS && spd < 3.0) {
-        currentHalt.endTime = pt.timestamp;
-        if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
-      } else {
-        const prev = cleanTrail[cleanTrail.length - 1];
-        const distFromPrev = getHaversineDistanceMeters(prev.latitude, prev.longitude, pt.latitude, pt.longitude);
-        const dtSeconds = Math.max(1, (new Date(pt.timestamp) - new Date(prev.timestamp)) / 1000);
-        const impliedSpeed = (distFromPrev / dtSeconds) * 3.6;
-
-        if (impliedSpeed > 80 && distFromPrev > 40) continue;
-
-        const haltDurationMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
-        if (haltDurationMins >= 3) {
-          halts.push({
-            latitude: currentHalt.latitude,
-            longitude: currentHalt.longitude,
-            startTime: currentHalt.startTime,
-            endTime: currentHalt.endTime,
-            durationMinutes: haltDurationMins,
-            durationText: formatStoppageDuration(haltDurationMins),
-            address: currentHalt.address || "",
-          });
+      if (!isMoving) {
+        if (distFromAnchor < ANCHOR_STATIONARY_RADIUS && effectiveSpeed < 4.0) {
+          currentHalt.endTime = pt.timestamp;
+          if (pt.address && !currentHalt.address) currentHalt.address = pt.address;
+          continue; // Zero distance added during stationary halt
         }
 
-        cleanTrail.push(pt);
-        anchor = pt;
-        currentHalt = {
-          latitude: pt.latitude,
-          longitude: pt.longitude,
-          startTime: pt.timestamp,
-          endTime: pt.timestamp,
-          address: pt.address || "",
-        };
+        // Breakout detected: actual GPS movement initiated
+        if (distFromAnchor >= ANCHOR_STATIONARY_RADIUS && effectiveSpeed >= 6.0) {
+          isMoving = true;
+          const haltMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
+          if (haltMins >= 3) {
+            halts.push({
+              latitude: currentHalt.latitude,
+              longitude: currentHalt.longitude,
+              startTime: currentHalt.startTime,
+              endTime: currentHalt.endTime,
+              durationMinutes: haltMins,
+              durationText: formatStoppageDuration(haltMins),
+              address: currentHalt.address || "",
+            });
+          }
+
+          if (impliedSpeed <= 120) {
+            totalDistanceMeters += distFromAnchor;
+            cleanTrail.push(pt);
+            lastAcceptedMovingPoint = pt;
+            const validSpeed = sensorSpeed > 0 ? sensorSpeed : impliedSpeed;
+            if (validSpeed > 0 && validSpeed <= 120) {
+              movingSpeeds.push(validSpeed);
+              if (validSpeed > maxSpeed) maxSpeed = validSpeed;
+            }
+          }
+          anchor = pt;
+          currentHalt = {
+            latitude: pt.latitude,
+            longitude: pt.longitude,
+            startTime: pt.timestamp,
+            endTime: pt.timestamp,
+            address: pt.address || "",
+          };
+        }
+      } else {
+        // In transit
+        if (impliedSpeed > 120 && distFromLast > 250) continue;
+
+        if (distFromAnchor < 45 && effectiveSpeed < 2.5) {
+          currentHalt.endTime = pt.timestamp;
+          const stopMins = Math.round((new Date(pt.timestamp) - new Date(currentHalt.startTime)) / 60000);
+          if (stopMins >= 3) {
+            isMoving = false;
+            continue;
+          }
+        } else {
+          if (distFromLast >= 15) {
+            totalDistanceMeters += distFromLast;
+            cleanTrail.push(pt);
+            lastAcceptedMovingPoint = pt;
+            const validSpeed = sensorSpeed > 0 ? sensorSpeed : (impliedSpeed <= 120 ? impliedSpeed : 0);
+            if (validSpeed > 0 && validSpeed <= 120) {
+              movingSpeeds.push(validSpeed);
+              if (validSpeed > maxSpeed) maxSpeed = validSpeed;
+            }
+            anchor = pt;
+            currentHalt = {
+              latitude: pt.latitude,
+              longitude: pt.longitude,
+              startTime: pt.timestamp,
+              endTime: pt.timestamp,
+              address: pt.address || "",
+            };
+          }
+        }
       }
     }
 
     // Check final halt at destination
     const finalHaltMins = Math.round((new Date(currentHalt.endTime) - new Date(currentHalt.startTime)) / 60000);
-    if (finalHaltMins >= 3) {
+    if (finalHaltMins >= 3 || cleanTrail.length <= 1) {
       halts.push({
         latitude: currentHalt.latitude,
         longitude: currentHalt.longitude,
         startTime: currentHalt.startTime,
         endTime: currentHalt.endTime,
-        durationMinutes: finalHaltMins,
-        durationText: formatStoppageDuration(finalHaltMins),
+        durationMinutes: Math.max(1, finalHaltMins),
+        durationText: formatStoppageDuration(Math.max(1, finalHaltMins)),
         address: currentHalt.address || "",
+      });
+    }
+
+    if (totalDistanceMeters < 150 || cleanTrail.length <= 1) {
+      const basePoint = candidatePoints[0];
+      return res.status(200).json({
+        success: true,
+        data: {
+          trail: [basePoint],
+          cleanTrail: [basePoint],
+          roadTrail: [basePoint],
+          rawSensorPoints: [basePoint],
+          isStationaryAllDay: true,
+          rawCount: rawTrail.length,
+          cleanCount: 1,
+          totalPoints: rawTrail.length,
+          distanceKm: 0,
+          pureDistanceKm: 0,
+          roadDistanceKm: 0,
+          distanceMeters: 0,
+          distanceText: "0 km",
+          todayDistanceText: "0 km",
+          maxSpeed: 0,
+          avgSpeed: 0,
+          halts: [
+            {
+              latitude: basePoint.latitude,
+              longitude: basePoint.longitude,
+              startTime: candidatePoints[0].timestamp,
+              endTime: candidatePoints[candidatePoints.length - 1].timestamp,
+              durationMinutes: totalDayMinutes,
+              durationText: formatStoppageDuration(totalDayMinutes),
+              address: basePoint.address || "",
+            },
+          ],
+          haltCount: 1,
+          totalHaltTimeMinutes: totalDayMinutes,
+          totalHaltTimeText: formatStoppageDuration(totalDayMinutes),
+          totalMovingTimeMinutes: 0,
+          totalMovingTimeText: "0 mins",
+          startLocation: basePoint,
+          endLocation: candidatePoints[candidatePoints.length - 1],
+          startTime: candidatePoints[0].timestamp,
+          endTime: candidatePoints[candidatePoints.length - 1].timestamp,
+        },
       });
     }
 
@@ -1101,7 +1353,16 @@ const getTrackingAllowanceReport = async (req, res) => {
 
     // Build employees filter
     const empFilter = { companyId, status: "active" };
-    if (employeeId && mongoose.Types.ObjectId.isValid(employeeId)) {
+    if (req.user.role === "Employee" || req.user.role === "employee") {
+      const ownEmp = await Employee.findOne({
+        companyId,
+        $or: [{ userId: req.user._id }, { email: req.user.email ? req.user.email.toLowerCase() : "" }],
+      });
+      if (!ownEmp) {
+        return res.status(404).json({ success: false, message: "Employee profile not found" });
+      }
+      empFilter._id = ownEmp._id;
+    } else if (employeeId && mongoose.Types.ObjectId.isValid(employeeId)) {
       empFilter._id = employeeId;
     }
 
@@ -1166,24 +1427,7 @@ const getTrackingAllowanceReport = async (req, res) => {
 
         // Calculate GPS distance
         const pts = empPointsMap.get(idStr) || [];
-        let distanceMeters = 0;
-        if (pts.length >= 2) {
-          let lastAcc = pts[0];
-          for (let i = 1; i < pts.length; i++) {
-            const cur = pts[i];
-            const dist = getHaversineDistanceMeters(lastAcc.latitude, lastAcc.longitude, cur.latitude, cur.longitude);
-            const dtSeconds = Math.max(1, (new Date(cur.timestamp) - new Date(lastAcc.timestamp)) / 1000);
-            const speedKmh = (dist / dtSeconds) * 3.6;
-
-            if (speedKmh > 130 && dist > 300) continue;
-            const reportedSpeed = (cur.speed || 0) * 3.6;
-            if (dist < 8 && reportedSpeed < 2.5) continue;
-
-            distanceMeters += dist;
-            lastAcc = cur;
-          }
-        }
-        if (distanceMeters < 25) distanceMeters = 0;
+        const distanceMeters = calculateTrueGpsDistanceMeters(pts);
 
         const calculatedKm = Number((distanceMeters / 1000).toFixed(2));
         const distanceKm = saved ? saved.distanceKm : calculatedKm;
@@ -1263,6 +1507,9 @@ const getTrackingAllowanceReport = async (req, res) => {
  */
 const updateTrackingAllowanceRate = async (req, res) => {
   try {
+    if (req.user.role === "Employee" || req.user.role === "employee") {
+      return res.status(403).json({ success: false, message: "Access denied. Employees cannot modify allowance rates." });
+    }
     const companyId = req.user.companyId;
     const { ratePerKm, twoWheelerRate, fourWheelerRate } = req.body;
 
@@ -1299,6 +1546,9 @@ const updateTrackingAllowanceRate = async (req, res) => {
  */
 const updateAllowanceStatus = async (req, res) => {
   try {
+    if (req.user.role === "Employee" || req.user.role === "employee") {
+      return res.status(403).json({ success: false, message: "Access denied. Employees cannot approve or reject allowance claims." });
+    }
     const companyId = req.user.companyId;
     const userId = req.user._id;
     const { items, status, remarks } = req.body;

@@ -372,7 +372,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
   const [activeTab, setActiveTab] = useState("teamTasks"); // "myTasks", "teamTasks"
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
-  const [dateFilter, setDateFilter] = useState("all_time");
+  const [dateFilter, setDateFilter] = useState("today");
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
   const {
     myManagerTasks,

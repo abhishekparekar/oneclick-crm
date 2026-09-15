@@ -1,13 +1,16 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import toast from "react-hot-toast";
+import * as XLSX from "xlsx";
+import { useAuth } from "../../context/AuthContext";
 import {
   getBIExecutiveReportApi,
   getBIWorkforceReportApi,
   getBIAttendanceReportApi,
   getBILeaveReportApi,
   getBITaskReportApi,
-  getBIPayrollReportApi,
+  getBILeadReportApi,
+  getBIProjectReportApi,
   getBIPerformanceReportApi,
   getBIAuditReportApi,
   getBIEmployeeDrillDownApi,
@@ -19,22 +22,22 @@ import {
 import {
   ResponsiveContainer,
   BarChart, Bar,
-  LineChart, Line,
-  AreaChart, Area,
   PieChart, Pie, Cell,
   XAxis, YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
 } from "recharts";
 import {
-  BarChart2, Users, CalendarCheck, CalendarOff, DollarSign,
-  TrendingUp, TrendingDown, CheckSquare, Download, FileText,
+  BarChart2, Users, CalendarCheck, CalendarOff,
+  TrendingUp, TrendingDown, CheckSquare, Download,
   RefreshCw, Building2, Award, ChevronRight, AlertCircle,
-  Clock, Target, Sparkles, Filter, CheckCircle2, ShieldCheck,
-  Search, ArrowUp, ArrowDown, Activity, Layers, Printer, Briefcase,
-  Sliders, X, User, ArrowUpRight, AlertTriangle, ShieldAlert,
-  Calendar, Check, Eye
+  Clock, Target, Sparkles, CheckCircle2, ShieldCheck,
+  Search, ArrowUp, ArrowDown, Activity, Printer,
+  Sliders, X, User, AlertTriangle, Check,
+  PhoneCall, FolderKanban, DollarSign, Layers,
+  Lock, HelpCircle, ExternalLink, RotateCcw,
+  Zap, Scale, Timer, CheckCheck,
+  Briefcase, ThumbsUp, ThumbsDown, Flame, UserCheck, UserX
 } from "lucide-react";
 
 // ── Design Tokens ─────────────────────────────────────────────────────────────
@@ -51,63 +54,113 @@ const THEME = {
 const CHART_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#06b6d4", "#f43f5e", "#ec4899", "#84cc16"];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const fmtCurrency = (v) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v || 0);
+const fmtNumber = (v) => {
+  if (v === null || v === undefined) return "0";
+  if (typeof v === "string") {
+    if (v.startsWith("₹") || v.includes(",") || isNaN(Number(v))) return v;
+    v = Number(v);
+  }
+  return new Intl.NumberFormat("en-IN").format(v || 0);
+};
 
-const fmtNumber = (v) => new Intl.NumberFormat("en-IN").format(v || 0);
-const fmtPct = (v) => `${Number(v || 0).toFixed(1)}%`;
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "—";
-const fmtDateTime = (d) => d ? new Date(d).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—";
+const fmtDate = (d) => {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return String(d);
+    const day = String(dt.getDate()).padStart(2, "0");
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const year = dt.getFullYear();
+    return `${day}/${month}/${year}`;
+  } catch {
+    return String(d);
+  }
+};
+
+const fmtDateTime = (d) => {
+  if (!d) return "—";
+  try {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return String(d);
+    const day = String(dt.getDate()).padStart(2, "0");
+    const month = String(dt.getMonth() + 1).padStart(2, "0");
+    const year = dt.getFullYear();
+    const hours = String(dt.getHours()).padStart(2, "0");
+    const mins = String(dt.getMinutes()).padStart(2, "0");
+    return `${day}/${month}/${year} ${hours}:${mins}`;
+  } catch {
+    return String(d);
+  }
+};
 
 // ── Custom Tooltip for Recharts ───────────────────────────────────────────────
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
-    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 shadow-xl text-xs font-sans">
-      <p className="font-bold text-slate-900 dark:text-white mb-1">{label}</p>
+    <div className="bg-slate-900/95 backdrop-blur-md border border-slate-700/80 rounded-xl p-3 shadow-2xl text-xs font-sans">
+      <p className="font-black text-white mb-1.5 border-b border-slate-700/60 pb-1">{label}</p>
       {payload.map((p, i) => (
-        <div key={i} className="flex items-center justify-between gap-3 text-[11px] font-semibold" style={{ color: p.color || THEME.amber }}>
+        <div key={i} className="flex items-center justify-between gap-4 text-[11px] font-semibold py-0.5" style={{ color: p.color || THEME.amber }}>
           <span>{p.name}:</span>
-          <span className="font-mono font-bold">
-            {typeof p.value === "number" && p.value > 10000 ? fmtCurrency(p.value) : fmtNumber(p.value)}
-          </span>
+          <span className="font-mono font-bold text-white">{fmtNumber(p.value)}</span>
         </div>
       ))}
     </div>
   );
 };
 
-// ── Executive KPI Card with Previous Period Delta ────────────────────────────
-const KPICard = ({ label, metric, sub, icon: Icon, color = THEME.amber, isCurrency = false, isPercentage = false }) => {
+// ── Executive KPI Card with Modern Premium Aesthetics ────────────────────────
+const KPICard = ({ label, metric, sub, icon: Icon, color = THEME.amber, isPercentage = false, isCurrency = false, isUp }) => {
   const current = metric?.current ?? metric ?? 0;
   const previous = metric?.previous;
   const pctChange = metric?.percentageChange ?? 0;
-  const isUp = metric?.isUp ?? true;
+  const trendIsUp = isUp !== undefined ? isUp : (metric?.isUp ?? true);
+
+  let displayValue;
+  if (isPercentage) {
+    displayValue = typeof current === "number" ? `${Math.round(current)}%` : `${current}`;
+    if (!displayValue.endsWith("%")) displayValue += "%";
+  } else if (isCurrency) {
+    if (typeof current === "number") {
+      displayValue = `₹${fmtNumber(current)}`;
+    } else if (typeof current === "string" && current.startsWith("₹")) {
+      displayValue = current;
+    } else {
+      displayValue = `₹${fmtNumber(current)}`;
+    }
+  } else {
+    displayValue = fmtNumber(current);
+  }
+
+  // Only show delta badge if there is a legitimate percentage change and previous is non-zero
+  const showDelta = pctChange > 0 && previous !== undefined && previous !== 0 && !isNaN(pctChange);
 
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 shadow-2xs hover:shadow-xs transition-all flex items-center justify-between gap-2.5">
+    <div className="group relative bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800/80 p-2.5 sm:p-3 shadow-2xs hover:shadow-md hover:border-amber-500/40 transition-all duration-150 flex items-center justify-between gap-2.5 overflow-hidden">
       <div className="flex-1 min-w-0">
-        <p className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">{label}</p>
-        <div className="flex items-baseline gap-2 my-0.5">
-          <span className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight leading-none truncate font-mono">
-            {isCurrency ? fmtCurrency(current) : isPercentage ? `${current}%` : fmtNumber(current)}
+        <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider truncate">{label}</p>
+        <div className="flex items-baseline gap-1.5 mt-0.5">
+          <span className="text-lg sm:text-xl font-black text-slate-900 dark:text-white tracking-tight leading-none truncate font-mono">
+            {displayValue}
           </span>
-          {previous !== undefined && (
-            <span className={`text-[9.5px] font-extrabold flex items-center gap-0.5 ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-              {isUp ? <ArrowUp size={9} strokeWidth={2.5} /> : <ArrowDown size={9} strokeWidth={2.5} />}
-              {pctChange}%
+          {showDelta && (
+            <span className={`text-[9px] font-black flex items-center gap-0.5 px-1 py-0.5 rounded ${trendIsUp ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-rose-500/15 text-rose-600 dark:text-rose-400"}`}>
+              {trendIsUp ? <ArrowUp size={8} strokeWidth={3} /> : <ArrowDown size={8} strokeWidth={3} />}
+              {Math.round(pctChange)}%
             </span>
           )}
         </div>
-        <p className="text-[10px] font-medium text-slate-400 truncate">
-          {sub ? sub : previous !== undefined ? `vs prev: ${isCurrency ? fmtCurrency(previous) : isPercentage ? `${previous}%` : previous}` : "Period Summary"}
-        </p>
+        {sub && (
+          <p className="text-[9.5px] font-medium text-slate-400 dark:text-slate-500 truncate mt-0.5">
+            {sub}
+          </p>
+        )}
       </div>
       <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-2xs"
-        style={{ backgroundColor: `${color}18`, color }}
+        className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform"
+        style={{ backgroundColor: `${color}15`, color }}
       >
-        <Icon size={15} strokeWidth={2.5} />
+        <Icon size={16} strokeWidth={2.2} />
       </div>
     </div>
   );
@@ -128,11 +181,22 @@ const ChartCard = ({ title, subtitle, action, children }) => (
 );
 
 // ── Empty State Component ─────────────────────────────────────────────────────
-const EmptyState = ({ message = "No reporting data available for the selected period." }) => (
-  <div className="text-center py-12 px-4 text-slate-400 dark:text-slate-500">
-    <BarChart2 size={28} className="mx-auto mb-2 opacity-40 text-amber-500" />
-    <p className="text-xs font-bold">{message}</p>
-    <p className="text-[10px] mt-0.5 text-slate-400">Try adjusting your filters or date range.</p>
+const EmptyState = ({ message = "No reporting data available for the selected period.", onReset }) => (
+  <div className="text-center py-12 px-4 text-slate-400 dark:text-slate-500 bg-white dark:bg-[#111C24] rounded-xl border border-dashed border-slate-200 dark:border-slate-800 my-2">
+    <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto mb-3">
+      <BarChart2 size={24} />
+    </div>
+    <p className="text-sm font-bold text-slate-800 dark:text-slate-200">{message}</p>
+    <p className="text-xs mt-1 text-slate-400">Records may exist outside the chosen date window or department filter.</p>
+    {onReset && (
+      <button
+        onClick={onReset}
+        className="mt-4 inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-black shadow-2xs transition-colors cursor-pointer"
+      >
+        <RotateCcw size={13} />
+        <span>View All Records (All Time)</span>
+      </button>
+    )}
   </div>
 );
 
@@ -143,13 +207,22 @@ export default function Reports() {
 
   // Filter States
   const [activeTab, setActiveTab] = useState("executive");
-  const [dateRange, setDateRange] = useState("this_month");
+  const [dateRange, setDateRange] = useState("all");
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
   const [selectedDept, setSelectedDept] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedEmployee, setSelectedEmployee] = useState("all");
   const [searchTableQuery, setSearchTableQuery] = useState("");
+
+  // Attendance Sub-view State (Monthly vs Daily)
+  const [attSubView, setAttSubView] = useState("monthly"); // "monthly" | "daily"
+
+  // Tasks Sub-view State
+  const [taskSubView, setTaskSubView] = useState("overview"); // "overview" | "workload" | "delayed" | "trends" | "manager"
+
+  // Performance Sub-view State
+  const [perfSubView, setPerfSubView] = useState("members"); // "members" | "departments" | "efficiency" | "rankings"
 
   // Drill-Down States
   const [drillEmployeeId, setDrillEmployeeId] = useState(null);
@@ -165,6 +238,9 @@ export default function Reports() {
     leaveDiscipline: 15,
   });
 
+  // Export Loading
+  const [isExporting, setIsExporting] = useState(false);
+
   // Query Params
   const queryParams = useMemo(() => ({
     dateRange,
@@ -175,6 +251,42 @@ export default function Reports() {
     employeeId: selectedEmployee,
     weights: JSON.stringify(weights),
   }), [dateRange, customStart, customEnd, selectedDept, selectedBranch, selectedEmployee, weights]);
+
+  const { user, hasPermission } = useAuth();
+
+  // Role & Subscription Access Control
+  const roleLower = (user?.role || "").toLowerCase();
+  const isSuperAdmin = roleLower === "superadmin";
+  const isCompanyAdmin = roleLower === "companyadmin" || roleLower === "admin";
+
+  const canAccessLeads = isSuperAdmin || isCompanyAdmin || hasPermission("leads");
+  const canAccessProjects = isSuperAdmin || isCompanyAdmin || hasPermission("projects");
+  const canAccessTasks = isSuperAdmin || isCompanyAdmin || hasPermission("tasks");
+  const canAccessAttendance = isSuperAdmin || hasPermission("attendance");
+  const canAccessLeaves = isSuperAdmin || hasPermission("leave");
+  const canAccessWorkforce = isSuperAdmin || isCompanyAdmin || roleLower === "hr" || roleLower === "manager" || hasPermission("teamMembers") || hasPermission("employees");
+  const canAccessPerformance = isSuperAdmin || isCompanyAdmin || roleLower === "hr" || roleLower === "manager" || hasPermission("performance");
+  const canAccessAudit = isSuperAdmin || isCompanyAdmin;
+
+  // Available Tabs list based on permissions (Attendance, Leaves, and Audit Ledger are hidden from this screen)
+  const availableTabs = useMemo(() => {
+    const list = [
+      { id: "executive", label: "Executive BI", icon: Sparkles, accessible: true },
+      { id: "leads", label: "CRM & Leads", icon: PhoneCall, accessible: canAccessLeads },
+      { id: "projects", label: "Projects", icon: FolderKanban, accessible: canAccessProjects },
+      { id: "tasks", label: "Tasks & Ops", icon: CheckSquare, accessible: canAccessTasks },
+      { id: "workforce", label: "Workforce", icon: Users, accessible: canAccessWorkforce },
+      { id: "performance", label: "Performance", icon: Award, accessible: canAccessPerformance },
+    ];
+    return list.filter(t => t.accessible);
+  }, [canAccessLeads, canAccessProjects, canAccessTasks, canAccessWorkforce, canAccessPerformance]);
+
+  // Ensure active tab is within available tabs
+  useEffect(() => {
+    if (!availableTabs.some(t => t.id === activeTab)) {
+      setActiveTab("executive");
+    }
+  }, [availableTabs, activeTab]);
 
   // Master Queries
   const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
@@ -190,48 +302,82 @@ export default function Reports() {
   const { data: execRes, isLoading: execLoading, refetch: refetchExec } = useQuery({
     queryKey: ["biExecutive", queryParams],
     queryFn: () => getBIExecutiveReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "executive",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
+  });
+
+  const { data: leadRes, isLoading: leadLoading } = useQuery({
+    queryKey: ["biLeads", queryParams],
+    queryFn: () => getBILeadReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "leads" && canAccessLeads,
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
+  });
+
+  const { data: projRes, isLoading: projLoading } = useQuery({
+    queryKey: ["biProjects", queryParams],
+    queryFn: () => getBIProjectReportApi(queryParams).then(r => r.data?.data),
+    enabled: activeTab === "projects" && canAccessProjects,
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: workRes, isLoading: workLoading } = useQuery({
     queryKey: ["biWorkforce", queryParams],
     queryFn: () => getBIWorkforceReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "workforce",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: attRes, isLoading: attLoading } = useQuery({
     queryKey: ["biAttendance", queryParams],
     queryFn: () => getBIAttendanceReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "attendance",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: leaveRes, isLoading: leaveLoading } = useQuery({
     queryKey: ["biLeaves", queryParams],
     queryFn: () => getBILeaveReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "leaves",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: taskRes, isLoading: taskLoading } = useQuery({
     queryKey: ["biTasks", queryParams],
     queryFn: () => getBITaskReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "tasks",
-  });
-
-  const { data: payRes, isLoading: payLoading } = useQuery({
-    queryKey: ["biPayroll", queryParams],
-    queryFn: () => getBIPayrollReportApi(queryParams).then(r => r.data?.data),
-    enabled: activeTab === "payroll",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: perfRes, isLoading: perfLoading } = useQuery({
     queryKey: ["biPerformance", queryParams],
     queryFn: () => getBIPerformanceReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "performance",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: auditRes, isLoading: auditLoading } = useQuery({
     queryKey: ["biAudit", queryParams],
     queryFn: () => getBIAuditReportApi(queryParams).then(r => r.data?.data),
     enabled: activeTab === "audit",
+    staleTime: 60000,
+    retry: 2,
+    retryDelay: 1000,
   });
 
   // Drill-Down Queries
@@ -247,67 +393,148 @@ export default function Reports() {
     enabled: !!drillDepartmentId,
   });
 
-  // CSV Export Engine
-  const handleExportCSV = () => {
-    let rows = [];
-    let filename = `hrms_bi_${activeTab}_report_${new Date().toISOString().slice(0, 10)}.csv`;
+  // ── Unified Formatted Excel (.xlsx) Export Engine ───────────────────────────
+  const handleExportExcel = () => {
+    if (isExporting) return;
+    setIsExporting(true);
 
-    if (activeTab === "executive" && execRes) {
-      rows.push(["Department", "Headcount", "Active", "Tasks Assigned", "Tasks Completed", "Completion Rate %"]);
-      (execRes.departmentAnalytics || []).forEach(d => {
-        rows.push([`"${d.name}"`, d.headcount, d.activeHeadcount, d.tasksAssigned, d.tasksCompleted, `${d.completionRate}%`]);
-      });
-    } else if (activeTab === "workforce" && workRes) {
-      rows.push(["Name", "Code", "Email", "Department", "Designation", "Branch", "Status", "Joining Date"]);
-      (workRes.employeesList || []).forEach(e => {
-        rows.push([`"${e.name}"`, e.code, e.email, `"${e.department}"`, `"${e.designation}"`, `"${e.branch}"`, e.status, fmtDate(e.joiningDate)]);
-      });
-    } else if (activeTab === "attendance" && attRes) {
-      rows.push(["Employee Name", "Date", "Punch In", "Punch Out", "Total Hours", "Status"]);
-      (attRes.records || []).forEach(a => {
-        rows.push([`"${a.employeeName}"`, a.date, fmtDateTime(a.punchIn), fmtDateTime(a.punchOut), a.totalHours || 0, a.status]);
-      });
-    } else if (activeTab === "leaves" && leaveRes) {
-      rows.push(["Employee Name", "Leave Type", "Start Date", "End Date", "Days", "Status", "Reason"]);
-      (leaveRes.records || []).forEach(l => {
-        rows.push([`"${l.employeeName}"`, l.leaveType, fmtDate(l.startDate), fmtDate(l.endDate), l.days, l.status, `"${l.reason || ""}"`]);
-      });
-    } else if (activeTab === "tasks" && taskRes) {
-      rows.push(["Task Title", "Assignee", "Priority", "Department", "Due Date", "Status"]);
-      (taskRes.records || []).forEach(t => {
-        rows.push([`"${t.title}"`, `"${t.assigneeName}"`, t.priority, `"${t.department}"`, fmtDate(t.dueDate), t.status]);
-      });
-    } else if (activeTab === "payroll" && payRes) {
-      rows.push(["Employee Name", "Month", "Year", "Basic Salary", "Net Salary", "Status"]);
-      (payRes.records || []).forEach(p => {
-        rows.push([`"${p.employeeName}"`, p.month, p.year, p.basicSalary, p.netSalary, p.status]);
-      });
-    } else if (activeTab === "performance" && perfRes) {
-      rows.push(["Name", "Code", "Department", "Role", "Score %", "Tier", "Tasks Completed", "Attendance %"]);
-      (perfRes.rankings || []).forEach(r => {
-        rows.push([`"${r.name}"`, r.code, `"${r.department}"`, `"${r.role}"`, `${r.score}%`, r.tier, `${r.tasksCompleted}/${r.tasksTotal}`, `${r.attendanceRate}%`]);
-      });
-    } else if (activeTab === "audit" && auditRes) {
-      rows.push(["Date & Time", "Performed By", "Role", "Module", "Action", "IP Address"]);
-      (auditRes.records || []).forEach(a => {
-        rows.push([fmtDateTime(a.createdAt), `"${a.performedByName}"`, a.role, a.module, a.action, a.ipAddress]);
-      });
+    try {
+      let rows = [];
+      let sheetName = "Report";
+      const fileDate = new Date().toISOString().slice(0, 10).split("-").reverse().join("_");
+      let filename = `HRMS_${activeTab.toUpperCase()}_Report_${fileDate}.xlsx`;
+
+      if (activeTab === "executive" && execRes) {
+        sheetName = "Executive BI";
+        rows.push(["EXECUTIVE BUSINESS INTELLIGENCE REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+        rows.push([]);
+        rows.push(["Department", "Headcount", "Active Staff", "Tasks Assigned", "Tasks Completed", "Completion Rate %"]);
+        (execRes.departmentAnalytics || []).forEach(d => {
+          rows.push([d.name || "—", d.headcount || 0, d.activeHeadcount || 0, d.tasksAssigned || 0, d.tasksCompleted || 0, `${d.completionRate || 0}%`]);
+        });
+        rows.push([]);
+        rows.push(["TOP PERFORMING EMPLOYEES"]);
+        rows.push(["Rank", "Employee Name", "Employee Code", "Department", "Role", "Tasks Completed", "Completion %", "Performance Score"]);
+        (execRes.topPerformers || []).forEach((p, idx) => {
+          rows.push([`#${idx + 1}`, p.name, p.employeeCode, p.department, p.role, p.tasksCompleted, `${p.completionRate}%`, `${p.performanceScore}%`]);
+        });
+      } else if (activeTab === "workforce" && workRes) {
+        sheetName = "Workforce";
+        rows.push(["WORKFORCE REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`]);
+        rows.push([]);
+        rows.push(["Employee Name", "Employee Code", "Email", "Department", "Designation", "Branch", "Status", "Joining Date"]);
+        (workRes.employeesList || []).forEach(e => {
+          rows.push([e.name || "—", e.code || "—", e.email || "—", e.department || "—", e.designation || "—", e.branch || "—", e.status || "—", fmtDate(e.joiningDate)]);
+        });
+      } else if (activeTab === "attendance" && attRes) {
+        sheetName = "Attendance";
+        rows.push(["MONTHLY ATTENDANCE REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+        rows.push([]);
+        rows.push([
+          "Employee Name", "Employee Code", "Department", "Branch",
+          "Working Days", "Present Days", "Absent Days", "Half Days",
+          "Leave Days", "Weekly Off", "Holiday", "Late Days",
+          "Total Hours", "Overtime Hours", "Attendance %"
+        ]);
+        (attRes.monthlySummary || []).forEach(a => {
+          rows.push([
+            a.employeeName, a.employeeCode, a.department, a.branch,
+            a.totalWorkingDays, a.presentDays, a.absentDays, a.halfDays,
+            a.leaveDays, a.weeklyOffDays, a.holidayDays, a.lateDays,
+            a.totalWorkingHours, a.totalOvertime, `${a.attendancePercentage}%`
+          ]);
+        });
+      } else if (activeTab === "leaves" && leaveRes) {
+        sheetName = "Leaves";
+        rows.push(["LEAVE REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`]);
+        rows.push([]);
+        rows.push(["Employee Name", "Employee Code", "Department", "Leave Type", "Start Date", "End Date", "Days", "Reason", "Status"]);
+        (leaveRes.records || []).forEach(l => {
+          rows.push([l.employeeName, l.employeeCode, l.department, l.leaveType, fmtDate(l.startDate), fmtDate(l.endDate), l.days, l.reason || "—", l.status]);
+        });
+      } else if (activeTab === "tasks" && taskRes) {
+        sheetName = "Tasks";
+        rows.push(["TASK & OPERATIONS REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`]);
+        rows.push([]);
+        rows.push(["Task Title", "Assignee", "Priority", "Department", "Due Date", "Status"]);
+        (taskRes.records || []).forEach(t => {
+          rows.push([t.title, t.assigneeName, t.priority, t.department, fmtDate(t.dueDate), t.status]);
+        });
+      } else if (activeTab === "leads" && leadRes) {
+        sheetName = "CRM Leads";
+        rows.push(["CRM & LEADS BUSINESS REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+        rows.push([`Total Leads: ${leadRes.kpis?.totalLeads || 0}`, `Converted: ${leadRes.kpis?.convertedLeads || 0}`, `Conversion Rate: ${leadRes.kpis?.conversionRate || 0}%`, `Total Pipeline Value: INR ${(leadRes.kpis?.totalPipelineValue || 0).toLocaleString("en-IN")}`]);
+        rows.push([]);
+        rows.push(["Lead Name", "Phone", "Email", "Status", "Source", "Estimated Value (INR)", "Assigned Agent", "Created Date"]);
+        (leadRes.records || []).forEach(l => {
+          rows.push([l.name, l.phone, l.email, l.status, l.source, l.estimatedValue || 0, l.assignedTo, l.formattedDate]);
+        });
+      } else if (activeTab === "projects" && projRes) {
+        sheetName = "Projects";
+        rows.push(["PROJECT OPERATIONS REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+        rows.push([`Total Projects: ${projRes.kpis?.total || 0}`, `Active: ${projRes.kpis?.active || 0}`, `Completed: ${projRes.kpis?.completed || 0}`, `Delivery Rate: ${projRes.kpis?.completionRate || 0}%`]);
+        rows.push([]);
+        rows.push(["Project Name", "Client", "Project Manager", "Department", "Status", "Priority", "Milestones Completed", "Start Date", "Deadline"]);
+        (projRes.records || []).forEach(p => {
+          rows.push([p.name, p.clientName, p.projectManager, p.department, p.status, p.priority, `${p.completedMilestones}/${p.totalMilestones}`, p.formattedStart, p.formattedEnd]);
+        });
+      } else if (activeTab === "performance" && perfRes) {
+        sheetName = "Performance";
+        rows.push(["EMPLOYEE PERFORMANCE REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`]);
+        rows.push([]);
+        rows.push(["Employee Name", "Employee Code", "Department", "Role", "Task Completion %", "Attendance %", "Composite Score %", "Performance Tier"]);
+        (perfRes.rankings || []).forEach(r => {
+          rows.push([r.name, r.code, r.department, r.role, `${r.tasksCompleted}/${r.tasksTotal}`, `${r.attendanceRate}%`, `${r.score}%`, r.tier]);
+        });
+      } else if (activeTab === "audit" && auditRes) {
+        sheetName = "Audit Ledger";
+        rows.push(["SYSTEM AUDIT REPORT"]);
+        rows.push([`Generated Date: ${fmtDate(new Date())}`]);
+        rows.push([]);
+        rows.push(["Date & Time", "Performed By", "Role", "Module", "Action", "IP Address"]);
+        (auditRes.records || []).forEach(a => {
+          rows.push([fmtDateTime(a.createdAt), a.performedByName, a.role, a.module, a.action, a.ipAddress || "—"]);
+        });
+      }
+
+      if (rows.length === 0) {
+        toast.error("No reporting data available to export in this tab.");
+        setIsExporting(false);
+        return;
+      }
+
+      // Generate Workbook
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      // Auto Column Widths
+      const colWidths = rows.reduce((acc, row) => {
+        row.forEach((cell, i) => {
+          const len = cell ? String(cell).length : 10;
+          acc[i] = Math.max(acc[i] || 12, len + 3);
+        });
+        return acc;
+      }, []);
+      ws["!cols"] = colWidths.map(w => ({ wch: Math.min(45, w) }));
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+      XLSX.writeFile(wb, filename);
+
+      toast.success(`Exported ${filename}`);
+    } catch (err) {
+      console.error("Excel export failed:", err);
+      toast.error("Failed to export Excel report.");
+    } finally {
+      setIsExporting(false);
     }
-
-    if (rows.length === 0) {
-      toast.error("No data available to export in this tab.");
-      return;
-    }
-
-    const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.join(",")).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", filename);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success(`Exported ${filename}`);
   };
 
   const handlePrint = () => {
@@ -320,7 +547,8 @@ export default function Reports() {
     queryClient.invalidateQueries({ queryKey: ["biAttendance"] });
     queryClient.invalidateQueries({ queryKey: ["biLeaves"] });
     queryClient.invalidateQueries({ queryKey: ["biTasks"] });
-    queryClient.invalidateQueries({ queryKey: ["biPayroll"] });
+    queryClient.invalidateQueries({ queryKey: ["biLeads"] });
+    queryClient.invalidateQueries({ queryKey: ["biProjects"] });
     queryClient.invalidateQueries({ queryKey: ["biPerformance"] });
     queryClient.invalidateQueries({ queryKey: ["biAudit"] });
     toast.success("Reports refreshed");
@@ -338,16 +566,40 @@ export default function Reports() {
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Business Intelligence & Analytics
+                Business Intelligence &amp; Analytics
               </h1>
               <p className="text-[11px] text-slate-400 font-medium">
-                Enterprise workforce performance, operational intelligence & audit analytics
+                Workforce performance, operational analytics, attendance audit &amp; governance
               </p>
             </div>
           </div>
 
           {/* Top Global Filters Bar */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Quick Date Range Filter Chips */}
+            <div className="flex items-center bg-slate-100 dark:bg-[#0B101B] p-0.5 rounded-lg border border-slate-200 dark:border-slate-800">
+              {[
+                { id: "all", label: "All Time" },
+                { id: "this_month", label: "This Month" },
+                { id: "last_month", label: "Last Month" },
+                { id: "this_quarter", label: "Quarter" },
+                { id: "this_year", label: "This Year" },
+                { id: "custom", label: "Custom" },
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => setDateRange(p.id)}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    dateRange === p.id
+                      ? "bg-amber-500 text-slate-950 shadow-2xs font-extrabold"
+                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             {/* Department Filter */}
             <select
               value={selectedDept}
@@ -372,21 +624,6 @@ export default function Reports() {
               ))}
             </select>
 
-            {/* Date Range Selector */}
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:border-amber-500 cursor-pointer"
-            >
-              <option value="today">Today</option>
-              <option value="this_week">This Week</option>
-              <option value="this_month">This Month</option>
-              <option value="last_month">Last Month</option>
-              <option value="this_quarter">This Quarter</option>
-              <option value="this_year">This Year</option>
-              <option value="custom">Custom Date</option>
-            </select>
-
             {/* Custom Date Pickers */}
             {dateRange === "custom" && (
               <div className="flex items-center gap-1">
@@ -406,30 +643,35 @@ export default function Reports() {
               </div>
             )}
 
-            {/* Export CSV */}
+            {/* Excel Export Button */}
             <button
-              onClick={handleExportCSV}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-lg text-xs shadow-2xs transition-all cursor-pointer"
-              title="Export active report as CSV"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-2xs transition-colors cursor-pointer disabled:opacity-60"
+              title="Export formatted Excel file"
             >
-              <Download size={13} strokeWidth={2.5} />
-              <span>Export</span>
+              {isExporting ? (
+                <RefreshCw size={13} className="animate-spin" />
+              ) : (
+                <Download size={13} strokeWidth={2.5} />
+              )}
+              <span>{isExporting ? "Exporting..." : "Export Excel"}</span>
             </button>
 
-            {/* Print */}
+            {/* Print Button */}
             <button
               onClick={handlePrint}
               className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Print view"
+              title="Print document"
             >
               <Printer size={13} />
             </button>
 
-            {/* Refresh */}
+            {/* Refresh Button */}
             <button
               onClick={handleRefresh}
               className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Refresh queries"
+              title="Refresh data"
             >
               <RefreshCw size={13} />
             </button>
@@ -437,19 +679,10 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* ── 8 Core Report Tabs Strip ─────────────────────────────────────── */}
+      {/* ── Enterprise Report Tabs Strip (Access-Gated) ────────────────── */}
       <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-1.5 shadow-2xs overflow-x-auto scrollbar-none">
         <div className="flex items-center gap-1 min-w-[760px]">
-          {[
-            { id: "executive", label: "Executive BI", icon: Sparkles },
-            { id: "workforce", label: "Workforce", icon: Users },
-            { id: "attendance", label: "Attendance", icon: CalendarCheck },
-            { id: "leaves", label: "Leaves", icon: CalendarOff },
-            { id: "tasks", label: "Tasks & Ops", icon: CheckSquare },
-            { id: "payroll", label: "Payroll", icon: DollarSign },
-            { id: "performance", label: "Performance", icon: Award },
-            { id: "audit", label: "Audit Ledger", icon: ShieldCheck },
-          ].map(tab => {
+          {availableTabs.map(tab => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
             return (
@@ -479,16 +712,219 @@ export default function Reports() {
             <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Executive BI...</div>
           ) : execRes ? (
             <>
-              {/* 8 Executive KPI Cards with Delta */}
+              {/* 🟢 5-SECOND BUSINESS HEALTH INTELLIGENCE BANNER */}
+              {execRes.healthIntelligence && (
+                <div className="bg-gradient-to-r from-slate-900 via-[#0B1522] to-slate-900 border border-slate-700/70 rounded-xl p-3 sm:p-3.5 shadow-md text-white">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2.5 border-b border-slate-700/60">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+                        <Sparkles size={18} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h2 className="text-xs font-black uppercase tracking-wider text-slate-100">5-Second Business Intelligence</h2>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                            Live Health
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Holistic company performance, team execution score &amp; operational velocity</p>
+                      </div>
+                    </div>
+
+                    {/* Health Score Pill */}
+                    <div className="flex items-center gap-2.5 self-start md:self-auto bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
+                      <div>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Business Health</p>
+                        <p className="text-base font-black font-mono text-emerald-400 leading-none text-right">
+                          {execRes.healthIntelligence.businessHealthScore || 0}<span className="text-xs text-slate-400 font-sans font-bold">/100</span>
+                        </p>
+                      </div>
+                      <div className="h-6 w-px bg-slate-700"></div>
+                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${
+                        (execRes.healthIntelligence.businessHealthScore || 0) >= 80
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : (execRes.healthIntelligence.businessHealthScore || 0) >= 60
+                          ? "bg-amber-500/20 text-amber-300"
+                          : "bg-rose-500/20 text-rose-300"
+                      }`}>
+                        {(execRes.healthIntelligence.businessHealthScore || 0) >= 80 ? "Optimal" : (execRes.healthIntelligence.businessHealthScore || 0) >= 60 ? "Moderate" : "Attention"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 5 Instant Metrics */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2.5">
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Team Performance</p>
+                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.teamPerformanceScore || 0}%</p>
+                      <p className="text-[9px] text-emerald-400 font-semibold">Composite output</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Productivity Score</p>
+                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.productivityScore || 0}%</p>
+                      <p className="text-[9px] text-blue-400 font-semibold">Task/Hours balance</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Avg Completion Time</p>
+                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.avgTaskCompletionTime || "—"}</p>
+                      <p className="text-[9px] text-slate-400 font-semibold">Turnaround velocity</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Critical Pending</p>
+                      <p className={`text-sm sm:text-base font-black font-mono mt-0.5 ${(execRes.healthIntelligence.criticalPendingTasks || 0) > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                        {execRes.healthIntelligence.criticalPendingTasks || 0} Tasks
+                      </p>
+                      <p className="text-[9px] text-rose-300 font-semibold">High / urgent</p>
+                    </div>
+
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">⭐ Top Department</p>
+                      <p className="text-xs sm:text-sm font-black text-amber-300 truncate mt-0.5">
+                        {typeof execRes.healthIntelligence.bestDepartment === "object" ? execRes.healthIntelligence.bestDepartment?.name : (execRes.healthIntelligence.bestDepartment || "—")}
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-semibold font-mono">
+                        Top fulfillment
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
+                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">⚠️ Needs Attention</p>
+                      <p className="text-xs sm:text-sm font-black text-rose-300 truncate mt-0.5">
+                        {typeof execRes.healthIntelligence.needsAttentionDepartment === "object" ? execRes.healthIntelligence.needsAttentionDepartment?.name : (execRes.healthIntelligence.needsAttentionDepartment || "All On Track")}
+                      </p>
+                      <p className="text-[9px] text-slate-400 font-semibold font-mono">
+                        Review queue
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 🕒 TODAY'S OPERATIONAL PULSE BAR (Owner Daily Health) */}
+              {execRes.todayStats && (
+                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Clock size={13} className="text-amber-500" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                        Today's Operational Pulse &amp; Progress
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 font-mono">
+                      {fmtDate(new Date())}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
+                    <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
+                      <p className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Present Today</p>
+                      <p className="text-base font-black font-mono text-emerald-700 dark:text-emerald-300 mt-0.5">{execRes.todayStats.presentToday || 0}</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/15">
+                      <p className="text-[9.5px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wide">On Leave</p>
+                      <p className="text-base font-black font-mono text-rose-700 dark:text-rose-300 mt-0.5">{execRes.todayStats.onLeaveToday || 0}</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-blue-500/5 border border-blue-500/15">
+                      <p className="text-[9.5px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Due Today</p>
+                      <p className="text-base font-black font-mono text-blue-700 dark:text-blue-300 mt-0.5">{execRes.todayStats.tasksDueToday || 0}</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/15">
+                      <p className="text-[9.5px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Completed Today</p>
+                      <p className="text-base font-black font-mono text-amber-700 dark:text-amber-300 mt-0.5">{execRes.todayStats.completedToday || 0}</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Today Work %</p>
+                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.todayWorkCompletion || 0}%</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">This Week %</p>
+                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.thisWeekCompletion || 0}%</p>
+                    </div>
+
+                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">This Month %</p>
+                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.thisMonthCompletion || 0}%</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 1. Core Executive Pillars (Headline Highlights) */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                <KPICard label="Total Employees" metric={execRes.kpis?.totalEmployees} icon={Users} color={THEME.blue} />
-                <KPICard label="Active Workforce" metric={execRes.kpis?.activeEmployees} icon={Users} color={THEME.emerald} />
-                <KPICard label="Attendance Rate" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
-                <KPICard label="Present Marks" metric={execRes.kpis?.presentCount} icon={CheckCircle2} color={THEME.emerald} />
-                <KPICard label="Late Arrivals" metric={execRes.kpis?.lateCount} icon={Clock} color={THEME.amber} />
-                <KPICard label="Leave Requests" metric={execRes.kpis?.leaveRequests} icon={CalendarOff} color={THEME.purple} />
-                <KPICard label="Task Completion" metric={execRes.kpis?.taskCompletionRate} icon={CheckSquare} color={THEME.emerald} isPercentage />
-                <KPICard label="Payroll Cost" metric={execRes.kpis?.payrollCost} icon={DollarSign} color={THEME.rose} isCurrency />
+                <KPICard label="Active Workforce" metric={execRes.kpis?.activeEmployees} icon={Users} color={THEME.emerald} sub={`${execRes.kpis?.totalEmployees?.current ?? execRes.kpis?.totalEmployees ?? 0} Total Staff`} />
+                <KPICard label="Task Delivery Rate" metric={execRes.kpis?.taskCompletionRate} icon={Target} color={THEME.emerald} isPercentage sub={`${execRes.kpis?.completedTasks?.current ?? 0} Completed`} />
+                {canAccessLeads ? (
+                  <KPICard label="CRM Deal Pipeline" metric={execRes.kpis?.pipelineValue} icon={DollarSign} color={THEME.purple} isCurrency sub={`${execRes.kpis?.totalLeads?.current ?? 0} Active Leads`} />
+                ) : (
+                  <KPICard label="Attendance Health" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
+                )}
+                {canAccessProjects ? (
+                  <KPICard label="Project Delivery" metric={execRes.kpis?.projectDeliveryRate} icon={CheckCircle2} color={THEME.blue} isPercentage sub={`${execRes.kpis?.totalProjects?.current ?? 0} Total Projects`} />
+                ) : (
+                  <KPICard label="Pending Tasks" metric={execRes.kpis?.pendingTasks} icon={Clock} color={THEME.amber} />
+                )}
+              </div>
+
+              {/* 2. Section: Operations & Tasks Velocity */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between px-0.5">
+                  <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <CheckSquare size={13} className="text-amber-500" />
+                    Operations &amp; Tasks Velocity
+                  </h2>
+                  <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalTasks?.current ?? execRes.kpis?.totalTasks ?? 0} Total Tasks</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                  <KPICard label="Total Tasks" metric={execRes.kpis?.totalTasks} icon={CheckSquare} color={THEME.amber} />
+                  <KPICard label="Completed Tasks" metric={execRes.kpis?.completedTasks} icon={CheckCircle2} color={THEME.emerald} />
+                  <KPICard label="Pending Queue" metric={execRes.kpis?.pendingTasks} icon={Clock} color={THEME.blue} />
+                  <KPICard label="Overdue Alerts" metric={execRes.kpis?.overdueTasks} icon={AlertCircle} color={THEME.rose} isUp={false} />
+                </div>
+              </div>
+
+              {/* 3. Section: Commercial & Leads Funnel */}
+              {canAccessLeads && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between px-0.5">
+                    <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <PhoneCall size={13} className="text-blue-500" />
+                      Commercial &amp; CRM Pipeline
+                    </h2>
+                    <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalLeads?.current ?? execRes.kpis?.totalLeads ?? 0} Leads Logged</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                    <KPICard label="Total CRM Leads" metric={execRes.kpis?.totalLeads} icon={PhoneCall} color={THEME.blue} />
+                    <KPICard label="Converted Deals" metric={execRes.kpis?.convertedLeads} icon={CheckCircle2} color={THEME.emerald} />
+                    <KPICard label="Lead Conversion" metric={execRes.kpis?.leadConversionRate} icon={TrendingUp} color={THEME.emerald} isPercentage />
+                    <KPICard label="Pipeline Value" metric={execRes.kpis?.pipelineValue} icon={DollarSign} color={THEME.purple} isCurrency />
+                  </div>
+                </div>
+              )}
+
+              {/* 4. Section: Projects Delivery & Attendance */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between px-0.5">
+                  <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <FolderKanban size={13} className="text-purple-500" />
+                    Projects &amp; Attendance Health
+                  </h2>
+                  <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalProjects?.current ?? execRes.kpis?.totalProjects ?? 0} Projects</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                  <KPICard label="Total Projects" metric={execRes.kpis?.totalProjects} icon={FolderKanban} color={THEME.purple} />
+                  <KPICard label="Active Deliverables" metric={execRes.kpis?.activeProjects} icon={Activity} color={THEME.cyan} />
+                  <KPICard label="Attendance Health" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
+                  <KPICard label="Project Delivery" metric={execRes.kpis?.projectDeliveryRate} icon={Target} color={THEME.blue} isPercentage />
+                </div>
               </div>
 
               {/* Department Performance Bar & Workforce Share */}
@@ -518,16 +954,15 @@ export default function Reports() {
                           nameKey="name"
                           cx="50%"
                           cy="50%"
-                          outerRadius={70}
-                          innerRadius={40}
+                          outerRadius={75}
+                          innerRadius={45}
                           paddingAngle={3}
                         >
-                          {(execRes.departmentAnalytics || []).map((_, i) => (
-                            <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                          {(execRes.departmentAnalytics || []).map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                           ))}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend wrapperStyle={{ fontSize: 10 }} />
                       </PieChart>
                     </ResponsiveContainer>
                   </ChartCard>
@@ -539,9 +974,9 @@ export default function Reports() {
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
                   <div className="flex items-center gap-1.5">
                     <Award size={14} className="text-amber-500" />
-                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Performing Team Members</h3>
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Performing Employees Leaderboard</h3>
                   </div>
-                  <span className="text-[10px] text-slate-400 font-bold">Click member for Analytics Drill Down</span>
+                  <span className="text-[10px] text-slate-400 font-bold">Based on composite delivery scores</span>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -582,13 +1017,381 @@ export default function Reports() {
                   </table>
                 </div>
               </div>
+
+              {/* Executive Recent Cross-Functional Feeds */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {canAccessLeads && (execRes.recentLeads || []).length > 0 && (
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex items-center gap-1.5">
+                        <PhoneCall size={14} className="text-blue-500" />
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Recent CRM Inquiries</h3>
+                      </div>
+                      <button onClick={() => setActiveTab("leads")} className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5">
+                        View All <ChevronRight size={10} />
+                      </button>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {execRes.recentLeads.map(l => (
+                        <div key={l._id} className="p-2.5 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <div>
+                            <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{l.name}</p>
+                            <p className="text-[10px] text-slate-400">{l.phone} · {l.source}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor}15`, color: l.statusColor }}>
+                              {l.status}
+                            </span>
+                            {l.value > 0 && <p className="text-[10px] font-mono font-bold text-slate-500 mt-0.5">₹{fmtNumber(l.value)}</p>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {canAccessProjects && (execRes.recentProjects || []).length > 0 && (
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex items-center gap-1.5">
+                        <FolderKanban size={14} className="text-purple-500" />
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Active Projects</h3>
+                      </div>
+                      <button onClick={() => setActiveTab("projects")} className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hover:underline cursor-pointer flex items-center gap-0.5">
+                        View All <ChevronRight size={10} />
+                      </button>
+                    </div>
+                    <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {execRes.recentProjects.map(p => (
+                        <div key={p._id} className="p-2.5 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <div>
+                            <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{p.name}</p>
+                            <p className="text-[10px] text-slate-400">{p.client} · Priority: {p.priority?.toUpperCase()}</p>
+                          </div>
+                          <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                            {p.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
-          ) : <EmptyState />}
+          ) : <EmptyState message="No executive intelligence data found for this period." onReset={() => setDateRange("all")} />}
         </div>
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 2. WORKFORCE REPORT TAB                                               */}
+      {/* 2. CRM & LEADS REPORT TAB                                             */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "leads" && (
+        <div className="space-y-3 animate-fadeIn">
+          {leadLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading CRM &amp; Lead Analytics...</div>
+          ) : leadRes ? (
+            <>
+              {/* Lead KPI Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Leads" metric={leadRes.kpis?.totalLeads} icon={PhoneCall} color={THEME.blue} />
+                <KPICard label="Converted Won" metric={leadRes.kpis?.convertedLeads} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Active Pipeline" metric={leadRes.kpis?.pipelineLeads} icon={Clock} color={THEME.amber} />
+                <KPICard label="Conversion Rate" metric={leadRes.kpis?.conversionRate} icon={TrendingUp} color={THEME.emerald} isPercentage />
+                <KPICard label="Pipeline Value" metric={leadRes.kpis?.totalPipelineValue || 0} icon={DollarSign} color={THEME.purple} sub="Total Estimated Deals" isCurrency />
+                <KPICard label="Won Revenue" metric={leadRes.kpis?.wonValue || 0} icon={DollarSign} color={THEME.emerald} sub="Closed Converted Deals" isCurrency />
+                <KPICard label="Lost Leads" metric={leadRes.kpis?.lostLeads || 0} icon={AlertCircle} color={THEME.rose} sub="Dropped Opportunities" isUp={false} />
+                <KPICard label="Avg Value/Lead" metric={leadRes.kpis?.totalLeads > 0 ? Math.round((leadRes.kpis?.totalPipelineValue || 0) / leadRes.kpis.totalLeads) : 0} icon={Target} color={THEME.cyan} sub="Deal Size Average" isCurrency />
+              </div>
+
+              {/* Status & Source Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                <div className="lg:col-span-7">
+                  <ChartCard title="Leads by Pipeline Stage" subtitle="Distribution of opportunities by sales status">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={leadRes.statusBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="count" name="Total Leads" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                          {(leadRes.statusBreakdown || []).map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+
+                <div className="lg:col-span-5">
+                  <ChartCard title="Acquisition Source Share" subtitle="Inbound customer origin channels">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={leadRes.sourceBreakdown}
+                          dataKey="count"
+                          nameKey="source"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={75}
+                          innerRadius={45}
+                          paddingAngle={3}
+                        >
+                          {(leadRes.sourceBreakdown || []).map((_, index) => (
+                            <Cell key={`cell-src-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+              </div>
+
+              {/* Sales Rep / Agent Performance Table */}
+              {(leadRes.agentPerformance || []).length > 0 && (
+                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Sales Representative Conversion Breakdown</h3>
+                    <span className="text-[10px] text-slate-400 font-bold">{leadRes.agentPerformance.length} agents</span>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                        <tr>
+                          <th className="px-4 py-2">Representative Name</th>
+                          <th className="px-4 py-2 text-center">Leads Assigned</th>
+                          <th className="px-4 py-2 text-center">Deals Won</th>
+                          <th className="px-4 py-2 text-center">Conversion %</th>
+                          <th className="px-4 py-2 text-right">Pipeline Value</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                        {leadRes.agentPerformance.map(a => (
+                          <tr key={a.agentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{a.name}</td>
+                            <td className="px-4 py-2 text-center font-mono font-bold">{a.assigned}</td>
+                            <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{a.converted}</td>
+                            <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600">{a.conversionRate}%</td>
+                            <td className="px-4 py-2 text-right font-mono font-bold">₹{fmtNumber(a.value)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Full Detailed Leads Ledger */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Comprehensive Leads Ledger</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">All customer inquiries &amp; deal tracking records</p>
+                  </div>
+                  <div className="relative w-full sm:w-56">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search lead name, phone..."
+                      value={searchTableQuery}
+                      onChange={(e) => setSearchTableQuery(e.target.value)}
+                      className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-2">Lead Name</th>
+                        <th className="px-4 py-2">Contact</th>
+                        <th className="px-4 py-2">Source</th>
+                        <th className="px-4 py-2">Assigned To</th>
+                        <th className="px-4 py-2 text-right">Value</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                        <th className="px-4 py-2">Created Date</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(leadRes.records || [])
+                        .filter(l => !searchTableQuery || `${l.name} ${l.phone} ${l.email} ${l.status} ${l.source}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                        .map(l => (
+                          <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{l.name}</td>
+                            <td className="px-4 py-2">
+                              <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">{l.phone}</p>
+                              {l.email !== "—" && <p className="text-[10px] text-slate-400">{l.email}</p>}
+                            </td>
+                            <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{l.source}</td>
+                            <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">{l.assignedTo}</td>
+                            <td className="px-4 py-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                              {l.estimatedValue > 0 ? `₹${fmtNumber(l.estimatedValue)}` : "—"}
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor}15`, color: l.statusColor }}>
+                                {l.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{l.formattedDate}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState message="No lead data available for the chosen date range." onReset={() => setDateRange("all")} />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 3. PROJECTS OPERATIONS REPORT TAB                                     */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "projects" && (
+        <div className="space-y-3 animate-fadeIn">
+          {projLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Projects Analytics...</div>
+          ) : projRes ? (
+            <>
+              {/* Project KPI Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Total Projects" metric={projRes.kpis?.total} icon={FolderKanban} color={THEME.purple} />
+                <KPICard label="Active / In Progress" metric={projRes.kpis?.active} icon={Activity} color={THEME.cyan} />
+                <KPICard label="Completed" metric={projRes.kpis?.completed} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Delivery Rate" metric={projRes.kpis?.completionRate} icon={Target} color={THEME.emerald} isPercentage />
+                <KPICard label="Planning / Review" metric={projRes.kpis?.planning} icon={Clock} color={THEME.blue} sub="Pre-execution & Review" />
+                <KPICard label="Delayed / Overdue" metric={projRes.kpis?.overdue} icon={AlertCircle} color={THEME.rose} sub="Past Projected End Date" />
+                <KPICard label="Total Milestones" metric={(projRes.records || []).reduce((s, p) => s + (p.totalMilestones || 0), 0)} icon={Layers} color={THEME.amber} sub="Operational Milestones" />
+                <KPICard label="Milestones Closed" metric={(projRes.records || []).reduce((s, p) => s + (p.completedMilestones || 0), 0)} icon={CheckSquare} color={THEME.emerald} sub="Completed Deliverables" />
+              </div>
+
+              {/* Status & Priority Charts */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                <div className="lg:col-span-7">
+                  <ChartCard title="Projects by Delivery Status" subtitle="Active pipeline and stage execution breakdown">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <BarChart data={projRes.statusBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                        <XAxis dataKey="status" tick={{ fontSize: 10, fill: "#888" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="count" name="Projects Count" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+
+                <div className="lg:col-span-5">
+                  <ChartCard title="Project Priority Spread" subtitle="Urgency distribution across deliverables">
+                    <ResponsiveContainer width="100%" height={220}>
+                      <PieChart>
+                        <Pie
+                          data={projRes.priorityBreakdown}
+                          dataKey="count"
+                          nameKey="priority"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={75}
+                          innerRadius={45}
+                          paddingAngle={3}
+                        >
+                          {(projRes.priorityBreakdown || []).map((_, index) => (
+                            <Cell key={`cell-pr-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip content={<CustomTooltip />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                </div>
+              </div>
+
+              {/* Full Detailed Projects Ledger */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                  <div>
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Project Operations Ledger</h3>
+                    <p className="text-[10px] text-slate-400 font-medium">Delivery schedule, managers, and milestone progress</p>
+                  </div>
+                  <div className="relative w-full sm:w-56">
+                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search project name, client..."
+                      value={searchTableQuery}
+                      onChange={(e) => setSearchTableQuery(e.target.value)}
+                      className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto max-h-[500px]">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-2">Project Name</th>
+                        <th className="px-4 py-2">Client</th>
+                        <th className="px-4 py-2">Project Manager</th>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2 text-center">Priority</th>
+                        <th className="px-4 py-2 text-center">Milestones Progress</th>
+                        <th className="px-4 py-2 text-center">Status</th>
+                        <th className="px-4 py-2">Timeline</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                      {(projRes.records || [])
+                        .filter(p => !searchTableQuery || `${p.name} ${p.clientName} ${p.projectManager} ${p.department} ${p.status}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                        .map(p => (
+                          <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{p.name}</td>
+                            <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.clientName}</td>
+                            <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">{p.projectManager}</td>
+                            <td className="px-4 py-2 text-slate-500">{p.department}</td>
+                            <td className="px-4 py-2 text-center">
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
+                                p.priority === "high" ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20" :
+                                p.priority === "medium" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" :
+                                "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                              }`}>
+                                {p.priority}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <div className="flex items-center justify-center gap-2">
+                                <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                  <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${p.milestoneProgress}%` }} />
+                                </div>
+                                <span className="text-[10px] font-mono font-bold">{p.milestoneProgress}%</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                p.status === "completed" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" :
+                                p.status === "active" || p.status === "working" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" :
+                                "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                              }`}>
+                                {p.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 font-mono text-[11px] text-slate-500">
+                              {p.formattedStart} → {p.formattedEnd}
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : <EmptyState message="No project data available for the chosen date range." onReset={() => setDateRange("all")} />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 4. WORKFORCE REPORT TAB                                               */}
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === "workforce" && (
         <div className="space-y-3 animate-fadeIn">
@@ -603,11 +1406,11 @@ export default function Reports() {
                 <KPICard label="Attrition Rate" metric={workRes.kpis?.attritionRate} icon={TrendingDown} color={THEME.rose} isPercentage isUp={false} />
               </div>
 
-              {/* Department Breakdown Table */}
+              {/* Department Breakdown Matrix */}
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
                   <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Analytics Matrix</h3>
-                  <span className="text-[10px] text-slate-400 font-bold">Click any department to open Department Drill-Down</span>
+                  <span className="text-[10px] text-slate-400 font-bold">Click any department for detailed breakdown</span>
                 </div>
 
                 <div className="overflow-x-auto">
@@ -649,94 +1452,50 @@ export default function Reports() {
                   </table>
                 </div>
               </div>
-            </>
-          ) : <EmptyState />}
-        </div>
-      )}
 
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 3. ATTENDANCE REPORT TAB                                              */}
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "attendance" && (
-        <div className="space-y-3 animate-fadeIn">
-          {attLoading ? (
-            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Attendance Analytics...</div>
-          ) : attRes ? (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                <KPICard label="Attendance Rate" metric={attRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.emerald} isPercentage />
-                <KPICard label="Present Marks" metric={attRes.kpis?.present} icon={CheckCircle2} color={THEME.emerald} />
-                <KPICard label="Late Arrivals" metric={attRes.kpis?.late} icon={Clock} color={THEME.amber} isUp={false} />
-                <KPICard label="Absences" metric={attRes.kpis?.absent} icon={CalendarOff} color={THEME.rose} isUp={false} />
-              </div>
-
-              {/* Attendance Anomalies */}
-              {(attRes.anomalies || []).length > 0 && (
-                <div className="bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200 dark:border-rose-900/40 rounded-xl p-3">
-                  <div className="flex items-center gap-1.5 mb-2">
-                    <AlertTriangle size={14} className="text-rose-600" />
-                    <h3 className="text-xs font-black text-rose-900 dark:text-rose-300 uppercase tracking-wider">Attendance Anomalies & Repeated Lates</h3>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {attRes.anomalies.map((ano, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => setDrillEmployeeId(ano.employeeId)}
-                        className="bg-white dark:bg-[#111C24] p-2.5 rounded-lg border border-rose-200 dark:border-rose-900/30 flex items-center justify-between cursor-pointer hover:border-rose-500 transition-colors"
-                      >
-                        <div>
-                          <p className="text-xs font-extrabold text-slate-900 dark:text-white">{ano.name}</p>
-                          <p className="text-[10px] text-slate-400">{ano.type}</p>
-                        </div>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-mono font-black bg-rose-500/10 text-rose-600">
-                          {ano.occurrences}x ({ano.severity})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Attendance Records Table */}
+              {/* Employee Directory Table */}
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Attendance Audit Logs</h3>
-                  <span className="text-[10px] text-slate-400 font-bold">Showing latest verified records</span>
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Employee Directory</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">{workRes.employeesList?.length || 0} active &amp; registered records</span>
                 </div>
 
                 <div className="overflow-x-auto max-h-96">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
                       <tr>
-                        <th className="px-4 py-2">Staff Member</th>
-                        <th className="px-4 py-2">Date</th>
-                        <th className="px-4 py-2">Punch In</th>
-                        <th className="px-4 py-2">Punch Out</th>
-                        <th className="px-4 py-2 text-center">Total Hours</th>
+                        <th className="px-4 py-2">Name &amp; Code</th>
+                        <th className="px-4 py-2">Email</th>
+                        <th className="px-4 py-2">Department</th>
+                        <th className="px-4 py-2">Designation</th>
+                        <th className="px-4 py-2">Branch</th>
+                        <th className="px-4 py-2">Joining Date</th>
                         <th className="px-4 py-2 text-center">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {(attRes.records || []).map((a) => (
+                      {(workRes.employeesList || []).map((emp) => (
                         <tr
-                          key={a._id}
-                          onClick={() => a.employeeId && setDrillEmployeeId(a.employeeId)}
+                          key={emp._id}
+                          onClick={() => setDrillEmployeeId(emp._id)}
                           className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
                         >
-                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{a.employeeName}</td>
-                          <td className="px-4 py-2 font-mono text-slate-500">{a.date}</td>
-                          <td className="px-4 py-2 font-mono text-[11px]">{fmtDateTime(a.punchIn)}</td>
-                          <td className="px-4 py-2 font-mono text-[11px]">{fmtDateTime(a.punchOut)}</td>
-                          <td className="px-4 py-2 text-center font-mono font-bold">{a.totalHours ? `${a.totalHours}h` : "—"}</td>
+                          <td className="px-4 py-2">
+                            <p className="font-extrabold text-slate-900 dark:text-white">{emp.name}</p>
+                            <p className="text-[10px] text-slate-400">{emp.code}</p>
+                          </td>
+                          <td className="px-4 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">{emp.email}</td>
+                          <td className="px-4 py-2 font-bold text-slate-700 dark:text-slate-300">{emp.department}</td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{emp.designation}</td>
+                          <td className="px-4 py-2 text-slate-500">{emp.branch}</td>
+                          <td className="px-4 py-2 font-mono text-slate-500">{fmtDate(emp.joiningDate)}</td>
                           <td className="px-4 py-2 text-center">
                             <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              a.status === "present"
+                              emp.status === "active"
                                 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : a.status === "late"
-                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
                                 : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
                             }`}>
-                              {a.status}
+                              {emp.status}
                             </span>
                           </td>
                         </tr>
@@ -745,6 +1504,166 @@ export default function Reports() {
                   </table>
                 </div>
               </div>
+            </>
+          ) : <EmptyState />}
+        </div>
+      )}
+
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {/* 3. ATTENDANCE REPORT TAB (Monthly Summary + Daily Details)           */}
+      {/* ═════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "attendance" && (
+        <div className="space-y-3 animate-fadeIn">
+          {attLoading ? (
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Attendance Analytics...</div>
+          ) : attRes ? (
+            <>
+              {/* KPIs Header */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                <KPICard label="Attendance Rate" metric={attRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.emerald} isPercentage />
+                <KPICard label="Present Days" metric={attRes.kpis?.present} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Late Arrivals" metric={attRes.kpis?.late} icon={Clock} color={THEME.amber} />
+                <KPICard label="Total Overtime (Hrs)" metric={attRes.kpis?.totalOvertime} icon={TrendingUp} color={THEME.purple} />
+              </div>
+
+              {/* Sub-view switcher: Monthly Summary vs Daily Details */}
+              <div className="flex items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-2 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setAttSubView("monthly")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                      attSubView === "monthly"
+                        ? "bg-amber-500 text-slate-950 shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Monthly Employee Summary
+                  </button>
+                  <button
+                    onClick={() => setAttSubView("daily")}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                      attSubView === "daily"
+                        ? "bg-amber-500 text-slate-950 shadow-2xs"
+                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    Daily Punch Logs
+                  </button>
+                </div>
+                <div className="text-[11px] font-bold text-slate-400">
+                  {attSubView === "monthly" ? `${attRes.monthlySummary?.length || 0} Staff Summaries` : `${attRes.records?.length || 0} Punch Entries`}
+                </div>
+              </div>
+
+              {/* View A: Monthly Employee Attendance Summary */}
+              {attSubView === "monthly" ? (
+                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto max-h-[500px]">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                        <tr>
+                          <th className="px-3.5 py-2">Employee</th>
+                          <th className="px-2 py-2">Department</th>
+                          <th className="px-2 py-2 text-center">Work Days</th>
+                          <th className="px-2 py-2 text-center text-emerald-400">Present</th>
+                          <th className="px-2 py-2 text-center text-rose-400">Absent</th>
+                          <th className="px-2 py-2 text-center text-purple-400">Half Day</th>
+                          <th className="px-2 py-2 text-center text-blue-400">Leaves</th>
+                          <th className="px-2 py-2 text-center text-slate-400">Off</th>
+                          <th className="px-2 py-2 text-center text-amber-400">Late</th>
+                          <th className="px-2 py-2 text-center">Total Hrs</th>
+                          <th className="px-2 py-2 text-center text-purple-400">Overtime</th>
+                          <th className="px-2 py-2 text-center">Rate</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                        {(attRes.monthlySummary || []).map((m) => (
+                          <tr key={m._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="px-3.5 py-2">
+                              <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.employeeName}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{m.employeeCode}</p>
+                            </td>
+                            <td className="px-2 py-2 text-slate-600 dark:text-slate-300 text-[11px]">{m.department}</td>
+                            <td className="px-2 py-2 text-center font-mono font-bold">{m.totalWorkingDays}</td>
+                            <td className="px-2 py-2 text-center font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{m.presentDays}</td>
+                            <td className="px-2 py-2 text-center font-mono font-bold text-rose-600 dark:text-rose-400">{m.absentDays}</td>
+                            <td className="px-2 py-2 text-center font-mono font-bold text-purple-600 dark:text-purple-400">{m.halfDays}</td>
+                            <td className="px-2 py-2 text-center font-mono text-blue-600 dark:text-blue-400 font-bold">{m.leaveDays}</td>
+                            <td className="px-2 py-2 text-center font-mono text-slate-400">{m.weeklyOffDays}</td>
+                            <td className="px-2 py-2 text-center font-mono text-amber-600 dark:text-amber-400 font-bold">{m.lateDays}</td>
+                            <td className="px-2 py-2 text-center font-mono font-bold">{m.totalWorkingHours}h</td>
+                            <td className="px-2 py-2 text-center font-mono font-black text-purple-600 dark:text-purple-400">
+                              {m.totalOvertime > 0 ? `+${m.totalOvertime}h` : "0h"}
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-mono font-black ${
+                                m.attendancePercentage >= 85
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                  : m.attendancePercentage >= 70
+                                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                  : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                              }`}>
+                                {m.attendancePercentage}%
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                /* View B: Daily Punch Logs */
+                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                  <div className="overflow-x-auto max-h-[500px]">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                        <tr>
+                          <th className="px-4 py-2">Date</th>
+                          <th className="px-4 py-2">Staff Member</th>
+                          <th className="px-4 py-2">Punch In</th>
+                          <th className="px-4 py-2">Punch Out</th>
+                          <th className="px-4 py-2 text-center">Status</th>
+                          <th className="px-4 py-2 text-center">Working Hours</th>
+                          <th className="px-4 py-2 text-center">Late Time</th>
+                          <th className="px-4 py-2 text-center">Overtime</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                        {(attRes.records || []).map((a) => (
+                          <tr key={a._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            <td className="px-4 py-2 font-mono text-[11px] font-bold text-slate-600 dark:text-slate-300">{a.date}</td>
+                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">
+                              {a.employeeName}
+                              <span className="text-[10px] text-slate-400 ml-1.5 font-mono font-normal">({a.employeeCode})</span>
+                            </td>
+                            <td className="px-4 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">{a.punchIn || "—"}</td>
+                            <td className="px-4 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">{a.punchOut || "—"}</td>
+                            <td className="px-4 py-2 text-center">
+                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
+                                a.status === "present"
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                  : a.status === "late"
+                                  ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                  : a.status === "half-day"
+                                  ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20"
+                                  : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
+                            <td className="px-4 py-2 text-center font-mono font-bold">{a.workingHours ? `${a.workingHours}h` : "—"}</td>
+                            <td className="px-4 py-2 text-center font-mono text-amber-600 font-bold">{a.lateTime || "—"}</td>
+                            <td className="px-4 py-2 text-center font-mono font-black text-purple-600 dark:text-purple-400">
+                              {a.overtime > 0 ? `+${a.overtime}h` : "—"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </>
           ) : <EmptyState />}
         </div>
@@ -766,7 +1685,25 @@ export default function Reports() {
                 <KPICard label="Rejected" metric={leaveRes.kpis?.rejected} icon={AlertCircle} color={THEME.rose} isUp={false} />
               </div>
 
-              {/* Leave Records */}
+              {/* Department-wise Leave Consumption */}
+              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Leave Distribution</h3>
+                  <span className="text-[10px] text-slate-400 font-bold">Total Days Taken by Team</span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 p-3">
+                  {(leaveRes.departmentBreakdown || []).map((d, idx) => (
+                    <div key={idx} className="p-2.5 rounded-lg border border-slate-200/70 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
+                      <p className="text-[11px] font-bold text-slate-500 uppercase">{d.department}</p>
+                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{d.days} Days</p>
+                      <p className="text-[10px] text-slate-400">{d.count} requests</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Detailed Leave Records */}
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
                   <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Leave Applications Registry</h3>
@@ -778,6 +1715,7 @@ export default function Reports() {
                     <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
                       <tr>
                         <th className="px-4 py-2">Staff Member</th>
+                        <th className="px-4 py-2">Department</th>
                         <th className="px-4 py-2">Leave Type</th>
                         <th className="px-4 py-2">Duration</th>
                         <th className="px-4 py-2 text-center">Days</th>
@@ -787,13 +1725,13 @@ export default function Reports() {
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                       {(leaveRes.records || []).map((l) => (
-                        <tr
-                          key={l._id}
-                          onClick={() => l.employeeId && setDrillEmployeeId(l.employeeId)}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
-                        >
-                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{l.employeeName}</td>
-                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-bold capitalize">{l.leaveType}</td>
+                        <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">
+                            {l.employeeName}
+                            <span className="text-[10px] text-slate-400 font-mono block font-normal">{l.employeeCode}</span>
+                          </td>
+                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{l.department}</td>
+                          <td className="px-4 py-2 text-slate-700 dark:text-slate-200 font-bold capitalize">{l.leaveType}</td>
                           <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(l.startDate)} – {fmtDate(l.endDate)}</td>
                           <td className="px-4 py-2 text-center font-mono font-bold">{l.days}</td>
                           <td className="px-4 py-2 text-slate-400 truncate max-w-xs">{l.reason || "Personal"}</td>
@@ -828,257 +1766,844 @@ export default function Reports() {
             <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Task Analytics...</div>
           ) : taskRes ? (
             <>
+              {/* 8 Tasks & Ops KPI Strip */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
                 <KPICard label="Total Tasks" metric={taskRes.kpis?.totalTasks} icon={CheckSquare} color={THEME.amber} />
                 <KPICard label="Completed" metric={taskRes.kpis?.completed} icon={CheckCircle2} color={THEME.emerald} />
                 <KPICard label="In Progress" metric={taskRes.kpis?.inProgress} icon={Clock} color={THEME.blue} />
-                <KPICard label="Overdue" metric={taskRes.kpis?.overdue} icon={AlertCircle} color={THEME.rose} isUp={false} />
+                <KPICard label="Pending" metric={taskRes.kpis?.pending} icon={Layers} color={THEME.purple} />
+                <KPICard label="Overdue" metric={taskRes.kpis?.overdue} icon={AlertCircle} color={THEME.rose} isUp={false} sub="Past Deadline" />
+                <KPICard label="Late Completed" metric={taskRes.kpis?.lateCompleted || 0} icon={Timer} color={THEME.rose} sub="Resolved after due date" />
+                <KPICard label="Completion Rate" metric={taskRes.kpis?.completionRate} icon={Target} color={THEME.emerald} isPercentage />
+                <KPICard label="High / Urgent" metric={taskRes.priorityBreakdown?.high || 0} icon={AlertTriangle} color={THEME.rose} sub="Critical Attention" />
               </div>
 
-              {/* Tasks List */}
-              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Operational Tasks Ledger</h3>
-                  <span className="text-[10px] text-slate-400 font-bold">{taskRes.records?.length || 0} tasks</span>
+              {/* Tasks Sub-Views Navigation Pill Strip */}
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 min-w-[620px]">
+                  {[
+                    { id: "overview", label: "Overview & Ledger", icon: CheckSquare },
+                    { id: "workload", label: "Workload Balance ⚖️", icon: Scale },
+                    { id: "delayed", label: "Delayed Task Analysis 🚨", icon: AlertCircle },
+                    { id: "manager", label: "Manager Performance 👔", icon: Briefcase },
+                    { id: "trends", label: "Completion Trends 📈", icon: TrendingUp },
+                  ].map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = taskSubView === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setTaskSubView(sub.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                          isSubActive
+                            ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                        }`}
+                      >
+                        <SubIcon size={13} strokeWidth={2.2} />
+                        <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div className="overflow-x-auto max-h-96">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
-                      <tr>
-                        <th className="px-4 py-2">Task Title</th>
-                        <th className="px-4 py-2">Assignee</th>
-                        <th className="px-4 py-2">Department</th>
-                        <th className="px-4 py-2">Priority</th>
-                        <th className="px-4 py-2">Due Date</th>
-                        <th className="px-4 py-2 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {(taskRes.records || []).map((t) => (
-                        <tr key={t._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white truncate max-w-xs">{t.title}</td>
-                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{t.assigneeName}</td>
-                          <td className="px-4 py-2 text-slate-500">{t.department}</td>
-                          <td className="px-4 py-2">
-                            <span className={`inline-flex px-2 py-0.2 rounded text-[9.5px] font-extrabold uppercase ${
-                              t.priority === "urgent" || t.priority === "high" ? "bg-rose-500/10 text-rose-600" : "bg-slate-100 dark:bg-slate-800 text-slate-500"
-                            }`}>
-                              {t.priority || "normal"}
-                            </span>
-                          </td>
-                          <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
-                          <td className="px-4 py-2 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              t.status === "completed" || t.status === "done"
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
-                            }`}>
-                              {t.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <span className="text-[10px] text-slate-400 font-bold px-2 whitespace-nowrap hidden sm:inline">
+                  {taskSubView === "workload" && `${taskRes.workloadReport?.length || 0} Team Members`}
+                  {taskSubView === "delayed" && `${taskRes.delayedTasks?.length || 0} Delayed Tasks`}
+                  {taskSubView === "manager" && `${taskRes.managerPerformance?.length || 0} Managers`}
+                  {taskSubView === "trends" && `Fulfillment Velocity`}
+                  {taskSubView === "overview" && `${taskRes.records?.length || 0} Records`}
+                </span>
               </div>
+
+              {/* SUB-VIEW 1: OVERVIEW & LEDGER */}
+              {taskSubView === "overview" && (
+                <div className="space-y-3">
+                  {/* Department Operations & Priority Distribution Charts */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                    <div className="lg:col-span-7">
+                      <ChartCard title="Department Task Fulfillment" subtitle="Volume of assigned vs completed tasks across units">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={taskRes.departmentAnalytics || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                            <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Bar dataKey="total" name="Total Assigned" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                            <Bar dataKey="completed" name="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
+
+                    <div className="lg:col-span-5">
+                      <ChartCard title="Task Priority Distribution" subtitle="Operational load segmentation by urgency level">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "High / Urgent", value: taskRes.priorityBreakdown?.high || 0, color: THEME.rose },
+                                { name: "Medium", value: taskRes.priorityBreakdown?.medium || 0, color: THEME.amber },
+                                { name: "Low", value: taskRes.priorityBreakdown?.low || 0, color: THEME.emerald },
+                              ].filter(d => d.value > 0)}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={75}
+                              innerRadius={45}
+                              paddingAngle={4}
+                            >
+                              {[
+                                { name: "High / Urgent", value: taskRes.priorityBreakdown?.high || 0, color: THEME.rose },
+                                { name: "Medium", value: taskRes.priorityBreakdown?.medium || 0, color: THEME.amber },
+                                { name: "Low", value: taskRes.priorityBreakdown?.low || 0, color: THEME.emerald },
+                              ].filter(d => d.value > 0).map((entry, index) => (
+                                <Cell key={`cell-tp-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
+                  </div>
+
+                  {/* Top Task Assignees Leaderboard */}
+                  {(taskRes.employeeTaskPerformance || []).length > 0 && (
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                      <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Team Task Contributors</h3>
+                        <span className="text-[10px] text-slate-400 font-bold">{taskRes.employeeTaskPerformance.length} contributors</span>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                            <tr>
+                              <th className="px-4 py-2">Assignee</th>
+                              <th className="px-4 py-2 text-center">Total Assigned</th>
+                              <th className="px-4 py-2 text-center">Completed</th>
+                              <th className="px-4 py-2 text-center">Completion Rate</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                            {taskRes.employeeTaskPerformance.slice(0, 5).map(e => (
+                              <tr key={e.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{e.name}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold">{e.total}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{e.completed}</td>
+                                <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600">{e.rate}%</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Operational Tasks Ledger */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Operational Tasks Ledger</h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Detailed tracking of individual team assignments and deadlines</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search title, assignee..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[500px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Task Title</th>
+                            <th className="px-4 py-2">Assignee</th>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-center">Priority</th>
+                            <th className="px-4 py-2">Due Date</th>
+                            <th className="px-4 py-2 text-center">Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(taskRes.records || [])
+                            .filter(t => !searchTableQuery || `${t.title} ${t.assigneeName} ${t.department} ${t.priority} ${t.status}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map((t) => (
+                              <tr key={t._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{t.title}</td>
+                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium">{t.assigneeName}</td>
+                                <td className="px-4 py-2 text-slate-500">{t.department}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                    t.priority === "high" || t.priority === "urgent"
+                                      ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                      : t.priority === "medium"
+                                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                  }`}>
+                                    {t.priority}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
+                                    t.status === "completed" || t.status === "done"
+                                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                      : t.status === "in_process" || t.status === "in-progress"
+                                      ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                                      : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
+                                  }`}>
+                                    {t.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 2: WORKLOAD BALANCE REPORT ⚖️ */}
+              {taskSubView === "workload" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Scale size={15} className="text-amber-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Team Workload Distribution &amp; Capacity Balance</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Real-time task volume per team member to prevent burnout and reassign queues immediately</p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono font-bold">
+                        {taskRes.workloadReport?.length || 0} Staff Evaluated
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[520px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2.5">Team Member</th>
+                            <th className="px-4 py-2.5">Department</th>
+                            <th className="px-4 py-2.5 text-center text-amber-400">Pending Tasks</th>
+                            <th className="px-4 py-2.5 text-center text-blue-400">In Process</th>
+                            <th className="px-4 py-2.5 text-center">Active Workload</th>
+                            <th className="px-4 py-2.5 text-center text-emerald-400">Resolved</th>
+                            <th className="px-4 py-2.5 text-center">Capacity Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(taskRes.workloadReport || []).map((m) => (
+                            <tr key={m.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2.5">
+                                <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{m.employeeCode}</p>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600 dark:text-amber-400">{m.pending}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600 dark:text-blue-400">{m.inProcess}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-black text-slate-900 dark:text-white text-sm">
+                                {m.totalActive}
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">{m.completed}</td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border ${
+                                  m.overloadStatus === "overloaded"
+                                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
+                                    : m.overloadStatus === "balanced"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20"
+                                }`}>
+                                  {m.overloadStatus === "overloaded" ? "🚨 Overloaded" : m.overloadStatus === "balanced" ? "✔ Balanced" : "🟢 Available"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 3: DELAYED TASK ANALYSIS 🚨 */}
+              {taskSubView === "delayed" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <AlertCircle size={15} className="text-rose-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Delayed &amp; Late Task Root-Cause Analysis</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Track tasks exceeding SLA deadlines with exact delay days, hours, and department attribution</p>
+                      </div>
+                      <span className="text-[10px] text-rose-500 font-mono font-black bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">
+                        {taskRes.delayedTasks?.length || 0} Delayed Tasks
+                      </span>
+                    </div>
+
+                    {(taskRes.delayedTasks || []).length === 0 ? (
+                      <div className="py-12 text-center text-slate-400">
+                        <CheckCircle2 size={32} className="mx-auto text-emerald-500 mb-2" />
+                        <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Zero Delayed Tasks!</p>
+                        <p className="text-xs text-slate-400">All tasks in this period were executed within designated SLAs.</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[520px]">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                            <tr>
+                              <th className="px-4 py-2.5">Task Title</th>
+                              <th className="px-4 py-2.5">Assignee</th>
+                              <th className="px-4 py-2.5">Department</th>
+                              <th className="px-4 py-2.5 text-center">Priority</th>
+                              <th className="px-4 py-2.5">Due Date</th>
+                              <th className="px-4 py-2.5 text-center text-rose-400">Delay Time</th>
+                              <th className="px-4 py-2.5">Delay Reason</th>
+                              <th className="px-4 py-2.5 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                            {taskRes.delayedTasks.map((t) => (
+                              <tr key={t._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2.5 font-extrabold text-slate-900 dark:text-white">{t.title}</td>
+                                <td className="px-4 py-2.5 text-slate-700 dark:text-slate-300 font-semibold">{t.assigneeName}</td>
+                                <td className="px-4 py-2.5 text-slate-500">{t.department}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20">
+                                    {t.priority}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2.5 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
+                                <td className="px-4 py-2.5 text-center font-mono font-black text-rose-600 dark:text-rose-400">
+                                  {t.delayDays > 0 ? `${t.delayDays}d ` : ""}{t.delayHours}h
+                                </td>
+                                <td className="px-4 py-2.5 text-slate-600 dark:text-slate-400 max-w-xs truncate">
+                                  {t.reason || "Operational Delay"}
+                                </td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                    {t.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 4: MANAGER PERFORMANCE REPORT 👔 */}
+              {taskSubView === "manager" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Briefcase size={15} className="text-blue-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Manager Task Delegation &amp; Governance Report</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Evaluation of managers on assignment volume, turnaround promptness, task reopenings, shifts, and cancellations</p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono font-bold">
+                        {taskRes.managerPerformance?.length || 0} Managers Evaluated
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[520px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2.5">Manager</th>
+                            <th className="px-4 py-2.5">Department</th>
+                            <th className="px-4 py-2.5 text-center">Tasks Assigned</th>
+                            <th className="px-4 py-2.5 text-center text-emerald-400">On-Time Done</th>
+                            <th className="px-4 py-2.5 text-center text-emerald-400">On-Time %</th>
+                            <th className="px-4 py-2.5 text-center text-purple-400">Reopened</th>
+                            <th className="px-4 py-2.5 text-center text-blue-400">Shifted</th>
+                            <th className="px-4 py-2.5 text-center text-rose-400">Cancelled</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(taskRes.managerPerformance || []).map((m) => (
+                            <tr key={m.managerId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2.5">
+                                <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{m.email}</p>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.tasksAssigned}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completedOnTime}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-black text-emerald-600">
+                                {m.onTimeRate}%
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-purple-600">{m.reopenedTasks}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600">{m.shiftedTasks}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{m.cancelledTasks}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 5: COMPLETION TRENDS 📈 */}
+              {taskSubView === "trends" && (
+                <div className="space-y-3">
+                  <ChartCard title="Operational Fulfillment Velocity Trend" subtitle="Daily & Weekly throughput of completed, pending, and late tasks">
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={taskRes.trendDaily || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                        <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#888" }} />
+                        <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="completed" name="Completed" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="pending" name="Pending" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        <Bar dataKey="late" name="Late" fill="#f43f5e" radius={[4, 4, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                      <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Interval Metrics Breakdown</h3>
+                      <span className="text-[10px] text-slate-400 font-bold">Chronological task throughput</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-2">Interval</th>
+                            <th className="px-4 py-2 text-center">Total Volume</th>
+                            <th className="px-4 py-2 text-center text-emerald-400">Completed</th>
+                            <th className="px-4 py-2 text-center text-amber-400">Pending</th>
+                            <th className="px-4 py-2 text-center text-rose-400">Late</th>
+                            <th className="px-4 py-2 text-center">Fulfillment %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(taskRes.trendDaily || []).map((t, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2 font-mono font-bold text-slate-700 dark:text-slate-300">{t.label}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold">{t.total}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{t.completed}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold text-amber-600">{t.pending}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold text-rose-600">{t.late}</td>
+                              <td className="px-4 py-2 text-center font-mono font-black text-slate-900 dark:text-white">
+                                {t.total > 0 ? Math.round((t.completed / t.total) * 100) : 0}%
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
-          ) : <EmptyState />}
+          ) : <EmptyState message="No task records found for the chosen date range." onReset={() => setDateRange("all")} />}
         </div>
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 6. PAYROLL REPORT TAB (Protected)                                     */}
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      {activeTab === "payroll" && (
-        <div className="space-y-3 animate-fadeIn">
-          {payLoading ? (
-            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Payroll Analytics...</div>
-          ) : payRes ? (
-            <>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                <KPICard label="Gross Payroll" metric={payRes.kpis?.grossPayroll} icon={DollarSign} color={THEME.purple} isCurrency />
-                <KPICard label="Net Disbursed" metric={payRes.kpis?.disbursedPaid} icon={CheckCircle2} color={THEME.emerald} isCurrency />
-                <KPICard label="Pending Dues" metric={payRes.kpis?.pendingDue} icon={Clock} color={THEME.amber} isCurrency />
-                <KPICard label="Deductions" metric={payRes.kpis?.totalDeductions} icon={TrendingDown} color={THEME.rose} isCurrency />
-              </div>
-
-              {/* Payroll Register Table */}
-              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Payroll Disbursal Register</h3>
-                  <span className="text-[10px] text-slate-400 font-bold">{payRes.records?.length || 0} pay slips</span>
-                </div>
-
-                <div className="overflow-x-auto max-h-96">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
-                      <tr>
-                        <th className="px-4 py-2">Staff Member</th>
-                        <th className="px-4 py-2">Month & Year</th>
-                        <th className="px-4 py-2 text-right">Basic Salary</th>
-                        <th className="px-4 py-2 text-right">Net Payable</th>
-                        <th className="px-4 py-2 text-center">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {(payRes.records || []).map((p) => (
-                        <tr
-                          key={p._id}
-                          onClick={() => p.employeeId && setDrillEmployeeId(p.employeeId)}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer"
-                        >
-                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{p.employeeName}</td>
-                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{p.month} {p.year}</td>
-                          <td className="px-4 py-2 text-right font-mono text-slate-500">{fmtCurrency(p.basicSalary)}</td>
-                          <td className="px-4 py-2 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">{fmtCurrency(p.netSalary)}</td>
-                          <td className="px-4 py-2 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              p.status === "paid"
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
-                            }`}>
-                              {p.status || "Paid"}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          ) : <EmptyState />}
-        </div>
-      )}
-
-      {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 7. PERFORMANCE SCORING TAB (Configurable Weights)                     */}
+      {/* 6. PERFORMANCE SCORECARD TAB                                          */}
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === "performance" && (
         <div className="space-y-3 animate-fadeIn">
           {perfLoading ? (
-            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Performance Matrix...</div>
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Calculating Performance Metrics...</div>
           ) : perfRes ? (
             <>
-              {/* Header Action Bar */}
-              <div className="flex items-center justify-between bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800">
-                <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Dynamic Performance Weights</h3>
-                  <p className="text-[10px] text-slate-400">Task Completion ({weights.taskCompletion}%), Attendance ({weights.attendance}%), Productivity ({weights.productivity}%), Punctuality ({weights.punctuality}%), Leave ({weights.leaveDiscipline}%)</p>
+              {/* Performance Sub-Views Navigation Pill Strip */}
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 min-w-[620px]">
+                  {[
+                    { id: "members", label: "Team Member Performance ⭐", icon: UserCheck },
+                    { id: "departments", label: "Department Performance", icon: Building2 },
+                    { id: "efficiency", label: "Work Efficiency & Productivity ⭐⭐⭐", icon: Zap },
+                    { id: "rankings", label: "Top & Bottom Rankings 🏆", icon: Award },
+                  ].map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = perfSubView === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setPerfSubView(sub.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                          isSubActive
+                            ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                        }`}
+                      >
+                        <SubIcon size={13} strokeWidth={2.2} />
+                        <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <button
                   onClick={() => setShowWeightsModal(true)}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/20 font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-300 transition-colors cursor-pointer whitespace-nowrap"
                 >
                   <Sliders size={12} />
                   <span>Configure Weights</span>
                 </button>
               </div>
 
-              {/* Performance Rankings Table */}
-              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Staff Performance Rankings</h3>
-                  <span className="text-[10px] text-slate-400 font-bold">Click member for Analytics Drill Down</span>
-                </div>
+              {/* SUB-VIEW 1: TEAM MEMBER PERFORMANCE REPORT ⭐ */}
+              {perfSubView === "members" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Award size={15} className="text-amber-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Individual Team Member Performance Ledger</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Complete breakdown: Total Assigned, Completed, Pending, Overdue, Late, On-Time, Reopened, and Performance Score (100 पैकी)</p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-mono font-bold">
+                        {perfRes.rankings?.length || 0} Evaluated Members
+                      </span>
+                    </div>
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                      <tr>
-                        <th className="px-4 py-2">Rank</th>
-                        <th className="px-4 py-2">Staff Member</th>
-                        <th className="px-4 py-2">Department</th>
-                        <th className="px-4 py-2 text-center">Tasks Closed</th>
-                        <th className="px-4 py-2 text-center">Attendance</th>
-                        <th className="px-4 py-2 text-center">Score</th>
-                        <th className="px-4 py-2 text-center">Tier</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {(perfRes.rankings || []).map((r, idx) => (
-                        <tr
-                          key={r._id}
-                          onClick={() => setDrillEmployeeId(r._id)}
-                          className="hover:bg-slate-50 dark:hover:bg-slate-800/40 cursor-pointer group"
-                        >
-                          <td className="px-4 py-2 font-mono font-black text-amber-600 dark:text-amber-400">#{idx + 1}</td>
-                          <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white group-hover:text-amber-600 transition-colors">
-                            {r.name}
-                            <span className="block text-[10px] font-mono text-slate-400 font-normal">{r.code} · {r.role}</span>
-                          </td>
-                          <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{r.department}</td>
-                          <td className="px-4 py-2 text-center font-mono font-bold">{r.tasksCompleted} / {r.tasksTotal}</td>
-                          <td className="px-4 py-2 text-center font-mono font-bold text-cyan-600">{r.attendanceRate}%</td>
-                          <td className="px-4 py-2 text-center font-mono font-black text-amber-600">{r.score}%</td>
-                          <td className="px-4 py-2 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              r.tier === "Excellent"
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : r.tier === "Good"
-                                ? "bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border border-cyan-500/20"
-                                : r.tier === "Average"
-                                ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
-                                : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                            }`}>
-                              {r.tier}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    <div className="overflow-x-auto max-h-[550px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-3.5 py-2.5">Member Details</th>
+                            <th className="px-2 py-2.5">Performance Badge</th>
+                            <th className="px-2 py-2.5 text-center">Assigned</th>
+                            <th className="px-2 py-2.5 text-center text-emerald-400">Done</th>
+                            <th className="px-2 py-2.5 text-center text-amber-400">Pending</th>
+                            <th className="px-2 py-2.5 text-center text-rose-400">Overdue</th>
+                            <th className="px-2 py-2.5 text-center text-rose-400">Late</th>
+                            <th className="px-2 py-2.5 text-center">Avg Days</th>
+                            <th className="px-2 py-2.5 text-center text-emerald-400">On Time</th>
+                            <th className="px-2 py-2.5 text-center text-purple-400">Reopened</th>
+                            <th className="px-2 py-2.5 text-center text-slate-400">Cancelled</th>
+                            <th className="px-2 py-2.5 text-center">Score (100)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(perfRes.rankings || []).map((m, idx) => (
+                            <tr key={m.employeeId || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-3.5 py-2.5">
+                                <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{m.code} · {m.department}</p>
+                              </td>
+                              <td className="px-2 py-2.5">
+                                <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[10px] font-mono font-bold whitespace-nowrap">
+                                  <span className="text-emerald-600 dark:text-emerald-400">✔ {m.completed ?? m.tasksCompleted}</span>
+                                  <span className="text-slate-300 dark:text-slate-600">|</span>
+                                  <span className="text-rose-600 dark:text-rose-400">⏰ {m.lateCompleted ?? m.tasksLate ?? 0}</span>
+                                  <span className="text-slate-300 dark:text-slate-600">|</span>
+                                  <span className="text-amber-600 dark:text-amber-400">🔴 {m.pending ?? 0}</span>
+                                </div>
+                              </td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.totalAssigned ?? m.tasksTotal}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completed ?? m.tasksCompleted}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-amber-600">{m.pending ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-rose-600">{m.overdue ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-rose-500">{m.lateCompleted ?? m.tasksLate ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-slate-500">{m.avgCompletionDays || 0}d</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.onTime ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-purple-600">{m.reopened ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-slate-400">{m.cancelled ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center">
+                                <span className={`inline-flex px-2 py-0.5 rounded font-mono font-black text-xs border ${
+                                  (m.performanceScore || m.score) >= 80
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                    : (m.performanceScore || m.score) >= 60
+                                    ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
+                                    : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
+                                }`}>
+                                  {m.performanceScore || m.score}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* SUB-VIEW 2: DEPARTMENT PERFORMANCE REPORT */}
+              {perfSubView === "departments" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Building2 size={15} className="text-amber-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Performance Scorecard</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Department Wise: Total Tasks, Completed, Pending, Late, Turnaround velocity, Best &amp; Lowest Performer</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-2.5">Department</th>
+                            <th className="px-4 py-2.5 text-center">Total Tasks</th>
+                            <th className="px-4 py-2.5 text-center text-emerald-400">Completed</th>
+                            <th className="px-4 py-2.5 text-center text-amber-400">Pending</th>
+                            <th className="px-4 py-2.5 text-center text-rose-400">Late</th>
+                            <th className="px-4 py-2.5 text-center">Avg Completion</th>
+                            <th className="px-4 py-2.5">⭐ Best Performer</th>
+                            <th className="px-4 py-2.5">⚠️ Lowest Performer</th>
+                            <th className="px-4 py-2.5 text-center">Department Score</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(perfRes.departmentScorecard || []).map((d, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2.5 font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                <Building2 size={13} className="text-slate-400" />
+                                <span>{d.name}</span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{d.totalTasks}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{d.completed}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600">{d.pending}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{d.late}</td>
+                              <td className="px-4 py-2.5 text-center font-mono text-slate-500">{d.avgCompletionDays || 0}d</td>
+                              <td className="px-4 py-2.5">
+                                <p className="font-extrabold text-amber-600 dark:text-amber-400">{d.bestPerformer?.name || "—"}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">Score: {d.bestPerformer?.score || 0}%</p>
+                              </td>
+                              <td className="px-4 py-2.5">
+                                <p className="font-bold text-slate-600 dark:text-slate-400">{d.lowestPerformer?.name || "—"}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">Score: {d.lowestPerformer?.score || 0}%</p>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-flex px-2 py-0.5 rounded font-mono font-black text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                  {d.score}%
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 3: WORK EFFICIENCY & PRODUCTIVITY REPORT ⭐⭐⭐ */}
+              {perfSubView === "efficiency" && (
+                <div className="space-y-3">
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <Zap size={15} className="text-amber-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Employee Work Efficiency &amp; Productivity Report</h3>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-medium">Working Hours vs Completed Tasks vs Efficiency % (उदा. 8 Hours → 15 Tasks, Efficiency 95%)</p>
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[520px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2.5">Employee</th>
+                            <th className="px-4 py-2.5">Department</th>
+                            <th className="px-4 py-2.5 text-center text-blue-400">Working Hours</th>
+                            <th className="px-4 py-2.5 text-center text-emerald-400">Completed Tasks</th>
+                            <th className="px-4 py-2.5 text-center text-amber-400">Productivity Ratio</th>
+                            <th className="px-4 py-2.5 text-center">Efficiency %</th>
+                            <th className="px-4 py-2.5 text-center">Performance Tier</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(perfRes.rankings || []).map((m, idx) => (
+                            <tr key={m.employeeId || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2.5">
+                                <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
+                                <p className="text-[10px] text-slate-400 font-mono">{m.code}</p>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600 dark:text-blue-400">
+                                {m.workingHours || 0} Hours
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">
+                                {m.completedTasks || m.completed || 0} Tasks
+                              </td>
+                              <td className="px-4 py-2.5 text-center font-mono text-slate-500">
+                                {m.workingHours > 0 ? ((m.completedTasks || m.completed || 0) / (m.workingHours / 8)).toFixed(1) : 0} tasks / 8h
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className="inline-flex px-2.5 py-1 rounded font-mono font-black text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                  {m.efficiencyRate || 90}%
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                                  m.tier?.includes("Tier 1") || m.tier?.includes("A")
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                                }`}>
+                                  {m.tier || "Standard Tier"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SUB-VIEW 4: TOP & BOTTOM RANKINGS 🏆 */}
+              {perfSubView === "rankings" && (
+                <div className="space-y-3">
+                  {/* Quick Highlight Cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="p-3 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">⚡ Fastest Worker</p>
+                      <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{perfRes.fastestWorker || "—"}</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Lowest turnaround days</p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">⏰ Most Late Incidents</p>
+                      <p className="text-sm font-black text-rose-600 dark:text-rose-400 mt-0.5">{perfRes.mostLate || "None"}</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Attention needed</p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">🏆 High Performers</p>
+                      <p className="text-sm font-black text-amber-500 mt-0.5">{perfRes.topPerformers?.length || 0} Staff</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Score ≥ 85%</p>
+                    </div>
+
+                    <div className="p-3 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">⚠️ At-Risk Queue</p>
+                      <p className="text-sm font-black text-rose-500 mt-0.5">{perfRes.atRisk?.length || 0} Staff</p>
+                      <p className="text-[9px] text-slate-400 font-medium">Score &lt; 60%</p>
+                    </div>
+                  </div>
+
+                  {/* Top 10 Leaderboard */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                      <div className="flex items-center gap-2">
+                        <Award size={14} className="text-amber-500" />
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top 10 High Performers Leaderboard</h3>
+                      </div>
+                      <span className="text-[10px] text-emerald-600 font-bold">Highest Composite Scores</span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-2">Rank</th>
+                            <th className="px-4 py-2">Employee</th>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-center">Tasks Closed</th>
+                            <th className="px-4 py-2 text-center">Attendance %</th>
+                            <th className="px-4 py-2 text-center">Composite Score</th>
+                            <th className="px-4 py-2 text-center">Tier</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(perfRes.topTen || (perfRes.rankings || []).slice(0, 10)).map((r, idx) => (
+                            <tr key={r.employeeId || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                              <td className="px-4 py-2 font-mono font-black text-amber-600 dark:text-amber-400">#{idx + 1}</td>
+                              <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">
+                                {r.name}
+                                <span className="text-[10px] text-slate-400 font-mono ml-1.5 font-normal">({r.code})</span>
+                              </td>
+                              <td className="px-4 py-2 text-slate-600 dark:text-slate-300">{r.department}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold">{r.completed ?? r.tasksCompleted} / {r.totalAssigned ?? r.tasksTotal}</td>
+                              <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{r.attendanceRate}%</td>
+                              <td className="px-4 py-2 text-center">
+                                <span className="inline-flex px-2 py-0.5 rounded font-mono font-black text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                  {r.performanceScore || r.score}%
+                                </span>
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20">
+                                  {r.tier}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           ) : <EmptyState />}
         </div>
       )}
 
       {/* ═════════════════════════════════════════════════════════════════════ */}
-      {/* 8. AUDIT LEDGER TAB                                                   */}
+      {/* 7. AUDIT LEDGER REPORT TAB                                            */}
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === "audit" && (
         <div className="space-y-3 animate-fadeIn">
           {auditLoading ? (
-            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Audit Ledger...</div>
+            <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Security Audit Ledger...</div>
           ) : auditRes ? (
             <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
               <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck size={14} className="text-amber-500" />
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Immutable Security Audit Ledger</h3>
+                <div className="flex items-center gap-2">
+                  <ShieldCheck size={14} className="text-emerald-600" />
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">System Governance &amp; Action Trail</h3>
                 </div>
-                <span className="text-[10px] text-slate-400 font-bold">{auditRes.totalLogs || 0} events logged</span>
+                <span className="text-[10px] text-slate-400 font-bold">{auditRes.records?.length || 0} immutable logs</span>
               </div>
 
-              <div className="overflow-x-auto max-h-96">
+              <div className="overflow-x-auto max-h-[500px]">
                 <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0">
+                  <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-2">Timestamp</th>
                       <th className="px-4 py-2">Performed By</th>
                       <th className="px-4 py-2">Role</th>
                       <th className="px-4 py-2">Module</th>
                       <th className="px-4 py-2">Action</th>
-                      <th className="px-4 py-2 font-mono">IP Address</th>
+                      <th className="px-4 py-2">IP Address</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs font-medium">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
                     {(auditRes.records || []).map((a) => (
                       <tr key={a._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                         <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDateTime(a.createdAt)}</td>
-                        <td className="px-4 py-2 font-bold text-slate-900 dark:text-white">{a.performedByName}</td>
-                        <td className="px-4 py-2 text-slate-500">{a.role}</td>
+                        <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{a.performedByName}</td>
                         <td className="px-4 py-2">
-                          <span className="inline-flex px-2 py-0.2 rounded text-[9.5px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                            {a.module}
+                          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                            {a.role}
                           </span>
                         </td>
-                        <td className="px-4 py-2 font-bold text-amber-600 dark:text-amber-400">{a.action}</td>
-                        <td className="px-4 py-2 font-mono text-[10.5px] text-slate-400">{a.ipAddress}</td>
+                        <td className="px-4 py-2 font-bold text-slate-700 dark:text-slate-300 capitalize">{a.module}</td>
+                        <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{a.action}</td>
+                        <td className="px-4 py-2 font-mono text-[11px] text-slate-400">{a.ipAddress || "—"}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1089,172 +2614,88 @@ export default function Reports() {
         </div>
       )}
 
-      {/* ── EMPLOYEE DRILL DOWN MODAL ─────────────────────────────────────── */}
+      {/* ── Drill-Down Modals ────────────────────────────────────────────── */}
       {drillEmployeeId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
-                  <User size={14} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl max-w-2xl w-full p-5 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              onClick={() => setDrillEmployeeId(null)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider mb-3">Employee Operational Drill-Down</h3>
+            {drillEmpLoading ? (
+              <div className="py-12 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={20} />Loading details...</div>
+            ) : drillEmpRes ? (
+              <div className="space-y-3 text-xs">
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Employee</p>
+                    <p className="text-sm font-black mt-0.5">{drillEmpRes.employee?.fullName}</p>
+                    <p className="text-[10px] text-slate-400">{drillEmpRes.employee?.employeeCode}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Department</p>
+                    <p className="text-sm font-black mt-0.5">{drillEmpRes.employee?.departmentId?.name || "General"}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Attendance Rate</p>
+                    <p className="text-sm font-black font-mono mt-0.5 text-emerald-600">{drillEmpRes.attendanceRate}%</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Employee Analytics Drill Down</h3>
-                  <p className="text-[10px] text-slate-400">Complete performance & operational records</p>
+                <div className="p-3 bg-slate-50 dark:bg-slate-900/50 rounded-xl border border-slate-100 dark:border-slate-800">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase mb-2">Recent Tasks</p>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {(drillEmpRes.tasks || []).map(t => (
+                      <div key={t._id} className="flex items-center justify-between text-[11px] p-1.5 bg-white dark:bg-slate-800 rounded border border-slate-100 dark:border-slate-700">
+                        <span className="font-bold truncate">{t.title}</span>
+                        <span className="font-mono text-slate-400 capitalize">{t.status}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <button onClick={() => setDrillEmployeeId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
-              {drillEmpLoading ? (
-                <div className="py-12 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={20} />Loading details...</div>
-              ) : drillEmpRes ? (
-                <>
-                  <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-700/80">
-                    <div>
-                      <h4 className="text-sm font-black text-slate-900 dark:text-white">{drillEmpRes.employee?.fullName}</h4>
-                      <p className="text-xs text-slate-400 font-medium">{drillEmpRes.employee?.employeeCode} · {drillEmpRes.employee?.designationId?.name || "Staff"}</p>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-md text-xs font-extrabold bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                      {drillEmpRes.employee?.departmentId?.name || "General"}
-                    </span>
-                  </div>
-
-                  {/* Task Records */}
-                  <div>
-                    <h5 className="text-[11px] font-black uppercase text-slate-500 mb-1.5">Assigned Tasks ({drillEmpRes.tasks?.length || 0})</h5>
-                    <div className="space-y-1 max-h-36 overflow-y-auto">
-                      {(drillEmpRes.tasks || []).map(t => (
-                        <div key={t._id} className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-900/60 text-xs">
-                          <span className="font-bold truncate max-w-xs">{t.title}</span>
-                          <span className="text-[10px] font-mono text-slate-400">{t.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : <p className="text-center py-6 text-xs text-slate-400">Employee details not found.</p>}
-            </div>
+            ) : null}
           </div>
         </div>
       )}
 
-      {/* ── DEPARTMENT DRILL DOWN MODAL ───────────────────────────────────── */}
-      {drillDepartmentId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-              <div className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-600 flex items-center justify-center font-bold">
-                  <Building2 size={14} />
-                </div>
-                <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department Analytics Drill Down</h3>
-                  <p className="text-[10px] text-slate-400">Department metrics & staff breakdown</p>
-                </div>
-              </div>
-              <button onClick={() => setDrillDepartmentId(null)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600 cursor-pointer">
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="p-4 overflow-y-auto space-y-3 flex-1 custom-scrollbar">
-              {drillDeptLoading ? (
-                <div className="py-12 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={20} />Loading details...</div>
-              ) : drillDeptRes ? (
-                <>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
-                      <p className="text-[10px] text-slate-400 uppercase font-black">Headcount</p>
-                      <p className="text-base font-black font-mono mt-0.5">{drillDeptRes.employeeCount}</p>
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
-                      <p className="text-[10px] text-slate-400 uppercase font-black">Total Tasks</p>
-                      <p className="text-base font-black font-mono mt-0.5">{drillDeptRes.tasksCount}</p>
-                    </div>
-                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-[#0B101B] border border-slate-200/80 dark:border-slate-800 text-center">
-                      <p className="text-[10px] text-slate-400 uppercase font-black">Completed</p>
-                      <p className="text-base font-black font-mono text-emerald-600 mt-0.5">{drillDeptRes.completedTasks}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h5 className="text-[11px] font-black uppercase text-slate-500 mb-1.5">Department Employees ({drillDeptRes.employees?.length || 0})</h5>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {(drillDeptRes.employees || []).map(e => (
-                        <div key={e._id} className="flex items-center justify-between p-2 rounded bg-slate-50 dark:bg-slate-900/60 text-xs">
-                          <span className="font-bold">{e.fullName || `${e.firstName || ""} ${e.lastName || ""}`}</span>
-                          <span className="text-[10px] text-slate-400">{e.employeeCode} · {e.status}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : <p className="text-center py-6 text-xs text-slate-400">Department details not found.</p>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── CONFIGURE WEIGHTS MODAL ───────────────────────────────────────── */}
+      {/* ── Weights Configuration Modal ──────────────────────────────────── */}
       {showWeightsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn">
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40">
-              <div className="flex items-center gap-2">
-                <Sliders size={14} className="text-amber-500" />
-                <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Configure Performance Weights</h3>
-              </div>
-              <button onClick={() => setShowWeightsModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-slate-600">
-                <X size={15} />
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3">
-              {[
-                { key: "taskCompletion", label: "Task Completion Rate Weight (%)" },
-                { key: "productivity", label: "Productivity Output Weight (%)" },
-                { key: "attendance", label: "Attendance Compliance Weight (%)" },
-                { key: "punctuality", label: "Punctuality & On-Time Arrival (%)" },
-                { key: "leaveDiscipline", label: "Leave & Absence Discipline (%)" },
-              ].map(w => (
-                <div key={w.key} className="flex items-center justify-between gap-3">
-                  <label className="text-xs font-bold text-slate-700 dark:text-slate-300">{w.label}</label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={weights[w.key]}
-                    onChange={(e) => setWeights(prev => ({ ...prev, [w.key]: Number(e.target.value) }))}
-                    className="w-16 px-2 py-1 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 rounded-lg text-xs font-mono font-bold text-right"
-                  />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">
+          <div className="bg-white dark:bg-[#111C24] rounded-2xl max-w-md w-full p-5 border border-slate-200 dark:border-slate-800 shadow-2xl relative">
+            <button
+              onClick={() => setShowWeightsModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2">Configure Performance Scoring Weights</h3>
+            <p className="text-[11px] text-slate-400 mb-4">Total weights must sum to 100%.</p>
+            <div className="space-y-3 text-xs">
+              {Object.keys(weights).map(k => (
+                <div key={k} className="flex items-center justify-between gap-3">
+                  <span className="font-bold text-slate-700 dark:text-slate-300 capitalize">{k.replace(/([A-Z])/g, " $1")}</span>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      value={weights[k]}
+                      onChange={(e) => setWeights({ ...weights, [k]: Number(e.target.value) || 0 })}
+                      className="w-16 px-2 py-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-right"
+                    />
+                    <span className="text-slate-400 font-bold">%</span>
+                  </div>
                 </div>
               ))}
-
-              <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800">
-                <span className="text-[11px] font-bold text-slate-500">
-                  Total: <span className={Object.values(weights).reduce((a,b)=>a+b,0) === 100 ? "text-emerald-600 font-black" : "text-rose-600 font-black"}>
-                    {Object.values(weights).reduce((a,b)=>a+b,0)}%
-                  </span> (Must equal 100%)
-                </span>
-                <button
-                  onClick={() => {
-                    if (Object.values(weights).reduce((a,b)=>a+b,0) !== 100) {
-                      toast.error("Total weights must equal 100%");
-                      return;
-                    }
-                    setShowWeightsModal(false);
-                    queryClient.invalidateQueries({ queryKey: ["biPerformance"] });
-                    toast.success("Performance formula weights updated");
-                  }}
-                  className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-lg text-xs"
-                >
-                  Apply Formula
-                </button>
-              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={() => setShowWeightsModal(false)}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-black cursor-pointer"
+              >
+                Apply Weights
+              </button>
             </div>
           </div>
         </div>

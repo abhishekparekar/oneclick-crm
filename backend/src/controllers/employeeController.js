@@ -460,7 +460,17 @@ const createEmployee = async (req, res, next) => {
       finalAssignedModules = finalAssignedModules.map(m => String(m).toLowerCase().trim());
     }
 
+    // Ensure leave & payroll are universal defaults for all employees
+    ["leave", "payroll"].forEach((uMod) => {
+      if (subscribed.includes(uMod) && !finalAssignedModules.includes(uMod)) {
+        finalAssignedModules.push(uMod);
+      }
+    });
+
     for (const mod of finalAssignedModules) {
+      // Leave & payroll are universal by default for all employees; bypass per-seat cap
+      if (mod === "leave" || mod === "payroll") continue;
+
       if (!subscribed.includes(mod)) {
         return res.status(400).json({
           message: `Module "${mod}" is not included in the company's active subscription plan.`
@@ -899,7 +909,17 @@ const updateEmployee = async (req, res, next) => {
 
       const sanitizedModules = req.body.assignedModules.map(m => String(m).toLowerCase().trim());
 
+      // Ensure leave & payroll are universal defaults for all employees
+      ["leave", "payroll"].forEach((uMod) => {
+        if (subscribed.includes(uMod) && !sanitizedModules.includes(uMod)) {
+          sanitizedModules.push(uMod);
+        }
+      });
+
       for (const mod of sanitizedModules) {
+        // Leave & payroll are universal by default for all employees; bypass per-seat cap
+        if (mod === "leave" || mod === "payroll") continue;
+
         if (!subscribed.includes(mod)) {
           return res.status(400).json({
             message: `Module "${mod}" is not included in the company's active subscription plan.`
@@ -1015,6 +1035,7 @@ const updateEmployee = async (req, res, next) => {
     employee.profileCompletionPercentage = Math.round((filledFields / requiredProfileFields.length) * 100);
 
     if (user) {
+      user.isLocationTrackingEnabled = Boolean(employee.isLocationTrackingEnabled);
       await user.save();
     }
     await employee.save();

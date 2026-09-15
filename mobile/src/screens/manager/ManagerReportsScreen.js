@@ -62,7 +62,6 @@ const ManagerReportsScreen = () => {
       case "executive": return "Executive Summary";
       case "attendance": return "Attendance Report";
       case "leave": return "Leave Report";
-      case "payroll": return "Payroll Report";
       case "tasks": return "Task Report";
       case "employee": return "Employee Productivity";
       case "workload": return "Workload Report";
@@ -93,9 +92,6 @@ const ManagerReportsScreen = () => {
         break;
       case "leave":
         endpoint = "leave-summary";
-        break;
-      case "payroll":
-        endpoint = "payroll-summary";
         break;
       case "tasks":
         endpoint = "task-summary";
@@ -160,7 +156,6 @@ const ManagerReportsScreen = () => {
     if (!data) return null;
     const att = data.attendance || {};
     const lvs = data.leaves || {};
-    const pay = data.payroll || {};
     const tsk = data.tasks || {};
     return (
       <View style={styles.reportSection}>
@@ -274,38 +269,6 @@ const ManagerReportsScreen = () => {
     );
   };
 
-  // 4. Payroll Report
-  const renderPayrollReport = () => {
-    if (!data) return null;
-    return (
-      <View style={styles.reportSection}>
-        <View style={styles.statsGrid}>
-          <StatCard label="Total Cost" value={`₹${data.totalPayroll?.toLocaleString("en-IN")}`} icon="cash-outline" color="#C2410C" />
-          <StatCard label="Paid Amount" value={`₹${data.paid?.toLocaleString("en-IN")}`} icon="wallet-outline" color="#10b981" />
-          <StatCard label="Due / Pending" value={`₹${data.due?.toLocaleString("en-IN")}`} icon="alert-circle-outline" color="#f59e0b" />
-          <StatCard label="Staff Count" value={data.list?.length || 0} icon="people-outline" color="#3b82f6" />
-        </View>
-
-        <Text style={styles.listHeader}>Monthly Payslips List</Text>
-        {(data.list || []).map((item) => (
-          <View key={item._id} style={styles.logCard}>
-            <View style={styles.logRow}>
-              <Text style={styles.logName}>{item.employeeSnapshot?.employeeName || "Employee"}</Text>
-              <Text style={styles.logName}>₹{(item.netSalary || 0).toLocaleString("en-IN")}</Text>
-            </View>
-            <View style={styles.logDetailsRow}>
-              <Text style={styles.logDate}>{item.month} {item.year}</Text>
-              <View style={[styles.statusBadge, { backgroundColor: item.status === "paid" ? "#e6f4ea" : "#fef7e0" }]}>
-                <Text style={[styles.statusBadgeText, { color: item.status === "paid" ? "#137333" : "#b06000" }]}>
-                  {item.status?.toUpperCase() || "PENDING"}
-                </Text>
-              </View>
-            </View>
-          </View>
-        ))}
-      </View>
-    );
-  };
 
   // 5. Task Report
   const renderTaskReport = () => {
@@ -426,7 +389,6 @@ const ManagerReportsScreen = () => {
         <ReportItem title="Executive Summary" desc="KPI business intelligence overview metrics" rType="executive" icon="analytics-outline" color="#235347" />
         <ReportItem title="Attendance Report" desc="Punch logs and daily attendance compliance" rType="attendance" icon="calendar-outline" color="#10b981" />
         <ReportItem title="Leave Report" desc="Employee leave balances and requests list" rType="leave" icon="document-text-outline" color="#f59e0b" />
-        <ReportItem title="Payroll Report" desc="Salary distribution and monthly slips" rType="payroll" icon="cash-outline" color="#C2410C" />
         <ReportItem title="Task Report" desc="Staff task completion rate and backlog" rType="tasks" icon="checkbox-outline" color="#6366f1" />
         <ReportItem title="Employee Productivity" desc="Task completed and workload distribution" rType="employee" icon="people-outline" color="#3b82f6" />
         <ReportItem title="Employee Leaderboard" desc="Gamified performance ranking leaderboard" rType="employee_ranking" icon="trophy-outline" color="#e11d48" />
@@ -471,8 +433,6 @@ const ManagerReportsScreen = () => {
         return renderAttendanceReport();
       case "leave":
         return renderLeaveReport();
-      case "payroll":
-        return renderPayrollReport();
       case "tasks":
         return renderTaskReport();
       case "employee_ranking":

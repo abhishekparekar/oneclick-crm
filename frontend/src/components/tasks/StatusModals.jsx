@@ -63,23 +63,32 @@ export const InProcessModal = ({ isOpen, onClose, task }) => {
 export const CompleteModal = ({ isOpen, onClose, task, isLate }) => {
   const queryClient = useQueryClient();
   const [finalRemarks, setFinalRemarks] = useState("");
+  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [attachments, setAttachments] = useState([]);
 
+  const overdueByDate = task?.endDateTime && new Date() > new Date(task.endDateTime);
+  const actuallyLate = Boolean(isLate || task?.status === "overdue" || overdueByDate);
+
   const mut = useMutation({
-    mutationFn: (data) => isLate ? lateCompleteTaskApi(task._id, data) : completeTaskApi(task._id, data),
+    mutationFn: (data) => actuallyLate ? lateCompleteTaskApi(task._id, data) : completeTaskApi(task._id, data),
     onSuccess: () => { queryClient.invalidateQueries(["tasks"]); queryClient.invalidateQueries(["task"]); onClose(); },
     onError: (err) => alert("Error: " + err.message)
   });
 
   const onSubmit = (e) => {
     e.preventDefault();
-    mut.mutate({ finalRemarks, attachments });
+    mut.mutate({
+      finalRemarks,
+      remarks: finalRemarks,
+      nextFollowUpDate: nextFollowUpDate || null,
+      attachments
+    });
   };
 
   return (
-    <ModalWrapper title={isLate ? "Mark Late Complete" : "Mark Complete"} isOpen={isOpen} onClose={onClose}>
+    <ModalWrapper title={actuallyLate ? "Mark Late Complete" : "Mark Complete"} isOpen={isOpen} onClose={onClose}>
       <form onSubmit={onSubmit} className="p-5 space-y-4">
-        {isLate && (
+        {actuallyLate && (
           <div className="bg-ca-primary-light text-red-700 p-3 rounded-lg text-xs font-semibold flex items-start space-x-2 border border-red-100">
             <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
             <p>
@@ -91,14 +100,18 @@ export const CompleteModal = ({ isOpen, onClose, task, isLate }) => {
           </div>
         )}
         <div>
+          <label className="label-text">Next Follow-up Date &amp; Time (Optional)</label>
+          <input type="datetime-local" value={nextFollowUpDate} onChange={e => setNextFollowUpDate(e.target.value)} className="input-field" />
+        </div>
+        <div>
           <label className="label-text">Final Remarks *</label>
           <textarea required value={finalRemarks} onChange={e => setFinalRemarks(e.target.value)} className="input-field h-24 resize-none" placeholder="Add closing remarks..."></textarea>
         </div>
         <TaskAttachmentField attachments={attachments} onChange={setAttachments} />
         <div className="flex justify-end space-x-3 pt-2">
           <button type="button" onClick={onClose} className="btn-outline">Cancel</button>
-          <button type="submit" disabled={mut.isPending} className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${isLate ? 'bg-ca-primary hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>
-            {isLate ? "Late Complete" : "Complete Task"}
+          <button type="submit" disabled={mut.isPending} className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${actuallyLate ? 'bg-ca-primary hover:bg-orange-600' : 'bg-green-600 hover:bg-green-700'}`}>
+            {actuallyLate ? "Late Complete" : "Complete Task"}
           </button>
         </div>
       </form>

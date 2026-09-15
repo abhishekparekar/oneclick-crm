@@ -1,7 +1,8 @@
 import api from "./api";
 
-export const login = async (credentials) => {
-  const response = await api.post("/auth/login", credentials);
+export const login = async (credentials, force = false) => {
+  const payload = typeof credentials === "object" ? { ...credentials, force: !!force } : credentials;
+  const response = await api.post("/auth/login", payload);
   return response.data;
 };
 
@@ -29,4 +30,12 @@ export const resetPassword = async ({ token, password }) => {
   const response = await api.post(`/auth/reset-password/${token}`, { password });
   return response.data;
 };
+
+// ─── One User One Login Per Platform ─────────────────────────────────────────
+// Tells the server to clear this user's active web session token slot.
+export const logout = async () => {
+  const response = await api.post("/auth/logout");
+  return response.data;
+};
+
 

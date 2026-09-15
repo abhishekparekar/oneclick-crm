@@ -3,6 +3,31 @@ import * as Sharing from "expo-sharing";
 import RNFS from "react-native-fs";
 import { Alert } from "react-native";
 
+let isExportingInProgress = false;
+
+/**
+ * Sanitizes a single cell value to eliminate undefined, null, or NaN
+ */
+const sanitizeCellValue = (val) => {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "number") {
+    if (isNaN(val)) return 0;
+    return val;
+  }
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed === "NaN" || trimmed === "undefined" || trimmed === "null") return "";
+    return trimmed;
+  }
+  if (val instanceof Date) {
+    const d = String(val.getDate()).padStart(2, "0");
+    const m = String(val.getMonth() + 1).padStart(2, "0");
+    const y = val.getFullYear();
+    return `${d}/${m}/${y}`;
+  }
+  return String(val);
+};
+
 /**
  * Export data to an Excel (.xlsx) file and launch system share sheet.
  * @param {Object} options
@@ -11,6 +36,7 @@ import { Alert } from "react-native";
  * @param {Array<string>} options.headers - table headers
  * @param {Array<Array<any>>} options.rows - table row arrays
  * @param {Array<Array<string>>} [options.summaryRows] - optional summary key-value rows
+ * @param {Array<Object>} [options.sheets] - optional multiple sheets
  */
 export const exportToExcel = async ({
   fileName = "Report",
@@ -20,6 +46,13 @@ export const exportToExcel = async ({
   summaryRows = [],
   sheets = null,
 }) => {
+  if (isExportingInProgress) {
+    console.log("[excelExporter] Export already in progress, skipping duplicate request.");
+    return false;
+  }
+
+  isExportingInProgress = true;
+
   try {
     // Check sharing availability if supported
     if (typeof Sharing?.isAvailableAsync === "function") {
@@ -43,28 +76,40 @@ export const exportToExcel = async ({
 
     sheetList.forEach((s, sIdx) => {
       const aoaData = [];
+
+      // 1. Summary Rows
       if (s.summaryRows && s.summaryRows.length > 0) {
-        aoaData.push(...s.summaryRows);
+        s.summaryRows.forEach((row) => {
+          aoaData.push(row.map(sanitizeCellValue));
+        });
         aoaData.push([]); // blank separator
       }
+
+      // 2. Headers
       if (s.headers && s.headers.length > 0) {
-        aoaData.push(s.headers);
+        aoaData.push(s.headers.map(sanitizeCellValue));
       }
+
+      // 3. Data Rows
       if (s.rows && s.rows.length > 0) {
-        aoaData.push(...s.rows);
+        s.rows.forEach((row) => {
+          aoaData.push(row.map(sanitizeCellValue));
+        });
       }
 
       const ws = XLSX.utils.aoa_to_sheet(aoaData);
 
-      // Calculate approximate column widths
+      // Auto-calculate column widths
       if (s.headers && s.headers.length > 0) {
         const colWidths = s.headers.map((h, i) => {
           let maxLen = String(h || "").length;
           (s.rows || []).forEach((r) => {
-            const val = r[i] !== undefined && r[i] !== null ? String(r[i]) : "";
-            if (val.length > maxLen) maxLen = val.length;
+            const rawVal = r[i];
+            const val = sanitizeCellValue(rawVal);
+            const strLen = String(val).length;
+            if (strLen > maxLen) maxLen = strLen;
           });
-          return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+          return { wch: Math.min(Math.max(maxLen + 3, 12), 42) };
         });
         ws["!cols"] = colWidths;
       }
@@ -106,8 +151,9 @@ export const exportToExcel = async ({
     console.error("[excelExporter] Error generating Excel:", error);
     Alert.alert("Export Error", error?.message || "Failed to generate Excel file.");
     return false;
+  } finally {
+    isExportingInProgress = false;
   }
 };
 
 export default exportToExcel;
-

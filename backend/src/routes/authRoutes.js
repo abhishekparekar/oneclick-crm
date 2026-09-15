@@ -2,6 +2,7 @@ const express = require("express");
 const {
   registerSuperAdmin,
   login,
+  logout,
   getMe,
   changePassword,
   logoutCheck,
@@ -26,5 +27,6 @@ router.post("/reset-password/:token", resetPassword);
 router.get("/me", protect, getMe);
 router.post("/change-password", protect, changePassword);
 router.get("/logout-check", protect, logoutCheck);
+router.post("/logout", protect, logout);
 
 module.exports = router;

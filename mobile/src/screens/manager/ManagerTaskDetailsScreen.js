@@ -687,6 +687,18 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                   </View>
                 </View>
               ) : null}
+
+              {task.finalRemarks ? (
+                <View style={[styles.nativeGridCell, { width: "100%", backgroundColor: "#F8FAFC", borderColor: "#E2E8F0" }]}>
+                  <Ionicons name="chatbubble-ellipses-outline" size={15} color="#475569" style={styles.gridCellIcon} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.nativeGridLabel, { color: "#64748B" }]}>Latest Remarks / Progress</Text>
+                    <Text style={[styles.nativeGridVal, { color: "#0F172A", fontFamily: FONTS.bodyMedium }]}>
+                      {task.finalRemarks}
+                    </Text>
+                  </View>
+                </View>
+              ) : null}
             </View>
 
             {/* Assigned Staff Row */}
@@ -695,21 +707,27 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
               {assignees.length > 0 ? (
                 <View style={styles.nativeAssigneeRow}>
                   {assignees.map((a, idx) => {
-                    const initials = ((a.firstName || "S")[0] + (a.lastName || "")[0]).toUpperCase();
+                    if (!a) return null;
+                    const fName = typeof a === "object" ? (a.firstName || a.name || a.fullName || "Staff") : (typeof a === "string" ? a : "Staff");
+                    const lName = typeof a === "object" ? (a.lastName || "") : "";
+                    const displayName = `${fName} ${lName}`.trim();
+                    const initials = ((fName[0] || "S") + (lName[0] || (fName[1] || ""))).toUpperCase();
                     return (
                       <View key={idx} style={styles.nativeAssigneeChip}>
                         <View style={styles.nativeAvatarBadge}>
                           <Text style={styles.nativeAvatarText}>{initials}</Text>
                         </View>
                         <Text style={styles.nativeAssigneeName} numberOfLines={1}>
-                          {a.firstName} {a.lastName}
+                          {displayName}
                         </Text>
                       </View>
                     );
                   })}
                 </View>
               ) : (
-                <Text style={styles.nativeEmptyText}>Unassigned</Text>
+                <Text style={styles.nativeEmptyText}>
+                  {deptName && deptName !== "No Department" ? `${deptName} (Department Wide)` : "Unassigned"}
+                </Text>
               )}
             </View>
 
@@ -1069,24 +1087,39 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                 </TouchableOpacity>
               )}
 
-              {/* Option: Completed (Show if not already completed/cancelled) */}
+              {/* Option: Completed / Late Complete (Show if not already completed/cancelled) */}
               {!isCompleted && !isCancelled && (
                 <TouchableOpacity
-                  style={[styles.statusOptionRow, { borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" }]}
+                  style={[
+                    styles.statusOptionRow,
+                    isOverdue
+                      ? { borderColor: "#FED7AA", backgroundColor: "#FFF7ED" }
+                      : { borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" }
+                  ]}
                   onPress={() => {
                     setStatusPickerModalVisible(false);
                     openActionModal(isOverdue ? "late-complete" : "complete");
                   }}
                   activeOpacity={0.7}
                 >
-                  <View style={[styles.statusOptionIconWrap, { backgroundColor: "#DCFCE7" }]}>
-                    <Ionicons name="checkmark-done-circle" size={22} color="#15803D" />
+                  <View style={[styles.statusOptionIconWrap, { backgroundColor: isOverdue ? "#FFEDD5" : "#DCFCE7" }]}>
+                    <Ionicons
+                      name={isOverdue ? "time" : "checkmark-done-circle"}
+                      size={22}
+                      color={isOverdue ? "#C2410C" : "#15803D"}
+                    />
                   </View>
                   <View style={{ flex: 1, marginLeft: 12 }}>
-                    <Text style={[styles.statusOptionTitle, { color: "#15803D" }]}>Mark Complete</Text>
-                    <Text style={styles.statusOptionDesc}>Mark task as fully resolved and finished</Text>
+                    <Text style={[styles.statusOptionTitle, { color: isOverdue ? "#C2410C" : "#15803D" }]}>
+                      {isOverdue ? "Mark Late Complete" : "Mark Complete"}
+                    </Text>
+                    <Text style={styles.statusOptionDesc}>
+                      {isOverdue
+                        ? "Task is past deadline; complete with delay record"
+                        : "Mark task as fully resolved and finished"}
+                    </Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#15803D" />
+                  <Ionicons name="chevron-forward" size={18} color={isOverdue ? "#C2410C" : "#15803D"} />
                 </TouchableOpacity>
               )}
 

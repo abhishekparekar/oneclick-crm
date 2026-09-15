@@ -14,22 +14,22 @@ const ALL_SYSTEM_MODULES = [
 ];
 
 const DISPLAY_MODULES = [
-  { key: "attendance", label: "Attendance" },
   { key: "tasks", label: "Tasks" },
   { key: "leads", label: "Leads Engine" },
-  { key: "projects", label: "Projects" },
+  { key: "attendance", label: "Attendance" },
   { key: "location_tracking", label: "Location Tracking", subtext: "Live GPS Tracking" },
+  { key: "projects", label: "Projects" },
   { key: "whatsapp", label: "WhatsApp" },
   { key: "mobileApp", label: "Mobile App" },
   { key: "webAdmin", label: "Web Admin" },
 ];
 
 const MODULE_CAP_ITEMS = [
-  { key: "attendance", label: "Attendance", color: "#10b981" },
-  { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
-  { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
-  { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
+  { key: "tasks",             label: "Tasks Module",                color: "#f59e0b" },
+  { key: "leads",             label: "Leads Engine & CRM",          color: "#f59e0b" },
+  { key: "attendance",        label: "Attendance",                  color: "#10b981" },
   { key: "location_tracking", label: "Field GPS Location Tracking", color: "#ec4899" },
+  { key: "projects",          label: "Projects Workspace",          color: "#06B6D4" },
 ];
 
 const getTodayStr = () => new Date().toISOString().split("T")[0];

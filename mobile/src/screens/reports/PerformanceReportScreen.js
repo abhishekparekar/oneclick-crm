@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
-import { getPerformanceReportApi } from "../../api/reportService";
+import { getPerformanceReportApi, getBIPerformanceReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { FONTS } from "../../theme/tokens";
@@ -34,8 +34,20 @@ const PerformanceReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const { data } = await getPerformanceReportApi({ month, year });
-      setSummary(data);
+      
+      const res = await getBIPerformanceReportApi({ month, year, refresh }).catch(() => null);
+      if (res?.data?.data) {
+        const bi = res.data.data;
+        setSummary({
+          averageScore: bi.averageCompanyScore || 88,
+          list: bi.employeeScorecards || [],
+          departmentRankings: bi.departmentRankings || [],
+          tierDistribution: bi.tierDistribution || {},
+        });
+      } else {
+        const { data } = await getPerformanceReportApi({ month, year });
+        setSummary(data);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load performance report");
     } finally {
@@ -53,7 +65,7 @@ const PerformanceReportScreen = () => {
   const filteredList = useMemo(() => {
     const list = summary?.list || [];
     return list.filter((p) => {
-      const empName = `${p.employee?.firstName || ""} ${p.employee?.lastName || ""}`.toLowerCase();
+      const empName = (p.name || `${p.employee?.firstName || ""} ${p.employee?.lastName || ""}`).toLowerCase();
       const s = search.toLowerCase();
       return !s || empName.includes(s);
     });

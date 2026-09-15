@@ -10,7 +10,7 @@ const Employee = require("../models/Employee");
  * @returns {Promise<boolean>} Resolves to true if access is allowed, false otherwise.
  */
 const checkUserPermission = async (userId, companyId, userRole, category, action) => {
-  if (userRole === "CompanyAdmin" || userRole === "SuperAdmin") {
+  if (userRole === "CompanyAdmin" || userRole === "SuperAdmin" || userRole === "SubSuperAdmin") {
     return true;
   }
 
@@ -33,11 +33,14 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
 
   // Module check for known modules (if assignedModules is configured)
   const isSuiteModule = [
-    "attendance", "leave", "payroll", "tasks", "projects", "leads", "reports",
+    "attendance", "tasks", "projects", "leads", "reports",
     "recruitment", "performance", "whatsapp", "mobileapp", "webadmin"
   ].includes(modKey);
 
-  if (isSuiteModule && Array.isArray(employee.assignedModules) && !assigned.includes(modKey)) {
+  // Universal employee modules (leave & payroll) are accessible to all employees by default
+  if (modKey === "leave" || modKey === "payroll") {
+    // Always accessible to all employees by default
+  } else if (isSuiteModule && Array.isArray(employee.assignedModules) && !assigned.includes(modKey)) {
     return false; // Employee is not assigned this module
   }
 
@@ -87,7 +90,8 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
   return false;
 };
 
-const getUserPermissions = async (userId, companyId, userRole) => {
+const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
+  // SuperAdmin & CompanyAdmin get full company-operational permissions
   if (userRole === "CompanyAdmin" || userRole === "SuperAdmin") {
     return {
       tasks: { view: true, create: true, edit: true, shift: true, cancel: true, reopen: true },
@@ -100,6 +104,17 @@ const getUserPermissions = async (userId, companyId, userRole) => {
       projects: { view: true },
       reports: { view: true },
     };
+  }
+
+  // SubSuperAdmin: return their own stored superadmin-module permissions as-is
+  // These are set by the main SuperAdmin and control which superadmin modules they can access
+  if (userRole === "SubSuperAdmin") {
+    // userDoc.permissions already has the correct shape {companies:{view,create,...}, ...}
+    // Return it directly so it is NOT overwritten by company-module defaults
+    if (userDoc && userDoc.permissions && Object.keys(userDoc.permissions).length > 0) {
+      return userDoc.permissions;
+    }
+    return {};
   }
 
   const employee = await Employee.findOne({

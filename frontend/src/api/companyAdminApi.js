@@ -88,9 +88,13 @@ export const reInProcessTaskApi = (id, data) => api.patch(`/tasks/${id}/re-in-pr
 export const submitDailyReportApi = (id, data) => api.post(`/tasks/${id}/daily-report`, data);
 export const toggleTaskTemplateApi = (id) => api.patch(`/tasks/${id}/toggle-template`);
 
-// Legacy Task Exports (to prevent build errors in other components like Projects.jsx)
 export const updateTaskApi = (id, data) => api.put(`/tasks/${id}`, data);
-export const updateTaskStatusApi = (id, status) => api.patch(`/tasks/${id}/status`, { status });
+export const updateTaskStatusApi = (id, statusOrData, extraData = {}) => {
+  const payload = typeof statusOrData === "object" && statusOrData !== null
+    ? { ...statusOrData, ...extraData }
+    : { status: statusOrData, ...extraData };
+  return api.patch(`/tasks/${id}/status`, payload);
+};
 export const deleteTaskApi = (id) => api.delete(`/company/tasks/${id}`);
 export const addTaskCommentApi = (id, comment) => api.post(`/tasks/${id}/comments`, { comment });
 export const uploadTaskAttachmentApi = (id, file) => {
@@ -150,6 +154,8 @@ export const getBIWorkforceReportApi = (params = {}) => api.get("/company/report
 export const getBIAttendanceReportApi = (params = {}) => api.get("/company/reports/bi/attendance", { params });
 export const getBILeaveReportApi = (params = {}) => api.get("/company/reports/bi/leaves", { params });
 export const getBITaskReportApi = (params = {}) => api.get("/company/reports/bi/tasks", { params });
+export const getBILeadReportApi = (params = {}) => api.get("/company/reports/bi/leads", { params });
+export const getBIProjectReportApi = (params = {}) => api.get("/company/reports/bi/projects", { params });
 export const getBIPayrollReportApi = (params = {}) => api.get("/company/reports/bi/payroll", { params });
 export const getBIPerformanceReportApi = (params = {}) => api.get("/company/reports/bi/performance", { params });
 export const getBIAuditReportApi = (params = {}) => api.get("/company/reports/bi/audit", { params });

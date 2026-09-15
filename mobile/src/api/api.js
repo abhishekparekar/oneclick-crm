@@ -71,10 +71,19 @@ export const getApiBaseUrl = () => {
   return `http://${host}/api`;
 };
 
+// ─── Callback for Session Invalidation ────────────────────────────────────────
+let _onSessionInvalidatedCallback = null;
+export const setOnSessionInvalidated = (callback) => {
+  _onSessionInvalidatedCallback = callback;
+};
+
 // ─── Axios Instance ───────────────────────────────────────────────────────────
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    "X-Platform": "mobile",
+  },
   timeout: 15000,
 });
 
@@ -82,12 +91,15 @@ api.interceptors.request.use(
   async (config) => {
     config.baseURL = getApiBaseUrl();
 
+    // Ensure X-Platform header is always attached
+    config.headers = config.headers || {};
+    config.headers["X-Platform"] = "mobile";
+
     // Auto-attach stored token for background tasks / headless workers
     if (!config.headers?.Authorization) {
       try {
         const storedToken = await AsyncStorage.getItem("hrms_token");
         if (storedToken) {
-          config.headers = config.headers || {};
           config.headers.Authorization = `Bearer ${storedToken}`;
         }
       } catch (_) {}
@@ -107,8 +119,22 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     const status = error.response?.status;
+    const code = error.response?.data?.code;
     const url = originalRequest?.url || "";
     const message = error.response?.data?.message || error.message;
+
+    // ─── One User One Login Per Platform: Handle Session Invalidated ───────────
+    if (status === 401 && code === "SESSION_INVALIDATED") {
+      console.warn("[API] Session invalidated on server (logged in elsewhere). Logging out.");
+      try {
+        await AsyncStorage.multiRemove(["hrms_token", "hrms_user"]);
+      } catch (_) {}
+      setAuthToken(null);
+      if (typeof _onSessionInvalidatedCallback === "function") {
+        _onSessionInvalidatedCallback();
+      }
+      return Promise.reject(error);
+    }
 
     // Automatic failover: If local endpoint encounters Network Error and hasn't retried yet, switch to live cloud backend
     if (!error.response && !originalRequest._retry && !originalRequest.baseURL?.includes("vercel.app")) {

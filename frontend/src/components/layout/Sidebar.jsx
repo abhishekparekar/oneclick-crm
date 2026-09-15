@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import useSuperAdminPermissions from "../../hooks/useSuperAdminPermissions";
 import { useQuery } from "@tanstack/react-query";
 import { getCompanyProfileApi, getActiveSubscriptionApi } from "../../api/companyAdminApi";
 import EmployeeSidebar from "./EmployeeSidebar";
@@ -42,6 +43,7 @@ import {
   Navigation,
   Wallet,
   FileSpreadsheet,
+  Key,
 } from "lucide-react";
 
 // ─── Company Admin nav sections — ordered by usage frequency ────────────────
@@ -109,7 +111,7 @@ const COMPANY_SECTIONS = [
     title: "REPORTS",
     items: [
       { label: "Attendance Report", path: "/company/attendance-report", icon: FileSpreadsheet, module: "reports" },
-      { label: "Reports & Analytics", path: "/company/reports/attendance", icon: BarChart2, module: "reports" },
+      { label: "Reports & Analytics", path: "/company/reports", icon: BarChart2, module: "reports" },
       { label: "Performance", path: "/company/reports/performance", icon: Activity, module: "performance" },
     ],
   },
@@ -133,48 +135,68 @@ const COMPANY_SECTIONS = [
 // ─── Super Admin Sidebar ──────────────────────────────────────────────────
 const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
   const location = useLocation();
+  const { user } = useAuth();
+  const { isSuperAdmin, isSubSuperAdmin, canView } = useSuperAdminPermissions();
+
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(path + "/");
 
+  // Full nav definition with module keys for permission gating
   const SUPERADMIN_NAV = [
     {
       title: null,
+      superAdminOnly: false,
       items: [
         { label: "Dashboard", path: "/superadmin/dashboard", icon: LayoutDashboard },
       ],
     },
     {
       title: "MANAGEMENT",
+      superAdminOnly: false,
       items: [
-        { label: "Companies", path: "/superadmin/companies", icon: Building2 },
-        { label: "Company Requests", path: "/superadmin/company-requests", icon: UserPlus },
-        { label: "Company Admins", path: "/superadmin/company-admins", icon: ShieldCheck },
+        { label: "Companies", path: "/superadmin/companies", icon: Building2, module: "companies" },
+        { label: "Company Requests", path: "/superadmin/company-requests", icon: UserPlus, module: "companyRequests" },
+        { label: "Company Admins", path: "/superadmin/company-admins", icon: ShieldCheck, module: "companyAdmins" },
       ],
     },
     {
       title: "BILLING",
+      superAdminOnly: false,
       items: [
-        { label: "Subscriptions", path: "/superadmin/subscriptions", icon: Receipt },
-        { label: "Plans", path: "/superadmin/plans", icon: Tags },
-        { label: "Payments", path: "/superadmin/payments", icon: DollarSign },
+        { label: "Subscriptions", path: "/superadmin/subscriptions", icon: Receipt, module: "subscriptions" },
+        { label: "Plans", path: "/superadmin/plans", icon: Tags, module: "plans" },
+        { label: "Payments", path: "/superadmin/payments", icon: DollarSign, module: "payments" },
       ],
     },
     {
       title: "USERS & CONTENT",
+      superAdminOnly: false,
       items: [
-        { label: "Announcements", path: "/superadmin/announcements", icon: Megaphone },
-        { label: "Support Tickets", path: "/superadmin/support-tickets", icon: MessageSquare },
+        { label: "Global Users", path: "/superadmin/users", icon: Users, module: "users" },
+        { label: "Announcements", path: "/superadmin/announcements", icon: Megaphone, module: "announcements" },
+        { label: "Support Tickets", path: "/superadmin/support-tickets", icon: MessageSquare, module: "supportTickets" },
       ],
     },
     {
       title: "INSIGHTS",
+      superAdminOnly: false,
       items: [
-        { label: "Reports & Analytics", path: "/superadmin/reports", icon: BarChart2 },
-        { label: "Activity Logs", path: "/superadmin/activity-logs", icon: ClipboardList },
-        { label: "System Settings", path: "/superadmin/settings", icon: Settings },
+        { label: "Reports & Analytics", path: "/superadmin/reports", icon: BarChart2, module: "reports" },
+        { label: "Activity Logs", path: "/superadmin/activity-logs", icon: ClipboardList, module: "activityLogs" },
+        { label: "System Settings", path: "/superadmin/settings", icon: Settings, module: "settings" },
+      ],
+    },
+    {
+      title: "ADMIN",
+      superAdminOnly: true,
+      items: [
+        { label: "Sub-Admin Management", path: "/superadmin/sub-admins", icon: Key },
       ],
     },
   ];
+
+  const userName = user?.name || "Super Admin";
+  const userInitials = userName.slice(0, 2).toUpperCase();
 
   return (
     <div
@@ -188,55 +210,71 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         ) : (
           <>
             <OneClickLogo variant="landscape" />
-            <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-[#1268D9] mt-0.5">Super Admin</span>
+            <span className={`text-[9px] font-bold uppercase tracking-[0.15em] mt-0.5 ${isSubSuperAdmin ? "text-purple-400" : "text-[#1268D9]"}`}>
+              {isSubSuperAdmin ? "Sub-Super Admin" : "Super Admin"}
+            </span>
           </>
         )}
       </div>
 
       {/* Navigation */}
       <nav className={`flex-1 overflow-y-auto ${isCollapsed ? "px-1.5 py-2 space-y-1.5" : "px-3 py-1"} oc-scroll`}>
-        {SUPERADMIN_NAV.map((section, idx) => (
-          <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
-            {!isCollapsed && section.title && (
-              <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
-                {section.title}
-              </p>
-            )}
-            {isCollapsed && section.title && idx > 0 && (
-              <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
-            )}
-            <div className="space-y-0.5">
-              {section.items.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={onItemClick}
-                    title={item.label}
-                    className={`${isCollapsed
-                      ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
-                        ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                        : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
-                      }`
-                      : `oc-nav-item ${active ? "active" : ""}`
-                      }`}
-                  >
-                    {isCollapsed ? (
-                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
-                    ) : (
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon size={15} strokeWidth={active ? 2 : 1.75} className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
-                        <span className="truncate text-[13px]">{item.label}</span>
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+        {SUPERADMIN_NAV.map((section, idx) => {
+          // Hide SuperAdmin-only sections from SubSuperAdmin
+          if (section.superAdminOnly && !isSuperAdmin) return null;
+
+          // Filter items by permission for SubSuperAdmin
+          const visibleItems = section.items.filter((item) => {
+            if (!item.module) return true; // No module key = always visible (e.g. Dashboard)
+            if (isSuperAdmin) return true; // SuperAdmin sees everything
+            return canView(item.module);
+          });
+
+          if (visibleItems.length === 0) return null;
+
+          return (
+            <div key={idx} className={isCollapsed ? "mb-1" : "mb-1"}>
+              {!isCollapsed && section.title && (
+                <p className="text-[9px] font-bold uppercase tracking-[0.12em] text-slate-500 px-2.5 pt-3 pb-1">
+                  {section.title}
+                </p>
+              )}
+              {isCollapsed && section.title && idx > 0 && (
+                <div className="h-[1px] bg-white/[0.06] my-1 mx-2" />
+              )}
+              <div className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onItemClick}
+                      title={item.label}
+                      className={`${isCollapsed
+                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                          ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                          : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                        }`
+                        : `oc-nav-item ${active ? "active" : ""}`
+                        }`}
+                    >
+                      {isCollapsed ? (
+                        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                      ) : (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon size={15} strokeWidth={active ? 2 : 1.75} className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`} />
+                          <span className="truncate text-[13px]">{item.label}</span>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </nav>
 
       {/* Footer */}
@@ -245,7 +283,7 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
           <>
             <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-[#061225] text-[12px] font-semibold text-slate-300 cursor-pointer hover:bg-white/[0.06] transition-all">
               <div className="flex items-center gap-2 truncate min-w-0">
-                <Hexagon size={13} strokeWidth={1.75} className="text-[#1268D9] flex-shrink-0" />
+                <Hexagon size={13} strokeWidth={1.75} className={`flex-shrink-0 ${isSubSuperAdmin ? "text-purple-400" : "text-[#1268D9]"}`} />
                 <span className="truncate">One Click Platform</span>
               </div>
             </div>
@@ -254,17 +292,17 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
                 to="/superadmin/profile"
                 onClick={onItemClick}
                 className="flex items-center gap-2 min-w-0 flex-1 hover:opacity-90 transition-opacity"
-                title="View Super Admin Profile"
+                title="View Profile"
               >
                 <div className="relative flex-shrink-0">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs">
-                    SA
+                  <div className={`w-7 h-7 rounded-full bg-gradient-to-tr flex items-center justify-center text-white font-bold text-[11px] shadow-xs ${isSubSuperAdmin ? "from-purple-600 to-purple-900" : "from-[#1268D9] to-[#082B52]"}`}>
+                    {userInitials}
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
                 </div>
                 <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">Super Admin</p>
-                  <p className="text-[10px] text-slate-500 leading-tight">Platform Root</p>
+                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">{userName}</p>
+                  <p className="text-[10px] text-slate-500 leading-tight">{isSubSuperAdmin ? "Sub-Super Admin" : "Platform Root"}</p>
                 </div>
               </Link>
               <button onClick={logout} title="Log Out" className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer">
@@ -277,10 +315,10 @@ const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
             <Link
               to="/superadmin/profile"
               onClick={onItemClick}
-              title="Super Admin Profile"
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs"
+              title="Profile"
+              className={`w-9 h-9 rounded-full bg-gradient-to-tr flex items-center justify-center text-white font-bold text-[11px] shadow-xs ${isSubSuperAdmin ? "from-purple-600 to-purple-900" : "from-[#1268D9] to-[#082B52]"}`}
             >
-              SA
+              {userInitials}
             </Link>
             <button
               onClick={logout}
@@ -504,7 +542,7 @@ const Sidebar = ({ onItemClick, isCollapsed = false }) => {
   const { user, logout } = useAuth();
   const location = useLocation();
 
-  if (user?.role === "SuperAdmin" || location.pathname.startsWith("/superadmin")) {
+  if (user?.role === "SuperAdmin" || user?.role === "SubSuperAdmin" || location.pathname.startsWith("/superadmin")) {
     return <SuperAdminSidebar logout={logout} onItemClick={onItemClick} isCollapsed={isCollapsed} />;
   }
 

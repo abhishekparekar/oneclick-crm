@@ -239,12 +239,13 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
     setLoading(true);
     try {
       let finalAssignees = [];
+      const currentEmployeeId = user?.employeeId || dashboardData?.manager?._id;
       if (assignmentType === "self") {
-        finalAssignees = [user.employeeId];
+        finalAssignees = currentEmployeeId ? [currentEmployeeId] : [];
       } else if (assignmentType === "multiple") {
         finalAssignees = assigneeIds;
       } else if (assignmentType === "both") {
-        finalAssignees = [user.employeeId, ...assigneeIds];
+        finalAssignees = currentEmployeeId ? [currentEmployeeId, ...assigneeIds] : assigneeIds;
       }
 
       const startISO = startDate ? parseDDMMYYYYToISO(startDate) : undefined;

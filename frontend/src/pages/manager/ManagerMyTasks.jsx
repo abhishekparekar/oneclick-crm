@@ -113,7 +113,7 @@ export default function ManagerMyTasks() {
   const [statusFilter, setStatusFilter] = useState("");
   const [viewMode, setViewMode] = useState("list");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("All Time");
+  const [activeTab, setActiveTab] = useState("Today");
   const navigate = useNavigate();
 
   useEffect(() => {

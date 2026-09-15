@@ -7,6 +7,8 @@ import ManagerNavigator from "../navigation/ManagerNavigator";
 // Normalized role → Navigator map (all keys lowercase for case-insensitive lookup)
 const ROLE_NAVIGATORS_MAP = {
   superadmin: SuperAdminNavigator,
+  subsuperadmin: SuperAdminNavigator,
+  "sub-superadmin": SuperAdminNavigator,
   companyadmin: CompanyNavigator,
   hr: HRNavigator,
   manager: ManagerNavigator,
@@ -16,6 +18,8 @@ const ROLE_NAVIGATORS_MAP = {
 // Normalized role → dashboard route name
 const ROLE_ROUTES_MAP = {
   superadmin: "SuperAdminDashboard",
+  subsuperadmin: "SuperAdminDashboard",
+  "sub-superadmin": "SuperAdminDashboard",
   companyadmin: "CompanyDashboard",
   hr: "HRStack",
   manager: "ManagerDashboard",

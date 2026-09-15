@@ -68,19 +68,41 @@ const SectionHeader = ({ title, icon, onViewAll }) => (
 
 export default function EmployeeDashboard({ navigation }) {
   const { user, hasPermission, refreshUserProfile } = useAuth();
-  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
-  const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
-  const canCreateTask = hasPermission("tasks", "create");
-  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
-  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
-  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
-  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
   const {
     employeeDashboard,
     loading,
     refreshEmployeeDashboard,
     getEmployeeDashboardCached
   } = useAppData();
+
+  const employee = employeeDashboard?.employee || user?.employee || {};
+
+  const canAccessTasks =
+    hasPermission("tasks", "view") ||
+    hasPermission("tasks") ||
+    Boolean(
+      (Array.isArray(employee?.assignedModules) && employee.assignedModules.some((m) => ["tasks", "task"].includes(String(m).toLowerCase().trim()))) ||
+      (Array.isArray(user?.assignedModules) && user.assignedModules.some((m) => ["tasks", "task"].includes(String(m).toLowerCase().trim()))) ||
+      (typeof employee?.permissions?.tasks === "object" ? employee?.permissions?.tasks?.view !== false && employee?.permissions?.tasks?.view !== undefined : employee?.permissions?.tasks === true) ||
+      (typeof user?.permissions?.tasks === "object" ? user?.permissions?.tasks?.view !== false && user?.permissions?.tasks?.view !== undefined : user?.permissions?.tasks === true)
+    );
+  const canCreateTask = hasPermission("tasks", "create") || Boolean(employee?.permissions?.tasks?.create || user?.permissions?.tasks?.create);
+  const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
+  const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
+  const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
+
+  const canAccessLocationTracking =
+    hasPermission("locationTracking") ||
+    hasPermission("location_tracking") ||
+    hasPermission("location") ||
+    Boolean(
+      user?.isLocationTrackingEnabled ||
+      user?.employee?.isLocationTrackingEnabled ||
+      employee?.isLocationTrackingEnabled ||
+      employee?.locationTrackingEnabled
+    );
 
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDeptId, setSelectedDeptId] = useState("");
@@ -113,7 +135,12 @@ export default function EmployeeDashboard({ navigation }) {
   useFocusEffect(
     useCallback(() => {
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
-      getEmployeeDashboardCached(false, params).catch(() => {});
+      if (refreshUserProfile) refreshUserProfile().catch(() => {});
+      if (refreshEmployeeDashboard) {
+        refreshEmployeeDashboard(params).catch(() => {});
+      } else {
+        getEmployeeDashboardCached(true, params).catch(() => {});
+      }
       if (canAccessLeads) {
         leadsService.getLeads().then((res) => {
           const arr = Array.isArray(res) ? res : res?.data || [];
@@ -122,13 +149,12 @@ export default function EmployeeDashboard({ navigation }) {
       }
       // Auto-resume background location tracking if active and duty is on
       locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
-    }, [selectedDeptId, canAccessLeads])
+    }, [selectedDeptId, canAccessLeads, refreshUserProfile, refreshEmployeeDashboard, getEmployeeDashboardCached])
   );
 
   const handleRefresh = () => loadData(true, selectedDeptId);
 
   const data = employeeDashboard || {};
-  const employee = data.employee || {};
 
   const departmentsList = React.useMemo(() => {
     const list = [];
@@ -436,11 +462,16 @@ export default function EmployeeDashboard({ navigation }) {
                   </Text>
                 </View>
               </View>
-              {isCurrentlyPunchedIn && (user?.isLocationTrackingEnabled || employee?.isLocationTrackingEnabled) && (
-                <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(16, 185, 129, 0.22)", paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: 12, marginTop: 7, alignSelf: "flex-start", borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.45)" }}>
+              {isCurrentlyPunchedIn && canAccessLocationTracking && (
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", backgroundColor: "rgba(16, 185, 129, 0.22)", paddingHorizontal: 8, paddingVertical: 3.5, borderRadius: 12, marginTop: 7, alignSelf: "flex-start", borderWidth: 1, borderColor: "rgba(52, 211, 153, 0.45)" }}
+                  onPress={() => navigation.navigate("EmployeeLocationTracking")}
+                  activeOpacity={0.8}
+                >
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: "#34D399", marginRight: 5 }} />
                   <Text style={{ color: "#ECFDF5", fontSize: 10.5, fontWeight: "700" }}>Live Route Tracking Active</Text>
-                </View>
+                  <Ionicons name="chevron-forward" size={10} color="#ECFDF5" style={{ marginLeft: 3 }} />
+                </TouchableOpacity>
               )}
             </View>
             {canAccessAttendance && (
@@ -591,6 +622,15 @@ export default function EmployeeDashboard({ navigation }) {
                 </TouchableOpacity>
               )}
 
+              {canAccessTasks && (
+                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Tasks")} activeOpacity={0.7}>
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="clipboard" size={20} color="#1268D9" />
+                  </View>
+                  <Text style={styles.quickLabel}>My Tasks</Text>
+                </TouchableOpacity>
+              )}
+
               {canCreateTask && (
                 <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
                   <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
@@ -615,6 +655,19 @@ export default function EmployeeDashboard({ navigation }) {
                     <Ionicons name="time" size={20} color="#10B981" />
                   </View>
                   <Text style={styles.quickLabel}>Attendance</Text>
+                </TouchableOpacity>
+              )}
+
+              {canAccessLocationTracking && (
+                <TouchableOpacity
+                  style={styles.quickAccessItem}
+                  onPress={() => navigation.navigate("EmployeeLocationTracking")}
+                  activeOpacity={0.7}
+                >
+                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                    <Ionicons name="navigate-circle" size={20} color="#2563EB" />
+                  </View>
+                  <Text style={styles.quickLabel}>Live Route</Text>
                 </TouchableOpacity>
               )}
 
@@ -652,6 +705,67 @@ export default function EmployeeDashboard({ navigation }) {
             </View>
           </View>
         </View>
+
+        {/* ── My Tasks & Deadlines (Dedicated Section Card) ────────── */}
+        {canAccessTasks && (
+          <View style={styles.card}>
+            <SectionHeader
+              title="My Tasks & Deadlines"
+              icon="clipboard-outline"
+              onViewAll={() => navigation.navigate("Tasks")}
+            />
+
+            {/* Quick 4 KPI Row */}
+            <View style={styles.leadKpiRow}>
+              <TouchableOpacity
+                style={[styles.leadKpiTile, { borderLeftColor: "#1268D9" }]}
+                onPress={() => navigation.navigate("Tasks")}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.leadKpiNum}>{taskSummary.assignedTasks ?? taskSummary.totalTasks ?? 0}</Text>
+                <Text style={styles.leadKpiLabel}>Total Tasks</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.leadKpiTile, { borderLeftColor: "#EAB308" }]}
+                onPress={() => navigation.navigate("Tasks", { taskFilter: "pending", status: "pending" })}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.leadKpiNum, { color: "#D97706" }]}>{taskSummary.pending ?? 0}</Text>
+                <Text style={styles.leadKpiLabel}>Pending</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.leadKpiTile, { borderLeftColor: "#EF4444" }]}
+                onPress={() => navigation.navigate("Tasks", { taskFilter: "overdue", status: "overdue" })}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.leadKpiNum, { color: "#DC2626" }]}>{taskSummary.overdue ?? 0}</Text>
+                <Text style={styles.leadKpiLabel}>Overdue</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.leadKpiTile, { borderLeftColor: "#10B981" }]}
+                onPress={() => navigation.navigate("Tasks", { taskFilter: "complete", status: "complete" })}
+                activeOpacity={0.75}
+              >
+                <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{taskSummary.completed ?? 0}</Text>
+                <Text style={styles.leadKpiLabel}>Completed</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Direct Open Button */}
+            <TouchableOpacity
+              style={[styles.openLeadsPipelineBtn, { backgroundColor: "#1268D9" }]}
+              onPress={() => navigation.navigate("Tasks")}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="clipboard-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.openLeadsPipelineText}>Open My Tasks & Deadlines</Text>
+              <Ionicons name="arrow-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* ── Lead Management Overview & Shortcuts ────────── */}
         {canAccessLeads && (

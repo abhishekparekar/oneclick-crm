@@ -23,18 +23,20 @@ import {
 } from "../../api/superAdminService";
 
 const MODULES = [
-  "attendance", "leave", "payroll", "tasks", "projects",
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads"
+  "tasks", "leads", "attendance", "location_tracking", "projects",
+  "whatsapp", "mobileApp", "webAdmin", "leave", "payroll",
+  "recruitment", "performance", "reports"
 ];
 
 const MODULE_CAP_ITEMS = [
-  { key: "attendance", label: "Attendance & Bio-Punch", color: "#10b981" },
-  { key: "leave",      label: "Leave Management",       color: "#06B6D4" },
-  { key: "payroll",    label: "Payroll & Salary",       color: "#8b5cf6" },
-  { key: "tasks",      label: "Tasks Module",            color: "#f59e0b" },
-  { key: "leads",      label: "Leads Engine & CRM",      color: "#f59e0b" },
-  { key: "projects",   label: "Projects Workspace",      color: "#06B6D4" },
-  { key: "reports",    label: "Analytics & Reports",     color: "#3B82F6" },
+  { key: "tasks",             label: "Tasks Module",               color: "#f59e0b" },
+  { key: "leads",             label: "Leads Engine & CRM",         color: "#f59e0b" },
+  { key: "attendance",        label: "Attendance & Bio-Punch",     color: "#10b981" },
+  { key: "location_tracking", label: "Field GPS Location Tracking",color: "#ec4899" },
+  { key: "projects",          label: "Projects Workspace",         color: "#06B6D4" },
+  { key: "leave",             label: "Leave Management",          color: "#06B6D4" },
+  { key: "payroll",           label: "Payroll & Salary",          color: "#8b5cf6" },
+  { key: "reports",           label: "Analytics & Reports",        color: "#3B82F6" },
 ];
 
 const AddCompanyScreen = ({ route, navigation }) => {
@@ -481,7 +483,7 @@ const AddCompanyScreen = ({ route, navigation }) => {
 
         {/* Section 5: Per-Module Employee Seat Caps */}
         {form.subscribedModules.some((m) =>
-          ["attendance", "leave", "payroll", "tasks", "leads", "projects", "reports"].includes(m)
+          ["tasks", "leads", "attendance", "location_tracking", "projects", "leave", "payroll", "reports"].includes(m)
         ) && (
           <AppCard style={styles.card}>
             <View style={styles.sectionHeader}>

@@ -80,11 +80,34 @@ const checkIsEarlyLeave = (punchOutTime, shiftEndTime, earlyGraceMinutes) => {
 
 // Locate matching employee document for req.user
 const resolveEmployeeForUser = async (req) => {
-  if (req.user.employeeId) {
-    return Employee.findOne({ _id: req.user.employeeId, companyId: req.companyId });
+  const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
+  let employee = null;
+
+  if (req.user?.employeeId) {
+    employee = await Employee.findOne({ _id: req.user.employeeId, companyId });
+    if (employee) return employee;
   }
-  // Fallback lookup by email
-  return Employee.findOne({ email: req.user.email.toLowerCase(), companyId: req.companyId });
+
+  if (req.user?._id) {
+    employee = await Employee.findOne({ userId: req.user._id, companyId });
+    if (employee) return employee;
+  }
+
+  if (req.user?.email) {
+    employee = await Employee.findOne({
+      email: new RegExp(`^${req.user.email.trim()}$`, "i"),
+      companyId,
+    });
+    if (employee) return employee;
+  }
+
+  // Final fallback by userId without strict companyId
+  if (req.user?._id) {
+    employee = await Employee.findOne({ userId: req.user._id });
+    if (employee) return employee;
+  }
+
+  return null;
 };
 
 const getCompanyAttendanceSettings = async (companyId) => {
@@ -556,16 +579,17 @@ const myMonthly = async (req, res, next) => {
 
     const targetMonth = Number(req.query.month) || new Date().getMonth() + 1;
     const targetYear = Number(req.query.year) || new Date().getFullYear();
+    const effectiveCompanyId = req.companyId || employee.companyId;
 
     // Fetch existing records for this month
     const records = await Attendance.find({
-      companyId: req.companyId,
+      companyId: effectiveCompanyId,
       employeeId: employee._id,
       month: targetMonth,
       year: targetYear,
     }).lean();
 
-    const company = await Company.findById(req.companyId);
+    const company = await Company.findById(effectiveCompanyId);
     const settings = company?.settings || {
       workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     };
@@ -573,7 +597,7 @@ const myMonthly = async (req, res, next) => {
 
     // Fetch holidays
     const holidays = await Holiday.find({
-      companyId: req.companyId,
+      companyId: effectiveCompanyId,
       date: {
         $gte: new Date(targetYear, targetMonth - 1, 1),
         $lte: new Date(targetYear, targetMonth, 0, 23, 59, 59),
@@ -582,7 +606,7 @@ const myMonthly = async (req, res, next) => {
 
     // Fetch approved leaves
     const leaves = await Leave.find({
-      companyId: req.companyId,
+      companyId: effectiveCompanyId,
       employeeId: employee._id,
       status: "approved",
       $or: [

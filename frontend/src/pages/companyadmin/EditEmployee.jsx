@@ -25,10 +25,7 @@ const ALL_MODULES = [
   { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
   { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
   { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
-  { key: "leave", label: "Leaves & Holidays", desc: "Apply leaves & view holiday roster" },
-  { key: "payroll", label: "Salary & Payslips", desc: "View payslips & salary structures" },
   { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
-  { key: "reports", label: "Analytics & Reports", desc: "View operational reports & analytics" },
 ];
 
 const getPhotoUrl = (rawPhoto) => {

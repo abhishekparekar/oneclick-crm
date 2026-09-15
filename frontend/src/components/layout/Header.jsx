@@ -34,7 +34,7 @@ const COMPANY_PAGES = [
   { label: "Generate Payroll",    path: "/company/payroll/generate",  icon: DollarSign },
   { label: "Payroll History",     path: "/company/payroll/history",   icon: DollarSign },
   { label: "Salary Structures",   path: "/company/payroll/salary",    icon: DollarSign },
-  { label: "Reports",             path: "/company/reports/attendance",icon: BarChart2 },
+  { label: "Reports",             path: "/company/reports",           icon: BarChart2 },
   { label: "Audit Logs",          path: "/company/audit-logs",        icon: BarChart2 },
   { label: "Access Control",      path: "/company/access-control",    icon: Settings },
   { label: "Company Profile",     path: "/company/profile",           icon: Building2 },

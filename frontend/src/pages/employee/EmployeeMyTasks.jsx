@@ -179,7 +179,7 @@ export default function EmployeeMyTasks() {
   const { user: authUser } = useAuth();
   const canCreate = ["CompanyAdmin", "SuperAdmin", "Manager"].includes(authUser?.role);
 
-  const [dateTab, setDateTab] = useState("All Time");
+  const [dateTab, setDateTab] = useState("Today");
   const [statusFilter, setStatusFilter] = useState("all");
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const [priorityFilter, setPriorityFilter] = useState("all");

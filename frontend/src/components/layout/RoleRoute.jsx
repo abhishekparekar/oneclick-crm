@@ -10,7 +10,7 @@ const RoleRoute = ({ allowedRoles }) => {
 
   if (!user || !allowedRoles.includes(user.role)) {
     // Redirect based on what role they actually are if they shouldn't be here
-    if (user?.role === "SuperAdmin") return <Navigate to="/superadmin/dashboard" replace />;
+    if (user?.role === "SuperAdmin" || user?.role === "SubSuperAdmin") return <Navigate to="/superadmin/dashboard" replace />;
     if (user?.role === "CompanyAdmin") return <Navigate to="/company/dashboard" replace />;
     if (user?.role === "HR") return <Navigate to="/hr/dashboard" replace />;
     if (user?.role === "Manager") return <Navigate to="/manager/dashboard" replace />;

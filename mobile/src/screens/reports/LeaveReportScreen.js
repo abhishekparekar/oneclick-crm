@@ -13,7 +13,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
-import { getLeaveSummaryApi } from "../../api/reportService";
+import { getLeaveSummaryApi, getBILeaveReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
@@ -43,8 +43,24 @@ const LeaveReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const { data } = await getLeaveSummaryApi({ month, year });
-      setSummary(data);
+      
+      const res = await getBILeaveReportApi({ month, year, refresh }).catch(() => null);
+      if (res?.data?.data) {
+        const bi = res.data.data;
+        setSummary({
+          totalLeaves: bi.kpis?.total || 0,
+          approved: bi.kpis?.approved || 0,
+          pending: bi.kpis?.pending || 0,
+          rejected: bi.kpis?.rejected || 0,
+          list: bi.records || [],
+          typeDistribution: bi.typeDistribution || [],
+          departmentBreakdown: bi.departmentBreakdown || [],
+          employeeBreakdown: bi.employeeBreakdown || [],
+        });
+      } else {
+        const { data } = await getLeaveSummaryApi({ month, year });
+        setSummary(data);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load leave summary");
     } finally {
@@ -63,7 +79,7 @@ const LeaveReportScreen = () => {
     const list = summary?.list || [];
     return list.filter((l) => {
       const emp = l.employeeId || {};
-      const empName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
+      const empName = l.employeeName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || "Unknown";
       const s = search.toLowerCase();
       const matchSearch = !s || empName.toLowerCase().includes(s) || (l.leaveType || "").toLowerCase().includes(s);
       const matchStatus = statusFilter === "all" || (l.status || "").toLowerCase() === statusFilter;

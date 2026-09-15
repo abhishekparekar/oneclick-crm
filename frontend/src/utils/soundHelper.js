@@ -5,9 +5,26 @@
  */
 
 let audioCtx = null;
+let userInteracted = false;
+
+// Register user gesture listener to unlock Web Audio API cleanly
+if (typeof window !== "undefined") {
+  const unlockAudio = () => {
+    userInteracted = true;
+    if (audioCtx && audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+    window.removeEventListener("click", unlockAudio);
+    window.removeEventListener("keydown", unlockAudio);
+    window.removeEventListener("touchstart", unlockAudio);
+  };
+  window.addEventListener("click", unlockAudio, { passive: true });
+  window.addEventListener("keydown", unlockAudio, { passive: true });
+  window.addEventListener("touchstart", unlockAudio, { passive: true });
+}
 
 const getAudioContext = () => {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || !userInteracted) return null;
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {

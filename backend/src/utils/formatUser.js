@@ -11,6 +11,9 @@
 
 const ROLE_MAP = {
   superadmin: "SuperAdmin",
+  subsuperadmin: "SubSuperAdmin",
+  "sub-superadmin": "SubSuperAdmin",
+  sub_superadmin: "SubSuperAdmin",
   companyadmin: "CompanyAdmin",
   hr: "HR",
   manager: "Manager",
@@ -20,7 +23,7 @@ const ROLE_MAP = {
 const normalizeRole = (role) => {
   if (!role) return role;
   // Already correct casing — return as-is if it matches a known valid role
-  const valid = ["SuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"];
+  const valid = ["SuperAdmin", "SubSuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"];
   if (valid.includes(role)) return role;
   // Try case-insensitive lookup in the map
   return ROLE_MAP[role.toLowerCase()] || role;
@@ -60,7 +63,10 @@ const formatUser = (user) => {
     obj.isPasswordResetRequired = false;
   }
 
-  // ── Preserve assignedModules if present ───────────────────────────────────
+  // ── Preserve permissions & assignedModules ────────────────────────────────
+  if (obj.permissions === undefined) {
+    obj.permissions = {};
+  }
   if (Array.isArray(obj.assignedModules)) {
     // Keep as is
   }

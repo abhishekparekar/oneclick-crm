@@ -57,6 +57,18 @@ import EmployeeLeadDetailsScreen from "../screens/employee/EmployeeLeadDetailsSc
 import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
 import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 
+// Universal Report Screens
+import ReportsDashboardScreen from "../screens/reports/ReportsDashboardScreen";
+import AttendanceReportScreen from "../screens/reports/AttendanceReportScreen";
+import LeaveReportScreen from "../screens/reports/LeaveReportScreen";
+import TaskReportScreen from "../screens/reports/TaskReportScreen";
+import ProjectReportScreen from "../screens/reports/ProjectReportScreen";
+import EmployeeReportScreen from "../screens/reports/EmployeeReportScreen";
+import PerformanceReportScreen from "../screens/reports/PerformanceReportScreen";
+import LeadReportScreen from "../screens/reports/LeadReportScreen";
+import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
+import OrganizationReportScreen from "../screens/reports/OrganizationReportScreen";
+
 const Drawer = createDrawerNavigator();
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -324,6 +336,18 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="EmployeeProjectActivity" component={EmployeeProjectActivityScreen} />
       <Stack.Screen name="CompanyRequests" component={CompanyRequestsScreen} />
       <Stack.Screen name="EmployeeLocationTracking" component={EmployeeLocationTrackingScreen} />
+
+      {/* Universal Report Screens */}
+      <Stack.Screen name="ReportsDashboard" component={ReportsDashboardScreen} />
+      <Stack.Screen name="AttendanceReport" component={AttendanceReportScreen} />
+      <Stack.Screen name="LeaveReport" component={LeaveReportScreen} />
+      <Stack.Screen name="TaskReport" component={TaskReportScreen} />
+      <Stack.Screen name="ProjectReport" component={ProjectReportScreen} />
+      <Stack.Screen name="EmployeeReport" component={EmployeeReportScreen} />
+      <Stack.Screen name="PerformanceReport" component={PerformanceReportScreen} />
+      <Stack.Screen name="LeadReport" component={LeadReportScreen} />
+      <Stack.Screen name="PayrollReport" component={PayrollReportScreen} />
+      <Stack.Screen name="OrganizationReport" component={OrganizationReportScreen} />
     </Stack.Navigator>
   );
 };

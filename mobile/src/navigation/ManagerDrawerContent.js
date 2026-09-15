@@ -169,7 +169,7 @@ const buildManagerSections = (hasPermission) => {
           ? [
               {
                 label: "Reports & Analytics",
-                screen: "ManagerReports",
+                screen: "ReportsDashboard",
                 icon: "bar-chart-outline",
                 activeIcon: "bar-chart",
                 color: "#8B5CF6",

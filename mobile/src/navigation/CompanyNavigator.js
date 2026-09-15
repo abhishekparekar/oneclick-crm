@@ -47,11 +47,14 @@ import CompanyReportsDashboardScreen from "../screens/company/CompanyReportsDash
 import ReportsDashboardScreen from "../screens/reports/ReportsDashboardScreen";
 import AttendanceReportScreen from "../screens/reports/AttendanceReportScreen";
 import LeaveReportScreen from "../screens/reports/LeaveReportScreen";
-import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
 import TaskReportScreen from "../screens/reports/TaskReportScreen";
 import EmployeeReportScreen from "../screens/reports/EmployeeReportScreen";
 import ProjectReportScreen from "../screens/reports/ProjectReportScreen";
 import PerformanceReportScreen from "../screens/reports/PerformanceReportScreen";
+import LeadReportScreen from "../screens/reports/LeadReportScreen";
+import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
+import AuditReportScreen from "../screens/reports/AuditReportScreen";
+import OrganizationReportScreen from "../screens/reports/OrganizationReportScreen";
 import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import AccessControlScreen from "../screens/company/AccessControlScreen";
 import EmployeeDocumentsScreen from "../screens/employee/EmployeeDocumentsScreen";
@@ -125,11 +128,14 @@ const DashboardStack = () => (
     <Stack.Screen name="CompanyReportsDashboard" component={CompanyReportsDashboardScreen} />
     <Stack.Screen name="AttendanceReport" component={AttendanceReportScreen} />
     <Stack.Screen name="LeaveReport" component={LeaveReportScreen} />
-    <Stack.Screen name="PayrollReport" component={PayrollReportScreen} />
     <Stack.Screen name="TaskReport" component={TaskReportScreen} />
     <Stack.Screen name="EmployeeReport" component={EmployeeReportScreen} />
     <Stack.Screen name="ProjectReport" component={ProjectReportScreen} />
     <Stack.Screen name="PerformanceReport" component={PerformanceReportScreen} />
+    <Stack.Screen name="LeadReport" component={LeadReportScreen} />
+    <Stack.Screen name="PayrollReport" component={PayrollReportScreen} />
+    <Stack.Screen name="AuditReport" component={AuditReportScreen} />
+    <Stack.Screen name="OrganizationReport" component={OrganizationReportScreen} />
     <Stack.Screen name="Notifications" component={NotificationsScreen} />
     <Stack.Screen name="EmployeeDocuments" component={EmployeeDocumentsScreen} />
     <Stack.Screen name="UploadDocument" component={UploadDocumentScreen} />

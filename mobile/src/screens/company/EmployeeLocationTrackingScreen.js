@@ -18,12 +18,35 @@ import {
   getLiveEmployeeLocationsApi,
   getEmployeeLocationTrailApi,
 } from "../../api/locationService";
+import { useAuth } from "../../context/AuthContext";
+import { useAppData } from "../../context/AppDataContext";
 import { COLORS } from "../../theme/tokens";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   const webViewRef = useRef(null);
+  const { user, hasPermission } = useAuth();
+  const appData = useAppData ? useAppData() : null;
+  const employeeData = appData?.employeeDashboard?.employee || user?.employee;
+  const roleLower = (user?.role || "").toLowerCase();
+  const isEmployee = roleLower === "employee" || roleLower === "team member";
+
+  // Strict permission check
+  const canAccessLocationTracking =
+    !isEmployee ||
+    hasPermission("locationTracking") ||
+    hasPermission("location_tracking") ||
+    hasPermission("location") ||
+    Boolean(
+      user?.isLocationTrackingEnabled ||
+      user?.employee?.isLocationTrackingEnabled ||
+      employeeData?.isLocationTrackingEnabled ||
+      employeeData?.locationTrackingEnabled
+    );
+
+  // Authenticated Employee ID for self-only scope
+  const myEmployeeId = employeeData?._id || user?.employeeId || user?.employee?._id || user?._id;
 
   // Mode: "live" (all fleet) or "trail" (selected employee route)
   const [viewMode, setViewMode] = useState("live");
@@ -64,6 +87,13 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       const activeTrail = (trailData.cleanTrail && trailData.cleanTrail.length > 0)
         ? trailData.cleanTrail
         : trailData.trail;
+      const isStationary = Boolean(
+        trailData.isStationaryAllDay ||
+        trailData.distanceKm === 0 ||
+        (trailData.distanceMeters !== undefined && trailData.distanceMeters === 0) ||
+        !activeTrail ||
+        activeTrail.length <= 1
+      );
       postToMap({
         type: "UPDATE_TRAIL",
         trail: activeTrail,
@@ -71,6 +101,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         employeeName: selectedEmployee?.name,
         startTime: trailData.startTime,
         endTime: trailData.endTime,
+        isStationary: isStationary,
       });
     }
   }, [mapReady, employees, selectedEmployee, viewMode, trailData]);
@@ -83,10 +114,51 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
       const res = await getLiveEmployeeLocationsApi();
       const list = res.data?.data || res.data || [];
-      const validList = Array.isArray(list) ? list : [];
+      let validList = Array.isArray(list) ? list : [];
+
+      // Strict self-only handling for Employee role
+      if (isEmployee) {
+        if (validList.length > 0) {
+          const myEmp = validList[0];
+          setSelectedEmployee(myEmp);
+          setEmployees([myEmp]);
+          fetchTrailHistory(myEmp._id, getDateValue(selectedDateFilter));
+
+          if (mapReady) {
+            postToMap({
+              type: "UPDATE_EMPLOYEES",
+              employees: [myEmp],
+              selectedId: myEmp._id,
+            });
+            if (myEmp.latitude && myEmp.longitude) {
+              postToMap({
+                type: "CENTER_COORDS",
+                latitude: myEmp.latitude,
+                longitude: myEmp.longitude,
+                zoom: 17,
+              });
+            }
+          }
+          return;
+        } else if (user) {
+          const fallbackEmp = {
+            _id: myEmployeeId,
+            name: user.name || "My Location",
+            email: user.email,
+            department: user.departmentName || "General",
+            designation: user.designationName || user.employee?.designation || "Staff",
+            avatar: user.photo || user.avatar || user.profileImage || "",
+            isOnline: false,
+            trackingStatus: "no_signal",
+            latitude: null,
+            longitude: null,
+          };
+          validList = [fallbackEmp];
+        }
+      }
+
       setEmployees(validList);
 
-      // Auto-focus on active staff with GPS coordinates so map opens immediately on employee
       if (!selectedEmployee && validList.length > 0) {
         const bestEmp =
           validList.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
@@ -101,7 +173,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         postToMap({
           type: "UPDATE_EMPLOYEES",
           employees: validList,
-          selectedId: selectedEmployee?._id,
+          selectedId: selectedEmployee?._id || validList[0]?._id,
         });
       }
     } catch (err) {
@@ -128,10 +200,11 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
   // Fetch route trail when employee & date selected
   const fetchTrailHistory = async (empId, dateStr) => {
-    if (!empId) return;
+    const safeEmpId = isEmployee ? myEmployeeId : empId;
+    if (!safeEmpId) return;
     try {
       setLoadingTrail(true);
-      const res = await getEmployeeLocationTrailApi(empId, dateStr);
+      const res = await getEmployeeLocationTrailApi(safeEmpId, dateStr);
       const data = res.data?.data || { trail: [], distanceKm: 0, totalPoints: 0 };
       setTrailData(data);
 
@@ -143,7 +216,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           type: "UPDATE_TRAIL",
           trail: activeTrail,
           halts: data.halts || [],
-          employeeName: selectedEmployee?.name,
+          employeeName: isEmployee ? (user?.name || "My Route") : selectedEmployee?.name,
           startTime: data.startTime,
           endTime: data.endTime,
         });
@@ -158,7 +231,13 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
   // Manual refresh only - no auto interval polling
   const handleManualRefresh = () => {
-    if (viewMode === "trail" && selectedEmployee?._id) {
+    if (isEmployee) {
+      if (viewMode === "trail") {
+        fetchTrailHistory(myEmployeeId, getDateValue(selectedDateFilter));
+      } else {
+        fetchLiveLocations(true);
+      }
+    } else if (viewMode === "trail" && selectedEmployee?._id) {
       fetchTrailHistory(selectedEmployee._id, getDateValue(selectedDateFilter));
     } else {
       fetchLiveLocations(true);
@@ -167,23 +246,30 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
   useFocusEffect(
     useCallback(() => {
-      const params = route?.params;
-      if (params?.employeeId) {
-        setViewMode("trail");
-        const empId = typeof params.employeeId === "object" ? params.employeeId._id : params.employeeId;
-        const targetDate = params.date || "today";
+      if (isEmployee) {
+        const targetDate = route?.params?.date || "today";
         setSelectedDateFilter(targetDate);
-        const empName = params.employeeName || "Employee";
-        setSelectedEmployee({ _id: empId, name: empName });
-        fetchTrailHistory(empId, getDateValue(targetDate));
+        fetchLiveLocations(true);
       } else {
-        fetchLiveLocations();
+        const params = route?.params;
+        if (params?.employeeId) {
+          setViewMode("trail");
+          const empId = typeof params.employeeId === "object" ? params.employeeId._id : params.employeeId;
+          const targetDate = params.date || "today";
+          setSelectedDateFilter(targetDate);
+          const empName = params.employeeName || "Employee";
+          setSelectedEmployee({ _id: empId, name: empName });
+          fetchTrailHistory(empId, getDateValue(targetDate));
+        } else {
+          fetchLiveLocations();
+        }
       }
       // Manual refresh only: NO setInterval auto-refresh
-    }, [route?.params])
+    }, [route?.params, isEmployee, myEmployeeId, user?.name])
   );
 
   const handleSelectEmployee = (emp) => {
+    if (isEmployee && String(emp._id) !== String(myEmployeeId)) return;
     setSelectedEmployee(emp);
     if (emp.latitude && emp.longitude) {
       postToMap({
@@ -201,15 +287,19 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   const handleModeSwitch = (mode) => {
     setViewMode(mode);
     if (mode === "trail") {
-      const target =
-        selectedEmployee?.latitude
-          ? selectedEmployee
-          : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
-            employees.find((e) => e.latitude && e.longitude) ||
-            employees[0];
-      if (target) {
-        setSelectedEmployee(target);
-        fetchTrailHistory(target._id, getDateValue(selectedDateFilter));
+      if (isEmployee) {
+        fetchTrailHistory(myEmployeeId, getDateValue(selectedDateFilter));
+      } else {
+        const target =
+          selectedEmployee?.latitude
+            ? selectedEmployee
+            : employees.find((e) => (e.isOnline || e.trackingStatus === "active") && e.latitude && e.longitude) ||
+              employees.find((e) => e.latitude && e.longitude) ||
+              employees[0];
+        if (target) {
+          setSelectedEmployee(target);
+          fetchTrailHistory(target._id, getDateValue(selectedDateFilter));
+        }
       }
     } else if (mode === "live") {
       fetchLiveLocations();
@@ -218,8 +308,9 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
 
   const handleDateChange = (filter) => {
     setSelectedDateFilter(filter);
-    if (selectedEmployee) {
-      fetchTrailHistory(selectedEmployee._id, getDateValue(filter));
+    const targetId = isEmployee ? myEmployeeId : selectedEmployee?._id;
+    if (targetId) {
+      fetchTrailHistory(targetId, getDateValue(filter));
     }
   };
 
@@ -264,6 +355,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           selectedId: selectedEmployee?._id,
         });
       } else if (data.type === "SELECT_EMPLOYEE") {
+        if (isEmployee && String(data.employeeId) !== String(myEmployeeId)) return;
         const found = employees.find((e) => e._id === data.employeeId);
         if (found) {
           setSelectedEmployee(found);
@@ -527,9 +619,24 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             return (brng + 360) % 360;
           }
 
-          function renderTrail(trail, employeeName, halts, startTime, endTime) {
+          function renderTrail(trail, employeeName, halts, startTime, endTime, isStationary) {
             trailLayer.clearLayers();
             if (!trail || trail.length === 0) return;
+
+            if (trail.length === 1 || isStationary) {
+              var pt = trail[0];
+              var stationaryMarker = L.marker([pt.latitude, pt.longitude], {
+                icon: L.divIcon({
+                  className: 'custom-leaflet-marker',
+                  html: '<div style="background:#10B981; color:#fff; border-radius:50%; width:32px; height:32px; display:flex; align-items:center; justify-content:center; font-size:16px; font-weight:bold; border:2.5px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,0.35);">🏢</div>',
+                  iconSize: [32, 32],
+                  iconAnchor: [16, 16]
+                })
+              }).bindPopup('<b>' + (employeeName || 'Employee') + '</b><br/>एकाच ठिकाणी उपस्थित (Stationary)');
+              trailLayer.addLayer(stationaryMarker);
+              map.setView([pt.latitude, pt.longitude], 16);
+              return;
+            }
 
             var latlngs = trail.map(function(p) { return [p.latitude, p.longitude]; });
 
@@ -619,7 +726,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
               if (data.type === 'UPDATE_EMPLOYEES') {
                 renderEmployees(data.employees || [], data.selectedId);
               } else if (data.type === 'UPDATE_TRAIL') {
-                renderTrail(data.trail || [], data.employeeName, data.halts || [], data.startTime, data.endTime);
+                renderTrail(data.trail || [], data.employeeName, data.halts || [], data.startTime, data.endTime, data.isStationary);
               } else if (data.type === 'CENTER_COORDS') {
                 map.flyTo([data.latitude, data.longitude], data.zoom || 17, { duration: 0.8 });
               } else if (data.type === 'FIT_BOUNDS') {
@@ -649,6 +756,32 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   };
 
   const topInset = Platform.OS === "ios" ? 54 : (StatusBar.currentHeight || 28) + 12;
+
+  // Access Denied guard for Employee when location tracking is not enabled
+  if (isEmployee && !canAccessLocationTracking) {
+    return (
+      <View style={styles.accessDeniedContainer}>
+        <StatusBar barStyle="light-content" backgroundColor="#071A2F" />
+        <View style={styles.accessDeniedCard}>
+          <View style={styles.accessDeniedIconBox}>
+            <Ionicons name="lock-closed" size={32} color="#EF4444" />
+          </View>
+          <Text style={styles.accessDeniedTitle}>Location Tracking Disabled</Text>
+          <Text style={styles.accessDeniedSubtitle}>
+            Live route and GPS tracking has not been enabled for your employee account. If your role requires field tracking, please contact your administrator.
+          </Text>
+          <TouchableOpacity
+            style={styles.accessDeniedBtn}
+            onPress={() => navigation.goBack()}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-back" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+            <Text style={styles.accessDeniedBtnText}>Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -711,21 +844,33 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           </TouchableOpacity>
 
           <View style={styles.headerTitleBox}>
-            <Text style={styles.headerTitle}>Live Location Radar</Text>
+            <Text style={styles.headerTitle}>
+              {isEmployee ? "My Live Location" : "Live Location Radar"}
+            </Text>
             <View style={styles.liveIndicatorRow}>
               <View
                 style={[
                   styles.livePulseDot,
-                  { backgroundColor: liveTrackedCount > 0 ? "#10B981" : "#94A3B8" },
+                  {
+                    backgroundColor: isEmployee
+                      ? (selectedEmployee?.isOnline ? "#10B981" : "#94A3B8")
+                      : (liveTrackedCount > 0 ? "#10B981" : "#94A3B8"),
+                  },
                 ]}
               />
               <Text
                 style={[
                   styles.liveIndicatorText,
-                  { color: liveTrackedCount > 0 ? "#10B981" : "#64748B" },
+                  {
+                    color: isEmployee
+                      ? (selectedEmployee?.isOnline ? "#10B981" : "#64748B")
+                      : (liveTrackedCount > 0 ? "#10B981" : "#64748B"),
+                  },
                 ]}
               >
-                {liveTrackedCount > 0
+                {isEmployee
+                  ? (selectedEmployee?.isOnline ? "Tracking Active (चालू)" : "GPS Standby")
+                  : liveTrackedCount > 0
                   ? `${liveTrackedCount} Staff Online`
                   : `${employees.length} Staff Monitored`}
               </Text>
@@ -764,7 +909,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 viewMode === "live" && styles.segmentTextActive,
               ]}
             >
-              Live Fleet View
+              {isEmployee ? "Live Position" : "Live Fleet View"}
             </Text>
           </TouchableOpacity>
 
@@ -785,7 +930,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 viewMode === "trail" && styles.segmentTextActive,
               ]}
             >
-              Route Trail History
+              {isEmployee ? "Today's Route" : "Route Trail History"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -885,184 +1030,313 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           </View>
         )}
 
-        {/* Employee Carousel Header */}
-        <View style={styles.sheetHeaderRow}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-            <Ionicons name="people-outline" size={16} color="#2563EB" />
-            <Text style={styles.carouselSectionTitle}>
-              {viewMode === "live"
-                ? "ACTIVE FIELD STAFF"
-                : `TRAIL: ${selectedEmployee ? formatName(selectedEmployee.name) : "SELECT STAFF"}`}
-            </Text>
-            <View style={styles.countBadge}>
-              <Text style={styles.countBadgeText}>{employees.length}</Text>
+        {isEmployee ? (
+          <View style={styles.personalTrackingCard}>
+            <View style={styles.personalCardTop}>
+              <View style={styles.personalAvatarBox}>
+                {user?.photo || user?.avatar || user?.profileImage ? (
+                  <Image source={{ uri: user.photo || user.avatar || user.profileImage }} style={styles.personalAvatar} />
+                ) : (
+                  <Text style={styles.personalInitials}>
+                    {(user?.name || "ME").slice(0, 2).toUpperCase()}
+                  </Text>
+                )}
+                <View
+                  style={[
+                    styles.onlineDotBadge,
+                    {
+                      backgroundColor:
+                        selectedEmployee?.motionStatus === "moving"
+                          ? "#3B82F6"
+                          : selectedEmployee?.isOnline
+                          ? "#10B981"
+                          : "#94A3B8",
+                    },
+                  ]}
+                />
+              </View>
+
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={styles.personalEmpName} numberOfLines={1}>
+                  {user?.name || "My Location"}
+                </Text>
+                <Text style={styles.personalEmpSub} numberOfLines={1}>
+                  {user?.designationName || user?.employee?.designation || user?.departmentName || "Field Staff"}
+                </Text>
+              </View>
+
+              <View
+                style={[
+                  styles.statusPill,
+                  {
+                    backgroundColor:
+                      selectedEmployee?.motionStatus === "moving"
+                        ? "rgba(59, 130, 246, 0.12)"
+                        : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
+                        ? "rgba(245, 158, 11, 0.12)"
+                        : selectedEmployee?.isOnline
+                        ? "rgba(16, 185, 129, 0.12)"
+                        : "rgba(100, 116, 139, 0.1)",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statusDotSmall,
+                    {
+                      backgroundColor:
+                        selectedEmployee?.motionStatus === "moving"
+                          ? "#3B82F6"
+                          : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
+                          ? "#F59E0B"
+                          : selectedEmployee?.isOnline
+                          ? "#10B981"
+                          : "#94A3B8",
+                    },
+                  ]}
+                />
+                <Text
+                  style={[
+                    styles.statusPillText,
+                    {
+                      color:
+                        selectedEmployee?.motionStatus === "moving"
+                          ? "#2563EB"
+                          : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
+                          ? "#D97706"
+                          : selectedEmployee?.isOnline
+                          ? "#059669"
+                          : "#64748B",
+                    },
+                  ]}
+                >
+                  {selectedEmployee?.motionStatus === "moving"
+                    ? `Moving ${Math.round(selectedEmployee.speed || 0)}km/h`
+                    : selectedEmployee?.motionStatus === "stationary" && (selectedEmployee?.stoppageDurationMinutes || 0) > 2
+                    ? `Halt ${selectedEmployee?.stoppageText || ""}`
+                    : selectedEmployee?.isOnline
+                    ? "Active"
+                    : "Stopped"}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.personalMetaGrid}>
+              <View style={styles.personalMetaItem}>
+                <Ionicons name="speedometer-outline" size={15} color="#3B82F6" />
+                <Text style={styles.personalMetaLabel}>Distance</Text>
+                <Text style={styles.personalMetaValue}>
+                  {trailData.distanceKm ? `${trailData.distanceKm} km` : selectedEmployee?.todayDistanceText || "0 km"}
+                </Text>
+              </View>
+
+              <View style={styles.personalMetaItem}>
+                <Ionicons name="pause-circle-outline" size={15} color="#F59E0B" />
+                <Text style={styles.personalMetaLabel}>Halts</Text>
+                <Text style={styles.personalMetaValue}>
+                  {trailData.halts?.length || 0} stops
+                </Text>
+              </View>
+
+              <View style={styles.personalMetaItem}>
+                <Ionicons name="pin-outline" size={15} color="#10B981" />
+                <Text style={styles.personalMetaLabel}>GPS Points</Text>
+                <Text style={styles.personalMetaValue}>
+                  {trailData.totalPoints || 0} pings
+                </Text>
+              </View>
+
+              <View style={styles.personalMetaItem}>
+                <Ionicons name="navigate-circle-outline" size={15} color="#8B5CF6" />
+                <Text style={styles.personalMetaLabel}>Accuracy</Text>
+                <Text style={styles.personalMetaValue}>
+                  {selectedEmployee?.accuracy ? `±${Math.round(selectedEmployee.accuracy)}m` : "GPS High"}
+                </Text>
+              </View>
             </View>
           </View>
-          {viewMode === "live" && (
-            <Text style={styles.sheetHeaderSub}>Tap to focus map</Text>
-          )}
-        </View>
-
-        {loadingLive && employees.length === 0 ? (
-          <View style={styles.loadingCarousel}>
-            <ActivityIndicator size="small" color="#2563EB" />
-            <Text style={styles.loadingCarouselText}>Detecting field locations...</Text>
-          </View>
-        ) : employees.length === 0 ? (
-          <View style={styles.emptyCarousel}>
-            <Ionicons name="location-outline" size={24} color="#94A3B8" />
-            <Text style={styles.emptyCarouselText}>No staff location tracked today yet.</Text>
-          </View>
         ) : (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.carouselScroll}
-          >
-            {employees.map((emp) => {
-              const isSelected = selectedEmployee?._id === emp._id;
-              const isOnline = emp.isOnline;
-              const isHrOrMgr =
-                ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("hr") ||
-                ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("manager");
+          <>
+            {/* Employee Carousel Header */}
+            <View style={styles.sheetHeaderRow}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="people-outline" size={16} color="#2563EB" />
+                <Text style={styles.carouselSectionTitle}>
+                  {viewMode === "live"
+                    ? "ACTIVE FIELD STAFF"
+                    : `TRAIL: ${selectedEmployee ? formatName(selectedEmployee.name) : "SELECT STAFF"}`}
+                </Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countBadgeText}>{employees.length}</Text>
+                </View>
+              </View>
+              {viewMode === "live" && (
+                <Text style={styles.sheetHeaderSub}>Tap to focus map</Text>
+              )}
+            </View>
 
-              return (
-                <TouchableOpacity
-                  key={emp._id}
-                  style={[
-                    styles.employeeCard,
-                    isSelected && styles.employeeCardSelected,
-                  ]}
-                  onPress={() => handleSelectEmployee(emp)}
-                  activeOpacity={0.85}
-                >
-                  <View style={styles.empCardTop}>
-                    <View style={styles.empAvatarBox}>
-                      {emp.avatar ? (
-                        <Image source={{ uri: emp.avatar }} style={styles.empAvatar} />
-                      ) : (
-                        <Text style={styles.empInitials}>
-                          {(emp.name || "E").slice(0, 2).toUpperCase()}
-                        </Text>
-                      )}
-                      <View
-                        style={[
-                          styles.onlineDotBadge,
-                          {
-                            backgroundColor:
-                              emp.motionStatus === "moving"
-                                ? "#3B82F6"
-                                : isOnline
-                                ? "#10B981"
-                                : "#94A3B8",
-                          },
-                        ]}
-                      />
-                    </View>
+            {loadingLive && employees.length === 0 ? (
+              <View style={styles.loadingCarousel}>
+                <ActivityIndicator size="small" color="#2563EB" />
+                <Text style={styles.loadingCarouselText}>Detecting field locations...</Text>
+              </View>
+            ) : employees.length === 0 ? (
+              <View style={styles.emptyCarousel}>
+                <Ionicons name="location-outline" size={24} color="#94A3B8" />
+                <Text style={styles.emptyCarouselText}>No staff location tracked today yet.</Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.carouselScroll}
+              >
+                {employees.map((emp) => {
+                  const isSelected = selectedEmployee?._id === emp._id;
+                  const isOnline = emp.isOnline;
+                  const isHrOrMgr =
+                    ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("hr") ||
+                    ((emp.designation || "") + " " + (emp.department || "")).toLowerCase().includes("manager");
 
-                    <View style={{ flex: 1, marginLeft: 10 }}>
-                      <Text style={styles.empName} numberOfLines={1}>
-                        {formatName(emp.name)}
-                      </Text>
-                      <View
-                        style={[
-                          styles.roleTag,
-                          isHrOrMgr && {
-                            backgroundColor: "rgba(99, 102, 241, 0.15)",
-                            borderColor: "rgba(99, 102, 241, 0.3)",
-                          },
-                        ]}
-                      >
-                        <Text
-                          style={[
-                            styles.empRole,
-                            isHrOrMgr && { color: "#6366F1", fontWeight: "800" },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {isHrOrMgr
-                            ? `👔 ${emp.designation || "HR/Manager"}`
-                            : emp.designation || emp.department || "Staff"}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.empCardBottom}>
-                    <View
+                  return (
+                    <TouchableOpacity
+                      key={emp._id}
                       style={[
-                        styles.statusPill,
-                        {
-                          backgroundColor:
-                            emp.motionStatus === "moving"
-                              ? "rgba(59, 130, 246, 0.12)"
-                              : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                              ? "rgba(245, 158, 11, 0.12)"
-                              : isOnline
-                              ? "rgba(16, 185, 129, 0.12)"
-                              : "rgba(100, 116, 139, 0.1)",
-                        },
+                        styles.employeeCard,
+                        isSelected && styles.employeeCardSelected,
                       ]}
+                      onPress={() => handleSelectEmployee(emp)}
+                      activeOpacity={0.85}
                     >
-                      <View
-                        style={[
-                          styles.statusDotSmall,
-                          {
-                            backgroundColor:
-                              emp.motionStatus === "moving"
-                                ? "#3B82F6"
-                                : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                                ? "#F59E0B"
-                                : isOnline
-                                ? "#10B981"
-                                : "#94A3B8",
-                          },
-                        ]}
-                      />
-                      <Text
-                        style={[
-                          styles.statusPillText,
-                          {
-                            color:
-                              emp.motionStatus === "moving"
-                                ? "#2563EB"
-                                : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                                ? "#D97706"
-                                : isOnline
-                                ? "#059669"
-                                : "#64748B",
-                          },
-                        ]}
-                      >
-                        {emp.motionStatus === "moving"
-                          ? `Moving ${Math.round(emp.speed || 0)}km/h`
-                          : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
-                          ? `Halt ${emp.stoppageText}`
-                          : isOnline
-                          ? "Active"
-                          : "Stopped"}
-                      </Text>
-                    </View>
-
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      {emp.todayDistanceText ? (
-                        <View style={[styles.todayDistanceBadge, { flexDirection: "row", alignItems: "center" }]}>
-                          <Text style={styles.todayDistanceText}>
-                            🛣️ {emp.todayDistanceText}
-                          </Text>
-                          {parseFloat(emp.todayDistanceKm) > 0 ? (
-                            <Text style={styles.todayAllowanceText}>
-                              • ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)} TA
+                      <View style={styles.empCardTop}>
+                        <View style={styles.empAvatarBox}>
+                          {emp.avatar ? (
+                            <Image source={{ uri: emp.avatar }} style={styles.empAvatar} />
+                          ) : (
+                            <Text style={styles.empInitials}>
+                              {(emp.name || "E").slice(0, 2).toUpperCase()}
                             </Text>
+                          )}
+                          <View
+                            style={[
+                              styles.onlineDotBadge,
+                              {
+                                backgroundColor:
+                                  emp.motionStatus === "moving"
+                                    ? "#3B82F6"
+                                    : isOnline
+                                    ? "#10B981"
+                                    : "#94A3B8",
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        <View style={{ flex: 1, marginLeft: 10 }}>
+                          <Text style={styles.empName} numberOfLines={1}>
+                            {formatName(emp.name)}
+                          </Text>
+                          <View
+                            style={[
+                              styles.roleTag,
+                              isHrOrMgr && {
+                                backgroundColor: "rgba(99, 102, 241, 0.15)",
+                                borderColor: "rgba(99, 102, 241, 0.3)",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.empRole,
+                                isHrOrMgr && { color: "#6366F1", fontWeight: "800" },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {isHrOrMgr
+                                ? `👔 ${emp.designation || "HR/Manager"}`
+                                : emp.designation || emp.department || "Staff"}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.empCardBottom}>
+                        <View
+                          style={[
+                            styles.statusPill,
+                            {
+                              backgroundColor:
+                                emp.motionStatus === "moving"
+                                  ? "rgba(59, 130, 246, 0.12)"
+                                  : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                                  ? "rgba(245, 158, 11, 0.12)"
+                                  : isOnline
+                                  ? "rgba(16, 185, 129, 0.12)"
+                                  : "rgba(100, 116, 139, 0.1)",
+                            },
+                          ]}
+                        >
+                          <View
+                            style={[
+                              styles.statusDotSmall,
+                              {
+                                backgroundColor:
+                                  emp.motionStatus === "moving"
+                                    ? "#3B82F6"
+                                    : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                                    ? "#F59E0B"
+                                    : isOnline
+                                    ? "#10B981"
+                                    : "#94A3B8",
+                              },
+                            ]}
+                          />
+                          <Text
+                            style={[
+                              styles.statusPillText,
+                              {
+                                color:
+                                  emp.motionStatus === "moving"
+                                    ? "#2563EB"
+                                    : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                                    ? "#D97706"
+                                    : isOnline
+                                    ? "#059669"
+                                    : "#64748B",
+                              },
+                            ]}
+                          >
+                            {emp.motionStatus === "moving"
+                              ? `Moving ${Math.round(emp.speed || 0)}km/h`
+                              : emp.motionStatus === "stationary" && emp.stoppageDurationMinutes > 2
+                              ? `Halt ${emp.stoppageText}`
+                              : isOnline
+                              ? "Active"
+                              : "Stopped"}
+                          </Text>
+                        </View>
+
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          {emp.todayDistanceText ? (
+                            <View style={[styles.todayDistanceBadge, { flexDirection: "row", alignItems: "center" }]}>
+                              <Text style={styles.todayDistanceText}>
+                                🛣️ {emp.todayDistanceText}
+                              </Text>
+                              {parseFloat(emp.todayDistanceKm) > 0 ? (
+                                <Text style={styles.todayAllowanceText}>
+                                  • ₹{(parseFloat(emp.todayDistanceKm || 0) * 4).toFixed(0)} TA
+                                </Text>
+                              ) : null}
+                            </View>
                           ) : null}
                         </View>
-                      ) : null}
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+          </>
         )}
       </View>
     </View>
@@ -1449,6 +1723,135 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: "#94A3B8",
     fontWeight: "600",
+  },
+  accessDeniedContainer: {
+    flex: 1,
+    backgroundColor: "#071A2F",
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 24,
+  },
+  accessDeniedCard: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#0F243E",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.25)",
+  },
+  accessDeniedIconBox: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  accessDeniedTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#FFFFFF",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  accessDeniedSubtitle: {
+    fontSize: 13,
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+    lineHeight: 19,
+    marginBottom: 24,
+  },
+  accessDeniedBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1268D9",
+    paddingHorizontal: 22,
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  accessDeniedBtnText: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  personalTrackingCard: {
+    backgroundColor: "#F8FAFC",
+    borderRadius: 16,
+    padding: 14,
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  personalCardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  personalAvatarBox: {
+    position: "relative",
+    width: 44,
+    height: 44,
+  },
+  personalAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 2,
+    borderColor: "#2563EB",
+  },
+  personalInitials: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#1E293B",
+    color: "#FFFFFF",
+    textAlign: "center",
+    lineHeight: 40,
+    fontSize: 15,
+    fontWeight: "800",
+    borderWidth: 2,
+    borderColor: "#2563EB",
+  },
+  personalEmpName: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  personalEmpSub: {
+    fontSize: 11,
+    color: "#64748B",
+    marginTop: 1,
+    fontWeight: "500",
+  },
+  personalMetaGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: "#EDF2F7",
+  },
+  personalMetaItem: {
+    width: "25%",
+    alignItems: "center",
+    paddingHorizontal: 2,
+  },
+  personalMetaLabel: {
+    fontSize: 9.5,
+    color: "#64748B",
+    fontWeight: "600",
+    marginTop: 3,
+  },
+  personalMetaValue: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 1,
   },
 });
 

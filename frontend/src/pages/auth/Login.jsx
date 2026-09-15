@@ -18,6 +18,7 @@ import {
   X,
   CheckCircle,
   ExternalLink,
+  Monitor,
 } from "lucide-react";
 import OneClickLogo from "../../components/common/OneClickLogo";
 import { forgotPassword } from "../../api/authApi";
@@ -37,13 +38,27 @@ const Login = () => {
   const [forgotSent, setForgotSent] = useState(false);
   const [forgotSuccessData, setForgotSuccessData] = useState(null);
   const [forgotError, setForgotError] = useState("");
+
+  // Session conflict modal state (Stay Logged In vs Login Here)
+  const [showConflictModal, setShowConflictModal] = useState(false);
+  const [conflictLoading, setConflictLoading] = useState(false);
+
   const { user, login } = useAuth();
   const navigate = useNavigate();
+
+  // Check if user was kicked out due to another login session
+  useEffect(() => {
+    if (typeof window !== "undefined" && sessionStorage.getItem("session_invalidated")) {
+      sessionStorage.removeItem("session_invalidated");
+      setError("Your session has ended because this account was logged in on another device or browser.");
+      toast.error("Logged out: This account is active in another session.");
+    }
+  }, []);
 
   // If already authenticated, redirect to appropriate portal
   useEffect(() => {
     if (user?.role) {
-      if (user.role === "SuperAdmin") navigate("/superadmin/dashboard", { replace: true });
+      if (user.role === "SuperAdmin" || user.role === "SubSuperAdmin") navigate("/superadmin/dashboard", { replace: true });
       else if (user.role === "CompanyAdmin") navigate("/company/dashboard", { replace: true });
       else if (user.role === "HR") navigate("/hr/dashboard", { replace: true });
       else if (user.role === "Manager") navigate("/manager/dashboard", { replace: true });
@@ -61,7 +76,7 @@ const Login = () => {
       const cleanPass = password.trim();
       const loggedUser = await login({ email: cleanEmail, password: cleanPass });
       toast.success(`Welcome back, ${loggedUser?.name || "User"}!`);
-      if (loggedUser?.role === "SuperAdmin") {
+      if (loggedUser?.role === "SuperAdmin" || loggedUser?.role === "SubSuperAdmin") {
         navigate("/superadmin/dashboard", { replace: true });
       } else if (loggedUser?.role === "CompanyAdmin") {
         navigate("/company/dashboard", { replace: true });
@@ -75,11 +90,50 @@ const Login = () => {
         navigate("/company/dashboard", { replace: true });
       }
     } catch (err) {
+      if (err.code === "SESSION_CONFLICT") {
+        setShowConflictModal(true);
+        return;
+      }
       setError(err.message || "Failed to login");
       toast.error(err.message || "Login failed");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLoginHere = async () => {
+    setConflictLoading(true);
+    try {
+      const cleanEmail = email.trim();
+      const cleanPass = password.trim();
+      const loggedUser = await login({ email: cleanEmail, password: cleanPass }, true);
+      setShowConflictModal(false);
+      toast.success(`Session activated! Welcome back, ${loggedUser?.name || "User"}!`);
+      if (loggedUser?.role === "SuperAdmin" || loggedUser?.role === "SubSuperAdmin") {
+        navigate("/superadmin/dashboard", { replace: true });
+      } else if (loggedUser?.role === "CompanyAdmin") {
+        navigate("/company/dashboard", { replace: true });
+      } else if (loggedUser?.role === "HR") {
+        navigate("/hr/dashboard", { replace: true });
+      } else if (loggedUser?.role === "Manager") {
+        navigate("/manager/dashboard", { replace: true });
+      } else if (loggedUser?.role === "Employee") {
+        navigate("/employee/dashboard", { replace: true });
+      } else {
+        navigate("/company/dashboard", { replace: true });
+      }
+    } catch (err) {
+      toast.error(err.message || "Failed to take over session");
+    } finally {
+      setConflictLoading(false);
+    }
+  };
+
+  const handleStayLoggedIn = () => {
+    setShowConflictModal(false);
+    toast("Login cancelled. Existing session remains active on the other device.", {
+      icon: "ℹ️",
+    });
   };
 
   const fillCredentials = (fillEmail, fillPass) => {
@@ -532,6 +586,70 @@ const Login = () => {
               </div>
             )}
 
+          </div>
+        </div>
+      )}
+
+      {/* ─── Active Session Conflict Confirmation Modal ─────────────── */}
+      {showConflictModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-7 shadow-2xl max-w-md w-full relative overflow-hidden">
+            {/* Accent Top Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500" />
+
+            <div className="space-y-4 pt-1">
+              <div className="flex items-start gap-3.5">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 shrink-0 shadow-sm">
+                  <Monitor size={22} strokeWidth={2.3} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900 leading-tight">
+                    Active Session Detected
+                  </h3>
+                  <p className="text-xs font-semibold text-slate-500 mt-0.5">
+                    Security &amp; Device Policy
+                  </p>
+                </div>
+              </div>
+
+              {/* Notice Banner */}
+              <div className="bg-amber-50/70 border border-amber-200/80 rounded-2xl p-4 space-y-2">
+                <p className="text-sm font-bold text-slate-800">
+                  Your account is already logged in on another device.
+                </p>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Only one active Web session is allowed at a time. If you continue here, the other session will be terminated immediately.
+                </p>
+              </div>
+
+              {/* Action Buttons: Stay Logged In vs Login Here */}
+              <div className="grid grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  disabled={conflictLoading}
+                  onClick={handleStayLoggedIn}
+                  className="py-3 px-4 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 active:bg-slate-300 transition-all cursor-pointer border border-slate-200/80 disabled:opacity-60 text-center"
+                >
+                  Stay Logged In
+                </button>
+
+                <button
+                  type="button"
+                  disabled={conflictLoading}
+                  onClick={handleLoginHere}
+                  className="py-3 px-4 rounded-xl text-xs font-black uppercase tracking-wider text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 active:from-blue-800 active:to-indigo-800 shadow-md shadow-blue-600/25 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 text-center"
+                >
+                  {conflictLoading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      <span>Logging in...</span>
+                    </>
+                  ) : (
+                    <span>Login Here</span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -26,11 +26,14 @@ import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import ReportsDashboardScreen from "../screens/reports/ReportsDashboardScreen";
 import AttendanceReportScreen from "../screens/reports/AttendanceReportScreen";
 import LeaveReportScreen from "../screens/reports/LeaveReportScreen";
-import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
 import TaskReportScreen from "../screens/reports/TaskReportScreen";
 import EmployeeReportScreen from "../screens/reports/EmployeeReportScreen";
 import ProjectReportScreen from "../screens/reports/ProjectReportScreen";
 import PerformanceReportScreen from "../screens/reports/PerformanceReportScreen";
+import LeadReportScreen from "../screens/reports/LeadReportScreen";
+import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
+import AuditReportScreen from "../screens/reports/AuditReportScreen";
+import OrganizationReportScreen from "../screens/reports/OrganizationReportScreen";
 import CompanyTaskDetailsScreen from "../screens/company/CompanyTaskDetailsScreen";
 import CompanyCreateTaskScreen from "../screens/company/CompanyCreateTaskScreen";
 import CompanyProjectDetailsScreen from "../screens/company/CompanyProjectDetailsScreen";
@@ -146,11 +149,6 @@ const DashboardStack = () => (
       options={{ title: "Leave Report" }}
     />
     <Stack.Screen
-      name="PayrollReport"
-      component={PayrollReportScreen}
-      options={{ title: "Payroll Report" }}
-    />
-    <Stack.Screen
       name="TaskReport"
       component={TaskReportScreen}
       options={{ headerShown: false }}
@@ -168,6 +166,26 @@ const DashboardStack = () => (
     <Stack.Screen
       name="PerformanceReport"
       component={PerformanceReportScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="LeadReport"
+      component={LeadReportScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="PayrollReport"
+      component={PayrollReportScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="AuditReport"
+      component={AuditReportScreen}
+      options={{ headerShown: false }}
+    />
+    <Stack.Screen
+      name="OrganizationReport"
+      component={OrganizationReportScreen}
       options={{ headerShown: false }}
     />
     <Stack.Screen

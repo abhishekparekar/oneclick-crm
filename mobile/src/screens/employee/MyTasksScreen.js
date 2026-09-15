@@ -345,7 +345,7 @@ export default function MyTasksScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState(route?.params?.status || "");
-  const [activeDateFilter, setActiveDateFilter] = useState(route?.params?.dateFilter || "All Time");
+  const [activeDateFilter, setActiveDateFilter] = useState(route?.params?.dateFilter || "Today");
   const [selectedPriority, setSelectedPriority] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
@@ -419,17 +419,31 @@ export default function MyTasksScreen({ route, navigation }) {
     }
   };
 
-  useEffect(() => {
-    if (route?.params?.status) {
-      setActiveStatus(route.params.status);
-      setActiveDateFilter("All Time");
+  const applyRouteParams = useCallback((params) => {
+    if (!params) return;
+    const targetStatus = params.taskFilter ?? params.status;
+    if (targetStatus !== undefined) {
+      setActiveStatus(targetStatus);
+      setActiveDateFilter(params.dateFilter || (targetStatus === "overdue" ? "All Time" : "Today"));
+    } else if (params.dateFilter) {
+      setActiveDateFilter(params.dateFilter);
     }
-    if (route?.params?.departmentId) {
-      setSelectedDepts([route.params.departmentId]);
-    } else if (route?.params?.departmentId === "") {
+    if (params.departmentId) {
+      setSelectedDepts([params.departmentId]);
+    } else if (params.departmentId === "") {
       setSelectedDepts([]);
     }
-  }, [route?.params]);
+  }, []);
+
+  useEffect(() => {
+    applyRouteParams(route?.params);
+  }, [route?.params, applyRouteParams]);
+
+  useFocusEffect(
+    useCallback(() => {
+      applyRouteParams(route?.params);
+    }, [route?.params, applyRouteParams])
+  );
 
   const isFetchingRef = useRef(false);
   const hasFetchedStatusesRef = useRef(false);
@@ -444,6 +458,7 @@ export default function MyTasksScreen({ route, navigation }) {
 
       const promises = [
         getEmployeeTasksApi(params).catch(() => ({ data: { tasks: [], success: false } })),
+        getEmployeeTasksApi({ ...params, isTemplate: true }).catch(() => ({ data: { tasks: [], success: false } })),
       ];
 
       if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
@@ -452,11 +467,18 @@ export default function MyTasksScreen({ route, navigation }) {
 
       const results = await Promise.all(promises);
       const resTasks = results[0];
-      const resStatuses = results[1];
+      const resTemplates = results[1];
+      const resStatuses = results[2];
 
-      if (resTasks?.data?.success) {
-        setAllTasks(resTasks.data.tasks || []);
-      }
+      const liveList = resTasks?.data?.tasks || resTasks?.data?.data?.tasks || resTasks?.data?.data || (Array.isArray(resTasks?.data) ? resTasks?.data : []);
+      const templateList = resTemplates?.data?.tasks || resTemplates?.data?.data?.tasks || resTemplates?.data?.data || (Array.isArray(resTemplates?.data) ? resTemplates?.data : []);
+
+      const combined = [
+        ...(Array.isArray(liveList) ? liveList : []),
+        ...(Array.isArray(templateList) ? templateList.map((t) => ({ ...t, isTemplate: true })) : []),
+      ];
+
+      setAllTasks(combined);
 
       if (resStatuses?.data?.success) {
         hasFetchedStatusesRef.current = true;
@@ -662,6 +684,8 @@ export default function MyTasksScreen({ route, navigation }) {
 
     if (deadlineComingFilter) {
       tasks = tasks.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
+    } else if (activeStatus === "overdue" && (activeDateFilter === "Today" || activeDateFilter === "All Time" || activeDateFilter === "all_time")) {
+      // Overdue tasks are already overdue by definition; keep all active overdue tasks visible
     } else {
       tasks = tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
     }
@@ -693,6 +717,10 @@ export default function MyTasksScreen({ route, navigation }) {
     }
     if (deadlineComingFilter) {
       base = base.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
+    } else if (tabValue === "overdue") {
+      if (activeDateFilter && activeDateFilter !== "All Time" && activeDateFilter !== "Today" && activeDateFilter !== "all_time") {
+        base = base.filter((t) => matchesDateFilter(t, activeDateFilter));
+      }
     } else {
       base = base.filter((t) => matchesDateFilter(t, activeDateFilter));
     }
@@ -856,7 +884,7 @@ export default function MyTasksScreen({ route, navigation }) {
             <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#1268D9" colors={["#1268D9"]} />
           }
           data={displayedTasks}
-          keyExtractor={(task) => task._id}
+          keyExtractor={(task, idx) => String(task._id || task.id || `task-${idx}`)}
           initialNumToRender={10}
           maxToRenderPerBatch={10}
           windowSize={5}

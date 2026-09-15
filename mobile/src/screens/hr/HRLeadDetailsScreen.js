@@ -1691,15 +1691,18 @@ function HRLeadDetailsScreenComponent({ route, navigation }) {
                         <Text style={styles.pickerSubLabel}>DATE</Text>
                         <AppDatePicker
                           value={stageFollowUpDate}
+                          onChangeText={setStageFollowUpDate}
                           onChange={setStageFollowUpDate}
                           placeholder="Select Date"
                           disabled={updatingStage}
+                          minDate="today"
                         />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.pickerSubLabel}>TIME</Text>
                         <AppTimePicker
                           value={stageFollowUpTime}
+                          onChangeText={setStageFollowUpTime}
                           onChange={setStageFollowUpTime}
                           placeholder="Select Time"
                           disabled={updatingStage}
@@ -1816,7 +1819,9 @@ function HRLeadDetailsScreenComponent({ route, navigation }) {
                     label="Reminder Date *"
                     value={reminderDate}
                     onChangeText={setReminderDate}
+                    onChange={setReminderDate}
                     placeholder="DD/MM/YYYY"
+                    minDate="today"
                   />
                 </View>
                 <View style={{ flex: 1 }}>

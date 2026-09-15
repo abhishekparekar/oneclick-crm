@@ -324,16 +324,37 @@ const updateOwnTaskStatus = async (req, res, next) => {
     }
 
     // Handle remarks, attachments, and nextFollowUpDate
-    const { remark, remarks, attachments: passedAttachments, nextFollowUpDate } = req.body;
-    const actualRemark = remark || remarks || "";
+    const { remark, remarks, finalRemarks, comment, attachments: passedAttachments, nextFollowUpDate } = req.body;
+    const actualRemark = (finalRemarks || remarks || remark || comment || "").trim();
+    if (actualRemark) {
+      task.finalRemarks = actualRemark;
+    }
 
-    if (nextFollowUpDate !== undefined) {
-      if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+    const now = new Date();
+    const isPastDue = task.endDateTime && now > new Date(task.endDateTime);
+    const isLate = ["late_complete", "late_completed", "re_late_complete"].includes(String(statusDoc.statusKey || "").toLowerCase()) ||
+      ((task.status === "overdue" || isPastDue) && COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase()));
+
+    if (isLate) {
+      task.status = "late_complete";
+      task.statusKey = "late_complete";
+      task.lateCompletedAt = now;
+      task.timerActive = false;
+      const end = new Date(task.endDateTime || task.endDate || now);
+      const diffMs = Math.abs(now - end);
+      const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+      const minutes = Math.floor((diffMs / 1000 / 60) % 60);
+      task.delayedDuration = { days, hours, minutes };
+    }
+
+    if (nextFollowUpDate !== undefined && nextFollowUpDate !== null && nextFollowUpDate !== "") {
+      if (!isNaN(new Date(nextFollowUpDate).getTime())) {
         task.nextFollowUpDate = new Date(nextFollowUpDate);
-      } else {
-        task.nextFollowUpDate = null;
       }
-    } else if (COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase())) {
+    } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+      task.nextFollowUpDate = null;
+    } else if (COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase()) && !isLate) {
       task.nextFollowUpDate = null;
     }
 

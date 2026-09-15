@@ -324,16 +324,20 @@ router.get("/reports/leaves-detailed", ...adminHr, getLeaveDetailedAnalytics);
 
 // ── NEW: Business Intelligence & Enterprise Analytics Suite Endpoints ──
 const biController = require("../controllers/biReportingController");
-router.get("/reports/bi/executive", ...adminHrManager, biController.getExecutiveReport);
-router.get("/reports/bi/workforce", ...adminHrManager, biController.getWorkforceReport);
-router.get("/reports/bi/attendance", ...adminHrManager, biController.getAttendanceReport);
-router.get("/reports/bi/leaves", ...adminHrManager, biController.getLeaveReport);
-router.get("/reports/bi/tasks", ...adminHrManager, biController.getTaskReport);
-router.get("/reports/bi/payroll", ...anyRole, biController.getPayrollReport);
-router.get("/reports/bi/performance", ...adminHrManager, biController.getPerformanceReport);
-router.get("/reports/bi/audit", ...adminOnly, biController.getAuditReport);
-router.get("/reports/bi/employee-drilldown/:id", ...adminHrManager, biController.getEmployeeDrillDown);
-router.get("/reports/bi/department-drilldown/:id", ...adminHrManager, biController.getDepartmentDrillDown);
+const { checkReportAccess } = require("../middleware/reportAccessMiddleware");
+router.get("/reports/bi/executive", checkReportAccess("reports"), biController.getExecutiveReport);
+router.get("/reports/bi/workforce", checkReportAccess("employees"), biController.getWorkforceReport);
+router.get("/reports/bi/attendance", checkReportAccess("attendance"), biController.getAttendanceReport);
+router.get("/reports/bi/leaves", checkReportAccess("leave"), biController.getLeaveReport);
+router.get("/reports/bi/tasks", checkReportAccess("tasks"), biController.getTaskReport);
+router.get("/reports/bi/payroll", checkReportAccess("payroll"), biController.getPayrollReport);
+router.get("/reports/bi/performance", checkReportAccess("performance"), biController.getPerformanceReport);
+router.get("/reports/bi/leads", checkReportAccess("leads"), biController.getLeadReport);
+router.get("/reports/bi/projects", checkReportAccess("projects"), biController.getProjectReport);
+router.get("/reports/bi/audit", checkReportAccess("audit"), biController.getAuditReport);
+router.get("/reports/bi/organization", checkReportAccess("organization"), biController.getOrganizationReport);
+router.get("/reports/bi/employee-drilldown/:id", checkReportAccess("employees"), biController.getEmployeeDrillDown);
+router.get("/reports/bi/department-drilldown/:id", checkReportAccess("employees"), biController.getDepartmentDrillDown);
 
 // ==========================================
 // COMPANY ADMIN ATTENDANCE OVERIDES

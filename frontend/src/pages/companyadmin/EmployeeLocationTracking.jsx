@@ -42,6 +42,7 @@ import { useAuth } from "../../context/AuthContext";
 
 const EmployeeLocationTracking = () => {
   const { user } = useAuth();
+  const isEmployee = (user?.role || "").toLowerCase() === "employee";
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const markersGroupRef = useRef(null);
@@ -173,7 +174,7 @@ const EmployeeLocationTracking = () => {
 
   const totalFleetDistanceKm = useMemo(() => {
     const total = employees.reduce((acc, e) => acc + (parseFloat(e.todayDistanceKm) || 0), 0);
-    return total > 0 ? total.toFixed(2) : "5.82";
+    return total > 0 ? total.toFixed(2) : "0";
   }, [employees]);
 
   // Dynamically load Leaflet CSS & JS
@@ -487,9 +488,14 @@ const EmployeeLocationTracking = () => {
         trailData?.trail && trailData.trail.length > 0
           ? trailData.trail
           : trailData.cleanTrail || [];
-
       const activePoints = rawCleanPoints;
-      const isStationary = trailData.isStationaryAllDay || trailData.distanceKm === 0 || activePoints.length < 2;
+
+      const isStationary =
+        trailData.isStationaryAllDay ||
+        trailData.distanceKm === 0 ||
+        trailData.pureDistanceKm === 0 ||
+        (trailData.distanceMeters !== undefined && trailData.distanceMeters === 0) ||
+        activePoints.length < 2;
 
       if (isStationary) {
         // Employee stayed at one location all day: DO NOT DRAW SPIDERWEB LINES!
@@ -813,16 +819,20 @@ const EmployeeLocationTracking = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-xl font-black text-foreground tracking-tight">
-                Live Employee Tracking
+                {isEmployee ? "My Live Location & Route" : "Live Employee Tracking"}
               </h1>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
-                <span>{onlineCount} Live on Field</span>
-              </span>
-              {hrManagerCount > 0 && (
-                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
-                  👔 {hrManagerCount} HR/Managers
-                </span>
+              {!isEmployee && (
+                <>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 radar-beacon" />
+                    <span>{onlineCount} Live on Field</span>
+                  </span>
+                  {hrManagerCount > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
+                      👔 {hrManagerCount} HR/Managers
+                    </span>
+                  )}
+                </>
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
@@ -1242,7 +1252,11 @@ const EmployeeLocationTracking = () => {
                   </p>
                   <p className="font-black text-sm text-indigo-600 dark:text-indigo-400 mt-1 flex items-center gap-1.5">
                     <Navigation size={14} />
-                    <span>{selectedEmployee.todayDistanceText || "0 km"}</span>
+                    <span>
+                      {viewMode === "trail" && trailData
+                        ? `${trailData.distanceKm || 0} km`
+                        : selectedEmployee.todayDistanceText || "0 km"}
+                    </span>
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
                     🎯 Pure GPS Verified

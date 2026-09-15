@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { getMe, login as apiLogin, registerCompany as apiRegisterCompany } from "../api/authApi";
+import { getMe, login as apiLogin, logout as apiLogout, registerCompany as apiRegisterCompany } from "../api/authApi";
 import { getTodayPendingUpdatesApi } from "../api/companyAdminApi";
 import DailyReportModal from "../components/tasks/DailyReportModal";
 import ForcePasswordResetModal from "../components/auth/ForcePasswordResetModal";
@@ -61,11 +61,11 @@ export const AuthProvider = ({ children }) => {
     return () => window.removeEventListener("focus", handleFocus);
   }, []);
 
-  const login = async (credentials) => {
+  const login = async (credentials, force = false) => {
     try {
-      const res = await apiLogin(credentials);
+      const res = await apiLogin(credentials, force);
       if (res.success) {
-        if (!["SuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"].includes(res.user.role)) {
+        if (!["SuperAdmin", "SubSuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"].includes(res.user.role)) {
           throw new Error("Unauthorized access. Invalid user role.");
         }
         localStorage.setItem("token", res.token);
@@ -74,6 +74,23 @@ export const AuthProvider = ({ children }) => {
       }
       throw new Error(res.message || "Login failed");
     } catch (error) {
+      // ─── One User One Login Per Platform — Session Conflict Check ─────────
+      const code = error.response?.data?.code;
+      if (error.response?.status === 409 || code === "SESSION_CONFLICT") {
+        const err = new Error(error.response?.data?.message || "Your account is already logged in on another device.");
+        err.code = "SESSION_CONFLICT";
+        err.platform = error.response?.data?.platform || "web";
+        throw err;
+      }
+      if (error.response?.status === 423 || code === "ALREADY_LOGGED_IN") {
+        const platform = error.response?.data?.platform || "web";
+        const msg =
+          platform === "mobile"
+            ? "This account is already logged in on another mobile device. Please log out from that device first."
+            : "This account is already logged in on another browser or device. Please log out from that session first.";
+        throw new Error(msg);
+      }
+      // ─────────────────────────────────────────────────────────────────────
       const errorMessage = error.response?.data?.message || error.message || "Login failed";
       throw new Error(errorMessage);
     }
@@ -94,8 +111,16 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const executeLogout = () => {
+  const executeLogout = async () => {
+    // ─── Notify server to release the web session slot ────────────────────
+    try {
+      await apiLogout();
+    } catch (_) {
+      // Best-effort — always clear local state regardless
+    }
+    // ─────────────────────────────────────────────────────────────────────
     localStorage.removeItem("token");
+    sessionStorage.removeItem("session_invalidated");
     setUser(null);
     setIsLogoutPending(false);
     setPendingTasks([]);
@@ -174,15 +199,20 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Check Employee/Manager/HR Assigned Modules Quota (Seat-Level Access for suite modules)
     if (isSuite) {
-      const rawAssigned = 
-        user.assignedModules ?? 
-        user.employee?.assignedModules ?? 
-        (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+      // Leaves and Payroll/Salary are universal defaults for all employees
+      if (normMod === "leave" || normMod === "payroll") {
+        // Universal access by default
+      } else {
+        const rawAssigned = 
+          user.assignedModules ?? 
+          user.employee?.assignedModules ?? 
+          (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
 
-      if (Array.isArray(rawAssigned)) {
-        const assigned = rawAssigned.map(normalizeModule);
-        if (!assigned.includes(normMod)) {
-          return false; // Not assigned to this specific employee/manager/HR!
+        if (Array.isArray(rawAssigned)) {
+          const assigned = rawAssigned.map(normalizeModule);
+          if (!assigned.includes(normMod)) {
+            return false; // Not assigned to this specific employee/manager/HR!
+          }
         }
       }
     }

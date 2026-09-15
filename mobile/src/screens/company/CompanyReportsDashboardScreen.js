@@ -16,20 +16,27 @@ import { LineChart } from "react-native-chart-kit";
 import Loader from "../../components/Loader";
 import MenuCard from "../../components/MenuCard";
 import CompanyAdminLayout from "../../components/CompanyAdminLayout";
+import { useAuth } from "../../context/AuthContext";
 import {
   getReportsAttendanceSummaryApi,
   getReportsLeaveSummaryApi,
-  getReportsPayrollSummaryApi,
   getReportsEmployeeSummaryApi,
   getReportsTaskSummaryApi,
   getProjectsApi
 } from "../../api/companyService";
-import { getPerformanceReportApi } from "../../api/reportService";
+import { getPerformanceReportApi, getLeadReportApi, getBIExecutiveReportApi } from "../../api/reportService";
 import { COLORS, SHADOWS, ROUNDING, SPACING, FONTS } from "../../theme/tokens";
 
 const { width } = Dimensions.get("window");
 
 const CompanyReportsDashboardScreen = ({ navigation }) => {
+  const { hasPermission } = useAuth();
+  const canAccessLeads = hasPermission("leads");
+  const canAccessProjects = hasPermission("projects");
+  const canAccessTasks = hasPermission("tasks");
+  const canAccessAttendance = hasPermission("attendance");
+  const canAccessLeaves = hasPermission("leave");
+
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,15 +48,41 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
       else setLoading(true);
       setError("");
 
-      const [attRes, leaveRes, payrollRes, employeeRes, taskRes, performanceRes, projectsRes] = await Promise.all([
+      // 1. Fast Consolidated BI Executive Report call
+      const biRes = await getBIExecutiveReportApi({ refresh }).catch(() => null);
+      if (biRes?.data?.data) {
+        const bi = biRes.data.data;
+        const kpis = bi.kpis || {};
+        const healthIntelligence = bi.healthIntelligence || {};
+        setSummary({
+          totalEmployees: kpis.totalEmployees?.current ?? 0,
+          activeProjects: kpis.activeProjects?.current ?? 0,
+          attendanceRate: kpis.attendanceRate?.current ?? 94,
+          totalTasks: kpis.totalTasks?.current ?? 0,
+          taskCompletionRate: kpis.taskCompletionRate?.current ?? 88,
+          leaveRequests: kpis.leaveRequests?.current ?? 0,
+          totalLeads: kpis.totalLeads?.current ?? 0,
+          leadConversionRate: kpis.leadConversionRate?.current ?? 0,
+          pipelineValue: kpis.pipelineValue?.current ?? 0,
+          healthScore: healthIntelligence.businessHealthScore ?? 90,
+        });
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+
+      // 2. Fallback to individual endpoints if consolidated BI endpoint unavailable
+      const fetchPromises = [
         getReportsAttendanceSummaryApi().catch(() => ({ data: { attendance: {} } })),
         getReportsLeaveSummaryApi().catch(() => ({ data: { leaves: {} } })),
-        getReportsPayrollSummaryApi().catch(() => ({ data: { payroll: {} } })),
         getReportsEmployeeSummaryApi().catch(() => ({ data: { employees: {} } })),
         getReportsTaskSummaryApi().catch(() => ({ data: { tasks: {} } })),
         getPerformanceReportApi().catch(() => ({ data: { list: [], averageScore: 0 } })),
-        getProjectsApi().catch(() => ({ data: { projects: [] } }))
-      ]);
+        canAccessProjects ? getProjectsApi().catch(() => ({ data: { projects: [] } })) : Promise.resolve({ data: { projects: [] } }),
+        canAccessLeads ? getLeadReportApi().catch(() => ({ data: { kpis: {} } })) : Promise.resolve({ data: { kpis: {} } })
+      ];
+
+      const [attRes, leaveRes, employeeRes, taskRes, performanceRes, projectsRes, leadRes] = await Promise.all(fetchPromises);
 
       const attData = attRes.data?.attendance || {};
       const attTot = attData.totalRecords || 0;
@@ -58,9 +91,6 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
 
       const leaveData = leaveRes.data?.leaves || {};
       const leaveTot = leaveData.total || ((leaveData.approved || 0) + (leaveData.pending || 0) + (leaveData.rejected || 0));
-
-      const payrollData = payrollRes.data?.payroll || {};
-      const payTot = payrollData.totalPayroll || payrollData.totalPayrollCost || (payrollData.paid || 0) + (payrollData.due || 0);
 
       const taskData = taskRes.data?.tasks || {};
       const tTot = taskData.total || (taskData.todo || 0) + (taskData.inProgress || 0) + (taskData.review || 0) + (taskData.done || 0);
@@ -72,6 +102,11 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
 
       const pList = Array.isArray(projectsRes.data) ? projectsRes.data : (projectsRes.data?.projects || []);
       const activeProjects = pList.filter(p => p.status === "active" || p.status === "in_progress" || p.status === "working").length || pList.length;
+
+      const leadKpis = leadRes.data?.kpis || {};
+      const totalLeads = leadKpis.totalLeads || 0;
+      const leadConversionRate = leadKpis.conversionRate || 0;
+      const pipelineValue = leadKpis.totalPipelineValue || 0;
 
       const performanceData = performanceRes.data || {};
       const teamPerfScore = performanceData.averageScore || 92;
@@ -88,9 +123,12 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
         totalEmployees,
         activeProjects,
         attendanceRate: attRate,
-        totalPayrollExpense: payTot,
+        totalTasks: tTot,
         taskCompletionRate: tCompletionRate,
         leaveRequests: leaveTot,
+        totalLeads,
+        leadConversionRate,
+        pipelineValue,
         healthScore: calculatedHealthScore
       });
 
@@ -157,14 +195,14 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
   };
 
   const reportMenus = [
-    { title: "Performance Report", subtitle: "Employee productivity & performance rankings", screen: "PerformanceReport", icon: "trophy-outline", color: "#F59E0B", bg: "#FFFBEB" },
-    { title: "Attendance Report", subtitle: "Monthly attendance compliance & punch logs", screen: "AttendanceReport", icon: "calendar-outline", color: "#10B981", bg: "#ECFDF5" },
-    { title: "Leave Report", subtitle: "Leave balances, history & approval analytics", screen: "LeaveReport", icon: "time-outline", color: "#2563EB", bg: "#EFF6FF" },
-    { title: "Payroll Report", subtitle: "Salary payouts, deductions & expense breakdown", screen: "PayrollReport", icon: "cash-outline", color: "#7C3AED", bg: "#F5F3FF" },
-    { title: "Task Report", subtitle: "Department workload & task completion rate", screen: "TaskReport", icon: "checkbox-outline", color: COLORS.primary, bg: "rgba(249, 115, 22, 0.1)" },
-    { title: "Project Report", subtitle: "Project milestone progress & delivery schedules", screen: "ProjectReport", icon: "briefcase-outline", color: "#0EA5E9", bg: "#E0F2FE" },
-    { title: "Employee Directory Report", subtitle: "Staff headcount, department & designation stats", screen: "EmployeeReport", icon: "people-outline", color: "#6366F1", bg: "#EEF2FF" },
-  ];
+    { title: "Performance Report", subtitle: "Employee productivity & performance rankings", screen: "PerformanceReport", icon: "trophy-outline", color: "#F59E0B", bg: "#FFFBEB", show: true },
+    { title: "CRM & Leads Report", subtitle: "Customer inquiries, pipelines & conversions", screen: "LeadReport", icon: "call-outline", color: "#3B82F6", bg: "#EFF6FF", show: canAccessLeads },
+    { title: "Project Report", subtitle: "Project milestone progress & delivery schedules", screen: "ProjectReport", icon: "briefcase-outline", color: "#0EA5E9", bg: "#E0F2FE", show: canAccessProjects },
+    { title: "Task Report", subtitle: "Department workload & task completion rate", screen: "TaskReport", icon: "checkbox-outline", color: COLORS.primary, bg: "rgba(249, 115, 22, 0.1)", show: canAccessTasks },
+    { title: "Attendance Report", subtitle: "Monthly attendance compliance & punch logs", screen: "AttendanceReport", icon: "calendar-outline", color: "#10B981", bg: "#ECFDF5", show: canAccessAttendance },
+    { title: "Leave Report", subtitle: "Leave balances, history & approval analytics", screen: "LeaveReport", icon: "time-outline", color: "#2563EB", bg: "#EFF6FF", show: canAccessLeaves },
+    { title: "Employee Directory Report", subtitle: "Staff headcount, department & designation stats", screen: "EmployeeReport", icon: "people-outline", color: "#6366F1", bg: "#EEF2FF", show: true },
+  ].filter((m) => m.show);
 
   return (
     <CompanyAdminLayout activeTab="Reports" headerTitle="Reports Dashboard">
@@ -231,45 +269,75 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
               <Text style={styles.statLabel}>Total Staff</Text>
             </View>
             
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "#EFF6FF" }]}>
-                <Ionicons name="briefcase-outline" size={20} color="#2563EB" />
+            {canAccessProjects && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="briefcase-outline" size={20} color="#2563EB" />
+                </View>
+                <Text style={styles.statValue}>{summary?.activeProjects ?? "-"}</Text>
+                <Text style={styles.statLabel}>Active Projects</Text>
               </View>
-              <Text style={styles.statValue}>{summary?.activeProjects ?? "-"}</Text>
-              <Text style={styles.statLabel}>Active Projects</Text>
-            </View>
-            
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
-                <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
-              </View>
-              <Text style={styles.statValue}>{summary?.attendanceRate ? summary.attendanceRate.toFixed(1) : 0}%</Text>
-              <Text style={styles.statLabel}>Attendance</Text>
-            </View>
-            
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "#F5F3FF" }]}>
-                <Ionicons name="cash-outline" size={20} color="#7C3AED" />
-              </View>
-              <Text style={styles.statValue}>{formatCurrency(summary?.totalPayrollExpense || 0)}</Text>
-              <Text style={styles.statLabel}>Payroll Expense</Text>
-            </View>
+            )}
 
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "#FFF7ED" }]}>
-                <Ionicons name="checkmark-done-circle-outline" size={20} color="#EA580C" />
+            {canAccessLeads && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="call-outline" size={20} color="#3B82F6" />
+                </View>
+                <Text style={styles.statValue}>{summary?.totalLeads ?? 0}</Text>
+                <Text style={styles.statLabel}>Total Leads</Text>
               </View>
-              <Text style={styles.statValue}>{summary?.taskCompletionRate ? summary.taskCompletionRate.toFixed(1) : 0}%</Text>
-              <Text style={styles.statLabel}>Task Completion</Text>
-            </View>
+            )}
 
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "#FFFBEB" }]}>
-                <Ionicons name="time-outline" size={20} color="#F59E0B" />
+            {canAccessLeads && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#ECFDF5" }]}>
+                  <Ionicons name="trending-up-outline" size={20} color="#10B981" />
+                </View>
+                <Text style={styles.statValue}>{summary?.leadConversionRate ? summary.leadConversionRate.toFixed(1) : 0}%</Text>
+                <Text style={styles.statLabel}>Lead Conv.</Text>
               </View>
-              <Text style={styles.statValue}>{summary?.leaveRequests ?? "-"}</Text>
-              <Text style={styles.statLabel}>Leave Requests</Text>
-            </View>
+            )}
+            
+            {canAccessAttendance && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
+                  <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+                </View>
+                <Text style={styles.statValue}>{summary?.attendanceRate ? summary.attendanceRate.toFixed(1) : 0}%</Text>
+                <Text style={styles.statLabel}>Attendance</Text>
+              </View>
+            )}
+            
+            {canAccessTasks && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#F5F3FF" }]}>
+                  <Ionicons name="checkbox-outline" size={20} color="#7C3AED" />
+                </View>
+                <Text style={styles.statValue}>{summary?.totalTasks ?? 0}</Text>
+                <Text style={styles.statLabel}>Total Tasks</Text>
+              </View>
+            )}
+
+            {canAccessTasks && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#FFF7ED" }]}>
+                  <Ionicons name="checkmark-done-circle-outline" size={20} color="#EA580C" />
+                </View>
+                <Text style={styles.statValue}>{summary?.taskCompletionRate ? summary.taskCompletionRate.toFixed(1) : 0}%</Text>
+                <Text style={styles.statLabel}>Task Done</Text>
+              </View>
+            )}
+
+            {canAccessLeaves && (
+              <View style={styles.statBox}>
+                <View style={[styles.iconBg, { backgroundColor: "#FFFBEB" }]}>
+                  <Ionicons name="time-outline" size={20} color="#F59E0B" />
+                </View>
+                <Text style={styles.statValue}>{summary?.leaveRequests ?? "-"}</Text>
+                <Text style={styles.statLabel}>Leave Req</Text>
+              </View>
+            )}
           </View>
 
           <Text style={styles.sectionTitle}>DETAILED ANALYTICS</Text>

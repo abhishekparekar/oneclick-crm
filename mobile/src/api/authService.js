@@ -1,7 +1,7 @@
 import api from "./api";
 
-export const loginApi = (email, password) =>
-  api.post("/auth/login", { email, password });
+export const loginApi = (email, password, force = false) =>
+  api.post("/auth/login", { email, password, force });
 
 export const getMeApi = () => api.get("/auth/me");
 
@@ -13,3 +13,7 @@ export const changePasswordApi = (newPassword) =>
 
 export const registerCompanyApi = (data) =>
   api.post("/auth/register-company", data);
+
+// ─── One User One Login Per Platform ───────────
+export const logoutApi = () => api.post("/auth/logout");
+

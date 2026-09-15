@@ -1,3 +1,4 @@
+﻿const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
 const Company = require("../models/Company");
 const User = require("../models/User");
@@ -213,21 +214,103 @@ const getCompanies = async (req, res, next) => {
 
 const getCompanyById = async (req, res, next) => {
   try {
-    const company = await Company.findById(req.params.id).populate(
-      "createdBy",
-      "name email"
-    );
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid company ID" });
+    }
+
+    const company = await Company.findById(id)
+      .populate("createdBy", "name email")
+      .populate("planId");
 
     if (!company) {
       return res.status(404).json({ message: "Company not found" });
     }
 
-    const companyAdmin = await User.findOne({
+    const companyAdmins = await User.find({
       companyId: company._id,
       role: "CompanyAdmin",
-    }).select("-password");
+    }).select("-password").lean();
 
-    res.json({ company, companyAdmin });
+    const companyAdmin = companyAdmins.find((a) => a.isPrimaryAdmin) || companyAdmins[0] || null;
+
+    const employees = await Employee.find({ companyId: company._id })
+      .select("firstName lastName email employeeCode assignedModules isLocationTrackingEnabled status")
+      .lean();
+
+    const totalEmployees = employees.length;
+    const activeEmployees = employees.filter((e) => e.status === "active");
+    const activeEmployeesCount = activeEmployees.length;
+
+    // Calculate module access stats
+    const moduleLimits = company.moduleLimits || {};
+    const defaultEmployeeLimit = company.employeeLimit || 50;
+
+    const ALL_MODULE_KEYS = [
+      "tasks", "leads", "attendance", "location_tracking", "projects", 
+      "leave", "payroll", "reports", "whatsapp", "mobileApp", "webAdmin"
+    ];
+
+    const defaultSuiteModules = ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads"];
+    const subscribedList = Array.isArray(company.subscribedModules) ? company.subscribedModules : [];
+
+    const moduleStats = {};
+    ALL_MODULE_KEYS.forEach((modKey) => {
+      const lowerKey = modKey.toLowerCase();
+      const isSubscribed = subscribedList.some((m) => String(m).toLowerCase().trim() === lowerKey);
+
+      const assignedCount = activeEmployees.filter((emp) => {
+        if (lowerKey === "location_tracking") {
+          return Boolean(emp.isLocationTrackingEnabled) ||
+            (Array.isArray(emp.assignedModules) && emp.assignedModules.some((m) => String(m).toLowerCase().trim() === "location_tracking"));
+        }
+
+        const empModules = Array.isArray(emp.assignedModules) && emp.assignedModules.length > 0
+          ? emp.assignedModules.map((m) => String(m).toLowerCase().trim())
+          : defaultSuiteModules;
+
+        return empModules.some((m) => {
+          const ml = String(m).toLowerCase().trim();
+          if (ml === lowerKey) return true;
+          if (lowerKey === "leave" && ml === "leaves") return true;
+          if (lowerKey === "leads" && ml === "lead") return true;
+          if (lowerKey === "tasks" && ml === "task") return true;
+          return false;
+        });
+      }).length;
+
+      const customLimit = moduleLimits[lowerKey] ?? moduleLimits[modKey];
+      const limit = (customLimit !== undefined && customLimit > 0) ? customLimit : defaultEmployeeLimit;
+
+      moduleStats[modKey] = {
+        key: modKey,
+        isSubscribed,
+        assignedCount,
+        limit,
+        percentage: limit > 0 ? Math.min(100, Math.round((assignedCount / limit) * 100)) : 0,
+      };
+    });
+
+    const subscription = await Subscription.findOne({ companyId: company._id })
+      .sort({ createdAt: -1 })
+      .populate("planId")
+      .lean();
+
+    const payments = await Payment.find({ companyId: company._id })
+      .populate("planId", "planName")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      company,
+      companyAdmin,
+      companyAdmins,
+      totalEmployees,
+      activeEmployeesCount,
+      moduleStats,
+      subscription,
+      payments,
+    });
   } catch (error) {
     next(error);
   }
@@ -593,7 +676,7 @@ const getDashboardStats = async (req, res, next) => {
           id: p._id,
           name: p.name || p.planName,
           subs: subsCount,
-          revenue: planRev >= 100000 ? `₹${(planRev / 100000).toFixed(2)}L` : `₹${planRev.toLocaleString("en-IN")}`,
+          revenue: planRev >= 100000 ? `â‚¹${(planRev / 100000).toFixed(2)}L` : `â‚¹${planRev.toLocaleString("en-IN")}`,
           eff: eff > 0 ? eff : 20,
           ec: colors[idx % colors.length]
         };
@@ -625,8 +708,8 @@ const getDashboardStats = async (req, res, next) => {
       totalCompanyAdmins,
       totalUsers,
       totalEmployees: totalEmployeesCount.toLocaleString("en-IN"),
-      monthlyRevenue: `₹${monthlyRevenueVal.toLocaleString("en-IN")}`,
-      annualRevenue: `₹${annualRevenueVal.toLocaleString("en-IN")}`,
+      monthlyRevenue: `â‚¹${monthlyRevenueVal.toLocaleString("en-IN")}`,
+      annualRevenue: `â‚¹${annualRevenueVal.toLocaleString("en-IN")}`,
       activeSubscriptions: activeSubscriptions || activeCompanies,
       expiredSubscriptions,
       trialSubscriptions,
@@ -856,7 +939,7 @@ const syncSubscriptionExpiryNotifications = async (req, res, next) => {
           await Notification.create({
             userId: sa._id,
             companyId: sub.companyId?._id || null,
-            title: `⚠️ ${urgency}: ${companyName}`,
+            title: `âš ï¸ ${urgency}: ${companyName}`,
             body: `${companyName}'s subscription (${sub.planName}) is set to expire on ${formattedDate} (${daysLeft} day${daysLeft === 1 ? "" : "s"} remaining). Renewal required.`,
             type: "subscription_expiry",
             data: {
@@ -1746,7 +1829,7 @@ const getReportsAnalytics = async (req, res, next) => {
     res.json({
       mrrData,
       onboardingData,
-      totalRevenue: `₹${totalRevenueVal.toLocaleString("en-IN")}`,
+      totalRevenue: `â‚¹${totalRevenueVal.toLocaleString("en-IN")}`,
       totalCompaniesCount,
       totalEmployeesCount,
     });
@@ -1755,7 +1838,132 @@ const getReportsAnalytics = async (req, res, next) => {
   }
 };
 
+const getSubSuperAdmins = async (req, res, next) => {
+  try {
+    const subAdmins = await User.find({ role: "SubSuperAdmin" })
+      .select("-password")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({ subAdmins, count: subAdmins.length });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createSubSuperAdmin = async (req, res, next) => {
+  try {
+    const { name, email, phone, password, permissions } = req.body;
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: "Name, email, and password are required" });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({ message: "A user with this email already exists" });
+    }
+
+    const subAdmin = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      phone: phone || "",
+      password,
+      role: "SubSuperAdmin",
+      permissions: permissions || {},
+      isActive: true,
+      isPrimaryAdmin: false,
+    });
+
+    const formatted = formatUser(subAdmin);
+    res.status(201).json({ message: "Sub-SuperAdmin created successfully", subAdmin: formatted });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateSubSuperAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { name, email, phone, password, permissions } = req.body;
+
+    const subAdmin = await User.findOne({ _id: id, role: "SubSuperAdmin" });
+    if (!subAdmin) {
+      return res.status(404).json({ message: "Sub-SuperAdmin not found" });
+    }
+
+    if (email && email.toLowerCase().trim() !== subAdmin.email) {
+      const emailExists = await User.findOne({
+        email: email.toLowerCase().trim(),
+        _id: { $ne: id },
+      });
+      if (emailExists) {
+        return res.status(400).json({ message: "Email is already taken by another account" });
+      }
+      subAdmin.email = email.toLowerCase().trim();
+    }
+
+    if (name) subAdmin.name = name.trim();
+    if (phone !== undefined) subAdmin.phone = phone;
+    if (permissions !== undefined) {
+      subAdmin.permissions = permissions;
+      subAdmin.markModified("permissions");
+    }
+    if (password && String(password).trim().length >= 6) {
+      subAdmin.password = password;
+    }
+
+    await subAdmin.save();
+    const formatted = formatUser(subAdmin);
+    res.json({ message: "Sub-SuperAdmin updated successfully", subAdmin: formatted });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateSubSuperAdminStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { isActive } = req.body;
+
+    const subAdmin = await User.findOne({ _id: id, role: "SubSuperAdmin" });
+    if (!subAdmin) {
+      return res.status(404).json({ message: "Sub-SuperAdmin not found" });
+    }
+
+    subAdmin.isActive = Boolean(isActive);
+    await subAdmin.save();
+
+    res.json({ 
+      message: `Sub-SuperAdmin ${subAdmin.isActive ? "activated" : "suspended"} successfully`, 
+      subAdmin: formatUser(subAdmin) 
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteSubSuperAdmin = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const subAdmin = await User.findOne({ _id: id, role: "SubSuperAdmin" });
+    if (!subAdmin) {
+      return res.status(404).json({ message: "Sub-SuperAdmin not found" });
+    }
+
+    await subAdmin.deleteOne();
+    res.json({ message: "Sub-SuperAdmin deleted successfully" });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
+  getSubSuperAdmins,
+  createSubSuperAdmin,
+  updateSubSuperAdmin,
+  updateSubSuperAdminStatus,
+  deleteSubSuperAdmin,
   createCompany,
   getCompanies,
   getCompanyById,

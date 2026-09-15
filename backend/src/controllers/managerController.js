@@ -1744,18 +1744,33 @@ const createTask = async (req, res, next) => {
 
     if (assignmentType === "self") {
       finalAssignees = [manager._id];
-    } else if (assignmentType === "single" || assignmentType === "multiple" || assignmentType === "both") {
-      if (!assigneesInput || assigneesInput.length === 0) {
-        return res.status(400).json({ success: false, message: "Please select assignees" });
+    } else if (
+      assignmentType === "single" ||
+      assignmentType === "multiple" ||
+      assignmentType === "both" ||
+      assignmentType === "employee" ||
+      assignmentType === "multiple_employees" ||
+      (!assignmentType && assigneesInput && assigneesInput.length > 0)
+    ) {
+      if (assigneesInput && assigneesInput.length > 0) {
+        const rawIds = assigneesInput.map(id => typeof id === "object" && id._id ? id._id : id);
+        const allInTeam = rawIds.every(id => teamIds.map(t => t.toString()).includes(id.toString()) || id.toString() === manager._id.toString());
+        if (!allInTeam) {
+          return res.status(403).json({ success: false, message: "Can only assign tasks to team members" });
+        }
+        finalAssignees = rawIds;
+      } else {
+        const targetDeptId = req.body.departmentId || manager.departmentId;
+        if (targetDeptId) {
+          const deptEmployees = await Employee.find({ companyId, departmentId: targetDeptId, status: "active" }).select("_id").lean();
+          finalAssignees = deptEmployees.map(e => e._id);
+        }
+        if (finalAssignees.length === 0 && manager._id) {
+          finalAssignees = [manager._id];
+        }
       }
-      const rawIds = assigneesInput.map(id => typeof id === "object" && id._id ? id._id : id);
-      const allInTeam = rawIds.every(id => teamIds.map(t => t.toString()).includes(id.toString()) || id.toString() === manager._id.toString());
-      if (!allInTeam) {
-        return res.status(403).json({ success: false, message: "Can only assign tasks to team members" });
-      }
-      finalAssignees = rawIds;
     } else if (assignmentType === "department") {
-      const targetDeptId = req.body.targetDepartmentId || manager.departmentId;
+      const targetDeptId = req.body.targetDepartmentId || req.body.departmentId || manager.departmentId;
       
       const allowedDepts = [manager.departmentId].filter(Boolean);
       if (manager.departmentIds && manager.departmentIds.length > 0) {
@@ -1789,6 +1804,17 @@ const createTask = async (req, res, next) => {
     } else if (assignmentType === "company") {
       const allEmployees = await Employee.find({ companyId }).select("_id").lean();
       finalAssignees = allEmployees.map(e => e._id);
+    }
+
+    if (finalAssignees.length === 0) {
+      const fallbackDept = req.body.departmentId || manager.departmentId;
+      if (fallbackDept) {
+        const deptEmployees = await Employee.find({ companyId, departmentId: fallbackDept, status: "active" }).select("_id").lean();
+        if (deptEmployees.length > 0) finalAssignees = deptEmployees.map(e => e._id);
+      }
+      if (finalAssignees.length === 0 && manager._id) {
+        finalAssignees = [manager._id];
+      }
     }
 
     const startDt = startDate ? new Date(startDate) : new Date();

@@ -69,11 +69,20 @@ const createNotification = async (req, res, next) => {
 
 const getMyNotifications = async (req, res, next) => {
   try {
+    if (!req.user?._id) {
+      return res.json({
+        success: true,
+        notifications: [],
+        unreadCount: 0,
+      });
+    }
+
     const userIds = [req.user._id];
     if (req.user.employeeId) userIds.push(req.user.employeeId);
 
     const notifications = await Notification.find({ userId: { $in: userIds } })
       .sort({ createdAt: -1 })
+      .limit(100)
       .lean();
 
     const unreadCount = notifications.filter((item) => !item.isRead).length;
@@ -83,7 +92,13 @@ const getMyNotifications = async (req, res, next) => {
       unreadCount,
     });
   } catch (error) {
-    next(error);
+    console.error("[NotificationController] getMyNotifications error:", error.message);
+    res.status(200).json({
+      success: true,
+      notifications: [],
+      unreadCount: 0,
+      warning: "Notifications temporarily unavailable",
+    });
   }
 };
 

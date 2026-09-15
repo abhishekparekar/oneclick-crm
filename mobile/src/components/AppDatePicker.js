@@ -27,15 +27,61 @@ const AppDatePicker = ({
   label,
   value,
   onChangeText,
+  onChange,
+  onSelectDate,
   placeholder = "DD/MM/YYYY",
   error,
   compact = false,
   containerStyle,
+  minDate,
+  minimumDate,
+  disabled = false,
 }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
   const [currentMonth, setCurrentMonth] = useState(new Date().getMonth()); // 0-11
   const [viewMode, setViewMode] = useState("calendar"); // 'calendar' | 'month' | 'year'
+
+  const triggerChange = (val) => {
+    if (typeof onChangeText === "function") onChangeText(val);
+    if (typeof onChange === "function") onChange(val);
+    if (typeof onSelectDate === "function") onSelectDate(val);
+  };
+
+  const effectiveMinDate = useMemo(() => {
+    const min = minDate || minimumDate;
+    if (!min) return null;
+    if (min === "today") {
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (min instanceof Date && !isNaN(min.getTime())) {
+      const d = new Date(min);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+    if (typeof min === "string") {
+      if (min.includes("/")) {
+        const parts = min.split("/");
+        const d = new Date(parseInt(parts[2], 10), parseInt(parts[1], 10) - 1, parseInt(parts[0], 10));
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+      const d = new Date(min);
+      if (!isNaN(d.getTime())) {
+        d.setHours(0, 0, 0, 0);
+        return d;
+      }
+    }
+    return null;
+  }, [minDate, minimumDate]);
+
+  const isPastDisabled = (dayNum) => {
+    if (!effectiveMinDate) return false;
+    const slotDate = new Date(currentYear, currentMonth, dayNum, 0, 0, 0, 0);
+    return slotDate.getTime() < effectiveMinDate.getTime();
+  };
 
   const displayValue = useMemo(() => {
     if (!value) return "";
@@ -133,18 +179,23 @@ const AppDatePicker = ({
 
   // Select day handler
   const handleSelectDay = (day) => {
+    if (isPastDisabled(day)) return;
     const dStr = String(day).padStart(2, "0");
     const mStr = String(currentMonth + 1).padStart(2, "0");
-    onChangeText(`${dStr}/${mStr}/${currentYear}`);
+    triggerChange(`${dStr}/${mStr}/${currentYear}`);
     setModalVisible(false);
     setViewMode("calendar");
   };
 
   // Select Today handler
   const handleSelectToday = () => {
+    if (effectiveMinDate) {
+      const todayDate = new Date(todayYear, todayMonth, todayDay, 0, 0, 0, 0);
+      if (todayDate.getTime() < effectiveMinDate.getTime()) return;
+    }
     const dStr = String(todayDay).padStart(2, "0");
     const mStr = String(todayMonth + 1).padStart(2, "0");
-    onChangeText(`${dStr}/${mStr}/${todayYear}`);
+    triggerChange(`${dStr}/${mStr}/${todayYear}`);
     setCurrentYear(todayYear);
     setCurrentMonth(todayMonth);
     setModalVisible(false);
@@ -167,23 +218,26 @@ const AppDatePicker = ({
       {label && <Text style={styles.label}>{label}</Text>}
 
       <TouchableOpacity
-        style={[styles.inputWrapper, error && styles.inputError]}
-        onPress={() => setModalVisible(true)}
+        style={[styles.inputWrapper, error && styles.inputError, disabled && { opacity: 0.6 }]}
+        onPress={() => !disabled && setModalVisible(true)}
         activeOpacity={0.7}
+        disabled={disabled}
       >
         <TextInput
           style={[styles.input, compact && styles.inputCompact]}
           placeholder={placeholder}
           placeholderTextColor="#64748B"
           value={displayValue}
-          onChangeText={onChangeText}
+          onChangeText={triggerChange}
+          editable={!disabled}
           keyboardType="numeric"
           maxLength={10}
         />
         <TouchableOpacity
           style={styles.calendarIconBtn}
-          onPress={() => setModalVisible(true)}
+          onPress={() => !disabled && setModalVisible(true)}
           activeOpacity={0.7}
+          disabled={disabled}
         >
           <Ionicons name="calendar" size={18} color="#1D4ED8" />
         </TouchableOpacity>
@@ -324,6 +378,7 @@ const AppDatePicker = ({
                     }
 
                     const dayNum = slot.value;
+                    const isDisabled = isPastDisabled(dayNum);
                     const isSelected =
                       selectedDateComponents &&
                       selectedDateComponents.day === dayNum &&
@@ -342,8 +397,10 @@ const AppDatePicker = ({
                             styles.dayCell,
                             isToday && styles.dayCellToday,
                             isSelected && styles.dayCellSelected,
+                            isDisabled && styles.dayCellDisabled,
                           ]}
                           onPress={() => handleSelectDay(dayNum)}
+                          disabled={isDisabled}
                           activeOpacity={0.7}
                         >
                           <Text
@@ -351,11 +408,12 @@ const AppDatePicker = ({
                               styles.dayText,
                               isToday && styles.dayTextToday,
                               isSelected && styles.dayTextSelected,
+                              isDisabled && styles.dayTextDisabled,
                             ]}
                           >
                             {dayNum}
                           </Text>
-                          {isToday && !isSelected && <View style={styles.todayDot} />}
+                          {isToday && !isSelected && <View style={[styles.todayDot, isDisabled && { backgroundColor: "#CBD5E1" }]} />}
                         </TouchableOpacity>
                       </View>
                     );
@@ -615,6 +673,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#F97316",
     borderColor: "#EA580C",
   },
+  dayCellDisabled: {
+    opacity: 0.35,
+  },
   dayText: {
     fontSize: 13.5,
     fontWeight: "600",
@@ -627,6 +688,9 @@ const styles = StyleSheet.create({
   dayTextSelected: {
     color: "#FFFFFF",
     fontWeight: "800",
+  },
+  dayTextDisabled: {
+    color: "#94A3B8",
   },
   todayDot: {
     width: 4,

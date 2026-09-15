@@ -1,14 +1,17 @@
 // Valid roles in the system (canonical casing)
-const ROLES = ["SuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"];
+const ROLES = ["SuperAdmin", "SubSuperAdmin", "CompanyAdmin", "HR", "Manager", "Employee"];
 
 /**
  * Normalizes a role string to canonical casing.
- * e.g. "hr" → "HR", "companyadmin" → "CompanyAdmin"
+ * e.g. "hr" → "HR", "companyadmin" → "CompanyAdmin", "subsuperadmin" → "SubSuperAdmin"
  */
 const normalizeRole = (role) => {
   if (!role) return "";
   const map = {
     superadmin: "SuperAdmin",
+    subsuperadmin: "SubSuperAdmin",
+    "sub-superadmin": "SubSuperAdmin",
+    sub_superadmin: "SubSuperAdmin",
     companyadmin: "CompanyAdmin",
     hr: "HR",
     manager: "Manager",

@@ -1,8 +1,9 @@
 const biReportingService = require("../services/biReportingService");
 
 const getCompanyId = (req) => {
-  if (req.user && req.user.role === "SuperAdmin") {
-    return req.query.companyId || req.companyId || null;
+  const role = (req.user?.role || "").toLowerCase();
+  if (role === "superadmin" || role === "subsuperadmin" || role === "sub-superadmin") {
+    return req.query.companyId || req.companyId || (req.user && req.user.companyId) || null;
   }
   return req.companyId || (req.user && req.user.companyId) || null;
 };
@@ -135,6 +136,42 @@ const getDepartmentDrillDown = async (req, res, next) => {
   }
 };
 
+// 11. Leads Report
+const getLeadReport = async (req, res, next) => {
+  try {
+    const companyId = getCompanyId(req);
+    if (!companyId) return res.status(400).json({ message: "Company ID is required" });
+    const data = await biReportingService.getLeadMetrics(companyId, req.query, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 12. Projects Report
+const getProjectReport = async (req, res, next) => {
+  try {
+    const companyId = getCompanyId(req);
+    if (!companyId) return res.status(400).json({ message: "Company ID is required" });
+    const data = await biReportingService.getProjectMetrics(companyId, req.query, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// 13. Organization Report
+const getOrganizationReport = async (req, res, next) => {
+  try {
+    const companyId = getCompanyId(req);
+    if (!companyId) return res.status(400).json({ message: "Company ID is required" });
+    const data = await biReportingService.getOrganizationMetrics(companyId, req.query, req.user);
+    res.json({ success: true, data });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   getExecutiveReport,
   getWorkforceReport,
@@ -146,4 +183,7 @@ module.exports = {
   getAuditReport,
   getEmployeeDrillDown,
   getDepartmentDrillDown,
+  getLeadReport,
+  getProjectReport,
+  getOrganizationReport,
 };

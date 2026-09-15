@@ -1,8 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { Alert } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { setAuthToken } from "../api/api";
+import { setAuthToken, setOnSessionInvalidated } from "../api/api";
 import { isEmployeeRole } from "../utils/roleHelpers";
-import { getMeApi, loginApi, registerCompanyApi } from "../api/authService";
+import { getMeApi, loginApi, registerCompanyApi, logoutApi } from "../api/authService";
 
 const AuthContext = createContext(null);
 
@@ -15,6 +16,14 @@ export const AuthProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    setOnSessionInvalidated(() => {
+      setUser(null);
+      setToken(null);
+      Alert.alert(
+        "Session Expired",
+        "Your session has ended because this account was logged in on another mobile device."
+      );
+    });
     loadStoredAuth();
   }, []);
 
@@ -91,10 +100,10 @@ export const AuthProvider = ({ children }) => {
     setAuthToken(null);
   };
 
-  const login = async ({ email, password }) => {
-    console.log("[AuthContext] Login attempt with email:", email);
+  const login = async ({ email, password, force = false }) => {
+    console.log("[AuthContext] Login attempt with email:", email, "force:", force);
     try {
-      const { data } = await loginApi(email.trim(), password);
+      const { data } = await loginApi(email.trim(), password, force);
       console.log("[AuthContext] Login successful, token received");
       await persistAuth(data.token, data.user);
       console.log("[AuthContext] User logged in:", data.user?.email);
@@ -104,6 +113,40 @@ export const AuthProvider = ({ children }) => {
       } catch (_) {}
       return { success: true, user: data.user };
     } catch (error) {
+      // ─── One User One Login Per Platform: SESSION_CONFLICT ─────────────
+      const code = error.response?.data?.code;
+      if (error.response?.status === 409 || code === "SESSION_CONFLICT") {
+        return new Promise((resolve) => {
+          Alert.alert(
+            "Active Session Detected",
+            "Your account is already logged in on another device.\n\nDo you want to stay logged in on that device or log in here?",
+            [
+              {
+                text: "Stay Logged In",
+                style: "cancel",
+                onPress: () => resolve({ success: false, message: "Login cancelled. Existing session remains active." }),
+              },
+              {
+                text: "Login Here",
+                onPress: async () => {
+                  const res = await login({ email, password, force: true });
+                  resolve(res);
+                },
+              },
+            ]
+          );
+        });
+      }
+
+      if (error.response?.status === 423 || code === "ALREADY_LOGGED_IN") {
+        const platform = error.response?.data?.platform || "mobile";
+        const message =
+          platform === "web"
+            ? "This account is already logged in on a web browser. Please log out from that browser first."
+            : "This account is already logged in on another mobile device. Please log out from that device first.";
+        console.error("[AuthContext] Login blocked:", message);
+        return { success: false, message };
+      }
       const message =
         error.response?.data?.message ||
         (error.message?.includes("Network Error") || error.code === "ECONNABORTED"
@@ -158,6 +201,13 @@ export const AuthProvider = ({ children }) => {
         locationTrackingService.stopLocationTracking().catch(() => {});
       }
     } catch (_) {}
+
+    // Call server to clear mobile session slot
+    try {
+      await logoutApi();
+    } catch (err) {
+      console.warn("[AuthContext] Server logout call failed, proceeding locally", err?.message);
+    }
 
     await clearAuthStorage();
     setToken(null);
@@ -222,12 +272,13 @@ export const AuthProvider = ({ children }) => {
     if (cat === "whatsapp") return "whatsapp";
     if (cat === "mobileapp") return "mobileapp";
     if (cat === "webadmin") return "webadmin";
+    if (cat === "location_tracking" || cat === "locationtracking" || cat === "location" || cat === "tracking") return "locationTracking";
     return cat;
   };
 
   const SUITE_MODULES = [
     "attendance", "leave", "payroll", "tasks", "projects", "leads", "reports",
-    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin"
+    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin", "locationTracking"
   ];
 
   const hasPermission = (category, action) => {
@@ -260,15 +311,24 @@ export const AuthProvider = ({ children }) => {
 
     // 2. Check Employee Assigned Modules (for suite modules only)
     if (isSuite) {
-      const rawAssigned = 
-        user.assignedModules ?? 
-        user.employee?.assignedModules ?? 
-        (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
+      // Leaves and Payroll/Salary are universal defaults for all employees
+      if (normCat === "leave" || normCat === "payroll") {
+        // Universal access by default
+      } else {
+        const rawAssigned = 
+          user.assignedModules ?? 
+          user.employee?.assignedModules ?? 
+          (typeof user.employee === "object" && user.employee !== null ? user.employee.assignedModules : null);
 
-      if (Array.isArray(rawAssigned)) {
-        const assigned = rawAssigned.map(normalizeModule);
-        if (!assigned.includes(normCat)) {
-          return false; // Not allocated to this employee/manager/HR
+        if (Array.isArray(rawAssigned)) {
+          const assigned = rawAssigned.map(normalizeModule);
+          if (!assigned.includes(normCat)) {
+            if (normCat === "locationTracking" && (user.isLocationTrackingEnabled || user.employee?.isLocationTrackingEnabled)) {
+              // Permitted via explicit location tracking flag
+            } else {
+              return false; // Not allocated to this employee/manager/HR
+            }
+          }
         }
       }
     }
@@ -320,6 +380,16 @@ export const AuthProvider = ({ children }) => {
       return true;
     }
     if (roleLower === "employee" || roleLower === "team member") {
+      if (normCat === "locationTracking") {
+        return Boolean(
+          user.isLocationTrackingEnabled ||
+          user.employee?.isLocationTrackingEnabled ||
+          (Array.isArray(user.assignedModules) && user.assignedModules.map(normalizeModule).includes("locationTracking")) ||
+          (Array.isArray(user.employee?.assignedModules) && user.employee.assignedModules.map(normalizeModule).includes("locationTracking")) ||
+          user.permissions?.locationTracking === true ||
+          user.permissions?.location === true
+        );
+      }
       if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normCat)) {
         return true;
       }

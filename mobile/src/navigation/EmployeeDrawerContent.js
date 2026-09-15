@@ -13,15 +13,26 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAuth } from "../context/AuthContext";
+import { useAppData } from "../context/AppDataContext";
 import { FONTS } from "../theme/tokens";
 
-const buildEmployeeSections = (hasPermission) => {
+const buildEmployeeSections = (hasPermission, user, employeeData) => {
   const canAccessLeads = hasPermission("leads", "view") || hasPermission("leads");
   const canAccessTasks = hasPermission("tasks", "view") || hasPermission("tasks");
   const canAccessAttendance = hasPermission("attendance", "view") || hasPermission("attendance");
   const canAccessLeaves = hasPermission("leaves", "view") || hasPermission("leaves") || hasPermission("leave");
   const canAccessPayroll = hasPermission("payroll", "view") || hasPermission("payroll");
   const canAccessProjects = hasPermission("projects", "view") || hasPermission("projects");
+  const canAccessLocationTracking =
+    hasPermission("locationTracking") ||
+    hasPermission("location_tracking") ||
+    hasPermission("location") ||
+    Boolean(
+      user?.isLocationTrackingEnabled ||
+      user?.employee?.isLocationTrackingEnabled ||
+      employeeData?.isLocationTrackingEnabled ||
+      employeeData?.locationTrackingEnabled
+    );
 
   return [
     {
@@ -90,13 +101,17 @@ const buildEmployeeSections = (hasPermission) => {
                 color: "#D97706",
                 module: "attendance",
               },
+            ]
+          : []),
+        ...(canAccessLocationTracking
+          ? [
               {
-                label: "Travel Route & GPS",
+                label: "Live Location Tracking",
                 screen: "EmployeeLocationTracking",
                 icon: "navigate-outline",
                 activeIcon: "navigate",
                 color: "#2563EB",
-                module: "attendance",
+                module: "locationTracking",
               },
             ]
           : []),
@@ -165,6 +180,7 @@ const buildEmployeeSections = (hasPermission) => {
 const EmployeeDrawerContent = (props) => {
   const { state, navigation } = props;
   const { user, logout, hasPermission, refreshUserProfile } = useAuth();
+  const appData = useAppData ? useAppData() : null;
   const insets = useSafeAreaInsets();
   const [imgError, setImgError] = useState(false);
 
@@ -174,7 +190,8 @@ const EmployeeDrawerContent = (props) => {
     }
   }, []);
 
-  const sections = buildEmployeeSections(hasPermission);
+  const employeeData = appData?.employeeDashboard?.employee || user?.employee;
+  const sections = buildEmployeeSections(hasPermission, user, employeeData);
 
   const getActiveRouteName = (navState) => {
     if (!navState) return null;

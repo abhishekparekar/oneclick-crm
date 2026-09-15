@@ -9,7 +9,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
-const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", error, containerStyle }) => {
+const AppTimePicker = ({ label, value, onChangeText, onChange, placeholder = "HH:MM", error, containerStyle, disabled = false }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedHour, setSelectedHour] = useState("17");
   const [selectedMinute, setSelectedMinute] = useState("00");
@@ -60,7 +60,9 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
   }, [value, modalVisible]);
 
   const handleDone = () => {
-    onChangeText(`${selectedHour}:${selectedMinute}`);
+    const val = `${selectedHour}:${selectedMinute}`;
+    if (typeof onChangeText === "function") onChangeText(val);
+    if (typeof onChange === "function") onChange(val);
     setModalVisible(false);
   };
 
@@ -72,9 +74,10 @@ const AppTimePicker = ({ label, value, onChangeText, placeholder = "HH:MM", erro
       {label && <Text style={styles.label}>{label}</Text>}
       
       <TouchableOpacity 
-        style={[styles.inputWrapper, error && styles.inputError]} 
-        onPress={() => setModalVisible(true)}
+        style={[styles.inputWrapper, error && styles.inputError, disabled && { opacity: 0.6 }]} 
+        onPress={() => !disabled && setModalVisible(true)}
         activeOpacity={0.7}
+        disabled={disabled}
       >
         <Text style={[styles.inputText, !value && { color: "#64748B" }]}>
           {displayTime || placeholder}

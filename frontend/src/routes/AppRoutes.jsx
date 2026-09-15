@@ -64,6 +64,8 @@ import SuperAdminReports from "../pages/superadmin/SuperAdminReports";
 import SuperAdminActivityLogs from "../pages/superadmin/SuperAdminActivityLogs";
 import SuperAdminSettings from "../pages/superadmin/SuperAdminSettings";
 import SuperAdminProfile from "../pages/superadmin/SuperAdminProfile";
+import SuperAdminSubAdmins from "../pages/superadmin/SuperAdminSubAdmins";
+import SuperAdminModuleRoute from "../components/layout/SuperAdminModuleRoute";
 
 // HR — Dashboard & Leads
 import HRDashboard from "../pages/hr/HRDashboard";
@@ -141,29 +143,71 @@ const AppRoutes = () => {
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
 
-        {/* SuperAdmin Routes */}
-        <Route element={<RoleRoute allowedRoles={["SuperAdmin"]} />}>
+        {/* SuperAdmin & SubSuperAdmin Routes */}
+        <Route element={<RoleRoute allowedRoles={["SuperAdmin", "SubSuperAdmin"]} />}>
           <Route path="/superadmin" element={<DashboardLayout><Outlet /></DashboardLayout>}>
             <Route index element={<Navigate to="dashboard" replace />} />
 
-            {/* Super Admin Module Routes */}
+            {/* Dashboard — always accessible */}
             <Route path="dashboard" element={<SuperAdminDashboard />} />
-            <Route path="companies" element={<SuperAdminCompanies />} />
-            <Route path="companies/add" element={<SuperAdminAddCompany />} />
-            <Route path="companies/:id" element={<SuperAdminCompanyDetails />} />
-            <Route path="company-requests" element={<SuperAdminCompanyRequests />} />
-            <Route path="requests" element={<SuperAdminRequests />} />
-            <Route path="company-admins" element={<SuperAdminCompanyAdmins />} />
-            <Route path="subscriptions" element={<SuperAdminSubscriptions />} />
-            <Route path="plans" element={<SuperAdminPlans />} />
-            <Route path="payments" element={<SuperAdminPayments />} />
-            <Route path="users" element={<SuperAdminUsers />} />
-            <Route path="announcements" element={<SuperAdminAnnouncements />} />
-            <Route path="support-tickets" element={<SuperAdminSupport />} />
-            <Route path="reports" element={<SuperAdminReports />} />
-            <Route path="activity-logs" element={<SuperAdminActivityLogs />} />
-            <Route path="settings" element={<SuperAdminSettings />} />
+
+            {/* Profile — always accessible */}
             <Route path="profile" element={<SuperAdminProfile />} />
+
+            {/* Sub-SuperAdmin Management — SuperAdmin only (page enforces this) */}
+            <Route path="sub-admins" element={<SuperAdminSubAdmins />} />
+
+            {/* Module-guarded routes */}
+            <Route element={<SuperAdminModuleRoute module="companies" />}>
+              <Route path="companies" element={<SuperAdminCompanies />} />
+              <Route path="companies/add" element={<SuperAdminAddCompany />} />
+              <Route path="companies/:id" element={<SuperAdminCompanyDetails />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="companyRequests" />}>
+              <Route path="company-requests" element={<SuperAdminCompanyRequests />} />
+              <Route path="requests" element={<SuperAdminRequests />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="companyAdmins" />}>
+              <Route path="company-admins" element={<SuperAdminCompanyAdmins />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="subscriptions" />}>
+              <Route path="subscriptions" element={<SuperAdminSubscriptions />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="plans" />}>
+              <Route path="plans" element={<SuperAdminPlans />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="payments" />}>
+              <Route path="payments" element={<SuperAdminPayments />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="users" />}>
+              <Route path="users" element={<SuperAdminUsers />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="announcements" />}>
+              <Route path="announcements" element={<SuperAdminAnnouncements />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="supportTickets" />}>
+              <Route path="support-tickets" element={<SuperAdminSupport />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="reports" />}>
+              <Route path="reports" element={<SuperAdminReports />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="activityLogs" />}>
+              <Route path="activity-logs" element={<SuperAdminActivityLogs />} />
+            </Route>
+
+            <Route element={<SuperAdminModuleRoute module="settings" />}>
+              <Route path="settings" element={<SuperAdminSettings />} />
+            </Route>
           </Route>
         </Route>
 
@@ -355,6 +399,7 @@ const AppRoutes = () => {
             
             <Route path="attendance" element={<EmployeeAttendance />} />
             <Route path="attendance/detail" element={<EmployeeAttendanceDetail />} />
+            <Route path="location-tracking" element={<EmployeeLocationTracking />} />
             <Route path="my-tasks" element={<EmployeeMyTasks />} />
             <Route path="tasks/:id" element={<EmployeeTaskDetails />} />
             <Route path="leaves" element={<EmployeeLeaves />} />

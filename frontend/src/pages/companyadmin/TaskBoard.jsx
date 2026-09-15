@@ -362,7 +362,7 @@ export default function TaskBoard() {
   const isHR = location.pathname.startsWith("/hr") || user?.role === "HR";
   const getTaskDetailsUrl = (taskId) => isHR ? `/hr/tasks/${taskId}` : `/company/tasks/${taskId}`;
 
-  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("tb_activeTab") || "All Time");
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem("tb_activeTab") || "Today");
   const [statusFilter, setStatusFilter] = useState(() => sessionStorage.getItem("tb_statusFilter") || "");
   const [searchQ, setSearchQ] = useState(() => sessionStorage.getItem("tb_searchQ") || "");
   const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "list");

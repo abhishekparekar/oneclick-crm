@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
-import { getProjectSummaryApi } from "../../api/reportService";
+import { getProjectSummaryApi, getBIProjectReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
@@ -36,8 +36,24 @@ const ProjectReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const { data } = await getProjectSummaryApi({ month, year });
-      setSummary(data);
+      
+      const res = await getBIProjectReportApi({ month, year, refresh }).catch(() => null);
+      if (res?.data?.data) {
+        const bi = res.data.data;
+        setSummary({
+          totalProjects: bi.kpis?.totalProjects || 0,
+          activeProjects: bi.kpis?.activeProjects || 0,
+          completedProjects: bi.kpis?.completedProjects || 0,
+          overdueProjects: bi.kpis?.overdueProjects || 0,
+          list: bi.records || [],
+          statusBreakdown: bi.statusBreakdown || [],
+          priorityBreakdown: bi.priorityBreakdown || [],
+          departmentBreakdown: bi.departmentBreakdown || [],
+        });
+      } else {
+        const { data } = await getProjectSummaryApi({ month, year });
+        setSummary(data);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load project summary");
     } finally {

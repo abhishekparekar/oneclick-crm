@@ -28,13 +28,18 @@ import CompanyRequestsScreen from "../screens/common/CompanyRequestsScreen";
 import EmployeeLocationTrackingScreen from "../screens/company/EmployeeLocationTrackingScreen";
 
 // Import Report Screens
+import ReportsDashboardScreen from "../screens/reports/ReportsDashboardScreen";
 import AttendanceReportScreen from "../screens/reports/AttendanceReportScreen";
 import LeaveReportScreen from "../screens/reports/LeaveReportScreen";
-import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
 import TaskReportScreen from "../screens/reports/TaskReportScreen";
 import EmployeeReportScreen from "../screens/reports/EmployeeReportScreen";
 import ProjectReportScreen from "../screens/reports/ProjectReportScreen";
 import PerformanceReportScreen from "../screens/reports/PerformanceReportScreen";
+import LeadReportScreen from "../screens/reports/LeadReportScreen";
+import PayrollReportScreen from "../screens/reports/PayrollReportScreen";
+import AuditReportScreen from "../screens/reports/AuditReportScreen";
+import OrganizationReportScreen from "../screens/reports/OrganizationReportScreen";
+import CompanyReportsDashboardScreen from "../screens/company/CompanyReportsDashboardScreen";
 
 // Import Wrapper Screens
 import {
@@ -248,13 +253,18 @@ const HRStackScreen = () => {
       <Stack.Screen name="HRPayrollGenerate"           component={HRPayrollGenerateScreen} />
       <Stack.Screen name="HRSalaryStructure"           component={HRSalaryStructureScreen} />
       <Stack.Screen name="HRReportsDashboard"          component={HRReportsDashboardScreen} />
+      <Stack.Screen name="ReportsDashboard"            component={ReportsDashboardScreen} />
       <Stack.Screen name="AttendanceReport"            component={AttendanceReportScreen} />
       <Stack.Screen name="LeaveReport"                 component={LeaveReportScreen} />
-      <Stack.Screen name="PayrollReport"               component={PayrollReportScreen} />
       <Stack.Screen name="TaskReport"                  component={TaskReportScreen} />
       <Stack.Screen name="EmployeeReport"              component={EmployeeReportScreen} />
       <Stack.Screen name="ProjectReport"               component={ProjectReportScreen} />
       <Stack.Screen name="PerformanceReport"           component={PerformanceReportScreen} />
+      <Stack.Screen name="LeadReport"                  component={LeadReportScreen} />
+      <Stack.Screen name="PayrollReport"               component={PayrollReportScreen} />
+      <Stack.Screen name="AuditReport"                 component={AuditReportScreen} />
+      <Stack.Screen name="OrganizationReport"          component={OrganizationReportScreen} />
+      <Stack.Screen name="CompanyReportsDashboard"     component={CompanyReportsDashboardScreen} />
       <Stack.Screen name="HRAnnouncements"             component={HRAnnouncementsScreen} />
       <Stack.Screen name="HRAuditLogs"                 component={HRAuditLogsScreen} />
       <Stack.Screen name="HRProfile"                   component={HRProfileScreen} />

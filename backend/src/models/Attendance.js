@@ -170,6 +170,7 @@ const attendanceSchema = new mongoose.Schema(
 
 attendanceSchema.index({ companyId: 1, employeeId: 1, date: 1 }, { unique: true });
 attendanceSchema.index({ companyId: 1, date: 1, status: 1 });
+attendanceSchema.index({ companyId: 1, createdAt: -1 });
 
 const Attendance = mongoose.model("Attendance", attendanceSchema);
 

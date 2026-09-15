@@ -13,7 +13,13 @@ export const getApiBaseUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+    // ─── One User One Login Per Platform ─────────────────────────────
+    // Every web request carries this header so the backend knows
+    // which platform's active session slot to validate against.
+    "X-Platform": "web",
+  },
   timeout: 60000,
 });
 
@@ -24,6 +30,8 @@ api.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    // Ensure X-Platform is always present (in case headers were reset)
+    config.headers["X-Platform"] = "web";
     return config;
   },
   (error) => Promise.reject(error)
@@ -32,11 +40,21 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      // Clear token on unauthorized if needed, but Context will handle it mostly
-      // localStorage.removeItem("token");
-      // window.location.href = "/login";
+    const status = error.response?.status;
+    const code = error.response?.data?.code;
+
+    // ─── Session Invalidated — force logout on web ────────────────────────────
+    // This fires when another device/browser has logged in with the same account,
+    // invalidating this session's token hash on the server.
+    if (status === 401 && code === "SESSION_INVALIDATED") {
+      localStorage.removeItem("token");
+      // Store a flag so LoginPage can show the right message
+      sessionStorage.setItem("session_invalidated", "1");
+      if (typeof window !== "undefined" && !window.location.pathname.includes("/login")) {
+        window.location.href = "/login";
+      }
     }
+
     return Promise.reject(error);
   }
 );

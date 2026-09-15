@@ -12,7 +12,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import Loader from "../../components/Loader";
 import ReportHeader from "../../components/ReportHeader";
-import { getEmployeeSummaryApi } from "../../api/reportService";
+import { getEmployeeSummaryApi, getBIWorkforceReportApi } from "../../api/reportService";
 import { exportToExcel } from "../../utils/excelExporter";
 import { generateAndSharePDF } from "../../utils/pdfGenerator";
 import { formatDateToDDMMYYYY } from "../../utils/dateFormatter";
@@ -36,8 +36,26 @@ const EmployeeReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const { data } = await getEmployeeSummaryApi({ month, year });
-      setSummary(data);
+      
+      const res = await getBIWorkforceReportApi({ month, year, refresh }).catch(() => null);
+      if (res?.data?.data) {
+        const bi = res.data.data;
+        const total = bi.kpis?.totalEmployees?.current ?? 0;
+        const active = bi.kpis?.activeEmployees?.current ?? 0;
+        setSummary({
+          totalEmployees: total,
+          activeEmployees: active,
+          inactiveEmployees: Math.max(0, total - active),
+          newJoinings: bi.kpis?.newJoinings?.current ?? 0,
+          attritionRate: bi.kpis?.attritionRate ?? 0,
+          list: bi.employeesList || [],
+          departmentBreakdown: bi.departmentBreakdown || [],
+          employmentTypeDistribution: bi.employmentTypeDistribution || [],
+        });
+      } else {
+        const { data } = await getEmployeeSummaryApi({ month, year });
+        setSummary(data);
+      }
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load employee summary");
     } finally {
@@ -55,8 +73,8 @@ const EmployeeReportScreen = () => {
   const filteredEmployees = useMemo(() => {
     const list = summary?.list || [];
     return list.filter((e) => {
-      const name = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase();
-      const code = (e.employeeCode || "").toLowerCase();
+      const name = (e.name || `${e.firstName || ""} ${e.lastName || ""}`).toLowerCase();
+      const code = (e.code || e.employeeCode || "").toLowerCase();
       const s = search.toLowerCase();
       const matchSearch = !s || name.includes(s) || code.includes(s);
       const matchStatus =

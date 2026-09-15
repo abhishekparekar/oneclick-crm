@@ -85,3 +85,10 @@ export const deleteCompanyRequestApi = (id) => api.delete(`/superadmin/company-r
 // Company Subscription Requests (SaaS Plan Upgrades, Seat Extensions, Renewals)
 export const getSuperAdminSubscriptionRequestsApi = (params) => api.get("/superadmin/subscription-requests", { params });
 export const updateSubscriptionRequestStatusApi = (id, data) => api.patch(`/superadmin/subscription-requests/${id}/status`, data);
+
+// Sub-SuperAdmin Management
+export const getSubSuperAdminsApi = (params) => api.get("/superadmin/sub-superadmins", { params });
+export const createSubSuperAdminApi = (data) => api.post("/superadmin/sub-superadmins", data);
+export const updateSubSuperAdminApi = (id, data) => api.put(`/superadmin/sub-superadmins/${id}`, data);
+export const updateSubSuperAdminStatusApi = (id, isActive) => api.patch(`/superadmin/sub-superadmins/${id}/status`, { isActive });
+export const deleteSubSuperAdminApi = (id) => api.delete(`/superadmin/sub-superadmins/${id}`);

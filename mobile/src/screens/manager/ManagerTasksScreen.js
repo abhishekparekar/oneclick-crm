@@ -376,30 +376,46 @@ const TaskCard = ({ item, navigation, handleStartTask, activeTab, canCancel, onC
 
 // ── Main ManagerTasksScreen ──────────────────────────────────────────────────
 const ManagerTasksScreen = ({ navigation, route }) => {
-  useEffect(() => {
-    if (route.params?.activeTab !== undefined) {
-      setActiveTab(route.params.activeTab);
-    }
-    if (route.params?.taskFilter !== undefined) {
-      setTaskFilter(route.params.taskFilter);
-    }
-    if (route.params?.dateFilter) {
-      setDateFilter(route.params.dateFilter);
-    }
-    if (route.params?.deadlineComingFilter !== undefined) {
-      setDeadlineComingFilter(route.params.deadlineComingFilter);
-    }
-    if (route.params?.departmentId) {
-      setSelectedDepts([route.params.departmentId]);
-    } else if (route.params?.departmentId === "") {
-      setSelectedDepts([]);
-    }
-  }, [route.params]);
-
   const [activeTab, setActiveTab] = useState("myTasks");
   const [taskFilter, setTaskFilter] = useState("");
-  const [dateFilter, setDateFilter] = useState("all_time");
+  const [dateFilter, setDateFilter] = useState("today");
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
+
+  const applyRouteParams = useCallback((params) => {
+    if (!params) return;
+    if (params.activeTab !== undefined) {
+      setActiveTab(params.activeTab);
+    }
+    const incomingTaskFilter = params.taskFilter ?? params.status;
+    if (incomingTaskFilter !== undefined) {
+      setTaskFilter(incomingTaskFilter);
+    }
+    if (params.filter !== undefined) {
+      if (params.filter === "my" || params.filter === "myTasks") setActiveTab("myTasks");
+      else if (params.filter === "team" || params.filter === "teamTasks") setActiveTab("teamTasks");
+    }
+    if (params.dateFilter) {
+      setDateFilter(params.dateFilter);
+    }
+    if (params.deadlineComingFilter !== undefined) {
+      setDeadlineComingFilter(params.deadlineComingFilter);
+    }
+    if (params.departmentId) {
+      setSelectedDepts([params.departmentId]);
+    } else if (params.departmentId === "") {
+      setSelectedDepts([]);
+    }
+  }, []);
+
+  useEffect(() => {
+    applyRouteParams(route.params);
+  }, [route.params, applyRouteParams]);
+
+  useFocusEffect(
+    useCallback(() => {
+      applyRouteParams(route.params);
+    }, [route.params, applyRouteParams])
+  );
   const {
     myManagerTasks,
     teamTasks,
@@ -824,7 +840,12 @@ const ManagerTasksScreen = ({ navigation, route }) => {
     return checkDayMatch(yesterday) || checkDayMatch(today) || checkDayMatch(tomorrow);
   };
 
-  let filteredData = listData.filter((t) => matchesDateFilter(t, dateFilter));
+  let filteredData = listData.filter((t) => {
+    if (taskFilter === "overdue" && (dateFilter === "today" || dateFilter === "all_time")) {
+      return true;
+    }
+    return matchesDateFilter(t, dateFilter);
+  });
 
   if (search.trim()) {
     const q = search.toLowerCase();
@@ -942,7 +963,21 @@ const ManagerTasksScreen = ({ navigation, route }) => {
         (t) => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId
       ).length;
     if (statusKey === "overdue") {
-      return base.filter((t) => {
+      const overdueBase = (dateFilter && dateFilter !== "all_time" && dateFilter !== "today")
+        ? base
+        : src.filter((t) => {
+            if (selectedDepts.length > 0) {
+              const deptId = t.departmentId?._id || t.departmentId;
+              if (!deptId || !selectedDepts.includes(deptId)) return false;
+            }
+            if (selectedEmployeeIds.length > 0) {
+              const assigneesArr = Array.isArray(t.assignedTo) ? t.assignedTo : t.assignedTo ? [t.assignedTo] : (t.assignees || []);
+              if (!assigneesArr.some((emp) => selectedEmployeeIds.includes(emp?._id || emp?.id || emp))) return false;
+            }
+            return true;
+          });
+
+      return overdueBase.filter((t) => {
         const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(t.status?.toLowerCase());
         return !t.isTemplate && t.endDateTime && new Date(t.endDateTime) < new Date() && !isDone;
       }).length;

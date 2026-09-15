@@ -22,6 +22,9 @@ router.put("/:id", taskController.updateTask);
 router.patch("/:id/status", taskController.unifiedUpdateTaskStatus);
 
 // Workflow state changes
+router.patch("/:id/pending", taskController.unifiedUpdateTaskStatus);
+router.patch("/:id/re-pending", taskController.unifiedUpdateTaskStatus);
+router.patch("/:id/re_pending", taskController.unifiedUpdateTaskStatus);
 router.patch("/:id/in-process", taskController.inProcessTask);
 router.patch("/:id/in_process", taskController.inProcessTask);
 router.patch("/:id/in-progress", taskController.inProcessTask);

@@ -391,7 +391,7 @@ const TaskBoardScreen = ({ navigation }) => {
   const [bulkShifting, setBulkShifting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-  const [dateFilter, setDateFilter] = useState("all_time"); // Date period filter inside collapsible panel (defaults to all_time)
+  const [dateFilter, setDateFilter] = useState("today"); // Date period filter inside collapsible panel (defaults to today)
   const [showFilter, setShowFilter] = useState(false);
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");

@@ -19,6 +19,7 @@ import {
   Hexagon,
   Magnet,
   MessageSquare,
+  Navigation,
 } from "lucide-react";
 
 // ─── Employee Sidebar ────────────────────────────────────────────────────────
@@ -58,6 +59,7 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
       title: "HRMS",
       items: [
         { label: "My Attendance", path: "/employee/attendance", icon: CalendarCheck, module: "attendance" },
+        { label: "Live Location Tracking", path: "/employee/location-tracking", icon: Navigation, module: "location_tracking" },
         { label: "Leaves", path: "/employee/leaves", icon: File, module: "leave" },
         { label: "Payslips", path: "/employee/payslips", icon: Receipt, module: "payroll" },
       ],
@@ -119,6 +121,16 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {sections.map((section, idx) => {
           const visibleItems = section.items.filter((item) => {
             if (!item.module) return true;
+            if (item.module === "location_tracking") {
+              return Boolean(
+                profileData?.employee?.isLocationTrackingEnabled ||
+                user?.isLocationTrackingEnabled ||
+                user?.employee?.isLocationTrackingEnabled ||
+                (Array.isArray(assignedModules) && assignedModules.some((m) => ["location", "locationtracking", "location_tracking", "tracking"].includes(String(m).toLowerCase()))) ||
+                hasPermission("locationTracking") ||
+                hasPermission("location")
+              );
+            }
             if (Array.isArray(subscribedModules)) {
               const norm = String(item.module).toLowerCase().trim();
               const subs = subscribedModules.map(m => String(m).toLowerCase().trim());
