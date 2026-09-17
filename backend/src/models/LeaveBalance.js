@@ -17,11 +17,23 @@ const leaveBalanceSchema = new mongoose.Schema(
     },
     monthlyLeaves: {
       type: Number,
-      default: 2,
+      default: 0,
+    },
+    monthlyCasual: {
+      type: Number,
+      default: 0,
+    },
+    monthlySick: {
+      type: Number,
+      default: 0,
+    },
+    monthlyAnnual: {
+      type: Number,
+      default: 0,
     },
     paidLeaves: {
       type: Number,
-      default: 18,
+      default: 0,
     },
     unpaidLeaves: {
       type: Number,
@@ -29,15 +41,15 @@ const leaveBalanceSchema = new mongoose.Schema(
     },
     casual: {
       type: Number,
-      default: 12,
+      default: 0,
     },
     sick: {
       type: Number,
-      default: 6,
+      default: 0,
     },
     annual: {
       type: Number,
-      default: 15,
+      default: 0,
     },
     lop: {
       type: Number,
@@ -52,17 +64,19 @@ const leaveBalanceSchema = new mongoose.Schema(
 leaveBalanceSchema.statics.createWithDefaults = async function (employeeId, companyId) {
   const CompanyLeaveSettings = require("./CompanyLeaveSettings");
   let settings = await CompanyLeaveSettings.findOne({ companyId });
-  if (!settings) {
-    settings = await CompanyLeaveSettings.create({ companyId });
-  }
 
   return this.create({
     employeeId,
     companyId,
-    casual: settings.defaultCasualLeaves,
-    sick: settings.defaultSickLeaves,
-    annual: settings.defaultAnnualLeaves,
-    lop: settings.defaultUnpaidLeaves,
+    monthlyLeaves: 0,
+    monthlyCasual: 0,
+    monthlySick: 0,
+    monthlyAnnual: 0,
+    paidLeaves: 0,
+    casual: settings?.defaultCasualLeaves ?? 0,
+    sick: settings?.defaultSickLeaves ?? 0,
+    annual: settings?.defaultAnnualLeaves ?? 0,
+    lop: settings?.defaultUnpaidLeaves ?? 0,
   });
 };
 

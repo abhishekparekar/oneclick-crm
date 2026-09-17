@@ -1,5 +1,6 @@
 import api, { getApiBaseUrl } from "./api";
 import * as FileSystem from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ── Dashboard ──────────────────────────────────────────────
 export const getManagerDashboard = async (params = {}) => {
@@ -152,7 +153,13 @@ const expoUpload = async (path, formData) => {
   }
 
   const baseUrl = getApiBaseUrl();
-  const token = api.defaults.headers.common.Authorization;
+  let token = api.defaults.headers.common?.Authorization || api.defaults.headers.common?.authorization;
+  if (!token) {
+    try {
+      const stored = await AsyncStorage.getItem("hrms_token");
+      if (stored) token = `Bearer ${stored}`;
+    } catch (_) {}
+  }
 
   const uploadType = FileSystem.FileSystemUploadType?.MULTIPART ?? FileSystem.UploadType?.MULTIPART ?? 1;
 

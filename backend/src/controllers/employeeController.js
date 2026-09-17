@@ -84,24 +84,44 @@ const buildEmployeeFilter = (req) => {
 
   const filter = { companyId: req.companyId };
 
-  if (departmentId) filter.departmentId = departmentId;
   if (designationId) filter.designationId = designationId;
   if (branchId) filter.branchId = branchId;
   if (employmentType) filter.employmentType = employmentType;
   if (status) filter.status = status;
   if (moduleFilter) filter.assignedModules = moduleFilter;
 
+  const andConditions = [];
+
+  if (departmentId) {
+    const deptObjId = mongoose.Types.ObjectId.isValid(departmentId)
+      ? new mongoose.Types.ObjectId(departmentId)
+      : departmentId;
+    andConditions.push({
+      $or: [
+        { departmentId: deptObjId },
+        { departmentIds: deptObjId },
+        { accessibleDepartments: deptObjId },
+      ],
+    });
+  }
+
   if (search && String(search).trim()) {
     const q = String(search).trim();
     const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const regex = new RegExp(escaped, "i");
-    filter.$or = [
-      { firstName: regex },
-      { lastName: regex },
-      { email: regex },
-      { phone: regex },
-      { employeeCode: regex },
-    ];
+    andConditions.push({
+      $or: [
+        { firstName: regex },
+        { lastName: regex },
+        { email: regex },
+        { phone: regex },
+        { employeeCode: regex },
+      ],
+    });
+  }
+
+  if (andConditions.length > 0) {
+    filter.$and = andConditions;
   }
 
   return filter;
@@ -246,6 +266,7 @@ const getEmployees = async (req, res, next) => {
       .populate([
         { path: "userId", select: "role profileImage name email assignedModules" },
         { path: "departmentId", select: "name" },
+        { path: "departmentIds", select: "name" },
         { path: "designationId", select: "name" },
         { path: "branchId", select: "branchName" },
         { path: "accessibleDepartments", select: "name" },

@@ -4,6 +4,7 @@ const LeaveBalance = require("../models/LeaveBalance");
 const Holiday = require("../models/Holiday");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
 
 // Helper to resolve employee profile
 const getEmployeeProfile = async (req) => {
@@ -57,7 +58,7 @@ const applyLeave = async (req, res, next) => {
     const diffTime = Math.abs(end - start);
     const numberOfDays = isHalfDay ? 0.5 : Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    // Check balance
+    // Check balance and monthly accruals
     let balance = await LeaveBalance.findOne({
       employeeId: employee._id,
       companyId: req.companyId,
@@ -67,6 +68,8 @@ const applyLeave = async (req, res, next) => {
       balance = await LeaveBalance.createWithDefaults(employee._id, req.companyId);
     }
 
+    const monthlyMetrics = await calculateLeaveAccrualMetrics(employee._id, req.companyId, start, balance);
+
     let finalLeaveType = leaveType;
     let balanceDeducted = false;
 
@@ -75,6 +78,17 @@ const applyLeave = async (req, res, next) => {
     const requestedTypeKey = leaveType.toLowerCase();
     
     if (paidTypes.includes(requestedTypeKey)) {
+      // Check monthly cap restriction first
+      if (monthlyMetrics && monthlyMetrics.allowedRemainingThisMonth !== undefined) {
+        if (numberOfDays > monthlyMetrics.allowedRemainingThisMonth) {
+          return res.status(400).json({
+            success: false,
+            message: `You can only take up to ${monthlyMetrics.allowedRemainingThisMonth} paid leave day(s) this month (Monthly Cap: ${monthlyMetrics.monthlyCap} days, Already taken this month: ${monthlyMetrics.currentMonthUsed?.totalPaid || 0} days). Please adjust your dates or apply for Unpaid Leave.`,
+            monthlyMetrics,
+          });
+        }
+      }
+
       const available = balance[requestedTypeKey] || 0;
       
       if (available >= numberOfDays) {
@@ -282,7 +296,7 @@ const getLeaveBalance = async (req, res, next) => {
     if (!employee) {
       return res.json({
         success: true,
-        balance: { casual: 12, sick: 10, annual: 15, lop: 0 },
+        balance: { casual: 0, sick: 0, annual: 0, lop: 0, monthlyCasual: 0, monthlySick: 0, monthlyAnnual: 0, monthlyLeaves: 0, paidLeaves: 0 },
       });
     }
 
@@ -300,11 +314,18 @@ const getLeaveBalance = async (req, res, next) => {
         balance = await LeaveBalance.createWithDefaults(employee._id, req.companyId || employee.companyId);
       } catch (createErr) {
         console.warn("[getLeaveBalance] create defaults error:", createErr.message);
-        balance = { casual: 12, sick: 10, annual: 15, lop: 0 };
+        balance = { casual: 0, sick: 0, annual: 0, lop: 0, monthlyCasual: 0, monthlySick: 0, monthlyAnnual: 0, monthlyLeaves: 0, paidLeaves: 0 };
       }
     }
 
-    res.json({ success: true, balance });
+    const monthlyMetrics = await calculateLeaveAccrualMetrics(
+      employee._id,
+      req.companyId || employee.companyId,
+      new Date(),
+      balance
+    );
+
+    res.json({ success: true, balance, monthlyMetrics });
   } catch (error) {
     console.error("[getLeaveBalance] Error:", error.message);
     res.json({

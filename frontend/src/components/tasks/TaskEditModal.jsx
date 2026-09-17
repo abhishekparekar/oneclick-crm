@@ -52,7 +52,7 @@ const PRIORITIES = [
   { id: "urgent", label: "Urgent", icon: "🔴", color: "text-rose-700 dark:text-rose-300", bg: "bg-rose-500/10 border-rose-500/30", activeBg: "bg-rose-600 text-white font-bold" },
 ];
 
-export default function TaskEditModal({ isOpen, onClose, task, departments = [], employees = [] }) {
+export default function TaskEditModal({ isOpen, onClose, task, departments = [], employees = [], onSuccess }) {
   const queryClient = useQueryClient();
 
   const getInitialValues = (t) => {
@@ -200,6 +200,7 @@ export default function TaskEditModal({ isOpen, onClose, task, departments = [],
       queryClient.invalidateQueries(["managerTeamTasks"]);
       queryClient.invalidateQueries(["employeeMyTasksPage"]);
       handleClose(true);
+      onSuccess?.();
     },
     onError: (err) => {
       alert(err.response?.data?.message || "Failed to update task");

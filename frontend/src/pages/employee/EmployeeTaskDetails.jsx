@@ -403,6 +403,7 @@ export default function EmployeeTaskDetails() {
       setShowStatusModal(false);
       queryClient.invalidateQueries(["employeeTaskDetails", taskId]);
       queryClient.invalidateQueries(["employeeMyTasksPage"]);
+      navigate("/employee/my-tasks");
     },
     onError: (err) => {
       alert(err?.response?.data?.message || "Failed to update task status");

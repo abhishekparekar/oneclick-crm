@@ -155,7 +155,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         await updateTaskStatusApi(taskId, actionType, payload);
       }
       setActionModalVisible(false);
-      fetchTask(true);
+      navigation.goBack();
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message);
       fetchTask(true);
@@ -262,13 +262,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         setReopenModalVisible(false);
         setReopenRemarks("");
         setReopenEndDate("");
-        
-        const updatedTask = res.data?.task || res.data?.data?.task || res.data?.data;
-        if (updatedTask && updatedTask.status) {
-          setTask(updatedTask);
-        } else {
-          fetchTask(true);
-        }
+        navigation.goBack();
       }
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message || "Reopen failed.");
@@ -297,7 +291,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         setShiftModalVisible(false);
         setShiftReason("");
         setNewAssigneeId("");
-        fetchTask(true);
+        navigation.goBack();
       }
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message || "Shift Task failed.");

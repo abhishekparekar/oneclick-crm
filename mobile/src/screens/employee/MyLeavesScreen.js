@@ -20,6 +20,17 @@ const STATUS_FILTERS = [
   { label: "Rejected", value: "rejected" },
 ];
 
+const formatDateSafe = (dateVal, formatOptions = { month: "short", day: "numeric", year: "numeric" }) => {
+  if (!dateVal) return "—";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal || "—");
+    return d.toLocaleDateString("en-US", formatOptions);
+  } catch (_) {
+    return String(dateVal || "—");
+  }
+};
+
 const MyLeavesScreen = ({ navigation }) => {
   const [leaves, setLeaves] = useState([]);
   const [balance, setBalance] = useState({ casual: 10, sick: 8, annual: 15, lop: 0 });
@@ -55,7 +66,10 @@ const MyLeavesScreen = ({ navigation }) => {
 
       if (balanceRes?.data?.success) {
         hasFetchedBalanceRef.current = true;
-        setBalance(balanceRes.data.balance || balanceRes.data);
+        const b = balanceRes.data.balance || balanceRes.data;
+        if (b && typeof b === "object") {
+          setBalance((prev) => ({ ...prev, ...b }));
+        }
       }
     } catch (error) {
       console.error("Failed to load leaves dashboards:", error);
@@ -178,7 +192,7 @@ const MyLeavesScreen = ({ navigation }) => {
                 <View style={[styles.balanceIconBox, { backgroundColor: "#EFF6FF" }]}>
                   <Ionicons name="briefcase" size={16} color="#3B82F6" />
                 </View>
-                <Text style={[styles.balanceNum, { color: "#3B82F6" }]}>{balance.casual ?? 10}</Text>
+                <Text style={[styles.balanceNum, { color: "#3B82F6" }]}>{balance?.casual ?? 10}</Text>
               </View>
               <Text style={styles.balanceName}>Casual Leaves</Text>
             </View>
@@ -189,7 +203,7 @@ const MyLeavesScreen = ({ navigation }) => {
                 <View style={[styles.balanceIconBox, { backgroundColor: "#ECFDF5" }]}>
                   <Ionicons name="medical" size={16} color="#10B981" />
                 </View>
-                <Text style={[styles.balanceNum, { color: "#10B981" }]}>{balance.sick ?? 8}</Text>
+                <Text style={[styles.balanceNum, { color: "#10B981" }]}>{balance?.sick ?? 8}</Text>
               </View>
               <Text style={styles.balanceName}>Sick Leaves</Text>
             </View>
@@ -200,7 +214,7 @@ const MyLeavesScreen = ({ navigation }) => {
                 <View style={[styles.balanceIconBox, { backgroundColor: "#F5F3FF" }]}>
                   <Ionicons name="ribbon" size={16} color="#8B5CF6" />
                 </View>
-                <Text style={[styles.balanceNum, { color: "#8B5CF6" }]}>{balance.annual ?? 15}</Text>
+                <Text style={[styles.balanceNum, { color: "#8B5CF6" }]}>{balance?.annual ?? 15}</Text>
               </View>
               <Text style={styles.balanceName}>Annual Leaves</Text>
             </View>
@@ -292,14 +306,14 @@ const MyLeavesScreen = ({ navigation }) => {
                       <View style={styles.dateCol}>
                         <Text style={styles.dateLabel}>START DATE</Text>
                         <Text style={styles.dateVal}>
-                          {new Date(leave.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {formatDateSafe(leave.startDate)}
                         </Text>
                       </View>
                       <Ionicons name="arrow-forward" size={14} color="#94A3B8" />
                       <View style={styles.dateCol}>
                         <Text style={styles.dateLabel}>END DATE</Text>
                         <Text style={styles.dateVal}>
-                          {new Date(leave.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {formatDateSafe(leave.endDate)}
                         </Text>
                       </View>
                     </View>
@@ -310,7 +324,7 @@ const MyLeavesScreen = ({ navigation }) => {
                         💬 Reason: {leave.reason || "N/A"}
                       </Text>
                       <Text style={styles.appliedDateText}>
-                        Applied on {new Date(leave.createdAt || leave.startDate).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
+                        Applied on {formatDateSafe(leave.createdAt || leave.startDate, { day: "numeric", month: "short", year: "numeric" })}
                       </Text>
                     </View>
                   </View>

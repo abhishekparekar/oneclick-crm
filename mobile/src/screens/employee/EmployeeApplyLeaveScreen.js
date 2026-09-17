@@ -27,6 +27,7 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
   const [reason, setReason] = useState("");
   
   const [balance, setBalance] = useState({ casual: 10, sick: 8, annual: 15, lop: 0 });
+  const [metrics, setMetrics] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
@@ -36,6 +37,9 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
       const res = await getLeaveBalanceApi();
       if (res?.data && res.data.success) {
         setBalance(res.data.balance || res.data);
+        if (res.data.monthlyMetrics) {
+          setMetrics(res.data.monthlyMetrics);
+        }
       }
     } catch (err) {
       console.warn("[EmployeeApplyLeave] Could not fetch live balance, using defaults:", err.message);
@@ -83,6 +87,18 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
     const days = getComputedDays();
     const typeKey = leaveType.toLowerCase();
     const available = balance[typeKey] || 0;
+    const isPaidType = ["casual", "sick", "annual"].includes(typeKey);
+
+    // Monthly cap policy check
+    if (isPaidType && metrics && metrics.allowedRemainingThisMonth !== undefined) {
+      if (days > metrics.allowedRemainingThisMonth) {
+        Alert.alert(
+          "Monthly Cap Exceeded",
+          `Under company policy, you can only take up to ${metrics.allowedRemainingThisMonth} paid leave day(s) this month (Monthly Cap: ${metrics.monthlyCap} days, Already taken this month: ${metrics.currentMonthUsed?.totalPaid || 0} days).\n\nPlease adjust your duration or apply as Unpaid Leave.`
+        );
+        return;
+      }
+    }
 
     if (leaveType !== "LOP" && leaveType !== "Unpaid Leave" && days > available) {
       Alert.alert(
@@ -133,7 +149,7 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
           enableOnAndroid={true}
           extraScrollHeight={100}
         >
-          {/* Quick Balance Preview Card */}
+          {/* Quick Balance & Monthly Cap Preview Card */}
           <View style={styles.balanceInfoCard}>
             <View style={styles.balanceHeader}>
               <Ionicons name="shield-checkmark" size={18} color="#1268D9" />
@@ -142,9 +158,27 @@ const EmployeeApplyLeaveScreen = ({ navigation }) => {
             {loadingBalance ? (
               <ActivityIndicator size="small" color="#1268D9" />
             ) : (
-              <Text style={styles.balanceCountText}>
-                {activeLimit} {(leaveType !== "LOP" && leaveType !== "Unpaid Leave") ? "Days Left" : "Allowed"}
-              </Text>
+              <View>
+                <Text style={styles.balanceCountText}>
+                  {activeLimit} {(leaveType !== "LOP" && leaveType !== "Unpaid Leave") ? "Days Annual Left" : "Allowed"}
+                </Text>
+
+                {metrics && (
+                  <View style={{ marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: "#1E293B" }}>
+                        Allowed This Month:
+                      </Text>
+                      <Text style={{ fontSize: 12, fontWeight: "900", color: "#16A34A" }}>
+                        {metrics.allowedRemainingThisMonth} / {metrics.monthlyCap} Days Max
+                      </Text>
+                    </View>
+                    <Text style={{ fontSize: 10, color: "#64748B", marginTop: 2 }}>
+                      Carried over: {metrics.carriedOver?.total ?? 0}d • Used this mo: {metrics.currentMonthUsed?.totalPaid ?? 0}d
+                    </Text>
+                  </View>
+                )}
+              </View>
             )}
           </View>
 

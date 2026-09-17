@@ -17,6 +17,7 @@ const SalaryStructure = require("../models/SalaryStructure");
 const Notification = require("../models/Notification");
 const AuditLog = require("../models/AuditLog");
 const Announcement = require("../models/Announcement");
+const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
 const { checkUserPermission } = require("../utils/permissionCheck");
 const {
     findCompanyResource,
@@ -1127,7 +1128,8 @@ const getLeaveBalance = async (req, res, next) => {
                 // Create initial default balance
                 balance = await LeaveBalance.createWithDefaults(employeeId, req.companyId);
             }
-            return res.json({ success: true, balance });
+            const monthlyMetrics = await calculateLeaveAccrualMetrics(employeeId, req.companyId, new Date(), balance);
+            return res.json({ success: true, balance, monthlyMetrics });
         }
 
         // Return balances
@@ -1148,7 +1150,20 @@ const getLeaveBalance = async (req, res, next) => {
 // PUT /api/leaves/balance/:employeeId
 const updateLeaveBalance = async (req, res, next) => {
     try {
-        const { casual, sick, annual, lop, unpaid, unpaidLeaves, paidLeaves, monthlyLeaves, monthly } = req.body;
+        const {
+            casual,
+            sick,
+            annual,
+            lop,
+            unpaid,
+            unpaidLeaves,
+            paidLeaves,
+            monthlyLeaves,
+            monthly,
+            monthlyCasual,
+            monthlySick,
+            monthlyAnnual,
+        } = req.body;
 
         // Manager Department check
         if (req.user && req.user.role === "Manager") {
@@ -1179,19 +1194,50 @@ const updateLeaveBalance = async (req, res, next) => {
             });
         }
 
+        // Monthly max cap (allowed leaves in a single month)
         if (monthlyLeaves !== undefined) balance.monthlyLeaves = Number(monthlyLeaves);
         if (monthly !== undefined) balance.monthlyLeaves = Number(monthly);
-        if (paidLeaves !== undefined) balance.paidLeaves = Number(paidLeaves);
+
+        // Month-wise rates
+        if (monthlyCasual !== undefined && monthlyCasual !== null && monthlyCasual !== "") {
+            balance.monthlyCasual = Number(monthlyCasual);
+            balance.casual = Number((balance.monthlyCasual * 12).toFixed(1));
+        } else if (casual !== undefined) {
+            balance.casual = Number(casual);
+            balance.monthlyCasual = Number((balance.casual / 12).toFixed(2));
+        }
+
+        if (monthlySick !== undefined && monthlySick !== null && monthlySick !== "") {
+            balance.monthlySick = Number(monthlySick);
+            balance.sick = Number((balance.monthlySick * 12).toFixed(1));
+        } else if (sick !== undefined) {
+            balance.sick = Number(sick);
+            balance.monthlySick = Number((balance.sick / 12).toFixed(2));
+        }
+
+        if (monthlyAnnual !== undefined && monthlyAnnual !== null && monthlyAnnual !== "") {
+            balance.monthlyAnnual = Number(monthlyAnnual);
+            balance.annual = Number((balance.monthlyAnnual * 12).toFixed(1));
+        } else if (annual !== undefined) {
+            balance.annual = Number(annual);
+            balance.monthlyAnnual = Number((balance.annual / 12).toFixed(2));
+        }
+
+        // Auto-calculate paid leaves if not explicitly provided
+        if (paidLeaves !== undefined && paidLeaves !== null && paidLeaves !== "") {
+            balance.paidLeaves = Number(paidLeaves);
+        } else {
+            balance.paidLeaves = Number(((balance.casual || 0) + (balance.sick || 0) + (balance.annual || 0)).toFixed(1));
+        }
+
+        // Unpaid / LOP
         if (unpaidLeaves !== undefined) { balance.unpaidLeaves = Number(unpaidLeaves); balance.lop = Number(unpaidLeaves); }
-        if (casual !== undefined) balance.casual = Number(casual);
-        if (sick !== undefined) balance.sick = Number(sick);
-        if (annual !== undefined) balance.annual = Number(annual);
-        // accept both `lop` (old) and `unpaid` (new mobile/web alias)
         if (lop !== undefined) { balance.lop = Number(lop); balance.unpaidLeaves = Number(lop); }
         if (unpaid !== undefined) { balance.lop = Number(unpaid); balance.unpaidLeaves = Number(unpaid); }
 
         await balance.save();
-        res.json({ success: true, balance, message: "Leave balance updated successfully" });
+        const monthlyMetrics = await calculateLeaveAccrualMetrics(req.params.employeeId, req.companyId, new Date(), balance);
+        res.json({ success: true, balance, monthlyMetrics, message: "Leave balance updated successfully" });
     } catch (error) {
         next(error);
     }

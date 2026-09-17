@@ -21,6 +21,7 @@ const Branch = require("../models/Branch");
 const User = require("../models/User");
 const mongoose = require("mongoose");
 const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors } = require("../utils/notificationHelper");
+const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -466,24 +467,42 @@ const getManagerTeam = async (req, res, next) => {
       employeeFilter.status = "active";
     }
 
-    if (departmentId) {
-      employeeFilter.departmentId = new mongoose.Types.ObjectId(departmentId);
-    }
     if (designationId) {
       employeeFilter.designationId = new mongoose.Types.ObjectId(designationId);
+    }
+
+    const andConditions = [];
+
+    if (departmentId) {
+      const deptObjId = mongoose.Types.ObjectId.isValid(departmentId)
+        ? new mongoose.Types.ObjectId(departmentId)
+        : departmentId;
+      andConditions.push({
+        $or: [
+          { departmentId: deptObjId },
+          { departmentIds: deptObjId },
+          { accessibleDepartments: deptObjId },
+        ],
+      });
     }
 
     // Search filter (name, email, phone, employeeCode)
     if (search && search.trim()) {
       const regex = new RegExp(search.trim(), "i");
-      employeeFilter.$or = [
-        { fullName: regex },
-        { firstName: regex },
-        { lastName: regex },
-        { email: regex },
-        { phone: regex },
-        { employeeCode: regex },
-      ];
+      andConditions.push({
+        $or: [
+          { fullName: regex },
+          { firstName: regex },
+          { lastName: regex },
+          { email: regex },
+          { phone: regex },
+          { employeeCode: regex },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      employeeFilter.$and = andConditions;
     }
 
     const teamMembers = await Employee.find(employeeFilter)
@@ -1308,8 +1327,14 @@ const getTeamLeaveById = async (req, res, next) => {
     }
 
     const leaveBalance = await LeaveBalance.findOne({ employeeId: leave.employeeId._id, companyId }).lean();
+    const monthlyMetrics = await calculateLeaveAccrualMetrics(
+      leave.employeeId._id,
+      companyId,
+      new Date(leave.startDate || Date.now()),
+      leaveBalance
+    );
 
-    return res.json({ success: true, data: { leave, leaveBalance } });
+    return res.json({ success: true, data: { leave, leaveBalance, monthlyMetrics } });
   } catch (error) {
     next(error);
   }

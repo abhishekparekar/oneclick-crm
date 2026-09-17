@@ -209,7 +209,7 @@ const EmployeeDrawerContent = (props) => {
     const itemParams = typeof item === "object" && item.params ? item.params : {};
 
     const bottomTabs = [
-      "EmployeeDashboard", "Attendance", "Tasks", "Leave", "EmployeeProfile", "LeadsEngine", "EmployeeLeads"
+      "EmployeeDashboard", "Attendance", "Tasks", "EmployeeProfile", "LeadsEngine", "EmployeeLeads"
     ];
 
     if (screenName === "LeadsEngine" || screenName === "EmployeeLeads") {
@@ -217,6 +217,12 @@ const EmployeeDrawerContent = (props) => {
         screen: "MainTabs",
         params: { screen: "LeadsEngine", params: itemParams },
       });
+      navigation.closeDrawer();
+      return;
+    }
+
+    if (screenName === "Leave" || screenName === "Leaves" || screenName === "MyLeaves") {
+      navigation.navigate("EmployeeStack", { screen: "Leave", params: itemParams });
       navigation.closeDrawer();
       return;
     }

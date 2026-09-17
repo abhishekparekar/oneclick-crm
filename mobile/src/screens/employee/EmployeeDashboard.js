@@ -581,7 +581,7 @@ export default function EmployeeDashboard({ navigation }) {
               {canAccessLeaves && (
                 <TouchableOpacity
                   style={styles.overviewTile}
-                  onPress={() => navigation.navigate("Leave")}
+                  onPress={() => navigation.navigate("EmployeeStack", { screen: "Leave" })}
                   activeOpacity={0.75}
                 >
                   <Text style={styles.overviewLabel}>Leaves</Text>
@@ -599,110 +599,108 @@ export default function EmployeeDashboard({ navigation }) {
         <View style={styles.card}>
           <SectionHeader title="Quick Actions" icon="grid-outline" />
           <View style={styles.quickAccessGrid}>
-            <View style={styles.quickAccessRow}>
-              {canAccessLeads && (
-                <TouchableOpacity
-                  style={styles.quickAccessItem}
-                  onPress={() => navigation.navigate("LeadsEngine")}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="magnet" size={20} color="#1268D9" />
-                  </View>
-                  <Text style={styles.quickLabel}>Lead CRM</Text>
-                </TouchableOpacity>
-              )}
+            {canAccessLeads && (
+              <TouchableOpacity
+                style={styles.quickAccessItem}
+                onPress={() => navigation.navigate("LeadsEngine")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
+                  <Ionicons name="magnet" size={22} color="#1D4ED8" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Lead CRM</Text>
+              </TouchableOpacity>
+            )}
 
-              {canAccessProjects && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="folder-open" size={20} color="#1268D9" />
-                  </View>
-                  <Text style={styles.quickLabel}>Projects</Text>
-                </TouchableOpacity>
-              )}
-
-              {canAccessTasks && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Tasks")} activeOpacity={0.7}>
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="clipboard" size={20} color="#1268D9" />
-                  </View>
-                  <Text style={styles.quickLabel}>My Tasks</Text>
-                </TouchableOpacity>
-              )}
-
-              {canCreateTask && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="briefcase" size={20} color="#1268D9" />
-                  </View>
-                  <Text style={styles.quickLabel}>Add Task</Text>
-                </TouchableOpacity>
-              )}
-
-              {canAccessAttendance && (
-                <TouchableOpacity
-                  style={styles.quickAccessItem}
-                  onPress={() =>
-                    navigation.navigate("CheckInCheckOut", {
-                      initialAction: isCurrentlyPunchedIn ? "out" : "in",
-                      todayRecord: todayAttendance,
-                    })
-                  }
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
-                    <Ionicons name="time" size={20} color="#10B981" />
-                  </View>
-                  <Text style={styles.quickLabel}>Attendance</Text>
-                </TouchableOpacity>
-              )}
-
-              {canAccessLocationTracking && (
-                <TouchableOpacity
-                  style={styles.quickAccessItem}
-                  onPress={() => navigation.navigate("EmployeeLocationTracking")}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="navigate-circle" size={20} color="#2563EB" />
-                  </View>
-                  <Text style={styles.quickLabel}>Live Route</Text>
-                </TouchableOpacity>
-              )}
-
-              {canAccessPayroll && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.7}>
-                  <View style={[styles.quickIconBg, { backgroundColor: "#EFF6FF" }]}>
-                    <Ionicons name="receipt" size={20} color="#3B82F6" />
-                  </View>
-                  <Text style={styles.quickLabel}>Payslip</Text>
-                </TouchableOpacity>
-              )}
-
-              {canAccessLeaves && (
-                <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.7}>
-                  <View style={[styles.quickIconBg, { backgroundColor: "#F5F3FF" }]}>
-                    <Ionicons name="calendar" size={20} color="#8B5CF6" />
-                  </View>
-                  <Text style={styles.quickLabel}>Apply Leave</Text>
-                </TouchableOpacity>
-              )}
-
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CompanyRequests")} activeOpacity={0.7}>
+            {canAccessProjects && (
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("MyProjects")} activeOpacity={0.7}>
                 <View style={[styles.quickIconBg, { backgroundColor: "#EEF2FF" }]}>
-                  <Ionicons name="chatbubbles-outline" size={20} color="#6366F1" />
+                  <Ionicons name="folder-open" size={22} color="#4F46E5" />
                 </View>
-                <Text style={styles.quickLabel}>Requests</Text>
+                <Text style={styles.quickLabel} numberOfLines={1}>Projects</Text>
               </TouchableOpacity>
+            )}
 
-              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeDocuments")} activeOpacity={0.7}>
-                <View style={[styles.quickIconBg, { backgroundColor: "#F0FDFA" }]}>
-                  <Ionicons name="document-text-outline" size={20} color="#0D9488" />
+            {canAccessTasks && (
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Tasks")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#F5F3FF" }]}>
+                  <Ionicons name="clipboard" size={22} color="#7C3AED" />
                 </View>
-                <Text style={styles.quickLabel}>Docs</Text>
+                <Text style={styles.quickLabel} numberOfLines={1}>My Tasks</Text>
               </TouchableOpacity>
-            </View>
+            )}
+
+            {canCreateTask && (
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeCreateTask")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#F0FDF4" }]}>
+                  <Ionicons name="add-circle" size={22} color="#16A34A" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Add Task</Text>
+              </TouchableOpacity>
+            )}
+
+            {canAccessAttendance && (
+              <TouchableOpacity
+                style={styles.quickAccessItem}
+                onPress={() =>
+                  navigation.navigate("CheckInCheckOut", {
+                    initialAction: isCurrentlyPunchedIn ? "out" : "in",
+                    todayRecord: todayAttendance,
+                  })
+                }
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBg, { backgroundColor: "#ECFDF5" }]}>
+                  <Ionicons name="time" size={22} color="#059669" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Attendance</Text>
+              </TouchableOpacity>
+            )}
+
+            {canAccessLocationTracking && (
+              <TouchableOpacity
+                style={styles.quickAccessItem}
+                onPress={() => navigation.navigate("EmployeeLocationTracking")}
+                activeOpacity={0.7}
+              >
+                <View style={[styles.quickIconBg, { backgroundColor: "#F0F9FF" }]}>
+                  <Ionicons name="navigate-circle" size={22} color="#0284C7" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Live Route</Text>
+              </TouchableOpacity>
+            )}
+
+            {canAccessPayroll && (
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("Payslips")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#FFFBEB" }]}>
+                  <Ionicons name="receipt" size={22} color="#D97706" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Payslip</Text>
+              </TouchableOpacity>
+            )}
+
+            {canAccessLeaves && (
+              <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeApplyLeave")} activeOpacity={0.7}>
+                <View style={[styles.quickIconBg, { backgroundColor: "#FDF2F8" }]}>
+                  <Ionicons name="calendar" size={22} color="#DB2777" />
+                </View>
+                <Text style={styles.quickLabel} numberOfLines={1}>Apply Leave</Text>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("CompanyRequests")} activeOpacity={0.7}>
+              <View style={[styles.quickIconBg, { backgroundColor: "#F1F5F9" }]}>
+                <Ionicons name="chatbubbles-outline" size={22} color="#475569" />
+              </View>
+              <Text style={styles.quickLabel} numberOfLines={1}>Requests</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.quickAccessItem} onPress={() => navigation.navigate("EmployeeDocuments")} activeOpacity={0.7}>
+              <View style={[styles.quickIconBg, { backgroundColor: "#F0FDFA" }]}>
+                <Ionicons name="document-text-outline" size={22} color="#0D9488" />
+              </View>
+              <Text style={styles.quickLabel} numberOfLines={1}>Docs</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -871,7 +869,7 @@ export default function EmployeeDashboard({ navigation }) {
             <SectionHeader
               title="Leave Balance"
               icon="document-text-outline"
-              onViewAll={() => navigation.navigate("Leave")}
+              onViewAll={() => navigation.navigate("EmployeeStack", { screen: "Leave" })}
             />
             <View style={styles.kpiGrid}>
               <View style={styles.kpiCard}>
@@ -1452,38 +1450,41 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  // Quick Access Grid (Compact squircles)
+  // Quick Access Grid (Spacious, multi-column wrap grid)
   quickAccessGrid: {
-    marginTop: 4,
-  },
-  quickAccessRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
+    marginTop: 10,
+    marginHorizontal: -4,
   },
   quickAccessItem: {
-    flex: 1,
+    width: "25%",
     alignItems: "center",
+    marginBottom: 16,
+    paddingHorizontal: 3,
   },
   quickIconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.01,
-    shadowRadius: 2,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 0.5,
+    marginBottom: 6,
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
     borderWidth: 1,
-    borderColor: "#f9fafb",
+    borderColor: "rgba(0, 0, 0, 0.04)",
   },
   quickLabel: {
     fontFamily: FONTS.bodyMedium,
-    fontSize: 9.5,
-    color: C.sub,
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#334155",
     textAlign: "center",
+    lineHeight: 14,
   },
 
   // Event List (Compact)

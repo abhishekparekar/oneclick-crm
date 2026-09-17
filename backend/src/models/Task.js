@@ -56,6 +56,10 @@ const taskSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    departmentIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+    }],
     projectId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Project",

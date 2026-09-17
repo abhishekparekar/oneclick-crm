@@ -642,8 +642,13 @@ exports.updateTask = async (req, res) => {
             }
         }
 
-        if (nextFollowUpDate !== undefined) {
-            task.nextFollowUpDate = nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime()) ? new Date(nextFollowUpDate) : null;
+        // Only update nextFollowUpDate if a real valid date was provided
+        // Never overwrite existing date with null (prevents auto-null bug)
+        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
+            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        } else if (nextFollowUpDate === "") {
+            // Only clear if explicitly sent as empty string
+            task.nextFollowUpDate = null;
         }
 
         if (isTemplate) {
@@ -751,11 +756,15 @@ exports.inProcessTask = async (req, res) => {
         }
         if (!isTemplate) {
             task.timerActive = true;
+            // Only update nextFollowUpDate if a valid date was explicitly provided
+            // Do NOT clear existing date if null/undefined is received (prevents auto-null bug)
             if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
                 task.nextFollowUpDate = new Date(nextFollowUpDate);
-            } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+            } else if (nextFollowUpDate === "") {
+                // Only clear if user explicitly sent empty string
                 task.nextFollowUpDate = null;
             }
+            // If nextFollowUpDate is null/undefined => keep existing value intact
         }
 
         const formattedAttachments = (attachments || []).map(att => ({
@@ -882,11 +891,14 @@ exports.completeTask = async (req, res) => {
         const isPastDue = task.endDateTime && now > new Date(task.endDateTime);
 
         // Follow up date persistence
+        // Only update if a valid date was explicitly sent — do NOT clear if null received
         if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
             task.nextFollowUpDate = new Date(nextFollowUpDate);
-        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+        } else if (nextFollowUpDate === "") {
+            // Only clear if user explicitly sent empty string
             task.nextFollowUpDate = null;
         }
+        // If null/undefined => keep existing nextFollowUpDate intact
 
         if (task.status === "overdue" || isPastDue) {
             const end = new Date(task.endDateTime);
@@ -1826,11 +1838,15 @@ exports.submitFollowUp = async (req, res) => {
         const task = await Task.findById(id);
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
+        // Only update nextFollowUpDate if a valid date was explicitly provided
+        // Do NOT overwrite existing date with null (prevents auto-null bug)
         if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
             task.nextFollowUpDate = new Date(nextFollowUpDate);
-        } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+        } else if (nextFollowUpDate === "") {
+            // Only clear if explicitly sent as empty string
             task.nextFollowUpDate = null;
         }
+        // If null/undefined received => keep existing nextFollowUpDate intact
 
         if (noteText) {
             task.finalRemarks = noteText;
@@ -2196,7 +2212,7 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
             task.completedAt = now;
             task.timerActive = false;
         } else if (["in_process", "in-process", "in_progress"].includes(targetStatus)) {
-            task.status = "in_process";
+            task.status = (task.status === "re_pending" || task.status === "re_open" || task.status === "re_overdue") ? "re_in_process" : "in_process";
             task.timerActive = true;
         } else if (["re_in_process"].includes(targetStatus)) {
             task.status = "re_in_process";

@@ -208,10 +208,20 @@ const CompanyCreateProjectScreen = ({ route, navigation }) => {
             <Text style={styles.inputLabel}>Project Manager</Text>
             <Text style={styles.inputSub}>Assign a manager to lead this project.</Text>
             <View style={styles.pickerContainer}>
-              <Picker selectedValue={projectManager} onValueChange={setProjectManager}>
-                <Picker.Item label="None Assigned" value="" />
+              <Picker 
+                selectedValue={projectManager} 
+                onValueChange={setProjectManager}
+                style={{ color: COLORS.text.primary }}
+                dropdownIconColor={COLORS.text.muted}
+              >
+                <Picker.Item label="None Assigned" value="" color={COLORS.text.primary} />
                 {employees.map(emp => (
-                  <Picker.Item key={emp._id} label={`${emp.firstName} ${emp.lastName} (${emp.employeeCode})`} value={emp._id} />
+                  <Picker.Item 
+                    key={emp._id} 
+                    label={`${emp.firstName} ${emp.lastName} (${emp.employeeCode})`} 
+                    value={emp._id} 
+                    color={COLORS.text.primary}
+                  />
                 ))}
               </Picker>
             </View>

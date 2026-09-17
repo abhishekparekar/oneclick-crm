@@ -322,7 +322,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
         await updateTaskStatusApi(taskId, payload);
       }
       setActionModalVisible(false);
-      await fetchTaskDetails(false);
+      navigation.goBack();
     } catch (err) {
       Alert.alert("Error", err.response?.data?.message || "Failed to update task action");
     } finally {

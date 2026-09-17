@@ -372,7 +372,18 @@ export default function EditEmployee() {
         skills: emp.skills || [],
         certifications: emp.certifications || [],
         documents: emp.documents || {},
-        leaveBalance: { monthly: 2, paidLeaves: 18, unpaidLeaves: 0, casual: 12, sick: 6, annual: 15, unpaid: 0 },
+        leaveBalance: {
+          monthly: 0,
+          monthlyCasual: 0,
+          monthlySick: 0,
+          monthlyAnnual: 0,
+          paidLeaves: 0,
+          unpaidLeaves: 0,
+          casual: 0,
+          sick: 0,
+          annual: 0,
+          unpaid: 0,
+        },
         leaveBalanceLoaded: false,
       };
       setFormData(initialData);
@@ -383,15 +394,23 @@ export default function EditEmployee() {
   useEffect(() => {
     if (leaveRes?.data?.balance && formData && !formData.leaveBalanceLoaded) {
       const lb = leaveRes.data.balance;
-      const casual = Number(lb.casual ?? 12);
-      const sick = Number(lb.sick ?? 6);
-      const annual = Number(lb.annual ?? 15);
+      const casual = Number(lb.casual ?? 0);
+      const sick = Number(lb.sick ?? 0);
+      const annual = Number(lb.annual ?? 0);
       const unpaid = Number(lb.lop ?? lb.unpaid ?? lb.unpaidLeaves ?? 0);
       const paidLeaves = Number(lb.paidLeaves ?? (casual + sick + annual));
-      const monthly = Number(lb.monthlyLeaves ?? lb.monthly ?? 2);
+      const monthly = Number(lb.monthlyLeaves ?? lb.monthly ?? 0);
+
+      // Default to 0 if not explicitly saved
+      const monthlyCasual = lb.monthlyCasual !== undefined && lb.monthlyCasual !== null ? Number(lb.monthlyCasual) : 0;
+      const monthlySick = lb.monthlySick !== undefined && lb.monthlySick !== null ? Number(lb.monthlySick) : 0;
+      const monthlyAnnual = lb.monthlyAnnual !== undefined && lb.monthlyAnnual !== null ? Number(lb.monthlyAnnual) : 0;
 
       const initialLeave = {
         monthly,
+        monthlyCasual,
+        monthlySick,
+        monthlyAnnual,
         paidLeaves,
         unpaidLeaves: unpaid,
         casual,
@@ -599,6 +618,10 @@ export default function EditEmployee() {
         if (formData.leaveBalanceLoaded) {
           updateLeaveMutation.mutate({
             monthlyLeaves: formData.leaveBalance.monthly,
+            monthly: formData.leaveBalance.monthly,
+            monthlyCasual: formData.leaveBalance.monthlyCasual,
+            monthlySick: formData.leaveBalance.monthlySick,
+            monthlyAnnual: formData.leaveBalance.monthlyAnnual,
             paidLeaves: formData.leaveBalance.paidLeaves,
             unpaidLeaves: formData.leaveBalance.unpaidLeaves ?? formData.leaveBalance.unpaid,
             casual: formData.leaveBalance.casual,
@@ -1162,49 +1185,139 @@ export default function EditEmployee() {
               </div>
             </div>
 
-            {/* Leave Balance Quotas */}
+            {/* Leave Balance Quotas (Month-Wise with Auto Annual Total) */}
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-800 dark:text-white flex items-center gap-1.5">
                     <Calendar size={14} className="text-amber-500" />
-                    Leave Allocations & Quota Matrix
+                    Month-Wise Leave Policy & Accruals
                   </h4>
                   <p className="text-[11px] text-slate-400 font-medium">
-                    Configure monthly allowances, total paid leaves, and unpaid loss-of-pay quota.
+                    Configure monthly accrual rates and single-month cap. Annual entitlements are auto-calculated.
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                    Monthly Accrual: {Number((Number(formData.leaveBalance?.monthlyCasual || 0) + Number(formData.leaveBalance?.monthlySick || 0) + Number(formData.leaveBalance?.monthlyAnnual || 0)).toFixed(2))} Days/Mo
+                  </span>
                   <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                    Paid: {Number(formData.leaveBalance?.paidLeaves ?? (Number(formData.leaveBalance?.casual || 0) + Number(formData.leaveBalance?.sick || 0) + Number(formData.leaveBalance?.annual || 0)))} Days/Yr
+                    Total Annual: {Number(((Number(formData.leaveBalance?.monthlyCasual || 0) + Number(formData.leaveBalance?.monthlySick || 0) + Number(formData.leaveBalance?.monthlyAnnual || 0)) * 12).toFixed(1))} Days/Yr
                   </span>
                   <span className="text-[11px] font-extrabold px-2.5 py-1 rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                    Monthly: {formData.leaveBalance?.monthly ?? 2} Days/Mo
+                    Max Cap: {formData.leaveBalance?.monthly ?? 0} Days/Mo
                   </span>
                 </div>
               </div>
 
-              {/* Primary Entitlements: Month Leaves, Paid Leaves, Unpaid Leaves */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/5 border border-amber-500/20">
+              {/* Month-Wise Accrual Rates */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                    Monthly Accrual Rates (Days Granted Per Month)
+                  </h5>
+                  <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                    Auto Annual = Monthly Rate × 12
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800">
+                  {/* Casual Leave Month Rate */}
+                  <div className="space-y-1.5">
+                    <Input
+                      label="Casual Leave (CL / Mo)"
+                      type="number"
+                      step="0.25"
+                      value={formData.leaveBalance?.monthlyCasual}
+                      onChange={(v) => {
+                        const val = v === "" ? "" : Number(v);
+                        const cAnnual = val === "" ? 0 : Number((val * 12).toFixed(1));
+                        handleNestedChange("leaveBalance", "monthlyCasual", val);
+                        handleNestedChange("leaveBalance", "casual", cAnnual);
+                        const s = Number(formData.leaveBalance?.sick || 0);
+                        const a = Number(formData.leaveBalance?.annual || 0);
+                        handleNestedChange("leaveBalance", "paidLeaves", cAnnual + s + a);
+                      }}
+                      placeholder="0"
+                      hint="Allowed casual leave per month"
+                    />
+                    <div className="px-2.5 py-1 rounded-lg bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 flex items-center justify-between text-[11px]">
+                      <span className="text-blue-700 dark:text-blue-300 font-medium">Annual CL Total:</span>
+                      <span className="font-extrabold text-blue-700 dark:text-blue-300">
+                        {Number(((Number(formData.leaveBalance?.monthlyCasual || 0)) * 12).toFixed(1))} Days/Yr
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Sick Leave Month Rate */}
+                  <div className="space-y-1.5">
+                    <Input
+                      label="Sick Leave (SL / Mo)"
+                      type="number"
+                      step="0.25"
+                      value={formData.leaveBalance?.monthlySick}
+                      onChange={(v) => {
+                        const val = v === "" ? "" : Number(v);
+                        const sAnnual = val === "" ? 0 : Number((val * 12).toFixed(1));
+                        handleNestedChange("leaveBalance", "monthlySick", val);
+                        handleNestedChange("leaveBalance", "sick", sAnnual);
+                        const c = Number(formData.leaveBalance?.casual || 0);
+                        const a = Number(formData.leaveBalance?.annual || 0);
+                        handleNestedChange("leaveBalance", "paidLeaves", c + sAnnual + a);
+                      }}
+                      placeholder="0"
+                      hint="Allowed sick leave per month"
+                    />
+                    <div className="px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/60 flex items-center justify-between text-[11px]">
+                      <span className="text-amber-700 dark:text-amber-300 font-medium">Annual SL Total:</span>
+                      <span className="font-extrabold text-amber-700 dark:text-amber-300">
+                        {Number(((Number(formData.leaveBalance?.monthlySick || 0)) * 12).toFixed(1))} Days/Yr
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Annual Leave Month Rate */}
+                  <div className="space-y-1.5">
+                    <Input
+                      label="Privilege/Annual Leave (PL / Mo)"
+                      type="number"
+                      step="0.25"
+                      value={formData.leaveBalance?.monthlyAnnual}
+                      onChange={(v) => {
+                        const val = v === "" ? "" : Number(v);
+                        const aAnnual = val === "" ? 0 : Number((val * 12).toFixed(1));
+                        handleNestedChange("leaveBalance", "monthlyAnnual", val);
+                        handleNestedChange("leaveBalance", "annual", aAnnual);
+                        const c = Number(formData.leaveBalance?.casual || 0);
+                        const s = Number(formData.leaveBalance?.sick || 0);
+                        handleNestedChange("leaveBalance", "paidLeaves", c + s + aAnnual);
+                      }}
+                      placeholder="0"
+                      hint="Allowed privilege leave per month"
+                    />
+                    <div className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between text-[11px]">
+                      <span className="text-emerald-700 dark:text-emerald-300 font-medium">Annual PL Total:</span>
+                      <span className="font-extrabold text-emerald-700 dark:text-emerald-300">
+                        {Number(((Number(formData.leaveBalance?.monthlyAnnual || 0)) * 12).toFixed(1))} Days/Yr
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Cap & Unpaid Leave Buffer */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-amber-500/5 dark:bg-amber-500/5 border border-amber-500/20">
                 <Input
-                  label="Monthly Leaves (Allowed / Month)"
+                  label="Monthly Cap (Max Leaves in Single Month)"
                   type="number"
                   value={formData.leaveBalance?.monthly}
                   onChange={(v) => handleNestedChange("leaveBalance", "monthly", v === "" ? "" : Number(v))}
-                  placeholder="e.g. 2"
-                  hint="Leaves allowed per month"
+                  placeholder="0"
+                  hint="Even if employee has accrued/carried-over leaves, they can only take up to this cap in one month"
                 />
                 <Input
-                  label="Total Paid Leaves (Annual Quota)"
-                  type="number"
-                  value={formData.leaveBalance?.paidLeaves}
-                  onChange={(v) => handleNestedChange("leaveBalance", "paidLeaves", v === "" ? "" : Number(v))}
-                  placeholder="e.g. 18"
-                  hint="Total paid leave quota per year"
-                />
-                <Input
-                  label="Unpaid Leaves (LOP / Loss of Pay)"
+                  label="Unpaid Leaves Buffer (LOP / Loss of Pay)"
                   type="number"
                   value={formData.leaveBalance?.unpaidLeaves ?? formData.leaveBalance?.unpaid}
                   onChange={(v) => {
@@ -1212,57 +1325,9 @@ export default function EditEmployee() {
                     handleNestedChange("leaveBalance", "unpaidLeaves", val);
                     handleNestedChange("leaveBalance", "unpaid", val);
                   }}
-                  placeholder="e.g. 0"
-                  hint="Unpaid / LWP leave balance buffer"
+                  placeholder="0"
+                  hint="Allowed unpaid/loss of pay days before policy violation"
                 />
-              </div>
-
-              {/* Category Breakdown (CL, SL, PL) */}
-              <div className="space-y-2">
-                <h5 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-                  Detailed Leave Type Distribution (Days)
-                </h5>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                  <Input
-                    label="Casual Leaves (CL)"
-                    type="number"
-                    value={formData.leaveBalance?.casual}
-                    onChange={(v) => {
-                      const val = v === "" ? "" : Number(v);
-                      handleNestedChange("leaveBalance", "casual", val);
-                      const s = Number(formData.leaveBalance?.sick || 0);
-                      const a = Number(formData.leaveBalance?.annual || 0);
-                      handleNestedChange("leaveBalance", "paidLeaves", (Number(val) || 0) + s + a);
-                    }}
-                    placeholder="12"
-                  />
-                  <Input
-                    label="Sick Leaves (SL)"
-                    type="number"
-                    value={formData.leaveBalance?.sick}
-                    onChange={(v) => {
-                      const val = v === "" ? "" : Number(v);
-                      handleNestedChange("leaveBalance", "sick", val);
-                      const c = Number(formData.leaveBalance?.casual || 0);
-                      const a = Number(formData.leaveBalance?.annual || 0);
-                      handleNestedChange("leaveBalance", "paidLeaves", c + (Number(val) || 0) + a);
-                    }}
-                    placeholder="6"
-                  />
-                  <Input
-                    label="Annual / Privilege Leaves (PL)"
-                    type="number"
-                    value={formData.leaveBalance?.annual}
-                    onChange={(v) => {
-                      const val = v === "" ? "" : Number(v);
-                      handleNestedChange("leaveBalance", "annual", val);
-                      const c = Number(formData.leaveBalance?.casual || 0);
-                      const s = Number(formData.leaveBalance?.sick || 0);
-                      handleNestedChange("leaveBalance", "paidLeaves", c + s + (Number(val) || 0));
-                    }}
-                    placeholder="15"
-                  />
-                </div>
               </div>
             </div>
           </div>
@@ -1449,15 +1514,15 @@ export default function EditEmployee() {
               <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0D1321] border border-slate-200/80 dark:border-slate-800 space-y-2 sm:col-span-2">
                 <div className="flex items-center justify-between pb-2 border-b border-slate-200/60 dark:border-slate-800">
                   <span className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <Calendar size={13} className="text-amber-500" /> Leave Entitlements & Allocations
+                    <Calendar size={13} className="text-amber-500" /> Month-Wise Leave Policy & Entitlements
                   </span>
                   <button onClick={() => setStep(4)} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div><span className="text-slate-400 text-[10px] block">Monthly Leaves</span><span className="font-bold text-amber-600 dark:text-amber-400">{formData.leaveBalance?.monthly ?? 2} Days / Mo</span></div>
-                  <div><span className="text-slate-400 text-[10px] block">Paid Leaves</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formData.leaveBalance?.paidLeaves ?? 18} Days / Yr</span></div>
-                  <div><span className="text-slate-400 text-[10px] block">Unpaid Leaves (LOP)</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.leaveBalance?.unpaidLeaves ?? formData.leaveBalance?.unpaid ?? 0} Days</span></div>
-                  <div><span className="text-slate-400 text-[10px] block">Breakdown</span><span className="font-bold text-slate-800 dark:text-slate-200">CL: {formData.leaveBalance?.casual || 0} | SL: {formData.leaveBalance?.sick || 0} | PL: {formData.leaveBalance?.annual || 0}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Monthly Cap</span><span className="font-bold text-amber-600 dark:text-amber-400">{formData.leaveBalance?.monthly ?? 3} Days / Mo Max</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Total Annual Paid</span><span className="font-bold text-emerald-600 dark:text-emerald-400">{formData.leaveBalance?.paidLeaves ?? 33} Days / Yr</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Monthly Rates</span><span className="font-bold text-blue-600 dark:text-blue-400">CL: {formData.leaveBalance?.monthlyCasual ?? 1}/mo | SL: {formData.leaveBalance?.monthlySick ?? 0.5}/mo | PL: {formData.leaveBalance?.monthlyAnnual ?? 1.25}/mo</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">Annual Quota</span><span className="font-bold text-slate-800 dark:text-slate-200">CL: {formData.leaveBalance?.casual || 0} | SL: {formData.leaveBalance?.sick || 0} | PL: {formData.leaveBalance?.annual || 0}</span></div>
                 </div>
               </div>
 

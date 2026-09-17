@@ -299,6 +299,9 @@ const EmployeeStackScreen = () => {
       <Stack.Screen name="AttendanceDetails" component={EmployeeAttendanceDetailsScreen} />
       <Stack.Screen name="EmployeeMonthlyAttendance" component={EmployeeMonthlyAttendanceScreen} />
       <Stack.Screen name="Leave" component={MyLeavesScreen} />
+      <Stack.Screen name="Leaves" component={MyLeavesScreen} />
+      <Stack.Screen name="MyLeaves" component={MyLeavesScreen} />
+      <Stack.Screen name="EmployeeLeaves" component={MyLeavesScreen} />
       <Stack.Screen name="EmployeeApplyLeave" component={EmployeeApplyLeaveScreen} />
       <Stack.Screen name="EmployeeLeaveDetails" component={EmployeeLeaveDetailsScreen} />
 

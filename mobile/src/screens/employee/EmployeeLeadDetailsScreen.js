@@ -1543,12 +1543,15 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <Text style={styles.fieldLabel}>Full Name</Text>
                 <TextInput
                   style={styles.fieldInput}
                   value={editForm.name}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
+                  placeholder="Enter full name"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
                 />
 
                 <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
@@ -1557,6 +1560,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                   value={editForm.whatsappPhone}
                   keyboardType="phone-pad"
                   onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
+                  placeholder="e.g. 9876543210"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <Text style={styles.fieldLabel}>Email Address</Text>
@@ -1566,6 +1571,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
+                  placeholder="e.g. name@example.com"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <Text style={styles.fieldLabel}>Company Name</Text>
@@ -1573,6 +1580,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                   style={styles.fieldInput}
                   value={editForm.company}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
+                  placeholder="Company Name"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <Text style={styles.fieldLabel}>Requirement / Interest</Text>
@@ -1580,6 +1589,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                   style={styles.fieldInput}
                   value={editForm.productService}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, productService: v }))}
+                  placeholder="Requirement / Interest"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
@@ -1588,6 +1599,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                   keyboardType="numeric"
                   value={editForm.estimatedValue}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
+                  placeholder="0"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <TouchableOpacity style={styles.primarySubmitBtn} onPress={handleSaveEdits} disabled={updating}>

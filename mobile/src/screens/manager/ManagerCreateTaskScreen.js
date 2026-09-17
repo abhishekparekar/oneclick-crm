@@ -10,7 +10,10 @@ import {
   Alert,
   Modal,
   StatusBar,
+  Keyboard,
+  Platform,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -51,6 +54,22 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
   const {
     createTeamTask,
     teamData = [],
@@ -138,7 +157,11 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(false);
   const [attachments, setAttachments] = useState([]);
 
-  const [selectedDeptId, setSelectedDeptId] = useState("");
+  const initialDeptIds = editingTask?.departmentIds?.length > 0
+    ? editingTask.departmentIds.map(d => d._id || d)
+    : (editingTask?.departmentId ? [editingTask.departmentId._id || editingTask.departmentId] : []);
+  const [selectedDeptIds, setSelectedDeptIds] = useState(initialDeptIds);
+  const selectedDeptId = selectedDeptIds[0] || "";
   const [deptModalVisible, setDeptModalVisible] = useState(false);
   const [deptSearch, setDeptSearch] = useState("");
 
@@ -173,10 +196,19 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
   }, [dashboardData]);
 
   useEffect(() => {
-    if (allowedDepartments.length === 1 && !selectedDeptId) {
-      setSelectedDeptId(allowedDepartments[0]._id);
+    if (allowedDepartments.length === 1 && selectedDeptIds.length === 0) {
+      setSelectedDeptIds([allowedDepartments[0]._id]);
     }
-  }, [allowedDepartments, selectedDeptId]);
+  }, [allowedDepartments, selectedDeptIds]);
+
+  useEffect(() => {
+    if (editingTask && (editingTask.departmentId || editingTask.departmentIds)) {
+      const ids = editingTask.departmentIds?.length > 0
+        ? editingTask.departmentIds.map(d => d._id || d)
+        : (editingTask.departmentId ? [editingTask.departmentId._id || editingTask.departmentId] : []);
+      if (ids.length > 0) setSelectedDeptIds(ids);
+    }
+  }, [editingTask]);
 
   const assignmentOptions = React.useMemo(() => {
     return [
@@ -194,27 +226,122 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
   const canCreateTasks = taskPermissions?.allowManagerCreateTask !== false;
 
+  const isEmployeeInDepartment = React.useCallback((emp, deptId) => {
+    if (!emp || !deptId) return false;
+    const targetIdStr = String(deptId).trim();
+
+    const checkMatch = (dept) => {
+      if (!dept) return false;
+      if (typeof dept === "string") return dept.trim() === targetIdStr;
+      if (typeof dept === "object") {
+        const id = dept._id || dept.id;
+        if (id && String(id).trim() === targetIdStr) return true;
+      }
+      return false;
+    };
+
+    // 1. Primary department
+    if (checkMatch(emp.departmentId)) return true;
+
+    // 2. Multiple departmentIds
+    if (Array.isArray(emp.departmentIds) && emp.departmentIds.some(checkMatch)) {
+      return true;
+    }
+
+    // 3. Accessible departments
+    if (Array.isArray(emp.accessibleDepartments) && emp.accessibleDepartments.some(checkMatch)) {
+      return true;
+    }
+
+    return false;
+  }, []);
+
+  const getEmployeeDepartmentNames = React.useCallback((emp) => {
+    if (!emp) return "My Department";
+    const names = [];
+
+    const addDeptName = (dept) => {
+      if (!dept) return;
+      if (typeof dept === "object" && dept.name) {
+        names.push(dept.name);
+      } else {
+        const id = typeof dept === "object" ? (dept._id || dept.id) : dept;
+        if (id) {
+          const found = allowedDepartments.find(d => String(d._id || d.id) === String(id));
+          if (found?.name) {
+            names.push(found.name);
+          }
+        }
+      }
+    };
+
+    addDeptName(emp.departmentId);
+
+    if (Array.isArray(emp.departmentIds)) {
+      emp.departmentIds.forEach(addDeptName);
+    }
+
+    if (Array.isArray(emp.accessibleDepartments)) {
+      emp.accessibleDepartments.forEach(addDeptName);
+    }
+
+    if (names.length === 0 && emp.departmentName) {
+      names.push(emp.departmentName);
+    }
+
+    const uniqueNames = names.filter((v, i, a) => v && a.indexOf(v) === i);
+    return uniqueNames.length > 0 ? uniqueNames.join(", ") : (emp.departmentName || "My Department");
+  }, [allowedDepartments]);
+
+  const getEmployeeDepartmentIds = React.useCallback((emp) => {
+    if (!emp) return [];
+    const ids = [];
+    const addId = (dept) => {
+      if (!dept) return;
+      const id = typeof dept === "object" ? (dept._id || dept.id) : dept;
+      if (id && String(id).trim()) {
+        const s = String(id).trim();
+        if (!ids.includes(s)) ids.push(s);
+      }
+    };
+    addId(emp.departmentId);
+    if (Array.isArray(emp.departmentIds)) emp.departmentIds.forEach(addId);
+    if (Array.isArray(emp.accessibleDepartments)) emp.accessibleDepartments.forEach(addId);
+    return ids;
+  }, []);
+
+  const isEmployeeInAnyDepartment = React.useCallback((emp, deptIds) => {
+    if (!emp) return false;
+    if (!deptIds || deptIds.length === 0) return true;
+    return deptIds.some(deptId => isEmployeeInDepartment(emp, deptId));
+  }, [isEmployeeInDepartment]);
+
   const availableAssignees = React.useMemo(() => {
     if (!Array.isArray(teamData)) return [];
     return teamData.filter(e => {
       if (!e) return false;
       if (!hasTaskModuleAccess(e)) return false;
       const matchName = `${e.firstName || ""} ${e.lastName || ""}`.toLowerCase().includes((empSearch || "").toLowerCase());
-      if (!selectedDeptId) return matchName;
+      if (!matchName) return false;
       
-      const matchesDept = (dept) => {
-        if (!dept) return false;
-        const id = typeof dept === "object" ? dept?._id : dept;
-        return id && selectedDeptId && String(id) === String(selectedDeptId);
-      };
+      // If one or more departments are selected, only show staff in those departments!
+      // If no department is selected, show all team members!
+      if (selectedDeptIds.length > 0) {
+        return isEmployeeInAnyDepartment(e, selectedDeptIds);
+      }
       
-      const matchDept = matchesDept(e.departmentId) || 
-        (e.departmentIds && e.departmentIds.some(matchesDept)) ||
-        (e.accessibleDepartments && e.accessibleDepartments.some(matchesDept));
-        
-      return matchName && matchDept;
+      return true;
     });
-  }, [teamData, empSearch, selectedDeptId]);
+  }, [teamData, empSearch, selectedDeptIds, isEmployeeInAnyDepartment]);
+
+  const selectedDeptTriggerText = React.useMemo(() => {
+    if (!selectedDeptIds || selectedDeptIds.length === 0) return "Select Dept";
+    if (selectedDeptIds.length === 1) {
+      return allowedDepartments.find(d => String(d._id) === String(selectedDeptIds[0]))?.name || "1 Selected";
+    }
+    const names = allowedDepartments.filter(d => selectedDeptIds.includes(d._id)).map(d => d.name);
+    return names.length > 0 ? names.join(", ") : `${selectedDeptIds.length} Depts`;
+  }, [selectedDeptIds, allowedDepartments]);
 
   const getHelperText = () => {
     let freqText = "every day";
@@ -233,7 +360,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
       return Alert.alert("Not Allowed", "Your company admin has disabled task creation for managers.");
     }
     if (!title.trim()) return Alert.alert("Error", "Task title is required");
-    if (!selectedDeptId) return Alert.alert("Error", "Please select a department");
+    if (!selectedDeptId && selectedDeptIds.length === 0) return Alert.alert("Error", "Please select a department");
     if ((assignmentType === "multiple" || assignmentType === "both") && assigneeIds.length === 0) return Alert.alert("Error", "Please select at least one employee");
 
     setLoading(true);
@@ -267,7 +394,8 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
       const payload = {
         title, description, priority,
-        departmentId: selectedDeptId || undefined,
+        departmentId: selectedDeptIds[0] || selectedDeptId || undefined,
+        departmentIds: selectedDeptIds,
         assignedTo: finalAssignees,
         assignmentType: assignmentType,
         startDate: startISO,
@@ -355,10 +483,18 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
         )}
       </LinearGradient>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(120, keyboardHeight + 80) }
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={140}
+        extraHeight={140}
       >
         {/* Permission Disabled Banner */}
         {!canCreateTasks && (
@@ -568,7 +704,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.actionTriggerLabel}>Department *</Text>
                   <Text style={styles.actionTriggerValue} numberOfLines={1}>
-                    {selectedDeptId ? allowedDepartments.find(d => d._id === selectedDeptId)?.name || "Selected" : "Select Dept"}
+                    {selectedDeptTriggerText}
                   </Text>
                 </View>
               </View>
@@ -605,7 +741,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.actionTriggerLabel}>Department *</Text>
                 <Text style={styles.actionTriggerValue}>
-                  {selectedDeptId ? allowedDepartments.find(d => d._id === selectedDeptId)?.name || "Selected" : "Select Department"}
+                  {selectedDeptTriggerText === "Select Dept" ? "Select Department" : selectedDeptTriggerText}
                 </Text>
               </View>
             </View>
@@ -614,12 +750,12 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
         )}
 
         {/* Selected Department Pill */}
-        {selectedDeptId && assignmentType !== "self" && (
+        {selectedDeptIds.length > 0 && assignmentType !== "self" && (
           <View style={styles.chipsRow}>
             <View style={styles.deptChipPill}>
               <Feather name="layers" size={12} color={COLORS.primary} style={{ marginRight: 5 }} />
               <Text style={styles.deptChipPillText}>
-                Dept: {allowedDepartments.find(d => d._id === selectedDeptId)?.name || "Selected"}
+                Dept: {selectedDeptTriggerText}
               </Text>
             </View>
           </View>
@@ -845,42 +981,51 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
         </View>
 
         <View style={{ height: 30 }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* ── Sticky Bottom Footer Bar ── */}
-      <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity 
-          style={[styles.submitBtnContainer, !canCreateTasks && { opacity: 0.6 }]}
-          onPress={handleSave} 
-          disabled={loading || !canCreateTasks}
-          activeOpacity={0.9}
-        >
-          <LinearGradient
-            colors={['#1268D9', '#0D50B8']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.submitBtnGradient}
+      {keyboardHeight === 0 && (
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+          <TouchableOpacity 
+            style={[styles.submitBtnContainer, !canCreateTasks && { opacity: 0.6 }]}
+            onPress={handleSave} 
+            disabled={loading || !canCreateTasks}
+            activeOpacity={0.9}
           >
-            {loading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <>
-                <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
-                <Text style={styles.submitBtnText}>
-                  {repeatEnabled ? "Setup Recurring Task" : "Deploy Task"}
-                </Text>
-              </>
-            )}
-          </LinearGradient>
-        </TouchableOpacity>
-      </View>
+            <LinearGradient
+              colors={['#1268D9', '#0D50B8']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.submitBtnGradient}
+            >
+              {loading ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle-outline" size={20} color="#FFFFFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.submitBtnText}>
+                    {repeatEnabled ? "Setup Recurring Task" : "Deploy Task"}
+                  </Text>
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Modal: Select Members ── */}
       <Modal visible={empModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Team Members</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Select Team Members</Text>
+                {selectedDeptIds.length > 0 && (
+                  <Text style={{ fontSize: 11, color: "#1268D9", fontWeight: "700", marginTop: 2 }}>
+                    Department: {selectedDeptTriggerText}
+                  </Text>
+                )}
+              </View>
               <TouchableOpacity onPress={() => setEmpModalVisible(false)} style={styles.modalCloseIconBtn}>
                 <Ionicons name="close" size={20} color={COLORS.darkNavy} />
               </TouchableOpacity>
@@ -904,7 +1049,9 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
 
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               {availableAssignees.length === 0 ? (
-                <Text style={styles.emptySearchText}>No team members found.</Text>
+                <Text style={styles.emptySearchText}>
+                  {selectedDeptIds.length > 0 ? "No team members found in the selected department(s)." : "No team members found."}
+                </Text>
               ) : (
                 availableAssignees.map(emp => {
                   const isSelected = assigneeIds.includes(emp._id);
@@ -918,8 +1065,16 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
                           setAssigneeIds(prev => prev.filter(id => id !== emp._id));
                         } else {
                           setAssigneeIds(prev => [...prev, emp._id]);
-                          if (!selectedDeptId) {
-                            setSelectedDeptId(emp.departmentId?._id || emp.departmentId || emp.departmentIds?.[0] || "");
+                          // Automatically add employee's department(s) to selected departments!
+                          const empDeptIds = getEmployeeDepartmentIds(emp);
+                          if (empDeptIds.length > 0) {
+                            setSelectedDeptIds(prev => {
+                              const next = [...prev];
+                              empDeptIds.forEach(id => {
+                                if (!next.includes(id)) next.push(id);
+                              });
+                              return next;
+                            });
                           }
                         }
                       }}
@@ -932,10 +1087,7 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
                         <View style={{ flex: 1, marginLeft: 10 }}>
                           <Text style={styles.modalItemTitle}>{emp.firstName} {emp.lastName}</Text>
                           <Text style={styles.modalItemSubtitle}>
-                            Dept: {[
-                              emp.departmentId?.name || emp.departmentName || (typeof emp.departmentId === "object" ? emp.departmentId?.name : ""),
-                              ...(emp.accessibleDepartments || []).map(d => typeof d === "object" ? d.name : d)
-                            ].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(", ") || "Main"}
+                            Dept: {getEmployeeDepartmentNames(emp)}
                           </Text>
                         </View>
                       </View>
@@ -961,12 +1113,17 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
         </View>
       </Modal>
 
-      {/* ── Modal: Select Department ── */}
+      {/* ── Modal: Select Department (Multi-Select Support) ── */}
       <Modal visible={deptModalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom + 16) }]}>
             <View style={styles.modalHeaderRow}>
-              <Text style={styles.modalTitle}>Select Department</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalTitle}>Select Departments</Text>
+                <Text style={{ fontSize: 11, color: "#64748B", fontWeight: "600", marginTop: 2 }}>
+                  {selectedDeptIds.length > 0 ? `${selectedDeptIds.length} Department(s) Selected` : "Tap to select one or multiple departments"}
+                </Text>
+              </View>
               <TouchableOpacity onPress={() => setDeptModalVisible(false)} style={styles.modalCloseIconBtn}>
                 <Ionicons name="close" size={20} color={COLORS.darkNavy} />
               </TouchableOpacity>
@@ -992,35 +1149,62 @@ const ManagerCreateTaskScreen = ({ route, navigation }) => {
               {allowedDepartments
                 .filter(dept => (dept?.name || "").toLowerCase().includes((deptSearch || "").toLowerCase()))
                 .map(dept => {
-                  const isSelected = selectedDeptId === dept._id;
+                  const isSelected = selectedDeptIds.includes(dept._id);
                   return (
                     <TouchableOpacity 
                       key={dept._id} 
                       style={[styles.modalItemRow, isSelected && styles.modalItemRowSelected]}
-                      onPress={() => { setSelectedDeptId(dept._id); setDeptModalVisible(false); }}
+                      onPress={() => {
+                        const nextDeptIds = isSelected
+                          ? selectedDeptIds.filter(id => id !== dept._id)
+                          : [...selectedDeptIds, dept._id];
+                        setSelectedDeptIds(nextDeptIds);
+                        // Clean up any previously selected assignees who do not belong to ANY of the selected departments
+                        if (nextDeptIds.length > 0) {
+                          setAssigneeIds(prev => prev.filter(empId => {
+                            const emp = (teamData || []).find(e => (e._id || e.id) === empId);
+                            return emp && isEmployeeInAnyDepartment(emp, nextDeptIds);
+                          }));
+                        }
+                      }}
                       activeOpacity={0.8}
                     >
-                      <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
                         <Feather name="layers" size={16} color={isSelected ? COLORS.primary : COLORS.slateMuted} style={{ marginRight: 10 }} />
-                        <Text style={styles.modalItemTitle}>{dept.name}</Text>
+                        <Text style={[styles.modalItemTitle, isSelected && { color: COLORS.primary, fontWeight: "700" }]}>
+                          {dept.name}
+                        </Text>
                       </View>
                       {isSelected ? (
-                        <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
+                        <Ionicons name="checkbox" size={22} color={COLORS.primary} />
                       ) : (
-                        <Ionicons name="ellipse-outline" size={20} color="#CBD5E1" />
+                        <Ionicons name="square-outline" size={20} color="#CBD5E1" />
                       )}
                     </TouchableOpacity>
                   );
                 })}
             </ScrollView>
 
-            <TouchableOpacity 
-              style={styles.modalCancelBtn} 
-              onPress={() => setDeptModalVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalCancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 14 }}>
+              {selectedDeptIds.length > 0 && (
+                <TouchableOpacity 
+                  style={[styles.modalCancelBtn, { flex: 1, backgroundColor: "#F1F5F9" }]} 
+                  onPress={() => setSelectedDeptIds([])}
+                  activeOpacity={0.85}
+                >
+                  <Text style={[styles.modalCancelBtnText, { color: "#64748B" }]}>Clear All</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity 
+                style={[styles.modalDoneBtn, { flex: 2, marginTop: 0 }]} 
+                onPress={() => setDeptModalVisible(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.modalDoneBtnText}>
+                  Done ({selectedDeptIds.length} Selected)
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

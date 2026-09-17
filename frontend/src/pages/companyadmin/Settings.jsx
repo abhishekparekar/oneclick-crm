@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCompanySettingsApi, updateCompanySettingsApi, getLeaveSettingsApi, updateLeaveSettingsApi } from "../../api/companyAdminApi";
+import { getCompanySettingsApi, updateCompanySettingsApi } from "../../api/companyAdminApi";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Settings as SettingsIcon, Clock, Calendar, Globe, Save, AlertCircle,
-  ShieldCheck, DollarSign, FileText, Sparkles, ArrowUp, ArrowDown, Edit2, Loader2
+  ShieldCheck, DollarSign, Sparkles, ArrowUp, ArrowDown, Edit2, Loader2
 } from "lucide-react";
 
 /* ── Top KPI Stat Card ────────────────────────────────────────────────────────── */
@@ -59,12 +59,7 @@ const Settings = () => {
     fullDayHours: 8,
     workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     timezone: "Asia/Kolkata",
-    currency: "INR",
-    defaultCasualLeaves: 12,
-    defaultSickLeaves: 10,
-    defaultAnnualLeaves: 15,
-    defaultUnpaidLeaves: 0,
-    allowPaidLeaveOverflowAsLWP: true,
+    currency: "INR"
   });
 
   const [successMsg, setSuccessMsg] = useState("");
@@ -74,11 +69,6 @@ const Settings = () => {
   const { data: res, isLoading: isCompanyLoading } = useQuery({
     queryKey: ['companySettings'],
     queryFn: getCompanySettingsApi
-  });
-
-  const { data: leaveRes, isLoading: isLeaveLoading } = useQuery({
-    queryKey: ['leaveSettings'],
-    queryFn: getLeaveSettingsApi
   });
 
   useEffect(() => {
@@ -99,20 +89,6 @@ const Settings = () => {
     }
   }, [res]);
 
-  useEffect(() => {
-    if (leaveRes?.data?.settings) {
-      const ls = leaveRes.data.settings;
-      setFormData(prev => ({
-        ...prev,
-        defaultCasualLeaves: ls.defaultCasualLeaves ?? 12,
-        defaultSickLeaves: ls.defaultSickLeaves ?? 10,
-        defaultAnnualLeaves: ls.defaultAnnualLeaves ?? 15,
-        defaultUnpaidLeaves: ls.defaultUnpaidLeaves ?? 0,
-        allowPaidLeaveOverflowAsLWP: ls.allowPaidLeaveOverflowAsLWP ?? true,
-      }));
-    }
-  }, [leaveRes]);
-
   const updateMutation = useMutation({
     mutationFn: async (data) => {
       const companyPayload = {
@@ -127,22 +103,10 @@ const Settings = () => {
         currency: data.currency
       };
 
-      const leavePayload = {
-        defaultCasualLeaves: data.defaultCasualLeaves,
-        defaultSickLeaves: data.defaultSickLeaves,
-        defaultAnnualLeaves: data.defaultAnnualLeaves,
-        defaultUnpaidLeaves: data.defaultUnpaidLeaves,
-        allowPaidLeaveOverflowAsLWP: data.allowPaidLeaveOverflowAsLWP
-      };
-
-      await Promise.all([
-        updateCompanySettingsApi(companyPayload),
-        updateLeaveSettingsApi(leavePayload)
-      ]);
+      await updateCompanySettingsApi(companyPayload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['companySettings']);
-      queryClient.invalidateQueries(['leaveSettings']);
       setSuccessMsg("System settings updated successfully.");
       setIsEditing(false);
       setErrorMsg("");
@@ -179,7 +143,7 @@ const Settings = () => {
   };
 
   const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const isLoading = isCompanyLoading || isLeaveLoading;
+  const isLoading = isCompanyLoading;
 
   return (
     <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100">
@@ -191,7 +155,7 @@ const Settings = () => {
             Company System Settings <SettingsIcon size={20} className="text-amber-500" />
           </h1>
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Configure shift timings, grace periods, working days, and default annual leave quotas.
+            Configure shift timings, grace periods, and working days.
           </p>
         </div>
 
@@ -338,51 +302,7 @@ const Settings = () => {
               </div>
             </div>
 
-            {/* ── 3. Default Leave Quotas ────────────────────────────────────────── */}
-            <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] space-y-4">
-              <div className="flex items-center space-x-2.5 pb-3 border-b border-slate-100 dark:border-slate-800/80">
-                <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center font-bold">
-                  <FileText size={16} />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 dark:text-white">Default Annual Leave Quotas</h3>
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Standard annual leave balances allocated to new joiners</p>
-                </div>
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Casual Leaves (CL)</label>
-                  <input
-                    type="number"
-                    name="defaultCasualLeaves"
-                    value={formData.defaultCasualLeaves}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 disabled:opacity-75"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Sick Leaves (SL)</label>
-                  <input
-                    type="number"
-                    name="defaultSickLeaves"
-                    value={formData.defaultSickLeaves}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 disabled:opacity-75"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Earned Leaves (EL)</label>
-                  <input
-                    type="number"
-                    name="defaultAnnualLeaves"
-                    value={formData.defaultAnnualLeaves}
-                    onChange={handleChange}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 disabled:opacity-75"
-                  />
-                </div>
-              </div>
-            </div>
 
           </fieldset>
 

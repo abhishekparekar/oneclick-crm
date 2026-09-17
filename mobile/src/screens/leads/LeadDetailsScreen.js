@@ -1837,43 +1837,66 @@ function LeadDetailsScreenComponent({ route, navigation }) {
         </Modal>
 
         {/* ── MODAL: EDIT LEAD ── */}
-        <Modal visible={editModalVisible} animationType="fade" transparent>
-          <View style={styles.modalBackdrop}>
+        <Modal
+          visible={editModalVisible}
+          animationType="fade"
+          transparent
+          onRequestClose={() => !updating && setEditModalVisible(false)}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            style={styles.modalBackdrop}
+          >
             <View style={styles.modalContainer}>
               <View style={styles.modalHeaderRow}>
                 <Text style={styles.modalHeading}>Edit Lead Profile</Text>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                  <Ionicons name="close" size={18} color={THEME.textMuted} />
+                <TouchableOpacity
+                  onPress={() => !updating && setEditModalVisible(false)}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close" size={20} color={THEME.textMuted} />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
                 <Text style={styles.fieldLabel}>Full Name</Text>
                 <TextInput
-                  style={styles.fieldInputMini}
+                  style={styles.modalFieldInput}
                   value={editForm.name}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
+                  placeholder="Enter full name"
+                  placeholderTextColor="#94A3B8"
+                  autoCapitalize="words"
                 />
 
                 <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
                 <TextInput
-                  style={styles.fieldInputMini}
+                  style={styles.modalFieldInput}
                   value={editForm.whatsappPhone}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
+                  placeholder="e.g. 9876543210"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="phone-pad"
                 />
 
                 <Text style={styles.fieldLabel}>Email Address</Text>
                 <TextInput
-                  style={styles.fieldInputMini}
+                  style={styles.modalFieldInput}
                   value={editForm.email}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
+                  placeholder="e.g. name@example.com"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
                 />
 
                 <Text style={styles.fieldLabel}>Company Name</Text>
                 <TextInput
-                  style={styles.fieldInputMini}
+                  style={styles.modalFieldInput}
                   value={editForm.company}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
+                  placeholder="Enter company name"
+                  placeholderTextColor="#94A3B8"
                 />
 
                 <Text style={styles.fieldLabel}>Assign To Representative</Text>
@@ -1885,7 +1908,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                     >
                       <Ionicons
                         name="person-circle"
-                        size={11}
+                        size={12}
                         color={editForm.assignedTo === currentUserId ? "#FFF" : THEME.primary}
                         style={{ marginRight: 3 }}
                       />
@@ -1917,17 +1940,24 @@ function LeadDetailsScreenComponent({ route, navigation }) {
 
                 <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
                 <TextInput
-                  style={styles.fieldInputMini}
+                  style={styles.modalFieldInput}
                   value={editForm.estimatedValue}
                   onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
+                  placeholder="0"
+                  placeholderTextColor="#94A3B8"
+                  keyboardType="numeric"
                 />
 
                 <TouchableOpacity style={styles.primarySubmitBtnMini} onPress={handleSaveEdits} disabled={updating}>
-                  {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primarySubmitBtnTextMini}>Save Changes</Text>}
+                  {updating ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <Text style={styles.primarySubmitBtnTextMini}>Save Changes</Text>
+                  )}
                 </TouchableOpacity>
               </ScrollView>
             </View>
-          </View>
+          </KeyboardAvoidingView>
         </Modal>
         </>
         ) : null}
@@ -2657,8 +2687,9 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     width: "100%",
-    maxWidth: 340,
-    backgroundColor: "#FFF",
+    maxWidth: 360,
+    maxHeight: "88%",
+    backgroundColor: "#FFFFFF",
     borderRadius: 14,
     padding: 14,
     shadowColor: "#0F172A",
@@ -2707,24 +2738,59 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   fieldInput: {
-    backgroundColor: THEME.bg,
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: THEME.border,
-    borderRadius: 10,
-    paddingHorizontal: 10,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     fontSize: 12.5,
-    color: THEME.textPrimary,
+    fontFamily: FONTS.bodyMedium,
+    color: "#0F172A",
   },
   modalFieldInput: {
-    backgroundColor: THEME.bg,
+    backgroundColor: "#F8FAFC",
     borderWidth: 1,
-    borderColor: THEME.border,
+    borderColor: "#CBD5E1",
     borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    fontSize: 12,
-    color: THEME.textPrimary,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyMedium,
+    color: "#0F172A",
+    marginBottom: 4,
+  },
+  fieldInputMini: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyMedium,
+    color: "#0F172A",
+    marginBottom: 4,
+  },
+  primarySubmitBtnMini: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: THEME.primary,
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 14,
+    marginBottom: 6,
+    shadowColor: THEME.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  primarySubmitBtnTextMini: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
   },
   modalCancelBtn: {
     flex: 1,

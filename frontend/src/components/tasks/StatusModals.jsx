@@ -119,7 +119,7 @@ export const CompleteModal = ({ isOpen, onClose, task, isLate }) => {
   );
 };
 
-export const ReopenModal = ({ isOpen, onClose, task }) => {
+export const ReopenModal = ({ isOpen, onClose, task, onSuccess }) => {
   const queryClient = useQueryClient();
   const [newEndDate, setNewEndDate] = useState("");
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
@@ -128,7 +128,12 @@ export const ReopenModal = ({ isOpen, onClose, task }) => {
 
   const mut = useMutation({
     mutationFn: (data) => reopenTaskApi(task._id, data),
-    onSuccess: () => { queryClient.invalidateQueries(["tasks"]); queryClient.invalidateQueries(["task"]); onClose(); },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["tasks"]);
+      queryClient.invalidateQueries(["task"]);
+      onClose();
+      onSuccess?.();
+    },
     onError: (err) => alert("Error: " + err.message)
   });
 
@@ -166,14 +171,19 @@ export const ReopenModal = ({ isOpen, onClose, task }) => {
 };
 
 
-export const ShiftModal = ({ isOpen, onClose, task, employees = [] }) => {
+export const ShiftModal = ({ isOpen, onClose, task, employees = [], onSuccess }) => {
   const queryClient = useQueryClient();
   const [newAssigneeId, setNewAssigneeId] = useState("");
   const [shiftReason, setShiftReason] = useState("");
 
   const mut = useMutation({
     mutationFn: (data) => api.patch(`/tasks/${task._id}/shift`, data).then(res => res.data),
-    onSuccess: () => { queryClient.invalidateQueries(["tasks"]); queryClient.invalidateQueries(["task"]); onClose(); },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["tasks"]);
+      queryClient.invalidateQueries(["task"]);
+      onClose();
+      onSuccess?.();
+    },
     onError: (err) => alert("Error: " + (err.response?.data?.message || err.message))
   });
 
@@ -207,13 +217,18 @@ export const ShiftModal = ({ isOpen, onClose, task, employees = [] }) => {
   );
 };
 
-export const CancelModal = ({ isOpen, onClose, task }) => {
+export const CancelModal = ({ isOpen, onClose, task, onSuccess }) => {
   const queryClient = useQueryClient();
   const [cancelReason, setCancelReason] = useState("");
 
   const mut = useMutation({
     mutationFn: (data) => api.patch(`/tasks/${task._id}/cancel`, data).then(res => res.data),
-    onSuccess: () => { queryClient.invalidateQueries(["tasks"]); queryClient.invalidateQueries(["task"]); onClose(); },
+    onSuccess: () => {
+      queryClient.invalidateQueries(["tasks"]);
+      queryClient.invalidateQueries(["task"]);
+      onClose();
+      onSuccess?.();
+    },
     onError: (err) => alert("Error: " + (err.response?.data?.message || err.message))
   });
 

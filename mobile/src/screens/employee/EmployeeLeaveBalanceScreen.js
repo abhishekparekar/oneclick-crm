@@ -8,13 +8,15 @@ import {
   RefreshControl,
   TouchableOpacity,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import AppCard from "../../components/AppCard";
 import { getLeaveBalanceApi } from "../../api/leaveService";
 
 const EmployeeLeaveBalanceScreen = ({ navigation }) => {
-  const [balance, setBalance] = useState({ casual: 10, sick: 8, annual: 15, lop: 0 });
+  const [balance, setBalance] = useState({ casual: 12, sick: 6, annual: 15, lop: 0 });
+  const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -22,8 +24,11 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
     try {
       if (showLoading) setLoading(true);
       const res = await getLeaveBalanceApi();
-      if (res.data && res.data.success) {
+      if (res?.data && res.data.success) {
         setBalance(res.data.balance || res.data);
+        if (res.data.monthlyMetrics) {
+          setMetrics(res.data.monthlyMetrics);
+        }
       }
     } catch (err) {
       console.error("Failed to fetch balance:", err);
@@ -43,9 +48,9 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
   };
 
   const ALLOCATIONS = {
-    casual: 12,
-    sick: 10,
-    annual: 15,
+    casual: metrics?.annualAllocated?.casual ?? (balance.casual != null ? Math.max(12, balance.casual) : 12),
+    sick: metrics?.annualAllocated?.sick ?? (balance.sick != null ? Math.max(6, balance.sick) : 6),
+    annual: metrics?.annualAllocated?.annual ?? (balance.annual != null ? Math.max(15, balance.annual) : 15),
   };
 
   const getPercent = (value, max) => {
@@ -62,18 +67,82 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={20} color="#0F172A" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Leave Limits & Balances</Text>
+          <Text style={styles.headerTitle}>Leave Policy & Balances</Text>
         </View>
 
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#F97316"]} tintColor="#F97316" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#1268D9"]} tintColor="#1268D9" />}
         >
           {loading ? (
-            <ActivityIndicator size="large" color="#F97316" style={{ marginTop: 40 }} />
+            <ActivityIndicator size="large" color="#1268D9" style={{ marginTop: 40 }} />
           ) : (
             <View>
+              {/* ── 1. Month-Wise Policy & Accruals Hero Card ── */}
+              <LinearGradient
+                colors={["#082B52", "#1268D9", "#1D7DF2"]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.heroCard}
+              >
+                <View style={styles.heroTopRow}>
+                  <View style={styles.heroBadge}>
+                    <Ionicons name="calendar-outline" size={13} color="#93C5FD" />
+                    <Text style={styles.heroBadgeText}>
+                      {metrics?.currentMonthName || "Current Month"} {metrics?.currentYear || new Date().getFullYear()}
+                    </Text>
+                  </View>
+                  <View style={styles.heroCapPill}>
+                    <Text style={styles.heroCapText}>
+                      Monthly Cap: {metrics?.monthlyCap ?? balance?.monthlyLeaves ?? 3} Days/Mo
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.heroMiddleSection}>
+                  <Text style={styles.heroAllowedCount}>
+                    {metrics?.allowedRemainingThisMonth ?? 3}
+                  </Text>
+                  <Text style={styles.heroAllowedLabel}>
+                    Days Allowed Remaining This Month
+                  </Text>
+                  <Text style={styles.heroPolicyNote}>
+                    Even if accumulated leave is higher, monthly limit permits max {metrics?.monthlyCap ?? 3} days per month.
+                  </Text>
+                </View>
+
+                {/* 3 Metric Mini Cards inside Hero */}
+                <View style={styles.heroMetricsGrid}>
+                  <View style={styles.heroMiniCard}>
+                    <Text style={styles.heroMiniLabel}>MONTH QUOTA</Text>
+                    <Text style={styles.heroMiniValue}>
+                      {metrics?.currentMonthQuota?.total ?? 2.75} <Text style={styles.heroMiniUnit}>Days</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.heroMiniCard}>
+                    <Text style={styles.heroMiniLabel}>CARRIED OVER</Text>
+                    <Text style={styles.heroMiniValue}>
+                      {metrics?.carriedOver?.total ?? 0} <Text style={styles.heroMiniUnit}>Days</Text>
+                    </Text>
+                  </View>
+
+                  <View style={styles.heroMiniCard}>
+                    <Text style={styles.heroMiniLabel}>TAKEN THIS MO</Text>
+                    <Text style={styles.heroMiniValue}>
+                      {metrics?.currentMonthUsed?.totalPaid ?? 0} <Text style={styles.heroMiniUnit}>Days</Text>
+                    </Text>
+                  </View>
+                </View>
+              </LinearGradient>
+
+              {/* ── 2. Annual Quota Distribution Section Header ── */}
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>LEAVE TYPE BALANCES</Text>
+                <Text style={styles.sectionSubtitle}>Month-wise accrual with auto-computed annual totals</Text>
+              </View>
+
               {/* Casual Leave */}
               <AppCard style={styles.balanceCard}>
                 <View style={styles.cardInfo}>
@@ -81,12 +150,20 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
                     <Ionicons name="briefcase" size={20} color="#3B82F6" />
                   </View>
                   <View style={styles.cardText}>
-                    <Text style={styles.balanceName}>Casual Leave</Text>
+                    <Text style={styles.balanceName}>Casual Leave (CL)</Text>
                     <Text style={styles.balanceAllocText}>
-                      Allocated: {ALLOCATIONS.casual} Days • Remaining: {balance.casual} Days
+                      Rate: {metrics?.monthlyRates?.casual ?? (balance.monthlyCasual || 1)} Day/Mo • Annual: {ALLOCATIONS.casual} Days
                     </Text>
+                    {metrics?.carriedOver?.casual !== undefined && (
+                      <Text style={styles.carriedOverNote}>
+                        Past carry-over: {metrics.carriedOver.casual} Days
+                      </Text>
+                    )}
                   </View>
-                  <Text style={[styles.balanceNumber, { color: "#3B82F6" }]}>{balance.casual}</Text>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.balanceNumber, { color: "#3B82F6" }]}>{balance.casual ?? 12}</Text>
+                    <Text style={styles.remainingUnit}>Remaining</Text>
+                  </View>
                 </View>
                 <View style={styles.barBg}>
                   <View
@@ -98,7 +175,7 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.barLabelsRow}>
                   <Text style={styles.barLabelText}>0 Days</Text>
-                  <Text style={styles.barLabelText}>{ALLOCATIONS.casual} Days</Text>
+                  <Text style={styles.barLabelText}>{ALLOCATIONS.casual} Days Annual</Text>
                 </View>
               </AppCard>
 
@@ -109,12 +186,20 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
                     <Ionicons name="medical" size={20} color="#10B981" />
                   </View>
                   <View style={styles.cardText}>
-                    <Text style={styles.balanceName}>Sick Leave</Text>
+                    <Text style={styles.balanceName}>Sick Leave (SL)</Text>
                     <Text style={styles.balanceAllocText}>
-                      Allocated: {ALLOCATIONS.sick} Days • Remaining: {balance.sick} Days
+                      Rate: {metrics?.monthlyRates?.sick ?? (balance.monthlySick || 0.5)} Day/Mo • Annual: {ALLOCATIONS.sick} Days
                     </Text>
+                    {metrics?.carriedOver?.sick !== undefined && (
+                      <Text style={styles.carriedOverNote}>
+                        Past carry-over: {metrics.carriedOver.sick} Days
+                      </Text>
+                    )}
                   </View>
-                  <Text style={[styles.balanceNumber, { color: "#10B981" }]}>{balance.sick}</Text>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.balanceNumber, { color: "#10B981" }]}>{balance.sick ?? 6}</Text>
+                    <Text style={styles.remainingUnit}>Remaining</Text>
+                  </View>
                 </View>
                 <View style={styles.barBg}>
                   <View
@@ -126,23 +211,31 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.barLabelsRow}>
                   <Text style={styles.barLabelText}>0 Days</Text>
-                  <Text style={styles.barLabelText}>{ALLOCATIONS.sick} Days</Text>
+                  <Text style={styles.barLabelText}>{ALLOCATIONS.sick} Days Annual</Text>
                 </View>
               </AppCard>
 
-              {/* Annual Leave */}
+              {/* Annual / Privilege Leave */}
               <AppCard style={styles.balanceCard}>
                 <View style={styles.cardInfo}>
                   <View style={[styles.iconCircle, { backgroundColor: "#F5F3FF" }]}>
                     <Ionicons name="ribbon" size={20} color="#8B5CF6" />
                   </View>
                   <View style={styles.cardText}>
-                    <Text style={styles.balanceName}>Annual Leave</Text>
+                    <Text style={styles.balanceName}>Privilege / Annual (PL)</Text>
                     <Text style={styles.balanceAllocText}>
-                      Allocated: {ALLOCATIONS.annual} Days • Remaining: {balance.annual} Days
+                      Rate: {metrics?.monthlyRates?.annual ?? (balance.monthlyAnnual || 1.25)} Day/Mo • Annual: {ALLOCATIONS.annual} Days
                     </Text>
+                    {metrics?.carriedOver?.annual !== undefined && (
+                      <Text style={styles.carriedOverNote}>
+                        Past carry-over: {metrics.carriedOver.annual} Days
+                      </Text>
+                    )}
                   </View>
-                  <Text style={[styles.balanceNumber, { color: "#8B5CF6" }]}>{balance.annual}</Text>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text style={[styles.balanceNumber, { color: "#8B5CF6" }]}>{balance.annual ?? 15}</Text>
+                    <Text style={styles.remainingUnit}>Remaining</Text>
+                  </View>
                 </View>
                 <View style={styles.barBg}>
                   <View
@@ -154,7 +247,25 @@ const EmployeeLeaveBalanceScreen = ({ navigation }) => {
                 </View>
                 <View style={styles.barLabelsRow}>
                   <Text style={styles.barLabelText}>0 Days</Text>
-                  <Text style={styles.barLabelText}>{ALLOCATIONS.annual} Days</Text>
+                  <Text style={styles.barLabelText}>{ALLOCATIONS.annual} Days Annual</Text>
+                </View>
+              </AppCard>
+
+              {/* Unpaid Leaves */}
+              <AppCard style={[styles.balanceCard, { marginBottom: 30 }]}>
+                <View style={styles.cardInfo}>
+                  <View style={[styles.iconCircle, { backgroundColor: "#FFF1F2" }]}>
+                    <Ionicons name="alert-circle" size={20} color="#F43F5E" />
+                  </View>
+                  <View style={styles.cardText}>
+                    <Text style={styles.balanceName}>Unpaid Leaves (LOP)</Text>
+                    <Text style={styles.balanceAllocText}>
+                      Loss of Pay Days Taken: {balance.lop ?? balance.unpaid ?? balance.unpaidLeaves ?? 0} Days
+                    </Text>
+                  </View>
+                  <Text style={[styles.balanceNumber, { color: "#F43F5E" }]}>
+                    {balance.lop ?? balance.unpaid ?? balance.unpaidLeaves ?? 0}
+                  </Text>
                 </View>
               </AppCard>
             </View>
@@ -253,6 +364,133 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     color: "#94A3B8",
+  },
+  heroCard: {
+    padding: 18,
+    borderRadius: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#1268D9",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  heroTopRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 14,
+  },
+  heroBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.15)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    gap: 5,
+  },
+  heroBadgeText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  heroCapPill: {
+    backgroundColor: "rgba(251, 191, 36, 0.2)",
+    borderWidth: 1,
+    borderColor: "rgba(251, 191, 36, 0.4)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  heroCapText: {
+    fontSize: 11,
+    fontWeight: "800",
+    color: "#FEF08A",
+  },
+  heroMiddleSection: {
+    alignItems: "center",
+    marginVertical: 6,
+  },
+  heroAllowedCount: {
+    fontSize: 44,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    lineHeight: 48,
+  },
+  heroAllowedLabel: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#E0F2FE",
+    marginTop: 2,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  heroPolicyNote: {
+    fontSize: 11,
+    fontWeight: "500",
+    color: "rgba(255, 255, 255, 0.8)",
+    textAlign: "center",
+    marginTop: 6,
+    paddingHorizontal: 10,
+  },
+  heroMetricsGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 16,
+  },
+  heroMiniCard: {
+    flex: 1,
+    backgroundColor: "rgba(255, 255, 255, 0.12)",
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.15)",
+  },
+  heroMiniLabel: {
+    fontSize: 9,
+    fontWeight: "800",
+    color: "#BAE6FD",
+    letterSpacing: 0.5,
+  },
+  heroMiniValue: {
+    fontSize: 14,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    marginTop: 2,
+  },
+  heroMiniUnit: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "rgba(255, 255, 255, 0.7)",
+  },
+  sectionHeader: {
+    marginBottom: 12,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: "#64748B",
+    letterSpacing: 0.8,
+  },
+  sectionSubtitle: {
+    fontSize: 11,
+    color: "#94A3B8",
+    marginTop: 1,
+  },
+  carriedOverNote: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#6366F1",
+    marginTop: 2,
+  },
+  remainingUnit: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#94A3B8",
+    textTransform: "uppercase",
   },
 });
 

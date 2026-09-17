@@ -172,22 +172,35 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
     try {
       setSubmitting(true);
       if (actionType === "follow_up") {
-        await submitFollowUpApi(taskId, {
+        const followPayload = {
           remark: data.remarks,
-          nextFollowUpDate: data.nextFollowUpDate || null,
-          attachments: data.attachments || []
-        });
+          attachments: data.attachments || [],
+        };
+        // Only include nextFollowUpDate if user actually selected a date
+        if (data.nextFollowUpDate) {
+          followPayload.nextFollowUpDate = data.nextFollowUpDate;
+        }
+        await submitFollowUpApi(taskId, followPayload);
       } else {
         const payload = {
           remarks: data.remarks,
           finalRemarks: data.remarks,
           attachments: data.attachments || [],
-          nextFollowUpDate: data.nextFollowUpDate || null
         };
+        // Only include nextFollowUpDate if a valid date was actually selected
+        if (data.nextFollowUpDate) {
+          payload.nextFollowUpDate = data.nextFollowUpDate;
+        }
         await updateTaskStatusData(taskId, actionType, payload);
       }
       setActionModalVisible(false);
-      await fetchTask();
+      Alert.alert(
+        "Success",
+        actionType === "in-process" || actionType === "in_process"
+          ? "Task is now In-Process."
+          : "Task status updated successfully."
+      );
+      navigation.goBack();
     } catch (err) {
       Alert.alert("Error", err?.response?.data?.message || err.message);
     } finally {

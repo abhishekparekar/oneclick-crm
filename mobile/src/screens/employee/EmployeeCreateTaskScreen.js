@@ -10,7 +10,10 @@ import {
   Alert,
   Modal,
   StatusBar,
+  Keyboard,
+  Platform,
 } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { createEmployeeTaskApi } from "../../api/taskService";
@@ -49,6 +52,22 @@ const EmployeeCreateTaskScreen = ({ route, navigation }) => {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const insets = useSafeAreaInsets();
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const getNowTimeStr = () => {
     const d = new Date();
@@ -296,10 +315,18 @@ const EmployeeCreateTaskScreen = ({ route, navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
+      <KeyboardAwareScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: Math.max(120, keyboardHeight + 80) }
+        ]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        enableOnAndroid={true}
+        enableAutomaticScroll={true}
+        extraScrollHeight={140}
+        extraHeight={140}
       >
         {/* ── 1. Compact Task Type Segmenter ── */}
         <View style={styles.modeSegmentContainer}>
@@ -621,28 +648,30 @@ const EmployeeCreateTaskScreen = ({ route, navigation }) => {
         </View>
 
         <View style={{ height: 30 }} />
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       {/* ── Fixed Bottom Submit Dock ── */}
-      <View style={[styles.bottomDock, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
-        <TouchableOpacity
-          style={[styles.submitButton, loading && { opacity: 0.7 }]}
-          onPress={handleSave}
-          disabled={loading}
-          activeOpacity={0.88}
-        >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.submitButtonText}>
-                {repeatEnabled ? "Save Recurring Schedule" : "Create Task"}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </View>
+      {keyboardHeight === 0 && (
+        <View style={[styles.bottomDock, { paddingBottom: Math.max(insets.bottom, 12) + 6 }]}>
+          <TouchableOpacity
+            style={[styles.submitButton, loading && { opacity: 0.7 }]}
+            onPress={handleSave}
+            disabled={loading}
+            activeOpacity={0.88}
+          >
+            {loading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.submitButtonText}>
+                  {repeatEnabled ? "Save Recurring Schedule" : "Create Task"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* ── Department Picker Modal ── */}
       <Modal

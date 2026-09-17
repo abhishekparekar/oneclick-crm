@@ -110,7 +110,7 @@ const MiniAvatar = ({ name, size = "w-6 h-6", textSize = "text-[9.5px]" }) => {
 };
 
 /* ── Follow-Up Modal ── */
-function FollowUpModal({ isOpen, onClose, taskId }) {
+function FollowUpModal({ isOpen, onClose, taskId, onSuccess }) {
   const [nextFollowUpDate, setNextFollowUpDate] = useState("");
   const [remark, setRemark] = useState("");
   const [attachments, setAttachments] = useState([]);
@@ -136,6 +136,7 @@ function FollowUpModal({ isOpen, onClose, taskId }) {
       queryClient.invalidateQueries(["task", taskId]);
       queryClient.invalidateQueries(["tasks"]);
       onClose();
+      onSuccess?.();
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to schedule follow-up");
     } finally {
@@ -201,6 +202,7 @@ export default function TaskDetailsPage() {
   
   const getBackUrl = () => {
     const role = (user?.role || "").toLowerCase().replace(/\s+/g, "");
+    if (role.includes("hr")) return "/hr/tasks";
     if (role.includes("admin") || role.includes("companyadmin")) return "/company/tasks";
     if (role.includes("manager") || role.includes("teamleader")) return "/manager/team-tasks";
     if (role.includes("employee")) return "/employee/my-tasks";
@@ -250,6 +252,7 @@ export default function TaskDetailsPage() {
       toast.success("Task status updated successfully!");
       queryClient.invalidateQueries(["task", id]);
       queryClient.invalidateQueries(["tasks"]);
+      navigate(getBackUrl());
     },
     onError: (err) => {
       toast.error(err?.response?.data?.message || "Failed to update status");
@@ -805,13 +808,15 @@ export default function TaskDetailsPage() {
           isSubmitting={updateStatusMutation.isPending}
         />
       )}
-      {task && <ShiftModal isOpen={showShift} onClose={() => setShowShift(false)} task={task} employees={employees} />}
-      {task && <FollowUpModal isOpen={showFollowUp} onClose={() => setShowFollowUp(false)} taskId={task._id} />}
+      {task && <ShiftModal isOpen={showShift} onClose={() => setShowShift(false)} task={task} employees={employees} onSuccess={() => navigate(getBackUrl())} />}
+      {task && <ReopenModal isOpen={showReopen} onClose={() => setShowReopen(false)} task={task} onSuccess={() => navigate(getBackUrl())} />}
+      {task && <FollowUpModal isOpen={showFollowUp} onClose={() => setShowFollowUp(false)} taskId={task._id} onSuccess={() => navigate(getBackUrl())} />}
       {task && showEdit && (
         <TaskEditModal 
           isOpen={showEdit} 
           onClose={() => setShowEdit(false)} 
           task={task} 
+          onSuccess={() => navigate(getBackUrl())}
         />
       )}
 

@@ -20,6 +20,9 @@ import ManagerLayout from "../../components/ManagerLayout";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import { useAuth } from "../../context/AuthContext";
 import leadsService from "../../api/leadsService";
+import AppDatePicker from "../../components/AppDatePicker";
+import AppTimePicker from "../../components/AppTimePicker";
+import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateFormatter";
 
 const THEME = {
   primary: "#1268D9",
@@ -96,6 +99,13 @@ export default function LeadsListScreen({ navigation, route }) {
   const [products, setProducts] = useState([]);
   const [isCustomProduct, setIsCustomProduct] = useState(false);
   const [customProductText, setCustomProductText] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [followUpTime, setFollowUpTime] = useState("");
+
+  const getTodayFormatted = useCallback(() => formatDateToDDMMYYYY(new Date()), []);
+  const getTomorrowFormatted = useCallback(() => formatDateToDDMMYYYY(new Date(Date.now() + 86400000)), []);
+  const getInDaysFormatted = useCallback((days) => formatDateToDDMMYYYY(new Date(Date.now() + days * 86400000)), []);
+
   const [form, setForm] = useState({
     name: "",
     whatsappPhone: "",
@@ -311,15 +321,22 @@ export default function LeadsListScreen({ navigation, route }) {
 
     try {
       setSubmitting(true);
+      let finalFollowUpIso = null;
+      if (followUpDate) {
+        finalFollowUpIso = combineDateAndTimeToISO(followUpDate, followUpTime || "11:00");
+      }
       const leadPayload = {
         ...form,
         phone: form.whatsappPhone,
         productService: isCustomProduct ? customProductText : form.productService,
+        nextFollowUpDate: finalFollowUpIso,
       };
       await leadsService.createLead(leadPayload);
       setModalVisible(false);
       setIsCustomProduct(false);
       setCustomProductText("");
+      setFollowUpDate("");
+      setFollowUpTime("");
       setForm({
         name: "",
         whatsappPhone: "",
@@ -700,7 +717,7 @@ export default function LeadsListScreen({ navigation, route }) {
                   <Text style={styles.modalHeadingText}>NEW PROSPECTIVE CLIENT / LEAD</Text>
                   <Text style={styles.modalSubheadingText}>Record client inquiry, assigned product and next follow-up date</Text>
                 </View>
-                <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.modalCloseBtn}>
+                <TouchableOpacity onPress={() => { setModalVisible(false); setFollowUpDate(""); setFollowUpTime(""); }} style={styles.modalCloseBtn}>
                   <Ionicons name="close" size={16} color="#94A3B8" />
                 </TouchableOpacity>
               </View>
@@ -931,16 +948,129 @@ export default function LeadsListScreen({ navigation, route }) {
                   </TouchableOpacity>
 
                   <Text style={styles.fieldLabel}>NEXT FOLLOW-UP DATE & TIME</Text>
-                  <View style={styles.inputWithIcon}>
-                    <Ionicons name="calendar-outline" size={15} color="#94A3B8" style={styles.inputIconPrefix} />
-                    <TextInput
-                      style={styles.fieldInnerInput}
-                      placeholder="mm/dd/yyyy --:-- --"
-                      placeholderTextColor="#94A3B8"
-                      value={form.nextFollowUpDate}
-                      onChangeText={(v) => setForm((p) => ({ ...p, nextFollowUpDate: v }))}
-                    />
-                    <Ionicons name="calendar" size={15} color="#94A3B8" />
+                  <View style={{ flexDirection: "row", gap: 10, marginBottom: 6 }}>
+                    <View style={{ flex: 1.25 }}>
+                      <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#64748B", marginBottom: 3, letterSpacing: 0.3 }}>
+                        DATE
+                      </Text>
+                      <AppDatePicker
+                        value={followUpDate}
+                        onChangeText={setFollowUpDate}
+                        placeholder="Select Date"
+                        minDate="today"
+                        compact
+                      />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 10.5, fontWeight: "800", color: "#64748B", marginBottom: 3, letterSpacing: 0.3 }}>
+                        TIME
+                      </Text>
+                      <AppTimePicker
+                        value={followUpTime}
+                        onChangeText={setFollowUpTime}
+                        placeholder="Select Time"
+                      />
+                    </View>
+                  </View>
+
+                  {/* Quick Date Presets */}
+                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 12, marginTop: 2 }}>
+                    <TouchableOpacity
+                      style={[
+                        styles.quickPresetChip,
+                        followUpDate === getTodayFormatted() && styles.quickPresetChipActive,
+                      ]}
+                      onPress={() => {
+                        setFollowUpDate(getTodayFormatted());
+                        if (!followUpTime) setFollowUpTime("11:00");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.quickPresetChipText,
+                          followUpDate === getTodayFormatted() && styles.quickPresetChipTextActive,
+                        ]}
+                      >
+                        Today
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.quickPresetChip,
+                        followUpDate === getTomorrowFormatted() && styles.quickPresetChipActive,
+                      ]}
+                      onPress={() => {
+                        setFollowUpDate(getTomorrowFormatted());
+                        if (!followUpTime) setFollowUpTime("11:00");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.quickPresetChipText,
+                          followUpDate === getTomorrowFormatted() && styles.quickPresetChipTextActive,
+                        ]}
+                      >
+                        Tomorrow
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.quickPresetChip,
+                        followUpDate === getInDaysFormatted(2) && styles.quickPresetChipActive,
+                      ]}
+                      onPress={() => {
+                        setFollowUpDate(getInDaysFormatted(2));
+                        if (!followUpTime) setFollowUpTime("11:00");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.quickPresetChipText,
+                          followUpDate === getInDaysFormatted(2) && styles.quickPresetChipTextActive,
+                        ]}
+                      >
+                        In 2 Days
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.quickPresetChip,
+                        followUpDate === getInDaysFormatted(7) && styles.quickPresetChipActive,
+                      ]}
+                      onPress={() => {
+                        setFollowUpDate(getInDaysFormatted(7));
+                        if (!followUpTime) setFollowUpTime("11:00");
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.quickPresetChipText,
+                          followUpDate === getInDaysFormatted(7) && styles.quickPresetChipTextActive,
+                        ]}
+                      >
+                        In 1 Week
+                      </Text>
+                    </TouchableOpacity>
+
+                    {(followUpDate || followUpTime) ? (
+                      <TouchableOpacity
+                        style={[styles.quickPresetChip, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}
+                        onPress={() => {
+                          setFollowUpDate("");
+                          setFollowUpTime("");
+                        }}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.quickPresetChipText, { color: "#EF4444" }]}>Clear</Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </View>
 
                   <Text style={styles.fieldLabel}>INITIAL NOTES / INQUIRY DETAILS</Text>
@@ -963,7 +1093,7 @@ export default function LeadsListScreen({ navigation, route }) {
               <View style={styles.modalFooterRow}>
                 <TouchableOpacity
                   style={styles.cancelModalBtn}
-                  onPress={() => setModalVisible(false)}
+                  onPress={() => { setModalVisible(false); setFollowUpDate(""); setFollowUpTime(""); }}
                 >
                   <Text style={styles.cancelModalBtnText}>Cancel</Text>
                 </TouchableOpacity>
@@ -2702,6 +2832,26 @@ const styles = StyleSheet.create({
   filterApplyBtnText: {
     fontSize: 13,
     fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  quickPresetChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: "#F1F5F9",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  quickPresetChipActive: {
+    backgroundColor: "#1268D9",
+    borderColor: "#1268D9",
+  },
+  quickPresetChipText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  quickPresetChipTextActive: {
     color: "#FFFFFF",
   },
 });

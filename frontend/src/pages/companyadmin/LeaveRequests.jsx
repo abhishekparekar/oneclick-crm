@@ -869,24 +869,93 @@ const LeaveRequests = () => {
                 );
               })()}
 
-              {/* Leave Quota Cards */}
-              <div className="bg-slate-50 dark:bg-[#071A2F]/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554] space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Available Leave Quota</span>
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="bg-white dark:bg-[#050F1F] p-2.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554] shadow-2xs">
-                    <span className="text-base font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balanceRes?.data?.balance?.casual ?? 12}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Casual (CL)</span>
+              {/* Month-Wise Accrual & Policy Verification Card */}
+              {(() => {
+                const metrics = balanceRes?.data?.monthlyMetrics;
+                const balance = balanceRes?.data?.balance;
+                const requestedDays = Number(selectedLeave.numberOfDays || 1);
+                const allowedThisMonth = metrics?.allowedRemainingThisMonth;
+                const exceedsMonthlyCap = allowedThisMonth !== undefined && requestedDays > allowedThisMonth;
+
+                return (
+                  <div className="space-y-2.5">
+                    {/* Month-Wise Metrics Matrix */}
+                    <div className="bg-gradient-to-br from-blue-500/5 via-indigo-500/5 to-purple-500/5 dark:bg-[#071A2F]/60 p-3.5 rounded-xl border border-blue-500/20 dark:border-[#1C3554] space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-extrabold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-1">
+                          <Clock size={12} />
+                          Month-Wise Leave Metrics ({metrics?.currentMonthName || "Current Month"})
+                        </span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          Monthly Cap: {metrics?.monthlyCap ?? balance?.monthlyLeaves ?? 3} Days/Mo
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-[10px] text-slate-400 font-semibold block uppercase">Month Quota</span>
+                          <span className="text-sm font-black text-slate-800 dark:text-white">
+                            {metrics?.currentMonthQuota?.total ?? 2.75} <span className="text-[10px] font-normal text-slate-400">Days</span>
+                          </span>
+                        </div>
+
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-[10px] text-slate-400 font-semibold block uppercase">Carried Over</span>
+                          <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">
+                            {metrics?.carriedOver?.total ?? 0} <span className="text-[10px] font-normal text-slate-400">Days</span>
+                          </span>
+                        </div>
+
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-[10px] text-slate-400 font-semibold block uppercase">Taken This Mo</span>
+                          <span className="text-sm font-black text-amber-600 dark:text-amber-400">
+                            {metrics?.currentMonthUsed?.totalPaid ?? 0} <span className="text-[10px] font-normal text-slate-400">Days</span>
+                          </span>
+                        </div>
+
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-[10px] text-slate-400 font-semibold block uppercase">Allowed This Mo</span>
+                          <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+                            {allowedThisMonth ?? 3} <span className="text-[10px] font-normal text-slate-400">Days</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Exceeds Monthly Cap Warning */}
+                      {exceedsMonthlyCap && selectedLeave.status === "pending" && (
+                        <div className="p-2.5 rounded-lg bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800/60 text-xs flex items-start gap-2">
+                          <AlertCircle size={15} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+                          <div>
+                            <span className="font-extrabold text-rose-700 dark:text-rose-300 block">Monthly Policy Warning:</span>
+                            <span className="text-rose-600 dark:text-rose-400 font-medium">
+                              This request of {requestedDays} days exceeds the employee's remaining allowed limit of {allowedThisMonth} day(s) for this month (Monthly Cap: {metrics?.monthlyCap} days).
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Annual Leave Balances */}
+                    <div className="bg-slate-50 dark:bg-[#071A2F]/40 p-3 rounded-xl border border-slate-200/80 dark:border-[#1C3554] space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Annual Remaining Balances</span>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-sm font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balance?.casual ?? 12}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Casual (CL)</span>
+                        </div>
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-sm font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balance?.sick ?? 6}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Sick (SL)</span>
+                        </div>
+                        <div className="bg-white dark:bg-[#050F1F] p-2 rounded-lg border border-slate-200/80 dark:border-[#1C3554]">
+                          <span className="text-sm font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balance?.annual ?? 15}</span>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">Annual (PL)</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="bg-white dark:bg-[#050F1F] p-2.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554] shadow-2xs">
-                    <span className="text-base font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balanceRes?.data?.balance?.sick ?? 10}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Sick (SL)</span>
-                  </div>
-                  <div className="bg-white dark:bg-[#050F1F] p-2.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554] shadow-2xs">
-                    <span className="text-base font-black text-[#1268D9] dark:text-[#2F8BFF] block">{balanceRes?.data?.balance?.annual ?? 15}</span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">Annual (EL)</span>
-                  </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Application Details Summary */}
               <div className="bg-slate-50 dark:bg-[#071A2F]/40 p-3.5 rounded-xl border border-slate-200/80 dark:border-[#1C3554] text-xs space-y-2">

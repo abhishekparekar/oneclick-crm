@@ -1,5 +1,6 @@
 import api, { getApiBaseUrl } from "./api";
 import * as FileSystem from "expo-file-system";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 export const getEmployeeTasksApi = (params = {}) =>
@@ -70,7 +71,13 @@ const expoUpload = async (path, formData) => {
   }
 
   const baseUrl = getApiBaseUrl();
-  const token = api.defaults.headers.common.Authorization;
+  let token = api.defaults.headers.common?.Authorization || api.defaults.headers.common?.authorization;
+  if (!token) {
+    try {
+      const stored = await AsyncStorage.getItem("hrms_token");
+      if (stored) token = `Bearer ${stored}`;
+    } catch (_) {}
+  }
 
   const uploadType = FileSystem.FileSystemUploadType?.MULTIPART ?? FileSystem.UploadType?.MULTIPART ?? 1;
 
@@ -95,15 +102,11 @@ const expoUpload = async (path, formData) => {
 
 export const uploadMediaFileApi = async (formData) => {
   try {
-    const res = await api.post("/tasks/upload-media", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const res = await api.post("/tasks/upload-media", formData);
     return res;
   } catch (err) {
     try {
-      const res2 = await api.post("/company/tasks/upload-media", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res2 = await api.post("/company/tasks/upload-media", formData);
       return res2;
     } catch (err2) {
       return await expoUpload("/tasks/upload-media", formData);

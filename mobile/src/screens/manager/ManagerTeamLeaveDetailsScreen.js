@@ -111,7 +111,7 @@ const ManagerTeamLeaveDetailsScreen = ({ navigation, route }) => {
     );
   }
 
-  const { leave, leaveBalance } = data;
+  const { leave, leaveBalance, monthlyMetrics } = data;
   const statusColor = STATUS_COLORS[leave.status] || STATUS_COLORS.pending;
   const emp = leave.employeeId || {};
   const initials = ((emp.firstName || "E")[0] + (emp.lastName || "")[0]).toUpperCase();
@@ -120,6 +120,10 @@ const ManagerTeamLeaveDetailsScreen = ({ navigation, route }) => {
     leave.status === "pending" &&
     leavePermissions?.allowManagerLeaveApproval !== false &&
     hasPermission("leaves", "approveReject");
+
+  const requestedDays = Number(leave.numberOfDays || 1);
+  const allowedThisMonth = monthlyMetrics?.allowedRemainingThisMonth;
+  const exceedsMonthlyCap = allowedThisMonth !== undefined && requestedDays > allowedThisMonth;
 
   return (
     <ManagerLayout navigation={navigation} title="Leave Request Details" showBack>
@@ -156,6 +160,61 @@ const ManagerTeamLeaveDetailsScreen = ({ navigation, route }) => {
               </Text>
             </View>
           </View>
+
+          {/* Month-Wise Accrual & Policy Verification Card */}
+          {monthlyMetrics && (
+            <View style={[styles.sectionCard, { borderColor: "#BFDBFE", backgroundColor: "#F0F9FF" }]}>
+              <View style={[styles.sectionHeaderRow, { justifyContent: "space-between" }]}>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Ionicons name="time-outline" size={16} color="#0284C7" />
+                  <Text style={[styles.sectionTitle, { color: "#0369A1", marginLeft: 6 }]}>
+                    Month-Wise Policy ({monthlyMetrics.currentMonthName || "Current Month"})
+                  </Text>
+                </View>
+                <View style={{ backgroundColor: "#FEF3C7", paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, borderWidth: 1, borderColor: "#FDE68A" }}>
+                  <Text style={{ fontSize: 10, fontWeight: "800", color: "#B45309" }}>
+                    Cap: {monthlyMetrics.monthlyCap}d/mo
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.balancesGrid}>
+                <View style={[styles.balanceCard, { backgroundColor: "#FFFFFF" }]}>
+                  <Text style={[styles.balanceVal, { color: "#0F172A" }]}>{monthlyMetrics.currentMonthQuota?.total ?? 0}</Text>
+                  <Text style={styles.balanceLabel}>Month Quota</Text>
+                </View>
+
+                <View style={[styles.balanceCard, { backgroundColor: "#FFFFFF" }]}>
+                  <Text style={[styles.balanceVal, { color: "#6366F1" }]}>{monthlyMetrics.carriedOver?.total ?? 0}</Text>
+                  <Text style={styles.balanceLabel}>Past Carried</Text>
+                </View>
+
+                <View style={[styles.balanceCard, { backgroundColor: "#FFFFFF" }]}>
+                  <Text style={[styles.balanceVal, { color: "#D97706" }]}>{monthlyMetrics.currentMonthUsed?.totalPaid ?? 0}</Text>
+                  <Text style={styles.balanceLabel}>Taken This Mo</Text>
+                </View>
+
+                <View style={[styles.balanceCard, { backgroundColor: "#FFFFFF" }]}>
+                  <Text style={[styles.balanceVal, { color: "#16A34A" }]}>{allowedThisMonth ?? 3}</Text>
+                  <Text style={styles.balanceLabel}>Allowed Limit</Text>
+                </View>
+              </View>
+
+              {exceedsMonthlyCap && leave.status === "pending" && (
+                <View style={{ backgroundColor: "#FEE2E2", borderColor: "#FCA5A5", borderWidth: 1, borderRadius: 10, padding: 10, marginTop: 10 }}>
+                  <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                    <Ionicons name="alert-circle" size={15} color="#DC2626" />
+                    <Text style={{ fontSize: 11, fontWeight: "800", color: "#991B1B", marginLeft: 5 }}>
+                      Exceeds Monthly Policy Cap!
+                    </Text>
+                  </View>
+                  <Text style={{ fontSize: 11, color: "#B91C1C", lineHeight: 15 }}>
+                    Employee requested {requestedDays} days, but only {allowedThisMonth} day(s) remain under the monthly limit of {monthlyMetrics.monthlyCap} days.
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           {/* Leave Information */}
           <View style={styles.sectionCard}>
@@ -205,28 +264,28 @@ const ManagerTeamLeaveDetailsScreen = ({ navigation, route }) => {
             )}
           </View>
 
-          {/* Leave Balances Grid */}
+          {/* Annual Remaining Balances Grid */}
           {leaveBalance && (
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeaderRow}>
                 <Ionicons name="wallet-outline" size={16} color={COLORS.primary} />
-                <Text style={styles.sectionTitle}>Employee Leave Balances (Paid Leaves)</Text>
+                <Text style={styles.sectionTitle}>Annual Balances Remaining</Text>
               </View>
 
               <View style={styles.balancesGrid}>
                 <View style={styles.balanceCard}>
-                  <Text style={styles.balanceVal}>{leaveBalance.casualLeave || 0}</Text>
+                  <Text style={styles.balanceVal}>{leaveBalance.casual ?? leaveBalance.casualLeave ?? 0}</Text>
                   <Text style={styles.balanceLabel}>Casual (CL)</Text>
                 </View>
 
                 <View style={styles.balanceCard}>
-                  <Text style={styles.balanceVal}>{leaveBalance.sickLeave || 0}</Text>
+                  <Text style={styles.balanceVal}>{leaveBalance.sick ?? leaveBalance.sickLeave ?? 0}</Text>
                   <Text style={styles.balanceLabel}>Sick (SL)</Text>
                 </View>
 
                 <View style={styles.balanceCard}>
-                  <Text style={styles.balanceVal}>{leaveBalance.earnedLeave || 0}</Text>
-                  <Text style={styles.balanceLabel}>Earned (EL)</Text>
+                  <Text style={styles.balanceVal}>{leaveBalance.annual ?? leaveBalance.earnedLeave ?? 0}</Text>
+                  <Text style={styles.balanceLabel}>Privilege (PL)</Text>
                 </View>
               </View>
             </View>
