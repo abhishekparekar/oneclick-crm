@@ -1,12 +1,13 @@
 import { useState, useMemo, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createTaskApi } from "../../api/companyAdminApi";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { createTaskApi, getDepartmentsApi, getEmployeesApi } from "../../api/companyAdminApi";
 import { createManagerTaskApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import { 
   X, Calendar, Clock, Upload, Plus, Search, CheckSquare, 
   Sparkles, Layers, Users, Building2, FileText, AlertCircle, 
-  Paperclip, Trash2, Check, User, Repeat, Flag, ShieldCheck
+  Paperclip, Trash2, Check, User, Repeat, Flag, ShieldCheck,
+  Loader2
 } from "lucide-react";
 import TaskAttachmentField from "./TaskAttachmentField";
 import CustomDateTimeField from "../common/CustomDateTimeField";
@@ -70,9 +71,64 @@ const PRIORITIES = [
   { id: "urgent", label: "Urgent", icon: "🔴", color: "text-rose-700 dark:text-rose-300", bg: "bg-rose-500/10 border-rose-500/30", activeBg: "bg-rose-600 text-white font-bold" },
 ];
 
-export default function TaskCreateModal({ isOpen, onClose, departments = [], employees = [], createTaskFn }) {
+export default function TaskCreateModal({
+  isOpen,
+  onClose,
+  departments: propDepartments = [],
+  employees: propEmployees = [],
+  departmentsLoading = false,
+  employeesLoading = false,
+  createTaskFn
+}) {
   const queryClient = useQueryClient();
   const { user: authUser, hasPermission } = useAuth();
+
+  // Robust Internal Fallback Queries: If parent doesn't provide full departments/employees, fetch them directly
+  const { data: qDeptsRes, isLoading: qDeptsLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      try {
+        const res = await getDepartmentsApi();
+        return res?.data?.departments || res?.data || [];
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(isOpen && (!propDepartments || propDepartments.length === 0)),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: qEmpsRes, isLoading: qEmpsLoading } = useQuery({
+    queryKey: ["employees", "allMembers"],
+    queryFn: async () => {
+      try {
+        const res = await getEmployeesApi({ limit: 1000 });
+        return res?.data?.employees || res?.data || [];
+      } catch {
+        return [];
+      }
+    },
+    enabled: Boolean(isOpen && (!propEmployees || propEmployees.length === 0)),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const rawDepts = (propDepartments && propDepartments.length > 0) ? propDepartments : (qDeptsRes || []);
+  const departments = useMemo(() => {
+    const list = Array.isArray(rawDepts) ? rawDepts : (rawDepts?.departments || []);
+    return list.map(d => ({
+      _id: d._id || d.id,
+      id: d._id || d.id,
+      name: d.name || d.departmentName || "Department",
+    }));
+  }, [rawDepts]);
+
+  const rawEmps = (propEmployees && propEmployees.length > 0) ? propEmployees : (qEmpsRes || []);
+  const employees = useMemo(() => {
+    return Array.isArray(rawEmps) ? rawEmps : (rawEmps?.employees || []);
+  }, [rawEmps]);
+
+  const isDeptsLoading = Boolean(departmentsLoading || (qDeptsLoading && departments.length === 0));
+  const isEmpsLoading = Boolean(employeesLoading || (qEmpsLoading && employees.length === 0));
 
   // Permission Check: Strictly check if Admin granted permission to assign tasks to other staff
   const canAssignOthers = useMemo(() => {
@@ -417,17 +473,26 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
                   Department <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <select 
-                    name="departmentId" 
-                    value={form.departmentId} 
-                    onChange={handleChange} 
-                    className="w-full pl-7 pr-2 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate"
+                  {isDeptsLoading
+                    ? <Loader2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 animate-spin" />
+                    : <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
+                  <select
+                    name="departmentId"
+                    value={form.departmentId}
+                    onChange={handleChange}
+                    disabled={isDeptsLoading}
+                    className="w-full pl-7 pr-2 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate disabled:opacity-60"
                   >
-                    <option value="">All Departments</option>
-                    {departments.map(d => (
-                      <option key={d._id || d.id} value={d._id || d.id}>{d.name || d.departmentName}</option>
-                    ))}
+                    {isDeptsLoading
+                      ? <option value="">Loading departments...</option>
+                      : (
+                        <>
+                          <option value="">All Departments</option>
+                          {departments.map(d => (
+                            <option key={d._id || d.id} value={d._id || d.id}>{d.name || d.departmentName}</option>
+                          ))}
+                        </>
+                      )}
                   </select>
                 </div>
               </div>
@@ -435,16 +500,19 @@ export default function TaskCreateModal({ isOpen, onClose, departments = [], emp
               {/* Assignee Picker (Only visible when user has assignment permission) */}
               {canAssignOthers && (
                 <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Assign Staff ({departmentFilteredEmployees.length})
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    Assign Staff ({isEmpsLoading ? "..." : departmentFilteredEmployees.length})
+                    {isEmpsLoading && <Loader2 size={10} className="animate-spin text-amber-500" />}
                   </label>
-                  <div 
-                    className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between cursor-pointer shadow-2xs"
-                    onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  <div
+                    className={`w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between shadow-2xs ${isEmpsLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                    onClick={() => !isEmpsLoading && setIsDropdownOpen(!isDropdownOpen)}
                   >
                     <span className="truncate flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                      <Users size={12} className="text-slate-400 shrink-0" />
-                      {form.assignedTo.length === 0 ? "Select staff..." : `${form.assignedTo.length} assigned`}
+                      {isEmpsLoading
+                        ? <><Loader2 size={12} className="animate-spin text-amber-500 shrink-0" /><span className="text-slate-400 italic">Loading staff...</span></>
+                        : <><Users size={12} className="text-slate-400 shrink-0" />{form.assignedTo.length === 0 ? "Select staff..." : `${form.assignedTo.length} assigned`}</>
+                      }
                     </span>
                     <span className="text-[9px] text-amber-500 font-bold ml-1">▼</span>
                   </div>

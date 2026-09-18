@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { updateTaskApi } from "../../api/companyAdminApi";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
+import { updateTaskApi, getDepartmentsApi, getEmployeesApi } from "../../api/companyAdminApi";
+import { useAuth } from "../../context/AuthContext";
 import { 
   X, Calendar, Clock, Upload, Plus, Search, CheckSquare, 
   Sparkles, Layers, Users, Building2, FileText, AlertCircle, 
-  Paperclip, Trash2, Check, User, Repeat, Flag, ShieldCheck
+  Paperclip, Trash2, Check, User, Repeat, Flag, ShieldCheck, Loader2
 } from "lucide-react";
 import TaskAttachmentField from "./TaskAttachmentField";
 import CustomDateTimeField from "../common/CustomDateTimeField";
@@ -52,8 +53,34 @@ const PRIORITIES = [
   { id: "urgent", label: "Urgent", icon: "🔴", color: "text-rose-700 dark:text-rose-300", bg: "bg-rose-500/10 border-rose-500/30", activeBg: "bg-rose-600 text-white font-bold" },
 ];
 
-export default function TaskEditModal({ isOpen, onClose, task, departments = [], employees = [], onSuccess }) {
+export default function TaskEditModal({ isOpen, onClose, task, departments: propDepartments = [], employees: propEmployees = [], onSuccess }) {
   const queryClient = useQueryClient();
+  const { authUser } = useAuth();
+
+  // --- Internal Fallback Queries (used when parent doesn't pass data) ---
+  const { data: fetchedDepts, isLoading: isDeptsLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: getDepartmentsApi,
+    enabled: isOpen && propDepartments.length === 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: fetchedEmps, isLoading: isEmpsLoading } = useQuery({
+    queryKey: ["employees"],
+    queryFn: getEmployeesApi,
+    enabled: isOpen && propEmployees.length === 0,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const departments = propDepartments.length > 0
+    ? propDepartments
+    : (Array.isArray(fetchedDepts?.departments) ? fetchedDepts.departments
+      : Array.isArray(fetchedDepts) ? fetchedDepts : []);
+
+  const employees = propEmployees.length > 0
+    ? propEmployees
+    : (Array.isArray(fetchedEmps?.employees) ? fetchedEmps.employees
+      : Array.isArray(fetchedEmps) ? fetchedEmps : []);
 
   const getInitialValues = (t) => {
     if (!t) {
@@ -377,33 +404,45 @@ export default function TaskEditModal({ isOpen, onClose, task, departments = [],
                   Department <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
-                  <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <select 
-                    name="departmentId" 
-                    value={form.departmentId} 
-                    onChange={handleChange} 
-                    className="w-full pl-7 pr-2 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate"
+                  {isDeptsLoading
+                    ? <Loader2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-amber-500 animate-spin" />
+                    : <Building2 size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />}
+                  <select
+                    name="departmentId"
+                    value={form.departmentId}
+                    onChange={handleChange}
+                    disabled={isDeptsLoading}
+                    className="w-full pl-7 pr-2 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer truncate disabled:opacity-60"
                   >
-                    <option value="">All Departments</option>
-                    {departments.map(d => (
-                      <option key={d._id || d.id} value={d._id || d.id}>{d.name || d.departmentName}</option>
-                    ))}
+                    {isDeptsLoading
+                      ? <option value="">Loading departments...</option>
+                      : (
+                        <>
+                          <option value="">All Departments</option>
+                          {departments.map(d => (
+                            <option key={d._id || d.id} value={d._id || d.id}>{d.name || d.departmentName}</option>
+                          ))}
+                        </>
+                      )}
                   </select>
                 </div>
               </div>
 
               {/* Assignee Picker */}
               <div className="relative">
-                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Assign Staff ({departmentFilteredEmployees.length})
+                <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                  Assign Staff ({isEmpsLoading ? "..." : departmentFilteredEmployees.length})
+                  {isEmpsLoading && <Loader2 size={10} className="animate-spin text-amber-500" />}
                 </label>
-                <div 
-                  className="w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between cursor-pointer shadow-2xs"
-                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                <div
+                  className={`w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between shadow-2xs ${isEmpsLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                  onClick={() => !isEmpsLoading && setIsDropdownOpen(!isDropdownOpen)}
                 >
                   <span className="truncate flex items-center gap-1.5 text-slate-700 dark:text-slate-200">
-                    <Users size={12} className="text-slate-400 shrink-0" />
-                    {form.assignedTo.length === 0 ? "Select staff..." : `${form.assignedTo.length} assigned`}
+                    {isEmpsLoading
+                      ? <><Loader2 size={12} className="animate-spin text-amber-500 shrink-0" /><span className="text-slate-400 italic">Loading staff...</span></>
+                      : <><Users size={12} className="text-slate-400 shrink-0" />{form.assignedTo.length === 0 ? "Select staff..." : `${form.assignedTo.length} assigned`}</>
+                    }
                   </span>
                   <span className="text-[9px] text-amber-500 font-bold ml-1">▼</span>
                 </div>

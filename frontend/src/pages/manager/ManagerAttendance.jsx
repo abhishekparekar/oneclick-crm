@@ -184,24 +184,71 @@ export default function ManagerAttendance() {
 
   const _rawMy = myData?.data?.days || myData?.attendance || myData?.data;
   const myRecords = useMemo(() => (Array.isArray(_rawMy) ? _rawMy : []), [_rawMy]);
-  
-  const _rawTeam = teamData?.data?.days || teamData?.attendance || teamData?.data;
-  const teamRecords = useMemo(() => (Array.isArray(_rawTeam) ? _rawTeam : []), [_rawTeam]);
 
-  const isLoading = activeTab === 0 ? myLoading : teamLoading;
-  const isFetching = activeTab === 0 ? myFetching : teamFetching;
-  const refetch = activeTab === 0 ? myRefetch : teamRefetch;
+  // Backend returns: { data: [{ employee: {...}, attendance: {...} | [...] }] }
+  // Normalize into flat records so each row has { date, employeeName, photo, punchIn, punchOut, workHours, status }
+  const teamRecords = useMemo(() => {
+    const raw = teamData?.data;
+    if (!Array.isArray(raw)) return [];
+
+    const rows = [];
+    raw.forEach(item => {
+      const emp = item.employee || {};
+      const empName = emp.fullName || emp.name || "Staff";
+      const empPhoto = emp.photo || null;
+      const dept = emp.departmentId?.name || "";
+
+      const atts = Array.isArray(item.attendance)
+        ? item.attendance
+        : item.attendance
+        ? [item.attendance]
+        : [];
+
+      if (atts.length === 0) {
+        // No attendance record — show employee with no record
+        rows.push({
+          _id: emp._id,
+          employeeName: empName,
+          photo: empPhoto,
+          department: dept,
+          date: null,
+          punchIn: null,
+          punchOut: null,
+          workHours: null,
+          status: "absent",
+        });
+      } else {
+        atts.forEach(a => {
+          rows.push({
+            _id: a._id || emp._id,
+            employeeName: empName,
+            photo: empPhoto,
+            department: dept,
+            date: a.date || null,
+            punchIn: a.punchInTime || a.punchIn || a.inTime || null,
+            punchOut: a.punchOutTime || a.punchOut || a.outTime || null,
+            workHours: a.totalHours || a.workHours || null,
+            status: a.status || "absent",
+          });
+        });
+      }
+    });
+    return rows;
+  }, [teamData]);
 
   // Filtered Records for Team View
   const filteredTeamRecords = useMemo(() => {
     return teamRecords.filter((rec) => {
-      const empName = rec.employeeId?.name || rec.employee?.name || rec.employeeName || "";
-      const matchesSearch = empName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = rec.employeeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
                             (rec.date && new Date(rec.date).toLocaleDateString().includes(searchQuery));
       const matchesStatus = statusFilter === "all" || (rec.status || "").toLowerCase() === statusFilter.toLowerCase();
       return matchesSearch && matchesStatus;
     });
   }, [teamRecords, searchQuery, statusFilter]);
+
+  const isLoading = activeTab === 0 ? myLoading : teamLoading;
+  const isFetching = activeTab === 0 ? myFetching : teamFetching;
+  const refetch = activeTab === 0 ? myRefetch : teamRefetch;
 
   // My Summary Stats
   const myStats = useMemo(() => {
@@ -214,9 +261,11 @@ export default function ManagerAttendance() {
     return { present, absent, late, halfDays, onLeave, weeklyOff };
   }, [myRecords]);
 
-  // Team Summary Stats
+  // Team Summary Stats — count unique team members and their today/period statuses
   const teamStats = useMemo(() => {
-    const total = teamRecords.length;
+    // Total = unique team members (count distinct names)
+    const uniqueNames = new Set(teamRecords.map(r => r.employeeName));
+    const total = uniqueNames.size || teamRecords.length;
     const present = teamRecords.filter((r) => (r.status || "").toLowerCase() === "present").length;
     const late = teamRecords.filter((r) => (r.status || "").toLowerCase().includes("late")).length;
     const absent = teamRecords.filter((r) => (r.status || "").toLowerCase() === "absent").length;
@@ -681,19 +730,54 @@ export default function ManagerAttendance() {
                 ) : (
                   filteredTeamRecords.map((rec, i) => {
                     const statusStyle = getCalendarDayStyle(rec.status);
-                    const dateStr = rec.date ? new Date(rec.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", weekday: "short" }) : `Day ${i + 1}`;
-                    const empName = rec.employeeId?.name || rec.employee?.name || rec.employeeName || "Staff";
+                    const dateStr = rec.date
+                      ? new Date(rec.date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", weekday: "short" })
+                      : "—";
+                    const initials = rec.employeeName
+                      ? rec.employeeName.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase()
+                      : "?";
 
                     return (
-                      <tr key={rec._id || i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                        <td className="px-3 py-2 font-mono font-bold text-slate-900 dark:text-white">{dateStr}</td>
-                        <td className="px-3 py-2 font-bold text-slate-800 dark:text-slate-200">{empName}</td>
-                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">{formatTime(rec.punchIn || rec.inTime)}</td>
-                        <td className="px-3 py-2 font-mono text-slate-600 dark:text-slate-300">{formatTime(rec.punchOut || rec.outTime)}</td>
-                        <td className="px-3 py-2 font-mono font-bold text-slate-800 dark:text-slate-200">{formatDuration(rec.workHours || rec.totalHours)}</td>
-                        <td className="px-3 py-2">
-                          <span className={`inline-block px-1.5 py-0.2 rounded text-[10px] font-bold border ${statusStyle.bg} ${statusStyle.border} ${statusStyle.labelColor}`}>
-                            {statusStyle.label || "PRESENT"}
+                      <tr key={`${rec._id || ""}-${i}`} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                        <td className="px-3 py-2.5 font-mono font-bold text-slate-700 dark:text-slate-300 text-xs whitespace-nowrap">{dateStr}</td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex items-center gap-2">
+                            {rec.photo
+                              ? <img src={rec.photo} alt={rec.employeeName} className="w-7 h-7 rounded-full object-cover border border-slate-200 dark:border-slate-700 shrink-0" />
+                              : (
+                                <div className="w-7 h-7 rounded-full bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-[9px] font-black text-amber-700 dark:text-amber-400 shrink-0">
+                                  {initials}
+                                </div>
+                              )
+                            }
+                            <div className="min-w-0">
+                              <div className="font-bold text-slate-800 dark:text-slate-200 text-xs truncate">{rec.employeeName}</div>
+                              {rec.department && <div className="text-[9px] text-slate-400 font-semibold truncate">{rec.department}</div>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-slate-600 dark:text-slate-300 text-xs">
+                          {rec.punchIn ? (
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+                              {formatTime(rec.punchIn)}
+                            </span>
+                          ) : <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-slate-600 dark:text-slate-300 text-xs">
+                          {rec.punchOut ? (
+                            <span className="flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block"></span>
+                              {formatTime(rec.punchOut)}
+                            </span>
+                          ) : <span className="text-slate-400">—</span>}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-200 text-xs">
+                          {rec.workHours ? formatDuration(rec.workHours) : <span className="text-slate-400">0.0 hrs</span>}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold border ${statusStyle.bg} ${statusStyle.border} ${statusStyle.labelColor}`}>
+                            {statusStyle.label || rec.status?.toUpperCase() || "PRESENT"}
                           </span>
                         </td>
                       </tr>
