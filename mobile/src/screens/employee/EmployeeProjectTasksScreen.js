@@ -101,7 +101,15 @@ const EmployeeProjectTasksScreen = ({ route, navigation }) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#2563eb"]} />}
         >
           {loading ? (
-            <ActivityIndicator size="large" color="#2563eb" style={{ marginTop: 40 }} />
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
+              <ActivityIndicator size="large" color="#2563eb" />
+              <Text style={{ marginTop: 14, fontSize: 16, fontWeight: "700", color: "#1e293b" }}>
+                Loading tasks.......
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: 13, color: "#64748b", fontWeight: "500" }}>
+                Please wait while your project tasks are being loaded
+              </Text>
+            </View>
           ) : tasks.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>

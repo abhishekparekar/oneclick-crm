@@ -373,7 +373,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
 
   const [activeTab, setActiveTab] = useState("myTasks"); // "myTasks", "teamTasks"
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all_time");
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
   const {
     myManagerTasks,
@@ -687,10 +687,16 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
   }, [activeTab, myManagerTasks, teamTasks, selectedDepts, selectedEmployeeIds]);
 
   const matchesDateFilter = (task, tabKey) => {
+    if (!tabKey || tabKey === "all_time") return true;
     if (tabKey === "re_open") {
       return task.reopenCount > 0 || task.status === "re_pending" || task.status === "re_in_process";
     }
-    if (tabKey === "all_time") return true;
+
+    const s = normalizeStatusValue(task.status);
+    const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
+    if ((tabKey === "today" || tabKey === "Today") && !isCompletedOrDone) {
+      return true;
+    }
 
     const now = new Date();
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1240,7 +1246,11 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
                 <Text style={styles.emptyText}>{emptyMsg}</Text>
               </View>
             ) : (
-              <ActivityIndicator style={{ marginTop: 40 }} color={TEAL} />
+              <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="large" color="#1268D9" />
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#1268D9", marginTop: 12 }}>Loading tasks.......</Text>
+                <Text style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>Please wait while your tasks are being loaded</Text>
+              </View>
             )
           }
         />

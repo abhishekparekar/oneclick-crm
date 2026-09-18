@@ -429,9 +429,12 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   if (loading || !task) {
     return (
       <View style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ marginTop: 12, fontFamily: FONTS.bodyMedium, color: COLORS.text.muted }}>
-          Loading task details...
+        <ActivityIndicator size="large" color={COLORS.primary || "#1268D9"} />
+        <Text style={{ marginTop: 14, fontSize: 16, fontWeight: "700", color: "#1e293b" }}>
+          Loading task details.......
+        </Text>
+        <Text style={{ marginTop: 4, fontSize: 13, color: "#64748b", fontWeight: "500" }}>
+          Please wait while task information is being loaded
         </Text>
       </View>
     );

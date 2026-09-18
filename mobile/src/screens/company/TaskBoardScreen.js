@@ -391,7 +391,7 @@ const TaskBoardScreen = ({ navigation }) => {
   const [bulkShifting, setBulkShifting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const insets = useSafeAreaInsets();
-  const [dateFilter, setDateFilter] = useState("today"); // Date period filter inside collapsible panel (defaults to today)
+  const [dateFilter, setDateFilter] = useState("all_time"); // Date period filter inside collapsible panel (defaults to all_time)
   const [showFilter, setShowFilter] = useState(false);
   const [taskFilter, setTaskFilter] = useState(""); // "" = All
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
@@ -574,10 +574,13 @@ const TaskBoardScreen = ({ navigation }) => {
 
   // ── Date Filters Helper ──────────────────────────────────────────────────────
   const matchesDateFilter = (task, tabKey) => {
-    if (tabKey === "re_open") {
-      return task.reopenCount > 0 || task.status === "re_pending" || task.status === "re_in_process";
+    if (!tabKey || tabKey === "all_time") return true;
+
+    const s = normalizeStatusValue(task.status);
+    const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
+    if ((tabKey === "today" || tabKey === "Today") && !isCompletedOrDone) {
+      return true;
     }
-    if (tabKey === "all_time") return true;
 
     const now = new Date();
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1167,8 +1170,11 @@ const TaskBoardScreen = ({ navigation }) => {
     if (isLoading) {
       return (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#0d9488" />
-          <Text style={styles.loadingText}>Loading tasks…</Text>
+          <ActivityIndicator size="large" color="#1268D9" />
+          <Text style={[styles.loadingText, { marginTop: 12, fontWeight: "700", color: "#1e293b", fontSize: 16 }]}>Loading tasks.......</Text>
+          <Text style={{ fontSize: 13, color: "#64748b", marginTop: 4, fontWeight: "500" }}>
+            Please wait while tasks are being loaded
+          </Text>
         </View>
       );
     }

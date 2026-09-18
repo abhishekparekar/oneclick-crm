@@ -157,7 +157,15 @@ const EmployeeTaskBoardScreen = ({ navigation }) => {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchTasks(false); }} colors={[COLORS.accentBlue]} />}
         >
           {loading ? (
-            <ActivityIndicator size="large" color={COLORS.accentBlue} style={{ marginTop: 40 }} />
+            <View style={{ alignItems: "center", justifyContent: "center", paddingVertical: 48 }}>
+              <ActivityIndicator size="large" color={COLORS.primary || "#1268D9"} />
+              <Text style={{ marginTop: 14, fontSize: 16, fontWeight: "700", color: "#1e293b" }}>
+                Loading tasks.......
+              </Text>
+              <Text style={{ marginTop: 4, fontSize: 13, color: "#64748b", fontWeight: "500" }}>
+                Please wait while your tasks are being loaded
+              </Text>
+            </View>
           ) : getColumnTasks(activeColumn).length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconCircle}>

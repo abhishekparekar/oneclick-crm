@@ -389,10 +389,20 @@ exports.getTasks = async (req, res) => {
                 }] : []),
             ].filter(Boolean);
         } else if (req.user.role === "Manager" || req.user.role === "TeamLeader") {
-            const userIdentifiers = [employeeId, req.user?.employeeId].filter(Boolean);
+            const userIdentifiers = [employeeId, req.user?.employeeId, req.user?._id].filter(Boolean);
+            let teamIds = [];
+            if (employeeId) {
+                const teamMembers = await Employee.find(
+                    { companyId, reportingManagerId: employeeId, status: "active" },
+                    { _id: 1 }
+                ).lean();
+                teamIds = teamMembers.map(e => e._id);
+            }
+            const allTargetIds = Array.from(new Set([...userIdentifiers, ...teamIds]));
+
             rbacOr = [
                 { assignedBy: req.user._id },
-                ...(userIdentifiers.length > 0 ? [{ assignedTo: { $in: userIdentifiers } }] : []),
+                ...(allTargetIds.length > 0 ? [{ assignedTo: { $in: allTargetIds } }] : []),
                 ...(allowedDeptIds.length > 0 ? [{ departmentId: { $in: allowedDeptIds } }] : []),
                 { assignmentType: { $in: ["company", "company_wide"] } },
             ].filter(Boolean);

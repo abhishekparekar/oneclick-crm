@@ -45,7 +45,7 @@ const HR_NAV_SECTIONS = [
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Attendance Report", path: "/hr/attendance-report", icon: FileSpreadsheet, module: "attendance" },
       { label: "Live Employee Tracking", path: "/hr/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
-      { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
+      // { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },
       { label: "Regularization", path: "/hr/regularization", icon: UserCheck, module: "attendance" },
       { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },

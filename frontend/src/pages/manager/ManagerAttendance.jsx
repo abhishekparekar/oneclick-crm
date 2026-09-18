@@ -109,13 +109,22 @@ const getCalendarDayStyle = (status) => {
   }
 };
 
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }) => {
+const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, onClick, active }) => {
   const sparkData = useMemo(() => [
     { v: 10 }, { v: 18 }, { v: 15 }, { v: 24 }, { v: 20 }, { v: 30 }, { v: 26 }, { v: 35 },
   ], []);
 
   return (
-    <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-3 flex items-center justify-between shadow-2xs group min-w-0">
+    <div
+      onClick={onClick}
+      className={`bg-white dark:bg-[#111C24] rounded-xl border p-3 flex items-center justify-between shadow-2xs group min-w-0 transition-all ${
+        onClick ? "cursor-pointer" : ""
+      } ${
+        active
+          ? "border-amber-500 dark:border-amber-400 ring-2 ring-amber-500/20 shadow-xs"
+          : "border-slate-200/80 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+      }`}
+    >
       <div className="flex-1 min-w-0 pr-1.5">
         <div className="flex items-center gap-1.5 mb-0.5">
           <div className={`w-6 h-6 rounded-lg flex items-center justify-center ${iconBg} shrink-0`}>
@@ -165,7 +174,7 @@ export default function ManagerAttendance() {
   const [calendarMonth, setCalendarMonth] = useState(now.getMonth() + 1);
   const [calendarYear, setCalendarYear] = useState(now.getFullYear());
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("present");
   const [selectedModalDate, setSelectedModalDate] = useState(null);
 
   // Team employee drill-down state
@@ -204,6 +213,11 @@ export default function ManagerAttendance() {
     const raw = teamData?.data;
     if (!Array.isArray(raw)) return [];
     const seen = new Set();
+
+    // Today's date in local YYYY-MM-DD
+    const cur = new Date();
+    const todayStr = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
+
     return raw
       .filter(item => {
         const id = item.employee?._id;
@@ -213,12 +227,20 @@ export default function ManagerAttendance() {
       })
       .map(item => {
         const emp = item.employee || {};
-        // Get today's or most recent attendance for status badge
+        // Get today's attendance only (strictly match today's date, never fallback to past dates)
         const atts = Array.isArray(item.attendance)
           ? item.attendance
           : item.attendance ? [item.attendance] : [];
-        const todayStr = new Date().toISOString().slice(0, 10);
-        const todayAtt = atts.find(a => (a.date || "").slice(0, 10) === todayStr) || atts[atts.length - 1] || null;
+        
+        const todayAtt = atts.find(a => {
+          if (!a?.date) return false;
+          const ad = new Date(a.date);
+          const aStr = isNaN(ad.getTime())
+            ? String(a.date).slice(0, 10)
+            : `${ad.getFullYear()}-${String(ad.getMonth() + 1).padStart(2, "0")}-${String(ad.getDate()).padStart(2, "0")}`;
+          return aStr === todayStr;
+        }) || null;
+
         return {
           _id: emp._id,
           fullName: emp.fullName || emp.name || "Staff",
@@ -226,22 +248,30 @@ export default function ManagerAttendance() {
           employeeCode: emp.employeeCode || "",
           department: emp.departmentId?.name || "",
           designation: emp.designationId?.name || emp.designation || "",
-          todayStatus: todayAtt?.status || "absent",
+          todayStatus: todayAtt ? (todayAtt.status || "present") : "absent",
           punchIn: todayAtt?.punchInTime || todayAtt?.punchIn || null,
           punchOut: todayAtt?.punchOutTime || todayAtt?.punchOut || null,
-          totalHours: todayAtt?.totalHours || null,
+          totalHours: todayAtt?.totalHours || todayAtt?.workHours || null,
         };
       });
   }, [teamData]);
 
   const filteredTeamEmployees = useMemo(() => {
     return teamEmployees.filter(emp => {
-      const name = emp.fullName.toLowerCase();
-      const code = emp.employeeCode.toLowerCase();
-      const s = searchQuery.toLowerCase();
-      return name.includes(s) || code.includes(s);
+      const name = (emp.fullName || "").toLowerCase();
+      const code = (emp.employeeCode || "").toLowerCase();
+      const s = searchQuery.toLowerCase().trim();
+      const matchesSearch = !s || name.includes(s) || code.includes(s);
+      if (!matchesSearch) return false;
+
+      if (statusFilter === "all") return true;
+      if (statusFilter === "present") return emp.todayStatus === "present" || emp.todayStatus === "late";
+      if (statusFilter === "late") return emp.todayStatus === "late";
+      if (statusFilter === "absent") return emp.todayStatus === "absent";
+      if (statusFilter === "on_leave") return ["paid_leave", "unpaid_leave", "leave", "half_day"].includes(emp.todayStatus);
+      return true;
     });
-  }, [teamEmployees, searchQuery]);
+  }, [teamEmployees, searchQuery, statusFilter]);
 
   // Monthly grid for selected team employee
   const teamMemberGrid = useMemo(() => {
@@ -431,30 +461,40 @@ export default function ManagerAttendance() {
           value={activeTab === 0 ? myRecords.length || 31 : teamStats.total} 
           trend="12.5%" isUp period="last month" 
           strokeColor="#0d9488" Icon={CalendarCheck} iconBg="bg-teal-500/10" iconColor="#0d9488"
+          onClick={activeTab === 1 ? () => setStatusFilter("all") : undefined}
+          active={activeTab === 1 && statusFilter === "all"}
         />
         <KPICard 
           label="Present" 
           value={activeTab === 0 ? myStats.present : teamStats.present} 
           trend="8.2%" isUp period="last month" 
           strokeColor="#10B981" Icon={CheckCircle2} iconBg="bg-emerald-500/10" iconColor="#059669"
+          onClick={activeTab === 1 ? () => setStatusFilter("present") : undefined}
+          active={activeTab === 1 && statusFilter === "present"}
         />
         <KPICard 
           label="Late Arrival" 
           value={activeTab === 0 ? myStats.late : teamStats.late} 
           trend="3.1%" isUp={false} period="last month" 
           strokeColor="#F59E0B" Icon={Clock} iconBg="bg-amber-500/10" iconColor="#D97706"
+          onClick={activeTab === 1 ? () => setStatusFilter("late") : undefined}
+          active={activeTab === 1 && statusFilter === "late"}
         />
         <KPICard 
           label="Absent" 
           value={activeTab === 0 ? myStats.absent : teamStats.absent} 
           trend="1.4%" isUp={false} period="last month" 
           strokeColor="#EF4444" Icon={XCircle} iconBg="bg-rose-500/10" iconColor="#DC2626"
+          onClick={activeTab === 1 ? () => setStatusFilter("absent") : undefined}
+          active={activeTab === 1 && statusFilter === "absent"}
         />
         <KPICard 
           label="On Leave" 
           value={activeTab === 0 ? myStats.onLeave + myStats.halfDays : teamStats.onLeave} 
           trend="0.0%" isUp period="last month" 
           strokeColor="#8B5CF6" Icon={CalendarOff} iconBg="bg-purple-500/10" iconColor="#7C3AED"
+          onClick={activeTab === 1 ? () => setStatusFilter("on_leave") : undefined}
+          active={activeTab === 1 && statusFilter === "on_leave"}
         />
       </div>
 
@@ -910,13 +950,44 @@ export default function ManagerAttendance() {
           ) : (
             /* ── EMPLOYEE TABLE LIST ── */
             <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl overflow-hidden shadow-2xs">
-              {/* Search */}
-              <div className="p-3 border-b border-slate-100 dark:border-slate-800">
-                <div className="relative">
+              {/* Search & Status Filter Pills */}
+              <div className="p-3 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-2.5 items-stretch md:items-center justify-between">
+                <div className="relative flex-1 max-w-md">
                   <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
                   <input type="text" placeholder="Search team member name or code..."
                     value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                     className="w-full pl-7 pr-3 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 transition-all" />
+                </div>
+                
+                {/* Filter Tabs */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+                  {[
+                    { id: "present", label: "Present Today", count: teamStats.present, activeBg: "bg-emerald-600 text-white border-emerald-600" },
+                    { id: "all", label: "All Staff", count: teamStats.total, activeBg: "bg-slate-900 dark:bg-white dark:text-slate-900 text-white border-slate-900" },
+                    { id: "late", label: "Late", count: teamStats.late, activeBg: "bg-amber-500 text-white border-amber-500" },
+                    { id: "absent", label: "Absent", count: teamStats.absent, activeBg: "bg-rose-600 text-white border-rose-600" },
+                    { id: "on_leave", label: "On Leave", count: teamStats.onLeave, activeBg: "bg-purple-600 text-white border-purple-600" },
+                  ].map((tab) => {
+                    const isActive = statusFilter === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setStatusFilter(tab.id)}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-black tracking-tight border transition-all flex items-center gap-1.5 shrink-0 cursor-pointer ${
+                          isActive
+                            ? `${tab.activeBg} shadow-2xs`
+                            : "bg-slate-50 dark:bg-[#0B101B] text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600"
+                        }`}
+                      >
+                        <span>{tab.label}</span>
+                        <span className={`px-1.5 py-0.5 rounded-full text-[9.5px] font-mono font-bold ${
+                          isActive ? "bg-white/20 text-white" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+                        }`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
               {/* Employee Table */}

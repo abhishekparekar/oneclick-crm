@@ -83,7 +83,7 @@ const COMPANY_SECTIONS = [
       { label: "Attendance", path: "/company/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Attendance Report", path: "/company/attendance-report", icon: FileSpreadsheet, module: "attendance" },
       { label: "Live Employee Tracking", path: "/company/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
-      { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
+      // { label: "Tracking Allowance", path: "/company/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Leaves", path: "/company/leaves", icon: FileText, module: "leave" },
       { label: "Holidays", path: "/company/holidays", icon: CalendarDays, module: "leave" },
       { label: "Shift & Rosters", path: "/company/attendance-settings", icon: Clock, module: "attendance" },

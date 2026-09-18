@@ -47,9 +47,9 @@ const MANAGER_SECTIONS = [
     title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
-      { label: "Team Attendance Roster", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Team Attendance ", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Employee Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
-      { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
+      // { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
     ],
   },

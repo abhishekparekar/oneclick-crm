@@ -541,7 +541,7 @@ export default function MyTasksScreen({ route, navigation }) {
 
     const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
     // For Today tab: active/pending tasks needing attention should always remain visible
-    if (dateTab === "Today" && !isCompletedOrDone) {
+    if ((dateTab === "Today" || dateTab === "today") && !isCompletedOrDone) {
       return true;
     }
 
@@ -1136,9 +1136,10 @@ export default function MyTasksScreen({ route, navigation }) {
           )}
           ListEmptyComponent={
             loading ? (
-              <View style={styles.loadingWrap}>
-                <ActivityIndicator size="large" color="#0d9488" />
-                <Text style={styles.loadingText}>Loading tasks…</Text>
+              <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="large" color="#1268D9" />
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#1268D9", marginTop: 12 }}>Loading tasks.......</Text>
+                <Text style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>Please wait while your tasks are being loaded</Text>
               </View>
             ) : (
               <View style={styles.emptyWrap}>
