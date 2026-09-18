@@ -247,10 +247,10 @@ const notifyTaskSupervisors = async (
       resolvedAssigneeUserIds.forEach(id => excludeSet.add(id.toString()));
     }
 
-    // 1. CompanyAdmin & HR users
+    // 1. Company Admin users ("admin la gelch pahije")
     const admins = await User.find({
       companyId,
-      role: { $in: ["CompanyAdmin", "admin", "Admin", "hr", "HR", "company_admin"] },
+      role: { $in: ["CompanyAdmin", "admin", "Admin", "company_admin"] },
       isActive: { $ne: false }
     }).select("_id").lean();
 
@@ -259,7 +259,7 @@ const notifyTaskSupervisors = async (
       if (!excludeSet.has(idStr)) collectedUserIds.add(idStr);
     });
 
-    // 2. Reporting Managers of assigned employees
+    // 2. Direct Reporting Managers of assigned employees (strictly verified manager role)
     if (assignedEmployeeIds && assignedEmployeeIds.length > 0) {
       const assignedEmps = await Employee.find({
         $or: [{ _id: { $in: assignedEmployeeIds } }, { userId: { $in: assignedEmployeeIds } }],
@@ -273,7 +273,12 @@ const notifyTaskSupervisors = async (
       if (reportingManagerEmpIds.length > 0) {
         const reportingManagers = await Employee.find({
           _id: { $in: reportingManagerEmpIds },
-          companyId
+          companyId,
+          status: "active",
+          $or: [
+            { role: { $in: ["Manager", "TeamLeader"] } },
+            { isManager: true }
+          ]
         }).select("userId").lean();
 
         reportingManagers.forEach(m => {
@@ -284,7 +289,7 @@ const notifyTaskSupervisors = async (
         });
       }
 
-      // 3. Department Managers (strictly manager-level employees, NOT all departmental staff!)
+      // 3. Department Managers of that department (strictly checking role: Manager / TeamLeader or isManager: true)
       const deptIds = [
         ...new Set([
           ...assignedEmps.map(e => e.departmentId).filter(Boolean).map(id => id.toString()),
@@ -297,13 +302,12 @@ const notifyTaskSupervisors = async (
           companyId,
           status: "active",
           $or: [
-            { departmentId: { $in: deptIds }, isManager: true },
-            { departmentIds: { $in: deptIds }, isManager: true },
-            { accessibleDepartments: { $in: deptIds }, isManager: true },
-            { departmentId: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
-            { departmentIds: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
-            { accessibleDepartments: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
-            { isManager: true, departmentId: { $in: deptIds } }
+            { role: { $in: ["Manager", "TeamLeader"] }, departmentId: { $in: deptIds } },
+            { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: { $in: deptIds } },
+            { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: deptIds } },
+            { isManager: true, departmentId: { $in: deptIds } },
+            { isManager: true, departmentIds: { $in: deptIds } },
+            { isManager: true, accessibleDepartments: { $in: deptIds } }
           ]
         }).select("userId").lean();
 
@@ -319,11 +323,12 @@ const notifyTaskSupervisors = async (
         companyId,
         status: "active",
         $or: [
-          { accessibleDepartments: { $in: [departmentId] }, isManager: true },
-          { departmentId, isManager: true },
-          { departmentId, role: { $in: ["Manager", "TeamLeader"] } },
-          { accessibleDepartments: { $in: [departmentId] }, role: { $in: ["Manager", "TeamLeader"] } },
-          { isManager: true, departmentId }
+          { role: { $in: ["Manager", "TeamLeader"] }, departmentId },
+          { role: { $in: ["Manager", "TeamLeader"] }, departmentIds: departmentId },
+          { role: { $in: ["Manager", "TeamLeader"] }, accessibleDepartments: { $in: [departmentId] } },
+          { isManager: true, departmentId },
+          { isManager: true, departmentIds: departmentId },
+          { isManager: true, accessibleDepartments: { $in: [departmentId] } }
         ]
       }).select("userId").lean();
 
