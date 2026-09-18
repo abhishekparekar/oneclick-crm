@@ -388,7 +388,8 @@ const createEmployee = async (req, res, next) => {
 
     // Support multi-department: use first departmentId from array if departmentId not set
     const resolvedDeptId = departmentId ||
-      (Array.isArray(departmentIds) && departmentIds.length > 0 ? departmentIds[0] : null);
+      (Array.isArray(departmentIds) && departmentIds.length > 0 ? departmentIds[0] : null) ||
+      (Array.isArray(accessibleDepartments) && accessibleDepartments.length > 0 ? accessibleDepartments[0] : null);
 
     const emailLower = email.toLowerCase();
     let effectiveDeptId = resolvedDeptId;
@@ -403,6 +404,14 @@ const createEmployee = async (req, res, next) => {
       if (des) {
         effectiveDeptId = des.departmentId;
       }
+    }
+
+    if (!effectiveDeptId) {
+      return res.status(400).json({ message: "Department is required" });
+    }
+
+    if (!branchId) {
+      return res.status(400).json({ message: "Branch is required" });
     }
 
     const refErr = await validateRefsForCompany(

@@ -571,6 +571,20 @@ export default function EditEmployee() {
   const handleSave = () => {
     if (!formData) return;
 
+    const hasDept = (formData.accessibleDepartments && formData.accessibleDepartments.length > 0) || formData.departmentId;
+    if (!hasDept) {
+      toast.error("Department is required");
+      setActiveStep(2);
+      return;
+    }
+
+    const branch = typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId;
+    if (!branch) {
+      toast.error("Branch is required");
+      setActiveStep(2);
+      return;
+    }
+
     const payload = {
       firstName: formData.firstName,
       middleName: formData.middleName,
@@ -876,6 +890,7 @@ export default function EditEmployee() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <MultiSelect
                 label="Accessible Departments"
+                required
                 selected={formData.accessibleDepartments || []}
                 onChange={(val) => handleChange("accessibleDepartments", val)}
                 options={departments.map(d => ({ value: d._id, label: d.name }))}
@@ -901,6 +916,7 @@ export default function EditEmployee() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Select
                 label="Branch / Office"
+                required
                 value={typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId}
                 onChange={(v) => handleChange("branchId", v)}
                 options={branches.map(b => ({ value: b._id, label: b.name || b.branchName }))}

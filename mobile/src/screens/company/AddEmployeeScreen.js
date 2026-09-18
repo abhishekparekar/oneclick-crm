@@ -346,6 +346,11 @@ const AddEmployeeScreen = ({ navigation }) => {
       else if (digits.length !== 10) err = `Mobile number must be 10 digits (${digits.length}/10)`;
     } else if (field === "role") {
       if (!v) err = "Please select a system role";
+    } else if (field === "departmentId") {
+      const hasDept = Array.isArray(val) ? val.length > 0 : Boolean(val && String(val).trim());
+      if (!hasDept) err = "Department is required (select at least one)";
+    } else if (field === "branchId") {
+      if (!v.trim()) err = "Branch office is required";
     } else if (field === "emergencyPhone") {
       const digits = v.replace(/\D/g, "");
       if (digits && digits.length !== 10) err = `Emergency phone must be 10 digits (${digits.length}/10)`;
@@ -394,7 +399,14 @@ const AddEmployeeScreen = ({ navigation }) => {
     }
     if (step === 2) {
       const rl = validateField("role", formData.role);
+      const br = validateField("branchId", formData.branchId);
+      const dp = validateField(
+        "departmentId",
+        formData.accessibleDepartments?.length ? formData.accessibleDepartments : formData.departmentId
+      );
       if (rl) errors.role = rl;
+      if (br) errors.branchId = br;
+      if (dp) errors.departmentId = dp;
     }
     if (step === 3) {
       if (formData.emergencyContact?.phone) {
@@ -464,6 +476,7 @@ const AddEmployeeScreen = ({ navigation }) => {
             accessibleDepartments: [...(prev.accessibleDepartments || []), created._id],
             departmentId: prev.departmentId || created._id,
           }));
+          clearError("departmentId");
           Alert.alert("Success", "Department created and selected!");
         }
       } else if (quickModal === "desig") {
@@ -486,6 +499,7 @@ const AddEmployeeScreen = ({ navigation }) => {
         if (created?._id) {
           setBranches((prev) => [...prev, created]);
           setFormData((prev) => ({ ...prev, branchId: created._id }));
+          clearError("branchId");
           Alert.alert("Success", "Branch created and selected!");
         }
       }
@@ -775,13 +789,15 @@ const AddEmployeeScreen = ({ navigation }) => {
 
               <View style={[styles.inputGroup, { flex: 1, marginLeft: 6 }]}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={styles.label}>Branch Office</Text>
+                  <Text style={styles.label}>
+                    Branch Office <Text style={styles.req}>*</Text>
+                  </Text>
                   <TouchableOpacity onPress={() => setQuickModal("branch")}>
                     <Text style={styles.linkActionText}>+ New</Text>
                   </TouchableOpacity>
                 </View>
                 <TouchableOpacity
-                  style={styles.dropdownBtn}
+                  style={[styles.dropdownBtn, formErrors.branchId && styles.inputError]}
                   onPress={() => setActivePickerModal("branch")}
                   activeOpacity={0.8}
                 >
@@ -790,19 +806,22 @@ const AddEmployeeScreen = ({ navigation }) => {
                   </Text>
                   <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
                 </TouchableOpacity>
+                {formErrors.branchId && <Text style={styles.errorText}>{formErrors.branchId}</Text>}
               </View>
             </View>
 
             {/* Multi-Select Accessible Departments */}
             <View style={styles.inputGroup}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <Text style={styles.label}>Accessible Departments (Multi-Select)</Text>
+                <Text style={styles.label}>
+                  Accessible Departments (Multi-Select) <Text style={styles.req}>*</Text>
+                </Text>
                 <TouchableOpacity onPress={() => setQuickModal("dept")}>
                   <Text style={styles.linkActionText}>+ New Dept</Text>
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
-                style={styles.dropdownBtn}
+                style={[styles.dropdownBtn, formErrors.departmentId && styles.inputError]}
                 onPress={() => setActivePickerModal("accessibleDepartments")}
                 activeOpacity={0.8}
               >
@@ -813,6 +832,7 @@ const AddEmployeeScreen = ({ navigation }) => {
                 </Text>
                 <Ionicons name="chevron-down" size={14} color={THEME.textMuted} />
               </TouchableOpacity>
+              {formErrors.departmentId && <Text style={styles.errorText}>{formErrors.departmentId}</Text>}
 
               {/* Selected Department Chips */}
               {formData.accessibleDepartments?.length > 0 && (
@@ -1830,6 +1850,9 @@ const AddEmployeeScreen = ({ navigation }) => {
                           accessibleDepartments: next,
                           departmentId: next[0] || "",
                         }));
+                        if (next.length > 0) {
+                          clearError("departmentId");
+                        }
                       }}
                     >
                       <Text style={[styles.modalListText, isChecked && styles.modalListTextChecked]}>
@@ -1884,6 +1907,7 @@ const AddEmployeeScreen = ({ navigation }) => {
                     style={[styles.modalListItem, formData.branchId === item._id && styles.modalListItemChecked]}
                     onPress={() => {
                       setFormData((p) => ({ ...p, branchId: item._id }));
+                      clearError("branchId");
                       setActivePickerModal(null);
                     }}
                   >

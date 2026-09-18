@@ -115,7 +115,7 @@ const Select = ({ label, value, onChange, options, disabled = false, required = 
   </Field>
 );
 
-const MultiSelect = ({ label, selected = [], onChange, options, disabled = false, required = false, placeholder = "Select departments...", action }) => {
+const MultiSelect = ({ label, selected = [], onChange, options, disabled = false, required = false, placeholder = "Select departments...", action, error, hint }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -135,10 +135,14 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
   const selectedLabels = options.filter((o) => selected.includes(o.value)).map((o) => o.label).join(", ");
 
   return (
-    <Field label={label} required={required} action={action}>
+    <Field label={label} required={required} action={action} error={error} hint={hint}>
       <div className="relative" ref={containerRef}>
         <div
-          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700/90 rounded-xl text-xs font-bold text-slate-900 dark:text-white transition-all flex items-center justify-between min-h-[40px] cursor-pointer hover:border-amber-500/60 ${
+          className={`w-full px-3.5 py-2.5 bg-slate-50 dark:bg-[#0B101B] border rounded-xl text-xs font-bold text-slate-900 dark:text-white transition-all flex items-center justify-between min-h-[40px] cursor-pointer hover:border-amber-500/60 ${
+            error
+              ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/30 dark:bg-rose-900/10"
+              : "border-slate-300 dark:border-slate-700/90 focus:border-amber-500"
+          } ${
             disabled ? "opacity-60 cursor-not-allowed" : ""
           }`}
           onClick={() => !disabled && setOpen(!open)}
@@ -420,6 +424,7 @@ export default function AddEmployee() {
             accessibleDepartments: [...(prev.accessibleDepartments || []), newDeptId],
             departmentId: prev.departmentId || newDeptId,
           }));
+          clearError("departmentId");
         }
         toast.success("Department created!");
       } else if (quickModal === "desig") {
@@ -432,7 +437,10 @@ export default function AddEmployee() {
         const res = await createBranchApi({ branchName: quickForm.name, city: quickForm.city });
         queryClient.invalidateQueries(["branches"]);
         const newBranchId = res.data?.branch?._id;
-        if (newBranchId) setFormData((prev) => ({ ...prev, branchId: newBranchId }));
+        if (newBranchId) {
+          setFormData((prev) => ({ ...prev, branchId: newBranchId }));
+          clearError("branchId");
+        }
         toast.success("Branch created!");
       }
       setQuickModal(null);
@@ -486,6 +494,11 @@ export default function AddEmployee() {
       else if (digits.length !== 10) err = `Mobile number must be 10 digits (${digits.length}/10)`;
     } else if (field === "role") {
       if (!v) err = "Please select a system role";
+    } else if (field === "departmentId") {
+      const hasDept = Array.isArray(val) ? val.length > 0 : Boolean(val && String(val).trim());
+      if (!hasDept) err = "Department is required (select at least one)";
+    } else if (field === "branchId") {
+      if (!v.trim()) err = "Branch office is required";
     } else if (field === "emergencyPhone") {
       const digits = v.replace(/\D/g, "");
       if (digits && digits.length !== 10) err = `Emergency phone must be 10 digits (${digits.length}/10)`;
@@ -534,7 +547,14 @@ export default function AddEmployee() {
     }
     if (step === 2) {
       const rl = validateField("role", formData.role);
+      const br = validateField("branchId", formData.branchId);
+      const dp = validateField(
+        "departmentId",
+        formData.accessibleDepartments?.length ? formData.accessibleDepartments : formData.departmentId
+      );
       if (rl) errors.role = rl;
+      if (br) errors.branchId = br;
+      if (dp) errors.departmentId = dp;
     }
     if (step === 3) {
       if (formData.emergencyContact?.phone) {
@@ -992,8 +1012,14 @@ export default function AddEmployee() {
                 />
                 <Select
                   label="Branch Office"
+                  required
                   value={formData.branchId}
-                  onChange={(v) => setFormData((p) => ({ ...p, branchId: v }))}
+                  error={formErrors.branchId}
+                  onClearError={() => clearError("branchId")}
+                  onChange={(v) => {
+                    setFormData((p) => ({ ...p, branchId: v }));
+                    if (v) clearError("branchId");
+                  }}
                   options={branchOptions}
                   placeholder="Select Branch..."
                   action={
@@ -1010,8 +1036,13 @@ export default function AddEmployee() {
 
               <MultiSelect
                 label="Accessible Departments (Multi-Select)"
+                required
                 selected={formData.accessibleDepartments}
-                onChange={(v) => setFormData((p) => ({ ...p, accessibleDepartments: v, departmentId: v[0] || "" }))}
+                error={formErrors.departmentId}
+                onChange={(v) => {
+                  setFormData((p) => ({ ...p, accessibleDepartments: v, departmentId: v[0] || "" }));
+                  if (v.length > 0) clearError("departmentId");
+                }}
                 options={deptOptions}
                 placeholder="Select accessible departments..."
                 action={

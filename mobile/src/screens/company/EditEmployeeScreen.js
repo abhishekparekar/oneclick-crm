@@ -272,6 +272,8 @@ const EditEmployeeScreen = ({ route, navigation }) => {
     if (!firstName.trim()) { setError("First name is required"); return; }
     if (!lastName.trim()) { setError("Last name is required"); return; }
     if (!email.trim()) { setError("Email is required"); return; }
+    if (!departmentId) { setError("Department is required"); return; }
+    if (!branchId) { setError("Branch is required"); return; }
     if (dateOfBirth && !isValidDDMMYYYY(dateOfBirth)) {
       setError("Date of birth must be in DD/MM/YYYY format");
       return;
@@ -449,6 +451,7 @@ const EditEmployeeScreen = ({ route, navigation }) => {
             <View style={{ flex: 1, marginRight: 6 }}>
               <PickerRow
                 label="Department"
+                required
                 display={departmentName}
                 icon="business-outline"
                 onPress={() => setModal("department")}
@@ -470,6 +473,7 @@ const EditEmployeeScreen = ({ route, navigation }) => {
             <View style={{ flex: 1, marginRight: 6 }}>
               <PickerRow
                 label="Branch"
+                required
                 display={branchName}
                 icon="location-outline"
                 onPress={() => setModal("branch")}

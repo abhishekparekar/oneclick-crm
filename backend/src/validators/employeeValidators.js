@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const { body } = require("express-validator");
 
 const sanitizeGender = (val) => (typeof val === "string" ? val.toLowerCase().trim() : val);
@@ -27,9 +28,26 @@ const employeeCreateRules = [
     .withMessage("Invalid gender selected"),
   body("dateOfBirth").optional({ nullable: true, checkFalsy: true }).isISO8601().toDate().withMessage("Invalid date of birth format"),
   body("joiningDate").optional({ nullable: true, checkFalsy: true }).isISO8601().toDate().withMessage("Invalid joining date format"),
-  body("departmentId").optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage("Invalid department ID"),
+  body("departmentId")
+    .custom((val, { req }) => {
+      const dept =
+        val ||
+        (Array.isArray(req.body.departmentIds) && req.body.departmentIds[0]) ||
+        (Array.isArray(req.body.accessibleDepartments) && req.body.accessibleDepartments[0]);
+      if (!dept) {
+        throw new Error("Department is required");
+      }
+      if (!mongoose.Types.ObjectId.isValid(dept)) {
+        throw new Error("Invalid department ID");
+      }
+      return true;
+    }),
   body("designationId").optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage("Invalid designation ID"),
-  body("branchId").optional({ nullable: true, checkFalsy: true }).isMongoId().withMessage("Invalid branch ID"),
+  body("branchId")
+    .notEmpty()
+    .withMessage("Branch is required")
+    .isMongoId()
+    .withMessage("Invalid branch ID"),
   body("employmentType")
     .optional({ nullable: true, checkFalsy: true })
     .customSanitizer(sanitizeEmploymentType)
