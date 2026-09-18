@@ -37,7 +37,7 @@ const MANAGER_SECTIONS = [
       { label: "Leads Pipeline", path: "/manager/leads", icon: Magnet, module: "leads" },
       { label: "My Tasks", path: "/manager/my-tasks", icon: ListTodo, module: "tasks" },
       { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare, module: "tasks" },
-      { label: "My Attendance", path: "/manager/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Attendance Overview", path: "/manager/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "My Leaves", path: "/manager/my-leave", icon: FileText, module: "leave" },
       { label: "Company Requests", path: "/manager/requests", icon: MessageSquare },
       { label: "My Payslips", path: "/manager/payslips", icon: Receipt, module: "payroll" },
@@ -47,7 +47,7 @@ const MANAGER_SECTIONS = [
     title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
-      { label: "Team Attendance", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Team Attendance Roster", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Employee Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },

@@ -72,14 +72,25 @@ export default function TaskEditModal({ isOpen, onClose, task, departments: prop
     staleTime: 5 * 60 * 1000,
   });
 
-  const departments = propDepartments.length > 0
+  const _rawDepts = propDepartments.length > 0
     ? propDepartments
-    : (Array.isArray(fetchedDepts?.departments) ? fetchedDepts.departments
+    : (Array.isArray(fetchedDepts?.data?.departments) ? fetchedDepts.data.departments
+      : Array.isArray(fetchedDepts?.departments) ? fetchedDepts.departments
       : Array.isArray(fetchedDepts) ? fetchedDepts : []);
+  const departments = useMemo(() => {
+    const seen = new Set();
+    return _rawDepts.filter(d => {
+      const id = d._id || d.id;
+      if (!id || seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }, [_rawDepts]);
 
   const employees = propEmployees.length > 0
     ? propEmployees
-    : (Array.isArray(fetchedEmps?.employees) ? fetchedEmps.employees
+    : (Array.isArray(fetchedEmps?.data?.employees) ? fetchedEmps.data.employees
+      : Array.isArray(fetchedEmps?.employees) ? fetchedEmps.employees
       : Array.isArray(fetchedEmps) ? fetchedEmps : []);
 
   const getInitialValues = (t) => {

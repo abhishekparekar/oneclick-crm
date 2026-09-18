@@ -115,11 +115,18 @@ export default function TaskCreateModal({
   const rawDepts = (propDepartments && propDepartments.length > 0) ? propDepartments : (qDeptsRes || []);
   const departments = useMemo(() => {
     const list = Array.isArray(rawDepts) ? rawDepts : (rawDepts?.departments || []);
-    return list.map(d => ({
-      _id: d._id || d.id,
-      id: d._id || d.id,
-      name: d.name || d.departmentName || "Department",
-    }));
+    const seen = new Set();
+    return list
+      .map(d => ({
+        _id: d._id || d.id,
+        id: d._id || d.id,
+        name: d.name || d.departmentName || "Department",
+      }))
+      .filter(d => {
+        if (!d._id || seen.has(d._id)) return false;
+        seen.add(d._id);
+        return true;
+      });
   }, [rawDepts]);
 
   const rawEmps = (propEmployees && propEmployees.length > 0) ? propEmployees : (qEmpsRes || []);

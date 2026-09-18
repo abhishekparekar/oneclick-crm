@@ -18,6 +18,7 @@ import ManagerMyTasks from "../pages/manager/ManagerMyTasks";
 import ManagerTeamTasks from "../pages/manager/ManagerTeamTasks";
 import ManagerTeamMembers from "../pages/manager/ManagerTeamMembers";
 import ManagerAttendance from "../pages/manager/ManagerAttendance";
+import ManagerAttendanceOverview from "../pages/manager/ManagerAttendanceOverview";
 import ManagerTeamLeaves from "../pages/manager/ManagerTeamLeaves";
 import ManagerMyLeave from "../pages/manager/ManagerMyLeave";
 import ManagerProjects from "../pages/manager/ManagerProjects";
@@ -365,10 +366,11 @@ const AppRoutes = () => {
             <Route path="team-tasks" element={<ManagerTeamTasks />} />
             <Route path="tasks/:id" element={<TaskDetailsPage />} />
             <Route path="team" element={<ManagerTeamMembers />} />
-            <Route path="attendance" element={<ManagerAttendance />} />
+            <Route path="attendance" element={<ManagerAttendanceOverview />} />
+            <Route path="attendance-overview" element={<ManagerAttendanceOverview />} />
+            <Route path="team-attendance" element={<ManagerAttendance />} />
             <Route path="location-tracking" element={<EmployeeLocationTracking />} />
             <Route path="tracking-allowance" element={<TrackingAllowance />} />
-            <Route path="team-attendance" element={<ManagerAttendance />} />
             <Route path="team-leaves" element={<ManagerTeamLeaves />} />
             <Route path="my-leave" element={<ManagerMyLeave />} />
             <Route path="payslips" element={<EmployeePayslips />} />
