@@ -121,45 +121,64 @@ const notifyUserOrEmployee = async (companyId, targetId, title, body, type = "le
 
 // Helper to seed default statuses & sources if none exist
 const seedDefaultsForCompany = async (companyId) => {
-  const statusCount = await LeadStatus.countDocuments();
-  if (statusCount === 0) {
-    const defaultStatuses = [
-      { name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true },
-      { name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false },
-      { name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false },
-      { name: "Won", color: "#10B981", displayOrder: 4, isDefault: false },
-      { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
-    ];
+  if (!companyId) return;
+
+  const defaultStatuses = [
+    { name: "New", color: "#06B6D4", displayOrder: 1, isDefault: true },
+    { name: "Contacted", color: "#3B82F6", displayOrder: 2, isDefault: false },
+    { name: "In Progress", color: "#EAB308", displayOrder: 3, isDefault: false },
+    { name: "Won", color: "#10B981", displayOrder: 4, isDefault: false },
+    { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
+  ];
+
+  const existingStatuses = await LeadStatus.find({ companyId });
+  if (existingStatuses.length === 0) {
     await LeadStatus.insertMany(
       defaultStatuses.map((s) => ({ ...s, companyId }))
     );
+  } else if (existingStatuses.length < 5) {
+    const existingNames = new Set(
+      existingStatuses.map((s) => (s.name || "").toLowerCase().trim())
+    );
+    const missing = defaultStatuses.filter(
+      (d) => !existingNames.has(d.name.toLowerCase().trim())
+    );
+    if (missing.length > 0) {
+      await LeadStatus.insertMany(
+        missing.map((s, idx) => ({
+          ...s,
+          companyId,
+          displayOrder: existingStatuses.length + idx + 1,
+        }))
+      );
+    }
   }
 
-  const sourceCount = await LeadSource.countDocuments();
+  const defaultSources = [
+    "Walk-in",
+    "Website Form",
+    "Facebook Ad",
+    "Google Search",
+    "Referral",
+    "Instagram Direct",
+  ];
+  const sourceCount = await LeadSource.countDocuments({ companyId });
   if (sourceCount === 0) {
-    const defaultSources = [
-      "Walk-in",
-      "Website Form",
-      "Facebook Ad",
-      "Google Search",
-      "Referral",
-      "Instagram Direct",
-    ];
     await LeadSource.insertMany(
       defaultSources.map((name) => ({ name, companyId }))
     );
   }
 
-  const productCount = await LeadProduct.countDocuments();
+  const defaultProducts = [
+    { name: "Website Development", description: "Custom Corporate & Ecommerce Web Development", price: 25000 },
+    { name: "HRMS & Payroll System", description: "Automated Staff, Attendance & Payroll Management", price: 45000 },
+    { name: "CRM & WhatsApp Marketing", description: "Lead Management & Automated Meta Cloud WhatsApp Integration", price: 30000 },
+    { name: "Mobile App Development", description: "Android & iOS Native/Cross-platform Apps", price: 50000 },
+    { name: "Digital Marketing & SEO", description: "Search Engine & Social Media Performance Marketing", price: 15000 },
+    { name: "Cloud & ERP Solutions", description: "Custom Business ERP & Cloud Infrastructure", price: 60000 },
+  ];
+  const productCount = await LeadProduct.countDocuments({ companyId });
   if (productCount === 0) {
-    const defaultProducts = [
-      { name: "Website Development", description: "Custom Corporate & Ecommerce Web Development", price: 25000 },
-      { name: "HRMS & Payroll System", description: "Automated Staff, Attendance & Payroll Management", price: 45000 },
-      { name: "CRM & WhatsApp Marketing", description: "Lead Management & Automated Meta Cloud WhatsApp Integration", price: 30000 },
-      { name: "Mobile App Development", description: "Android & iOS Native/Cross-platform Apps", price: 50000 },
-      { name: "Digital Marketing & SEO", description: "Search Engine & Social Media Performance Marketing", price: 15000 },
-      { name: "Cloud & ERP Solutions", description: "Custom Business ERP & Cloud Infrastructure", price: 60000 },
-    ];
     await LeadProduct.insertMany(
       defaultProducts.map((p) => ({ ...p, companyId }))
     );

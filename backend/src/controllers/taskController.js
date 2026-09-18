@@ -412,14 +412,26 @@ exports.getTasks = async (req, res) => {
             delete query.$or;
         }
 
+        const page = parseInt(req.query.page, 10);
+        const limit = parseInt(req.query.limit, 10);
+        const isPaginated = !isNaN(page) && page > 0 && !isNaN(limit) && limit > 0;
+        const skip = isPaginated ? (page - 1) * limit : 0;
+
         let tasks;
+        let totalCount = 0;
         if (isTemplate) {
-            const docs = await TaskTemplate.find(query).sort({ createdAt: -1 })
+            totalCount = await TaskTemplate.countDocuments(query);
+            let templateQuery = TaskTemplate.find(query).sort({ createdAt: -1 })
                 .populate("assignedTo", "firstName lastName email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
-                .populate({ path: "projectId", select: "name", strictPopulate: false })
-                .lean();
+                .populate({ path: "projectId", select: "name", strictPopulate: false });
+
+            if (isPaginated) {
+                templateQuery = templateQuery.skip(skip).limit(limit);
+            }
+
+            const docs = await templateQuery.lean();
             tasks = docs.map(d => {
                 const obj = { ...d };
                 obj.isTemplate = true;
@@ -428,8 +440,8 @@ exports.getTasks = async (req, res) => {
             });
         } else {
             const nowDate = new Date();
-            // Automatically mark any active overdue tasks in DB so query results & status filters match exactly
-            await Task.updateMany(
+            // Automatically mark any active overdue tasks asynchronously so getTasks is never blocked
+            Task.updateMany(
                 {
                     companyId,
                     status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
@@ -443,12 +455,18 @@ exports.getTasks = async (req, res) => {
                 }
             ).catch(() => {});
 
-            const rawDocs = await Task.find(query).sort({ createdAt: -1 })
-                .populate("assignedTo", "firstName lastName fullName name photo employeeCode email")
+            totalCount = await Task.countDocuments(query);
+            let taskQuery = Task.find(query).sort({ createdAt: -1 })
+                .populate("assignedTo", "firstName lastName fullName name employeeCode email")
                 .populate("assignedBy", "name email")
                 .populate("departmentId", "name")
-                .populate({ path: "projectId", select: "name", strictPopulate: false })
-                .lean();
+                .populate({ path: "projectId", select: "name", strictPopulate: false });
+
+            if (isPaginated) {
+                taskQuery = taskQuery.skip(skip).limit(limit);
+            }
+
+            const rawDocs = await taskQuery.lean();
 
             const now = Date.now();
             tasks = rawDocs.map(task => {
@@ -471,7 +489,15 @@ exports.getTasks = async (req, res) => {
             });
         }
 
-        res.json({ success: true, tasks });
+        res.json({
+            success: true,
+            tasks,
+            total: totalCount,
+            page: isPaginated ? page : 1,
+            limit: isPaginated ? limit : tasks.length,
+            totalPages: isPaginated ? Math.ceil(totalCount / limit) : 1,
+            hasMore: isPaginated ? (page * limit < totalCount) : false
+        });
     } catch (error) {
         console.error("getTasks error:", error);
         res.status(500).json({ success: false, message: `Server error: ${error.message}` });

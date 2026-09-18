@@ -236,7 +236,7 @@ export const leadsService = {
     const updatedList = list.map((l) => {
       if ((l.id || l._id) === id) {
         const newStatus = updateData.statusId
-          ? statuses.find((s) => (s.id || s._id) === updateData.statusId) || l.status
+          ? statuses.find((s) => String(s.id || s._id) === String(updateData.statusId)) || l.status
           : l.status;
         updatedItem = { ...l, ...updateData, status: newStatus };
         return updatedItem;
@@ -247,8 +247,26 @@ export const leadsService = {
     await setLocalData(STORAGE_KEYS.LEADS, updatedList);
 
     try {
-      await api.patch(`/leads-engine/leads/${id}`, updateData);
-    } catch (_) {}
+      const response = await api.patch(`/leads-engine/leads/${id}`, updateData);
+      if (response?.data) {
+        const serverLead = response.data.data || response.data;
+        if (serverLead && (serverLead._id || serverLead.id)) {
+          return serverLead;
+        }
+      }
+    } catch (_) {
+      try {
+        const response = await api.patch(`/leads/${id}`, updateData);
+        if (response?.data) {
+          const serverLead = response.data.data || response.data;
+          if (serverLead && (serverLead._id || serverLead.id)) {
+            return serverLead;
+          }
+        }
+      } catch (err) {
+        console.warn("[leadsService] updateLead patch error:", err?.message || err);
+      }
+    }
 
     return updatedItem;
   },
@@ -365,15 +383,28 @@ export const leadsService = {
   getStatuses: async () => {
     try {
       const response = await api.get("/leads-engine/statuses");
-      if (Array.isArray(response?.data)) {
+      if (Array.isArray(response?.data) && response.data.length > 0) {
         const cleanList = response.data.filter((s) => s?.name && s.name.trim().toLowerCase() !== "aa" && s.isActive !== false);
-        await setLocalData(STORAGE_KEYS.STATUSES, cleanList);
-        return cleanList;
+        if (cleanList.length > 1) {
+          await setLocalData(STORAGE_KEYS.STATUSES, cleanList);
+          return cleanList;
+        } else if (cleanList.length === 1) {
+          // If server only returned 1 status, merge with default statuses so employee is never restricted to 1 stage
+          const existingNames = new Set(cleanList.map((s) => s.name.toLowerCase().trim()));
+          const extraDefaults = DEFAULT_STATUSES.filter((d) => !existingNames.has(d.name.toLowerCase().trim()));
+          const combined = [...cleanList, ...extraDefaults];
+          await setLocalData(STORAGE_KEYS.STATUSES, combined);
+          return combined;
+        }
       }
     } catch (_) {}
 
     const cached = await getLocalData(STORAGE_KEYS.STATUSES, DEFAULT_STATUSES);
-    return (Array.isArray(cached) ? cached : DEFAULT_STATUSES).filter((s) => s?.name && s.name.trim().toLowerCase() !== "aa");
+    const validList = (Array.isArray(cached) ? cached : DEFAULT_STATUSES).filter((s) => s?.name && s.name.trim().toLowerCase() !== "aa");
+    if (validList.length <= 1) {
+      return DEFAULT_STATUSES;
+    }
+    return validList;
   },
 
   createStatus: async (statusData) => {

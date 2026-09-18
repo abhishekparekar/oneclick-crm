@@ -345,14 +345,20 @@ export default function MyTasksScreen({ route, navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [activeStatus, setActiveStatus] = useState(route?.params?.status || "");
-  const [activeDateFilter, setActiveDateFilter] = useState(route?.params?.dateFilter || "Today");
+  const [activeDateFilter, setActiveDateFilter] = useState(route?.params?.dateFilter || "All Time");
   const [selectedPriority, setSelectedPriority] = useState("");
   const [showFilters, setShowFilters] = useState(false);
   const [deadlineComingFilter, setDeadlineComingFilter] = useState("");
   const [selectedDepts, setSelectedDepts] = useState([]);
 
+  // Pagination states
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_LIMIT = 15;
+
   const { employeeDashboard } = useAppData();
-  const employee = employeeDashboard?.employee || {};
+  const   employee = employeeDashboard?.employee || {};
 
   const departmentsList = useMemo(() => {
     const list = [];
@@ -424,7 +430,7 @@ export default function MyTasksScreen({ route, navigation }) {
     const targetStatus = params.taskFilter ?? params.status;
     if (targetStatus !== undefined) {
       setActiveStatus(targetStatus);
-      setActiveDateFilter(params.dateFilter || (targetStatus === "overdue" ? "All Time" : "Today"));
+      setActiveDateFilter(params.dateFilter || "All Time");
     } else if (params.dateFilter) {
       setActiveDateFilter(params.dateFilter);
     }
@@ -448,37 +454,67 @@ export default function MyTasksScreen({ route, navigation }) {
   const isFetchingRef = useRef(false);
   const hasFetchedStatusesRef = useRef(false);
 
-  const fetchTasks = async (showLoading = true) => {
+  const fetchTasks = async (pageToFetch = 1, showLoading = true) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
     try {
-      if (showLoading) setLoading(true);
-      const params = {};
+      if (pageToFetch === 1) {
+        if (showLoading) setLoading(true);
+      } else {
+        setLoadingMore(true);
+      }
+
+      const params = {
+        page: pageToFetch,
+        limit: PAGE_LIMIT,
+      };
       if (selectedPriority) params.priority = selectedPriority;
 
       const promises = [
         getEmployeeTasksApi(params).catch(() => ({ data: { tasks: [], success: false } })),
-        getEmployeeTasksApi({ ...params, isTemplate: true }).catch(() => ({ data: { tasks: [], success: false } })),
       ];
 
-      if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
-        promises.push(getActiveTaskStatusesApi().catch(() => ({ data: { statuses: [], success: false } })));
+      // On first page, also fetch templates & statuses if needed
+      if (pageToFetch === 1) {
+        promises.push(
+          getEmployeeTasksApi({ ...params, isTemplate: true, limit: 50 }).catch(() => ({ data: { tasks: [], success: false } }))
+        );
+        if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
+          promises.push(
+            getActiveTaskStatusesApi().catch(() => ({ data: { statuses: [], success: false } }))
+          );
+        }
       }
 
       const results = await Promise.all(promises);
       const resTasks = results[0];
-      const resTemplates = results[1];
-      const resStatuses = results[2];
+      const resTemplates = pageToFetch === 1 ? results[1] : null;
+      const resStatuses = pageToFetch === 1 && results.length > 2 ? results[2] : null;
 
       const liveList = resTasks?.data?.tasks || resTasks?.data?.data?.tasks || resTasks?.data?.data || (Array.isArray(resTasks?.data) ? resTasks?.data : []);
-      const templateList = resTemplates?.data?.tasks || resTemplates?.data?.data?.tasks || resTemplates?.data?.data || (Array.isArray(resTemplates?.data) ? resTemplates?.data : []);
+      const templateList = resTemplates ? (resTemplates?.data?.tasks || resTemplates?.data?.data?.tasks || resTemplates?.data?.data || (Array.isArray(resTemplates?.data) ? resTemplates?.data : [])) : [];
 
-      const combined = [
-        ...(Array.isArray(liveList) ? liveList : []),
-        ...(Array.isArray(templateList) ? templateList.map((t) => ({ ...t, isTemplate: true })) : []),
-      ];
+      const currentLive = Array.isArray(liveList) ? liveList : [];
+      const currentTemplates = Array.isArray(templateList) ? templateList.map((t) => ({ ...t, isTemplate: true })) : [];
 
-      setAllTasks(combined);
+      if (pageToFetch === 1) {
+        setAllTasks([...currentLive, ...currentTemplates]);
+        setPage(1);
+      } else {
+        setAllTasks((prev) => {
+          const existingIds = new Set(prev.map((t) => String(t._id || t.id)));
+          const filteredNew = currentLive.filter((t) => !existingIds.has(String(t._id || t.id)));
+          return [...prev, ...filteredNew];
+        });
+        setPage(pageToFetch);
+      }
+
+      // Check hasMore
+      if (resTasks?.data?.hasMore !== undefined) {
+        setHasMore(resTasks.data.hasMore);
+      } else {
+        setHasMore(currentLive.length >= PAGE_LIMIT);
+      }
 
       if (resStatuses?.data?.success) {
         hasFetchedStatusesRef.current = true;
@@ -490,18 +526,36 @@ export default function MyTasksScreen({ route, navigation }) {
       isFetchingRef.current = false;
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
+  };
+
+  const handleLoadMore = () => {
+    if (loading || loadingMore || !hasMore) return;
+    fetchTasks(page + 1, false);
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchTasks();
+      fetchTasks(1, allTasks.length === 0);
     }, [selectedPriority])
   );
 
   // ── Date matching helper (must be defined before displayedTasks) ──────────
   const matchesDateFilter = (t, dateTab) => {
-    if (dateTab === "All Time") return true;
+    if (!dateTab || dateTab === "All Time" || dateTab === "all_time") return true;
+
+    const s = normalizeStatusValue(t.status);
+    if (dateTab === "Re-Open") {
+      return t.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s);
+    }
+
+    const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
+    // For Today tab: active/pending tasks needing attention should always remain visible
+    if (dateTab === "Today" && !isCompletedOrDone) {
+      return true;
+    }
+
     const now = new Date();
     const formatDate = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
     const todayStr = formatDate(now);
@@ -684,7 +738,9 @@ export default function MyTasksScreen({ route, navigation }) {
 
     if (deadlineComingFilter) {
       tasks = tasks.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
-    } else if (activeStatus === "overdue" && (activeDateFilter === "Today" || activeDateFilter === "All Time" || activeDateFilter === "all_time")) {
+    } else if (activeDateFilter === "All Time" || activeDateFilter === "all_time") {
+      // Keep all tasks without date filtering
+    } else if (activeStatus === "overdue" && activeDateFilter === "Today") {
       // Overdue tasks are already overdue by definition; keep all active overdue tasks visible
     } else {
       tasks = tasks.filter((t) => matchesDateFilter(t, activeDateFilter));
@@ -717,8 +773,10 @@ export default function MyTasksScreen({ route, navigation }) {
     }
     if (deadlineComingFilter) {
       base = base.filter((t) => matchesDeadlineComingFilter(t, deadlineComingFilter));
+    } else if (activeDateFilter === "All Time" || activeDateFilter === "all_time") {
+      // keep all tasks in base
     } else if (tabValue === "overdue") {
-      if (activeDateFilter && activeDateFilter !== "All Time" && activeDateFilter !== "Today" && activeDateFilter !== "all_time") {
+      if (activeDateFilter && activeDateFilter !== "Today") {
         base = base.filter((t) => matchesDateFilter(t, activeDateFilter));
       }
     } else {
@@ -849,7 +907,11 @@ export default function MyTasksScreen({ route, navigation }) {
     }
   };
 
-  const handleRefresh = () => { setRefreshing(true); fetchTasks(false); };
+  const handleRefresh = () => {
+    setRefreshing(true);
+    setHasMore(true);
+    fetchTasks(1, false);
+  };
 
   const STATUS_TABS = [
     { key: "", label: "All" },
@@ -1096,6 +1158,16 @@ export default function MyTasksScreen({ route, navigation }) {
                 <Text style={styles.emptySubtitle}>You are all caught up in this section!</Text>
               </View>
             )
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.4}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="small" color="#1268D9" />
+                <Text style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>Loading more tasks...</Text>
+              </View>
+            ) : null
           }
         />
 

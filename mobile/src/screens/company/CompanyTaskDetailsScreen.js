@@ -824,6 +824,32 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                 </View>
               </TouchableOpacity>
             )}
+
+            {/* ── Shift Task (Reassign) Button for Pending / Active Tasks ── */}
+            {!isCompleted && !isCancelled && (
+              <TouchableOpacity
+                style={styles.nativeShiftBtn}
+                onPress={() => setShiftModalVisible(true)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.nativeShiftInner}>
+                  <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                    <View style={styles.nativeShiftIconCircle}>
+                      <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
+                    </View>
+                    <View style={{ marginLeft: 10, flex: 1 }}>
+                      <Text style={styles.nativeActionBtnTitle}>
+                        Shift Task (Reassign)
+                      </Text>
+                      <Text style={styles.nativeActionBtnSub}>
+                        Shift pending work to another team member
+                      </Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                </View>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* ── Native Attachments ── */}
@@ -1625,6 +1651,34 @@ const styles = StyleSheet.create({
     color: "rgba(255, 255, 255, 0.88)",
     fontSize: 10.5,
     fontFamily: FONTS.body,
+  },
+  nativeShiftBtn: {
+    borderRadius: 8,
+    overflow: "hidden",
+    marginTop: 8,
+    backgroundColor: "#4F46E5",
+    borderWidth: 1,
+    borderColor: "#4338CA",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 2,
+  },
+  nativeShiftInner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  nativeShiftIconCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "rgba(255, 255, 255, 0.22)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   nativeQuickRow: {
     flexDirection: "row",

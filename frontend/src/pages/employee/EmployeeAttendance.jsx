@@ -188,7 +188,7 @@ const EmployeeAttendance = () => {
                       )}
 
                       {/* day number */}
-                      <span className={`text-[13px] font-bold leading-none select-none ${isToday ? "text-blue-600 dark:text-blue-400" : isWEnd ? "text-rose-400 dark:text-rose-500" : cfg.text}`}>
+                      <span className="text-[13px] font-bold leading-none select-none text-slate-800 dark:text-slate-100">
                         {day}
                       </span>
 

@@ -410,6 +410,13 @@ export default function EmployeeTaskDetails() {
     }
   });
 
+  const toggleChecklistMut = useMutation({
+    mutationFn: (newChecklist) => updateEmployeeTaskChecklistApi(taskId, newChecklist),
+    onSuccess: () => {
+      queryClient.invalidateQueries(["employeeTaskDetails", taskId]);
+    }
+  });
+
   if (isLoading || !taskRes) {
     return (
       <div className="space-y-4 pb-12 font-sans w-full max-w-[1440px] mx-auto min-h-[500px] flex flex-col items-center justify-center">
@@ -425,13 +432,6 @@ export default function EmployeeTaskDetails() {
   const checklistItems = task.checklist || task.subtasks || [];
   const completedChecklistCount = checklistItems.filter(c => c.isCompleted || c.completed).length;
   const totalChecklistCount = checklistItems.length;
-
-  const toggleChecklistMut = useMutation({
-    mutationFn: (newChecklist) => updateEmployeeTaskChecklistApi(taskId, newChecklist),
-    onSuccess: () => {
-      queryClient.invalidateQueries(["employeeTaskDetails", taskId]);
-    }
-  });
 
   const handleToggleChecklistItem = (idx) => {
     if (!task) return;

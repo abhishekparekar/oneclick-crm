@@ -399,8 +399,12 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
 
   // ── Open Stage & Follow-Up Modal ─────────────────────────
   const openStageModal = () => {
-    const curStId = lead?.statusId || lead?.status?.id || lead?.status?._id || (statuses[0]?.id || statuses[0]?._id);
-    setSelectedStageId(curStId);
+    const curStId =
+      (typeof lead?.statusId === "object" ? (lead?.statusId?._id || lead?.statusId?.id) : lead?.statusId) ||
+      lead?.status?._id ||
+      lead?.status?.id ||
+      (statuses[0]?.id || statuses[0]?._id);
+    setSelectedStageId(curStId ? String(curStId) : null);
 
     if (lead?.nextFollowUpDate) {
       const d = new Date(lead.nextFollowUpDate);
@@ -434,7 +438,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
     }
     try {
       setUpdatingStage(true);
-      const newStatusObj = statuses.find((s) => (s.id || s._id) === selectedStageId);
+      const newStatusObj = statuses.find((s) => String(s.id || s._id) === String(selectedStageId));
       let followUpIso = null;
       if (includeFollowUp && stageFollowUpDate && stageFollowUpTime) {
         followUpIso = buildReminderIso(stageFollowUpDate, stageFollowUpTime);
@@ -459,6 +463,13 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           ...prev,
           ...updated,
           status: updated.status,
+        }));
+      } else if (updated) {
+        setLead((prev) => ({
+          ...prev,
+          ...updated,
+          statusId: selectedStageId,
+          status: newStatusObj || prev?.status,
         }));
       }
 
@@ -1297,10 +1308,18 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                 <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
                 <View style={{ gap: 6 }}>
                   {statuses.map((st) => {
-                    const isSelected = (selectedStageId || lead?.statusId) === (st.id || st._id);
+                    const stId = String(st.id || st._id || "");
+                    const currentStId = String(
+                      selectedStageId ||
+                      (typeof lead?.statusId === "object" ? (lead?.statusId?._id || lead?.statusId?.id) : lead?.statusId) ||
+                      lead?.status?._id ||
+                      lead?.status?.id ||
+                      ""
+                    );
+                    const isSelected = Boolean(stId && currentStId && stId === currentStId);
                     return (
                       <TouchableOpacity
-                        key={st.id || st._id}
+                        key={st.id || st._id || st.name}
                         style={[
                           styles.stageChoiceRow,
                           isSelected && styles.stageChoiceRowSelected,
