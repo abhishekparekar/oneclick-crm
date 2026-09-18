@@ -1224,12 +1224,18 @@ export default function TaskBoard() {
         </div>
       )}
 
-      {/* ── Main Task View Content ───────────────────────────────────────────── */}
       {tasksLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className="h-44 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
-          ))}
+        <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="relative">
+            <div className="w-12 h-12 border-3 border-amber-500/25 border-t-amber-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+            </div>
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Loading tasks board...</p>
+            <p className="text-xs text-slate-400">Please wait while we fetch company tasks and deliverables</p>
+          </div>
         </div>
       ) : filteredTasks.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">

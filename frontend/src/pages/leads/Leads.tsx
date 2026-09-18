@@ -1489,10 +1489,17 @@ export default function Leads() {
         {/* ── Main View Content Area (Cards vs Kanban vs List) ──────────────── */}
         <div>
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 p-3">
-              {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-36 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-slate-200/80 dark:border-slate-800 animate-pulse" />
-              ))}
+            <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs my-3">
+              <div className="relative">
+                <div className="w-12 h-12 border-3 border-amber-500/25 border-t-amber-500 rounded-full animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-2 h-2 rounded-full bg-amber-500" />
+                </div>
+              </div>
+              <div className="text-center space-y-1">
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Loading Lead Pipeline...</p>
+                <p className="text-xs text-slate-400">Please wait while we fetch contacts and lead records</p>
+              </div>
             </div>
           ) : leads.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 px-4">

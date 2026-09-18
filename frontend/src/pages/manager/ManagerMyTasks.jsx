@@ -689,7 +689,18 @@ export default function ManagerMyTasks() {
 
       {/* ── 4. VIEW RENDERERS ──────────────────────────────────────────────── */}
       {isLoading ? (
-        <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading tasks...</div>
+        <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="relative">
+            <div className="w-12 h-12 border-3 border-amber-500/25 border-t-amber-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+            </div>
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Loading your tasks...</p>
+            <p className="text-xs text-slate-400">Please wait while we fetch your assigned tasks and deliverables</p>
+          </div>
+        </div>
       ) : filteredTasks.length === 0 ? (
         <div className="py-14 text-center rounded-xl bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 shadow-2xs">
           <CheckSquare size={28} className="mx-auto mb-2 opacity-40 text-amber-500" />

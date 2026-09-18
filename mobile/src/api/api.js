@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
 // Toggle this to true if you want to force the mobile app to use the live Vercel backend during local development
-const FORCE_LIVE = false;
+const FORCE_LIVE = true;
 
 let _cachedHost = null;
 

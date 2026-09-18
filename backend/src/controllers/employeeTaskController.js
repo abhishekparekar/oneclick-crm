@@ -6,14 +6,17 @@ const { sendNotificationToEmployees, notifyUser } = require("../utils/notificati
 // Resolve employee profile
 const getEmployeeProfile = async (req) => {
   const userId = req.user._id;
-  const companyId = req.companyId;
+  const companyId = req.companyId || req.user?.companyId || (req.user?.company && (req.user.company._id || req.user.company));
 
   let employee = null;
   if (req.user.employeeId) {
-    employee = await Employee.findOne({ _id: req.user.employeeId, companyId });
+    employee = await Employee.findOne({ _id: req.user.employeeId, companyId }).lean();
   }
   if (!employee) {
-    employee = await Employee.findOne({ userId, companyId });
+    employee = await Employee.findOne({ userId, companyId }).lean();
+  }
+  if (!employee && req.user.email) {
+    employee = await Employee.findOne({ email: new RegExp(`^${req.user.email.trim()}$`, "i"), companyId }).lean();
   }
   return employee;
 };
@@ -97,8 +100,7 @@ const getAssignedTasks = async (req, res, next) => {
         t.assignees = t.assignedTo || [];
       });
     } else {
-      totalCount = await Task.countDocuments(filter);
-      tasks = await Task.find(filter)
+      let queryBuilder = Task.find(filter)
         .populate({ path: "projectId", select: "name description status" })
         .populate({ 
           path: "assignedTo", 
@@ -113,6 +115,14 @@ const getAssignedTasks = async (req, res, next) => {
         .skip(skip)
         .limit(limit)
         .lean();
+
+      const [countResult, docs] = await Promise.all([
+        Task.countDocuments(filter),
+        queryBuilder
+      ]);
+
+      totalCount = countResult;
+      tasks = docs;
 
       // Ensure assignees compatibility under lean()
       tasks.forEach(t => {

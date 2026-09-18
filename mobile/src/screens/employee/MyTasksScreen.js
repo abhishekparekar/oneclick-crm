@@ -470,35 +470,29 @@ export default function MyTasksScreen({ route, navigation }) {
       };
       if (selectedPriority) params.priority = selectedPriority;
 
-      const promises = [
-        getEmployeeTasksApi(params).catch(() => ({ data: { tasks: [], success: false } })),
-      ];
+      // Primary tasks fetch
+      const resTasks = await getEmployeeTasksApi(params).catch((err) => {
+        console.warn("[MyTasksScreen] getEmployeeTasksApi error:", err?.message || err);
+        return { data: { tasks: [], success: false } };
+      });
 
-      // On first page, also fetch templates & statuses if needed
-      if (pageToFetch === 1) {
-        promises.push(
-          getEmployeeTasksApi({ ...params, isTemplate: true, limit: 50 }).catch(() => ({ data: { tasks: [], success: false } }))
-        );
-        if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
-          promises.push(
-            getActiveTaskStatusesApi().catch(() => ({ data: { statuses: [], success: false } }))
-          );
-        }
+      // Background fetch statuses only once without delaying task rendering
+      if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
+        getActiveTaskStatusesApi()
+          .then((resStatuses) => {
+            if (resStatuses?.data?.success) {
+              hasFetchedStatusesRef.current = true;
+              setTaskStatuses(resStatuses.data.statuses || []);
+            }
+          })
+          .catch(() => {});
       }
 
-      const results = await Promise.all(promises);
-      const resTasks = results[0];
-      const resTemplates = pageToFetch === 1 ? results[1] : null;
-      const resStatuses = pageToFetch === 1 && results.length > 2 ? results[2] : null;
-
       const liveList = resTasks?.data?.tasks || resTasks?.data?.data?.tasks || resTasks?.data?.data || (Array.isArray(resTasks?.data) ? resTasks?.data : []);
-      const templateList = resTemplates ? (resTemplates?.data?.tasks || resTemplates?.data?.data?.tasks || resTemplates?.data?.data || (Array.isArray(resTemplates?.data) ? resTemplates?.data : [])) : [];
-
       const currentLive = Array.isArray(liveList) ? liveList : [];
-      const currentTemplates = Array.isArray(templateList) ? templateList.map((t) => ({ ...t, isTemplate: true })) : [];
 
       if (pageToFetch === 1) {
-        setAllTasks([...currentLive, ...currentTemplates]);
+        setAllTasks(currentLive);
         setPage(1);
       } else {
         setAllTasks((prev) => {
@@ -515,13 +509,8 @@ export default function MyTasksScreen({ route, navigation }) {
       } else {
         setHasMore(currentLive.length >= PAGE_LIMIT);
       }
-
-      if (resStatuses?.data?.success) {
-        hasFetchedStatusesRef.current = true;
-        setTaskStatuses(resStatuses.data.statuses || []);
-      }
     } catch (error) {
-      console.error("Error fetching tasks:", error);
+      console.error("[MyTasksScreen] Error fetching tasks:", error);
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
@@ -717,12 +706,13 @@ export default function MyTasksScreen({ route, navigation }) {
       const s = normalizeStatusValue(taskStatus);
       if (tgt === "pending") return s === "pending" || s === "re_pending" || s === "todo" || !s;
       if (tgt === "in_process") return s === "in_process" || s === "re_in_process" || s === "in_progress" || s === "working";
-      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete" || s === "late_complete" || s === "re_late_complete";
       if (tgt === "late_complete") return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
       if (tgt === "re_open") return task && (task.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s));
       if (tgt === "overdue") {
         const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(s);
-        return task && !task.isTemplate && task.endDateTime && new Date(task.endDateTime) < new Date() && !isDone;
+        const effectiveEnd = task ? (task.endDateTime || task.endDate) : null;
+        return s === "overdue" || (task && !task.isTemplate && effectiveEnd && new Date(effectiveEnd) < new Date() && !isDone);
       }
       return s === tgt;
     };
@@ -754,12 +744,13 @@ export default function MyTasksScreen({ route, navigation }) {
       const s = normalizeStatusValue(taskStatus);
       if (tgt === "pending") return s === "pending" || s === "re_pending" || s === "todo" || !s;
       if (tgt === "in_process") return s === "in_process" || s === "re_in_process" || s === "in_progress" || s === "working";
-      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete";
+      if (tgt === "complete") return s === "complete" || s === "completed" || s === "done" || s === "re_complete" || s === "late_complete" || s === "re_late_complete";
       if (tgt === "late_complete") return s === "late_complete" || s === "re_late_complete" || s === "late_completed";
       if (tgt === "re_open") return task && (task.reopenCount > 0 || ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(s));
       if (tgt === "overdue") {
         const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes(s);
-        return task && !task.isTemplate && task.endDateTime && new Date(task.endDateTime) < new Date() && !isDone;
+        const effectiveEnd = task ? (task.endDateTime || task.endDate) : null;
+        return s === "overdue" || (task && !task.isTemplate && effectiveEnd && new Date(effectiveEnd) < new Date() && !isDone);
       }
       return s === tgt;
     };

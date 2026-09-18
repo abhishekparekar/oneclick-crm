@@ -9,7 +9,8 @@ import {
   CheckSquare, Clock, AlertTriangle, CheckCircle2, Filter, Search,
   Send, MessageSquare, List, LayoutGrid, Plus, Calendar as CalendarIcon,
   Eye, X, ShieldCheck, User, Sparkles, FileText, ArrowRight, Paperclip,
-  ChevronDown, ChevronUp, Download, Play, Building2, Repeat, Layers
+  ChevronDown, ChevronUp, Download, Play, Building2, Repeat, Layers,
+  RefreshCw, Loader2
 } from "lucide-react";
 
 import { useAuth } from "../../context/AuthContext";
@@ -320,7 +321,7 @@ export default function EmployeeMyTasks() {
   const employees = Array.isArray(empRes) ? empRes : (empRes?.employees || []);
 
   // Fetch Tasks
-  const { data: tasksRes, isLoading } = useQuery({
+  const { data: tasksRes, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["employeeMyTasksPage", authUser?._id, authUser?.employeeId],
     queryFn: async () => {
       const res = await getMyTasksApi().catch(() => ({ data: {} }));
@@ -594,8 +595,13 @@ export default function EmployeeMyTasks() {
 
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-          My Work Tasks &amp; Deliverables
+        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5">
+          <span>My Work Tasks &amp; Deliverables</span>
+          {isFetching && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 px-2.5 py-0.5 rounded-full">
+              <RefreshCw size={11} className="animate-spin" /> Loading...
+            </span>
+          )}
         </h1>
 
         <button
@@ -896,7 +902,20 @@ export default function EmployeeMyTasks() {
       )}
 
       {/* ── TASK CARDS GRID / LIST ───────────────────────────────────────────── */}
-      {filteredTasks.length > 0 ? (
+      {isLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="relative">
+            <div className="w-12 h-12 border-3 border-orange-500/25 border-t-orange-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+            </div>
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Loading your tasks...</p>
+            <p className="text-xs text-slate-400">Please wait while we fetch your assigned tasks and deliverables</p>
+          </div>
+        </div>
+      ) : filteredTasks.length > 0 ? (
         viewMode === "grid" ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredTasks.map((t) => {
@@ -1110,8 +1129,14 @@ export default function EmployeeMyTasks() {
           </div>
         )
       ) : (
-        <div className="py-14 text-center bg-ca-surface rounded-2xl border border-ca-border text-ca-text-secondary text-xs italic">
-          No work tasks found matching your search and filter criteria.
+        <div className="py-16 text-center bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-2.5">
+          <div className="w-12 h-12 bg-slate-100 dark:bg-slate-800/80 text-slate-400 rounded-2xl flex items-center justify-center mx-auto">
+            <CheckSquare size={22} />
+          </div>
+          <p className="text-xs font-bold text-slate-700 dark:text-slate-300">No work tasks found</p>
+          <p className="text-[11px] text-slate-400 max-w-sm mx-auto">
+            No work tasks match your current search, tab, or filter criteria.
+          </p>
         </div>
       )}
 

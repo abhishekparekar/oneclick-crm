@@ -439,23 +439,6 @@ exports.getTasks = async (req, res) => {
                 return obj;
             });
         } else {
-            const nowDate = new Date();
-            // Automatically mark any active overdue tasks asynchronously so getTasks is never blocked
-            Task.updateMany(
-                {
-                    companyId,
-                    status: { $in: ["pending", "re_pending", "in_process", "re_in_process"] },
-                    $or: [
-                        { endDateTime: { $ne: null, $lt: nowDate } },
-                        { endDate: { $ne: null, $lt: nowDate } }
-                    ]
-                },
-                {
-                    $set: { status: "overdue", reminderStage: 3 }
-                }
-            ).catch(() => {});
-
-            totalCount = await Task.countDocuments(query);
             let taskQuery = Task.find(query).sort({ createdAt: -1 })
                 .populate("assignedTo", "firstName lastName fullName name employeeCode email")
                 .populate("assignedBy", "name email")
@@ -466,7 +449,11 @@ exports.getTasks = async (req, res) => {
                 taskQuery = taskQuery.skip(skip).limit(limit);
             }
 
-            const rawDocs = await taskQuery.lean();
+            const [count, rawDocs] = await Promise.all([
+                Task.countDocuments(query),
+                taskQuery.lean()
+            ]);
+            totalCount = count;
 
             const now = Date.now();
             tasks = rawDocs.map(task => {

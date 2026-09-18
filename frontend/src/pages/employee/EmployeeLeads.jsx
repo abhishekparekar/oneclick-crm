@@ -224,7 +224,7 @@ export default function EmployeeLeads() {
   };
 
   // Fetch Leads
-  const { data: leadsData, isLoading, refetch } = useQuery({
+  const { data: leadsData, isLoading, isFetching, refetch } = useQuery({
     queryKey: ["employeeMyLeads"],
     queryFn: async () => {
       const res = await api.get("/leads-engine/leads");
@@ -455,8 +455,13 @@ export default function EmployeeLeads() {
       
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
-        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-          My Leads &amp; Sales Pipeline
+        <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5">
+          <span>My Leads &amp; Sales Pipeline</span>
+          {isFetching && (
+            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 px-2.5 py-0.5 rounded-full">
+              <RefreshCw size={11} className="animate-spin" /> Loading...
+            </span>
+          )}
         </h1>
 
         <button
@@ -589,8 +594,37 @@ export default function EmployeeLeads() {
 
       </div>
 
-      {/* ── LEADS CONTENT: GRID (CARDS) VIEW ─────────────────────────────────── */}
-      {viewMode === "grid" && (
+      {/* ── LEADS CONTENT ───────────────────────────────────────────────────── */}
+      {isLoading ? (
+        <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+          <div className="relative">
+            <div className="w-12 h-12 border-3 border-orange-500/25 border-t-orange-500 rounded-full animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+            </div>
+          </div>
+          <div className="text-center space-y-1">
+            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Loading Lead Pipeline...</p>
+            <p className="text-xs text-slate-400">Please wait while we fetch your assigned leads and client inquiries</p>
+          </div>
+        </div>
+      ) : filteredLeads.length === 0 ? (
+        <div className="bg-white dark:bg-[#111C24] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-12 text-center space-y-3 shadow-2xs">
+          <div className="w-12 h-12 bg-orange-500/10 text-orange-600 rounded-2xl flex items-center justify-center mx-auto">
+            <Magnet size={24} />
+          </div>
+          <h3 className="font-black text-sm text-slate-800 dark:text-slate-200">No Leads Found</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            There are no leads matching your selected date or status filter. Click &quot;Create Lead&quot; to add a new prospective client.
+          </p>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer"
+          >
+            + Create New Lead
+          </button>
+        </div>
+      ) : viewMode === "grid" ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredLeads.map((lead) => {
             const resolvedStatusName = resolveLeadStatusName(lead, statuses);
@@ -697,10 +731,7 @@ export default function EmployeeLeads() {
             );
           })}
         </div>
-      )}
-
-      {/* ── LEADS CONTENT: TABLE (LIST) VIEW ─────────────────────────────────── */}
-      {viewMode === "list" && (
+      ) : (
         <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs min-w-[950px]">
@@ -774,25 +805,6 @@ export default function EmployeeLeads() {
               </tbody>
             </table>
           </div>
-        </div>
-      )}
-
-      {/* Empty State */}
-      {filteredLeads.length === 0 && (
-        <div className="bg-ca-surface rounded-3xl border border-ca-border p-12 text-center space-y-3">
-          <div className="w-12 h-12 bg-orange-500/10 text-orange-600 rounded-2xl flex items-center justify-center mx-auto">
-            <Magnet size={24} />
-          </div>
-          <h3 className="font-black text-sm text-ca-text">No Leads Found</h3>
-          <p className="text-xs text-ca-text-secondary max-w-sm mx-auto">
-            There are no leads matching your selected date or status filter. Click "Create Lead" to add a new prospective client.
-          </p>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer"
-          >
-            + Create New Lead
-          </button>
         </div>
       )}
 
