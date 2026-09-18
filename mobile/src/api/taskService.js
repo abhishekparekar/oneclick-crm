@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 
 export const getEmployeeTasksApi = (params = {}) =>
-  api.get("/tasks", { params }).catch(() => api.get("/employee/tasks", { params }));
+  api.get("/tasks", { params });
 
 export const getActiveTaskStatusesApi = () =>
   api.get("/company/tasks/statuses/active");

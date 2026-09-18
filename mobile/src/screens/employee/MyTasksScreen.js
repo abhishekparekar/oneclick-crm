@@ -416,7 +416,7 @@ export default function MyTasksScreen({ route, navigation }) {
       if (res.data && res.data.success) {
         setCancelModal({ visible: false, task: null });
         setCancelReason("");
-        fetchTasks(false);
+        fetchTasks(1, false);
       }
     } catch (e) {
       Alert.alert("Error", "Failed to cancel task. Please try again.");
@@ -453,10 +453,19 @@ export default function MyTasksScreen({ route, navigation }) {
 
   const isFetchingRef = useRef(false);
   const hasFetchedStatusesRef = useRef(false);
+  // Track completed fetches so we only show "No tasks" after a real empty response
+  const hasFetchedOnceRef = useRef(false);
+  // Stale-response guard: each fetch increments this; responses with an old id are discarded
+  const requestIdRef = useRef(0);
 
   const fetchTasks = async (pageToFetch = 1, showLoading = true) => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
+
+    // Each call gets a unique id; stale responses (e.g. from a slow prior request) are discarded
+    requestIdRef.current += 1;
+    const thisRequestId = requestIdRef.current;
+
     try {
       if (pageToFetch === 1) {
         if (showLoading) setLoading(true);
@@ -470,11 +479,17 @@ export default function MyTasksScreen({ route, navigation }) {
       };
       if (selectedPriority) params.priority = selectedPriority;
 
-      // Primary tasks fetch
-      const resTasks = await getEmployeeTasksApi(params).catch((err) => {
+      let resTasks = null;
+      let fetchError = null;
+      try {
+        resTasks = await getEmployeeTasksApi(params);
+      } catch (err) {
+        fetchError = err;
         console.warn("[MyTasksScreen] getEmployeeTasksApi error:", err?.message || err);
-        return { data: { tasks: [], success: false } };
-      });
+      }
+
+      // Discard result if a newer request has already started
+      if (thisRequestId !== requestIdRef.current) return;
 
       // Background fetch statuses only once without delaying task rendering
       if (!hasFetchedStatusesRef.current && taskStatuses.length === 0) {
@@ -488,8 +503,18 @@ export default function MyTasksScreen({ route, navigation }) {
           .catch(() => {});
       }
 
+      // On error: preserve the existing task list (do NOT wipe it)
+      if (fetchError || !resTasks) {
+        // Only mark as "fetched" if we had no prior data — keeps loading spinner hidden on retry
+        hasFetchedOnceRef.current = hasFetchedOnceRef.current || false;
+        return;
+      }
+
       const liveList = resTasks?.data?.tasks || resTasks?.data?.data?.tasks || resTasks?.data?.data || (Array.isArray(resTasks?.data) ? resTasks?.data : []);
       const currentLive = Array.isArray(liveList) ? liveList : [];
+
+      // Mark that we've had at least one successful fetch
+      hasFetchedOnceRef.current = true;
 
       if (pageToFetch === 1) {
         setAllTasks(currentLive);
@@ -511,6 +536,7 @@ export default function MyTasksScreen({ route, navigation }) {
       }
     } catch (error) {
       console.error("[MyTasksScreen] Error fetching tasks:", error);
+      // Do NOT clear allTasks on unexpected error
     } finally {
       isFetchingRef.current = false;
       setLoading(false);
@@ -840,7 +866,7 @@ export default function MyTasksScreen({ route, navigation }) {
 
   useEffect(() => {
     if (socket) {
-      const handleTaskUpdate = () => { fetchTasks(false); };
+      const handleTaskUpdate = () => { fetchTasks(1, false); };
       socket.on(`taskCreated_${user?.companyId}`, handleTaskUpdate);
       socket.on(`taskUpdated_${user?.companyId}`, handleTaskUpdate);
       return () => {
@@ -889,7 +915,7 @@ export default function MyTasksScreen({ route, navigation }) {
         const res = await updateTaskStatusApi(selectedTask._id, actionType.replace('re_', ''), payload);
       }
       setActionModalVisible(false);
-      fetchTasks(false);
+      fetchTasks(1, false);
     } catch (err) {
       console.error(err);
       Alert.alert("Error", err?.response?.data?.message || "Failed to update task status.");
@@ -1138,8 +1164,14 @@ export default function MyTasksScreen({ route, navigation }) {
             loading ? (
               <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
                 <ActivityIndicator size="large" color="#1268D9" />
-                <Text style={{ fontSize: 15, fontWeight: "700", color: "#1268D9", marginTop: 12 }}>Loading tasks.......</Text>
+                <Text style={{ fontSize: 15, fontWeight: "700", color: "#1268D9", marginTop: 12 }}>Loading tasks...</Text>
                 <Text style={{ fontSize: 12, color: "#64748B", marginTop: 4 }}>Please wait while your tasks are being loaded</Text>
+              </View>
+            ) : !hasFetchedOnceRef.current ? (
+              // Still waiting for first successful response — show spinner, not "No tasks"
+              <View style={{ paddingVertical: 48, alignItems: "center", justifyContent: "center" }}>
+                <ActivityIndicator size="large" color="#1268D9" />
+                <Text style={{ fontSize: 14, color: "#64748B", marginTop: 10 }}>Fetching your tasks...</Text>
               </View>
             ) : (
               <View style={styles.emptyWrap}>

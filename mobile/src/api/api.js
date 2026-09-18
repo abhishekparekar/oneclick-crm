@@ -84,7 +84,7 @@ const api = axios.create({
     "Content-Type": "application/json",
     "X-Platform": "mobile",
   },
-  timeout: 15000,
+  timeout: 45000,
 });
 
 api.interceptors.request.use(
