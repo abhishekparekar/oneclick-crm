@@ -441,26 +441,29 @@ export default function EmployeeMyTasks() {
     return st;
   };
 
-  // Status counts map based on baseTabTasks
+  // Status counts map based on baseTabTasks (Required core statuses)
   const statusCounts = useMemo(() => {
     const map = {
       all: baseTabTasks.length,
       pending: 0,
       in_process: 0,
-      re_pending: 0,
-      re_in_process: 0,
       complete: 0,
-      re_complete: 0,
-      late_complete: 0,
-      re_late_complete: 0,
       overdue: 0,
       cancelled: 0,
     };
 
     baseTabTasks.forEach(t => {
       const eff = getTaskEffectiveStatus(t);
-      if (map[eff] !== undefined) {
-        map[eff] += 1;
+      if (eff === "pending" || eff === "re_pending") {
+        map.pending += 1;
+      } else if (eff === "in_process" || eff === "re_in_process") {
+        map.in_process += 1;
+      } else if (eff === "complete" || eff === "re_complete" || eff === "late_complete" || eff === "re_late_complete") {
+        map.complete += 1;
+      } else if (eff === "overdue") {
+        map.overdue += 1;
+      } else if (eff === "cancelled") {
+        map.cancelled += 1;
       } else {
         map.pending += 1;
       }
@@ -516,10 +519,20 @@ export default function EmployeeMyTasks() {
         }
       }
 
-      // Status Filter
+      // Status Filter (Support required status grouping)
       if (statusFilter !== "all") {
         const eff = getTaskEffectiveStatus(t);
-        if (eff !== statusFilter.toLowerCase()) {
+        if (statusFilter === "pending") {
+          if (eff !== "pending" && eff !== "re_pending") return false;
+        } else if (statusFilter === "in_process") {
+          if (eff !== "in_process" && eff !== "re_in_process") return false;
+        } else if (statusFilter === "complete") {
+          if (eff !== "complete" && eff !== "re_complete" && eff !== "late_complete" && eff !== "re_late_complete") return false;
+        } else if (statusFilter === "overdue") {
+          if (eff !== "overdue") return false;
+        } else if (statusFilter === "cancelled") {
+          if (eff !== "cancelled") return false;
+        } else if (eff !== statusFilter.toLowerCase()) {
           return false;
         }
       }
@@ -623,106 +636,67 @@ export default function EmployeeMyTasks() {
           })}
         </div>
 
-        {/* ── Row 2: Task Status Filter Pills ───────────────────────────────── */}
-        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
+        {/* ── Row 2: Task Status Filter Pills (Professional & Required Statuses Only) ── */}
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto hide-scrollbar pt-2.5 border-t border-slate-100 dark:border-slate-800">
           {[
             {
               id: "all",
               label: "All Tasks",
-              count: baseTabTasks.length,
-              pillInactive: "bg-slate-50 text-slate-700 border-slate-200 dark:bg-[#0B101B] dark:text-slate-200 dark:border-slate-700/80 hover:border-slate-300 shadow-2xs",
-              pillActive: "bg-[#1268D9] text-white dark:bg-[#1268D9] border-[#1268D9] shadow-xs ring-2 ring-[#1268D9]/30",
-              badgeInactive: "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700",
-              badgeActive: "bg-white/20 text-white"
+              count: statusCounts.all,
+              dot: "bg-slate-400 dark:bg-slate-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 shadow-2xs",
+              pillActive: "bg-slate-900 text-white dark:bg-white dark:text-slate-950 border-slate-900 dark:border-white shadow-xs font-bold ring-2 ring-slate-900/20 dark:ring-white/20",
+              badgeInactive: "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
+              badgeActive: "bg-white/20 dark:bg-slate-950/20 text-white dark:text-slate-950"
             },
             {
               id: "pending",
               label: "Pending",
               count: statusCounts.pending,
-              pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
-              pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
-              badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
+              dot: "bg-blue-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-blue-50/60 hover:border-blue-200 dark:hover:bg-blue-950/30 shadow-2xs",
+              pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs font-bold ring-2 ring-blue-500/25",
+              badgeInactive: "bg-blue-100/80 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
               badgeActive: "bg-white/20 text-white"
             },
             {
               id: "in_process",
               label: "In Process",
               count: statusCounts.in_process,
-              pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
-              pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
-              badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "re_pending",
-              label: "Re-Pending",
-              count: statusCounts.re_pending,
-              pillInactive: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 hover:bg-indigo-100/80 shadow-2xs",
-              pillActive: "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/30",
-              badgeInactive: "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "re_in_process",
-              label: "Re-In Process",
-              count: statusCounts.re_in_process,
-              pillInactive: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800 hover:bg-cyan-100/80 shadow-2xs",
-              pillActive: "bg-cyan-600 text-white border-cyan-600 shadow-xs ring-2 ring-cyan-500/30",
-              badgeInactive: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200",
+              dot: "bg-amber-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-amber-50/60 hover:border-amber-200 dark:hover:bg-amber-950/30 shadow-2xs",
+              pillActive: "bg-amber-500 text-white border-amber-500 shadow-xs font-bold ring-2 ring-amber-500/25",
+              badgeInactive: "bg-amber-100/80 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
               badgeActive: "bg-white/20 text-white"
             },
             {
               id: "complete",
               label: "Completed",
               count: statusCounts.complete,
-              pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
-              pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
-              badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "re_complete",
-              label: "Re-Completed",
-              count: statusCounts.re_complete,
-              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-              pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30",
-              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "late_complete",
-              label: "Late Completed",
-              count: statusCounts.late_complete,
-              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-              pillActive: "bg-teal-700 text-white border-teal-700 shadow-xs ring-2 ring-teal-600/30",
-              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
-              badgeActive: "bg-white/20 text-white"
-            },
-            {
-              id: "re_late_complete",
-              label: "Re-Late Completed",
-              count: statusCounts.re_late_complete,
-              pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-              pillActive: "bg-teal-800 text-white border-teal-800 shadow-xs ring-2 ring-teal-700/30",
-              badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
+              dot: "bg-emerald-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-emerald-50/60 hover:border-emerald-200 dark:hover:bg-emerald-950/30 shadow-2xs",
+              pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs font-bold ring-2 ring-emerald-500/25",
+              badgeInactive: "bg-emerald-100/80 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
               badgeActive: "bg-white/20 text-white"
             },
             {
               id: "overdue",
               label: "Overdue",
               count: statusCounts.overdue,
-              pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
-              pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
-              badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
+              dot: "bg-rose-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-rose-50/60 hover:border-rose-200 dark:hover:bg-rose-950/30 shadow-2xs",
+              pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs font-bold ring-2 ring-rose-500/25",
+              badgeInactive: "bg-rose-100/80 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
               badgeActive: "bg-white/20 text-white"
             },
             {
               id: "cancelled",
               label: "Cancelled",
               count: statusCounts.cancelled,
-              pillInactive: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700 hover:bg-slate-200 shadow-2xs",
-              pillActive: "bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-500/30",
-              badgeInactive: "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200",
+              dot: "bg-slate-400 dark:bg-slate-500",
+              pillInactive: "bg-slate-50 text-slate-700 border-slate-200/90 dark:bg-[#0B101B] dark:text-slate-300 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800/80 shadow-2xs",
+              pillActive: "bg-slate-600 text-white border-slate-600 shadow-xs font-bold ring-2 ring-slate-500/25",
+              badgeInactive: "bg-slate-200/80 dark:bg-slate-800 text-slate-700 dark:text-slate-300",
               badgeActive: "bg-white/20 text-white"
             },
           ].map(st => {
@@ -731,17 +705,14 @@ export default function EmployeeMyTasks() {
               <button
                 key={st.id}
                 onClick={() => setStatusFilter(st.id)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  active
-                    ? st.pillActive
-                    : st.pillInactive
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer border shrink-0 ${
+                  active ? st.pillActive : st.pillInactive
                 }`}
               >
+                <span className={`w-2 h-2 rounded-full shrink-0 ${active ? "bg-white dark:bg-slate-950 ring-2 ring-white/30" : st.dot}`} />
                 <span>{st.label}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                  active
-                    ? st.badgeActive
-                    : st.badgeInactive
+                <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-black ${
+                  active ? st.badgeActive : st.badgeInactive
                 }`}>
                   {st.count || 0}
                 </span>
