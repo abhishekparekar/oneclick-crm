@@ -17,7 +17,7 @@ const Employee = require("../models/Employee");
 const Department = require("../models/Department");
 const User = require("../models/User");
 const Project = require("../models/Project");
-const { notifyRole, notifyTaskAll } = require("../utils/notificationHelper");
+const { notifyRole, notifyTaskAll, resolveToUserIds, notifyManyUsers } = require("../utils/notificationHelper");
 const { processSingleTemplate } = require("../cron/taskCron");
 const { validateTaskSchedule } = require("../utils/taskScheduleUtils");
 
@@ -213,23 +213,22 @@ exports.createTask = async (req, res) => {
                 console.error("TaskActivity creation error:", actErr);
             }
 
-            // Notify assigned employees + CompanyAdmin + managers (strictly 1 notification per recipient)
-            notifyTaskAll(
-                companyId,
-                assigneeIds,
-                newTask.departmentId || null,
-                "New Task Assigned",
-                `You have been assigned a new task: ${title}`,
-                "task",
-                { taskId: newTask._id.toString() },
-                {
-                    excludeUserId: req.user._id,
-                    assigneeTitle: "New Task Assigned",
-                    assigneeBody: `You have been assigned a new task: ${title}`,
-                    supervisorTitle: "Task Created",
-                    supervisorBody: `New task "${title}" was created by ${req.user.name || "Admin"}.`
+            // Notify strictly the assigned user(s) (only the user to whom the task is assigned)
+            const targetAssigneeIds = (assigneeIds || []).filter(Boolean);
+            if (targetAssigneeIds.length > 0) {
+                const assigneeUserIds = await resolveToUserIds(targetAssigneeIds, companyId);
+                const finalRecipients = assigneeUserIds.filter(uid => uid && uid.toString() !== req.user._id.toString());
+                if (finalRecipients.length > 0) {
+                    notifyManyUsers(
+                        finalRecipients,
+                        companyId,
+                        "New Task Assigned",
+                        `You have been assigned a new task: ${title}`,
+                        "task",
+                        { taskId: newTask._id.toString() }
+                    ).catch(err => console.error("Error sending task notification:", err));
                 }
-            ).catch(err => console.error("Error sending task notification:", err));
+            }
 
             return res.status(201).json({ success: true, task: newTask, data: { task: newTask } });
         }
@@ -276,23 +275,22 @@ exports.createTask = async (req, res) => {
 
         await newTemplate.save();
 
-        // Notify assigned employees + CompanyAdmin + managers for recurring task (strictly 1 notification per recipient)
-        notifyTaskAll(
-            companyId,
-            assigneeIds,
-            newTemplate.departmentId || null,
-            "Recurring Task Set Up",
-            `A new recurring task schedule (${safeRepeatType}) has been set up: ${title}`,
-            "task_template",
-            { templateId: newTemplate._id.toString() },
-            {
-                excludeUserId: req.user._id,
-                assigneeTitle: "Recurring Task Assigned",
-                assigneeBody: `A recurring task schedule (${safeRepeatType}) has been assigned to you: ${title}`,
-                supervisorTitle: "Recurring Task Created",
-                supervisorBody: `A new recurring task schedule (${safeRepeatType}) "${title}" was created by ${req.user.name || "Admin"}.`
+        // Notify strictly the assigned user(s) for recurring task schedule
+        const targetTemplateAssigneeIds = (assigneeIds || []).filter(Boolean);
+        if (targetTemplateAssigneeIds.length > 0) {
+            const templateAssigneeUserIds = await resolveToUserIds(targetTemplateAssigneeIds, companyId);
+            const finalRecipients = templateAssigneeUserIds.filter(uid => uid && uid.toString() !== req.user._id.toString());
+            if (finalRecipients.length > 0) {
+                notifyManyUsers(
+                    finalRecipients,
+                    companyId,
+                    "Recurring Task Assigned",
+                    `A recurring task schedule (${safeRepeatType}) has been assigned to you: ${title}`,
+                    "task_template",
+                    { templateId: newTemplate._id.toString() }
+                ).catch(err => console.error("Error sending recurring task notification:", err));
             }
-        ).catch(err => console.error("Error sending recurring task notification:", err));
+        }
 
         // If template start date is today/past, attempt immediate generation for today
         let generatedTask = null;

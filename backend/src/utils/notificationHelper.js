@@ -195,10 +195,12 @@ const notifyDeptManagers = async (companyId, departmentId, title, body, type = "
       companyId,
       status: "active",
       $or: [
-        { departmentId },
-        { departmentIds: departmentId },
-        { accessibleDepartments: departmentId },
-        { departmentId, managerAccessLevel: { $in: ["department", "full", "team"] } },
+        { departmentId, isManager: true },
+        { departmentIds: departmentId, isManager: true },
+        { accessibleDepartments: departmentId, isManager: true },
+        { departmentId, role: { $in: ["Manager", "TeamLeader"] } },
+        { departmentIds: departmentId, role: { $in: ["Manager", "TeamLeader"] } },
+        { accessibleDepartments: departmentId, role: { $in: ["Manager", "TeamLeader"] } },
         { isManager: true, departmentId }
       ]
     }).select("userId").lean();
@@ -298,7 +300,9 @@ const notifyTaskSupervisors = async (
             { departmentId: { $in: deptIds }, isManager: true },
             { departmentIds: { $in: deptIds }, isManager: true },
             { accessibleDepartments: { $in: deptIds }, isManager: true },
-            { departmentId: { $in: deptIds }, managerAccessLevel: { $in: ["department", "full", "team"] } },
+            { departmentId: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
+            { departmentIds: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
+            { accessibleDepartments: { $in: deptIds }, role: { $in: ["Manager", "TeamLeader"] } },
             { isManager: true, departmentId: { $in: deptIds } }
           ]
         }).select("userId").lean();
@@ -315,8 +319,10 @@ const notifyTaskSupervisors = async (
         companyId,
         status: "active",
         $or: [
-          { accessibleDepartments: { $in: [departmentId] } },
-          { departmentId, managerAccessLevel: { $in: ["department", "full", "team"] } },
+          { accessibleDepartments: { $in: [departmentId] }, isManager: true },
+          { departmentId, isManager: true },
+          { departmentId, role: { $in: ["Manager", "TeamLeader"] } },
+          { accessibleDepartments: { $in: [departmentId] }, role: { $in: ["Manager", "TeamLeader"] } },
           { isManager: true, departmentId }
         ]
       }).select("userId").lean();
@@ -485,8 +491,10 @@ const notifyAttendancePunch = async ({
         companyId,
         status: "active",
         $or: [
-          { accessibleDepartments: { $in: [deptId] } },
-          { departmentId: deptId, managerAccessLevel: { $in: ["department", "full", "team"] } },
+          { accessibleDepartments: { $in: [deptId] }, isManager: true },
+          { departmentId: deptId, isManager: true },
+          { departmentId: deptId, role: { $in: ["Manager", "TeamLeader"] } },
+          { accessibleDepartments: { $in: [deptId] }, role: { $in: ["Manager", "TeamLeader"] } },
           { isManager: true, departmentId: deptId }
         ]
       }).select("userId").lean();
