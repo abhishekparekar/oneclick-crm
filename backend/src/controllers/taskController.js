@@ -329,7 +329,7 @@ exports.getTasks = async (req, res) => {
             query.isActive = true;
         }
 
-        // Resolve corresponding Employee record
+        // Resolve corresponding Employee record — try all fallbacks
         let employee = null;
         if (req.user?.employeeId) {
             employee = await Employee.findOne({ _id: req.user.employeeId, companyId }).lean();
@@ -340,15 +340,27 @@ exports.getTasks = async (req, res) => {
         if (!employee && req.user?.email) {
             employee = await Employee.findOne({ email: new RegExp(`^${req.user.email.trim()}$`, "i"), companyId }).lean();
         }
+        // Last resort — find employee without companyId constraint (handles multi-company edge case)
         if (!employee && req.user?._id) {
             employee = await Employee.findOne({ userId: req.user._id }).lean();
         }
-        const employeeId = employee ? employee._id : (req.user?.employeeId || null);
+        if (!employee && req.user?.employeeId) {
+            employee = await Employee.findOne({ _id: req.user.employeeId }).lean();
+        }
+
+        const employeeId = employee ? employee._id : null;
 
         let allowedDeptIds = [];
         if (employee) {
             if (employee.departmentId) allowedDeptIds.push(employee.departmentId);
-            if (employee.accessibleDepartments && employee.accessibleDepartments.length > 0) {
+            if (Array.isArray(employee.departmentIds) && employee.departmentIds.length > 0) {
+                employee.departmentIds.forEach((deptId) => {
+                    if (!allowedDeptIds.map(d => d.toString()).includes(deptId.toString())) {
+                        allowedDeptIds.push(deptId);
+                    }
+                });
+            }
+            if (Array.isArray(employee.accessibleDepartments) && employee.accessibleDepartments.length > 0) {
                 employee.accessibleDepartments.forEach((deptId) => {
                     if (!allowedDeptIds.map(d => d.toString()).includes(deptId.toString())) {
                         allowedDeptIds.push(deptId);
@@ -357,24 +369,34 @@ exports.getTasks = async (req, res) => {
             }
         }
 
-        // Apply RBAC
+        // Apply RBAC — build $or conditions
         let rbacOr = null;
         if (req.user.role === "Employee") {
-            const userIdentifiers = [employeeId, req.user._id, req.user?.employeeId].filter(Boolean);
+            // Build identifiers — only use valid ObjectIds
+            const userIdentifiers = [employeeId, req.user?.employeeId].filter(Boolean);
+            
             rbacOr = [
-                { assignedTo: { $in: userIdentifiers } },
+                // Tasks directly assigned to this employee
+                ...(userIdentifiers.length > 0 ? [{ assignedTo: { $in: userIdentifiers } }] : []),
+                // Tasks created/assigned by this user (self-created)
                 { assignedBy: req.user._id },
-                allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds }, assignmentType: { $in: ["department", "company", "company_wide"] } } : null,
-                { assignmentType: { $in: ["company", "company_wide"] } }
+                // Company-wide / company tasks always visible to all employees
+                { assignmentType: { $in: ["company", "company_wide"] } },
+                // Dept tasks for employee's departments
+                ...(allowedDeptIds.length > 0 ? [{
+                    departmentId: { $in: allowedDeptIds },
+                    assignmentType: { $in: ["department", "company", "company_wide", "multiple"] }
+                }] : []),
             ].filter(Boolean);
         } else if (req.user.role === "Manager" || req.user.role === "TeamLeader") {
-            const userIdentifiers = [employeeId, req.user._id, req.user?.employeeId].filter(Boolean);
+            const userIdentifiers = [employeeId, req.user?.employeeId].filter(Boolean);
             rbacOr = [
                 { assignedBy: req.user._id },
-                { assignedTo: { $in: userIdentifiers } },
-                allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds } } : null
+                ...(userIdentifiers.length > 0 ? [{ assignedTo: { $in: userIdentifiers } }] : []),
+                ...(allowedDeptIds.length > 0 ? [{ departmentId: { $in: allowedDeptIds } }] : []),
+                { assignmentType: { $in: ["company", "company_wide"] } },
             ].filter(Boolean);
-        } // Admins see all
+        } // Admins / CompanyAdmin see all tasks for the company
 
         if (rbacOr && rbacOr.length > 0) {
             query.$or = rbacOr;
