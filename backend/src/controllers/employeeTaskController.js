@@ -1,6 +1,11 @@
 const Employee = require("../models/Employee");
 const Task = require("../models/Task");
 const Timesheet = require("../models/Timesheet");
+const Project = require("../models/Project");
+const Department = require("../models/Department");
+const User = require("../models/User");
+const TaskTemplate = require("../models/TaskTemplate");
+const TaskStatus = require("../models/TaskStatus");
 const { sendNotificationToEmployees, notifyUser } = require("../utils/notificationHelper");
 
 // Resolve employee profile
@@ -30,43 +35,72 @@ const getAssignedTasks = async (req, res, next) => {
     }
 
     const { status, priority, dueDate, search } = req.query;
-    const filter = { companyId: req.companyId, assignedTo: employee._id };
+
+    const deptIds = [];
+    if (employee.departmentId) deptIds.push(employee.departmentId);
+    if (Array.isArray(employee.departmentIds)) deptIds.push(...employee.departmentIds);
+    if (Array.isArray(employee.accessibleDepartments)) deptIds.push(...employee.accessibleDepartments);
+
+    const assignmentOr = [
+      { assignedTo: employee._id },
+      { assignedTo: req.user._id },
+      { assignedBy: req.user._id },
+      { assignmentType: { $in: ["company", "company_wide"] } }
+    ];
+    if (employee.userId) {
+      assignmentOr.push({ assignedTo: employee.userId });
+    }
+    if (deptIds.length > 0) {
+      assignmentOr.push({
+        assignmentType: "department",
+        departmentId: { $in: deptIds }
+      });
+    }
+
+    const andConditions = [
+      { companyId: req.companyId },
+      { $or: assignmentOr }
+    ];
 
     if (status) {
       if (status === "todo" || status === "pending") {
-        filter.status = { $in: ["todo", "pending", "open"] };
+        andConditions.push({ status: { $in: ["todo", "pending", "open"] } });
       } else if (status === "completed" || status === "done") {
-        filter.status = { $in: ["completed", "complete", "done"] };
+        andConditions.push({ status: { $in: ["completed", "complete", "done"] } });
       } else if (status === "inProgress" || status === "in-progress") {
-        filter.status = { $in: ["in-progress", "inProgress", "in_process"] };
+        andConditions.push({ status: { $in: ["in-progress", "inProgress", "in_process"] } });
       } else if (status === "inReview" || status === "review") {
-        filter.status = { $in: ["review", "inReview"] };
+        andConditions.push({ status: { $in: ["review", "inReview"] } });
       } else {
-        filter.status = status;
+        andConditions.push({ status });
       }
     } else {
-      filter.status = { $ne: "cancelled" };
+      andConditions.push({ status: { $ne: "cancelled" } });
     }
 
     if (priority) {
-      filter.priority = priority.toLowerCase();
+      andConditions.push({ priority: priority.toLowerCase() });
     }
 
     if (dueDate) {
       const targetDate = new Date(dueDate);
       const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0));
       const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999));
-      filter.dueDate = { $gte: startOfDay, $lte: endOfDay };
+      andConditions.push({ dueDate: { $gte: startOfDay, $lte: endOfDay } });
     }
 
     if (search && String(search).trim()) {
       const q = String(search).trim();
       const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      filter.$or = [
-        { title: regex },
-        { description: regex }
-      ];
+      andConditions.push({
+        $or: [
+          { title: regex },
+          { description: regex }
+        ]
+      });
     }
+
+    const filter = { $and: andConditions };
     
     const isTemplate = req.query.isTemplate === 'true' || req.query.isTemplate === true;
     const page = parseInt(req.query.page, 10) || 1;
@@ -151,11 +185,26 @@ const getTaskDetails = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Employee profile not found" });
     }
 
-    let task = await Task.findOne({
+    const deptIds = [];
+    if (employee.departmentId) deptIds.push(employee.departmentId);
+    if (Array.isArray(employee.departmentIds)) deptIds.push(...employee.departmentIds);
+    if (Array.isArray(employee.accessibleDepartments)) deptIds.push(...employee.accessibleDepartments);
+
+    const accessFilter = {
       _id: req.params.id,
       companyId: req.companyId,
-      assignedTo: employee._id
-    }).populate({ path: "projectId", select: "name description status startDate endDate" })
+      $or: [
+        { assignedTo: employee._id },
+        { assignedTo: req.user._id },
+        { assignedBy: req.user._id },
+        { assignmentType: { $in: ["company", "company_wide"] } },
+        ...(employee.userId ? [{ assignedTo: employee.userId }] : []),
+        ...(deptIds.length > 0 ? [{ assignmentType: "department", departmentId: { $in: deptIds } }] : [])
+      ]
+    };
+
+    let task = await Task.findOne(accessFilter)
+      .populate({ path: "projectId", select: "name description status startDate endDate" })
       .populate({ path: "departmentId", select: "name", strictPopulate: false })
       .populate({ path: "assignedBy", select: "name" })
       .populate({ 
@@ -170,11 +219,8 @@ const getTaskDetails = async (req, res, next) => {
     let isTemplate = false;
     if (!task) {
       const TaskTemplate = require("../models/TaskTemplate");
-      task = await TaskTemplate.findOne({
-        _id: req.params.id,
-        companyId: req.companyId,
-        assignedTo: employee._id
-      }).populate({ path: "projectId", select: "name description status startDate endDate" })
+      task = await TaskTemplate.findOne(accessFilter)
+        .populate({ path: "projectId", select: "name description status startDate endDate" })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .populate({ path: "assignedBy", select: "name" })
         .populate({ 

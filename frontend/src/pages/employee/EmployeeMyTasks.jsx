@@ -150,20 +150,39 @@ const getCardDeptName = (t) => {
 
 const isTaskAssignedToUser = (t, user) => {
   if (!t || !user) return true;
+  // If task is company-wide, all company employees can see it
+  if (["company", "company_wide"].includes(t.assignmentType)) return true;
+
   const userId = String(user._id || user.id || "").toLowerCase();
-  const empId = user.employeeId ? String(user.employeeId._id || user.employeeId).toLowerCase() : "";
+  const empId = user.employee?._id
+    ? String(user.employee._id).toLowerCase()
+    : (user.employeeId ? String(user.employeeId?._id || user.employeeId).toLowerCase() : "");
   const email = (user.email || "").toLowerCase();
 
+  // If department-level task, match user's department
+  if (t.assignmentType === "department" && t.departmentId) {
+    const taskDeptId = String(typeof t.departmentId === "object" ? (t.departmentId._id || t.departmentId.id) : t.departmentId).toLowerCase();
+    const userDeptId = String(user.departmentId?._id || user.departmentId || "").toLowerCase();
+    if (taskDeptId && userDeptId && taskDeptId === userDeptId) return true;
+  }
+
   const assigned = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
+  if (assigned.length === 0) return true;
+
   const isAssigned = assigned.some(a => {
     if (!a) return false;
     if (typeof a === "object") {
       const aId = String(a._id || a.id || "").toLowerCase();
+      const aUserId = String(a.userId?._id || a.userId || "").toLowerCase();
       const aEmail = (a.email || "").toLowerCase();
-      return (aId && (aId === userId || aId === empId)) || (email && aEmail && aEmail === email);
+      return (
+        (aId && (aId === userId || (empId && aId === empId))) ||
+        (aUserId && aUserId === userId) ||
+        (email && aEmail && aEmail === email)
+      );
     }
     const aIdStr = String(a).toLowerCase();
-    return aIdStr === userId || aIdStr === empId;
+    return aIdStr === userId || (empId && aIdStr === empId);
   });
 
   const createdBy = t.createdBy ? String(typeof t.createdBy === "object" ? (t.createdBy._id || t.createdBy.id) : t.createdBy).toLowerCase() : "";
@@ -1144,7 +1163,7 @@ export default function EmployeeMyTasks() {
       {isCreateModalOpen && (
         <TaskCreateModal
           isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
+          onClose={handleCloseCreateModal}
           departments={departments}
           employees={employees}
           createTaskFn={async (payload) => {
@@ -1287,13 +1306,6 @@ export default function EmployeeMyTasks() {
         </div>
       )}
 
-      {/* Task Create Modal */}
-      <TaskCreateModal
-        isOpen={isCreateModalOpen}
-        onClose={handleCloseCreateModal}
-        departments={departments}
-        employees={employees}
-      />
 
       {/* Unified Task Status Modal */}
       {selectedTaskForStatus && (

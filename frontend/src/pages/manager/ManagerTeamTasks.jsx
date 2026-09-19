@@ -348,16 +348,16 @@ export default function ManagerTeamTasks() {
   }));
 
   const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
-  const allowedDepts = [
+  const allowedDepts = useMemo(() => [
     managerProfile.departmentId,
     ...(managerProfile.departmentIds || []),
     ...(managerProfile.accessibleDepartments || []),
-  ].filter(Boolean);
+  ].filter(Boolean), [managerProfile.departmentId, managerProfile.departmentIds, managerProfile.accessibleDepartments]);
 
-  const departments = allowedDepts.map(d => {
+  const departments = useMemo(() => allowedDepts.map(d => {
     if (typeof d === "object") return { _id: d._id, name: d.name };
     return { _id: d, name: "Manager Department" };
-  });
+  }), [allowedDepts]);
 
   const kanbanColumns = [
     { key: "pending", title: "Pending", dot: "bg-blue-500", filterFn: t => ["pending", "re_pending"].includes((t.status || "").toLowerCase()) },

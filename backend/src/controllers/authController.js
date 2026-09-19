@@ -364,6 +364,7 @@ const getMe = async (req, res) => {
     userObj.accessibleDepartments = employeeObj.accessibleDepartments || [];
     userObj.profileImage = employeeObj.photo || userObj.profileImage;
     userObj.isLocationTrackingEnabled = Boolean(employeeObj.isLocationTrackingEnabled);
+    userObj.employeeId = employeeObj._id;
     userObj.employee = {
       _id: employeeObj._id,
       assignedModules: userObj.assignedModules,

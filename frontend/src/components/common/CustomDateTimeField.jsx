@@ -90,11 +90,11 @@ export default function CustomDateTimeField({
         }}
       />
 
-      {/* Left Icon */}
+      {/* Left Icon (if provided) */}
       {Icon && (
         <Icon
           size={13}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-amber-500 transition-colors pointer-events-none z-10"
+          className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-amber-500 transition-colors pointer-events-none z-10"
         />
       )}
 
@@ -102,11 +102,11 @@ export default function CustomDateTimeField({
       <input
         type="text"
         readOnly
-        required={required}
         value={formattedDisplay}
+        title={formattedDisplay || placeholder || ""}
         placeholder={placeholder || (type === "date" ? "DD/MM/YYYY" : "DD/MM/YYYY hh:mm AM/PM")}
         disabled={disabled}
-        className={`${Icon ? "pl-8" : "pl-3"} pr-8 ${className} cursor-pointer select-none`}
+        className={`${Icon ? "pl-7 pr-2" : "pl-2.5 pr-7"} ${className} truncate cursor-pointer select-none`}
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " " || e.key === "ArrowDown") {
@@ -116,10 +116,12 @@ export default function CustomDateTimeField({
         }}
       />
 
-      {/* Right Calendar / Clock picker trigger icon */}
-      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-amber-500 transition-colors pointer-events-none">
-        {type === "time" ? <Clock size={13} /> : <Calendar size={13} />}
-      </div>
+      {/* Right Calendar / Clock picker trigger icon (only shown when no left icon is set) */}
+      {!Icon && (
+        <div className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-amber-500 transition-colors pointer-events-none">
+          {type === "time" ? <Clock size={13} /> : <Calendar size={13} />}
+        </div>
+      )}
     </div>
   );
 }

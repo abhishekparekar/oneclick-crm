@@ -77,19 +77,16 @@ exports.createTask = async (req, res) => {
 
         // Clean ObjectIds to prevent Mongoose CastErrors
         const cleanDeptId = (departmentId && mongoose.Types.ObjectId.isValid(departmentId)) ? departmentId : undefined;
-        if (!cleanDeptId) {
-            return res.status(400).json({
-                success: false,
-                message: "Please select a valid department for the task."
-            });
-        }
 
         let rawAssignees = Array.isArray(assignedTo) ? assignedTo : (assignedTo ? [assignedTo] : []);
         let assigneeIds = rawAssignees.filter(id => id && mongoose.Types.ObjectId.isValid(id));
         
         if (assigneeIds.length === 0) {
             if (assignmentType === "self" || req.user.role === "Employee") {
-                const selfEmployee = await Employee.findOne({ userId: req.user._id, companyId }).lean();
+                const selfEmployee = await Employee.findOne({
+                    $or: [{ userId: req.user._id }, { email: req.user.email?.toLowerCase() }],
+                    companyId
+                }).lean();
                 if (selfEmployee) assigneeIds = [selfEmployee._id];
             } else if (cleanDeptId) {
                 const deptEmployees = await Employee.find({ companyId, departmentId: cleanDeptId, status: "active" }).select("_id").lean();
@@ -97,6 +94,30 @@ exports.createTask = async (req, res) => {
                     assigneeIds = deptEmployees.map(e => e._id);
                 }
             }
+        }
+
+        // Map any User IDs in assigneeIds to their corresponding Employee document _id
+        if (assigneeIds.length > 0) {
+            const mappedAssigneeIds = [];
+            for (const aId of assigneeIds) {
+                const empDoc = await Employee.findOne({
+                    $or: [{ _id: aId }, { userId: aId }],
+                    companyId
+                }).select("_id").lean();
+                if (empDoc) {
+                    mappedAssigneeIds.push(empDoc._id);
+                } else {
+                    mappedAssigneeIds.push(aId);
+                }
+            }
+            assigneeIds = [...new Set(mappedAssigneeIds.map(id => id.toString()))];
+        }
+
+        if (!cleanDeptId && assigneeIds.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please select a valid department or assign at least one staff member."
+            });
         }
 
         const isRepeatOn = repeatEnabled === true || repeatEnabled === "true";

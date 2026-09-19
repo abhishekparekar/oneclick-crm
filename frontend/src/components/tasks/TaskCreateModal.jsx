@@ -161,8 +161,17 @@ export default function TaskCreateModal({
   }, [authUser, hasPermission]);
 
   const defaultSelfId = useMemo(() => {
-    return authUser?.employeeId?._id || authUser?.employeeId || authUser?._id || authUser?.id || "";
-  }, [authUser]);
+    const directId = authUser?.employeeId?._id || authUser?.employeeId || authUser?._id || authUser?.id;
+    if (directId) return directId;
+    if (Array.isArray(employees) && authUser?._id) {
+      const match = employees.find(e => {
+        const uId = e.userId?._id || e.userId || e._id;
+        return uId && String(uId) === String(authUser._id);
+      });
+      if (match) return match._id || match.id;
+    }
+    return "";
+  }, [authUser, employees]);
 
   const initialForm = {
     title: "",
@@ -194,7 +203,7 @@ export default function TaskCreateModal({
       const nowStr = getNowDateTimeString();
       const endStr = getDefaultEndDateTimeString();
       if (!canAssignOthers) {
-        const selfDeptId = authUser?.departmentId?._id || authUser?.departmentId || (departments[0]?._id || departments[0]?.id || "");
+        const selfDeptId = authUser?.departmentId?._id || authUser?.departmentId || "";
         setForm(prev => ({
           ...prev,
           startDate: nowStr,
@@ -204,15 +213,6 @@ export default function TaskCreateModal({
           assignedTo: defaultSelfId ? [defaultSelfId] : prev.assignedTo,
           departmentId: prev.departmentId || selfDeptId
         }));
-      } else if (departments.length > 0 && !form.departmentId) {
-        setForm(prev => ({
-          ...prev,
-          startDate: nowStr,
-          nextFollowUpDate: nowStr,
-          endDate: prev.endDate || endStr,
-          finishDate: prev.finishDate || endStr,
-          departmentId: departments[0]._id || departments[0].id
-        }));
       } else {
         setForm(prev => ({
           ...prev,
@@ -220,10 +220,12 @@ export default function TaskCreateModal({
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
           finishDate: prev.finishDate || endStr,
+          // Keep the current departmentId selection (defaults to "" which is "All Departments")
+          departmentId: prev.departmentId !== undefined ? prev.departmentId : ""
         }));
       }
     }
-  }, [isOpen, canAssignOthers, defaultSelfId, departments]);
+  }, [isOpen, canAssignOthers, defaultSelfId]);
 
   // Only employees with Task Module access are eligible for task assignment
   const taskEligibleEmployees = useMemo(() => {
@@ -310,6 +312,7 @@ export default function TaskCreateModal({
     const freshEnd = getDefaultEndDateTimeString();
     setForm({
       ...initialForm,
+      departmentId: "",
       startDate: freshStart,
       nextFollowUpDate: freshStart,
       endDate: freshEnd,
@@ -353,14 +356,36 @@ export default function TaskCreateModal({
       alert("Please enter a task title.");
       return;
     }
+
+    if (!form.startDate) {
+      alert("Please select a Start Date & Time.");
+      return;
+    }
+
+    if (!form.repeatEnabled && !form.endDate) {
+      alert("Please select an End Date & Time.");
+      return;
+    }
+
+    if (form.repeatEnabled && !form.finishDate) {
+      alert("Please select an End Date & Time for the recurring schedule.");
+      return;
+    }
     
-    const finalDeptId = form.departmentId || (departments[0]?._id || departments[0]?.id || "");
+    const finalDeptId = form.departmentId ? form.departmentId : null;
 
-    const assignedList = canAssignOthers 
-      ? (Array.isArray(form.assignedTo) && form.assignedTo.length > 0 ? form.assignedTo : (defaultSelfId ? [defaultSelfId] : []))
-      : [defaultSelfId];
+    let assignedList = [];
+    if (canAssignOthers) {
+      if (Array.isArray(form.assignedTo) && form.assignedTo.length > 0) {
+        assignedList = form.assignedTo;
+      } else if (defaultSelfId) {
+        assignedList = [defaultSelfId];
+      }
+    } else {
+      assignedList = defaultSelfId ? [defaultSelfId] : [];
+    }
 
-    if (canAssignOthers && assignedList.length === 0) {
+    if (assignedList.length === 0) {
       alert("Please select at least one team member to assign this task to.");
       return;
     }
@@ -376,7 +401,7 @@ export default function TaskCreateModal({
       endDate: form.endDate,
       endDateTime: form.endDate,
       deadlineTime: timeFromEnd,
-      departmentId: finalDeptId || form.departmentId,
+      departmentId: finalDeptId,
       assignedTo: assignedList,
       assignmentType: !canAssignOthers ? "self" : (assignedList.length > 1 ? "multiple_employees" : "employee")
     };
@@ -411,9 +436,9 @@ export default function TaskCreateModal({
             </div>
           </div>
           <button 
-            type="button"
+            type="button" 
             onClick={() => handleClose()} 
-            className="w-7 h-7 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+            className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all cursor-pointer"
           >
             <X size={14} />
           </button>
@@ -421,7 +446,7 @@ export default function TaskCreateModal({
 
         {/* ── 2. HIGH-DENSITY FORM BODY ──────────────────────────────────── */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3 custom-scrollbar text-xs">
-          <form id="task-form" onSubmit={onSubmit} className="space-y-3">
+          <form id="task-form" noValidate onSubmit={onSubmit} className="space-y-3">
             
             {/* ── SEGMENTED SWITCH: REGULAR TASK vs RECURRING TASK ───────────── */}
             <div className="grid grid-cols-2 p-1 bg-slate-100 dark:bg-[#070C14] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-inner">
@@ -460,7 +485,6 @@ export default function TaskCreateModal({
               <div className="relative">
                 <FileText size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input 
-                  required 
                   type="text" 
                   name="title" 
                   value={form.title} 
@@ -651,112 +675,107 @@ export default function TaskCreateModal({
               /* Regular Timeline (Start Date, Due Date & Next Follow-Up Date) */
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <Calendar size={11} className="text-amber-500" />
                     Start Date &amp; Time <span className="text-rose-500">*</span>
                   </label>
                   <CustomDateTimeField
-                    required
                     type="datetime-local"
                     name="startDate"
                     value={form.startDate}
                     onChange={handleChange}
-                    icon={Calendar}
-                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                    className="w-full py-2 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <Clock size={11} className="text-amber-500" />
                     End Date &amp; Time <span className="text-rose-500">*</span>
                   </label>
                   <CustomDateTimeField
-                    required
                     type="datetime-local"
                     name="endDate"
                     value={form.endDate}
                     onChange={handleChange}
-                    icon={Clock}
-                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                    className="w-full py-2 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                    Next Follow-up Date &amp; Time
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <Calendar size={11} className="text-slate-400" />
+                    Next Follow-up Date
                   </label>
                   <CustomDateTimeField
                     type="datetime-local"
                     name="nextFollowUpDate"
                     value={form.nextFollowUpDate}
                     onChange={handleChange}
-                    icon={Calendar}
-                    className="w-full py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                    className="w-full py-2 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                   />
                 </div>
               </div>
             ) : (
               /* Recurring Timeline Configuration */
-              <div className="p-3 bg-slate-50 dark:bg-[#0E1522] border border-amber-500/30 rounded-2xl space-y-2.5 animate-fadeIn">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
-                    <Repeat size={12} />
-                    Recurring Routine Schedule
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-                  {/* Frequency */}
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
-                      Frequency
-                    </label>
+              <div className="p-3 bg-slate-50 dark:bg-[#0E1522] border border-amber-500/30 rounded-2xl space-y-3 animate-fadeIn">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2.5 border-b border-slate-200/80 dark:border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
+                      <Repeat size={12} />
+                      Recurring Frequency:
+                    </span>
                     <select 
                       name="repeatType" 
                       value={form.repeatType} 
                       onChange={handleChange} 
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white" 
+                      className="px-2.5 py-1 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer shadow-2xs" 
                     >
                       <option value="daily">Daily</option>
                       <option value="weekly">Weekly</option>
                       <option value="monthly">Monthly</option>
                     </select>
                   </div>
+                  <span className="text-[10.5px] font-semibold text-slate-500 dark:text-slate-400">
+                    Auto-generates task on schedule
+                  </span>
+                </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-0.5">
                   {/* Start Date & Time */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Calendar size={11} className="text-amber-500" />
                       Start Date &amp; Time <span className="text-rose-500">*</span>
                     </label>
                     <CustomDateTimeField
-                      required
                       type="datetime-local"
                       name="startDate"
                       value={form.startDate}
                       onChange={handleChange}
-                      icon={null}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                      className="w-full py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
                   </div>
 
                   {/* Finish Date / End Date & Time */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Clock size={11} className="text-amber-500" />
                       End Date &amp; Time <span className="text-rose-500">*</span>
                     </label>
                     <CustomDateTimeField
-                      required
                       type="datetime-local"
                       name="finishDate"
                       value={form.finishDate}
                       onChange={handleChange}
-                      icon={null}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                      className="w-full py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
                   </div>
 
                   {/* Next Follow-up Date for Recurring */}
                   <div>
-                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase mb-1">
+                    <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1">
+                      <Calendar size={11} className="text-slate-400" />
                       Follow-up Date &amp; Time
                     </label>
                     <CustomDateTimeField
@@ -764,8 +783,7 @@ export default function TaskCreateModal({
                       name="nextFollowUpDate"
                       value={form.nextFollowUpDate}
                       onChange={handleChange}
-                      icon={null}
-                      className="w-full px-2.5 py-1.5 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white font-mono"
+                      className="w-full py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white"
                     />
                   </div>
                 </div>

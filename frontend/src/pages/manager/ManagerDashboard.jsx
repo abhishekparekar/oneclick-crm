@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -26,6 +26,21 @@ export default function ManagerDashboard() {
   const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState("this_month");
   const [timeDropdownOpen, setTimeDropdownOpen] = useState(false);
+  const timeDropdownRef = useRef(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (timeDropdownRef.current && !timeDropdownRef.current.contains(e.target)) {
+        setTimeDropdownOpen(false);
+      }
+    };
+    if (timeDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [timeDropdownOpen]);
 
   const timeRanges = [
     { label: "Today", val: "today" },
@@ -95,12 +110,12 @@ export default function ManagerDashboard() {
   ], [completedTasks]);
 
   return (
-    <div className="space-y-3 pb-8 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
+    <div className="space-y-3 pb-8 font-sans text-slate-900 dark:text-slate-100 max-w-full">
 
       {/* ── 1. WELCOME BANNER (Deep Navy / Teal Wave Mesh) ────────────────── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0B1528] via-[#0E2038] to-[#082B33] p-4 sm:p-5 text-white shadow-md border border-slate-800">
-        {/* Glow & Wave lines SVG overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-40">
+      <div className="relative rounded-2xl bg-gradient-to-r from-[#0B1528] via-[#0E2038] to-[#082B33] p-4 sm:p-5 text-white shadow-md border border-slate-800 z-20">
+        {/* Glow & Wave lines SVG overlay (confined with inner overflow-hidden) */}
+        <div className="absolute inset-0 overflow-hidden rounded-2xl pointer-events-none opacity-40">
           <svg className="w-full h-full" preserveAspectRatio="none" viewBox="0 0 1000 200" fill="none">
             <path d="M0,100 C150,160 350,0 500,100 C650,200 850,40 1000,100" stroke="#06b6d4" strokeWidth="1.2" strokeOpacity="0.35" />
             <path d="M0,120 C200,40 400,180 600,80 C800,20 900,140 1000,120" stroke="#10b981" strokeWidth="1.2" strokeOpacity="0.25" />
@@ -120,24 +135,26 @@ export default function ManagerDashboard() {
 
           <div className="flex items-center gap-2">
             {/* Time Filter Pill */}
-            <div className="relative">
+            <div className="relative" ref={timeDropdownRef}>
               <button
+                type="button"
                 onClick={() => setTimeDropdownOpen(!timeDropdownOpen)}
-                className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-3 py-1.5 rounded-xl text-xs font-bold shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+                className="flex items-center gap-2 bg-white dark:bg-slate-800 text-slate-800 dark:text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer border border-slate-200/40 dark:border-slate-700"
               >
                 <Calendar size={13} className="text-slate-500 dark:text-slate-400" />
                 <span>{timeRanges.find(r => r.val === timeRange)?.label || "This Month"}</span>
-                <ChevronDown size={13} className={`text-slate-400 transition-transform ${timeDropdownOpen ? "rotate-180" : ""}`} />
+                <ChevronDown size={13} className={`text-slate-400 transition-transform duration-200 ${timeDropdownOpen ? "rotate-180" : ""}`} />
               </button>
 
               {timeDropdownOpen && (
-                <div className="absolute right-0 mt-1.5 w-36 bg-white dark:bg-[#111C24] rounded-xl shadow-xl border border-slate-200 dark:border-slate-800 py-1 overflow-hidden z-50 animate-fadeIn">
+                <div className="absolute right-0 top-full mt-1.5 w-40 bg-white dark:bg-[#111C24] rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 animate-fadeIn">
                   {timeRanges.map(opt => (
                     <button
                       key={opt.val}
+                      type="button"
                       onClick={() => { setTimeRange(opt.val); setTimeDropdownOpen(false); }}
-                      className={`block w-full text-left px-3.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                        timeRange === opt.val ? "bg-amber-500/10 text-amber-500 font-bold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      className={`block w-full text-left px-3.5 py-2 text-xs font-semibold transition-colors cursor-pointer ${
+                        timeRange === opt.val ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/80"
                       }`}
                     >
                       {opt.label}
@@ -149,9 +166,10 @@ export default function ManagerDashboard() {
 
             {/* Refresh Button */}
             <button
+              type="button"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-white flex items-center justify-center shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700 transition-all cursor-pointer"
+              className="w-8 h-8 rounded-xl bg-white dark:bg-slate-800 text-slate-800 dark:text-white flex items-center justify-center shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-all cursor-pointer border border-slate-200/40 dark:border-slate-700 shrink-0"
               title="Refresh Dashboard Data"
             >
               <RefreshCw size={13} className={isFetching ? "animate-spin text-amber-500" : ""} />
