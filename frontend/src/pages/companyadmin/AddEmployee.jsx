@@ -315,11 +315,34 @@ export default function AddEmployee() {
   const [quickSaving, setQuickSaving] = useState(false);
 
   // Queries
-  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: () => getDepartmentsApi().then((r) => r.data) });
-  const { data: desigRes } = useQuery({ queryKey: ["designations"], queryFn: () => getDesignationsApi().then((r) => r.data) });
-  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: () => getBranchesApi().then((r) => r.data) });
-  const { data: empRes } = useQuery({ queryKey: ["allEmployees"], queryFn: () => getEmployeesApi({ limit: 1000 }).then((r) => r.data) });
-  const { data: moduleUsageRes } = useQuery({ queryKey: ["companyModuleUsage"], queryFn: () => getModuleUsageApi().then((r) => r.data) });
+  const { data: deptRes, isLoading: deptLoading } = useQuery({
+    queryKey: ["departments"],
+    queryFn: getDepartmentsApi,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { data: desigRes, isLoading: desigLoading } = useQuery({
+    queryKey: ["designations"],
+    queryFn: getDesignationsApi,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { data: branchRes, isLoading: branchLoading } = useQuery({
+    queryKey: ["branches"],
+    queryFn: getBranchesApi,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { data: empRes } = useQuery({
+    queryKey: ["allEmployees"],
+    queryFn: () => getEmployeesApi({ limit: 1000 }),
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+  const { data: moduleUsageRes } = useQuery({
+    queryKey: ["companyModuleUsage"],
+    queryFn: () => getModuleUsageApi().then((r) => r.data),
+  });
 
   const moduleUsage = moduleUsageRes?.usage || {};
   const subscribedModules = useMemo(() => {
@@ -352,15 +375,50 @@ export default function AddEmployee() {
     }
   }, [subscribedModules]);
 
-  const departments = deptRes?.departments || [];
-  const designations = desigRes?.designations || [];
-  const branches = branchRes?.branches || [];
-  const managers = empRes?.employees || [];
+  const departments = useMemo(() => {
+    const raw = deptRes?.data?.departments ?? deptRes?.departments ?? (Array.isArray(deptRes?.data) ? deptRes.data : Array.isArray(deptRes) ? deptRes : []);
+    return Array.isArray(raw) ? raw : [];
+  }, [deptRes]);
 
-  const deptOptions = departments.map((d) => ({ value: d._id, label: d.name }));
-  const desigOptions = designations.map((d) => ({ value: d._id, label: `${d.name} (${d.departmentId?.name || "General"})` }));
-  const branchOptions = branches.map((b) => ({ value: b._id, label: `${b.branchName} (${b.city || ""})` }));
-  const managerOptions = managers.map((m) => ({ value: m._id, label: `${m.firstName} ${m.lastName} (${m.employeeCode || "Staff"})` }));
+  const designations = useMemo(() => {
+    const raw = desigRes?.data?.designations ?? desigRes?.designations ?? (Array.isArray(desigRes?.data) ? desigRes.data : Array.isArray(desigRes) ? desigRes : []);
+    return Array.isArray(raw) ? raw : [];
+  }, [desigRes]);
+
+  const branches = useMemo(() => {
+    const raw = branchRes?.data?.branches ?? branchRes?.branches ?? (Array.isArray(branchRes?.data) ? branchRes.data : Array.isArray(branchRes) ? branchRes : []);
+    return Array.isArray(raw) ? raw : [];
+  }, [branchRes]);
+
+  const managers = useMemo(() => {
+    const raw = empRes?.data?.employees ?? empRes?.employees ?? (Array.isArray(empRes?.data) ? empRes.data : Array.isArray(empRes) ? empRes : []);
+    return Array.isArray(raw) ? raw : [];
+  }, [empRes]);
+
+  const deptOptions = useMemo(() => {
+    return departments.map((d) => ({ value: d._id, label: d.name }));
+  }, [departments]);
+
+  const desigOptions = useMemo(() => {
+    return designations.map((d) => ({
+      value: d._id,
+      label: `${d.name} (${d.departmentId?.name || "General"})`,
+    }));
+  }, [designations]);
+
+  const branchOptions = useMemo(() => {
+    return branches.map((b) => ({
+      value: b._id,
+      label: `${b.branchName || b.name} (${b.city || ""})`,
+    }));
+  }, [branches]);
+
+  const managerOptions = useMemo(() => {
+    return managers.map((m) => ({
+      value: m._id,
+      label: `${m.firstName} ${m.lastName} (${m.employeeCode || "Staff"})`,
+    }));
+  }, [managers]);
 
   // Auto-calculate Indian Salary Split when CTC changes
   const handleCtcChange = (annualCtc) => {
@@ -416,26 +474,26 @@ export default function AddEmployee() {
     try {
       if (quickModal === "dept") {
         const res = await createDepartmentApi({ name: quickForm.name, code: quickForm.code || quickForm.name.slice(0, 3).toUpperCase() });
-        queryClient.invalidateQueries(["departments"]);
+        queryClient.invalidateQueries({ queryKey: ["departments"] });
         const newDeptId = res.data?.department?._id;
         if (newDeptId) {
           setFormData((prev) => ({
             ...prev,
-            accessibleDepartments: [...(prev.accessibleDepartments || []), newDeptId],
+            accessibleDepartments: [...new Set([...(prev.accessibleDepartments || []), newDeptId])],
             departmentId: prev.departmentId || newDeptId,
           }));
           clearError("departmentId");
         }
         toast.success("Department created!");
       } else if (quickModal === "desig") {
-        const res = await createDesignationApi({ name: quickForm.name, departmentId: quickForm.departmentId || formData.accessibleDepartments?.[0] });
-        queryClient.invalidateQueries(["designations"]);
+        const res = await createDesignationApi({ name: quickForm.name, departmentId: quickForm.departmentId || formData.departmentId || formData.accessibleDepartments?.[0] });
+        queryClient.invalidateQueries({ queryKey: ["designations"] });
         const newDesigId = res.data?.designation?._id;
         if (newDesigId) setFormData((prev) => ({ ...prev, designationId: newDesigId }));
         toast.success("Designation created!");
       } else if (quickModal === "branch") {
         const res = await createBranchApi({ branchName: quickForm.name, city: quickForm.city });
-        queryClient.invalidateQueries(["branches"]);
+        queryClient.invalidateQueries({ queryKey: ["branches"] });
         const newBranchId = res.data?.branch?._id;
         if (newBranchId) {
           setFormData((prev) => ({ ...prev, branchId: newBranchId }));
@@ -495,8 +553,8 @@ export default function AddEmployee() {
     } else if (field === "role") {
       if (!v) err = "Please select a system role";
     } else if (field === "departmentId") {
-      const hasDept = Array.isArray(val) ? val.length > 0 : Boolean(val && String(val).trim());
-      if (!hasDept) err = "Department is required (select at least one)";
+      const hasDept = Array.isArray(val) ? (val.length > 0 && Boolean(val[0])) : Boolean(val && String(val).trim());
+      if (!hasDept) err = "Department is required";
     } else if (field === "branchId") {
       if (!v.trim()) err = "Branch office is required";
     } else if (field === "emergencyPhone") {
@@ -682,7 +740,10 @@ export default function AddEmployee() {
   };
 
   const displayName = `${formData.firstName || "New"} ${formData.lastName || "Employee"}`.trim();
-  const selectedDeptName = departments.find((d) => formData.accessibleDepartments?.includes(d._id))?.name || "General";
+  const selectedDeptName = departments.find((d) => 
+    (formData.departmentId && String(d._id) === String(formData.departmentId)) || 
+    formData.accessibleDepartments?.some((aId) => String(aId) === String(d._id))
+  )?.name || "General";
   const selectedDesigName = designations.find((d) => d._id === formData.designationId)?.name || "Staff";
 
   return (
@@ -1034,51 +1095,89 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <MultiSelect
-                label="Accessible Departments (Multi-Select)"
-                required
-                selected={formData.accessibleDepartments}
-                error={formErrors.departmentId}
-                onChange={(v) => {
-                  setFormData((p) => ({ ...p, accessibleDepartments: v, departmentId: v[0] || "" }));
-                  if (v.length > 0) clearError("departmentId");
-                }}
-                options={deptOptions}
-                placeholder="Select accessible departments..."
-                action={
-                  <button
-                    type="button"
-                    onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
-                    className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                  >
-                    + New Department
-                  </button>
-                }
-              />
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <Select
+                  label="Department"
+                  required
+                  value={formData.departmentId || formData.accessibleDepartments?.[0] || ""}
+                  error={formErrors.departmentId}
+                  onClearError={() => clearError("departmentId")}
+                  onChange={(v) => {
+                    setFormData((p) => {
+                      const others = (p.accessibleDepartments || []).filter((id) => id !== v && id !== p.departmentId);
+                      return {
+                        ...p,
+                        departmentId: v,
+                        accessibleDepartments: v ? [v, ...others] : others,
+                      };
+                    });
+                    if (v) clearError("departmentId");
+                  }}
+                  options={deptOptions}
+                  placeholder={deptLoading ? "Loading departments..." : "Select Department..."}
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
+                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                    >
+                      + New Department
+                    </button>
+                  }
+                />
+
                 <Select
                   label="Job Designation"
                   value={formData.designationId}
                   onChange={(v) => setFormData((p) => ({ ...p, designationId: v }))}
                   options={desigOptions}
-                  placeholder="Select Designation..."
+                  placeholder={desigLoading ? "Loading designations..." : "Select Designation..."}
                   action={
                     <button
                       type="button"
-                      onClick={() => { setQuickModal("desig"); setQuickForm({ name: "", departmentId: formData.accessibleDepartments?.[0] || "" }); }}
+                      onClick={() => { setQuickModal("desig"); setQuickForm({ name: "", departmentId: formData.departmentId || formData.accessibleDepartments?.[0] || "" }); }}
                       className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
                     >
                       + New Designation
                     </button>
                   }
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Select
                   label="Reporting Manager"
                   value={formData.reportingManagerId}
                   onChange={(v) => setFormData((p) => ({ ...p, reportingManagerId: v }))}
                   options={managerOptions}
                   placeholder="Select Reporting Manager..."
+                />
+                <MultiSelect
+                  label="Additional Accessible Departments (Optional)"
+                  selected={formData.accessibleDepartments || []}
+                  error={formErrors.departmentId}
+                  onChange={(v) => {
+                    const primary = formData.departmentId;
+                    const finalDepts = primary && !v.includes(primary) ? [primary, ...v] : v;
+                    setFormData((p) => ({
+                      ...p,
+                      accessibleDepartments: finalDepts,
+                      departmentId: primary || finalDepts[0] || "",
+                    }));
+                    if (finalDepts.length > 0) clearError("departmentId");
+                  }}
+                  options={deptOptions}
+                  placeholder="Select additional departments..."
+                  hint="Grants cross-department visibility for tasks, teams, and projects."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
+                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                    >
+                      + New Department
+                    </button>
+                  }
                 />
               </div>
 

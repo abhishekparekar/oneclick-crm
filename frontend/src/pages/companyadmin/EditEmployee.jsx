@@ -283,10 +283,10 @@ export default function EditEmployee() {
     queryFn: () => getEmployeeByIdApi(id),
   });
 
-  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const { data: desgRes } = useQuery({ queryKey: ["designations"], queryFn: getDesignationsApi });
-  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
-  const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }) });
+  const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi, staleTime: 0, refetchOnMount: "always" });
+  const { data: desgRes } = useQuery({ queryKey: ["designations"], queryFn: getDesignationsApi, staleTime: 0, refetchOnMount: "always" });
+  const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi, staleTime: 0, refetchOnMount: "always" });
+  const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }), staleTime: 0, refetchOnMount: "always" });
 
   const { data: leaveRes } = useQuery({
     queryKey: ["leaveBalance", id],
@@ -432,10 +432,10 @@ export default function EditEmployee() {
     }
   }, [leaveRes, formData]);
 
-  const departments = deptRes?.data?.departments || deptRes?.data || [];
-  const designations = desgRes?.data?.designations || desgRes?.data || [];
-  const branches = branchRes?.data?.branches || branchRes?.data || [];
-  const managers = (mgrsRes?.data?.employees || []).filter(e => e._id !== id);
+  const departments = deptRes?.data?.departments ?? deptRes?.departments ?? (Array.isArray(deptRes?.data) ? deptRes.data : Array.isArray(deptRes) ? deptRes : []);
+  const designations = desgRes?.data?.designations ?? desgRes?.designations ?? (Array.isArray(desgRes?.data) ? desgRes.data : Array.isArray(desgRes) ? desgRes : []);
+  const branches = branchRes?.data?.branches ?? branchRes?.branches ?? (Array.isArray(branchRes?.data) ? branchRes.data : Array.isArray(branchRes) ? branchRes : []);
+  const managers = (mgrsRes?.data?.employees ?? mgrsRes?.employees ?? (Array.isArray(mgrsRes?.data) ? mgrsRes.data : Array.isArray(mgrsRes) ? mgrsRes : [])).filter(e => e._id !== id);
 
   // ── Quick Creation Modals ──
   const [quickModal, setQuickModal] = useState(null);
@@ -455,19 +455,19 @@ export default function EditEmployee() {
     try {
       if (quickModal === "department") {
         const res = await createDepartmentApi({ name: quickForm.name.trim(), description: quickForm.description.trim() });
-        await queryClient.invalidateQueries(["departments"]);
+        await queryClient.invalidateQueries({ queryKey: ["departments"] });
         const newDept = res.data?.department;
         if (newDept?._id) handleChange("accessibleDepartments", [...(formData?.accessibleDepartments || []), newDept._id]);
       } else if (quickModal === "designation") {
         const res = await createDesignationApi({ name: quickForm.name.trim(), description: quickForm.description.trim(), departmentId: quickForm.departmentId });
-        await queryClient.invalidateQueries(["designations"]);
+        await queryClient.invalidateQueries({ queryKey: ["designations"] });
         const newDesg = res.data?.designation;
         if (newDesg?._id) {
           handleChange("designationId", newDesg._id);
         }
       } else if (quickModal === "branch") {
         const res = await createBranchApi({ branchName: quickForm.name.trim(), name: quickForm.name.trim(), city: quickForm.city.trim(), address: quickForm.address.trim() });
-        await queryClient.invalidateQueries(["branches"]);
+        await queryClient.invalidateQueries({ queryKey: ["branches"] });
         const newBranch = res.data?.branch;
         if (newBranch?._id) handleChange("branchId", newBranch._id);
       }

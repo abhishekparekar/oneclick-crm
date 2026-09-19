@@ -257,17 +257,29 @@ const AddEmployeeScreen = ({ navigation }) => {
         getModuleUsageApi(),
       ]);
 
-      if (deptRes.status === "fulfilled" && deptRes.value?.data?.departments) {
-        setDepartments(deptRes.value.data.departments);
+      const rawDepts = deptRes.status === "fulfilled"
+        ? (deptRes.value?.data?.departments ?? deptRes.value?.departments ?? deptRes.value?.data ?? [])
+        : [];
+      if (Array.isArray(rawDepts) && rawDepts.length > 0) {
+        setDepartments(rawDepts);
       }
-      if (desigRes.status === "fulfilled" && desigRes.value?.data?.designations) {
-        setDesignations(desigRes.value.data.designations);
+      const rawDesigs = desigRes.status === "fulfilled"
+        ? (desigRes.value?.data?.designations ?? desigRes.value?.designations ?? desigRes.value?.data ?? [])
+        : [];
+      if (Array.isArray(rawDesigs) && rawDesigs.length > 0) {
+        setDesignations(rawDesigs);
       }
-      if (branchRes.status === "fulfilled" && branchRes.value?.data?.branches) {
-        setBranches(branchRes.value.data.branches);
+      const rawBranches = branchRes.status === "fulfilled"
+        ? (branchRes.value?.data?.branches ?? branchRes.value?.branches ?? branchRes.value?.data ?? [])
+        : [];
+      if (Array.isArray(rawBranches) && rawBranches.length > 0) {
+        setBranches(rawBranches);
       }
-      if (empRes.status === "fulfilled" && empRes.value?.data?.employees) {
-        setManagers(empRes.value.data.employees);
+      const rawEmps = empRes.status === "fulfilled"
+        ? (empRes.value?.data?.employees ?? empRes.value?.employees ?? empRes.value?.data ?? [])
+        : [];
+      if (Array.isArray(rawEmps) && rawEmps.length > 0) {
+        setManagers(rawEmps);
       }
       if (usageRes.status === "fulfilled" && usageRes.value?.data) {
         const d = usageRes.value.data;
