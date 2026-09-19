@@ -21,8 +21,8 @@ const getTransporter = () => {
     return nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: process.env.GMAIL_USER,
-        pass: process.env.GMAIL_PASS,
+        user: process.env.GMAIL_USER.trim(),
+        pass: process.env.GMAIL_PASS.replace(/\s+/g, ""),
       },
     });
   }
@@ -63,15 +63,15 @@ exports.sendEmail = async (toOrOptions, subjectParam, bodyParam) => {
         html,
       });
       console.log(`[EMAIL SENT] MessageId: ${info.messageId}`);
-      return { success: true, messageId: info.messageId };
+      return { success: true, messageId: info.messageId, isConfigured: true };
     } catch (err) {
       console.error(`[EMAIL ERROR]: Failed to send via SMTP:`, err.message);
       // Don't crash the caller; email logged above in console
-      return { success: false, error: err.message, fallbackLogged: true };
+      return { success: false, error: err.message, isConfigured: true, fallbackLogged: true };
     }
   }
 
-  return { success: true, message: "Email simulated and logged to console" };
+  return { success: true, message: "Email simulated and logged to console", isConfigured: false };
 };
 
 exports.sendPasswordResetEmail = async (to, name, resetUrl, temporaryPassword = null) => {
@@ -120,6 +120,50 @@ exports.sendPasswordResetEmail = async (to, name, resetUrl, temporaryPassword = 
 
         <p style="color: #e11d48; font-size: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-weight: 600;">
           ⏳ Note: This link will expire in <strong>1 hour</strong>. If you did not make this request, you can safely ignore this email.
+        </p>
+      </div>
+
+      <div style="text-align: center; margin-top: 24px; color: #94a3b8; font-size: 11px;">
+        &copy; ${new Date().getFullYear()} One Click HRMS Enterprise. All rights reserved.
+      </div>
+    </div>
+  `;
+
+  return exports.sendEmail({ to, subject, text, html });
+};
+
+exports.sendPasswordResetOtpEmail = async (to, name, otp) => {
+  const subject = `${otp} is your One Click HRMS Verification Code`;
+  const userName = name || "User";
+
+  const text = `Hello ${userName},\n\nYour One Click HRMS password reset verification code is: ${otp}\n\nThis code is valid for 10 minutes.\nDo not share this code with anyone.\nIf you did not request this code, please ignore this email.`;
+
+  const html = `
+    <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 540px; margin: 0 auto; padding: 28px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff; color: #1e293b;">
+      <div style="text-align: center; margin-bottom: 24px;">
+        <h1 style="color: #2563eb; margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px;">ONE CLICK HRMS</h1>
+        <p style="color: #64748b; font-size: 13px; margin-top: 4px; font-weight: 600;">Account Security Verification</p>
+      </div>
+
+      <div style="padding: 24px; background-color: #f8fafc; border-radius: 12px; border: 1px solid #edf2f7; text-align: center;">
+        <h3 style="color: #0f172a; margin-top: 0; font-size: 18px; font-weight: 800;">Password Reset Verification Code</h3>
+        <p style="color: #475569; font-size: 14px; line-height: 1.5; margin-bottom: 20px;">
+          Hello <strong>${userName}</strong>, use the following one-time password (OTP) to reset your account password for <strong>${to}</strong>:
+        </p>
+
+        <!-- OTP BOX -->
+        <div style="background-color: #ffffff; border: 2px dashed #2563eb; border-radius: 12px; padding: 18px 24px; margin: 20px auto; display: inline-block;">
+          <span style="font-family: 'Courier New', Courier, monospace; font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #2563eb; margin-left: 8px;">
+            ${otp}
+          </span>
+        </div>
+
+        <p style="color: #64748b; font-size: 12px; line-height: 1.5; margin-top: 16px;">
+          ⏱️ This verification code will expire in <strong>10 minutes</strong>.
+        </p>
+
+        <p style="color: #e11d48; font-size: 12px; margin-top: 18px; padding-top: 14px; border-top: 1px solid #e2e8f0; font-weight: 600;">
+          🛡️ Never share this code with anyone. One Click HRMS staff will never ask for your code.
         </p>
       </div>
 

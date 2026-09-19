@@ -9,7 +9,7 @@ const generateToken = require("../utils/generateToken");
 const formatUser = require("../utils/formatUser");
 const { getUserPermissions } = require("../utils/permissionCheck");
 const connectDB = require("../config/db");
-const { sendPasswordResetEmail } = require("../services/notificationService");
+const { sendPasswordResetEmail, sendPasswordResetOtpEmail } = require("../services/notificationService");
 const { hashToken, detectPlatform } = require("../middleware/authMiddleware");
 
 // Roles that bypass One-User-One-Login enforcement (system admins)
@@ -637,12 +637,16 @@ const forgotPassword = async (req, res, next) => {
     const resetUrl = `${clientUrl}/reset-password/${resetToken}`;
 
     // Send email
-    await sendPasswordResetEmail(user.email, user.name, resetUrl);
+    const emailResult = await sendPasswordResetEmail(user.email, user.name, resetUrl);
 
     res.status(200).json({
       success: true,
-      message: `Password reset link has been sent to ${user.email}. Please check your inbox.`,
-      resetUrl, // Provided for convenience in dev/preview environments
+      message: emailResult?.isConfigured && emailResult?.success
+        ? `Password reset link has been sent to ${user.email}. Please check your inbox.`
+        : `Password reset link generated for ${user.email}. (Email server not configured in backend .env - you can use the direct reset link below).`,
+      emailSent: Boolean(emailResult?.isConfigured && emailResult?.success),
+      isEmailConfigured: Boolean(emailResult?.isConfigured),
+      resetUrl, // Always provide for direct reset in dev/staging environments
     });
   } catch (error) {
     console.error("[Auth] forgotPassword error:", error);
@@ -683,12 +687,153 @@ const resetPassword = async (req, res, next) => {
     user.isPasswordResetRequired = false;
     await user.save();
 
+    // Generate authenticated session token
+    const authToken = generateToken(user._id);
+
     res.status(200).json({
       success: true,
-      message: "Password reset successfully! You can now sign in with your new password.",
+      message: "Password reset successfully! You can now access your workspace.",
+      token: authToken,
+      user: formatUser(user),
     });
   } catch (error) {
     console.error("[Auth] resetPassword error:", error);
+    next(error);
+  }
+};
+
+const sendResetOtp = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const cleanEmail = String(email || "").trim().toLowerCase();
+
+    if (!cleanEmail) {
+      return res.status(400).json({ message: "Please provide a valid registered email address" });
+    }
+
+    const user = await User.findOne({ email: cleanEmail });
+    if (!user) {
+      return res.status(404).json({ message: "No account found with this email address" });
+    }
+
+    // Generate 6-digit OTP and store hashed in user record (valid for 10 minutes)
+    const otp = user.generateResetPasswordOtp();
+    await user.save({ validateBeforeSave: false });
+
+    // Send OTP email via configured Gmail SMTP
+    const emailResult = await sendPasswordResetOtpEmail(user.email, user.name, otp);
+
+    res.status(200).json({
+      success: true,
+      message: `A 6-digit verification code has been sent to ${user.email}.`,
+      emailSent: Boolean(emailResult?.isConfigured && emailResult?.success),
+      expiresInMinutes: 10,
+    });
+  } catch (error) {
+    console.error("[Auth] sendResetOtp error:", error);
+    next(error);
+  }
+};
+
+const verifyResetOtp = async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    const cleanEmail = String(email || "").trim().toLowerCase();
+    const cleanOtp = String(otp || "").trim().replace(/\s+/g, "");
+
+    if (!cleanEmail || !cleanOtp) {
+      return res.status(400).json({ message: "Email and 6-digit verification code are required" });
+    }
+
+    const hashedOtp = crypto.createHash("sha256").update(cleanOtp).digest("hex");
+
+    const user = await User.findOne({
+      email: cleanEmail,
+      resetPasswordOtp: hashedOtp,
+      resetPasswordOtpExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification code. Please check or request a new code." });
+    }
+
+    // Generate secure temporary verification token for password submission
+    const resetVerificationToken = crypto.randomBytes(24).toString("hex");
+    user.resetPasswordToken = crypto.createHash("sha256").update(resetVerificationToken).digest("hex");
+    user.resetPasswordExpire = Date.now() + 15 * 60 * 1000; // 15 mins
+    await user.save({ validateBeforeSave: false });
+
+    res.status(200).json({
+      success: true,
+      message: "Verification code confirmed successfully.",
+      resetVerificationToken,
+    });
+  } catch (error) {
+    console.error("[Auth] verifyResetOtp error:", error);
+    next(error);
+  }
+};
+
+const resetPasswordWithOtp = async (req, res, next) => {
+  try {
+    const { email, otp, resetVerificationToken, password } = req.body;
+    const cleanEmail = String(email || "").trim().toLowerCase();
+
+    if (!cleanEmail) {
+      return res.status(400).json({ message: "Email address is required" });
+    }
+
+    if (!password || password.trim().length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters long" });
+    }
+
+    let user = null;
+
+    // Check by resetVerificationToken first if provided
+    if (resetVerificationToken) {
+      const hashedToken = crypto.createHash("sha256").update(resetVerificationToken).digest("hex");
+      user = await User.findOne({
+        email: cleanEmail,
+        resetPasswordToken: hashedToken,
+        resetPasswordExpire: { $gt: Date.now() },
+      });
+    }
+
+    // Otherwise check directly by OTP
+    if (!user && otp) {
+      const cleanOtp = String(otp).trim().replace(/\s+/g, "");
+      const hashedOtp = crypto.createHash("sha256").update(cleanOtp).digest("hex");
+      user = await User.findOne({
+        email: cleanEmail,
+        resetPasswordOtp: hashedOtp,
+        resetPasswordOtpExpires: { $gt: Date.now() },
+      });
+    }
+
+    if (!user) {
+      return res.status(400).json({ message: "Verification has expired or is invalid. Please request a new code." });
+    }
+
+    // Update password (pre-save middleware handles bcrypt hashing)
+    user.password = password.trim();
+    user.resetPasswordToken = null;
+    user.resetPasswordExpire = null;
+    user.resetPasswordOtp = null;
+    user.resetPasswordOtpExpires = null;
+    user.isPasswordResetRequired = false;
+    await user.save();
+
+    // Generate authenticated session token
+    const authToken = generateToken(user._id);
+
+    res.status(200).json({
+      success: true,
+      message: "Password has been successfully updated! You can now access your workspace.",
+      token: authToken,
+      user: formatUser(user),
+    });
+  } catch (error) {
+    console.error("[Auth] resetPasswordWithOtp error:", error);
     next(error);
   }
 };
@@ -728,4 +873,7 @@ module.exports = {
   registerCompany,
   forgotPassword,
   resetPassword,
+  sendResetOtp,
+  verifyResetOtp,
+  resetPasswordWithOtp,
 };

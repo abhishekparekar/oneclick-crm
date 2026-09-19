@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 const { validationResult } = require("express-validator");
 const Company = require("../models/Company");
 const User = require("../models/User");
@@ -187,8 +187,14 @@ const createCompany = async (req, res, next) => {
 
 const getCompanies = async (req, res, next) => {
   try {
-    const { search, status } = req.query;
+    const { search, status, isDeleted, trash } = req.query;
     let query = {};
+
+    if (String(isDeleted) === "true" || String(trash) === "true") {
+      query.isDeleted = true;
+    } else {
+      query.isDeleted = { $ne: true };
+    }
 
     if (search) {
       query.$or = [
@@ -204,7 +210,8 @@ const getCompanies = async (req, res, next) => {
 
     const companies = await Company.find(query)
       .populate("createdBy", "name email")
-      .sort({ createdAt: -1 });
+      .populate("deletedBy", "name email")
+      .sort({ deletedAt: -1, createdAt: -1 });
 
     res.json({ companies, count: companies.length });
   } catch (error) {
@@ -450,10 +457,82 @@ const deleteCompany = async (req, res, next) => {
       return res.status(404).json({ message: "Company not found" });
     }
 
+    const rawReason = req.body?.reason || req.query?.reason || "";
+    const reason = String(rawReason).trim();
+
+    if (!reason) {
+      return res.status(400).json({ 
+        message: "A valid reason for deletion is required for confirmation." 
+      });
+    }
+
+    const now = new Date();
+    const permanentDeleteAt = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000); // 10 days retention period
+
+    company.isDeleted = true;
+    company.deletedAt = now;
+    company.deletionReason = reason;
+    company.deletedBy = req.user._id;
+    company.permanentDeleteAt = permanentDeleteAt;
+    company.status = "inactive";
+    await company.save();
+
+    // Terminate active sessions for company users
+    await User.updateMany(
+      { companyId: company._id },
+      { activeWebToken: null, activeMobileToken: null }
+    );
+
+    res.json({
+      success: true,
+      message: "Company moved to trash. It will remain recoverable for 10 days before permanent deletion.",
+      company,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const restoreCompany = async (req, res, next) => {
+  try {
+    const company = await Company.findById(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
+    company.isDeleted = false;
+    company.deletedAt = null;
+    company.deletionReason = "";
+    company.deletedBy = null;
+    company.permanentDeleteAt = null;
+    company.status = "active";
+    await company.save();
+
+    res.json({
+      success: true,
+      message: `Company "${company.companyName}" has been restored successfully!`,
+      company,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const permanentDeleteCompany = async (req, res, next) => {
+  try {
+    const company = await Company.findById(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: "Company not found" });
+    }
+
     await User.deleteMany({ companyId: company._id });
+    await Employee.deleteMany({ companyId: company._id });
     await company.deleteOne();
 
-    res.json({ message: "Company deleted successfully" });
+    res.json({
+      success: true,
+      message: `Company "${company.companyName}" permanently deleted from system.`
+    });
   } catch (error) {
     next(error);
   }
@@ -1970,6 +2049,8 @@ module.exports = {
   updateCompany,
   updateCompanyStatus,
   deleteCompany,
+  restoreCompany,
+  permanentDeleteCompany,
   getDashboardStats,
   getCompanyAdmins,
   updateUserStatus,

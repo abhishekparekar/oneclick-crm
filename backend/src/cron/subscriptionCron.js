@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const Subscription = require("../models/Subscription");
 const Company = require("../models/Company");
 const User = require("../models/User");
+const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
 const { notifyRole, notifyUser } = require("../utils/notificationHelper");
 const { sendEmail, sendWhatsApp } = require("../services/notificationService");
@@ -131,6 +132,30 @@ const checkSubscriptionExpiry = async () => {
 };
 
 /**
+ * Automatically purge companies that have exceeded the 10-day retention window
+ */
+const cleanupDeletedCompanies = async () => {
+  try {
+    const expiredTrash = await Company.find({
+      isDeleted: true,
+      permanentDeleteAt: { $lte: new Date() },
+    });
+
+    if (expiredTrash.length > 0) {
+      console.log(`[CRON] Purging ${expiredTrash.length} company records past 10-day retention...`);
+      for (const comp of expiredTrash) {
+        await User.deleteMany({ companyId: comp._id });
+        await Employee.deleteMany({ companyId: comp._id });
+        await comp.deleteOne();
+        console.log(`[CRON] Company "${comp.companyName}" (${comp._id}) permanently purged.`);
+      }
+    }
+  } catch (err) {
+    console.error("[CRON] Error in cleanupDeletedCompanies:", err.message);
+  }
+};
+
+/**
  * Initialize Subscription Cron (Runs every day at 09:00 AM IST)
  */
 const initSubscriptionCron = () => {
@@ -141,13 +166,20 @@ const initSubscriptionCron = () => {
     await checkSubscriptionExpiry();
   });
 
+  // Schedule company trash purge daily at 02:00 AM
+  cron.schedule("0 2 * * *", async () => {
+    await cleanupDeletedCompanies();
+  });
+
   // Also run initial check 10 seconds after server startup
   setTimeout(() => {
     checkSubscriptionExpiry().catch(err => console.error("[CRON] Startup subscription check error:", err));
+    cleanupDeletedCompanies().catch(err => console.error("[CRON] Startup trash cleanup error:", err));
   }, 10000);
 };
 
 module.exports = {
   initSubscriptionCron,
-  checkSubscriptionExpiry
+  checkSubscriptionExpiry,
+  cleanupDeletedCompanies,
 };

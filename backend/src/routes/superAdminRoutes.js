@@ -29,6 +29,8 @@ router.route("/companies/:id")
   .delete(checkSuperAdminPermission("companies", "delete"), controller.deleteCompany);
 
 router.patch("/companies/:id/status", checkSuperAdminPermission("companies", "edit"), controller.updateCompanyStatus);
+router.patch("/companies/:id/restore", checkSuperAdminPermission("companies", "edit"), controller.restoreCompany);
+router.delete("/companies/:id/permanent", checkSuperAdminPermission("companies", "delete"), controller.permanentDeleteCompany);
 
 // Company Admins
 router.get("/company-admins", checkSuperAdminPermission("companyAdmins", "view"), controller.getCompanyAdmins);

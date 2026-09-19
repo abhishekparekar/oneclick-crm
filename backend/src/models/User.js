@@ -83,6 +83,14 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    resetPasswordOtp: {
+      type: String,
+      default: null,
+    },
+    resetPasswordOtpExpires: {
+      type: Date,
+      default: null,
+    },
     // ─── One User One Login Per Platform ─────────────────────────────────────
     // Stores SHA-256 hash of the currently active JWT for each platform.
     // Null = no active session. Set on login, cleared on logout.
@@ -152,6 +160,23 @@ userSchema.methods.getResetPasswordToken = function () {
   this.resetPasswordExpire = Date.now() + 60 * 60 * 1000;
 
   return resetToken;
+};
+
+userSchema.methods.generateResetPasswordOtp = function () {
+  const crypto = require("crypto");
+  // Generate secure 6-digit numeric OTP
+  const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Hash OTP and store in database
+  this.resetPasswordOtp = crypto
+    .createHash("sha256")
+    .update(otp)
+    .digest("hex");
+
+  // Valid for 10 minutes
+  this.resetPasswordOtpExpires = Date.now() + 10 * 60 * 1000;
+
+  return otp;
 };
 
 const User = mongoose.model("User", userSchema);

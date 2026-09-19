@@ -137,6 +137,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
       <Route path="/reset-password/:token" element={<ResetPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/manager/login" element={<Navigate to="/login" replace />} />
       <Route path="/features" element={<FeaturesPage />} />
       <Route path="/" element={<LandingPage />} />

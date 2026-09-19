@@ -1,14 +1,20 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getCompaniesApi, updateCompanyStatusApi, deleteCompanyApi } from "../../api/superAdminApi";
+import { 
+  getCompaniesApi, 
+  updateCompanyStatusApi, 
+  restoreCompanyApi, 
+  permanentDeleteCompanyApi 
+} from "../../api/superAdminApi";
 import toast from "react-hot-toast";
 import SaSelect from "../../components/common/SaSelect";
 import DataTable from "../../components/common/DataTable";
 import SuperAdminEditCompanyModal from "../../components/company/SuperAdminEditCompanyModal";
+import SuperAdminDeleteCompanyModal from "../../components/company/SuperAdminDeleteCompanyModal";
 import { 
   Search, Plus, MoreVertical, Building2, ExternalLink, Settings, Ban, Trash2, Key, 
-  CheckCircle, Clock, AlertTriangle, User, Mail, Phone, Calendar, Users, Upload, ArrowUp, ArrowDown, Download, ShieldAlert
+  CheckCircle, Clock, AlertTriangle, User, Mail, Phone, Calendar, Users, ArrowUp, ArrowDown, Download, RotateCcw, ShieldAlert, Info, MessageSquare
 } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 
@@ -49,70 +55,10 @@ const MOCK_COMPANIES = [
     employeeLimit: 50,
     status: "active",
     createdAt: "2026-01-10T09:15:00Z"
-  },
-  {
-    _id: "comp_104",
-    companyName: "Starlight Retail Ventures",
-    companyCode: "STAR-44",
-    ownerName: "Sunita Menon",
-    email: "sunita@starlightretail.in",
-    phone: "+91 97445 66778",
-    planName: "Enterprise",
-    employeeLimit: 1000,
-    status: "active",
-    createdAt: "2026-02-18T16:45:00Z"
-  },
-  {
-    _id: "comp_105",
-    companyName: "CloudScale AI Systems",
-    companyCode: "CLOD-12",
-    ownerName: "Vikramaditya Rao",
-    email: "vikram@cloudscale.ai",
-    phone: "+91 96554 33221",
-    planName: "Trial",
-    employeeLimit: 25,
-    status: "active",
-    createdAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    _id: "comp_106",
-    companyName: "Apex Logistics India",
-    companyCode: "APEX-55",
-    ownerName: "Meera Joshi",
-    email: "meera.j@apexlogistics.com",
-    phone: "+91 95432 11009",
-    planName: "Basic",
-    employeeLimit: 50,
-    status: "suspended",
-    createdAt: "2026-03-05T08:30:00Z"
-  },
-  {
-    _id: "comp_107",
-    companyName: "Zenith Healthcare Analytics",
-    companyCode: "ZENT-90",
-    ownerName: "Dr. Alok Gupta",
-    email: "alok.gupta@zenithhealth.org",
-    phone: "+91 94321 88776",
-    planName: "Pro",
-    employeeLimit: 150,
-    status: "active",
-    createdAt: "2026-04-12T13:10:00Z"
-  },
-  {
-    _id: "comp_108",
-    companyName: "Quantika Financial Technologies",
-    companyCode: "QNTK-33",
-    ownerName: "Siddharth Chatterjee",
-    email: "siddharth@quantika.in",
-    phone: "+91 93210 55443",
-    planName: "Trial",
-    employeeLimit: 15,
-    status: "active",
-    createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
   }
 ];
 
-/* ─── Compact KPI Card Component (Matching Company Admin Dashboard) ──────── */
+/* ─── Compact KPI Card Component ─────────────────────────────────────────── */
 const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor }) => {
   const sparkData = useMemo(() => [
     { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
@@ -156,22 +102,37 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
 const SuperAdminCompanies = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  const [activeTab, setActiveTab] = useState("active"); // "active" | "trash"
   const [searchTerm, setSearchTerm] = useState("");
+  const [trashSearchTerm, setTrashSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [planFilter, setPlanFilter] = useState("all");
   const [activeMenu, setActiveMenu] = useState(null);
   const [editingCompany, setEditingCompany] = useState(null);
+  const [companyToDelete, setCompanyToDelete] = useState(null);
 
-  const { data, isLoading } = useQuery({
+  // 1. Fetch Active Companies (isDeleted !== true)
+  const { data: activeData, isLoading: isActiveLoading } = useQuery({
     queryKey: ["superAdminCompanies"],
     queryFn: () => getCompaniesApi(),
   });
 
-  const rawCompanies = Array.isArray(data?.data)
-    ? data?.data
-    : (data?.data?.companies || data?.data?.data || []);
+  // 2. Fetch Deleted Companies (isDeleted === true)
+  const { data: trashData, isLoading: isTrashLoading } = useQuery({
+    queryKey: ["superAdminDeletedCompanies"],
+    queryFn: () => getCompaniesApi({ trash: true }),
+  });
 
-  const companies = rawCompanies.length > 0 ? rawCompanies : MOCK_COMPANIES;
+  const rawActiveCompanies = Array.isArray(activeData?.data)
+    ? activeData?.data
+    : (activeData?.data?.companies || activeData?.data?.data || []);
+
+  const activeCompaniesList = rawActiveCompanies.length > 0 ? rawActiveCompanies : MOCK_COMPANIES;
+
+  const rawTrashCompanies = Array.isArray(trashData?.data)
+    ? trashData?.data
+    : (trashData?.data?.companies || trashData?.data?.data || []);
 
   const statusMutation = useMutation({
     mutationFn: ({ id, status }) => updateCompanyStatusApi(id, status),
@@ -179,31 +140,63 @@ const SuperAdminCompanies = () => {
     onError: (err) => toast.error(err.response?.data?.message || "Failed to update status")
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: (id) => deleteCompanyApi(id),
-    onSuccess: () => queryClient.invalidateQueries(["superAdminCompanies"]),
-    onError: (err) => toast.error(err.response?.data?.message || "Failed to delete company")
+  const restoreMutation = useMutation({
+    mutationFn: (id) => restoreCompanyApi(id),
+    onSuccess: () => {
+      toast.success("Company restored successfully to active list!");
+      queryClient.invalidateQueries(["superAdminCompanies"]);
+      queryClient.invalidateQueries(["superAdminDeletedCompanies"]);
+    },
+    onError: (err) => toast.error(err.response?.data?.message || "Failed to restore company")
   });
 
-  const filteredCompanies = companies.filter((company) => {
-    const matchesSearch = (company.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (company.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (company.companyCode || "").toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === "all" || String(company.status || "").toLowerCase() === String(statusFilter).toLowerCase() || (statusFilter === "active" && company.isActive === true) || (statusFilter === "inactive" && company.isActive === false);
-    const planStr = String(company.planName || company.plan || "").toLowerCase();
-    const matchesPlan = planFilter === "all" || 
-                        planStr.includes(String(planFilter).toLowerCase()) || 
-                        (planFilter === "Trial" && ["trial", "free", "basic"].includes(planStr));
-    return matchesSearch && matchesStatus && matchesPlan;
+  const permanentDeleteMutation = useMutation({
+    mutationFn: (id) => permanentDeleteCompanyApi(id),
+    onSuccess: () => {
+      toast.success("Company permanently purged from database.");
+      queryClient.invalidateQueries(["superAdminDeletedCompanies"]);
+    },
+    onError: (err) => toast.error(err.response?.data?.message || "Failed to permanently delete company")
   });
 
-  // Calculate KPIs
-  const totalCompanies = companies.length;
-  const activeCompanies = companies.filter(c => c.status === "active").length;
-  const suspendedCompanies = companies.filter(c => c.status === "suspended").length;
-  const trialCompanies = companies.filter(c => String(c.planName).toLowerCase().includes("trial") || String(c.planName).toLowerCase().includes("free")).length;
+  // Filtering for Active Tab
+  const filteredActiveCompanies = useMemo(() => {
+    return activeCompaniesList.filter((company) => {
+      const matchesSearch = (company.companyName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            (company.email || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                            (company.companyCode || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "all" || 
+                            String(company.status || "").toLowerCase() === String(statusFilter).toLowerCase() || 
+                            (statusFilter === "active" && company.isActive === true) || 
+                            (statusFilter === "inactive" && company.isActive === false);
+      const planStr = String(company.planName || company.plan || "").toLowerCase();
+      const matchesPlan = planFilter === "all" || 
+                          planStr.includes(String(planFilter).toLowerCase()) || 
+                          (planFilter === "Trial" && ["trial", "free", "basic"].includes(planStr));
+      return matchesSearch && matchesStatus && matchesPlan;
+    });
+  }, [activeCompaniesList, searchTerm, statusFilter, planFilter]);
+
+  // Filtering for Trash Tab
+  const filteredTrashCompanies = useMemo(() => {
+    return rawTrashCompanies.filter((company) => {
+      const term = trashSearchTerm.toLowerCase();
+      return (
+        (company.companyName || "").toLowerCase().includes(term) ||
+        (company.email || "").toLowerCase().includes(term) ||
+        (company.companyCode || "").toLowerCase().includes(term) ||
+        (company.deletionReason || "").toLowerCase().includes(term)
+      );
+    });
+  }, [rawTrashCompanies, trashSearchTerm]);
+
+  // Active KPIs
+  const totalCompanies = activeCompaniesList.length;
+  const activeCount = activeCompaniesList.filter(c => c.status === "active").length;
+  const suspendedCount = activeCompaniesList.filter(c => c.status === "suspended").length;
+  const trialCount = activeCompaniesList.filter(c => String(c.planName).toLowerCase().includes("trial") || String(c.planName).toLowerCase().includes("free")).length;
   
-  const expiringThisMonth = companies.filter(c => {
+  const expiringThisMonth = activeCompaniesList.filter(c => {
     if (!c.planName || (!String(c.planName).toLowerCase().includes("trial") && !String(c.planName).toLowerCase().includes("free"))) return false;
     const expiry = new Date(c.createdAt || Date.now());
     expiry.setDate(expiry.getDate() + 30);
@@ -213,7 +206,8 @@ const SuperAdminCompanies = () => {
 
   const handleExportData = () => {
     try {
-      if (!filteredCompanies || filteredCompanies.length === 0) {
+      const exportList = activeTab === "active" ? filteredActiveCompanies : filteredTrashCompanies;
+      if (!exportList || exportList.length === 0) {
         toast.error("No companies available to export");
         return;
       }
@@ -223,7 +217,7 @@ const SuperAdminCompanies = () => {
         "Email", "Phone", "Plan Name", "User Limit", "Status", "Created Date"
       ];
 
-      const rows = filteredCompanies.map((c) => [
+      const rows = exportList.map((c) => [
         `"${(c._id || "").replace(/"/g, '""')}"`,
         `"${(c.companyName || c.name || "Unknown").replace(/"/g, '""')}"`,
         `"${(c.companyCode || "").replace(/"/g, '""')}"`,
@@ -240,7 +234,7 @@ const SuperAdminCompanies = () => {
       const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
-      const filename = `superadmin_companies_export_${new Date().toISOString().split("T")[0]}.csv`;
+      const filename = `superadmin_companies_${activeTab}_${new Date().toISOString().split("T")[0]}.csv`;
 
       link.setAttribute("href", url);
       link.setAttribute("download", filename);
@@ -250,7 +244,7 @@ const SuperAdminCompanies = () => {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      toast.success(`Successfully exported ${filteredCompanies.length} company records!`);
+      toast.success(`Successfully exported ${exportList.length} company records!`);
     } catch (err) {
       console.error("Error exporting company data:", err);
       toast.error("Failed to export company data.");
@@ -264,13 +258,20 @@ const SuperAdminCompanies = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm("CRITICAL: Are you sure you want to permanently delete this company and ALL of its users? This action cannot be undone.")) {
-      deleteMutation.mutate(id);
+  const handleRestore = (company) => {
+    if (window.confirm(`Are you sure you want to restore "${company.companyName}"? This will reactivate the organization and return it to the active list.`)) {
+      restoreMutation.mutate(company._id);
     }
   };
 
-  const columns = [
+  const handlePermanentDelete = (company) => {
+    if (window.confirm(`CRITICAL WARNING: Are you sure you want to permanently erase "${company.companyName}" immediately? All company data, settings, employees, and user credentials will be permanently destroyed. This CANNOT be undone!`)) {
+      permanentDeleteMutation.mutate(company._id);
+    }
+  };
+
+  // Columns for Active Companies Table
+  const activeColumns = [
     {
       header: "Company",
       accessor: "companyName",
@@ -427,14 +428,149 @@ const SuperAdminCompanies = () => {
     }
   ];
 
+  // Columns for Deleted / Trash Companies Table
+  const trashColumns = [
+    {
+      header: "Deleted Company",
+      accessor: "companyName",
+      render: (row) => (
+        <div className="flex items-center space-x-3.5 py-1">
+          <div className="w-10 h-10 rounded-xl bg-rose-500/10 dark:bg-rose-950/40 border border-rose-500/20 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-2xs">
+            {row.logo ? (
+              <img src={row.logo} alt={row.companyName} className="w-full h-full object-cover rounded-xl grayscale opacity-75" />
+            ) : (
+              <Building2 size={18} className="text-rose-500 dark:text-rose-400" />
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-bold text-slate-900 dark:text-white tracking-tight truncate leading-tight">
+              {row.companyName}
+            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              {row.companyCode && (
+                <span className="text-[10px] font-semibold px-2 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200/60 dark:border-slate-700">
+                  {row.companyCode}
+                </span>
+              )}
+              <span className="text-[11px] text-slate-400 truncate">
+                Owner: {row.ownerName || row.email || "—"}
+              </span>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "Reason for Deletion",
+      accessor: "deletionReason",
+      render: (row) => (
+        <div className="py-1 max-w-xs">
+          <div className="flex items-start gap-1.5 p-2 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-slate-200/60 dark:border-slate-700/60">
+            <MessageSquare size={13} className="text-rose-500 mt-0.5 flex-shrink-0" />
+            <p className="text-[11.5px] font-medium text-slate-700 dark:text-slate-300 line-clamp-2 leading-tight">
+              {row.deletionReason || "No deletion reason specified"}
+            </p>
+          </div>
+        </div>
+      )
+    },
+    {
+      header: "Deleted On",
+      accessor: "deletedAt",
+      render: (row) => (
+        <div className="flex flex-col space-y-0.5 py-1 text-[11.5px]">
+          <div className="flex items-center space-x-1.5 text-slate-700 dark:text-slate-300 font-semibold">
+            <Calendar size={12} className="text-slate-400 flex-shrink-0" />
+            <span>
+              {row.deletedAt ? new Date(row.deletedAt).toLocaleDateString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric"
+              }) : "—"}
+            </span>
+          </div>
+          <span className="text-[10.5px] text-slate-400">
+            By: {row.deletedBy?.name || row.deletedBy?.email || "SuperAdmin"}
+          </span>
+        </div>
+      )
+    },
+    {
+      header: "Retention Countdown",
+      accessor: "permanentDeleteAt",
+      render: (row) => {
+        const target = row.permanentDeleteAt ? new Date(row.permanentDeleteAt) : null;
+        const now = new Date();
+        const daysLeft = target ? Math.max(0, Math.ceil((target.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))) : 0;
+        
+        const isUrgent = daysLeft <= 2;
+        const isWarning = daysLeft <= 5;
+
+        return (
+          <div className="flex flex-col items-start space-y-1 py-1">
+            <span className={`inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg text-[11px] font-extrabold tracking-wide border shadow-2xs ${
+              isUrgent
+                ? "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30 animate-pulse"
+                : isWarning
+                  ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                  : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+            }`}>
+              <Clock size={12} />
+              <span>
+                {daysLeft === 0 ? "Purging Today" : `${daysLeft} Day${daysLeft === 1 ? "" : "s"} Remaining`}
+              </span>
+            </span>
+            {target && (
+              <span className="text-[10px] text-slate-400">
+                Purge: {target.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              </span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      header: "Actions",
+      accessor: "trashActions",
+      render: (row) => (
+        <div className="flex items-center justify-end gap-2 py-1">
+          {/* Restore Button */}
+          <button
+            type="button"
+            onClick={() => handleRestore(row)}
+            disabled={restoreMutation.isPending}
+            title="Restore organization to active state"
+            className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 text-xs font-bold transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+          >
+            <RotateCcw size={13} strokeWidth={2.2} />
+            <span>Restore</span>
+          </button>
+
+          {/* Permanent Delete Button */}
+          <button
+            type="button"
+            onClick={() => handlePermanentDelete(row)}
+            disabled={permanentDeleteMutation.isPending}
+            title="Delete immediately without waiting 10 days"
+            className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/25 transition-all cursor-pointer shadow-2xs hover:scale-[1.02] active:scale-95 disabled:opacity-50"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
+      )
+    }
+  ];
+
   return (
     <div className="space-y-4 w-full pb-10 font-sans text-slate-900 dark:text-slate-100">
       
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Companies</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage all registered organizations, subscriptions, and access limits.</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Companies Management</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Manage active client organizations, access control, and deleted organizations with 10-day safety retention.
+          </p>
         </div>
         <div className="flex items-center space-x-2.5">
           <button 
@@ -452,62 +588,160 @@ const SuperAdminCompanies = () => {
         </div>
       </div>
 
-      {/* Row 1: KPI Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        <KPICard label="Total Companies"  value={totalCompanies}    trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
-        <KPICard label="Active Companies" value={activeCompanies}   trend="18.2%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669"/>
-        <KPICard label="Suspended"        value={suspendedCompanies}trend="5.0%"  isUp={false} period="last month" strokeColor="#F43F5E" Icon={Ban} iconBg="bg-rose-500/10"    iconColor="#E11D48"/>
-        <KPICard label="Trial Accounts"   value={trialCompanies}    trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Clock} iconBg="bg-purple-500/10"  iconColor="#7C3AED"/>
-        <KPICard label="Expiring Soon"    value={expiringThisMonth} trend="Action" isUp={false} period="required" strokeColor="#F97316" Icon={AlertTriangle} iconBg="bg-orange-500/10" iconColor="#EA580C"/>
+      {/* Tabs Navigation: Active vs Deleted (Trash) */}
+      <div className="flex items-center space-x-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveTab("active")}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeTab === "active"
+              ? "bg-amber-500 text-slate-950 shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
+          }`}
+        >
+          <Building2 size={15} />
+          <span>Active Companies</span>
+          <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
+            activeTab === "active" ? "bg-slate-950/15 text-slate-950" : "bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+          }`}>
+            {rawActiveCompanies.length}
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab("trash")}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+            activeTab === "trash"
+              ? "bg-rose-500 text-white shadow-xs"
+              : "text-slate-600 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-500/10"
+          }`}
+        >
+          <Trash2 size={15} />
+          <span>Deleted Companies (Trash)</span>
+          {rawTrashCompanies.length > 0 && (
+            <span className={`px-2 py-0.5 rounded-full text-[10.5px] font-black ${
+              activeTab === "trash" ? "bg-white/20 text-white" : "bg-rose-500/15 text-rose-600 dark:text-rose-400"
+            }`}>
+              {rawTrashCompanies.length}
+            </span>
+          )}
+        </button>
       </div>
 
-      {/* Filter Row */}
-      <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <div className="relative flex-1 w-full">
-          <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search companies by name, email, or code..."
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-all"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-2.5 w-full sm:w-auto">
-          <SaSelect
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { label: "All Statuses", value: "all" },
-              { label: "Active Only", value: "active" },
-              { label: "Suspended Only", value: "suspended" },
-              { label: "Inactive Only", value: "inactive" }
-            ]}
-            buttonClassName="!py-2 !px-3 !rounded-lg !bg-slate-50/70 dark:!bg-slate-900/60 !w-full sm:!w-40 !text-xs !border-slate-200/80 dark:!border-slate-800"
-          />
-          <SaSelect
-            value={planFilter}
-            onChange={setPlanFilter}
-            options={[
-              { label: "All Plans", value: "all" },
-              { label: "Trial / Free", value: "Trial" },
-              { label: "Pro Plan", value: "Pro" },
-              { label: "Enterprise", value: "Enterprise" }
-            ]}
-            buttonClassName="!py-2 !px-3 !rounded-lg !bg-slate-50/70 dark:!bg-slate-900/60 !w-full sm:!w-40 !text-xs !border-slate-200/80 dark:!border-slate-800"
-          />
-        </div>
-      </div>
+      {/* ACTIVE TAB CONTENT */}
+      {activeTab === "active" && (
+        <div className="space-y-4">
+          {/* KPI Stat Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
+            <KPICard label="Total Companies"  value={totalCompanies}    trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
+            <KPICard label="Active Companies" value={activeCount}       trend="18.2%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669"/>
+            <KPICard label="Suspended"        value={suspendedCount}    trend="5.0%"  isUp={false} period="last month" strokeColor="#F43F5E" Icon={Ban} iconBg="bg-rose-500/10"    iconColor="#E11D48"/>
+            <KPICard label="Trial Accounts"   value={trialCount}        trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Clock} iconBg="bg-purple-500/10"  iconColor="#7C3AED"/>
+            <KPICard label="Expiring Soon"    value={expiringThisMonth} trend="Action" isUp={false} period="required" strokeColor="#F97316" Icon={AlertTriangle} iconBg="bg-orange-500/10" iconColor="#EA580C"/>
+          </div>
 
-      {/* Data Table */}
-      {isLoading ? (
-        <div className="py-24 text-center bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800">
-          <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-slate-500 dark:text-slate-400 font-semibold text-xs">Loading company records...</p>
+          {/* Filter Row */}
+          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-200/80 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="relative flex-1 w-full">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search active companies by name, email, or code..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-all"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex items-center gap-2.5 w-full sm:w-auto">
+              <SaSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={[
+                  { label: "All Statuses", value: "all" },
+                  { label: "Active Only", value: "active" },
+                  { label: "Suspended Only", value: "suspended" },
+                  { label: "Inactive Only", value: "inactive" }
+                ]}
+                buttonClassName="!py-2 !px-3 !rounded-lg !bg-slate-50/70 dark:!bg-slate-900/60 !w-full sm:!w-40 !text-xs !border-slate-200/80 dark:!border-slate-800"
+              />
+              <SaSelect
+                value={planFilter}
+                onChange={setPlanFilter}
+                options={[
+                  { label: "All Plans", value: "all" },
+                  { label: "Trial / Free", value: "Trial" },
+                  { label: "Pro Plan", value: "Pro" },
+                  { label: "Enterprise", value: "Enterprise" }
+                ]}
+                buttonClassName="!py-2 !px-3 !rounded-lg !bg-slate-50/70 dark:!bg-slate-900/60 !w-full sm:!w-40 !text-xs !border-slate-200/80 dark:!border-slate-800"
+              />
+            </div>
+          </div>
+
+          {/* Active Data Table */}
+          {isActiveLoading ? (
+            <div className="py-24 text-center bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <div className="animate-spin w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400 font-semibold text-xs">Loading company records...</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
+              <DataTable columns={activeColumns} data={filteredActiveCompanies} pagination={{ total: filteredActiveCompanies.length }} />
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
-          <DataTable columns={columns} data={filteredCompanies} pagination={{ total: filteredCompanies.length }} />
+      )}
+
+      {/* TRASH / DELETED TAB CONTENT */}
+      {activeTab === "trash" && (
+        <div className="space-y-4">
+          {/* Information Banner */}
+          <div className="p-4 rounded-xl bg-amber-500/10 dark:bg-amber-950/20 border border-amber-500/20 flex items-start gap-3 text-xs">
+            <Info size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <p className="font-bold text-slate-900 dark:text-white">
+                10-Day Retention Grace Period Policy
+              </p>
+              <p className="text-slate-600 dark:text-slate-300 text-[11.5px] leading-relaxed">
+                Companies listed here have been soft-deleted and removed from the active view. They are kept safely for <b>10 days</b> from deletion before being permanently purged. You can restore any organization with a single click anytime before its grace period ends.
+              </p>
+            </div>
+          </div>
+
+          {/* Search bar for trash */}
+          <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.03)] border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-3">
+            <div className="relative flex-1">
+              <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search deleted companies by name, email, code, or reason..."
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-rose-500 transition-all"
+                value={trashSearchTerm}
+                onChange={(e) => setTrashSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Trash Data Table */}
+          {isTrashLoading ? (
+            <div className="py-24 text-center bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <div className="animate-spin w-8 h-8 border-4 border-rose-500 border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-slate-500 dark:text-slate-400 font-semibold text-xs">Loading deleted companies...</p>
+            </div>
+          ) : rawTrashCompanies.length === 0 ? (
+            <div className="py-16 text-center bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mx-auto mb-3">
+                <CheckCircle size={24} />
+              </div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Trash is Empty</h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">There are no soft-deleted companies in the 10-day retention pool.</p>
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-[0_1px_3px_rgba(0,0,0,0.03)] overflow-hidden">
+              <DataTable columns={trashColumns} data={filteredTrashCompanies} pagination={{ total: filteredTrashCompanies.length }} />
+            </div>
+          )}
         </div>
       )}
 
@@ -569,11 +803,14 @@ const SuperAdminCompanies = () => {
             </button>
             <button 
               type="button"
-              onClick={() => { const id = activeMenu.id; setActiveMenu(null); handleDelete(id); }} 
-              disabled={deleteMutation.isPending}
+              onClick={() => { 
+                const comp = activeMenu.row; 
+                setActiveMenu(null); 
+                setCompanyToDelete(comp); 
+              }} 
               className="w-full flex items-center space-x-2.5 px-3 py-2 rounded-lg text-xs font-semibold text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
             >
-              <Trash2 size={14} /> <span>Delete Permanently</span>
+              <Trash2 size={14} /> <span>Delete Company</span>
             </button>
           </div>
         </div>
@@ -585,6 +822,15 @@ const SuperAdminCompanies = () => {
           isOpen={!!editingCompany}
           onClose={() => setEditingCompany(null)}
           company={editingCompany}
+        />
+      )}
+
+      {/* Soft Delete Company Confirmation Modal */}
+      {companyToDelete && (
+        <SuperAdminDeleteCompanyModal
+          isOpen={!!companyToDelete}
+          onClose={() => setCompanyToDelete(null)}
+          company={companyToDelete}
         />
       )}
     </div>

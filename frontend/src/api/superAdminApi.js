@@ -9,7 +9,9 @@ export const getCompaniesApi = (params) => api.get("/superadmin/companies", { pa
 export const getCompanyByIdApi = (id) => api.get(`/superadmin/companies/${id}`);
 export const createCompanyApi = (data) => api.post("/superadmin/companies", data);
 export const updateCompanyApi = (id, data) => api.put(`/superadmin/companies/${id}`, data);
-export const deleteCompanyApi = (id) => api.delete(`/superadmin/companies/${id}`);
+export const deleteCompanyApi = (id, reason) => api.delete(`/superadmin/companies/${id}`, { data: { reason } });
+export const restoreCompanyApi = (id) => api.patch(`/superadmin/companies/${id}/restore`);
+export const permanentDeleteCompanyApi = (id) => api.delete(`/superadmin/companies/${id}/permanent`);
 export const updateCompanyStatusApi = (id, status) => api.patch(`/superadmin/companies/${id}/status`, { status });
 
 export const getCompanyAdminsApi = (params) => api.get("/superadmin/company-admins", { params });

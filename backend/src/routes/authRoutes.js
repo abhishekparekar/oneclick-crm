@@ -9,6 +9,9 @@ const {
   registerCompany,
   forgotPassword,
   resetPassword,
+  sendResetOtp,
+  verifyResetOtp,
+  resetPasswordWithOtp,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 const {
@@ -23,6 +26,9 @@ router.post("/register-superadmin", registerSuperAdminRules, registerSuperAdmin)
 router.post("/register-company", registerCompanyRules, registerCompany);
 router.post("/login", loginRules, login);
 router.post("/forgot-password", forgotPassword);
+router.post("/send-reset-otp", sendResetOtp);
+router.post("/verify-reset-otp", verifyResetOtp);
+router.post("/reset-password-otp", resetPasswordWithOtp);
 router.post("/reset-password/:token", resetPassword);
 router.get("/me", protect, getMe);
 router.post("/change-password", protect, changePassword);
