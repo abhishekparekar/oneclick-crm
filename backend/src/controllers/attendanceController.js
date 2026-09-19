@@ -9,6 +9,7 @@ const CompanyAttendanceSettings = require("../models/CompanyAttendanceSettings")
 const User = require("../models/User");
 const Department = require("../models/Department");
 const Designation = require("../models/Designation");
+const Branch = require("../models/Branch");
 const { calculateDistance } = require("../utils/geoUtils");
 const { notifyUser, notifyRole, notifyDeptManagers, notifyAttendancePunch } = require("../utils/notificationHelper");
 
@@ -129,6 +130,131 @@ const getCompanyAttendanceSettings = async (companyId) => {
   return settings;
 };
 
+/**
+ * Match user GPS against all authorized branches and main office geofences.
+ * Supports:
+ * - Multi-branch companies (any company branch with valid lat/long).
+ * - Employee-specific assigned branches (employee.branchId + employee.branchIds).
+ * - Fallback to Main Office settings.
+ */
+const matchOfficeOrBranch = async ({ companyId, employee, latitude, longitude, geoSettings }) => {
+  if (latitude === undefined || longitude === undefined || latitude === null || longitude === null) {
+    return {
+      insideArea: false,
+      distanceFromOffice: null,
+      matchedBranch: null,
+      nearestOfficeName: geoSettings.officeName || "Office",
+      allowedRadius: geoSettings.allowedRadiusMeters || 100,
+    };
+  }
+
+  // 1. Gather all candidates: Active Branches + Main Office
+  const branches = await Branch.find({
+    companyId,
+    status: "active",
+    latitude: { $ne: null },
+    longitude: { $ne: null },
+  }).lean();
+
+  const candidates = [];
+
+  // Add branches with coordinates
+  for (const b of branches) {
+    if (b.latitude !== null && b.longitude !== null && b.latitude !== 0 && b.longitude !== 0) {
+      candidates.push({
+        _id: b._id,
+        name: b.branchName || "Branch",
+        latitude: b.latitude,
+        longitude: b.longitude,
+        allowedRadiusMeters: b.allowedRadiusMeters || geoSettings.allowedRadiusMeters || 100,
+        isBranch: true,
+      });
+    }
+  }
+
+  // Add Main Office from geoSettings if configured
+  if (geoSettings.latitude !== null && geoSettings.longitude !== null && geoSettings.latitude !== 0 && geoSettings.longitude !== 0) {
+    candidates.push({
+      _id: null,
+      name: geoSettings.officeName || "Main Office",
+      latitude: geoSettings.latitude,
+      longitude: geoSettings.longitude,
+      allowedRadiusMeters: geoSettings.allowedRadiusMeters || 100,
+      isBranch: false,
+    });
+  }
+
+  // If no geofence locations configured in the company at all
+  if (candidates.length === 0) {
+    return {
+      insideArea: true,
+      distanceFromOffice: 0,
+      matchedBranch: null,
+      officeName: geoSettings.officeName || "Main Office",
+      allowedRadius: geoSettings.allowedRadiusMeters || 100,
+      noGeofenceConfigured: true,
+    };
+  }
+
+  // Determine allowed candidates for this employee
+  let allowedCandidates = candidates;
+  if (geoSettings.restrictToAssignedBranches && employee) {
+    const assignedIds = new Set();
+    if (employee.branchId) assignedIds.add(String(employee.branchId));
+    if (Array.isArray(employee.branchIds)) {
+      employee.branchIds.forEach((id) => id && assignedIds.add(String(id)));
+    }
+    if (assignedIds.size > 0) {
+      const filtered = candidates.filter((c) => !c.isBranch || assignedIds.has(String(c._id)));
+      if (filtered.length > 0) {
+        allowedCandidates = filtered;
+      }
+    }
+  }
+
+  // 2. Evaluate distance to all candidate locations
+  let matched = null;
+  let minDistance = Infinity;
+  let closestCandidate = allowedCandidates[0] || candidates[0];
+
+  for (const cand of allowedCandidates) {
+    const dist = calculateDistance(latitude, longitude, cand.latitude, cand.longitude);
+    if (dist !== null) {
+      if (dist < minDistance) {
+        minDistance = dist;
+        closestCandidate = cand;
+      }
+      if (dist <= cand.allowedRadiusMeters) {
+        matched = {
+          candidate: cand,
+          distance: dist,
+        };
+        break; // Match found: inside this office boundary
+      }
+    }
+  }
+
+  if (matched) {
+    return {
+      insideArea: true,
+      distanceFromOffice: Math.round(matched.distance),
+      matchedBranch: matched.candidate.isBranch
+        ? { _id: matched.candidate._id, branchName: matched.candidate.name }
+        : null,
+      officeName: matched.candidate.name,
+      allowedRadius: matched.candidate.allowedRadiusMeters,
+    };
+  }
+
+  return {
+    insideArea: false,
+    distanceFromOffice: minDistance !== Infinity ? Math.round(minDistance) : null,
+    matchedBranch: null,
+    nearestOfficeName: closestCandidate ? closestCandidate.name : (geoSettings.officeName || "Office"),
+    allowedRadius: closestCandidate ? closestCandidate.allowedRadiusMeters : (geoSettings.allowedRadiusMeters || 100),
+  };
+};
+
 const handleValidation = (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -192,32 +318,53 @@ const checkIn = async (req, res, next) => {
     let distanceFromOffice = null;
     let locationType = "office";
     let gpsValidated = false;
+    let matchedBranch = null;
+    let matchedOfficeName = geoSettings.officeName || "Office";
+    let matchedRadius = geoSettings.allowedRadiusMeters || 100;
 
     if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null) {
       gpsValidated = true;
-      if (geoSettings.latitude !== null && geoSettings.longitude !== null && geoSettings.latitude !== 0 && geoSettings.longitude !== 0) {
-        distanceFromOffice = calculateDistance(latitude, longitude, geoSettings.latitude, geoSettings.longitude);
-        const insideArea = distanceFromOffice !== null ? distanceFromOffice <= geoSettings.allowedRadiusMeters : true;
+      const matchResult = await matchOfficeOrBranch({
+        companyId: req.companyId,
+        employee,
+        latitude,
+        longitude,
+        geoSettings,
+      });
 
-        if (insideArea) {
-          locationType = "office";
-        } else {
-          locationType = "remote";
-          
-          const isRemoteAllowed = employee.allowRemotePunch || 
-                                  employee.workMode === "remote" || 
-                                  employee.workMode === "hybrid" || 
-                                  (geoSettings.allowAdminBypassGeoFencing && 
-                                   (req.user.role === "CompanyAdmin" || req.user.role === "Manager" || req.user.role === "HR"));
+      distanceFromOffice = matchResult.distanceFromOffice;
+      matchedBranch = matchResult.matchedBranch;
+      matchedOfficeName = matchResult.officeName || matchResult.nearestOfficeName || "Office";
+      matchedRadius = matchResult.allowedRadius || 100;
 
-          // Check if we should reject
-          if (geoSettings.attendanceMode === "office_only" && !isRemoteAllowed) {
-            return res.status(400).json({
-              message: "You are not in the office. Punching is not allowed.",
-              distance: distanceFromOffice !== null ? Math.round(distanceFromOffice) : 0,
-              allowedRadius: geoSettings.allowedRadiusMeters,
-            });
-          }
+      if (matchResult.insideArea) {
+        locationType = "office";
+        if (matchedBranch) {
+          punchLocation.branchId = matchedBranch._id;
+          punchLocation.branchName = matchedBranch.branchName;
+        } else if (matchResult.officeName) {
+          punchLocation.branchName = matchResult.officeName;
+        }
+      } else {
+        locationType = "remote";
+        
+        const isRemoteAllowed = employee.allowRemotePunch || 
+                                employee.workMode === "remote" || 
+                                employee.workMode === "hybrid" || 
+                                (geoSettings.allowAdminBypassGeoFencing && 
+                                 (req.user.role === "CompanyAdmin" || req.user.role === "Manager" || req.user.role === "HR"));
+
+        // Check if we should reject
+        if (geoSettings.attendanceMode === "office_only" && !isRemoteAllowed) {
+          const nearestMsg = matchResult.nearestOfficeName
+            ? ` Nearest location is ${matchResult.nearestOfficeName} (${matchResult.distanceFromOffice?.toLocaleString() || 0}m away, allowed: ${matchResult.allowedRadius}m).`
+            : "";
+          return res.status(400).json({
+            message: `You are not in the office. Punching is not allowed.${nearestMsg}`,
+            distance: distanceFromOffice !== null ? distanceFromOffice : 0,
+            allowedRadius: matchResult.allowedRadius,
+            nearestOffice: matchResult.nearestOfficeName,
+          });
         }
       }
     }
@@ -256,9 +403,9 @@ const checkIn = async (req, res, next) => {
       attendance.locationType = locationType;
       attendance.gpsValidated = gpsValidated;
       attendance.officeLocationSnapshot = {
-        latitude: geoSettings.latitude,
-        longitude: geoSettings.longitude,
-        radius: geoSettings.allowedRadiusMeters,
+        latitude: matchedBranch ? (matchedBranch.latitude || geoSettings.latitude) : geoSettings.latitude,
+        longitude: matchedBranch ? (matchedBranch.longitude || geoSettings.longitude) : geoSettings.longitude,
+        radius: matchedRadius,
       };
       if (punchInSelfie) attendance.punchInSelfie = punchInSelfie;
     }
@@ -413,32 +560,49 @@ const checkOut = async (req, res, next) => {
     let distanceFromOffice = null;
     let locationType = "office";
     let gpsValidated = false;
+    let matchedBranch = null;
 
     if (latitude !== undefined && longitude !== undefined && latitude !== null && longitude !== null) {
       gpsValidated = true;
-      if (geoSettings.latitude !== null && geoSettings.longitude !== null && geoSettings.latitude !== 0 && geoSettings.longitude !== 0) {
-        distanceFromOffice = calculateDistance(latitude, longitude, geoSettings.latitude, geoSettings.longitude);
-        const insideArea = distanceFromOffice !== null ? distanceFromOffice <= geoSettings.allowedRadiusMeters : true;
+      const matchResult = await matchOfficeOrBranch({
+        companyId: req.companyId,
+        employee,
+        latitude,
+        longitude,
+        geoSettings,
+      });
 
-        if (insideArea) {
-          locationType = "office";
-        } else {
-          locationType = "remote";
-          
-          const isRemoteAllowed = employee.allowRemotePunch || 
-                                  employee.workMode === "remote" || 
-                                  employee.workMode === "hybrid" || 
-                                  (geoSettings.allowAdminBypassGeoFencing && 
-                                   (req.user.role === "CompanyAdmin" || req.user.role === "Manager" || req.user.role === "HR"));
+      distanceFromOffice = matchResult.distanceFromOffice;
+      matchedBranch = matchResult.matchedBranch;
 
-          // Check if we should reject
-          if (geoSettings.attendanceMode === "office_only" && !isRemoteAllowed) {
-            return res.status(400).json({
-              message: "You are not in the office. Punching is not allowed.",
-              distance: distanceFromOffice !== null ? Math.round(distanceFromOffice) : 0,
-              allowedRadius: geoSettings.allowedRadiusMeters,
-            });
-          }
+      if (matchResult.insideArea) {
+        locationType = "office";
+        if (matchedBranch) {
+          punchLocation.branchId = matchedBranch._id;
+          punchLocation.branchName = matchedBranch.branchName;
+        } else if (matchResult.officeName) {
+          punchLocation.branchName = matchResult.officeName;
+        }
+      } else {
+        locationType = "remote";
+        
+        const isRemoteAllowed = employee.allowRemotePunch || 
+                                employee.workMode === "remote" || 
+                                employee.workMode === "hybrid" || 
+                                (geoSettings.allowAdminBypassGeoFencing && 
+                                 (req.user.role === "CompanyAdmin" || req.user.role === "Manager" || req.user.role === "HR"));
+
+        // Check if we should reject
+        if (geoSettings.attendanceMode === "office_only" && !isRemoteAllowed) {
+          const nearestMsg = matchResult.nearestOfficeName
+            ? ` Nearest location is ${matchResult.nearestOfficeName} (${matchResult.distanceFromOffice?.toLocaleString() || 0}m away, allowed: ${matchResult.allowedRadius}m).`
+            : "";
+          return res.status(400).json({
+            message: `You are not in the office. Punching is not allowed.${nearestMsg}`,
+            distance: distanceFromOffice !== null ? distanceFromOffice : 0,
+            allowedRadius: matchResult.allowedRadius,
+            nearestOffice: matchResult.nearestOfficeName,
+          });
         }
       }
     }
@@ -1076,6 +1240,8 @@ const updateSettings = async (req, res, next) => {
     if (autoHalfDayOnLate !== undefined) settings.autoHalfDayOnLate = Boolean(autoHalfDayOnLate);
     if (earlyLeaveGracePeriodMinutes !== undefined) settings.earlyLeaveGracePeriodMinutes = Number(earlyLeaveGracePeriodMinutes);
     if (autoHalfDayOnEarlyLeave !== undefined) settings.autoHalfDayOnEarlyLeave = Boolean(autoHalfDayOnEarlyLeave);
+    if (req.body.allowMultiBranchPunch !== undefined) settings.allowMultiBranchPunch = Boolean(req.body.allowMultiBranchPunch);
+    if (req.body.restrictToAssignedBranches !== undefined) settings.restrictToAssignedBranches = Boolean(req.body.restrictToAssignedBranches);
 
     await settings.save();
     res.json({ success: true, settings });
@@ -1099,24 +1265,16 @@ const validateLocation = async (req, res, next) => {
       });
     }
 
-    // If office location is not set yet (or set to 0, 0 placeholder)
-    if (settings.latitude === null || settings.longitude === null || settings.latitude === 0 || settings.longitude === 0) {
-      return res.json({
-        success: true,
-        data: {
-          insideArea: true,
-          distance: 0,
-          allowedRadius: settings.allowedRadiusMeters,
-          attendanceMode: settings.attendanceMode,
-          requireSelfie: settings.requireSelfie,
-        },
-      });
-    }
-
-    const distance = calculateDistance(latitude, longitude, settings.latitude, settings.longitude);
-    let insideArea = distance !== null ? distance <= settings.allowedRadiusMeters : true;
-
     const employee = await resolveEmployeeForUser(req);
+    const matchResult = await matchOfficeOrBranch({
+      companyId: req.companyId,
+      employee,
+      latitude,
+      longitude,
+      geoSettings: settings,
+    });
+
+    let insideArea = matchResult.insideArea;
     const isRemoteAllowed = employee && (
       employee.allowRemotePunch || 
       employee.workMode === "remote" || 
@@ -1133,8 +1291,10 @@ const validateLocation = async (req, res, next) => {
       success: true,
       data: {
         insideArea,
-        distance: distance !== null ? Math.round(distance) : 0,
-        allowedRadius: settings.allowedRadiusMeters,
+        distance: matchResult.distanceFromOffice !== null ? matchResult.distanceFromOffice : 0,
+        allowedRadius: matchResult.allowedRadius,
+        matchedBranch: matchResult.matchedBranch,
+        officeName: matchResult.officeName || matchResult.nearestOfficeName,
         attendanceMode: settings.attendanceMode,
         requireSelfie: settings.requireSelfie,
       },

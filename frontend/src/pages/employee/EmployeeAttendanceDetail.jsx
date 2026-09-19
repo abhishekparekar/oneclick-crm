@@ -346,7 +346,9 @@ const EmployeeAttendanceDetail = () => {
 
                           <div className="flex items-center gap-1.5 mt-2 text-[11px] text-slate-500 dark:text-slate-400">
                             <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />
-                            <span className="truncate font-medium">Clock-in verified</span>
+                            <span className="truncate font-medium">
+                              {sess.punchInLocation?.branchName ? `Verified at ${sess.punchInLocation.branchName}` : (sess.punchInLocation?.address || "Clock-in verified")}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -376,7 +378,9 @@ const EmployeeAttendanceDetail = () => {
                             {sOutTime !== "—" ? (
                               <>
                                 <CheckCircle2 size={13} className="text-blue-500 shrink-0" />
-                                <span className="truncate font-medium">Shift completed</span>
+                                <span className="truncate font-medium">
+                                  {sess.punchOutLocation?.branchName ? `Clock-out at ${sess.punchOutLocation.branchName}` : (sess.punchOutLocation?.address || "Shift completed")}
+                                </span>
                               </>
                             ) : (
                               <>

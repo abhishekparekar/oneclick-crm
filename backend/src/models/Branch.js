@@ -34,6 +34,22 @@ const branchSchema = new mongoose.Schema(
       enum: ["active", "inactive"],
       default: "active",
     },
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
+    allowedRadiusMeters: {
+      type: Number,
+      default: 100,
+    },
+    requireGps: {
+      type: Boolean,
+      default: true,
+    },
   },
   { timestamps: true }
 );

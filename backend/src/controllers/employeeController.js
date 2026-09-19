@@ -85,12 +85,23 @@ const buildEmployeeFilter = (req) => {
   const filter = { companyId: req.companyId };
 
   if (designationId) filter.designationId = designationId;
-  if (branchId) filter.branchId = branchId;
   if (employmentType) filter.employmentType = employmentType;
   if (status) filter.status = status;
   if (moduleFilter) filter.assignedModules = moduleFilter;
 
   const andConditions = [];
+
+  if (branchId) {
+    const branchObjId = mongoose.Types.ObjectId.isValid(branchId)
+      ? new mongoose.Types.ObjectId(branchId)
+      : branchId;
+    andConditions.push({
+      $or: [
+        { branchId: branchObjId },
+        { branchIds: branchObjId },
+      ],
+    });
+  }
 
   if (departmentId) {
     const deptObjId = mongoose.Types.ObjectId.isValid(departmentId)
@@ -391,6 +402,9 @@ const createEmployee = async (req, res, next) => {
       (Array.isArray(departmentIds) && departmentIds.length > 0 ? departmentIds[0] : null) ||
       (Array.isArray(accessibleDepartments) && accessibleDepartments.length > 0 ? accessibleDepartments[0] : null);
 
+    const resolvedBranchId = branchId ||
+      (Array.isArray(branchIds) && branchIds.length > 0 ? branchIds[0] : null);
+
     const emailLower = email.toLowerCase();
     let effectiveDeptId = resolvedDeptId;
     let effectiveDesigId = designationId;
@@ -410,7 +424,7 @@ const createEmployee = async (req, res, next) => {
       return res.status(400).json({ message: "Department is required" });
     }
 
-    if (!branchId) {
+    if (!resolvedBranchId) {
       return res.status(400).json({ message: "Branch is required" });
     }
 
@@ -418,7 +432,7 @@ const createEmployee = async (req, res, next) => {
       {
         departmentId: effectiveDeptId,
         designationId: effectiveDesigId,
-        branchId,
+        branchId: resolvedBranchId,
       },
       companyId
     );
@@ -582,7 +596,10 @@ const createEmployee = async (req, res, next) => {
           ? departmentIds
           : (effectiveDeptId ? [effectiveDeptId] : []),
         designationId: effectiveDesigId || null,
-        branchId: branchId || null,
+        branchId: resolvedBranchId || null,
+        branchIds: Array.isArray(req.body.branchIds) && req.body.branchIds.length > 0
+          ? (resolvedBranchId && !req.body.branchIds.map(String).includes(String(resolvedBranchId)) ? [resolvedBranchId, ...req.body.branchIds] : req.body.branchIds)
+          : (resolvedBranchId ? [resolvedBranchId] : []),
         employmentType,
         workMode,
         allowRemotePunch: allowRemotePunch === true,
@@ -775,7 +792,7 @@ const updateEmployee = async (req, res, next) => {
     const fieldsToCheck = [
       "firstName", "lastName", "middleName", "phone", "alternateMobile", "photo", "gender", 
       "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "designationId", 
-      "branchId", "employmentType", "workMode", "allowRemotePunch", "isLocationTrackingEnabled", "status", "skills", "certifications", 
+      "branchId", "branchIds", "employmentType", "workMode", "allowRemotePunch", "isLocationTrackingEnabled", "status", "skills", "certifications", 
       "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions",
       "bloodGroup", "maritalStatus", "aadhaarNumber", "panNumber", "personalEmail"
     ];
@@ -788,7 +805,7 @@ const updateEmployee = async (req, res, next) => {
         let oldVal = employee[field];
         if (oldVal === undefined) oldVal = null;
         
-        // Handle array comparison for skills/certifications
+        // Handle array comparison for skills/certifications/branchIds
         if (Array.isArray(newVal)) {
            const oldArr = Array.isArray(oldVal) ? oldVal : [];
            if (JSON.stringify(newVal) !== JSON.stringify(oldArr)) {
@@ -826,6 +843,10 @@ const updateEmployee = async (req, res, next) => {
                   const Branch = require("../models/Branch");
                   const branchObj = await Branch.findById(newVal).lean();
                   employee.branchName = branchObj ? branchObj.branchName : "";
+                  // Keep branchIds aligned if it's set
+                  if (Array.isArray(employee.branchIds) && !employee.branchIds.map(String).includes(String(newVal))) {
+                    employee.branchIds.unshift(newVal);
+                  }
                 } else {
                   employee.branchName = "";
                 }

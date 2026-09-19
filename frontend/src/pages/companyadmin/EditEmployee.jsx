@@ -364,6 +364,9 @@ export default function EditEmployee() {
         accessibleDepartments: emp.accessibleDepartments?.length
           ? emp.accessibleDepartments.map(d => typeof d === 'object' ? d._id : d)
           : (emp.departmentId ? [typeof emp.departmentId === 'object' ? emp.departmentId._id : emp.departmentId] : []),
+        branchIds: emp.branchIds?.length
+          ? emp.branchIds.map(b => typeof b === 'object' ? b._id : b)
+          : (emp.branchId ? [typeof emp.branchId === 'object' ? emp.branchId._id : emp.branchId] : []),
         currentAddress: emp.currentAddress || {},
         permanentAddress: emp.permanentAddress || {},
         emergencyContact: emp.emergencyContact || {},
@@ -606,6 +609,9 @@ export default function EditEmployee() {
       accessibleDepartments: formData.accessibleDepartments || [],
       designationId: typeof formData.designationId === "object" ? formData.designationId?._id : formData.designationId,
       branchId: typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId,
+      branchIds: Array.isArray(formData.branchIds) && formData.branchIds.length > 0
+        ? formData.branchIds
+        : (formData.branchId ? [typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId] : []),
       reportingManagerId: typeof formData.reportingManagerId === "object" ? formData.reportingManagerId?._id : formData.reportingManagerId,
       managerAccessLevel: (formData.role === "Manager" || formData.userId?.role === "Manager") ? formData.managerAccessLevel : undefined,
       employmentType: formData.employmentType ? String(formData.employmentType).toLowerCase().trim().replace("_", "-") : "full-time",
@@ -915,10 +921,16 @@ export default function EditEmployee() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               <Select
-                label="Branch / Office"
+                label="Primary Branch / Office"
                 required
                 value={typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId}
-                onChange={(v) => handleChange("branchId", v)}
+                onChange={(v) => {
+                  handleChange("branchId", v);
+                  const currentBranchIds = formData.branchIds || [];
+                  if (v && !currentBranchIds.includes(v)) {
+                    handleChange("branchIds", [v, ...currentBranchIds]);
+                  }
+                }}
                 options={branches.map(b => ({ value: b._id, label: b.name || b.branchName }))}
                 action={
                   <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
@@ -936,6 +948,28 @@ export default function EditEmployee() {
                   { value: "Manager", label: "Manager" },
                   { value: "CompanyAdmin", label: "Company Admin" }
                 ]}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 gap-2.5">
+              <MultiSelect
+                label="Additional Work Branches (Optional)"
+                selected={(formData.branchIds || []).filter(id => id !== (typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId))}
+                onChange={(val) => {
+                  const primary = typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId;
+                  const finalBranches = primary && !val.includes(primary) ? [primary, ...val] : val;
+                  handleChange("branchIds", finalBranches);
+                }}
+                options={branches
+                  .filter(b => b._id !== (typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId))
+                  .map(b => ({ value: b._id, label: b.name || b.branchName }))
+                }
+                action={
+                  <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                    + Add Branch
+                  </button>
+                }
+                hint="For employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2)."
               />
             </div>
 

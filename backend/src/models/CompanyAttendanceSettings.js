@@ -51,6 +51,14 @@ const companyAttendanceSettingsSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    allowMultiBranchPunch: {
+      type: Boolean,
+      default: true, // Employees can punch at any authorized/active branch
+    },
+    restrictToAssignedBranches: {
+      type: Boolean,
+      default: false, // If true, only allowed at specifically assigned branches (branchId + branchIds)
+    },
 
     // Module Toggles & Rules
     enableAttendanceModule: {

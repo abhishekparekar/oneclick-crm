@@ -192,6 +192,13 @@ const employeeSchema = new mongoose.Schema(
       trim: true,
       default: "",
     },
+    // Multiple branches support for roving/multi-branch employees
+    branchIds: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Branch",
+      },
+    ],
     joiningDate: {
       type: Date,
       default: null,

@@ -5,6 +5,8 @@ const locationSchema = new mongoose.Schema(
     latitude: { type: Number, default: null },
     longitude: { type: Number, default: null },
     address: { type: String, trim: true, default: "" },
+    branchId: { type: mongoose.Schema.Types.ObjectId, ref: "Branch", default: null },
+    branchName: { type: String, trim: true, default: "" },
   },
   { _id: false }
 );
@@ -151,14 +153,12 @@ const attendanceSchema = new mongoose.Schema(
         punchInTime: { type: Date, default: null },
         punchOutTime: { type: Date, default: null },
         punchInLocation: {
-          latitude: { type: Number, default: null },
-          longitude: { type: Number, default: null },
-          address: { type: String, trim: true, default: "" },
+          type: locationSchema,
+          default: () => ({}),
         },
         punchOutLocation: {
-          latitude: { type: Number, default: null },
-          longitude: { type: Number, default: null },
-          address: { type: String, trim: true, default: "" },
+          type: locationSchema,
+          default: () => ({}),
         },
         punchInSelfie: { type: String, default: null },
         punchOutSelfie: { type: String, default: null },

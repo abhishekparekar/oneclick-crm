@@ -9,7 +9,7 @@ import {
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Edit2, Trash2, Plus, MapPin, X, Save, AlertCircle, Building, Map,
-  Sparkles, ArrowUp, ArrowDown, ShieldCheck, Loader2
+  Sparkles, ArrowUp, ArrowDown, ShieldCheck, Loader2, Navigation, ExternalLink
 } from "lucide-react";
 
 // ── Top KPI Stat Card ──────────────────────────────────────────────────────────
@@ -61,8 +61,13 @@ const Branches = () => {
     branchName: "",
     city: "",
     address: "",
+    latitude: "",
+    longitude: "",
+    allowedRadiusMeters: 100,
+    requireGps: true,
   });
   const [error, setError] = useState("");
+  const [detectingGps, setDetectingGps] = useState(false);
 
   const { data: res, isLoading } = useQuery({
     queryKey: ["branches"],
@@ -94,6 +99,30 @@ const Branches = () => {
     onSuccess: () => queryClient.invalidateQueries(["branches"]),
   });
 
+  const handleDetectGps = () => {
+    if (!navigator.geolocation) {
+      setError("Geolocation is not supported by your browser");
+      return;
+    }
+    setDetectingGps(true);
+    setError("");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setDetectingGps(false);
+        setFormData((prev) => ({
+          ...prev,
+          latitude: Number(pos.coords.latitude.toFixed(6)),
+          longitude: Number(pos.coords.longitude.toFixed(6)),
+        }));
+      },
+      (err) => {
+        setDetectingGps(false);
+        setError(`Unable to get location: ${err.message}. Please enter coordinates manually.`);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
   const handleOpenModal = (branch = null) => {
     setError("");
     if (branch) {
@@ -102,10 +131,22 @@ const Branches = () => {
         branchName: branch.branchName || branch.name || "",
         city: branch.city || branch.location || "",
         address: branch.address || "",
+        latitude: branch.latitude !== null && branch.latitude !== undefined ? branch.latitude : "",
+        longitude: branch.longitude !== null && branch.longitude !== undefined ? branch.longitude : "",
+        allowedRadiusMeters: branch.allowedRadiusMeters || 100,
+        requireGps: branch.requireGps !== undefined ? branch.requireGps : true,
       });
     } else {
       setEditingBranch(null);
-      setFormData({ branchName: "", city: "", address: "" });
+      setFormData({
+        branchName: "",
+        city: "",
+        address: "",
+        latitude: "",
+        longitude: "",
+        allowedRadiusMeters: 100,
+        requireGps: true,
+      });
     }
     setIsModalOpen(true);
   };
@@ -114,8 +155,17 @@ const Branches = () => {
     setIsModalOpen(false);
     setTimeout(() => {
       setEditingBranch(null);
-      setFormData({ branchName: "", city: "", address: "" });
+      setFormData({
+        branchName: "",
+        city: "",
+        address: "",
+        latitude: "",
+        longitude: "",
+        allowedRadiusMeters: 100,
+        requireGps: true,
+      });
       setError("");
+      setDetectingGps(false);
     }, 300);
   };
 
@@ -125,6 +175,10 @@ const Branches = () => {
       branchName: formData.branchName,
       city: formData.city,
       address: formData.address,
+      latitude: formData.latitude !== "" && formData.latitude !== null ? parseFloat(formData.latitude) : null,
+      longitude: formData.longitude !== "" && formData.longitude !== null ? parseFloat(formData.longitude) : null,
+      allowedRadiusMeters: parseInt(formData.allowedRadiusMeters, 10) || 100,
+      requireGps: formData.requireGps,
     };
     if (editingBranch) {
       updateMutation.mutate({ id: editingBranch._id, data: payload });
@@ -169,7 +223,7 @@ const Branches = () => {
       {/* ── Top 4 Compact KPI Stat Cards ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
         <KPICard label="Total Locations" value={branches.length} trend="Active" isUp period="offices" strokeColor="#06B6D4" Icon={Building} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label="Headquarters" value="1 Primary" trend="Verified" isUp period="HQ status" strokeColor="#10B981" Icon={ShieldCheck} iconBg="bg-emerald-500/10" iconColor="#059669" />
+        <KPICard label="Geofenced Branches" value={`${branches.filter(b => b.latitude && b.longitude).length} / ${branches.length}`} trend="GPS Ready" isUp period="geofence" strokeColor="#10B981" Icon={ShieldCheck} iconBg="bg-emerald-500/10" iconColor="#059669" />
         <KPICard label="Regional Branches" value={`${Math.max(0, branches.length - 1)} Regional`} trend="Expanded" isUp period="growth" strokeColor="#8B5CF6" Icon={Map} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
         <KPICard label="Active Operations" value="100% Operational" trend="Online" isUp period="health" strokeColor="#EAB308" Icon={MapPin} iconBg="bg-amber-500/10" iconColor="#D97706" />
       </div>
@@ -205,6 +259,7 @@ const Branches = () => {
                 <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Branch Title</th>
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">City / Location</th>
+                  <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Geofence &amp; GPS</th>
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest">Full Address</th>
                   <th className="px-5 py-3 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Actions</th>
                 </tr>
@@ -228,6 +283,30 @@ const Branches = () => {
                         <Map size={12} className="mr-1.5 text-amber-500" />
                         {b.city || b.location || "Default Location"}
                       </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      {b.latitude && b.longitude ? (
+                        <div>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <MapPin size={10} className="mr-1 text-emerald-500" />
+                            Geofence: {b.allowedRadiusMeters || 100}m
+                          </span>
+                          <a
+                            href={`https://www.google.com/maps?q=${b.latitude},${b.longitude}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 font-mono mt-0.5"
+                          >
+                            <ExternalLink size={9} />
+                            {Number(b.latitude).toFixed(4)}, {Number(b.longitude).toFixed(4)}
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                          <AlertCircle size={10} className="mr-1" />
+                          No GPS Set
+                        </span>
+                      )}
                     </td>
                     <td className="px-5 py-4">
                       <p className="text-xs font-medium text-slate-500 dark:text-slate-400 max-w-sm truncate">
@@ -273,7 +352,7 @@ const Branches = () => {
                   <h3 className="text-base font-extrabold text-slate-900 dark:text-white leading-tight">
                     {editingBranch ? "Edit Branch" : "Add Branch"}
                   </h3>
-                  <p className="text-xs font-semibold text-slate-400 mt-0.5">Configure office location</p>
+                  <p className="text-xs font-semibold text-slate-400 mt-0.5">Configure office location &amp; geofence</p>
                 </div>
               </div>
               <button onClick={handleCloseModal} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-white transition-colors">
@@ -310,6 +389,86 @@ const Branches = () => {
                   className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
                   placeholder="e.g. Pune, Maharashtra"
                 />
+              </div>
+
+              {/* ── Geofence & GPS Coordinates Section ── */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-slate-800 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin size={14} className="text-amber-500" />
+                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider">
+                      Branch Geofence &amp; GPS
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleDetectGps}
+                    disabled={detectingGps}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 text-[10.5px] font-bold shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    {detectingGps ? <Loader2 size={11} className="animate-spin" /> : <Navigation size={11} />}
+                    <span>{detectingGps ? "Detecting..." : "Detect Current GPS"}</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Latitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.latitude}
+                      onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                      placeholder="e.g. 18.5204"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Longitude
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={formData.longitude}
+                      onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                      placeholder="e.g. 73.8567"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 items-center">
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                      Allowed Radius (Meters)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.allowedRadiusMeters}
+                      onChange={(e) => setFormData({ ...formData, allowedRadiusMeters: e.target.value })}
+                      placeholder="100"
+                      className="w-full px-3 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="pt-4">
+                    {formData.latitude && formData.longitude ? (
+                      <a
+                        href={`https://www.google.com/maps?q=${formData.latitude},${formData.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                      >
+                        <ExternalLink size={12} />
+                        <span>View on Maps</span>
+                      </a>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Enter coordinates to preview</span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div>

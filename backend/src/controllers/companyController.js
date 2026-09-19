@@ -500,10 +500,24 @@ const createBranch = async (req, res, next) => {
         if (req.body.location && !req.body.city) req.body.city = req.body.location;
         if (handleValidation(req, res)) return;
 
+        const latitude = req.body.latitude !== undefined && req.body.latitude !== "" && req.body.latitude !== null
+            ? parseFloat(req.body.latitude)
+            : null;
+        const longitude = req.body.longitude !== undefined && req.body.longitude !== "" && req.body.longitude !== null
+            ? parseFloat(req.body.longitude)
+            : null;
+        const allowedRadiusMeters = req.body.allowedRadiusMeters !== undefined && req.body.allowedRadiusMeters !== ""
+            ? parseInt(req.body.allowedRadiusMeters, 10)
+            : 100;
+
         const branch = await Branch.create({
             ...req.body,
             branchName: req.body.branchName || req.body.name,
             city: req.body.city || req.body.location,
+            latitude,
+            longitude,
+            allowedRadiusMeters,
+            requireGps: req.body.requireGps !== undefined ? Boolean(req.body.requireGps) : true,
             companyId: req.companyId,
         });
 
@@ -538,12 +552,29 @@ const updateBranch = async (req, res, next) => {
             return res.status(404).json({ message: "Branch not found" });
         }
 
-        const fields = ["branchName", "address", "city", "state", "pincode", "status"];
+        const fields = ["branchName", "address", "city", "state", "pincode", "status", "requireGps"];
         fields.forEach((field) => {
             if (req.body[field] !== undefined) {
                 branch[field] = req.body[field];
             }
         });
+
+        if (req.body.latitude !== undefined) {
+            branch.latitude = req.body.latitude !== "" && req.body.latitude !== null
+                ? parseFloat(req.body.latitude)
+                : null;
+        }
+        if (req.body.longitude !== undefined) {
+            branch.longitude = req.body.longitude !== "" && req.body.longitude !== null
+                ? parseFloat(req.body.longitude)
+                : null;
+        }
+        if (req.body.allowedRadiusMeters !== undefined) {
+            branch.allowedRadiusMeters = req.body.allowedRadiusMeters !== ""
+                ? parseInt(req.body.allowedRadiusMeters, 10)
+                : 100;
+        }
+
         if (req.body.name && !req.body.branchName) branch.branchName = req.body.name;
         if (req.body.location && !req.body.city) branch.city = req.body.location;
 

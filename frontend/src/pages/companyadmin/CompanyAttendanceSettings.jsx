@@ -1,11 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAttendanceSettingsApi, updateAttendanceSettingsApi } from "../../api/companyAdminApi";
+import { getAttendanceSettingsApi, updateAttendanceSettingsApi, getBranchesApi } from "../../api/companyAdminApi";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   MapPin, Settings2, RefreshCw, AlertCircle, Map, ShieldCheck,
   Building, Navigation, CheckCircle2, ChevronDown, Sparkles,
-  ArrowUp, ArrowDown, Clock
+  ArrowUp, ArrowDown, Clock, ExternalLink
 } from "lucide-react";
 
 const POLICY_OPTIONS = [
@@ -71,6 +72,7 @@ const CompanyAttendanceSettings = () => {
     requireSelfie: false,
     allowAdminBypassGeoFencing: true,
     enableAttendanceModule: false,
+    allowMultiBranchPunch: true,
     gracePeriodMinutes: 15,
     autoHalfDayOnLate: true,
     earlyLeaveGracePeriodMinutes: 10,
@@ -88,6 +90,14 @@ const CompanyAttendanceSettings = () => {
     queryFn: getAttendanceSettingsApi,
   });
 
+  // Fetch company branches for geofence overview
+  const { data: branchesRes } = useQuery({
+    queryKey: ["branches"],
+    queryFn: getBranchesApi,
+  });
+
+  const branches = branchesRes?.data?.branches || branchesRes?.data || [];
+
   useEffect(() => {
     if (settingsRes?.data?.settings) {
       const s = settingsRes.data.settings;
@@ -95,6 +105,7 @@ const CompanyAttendanceSettings = () => {
         ...s,
         latitude: s.latitude !== null && s.latitude !== undefined ? s.latitude : "",
         longitude: s.longitude !== null && s.longitude !== undefined ? s.longitude : "",
+        allowMultiBranchPunch: s.allowMultiBranchPunch !== undefined ? s.allowMultiBranchPunch : true,
       });
     }
   }, [settingsRes]);
@@ -268,6 +279,19 @@ const CompanyAttendanceSettings = () => {
                     <span className="text-[11px] text-slate-400 font-semibold mt-0.5 block">Employees must capture a selfie during check-in.</span>
                   </div>
                 </label>
+
+                <label className="flex items-start space-x-3 cursor-pointer">
+                  <input 
+                    type="checkbox"
+                    checked={form.allowMultiBranchPunch !== false}
+                    onChange={(e) => setForm({ ...form, allowMultiBranchPunch: e.target.checked })}
+                    className="rounded accent-amber-500 w-4 h-4 cursor-pointer mt-0.5"
+                  />
+                  <div>
+                    <span className="text-xs font-extrabold text-slate-900 dark:text-white block leading-tight">Allow Multi-Branch Punching</span>
+                    <span className="text-[11px] text-slate-400 font-semibold mt-0.5 block">Employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2) can punch in and out at any authorized branch.</span>
+                  </div>
+                </label>
               </div>
 
               {/* Strict Penalty Rules */}
@@ -356,6 +380,72 @@ const CompanyAttendanceSettings = () => {
                   <span className="text-slate-400 font-medium">Bypass Rules</span>
                   <span>{form.allowAdminBypassGeoFencing ? "Admins Allowed" : "No Bypass"}</span>
                 </div>
+              </div>
+            </div>
+
+            {/* Corporate Branch Geofences Preview Card */}
+            <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                  <Building size={14} className="text-blue-500" />
+                  Branch Geofences
+                </h3>
+                <Link
+                  to="/company/branches"
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  Manage
+                  <ExternalLink size={11} />
+                </Link>
+              </div>
+
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                When multi-branch punch is enabled, employees assigned to these branches can punch in or out at any of these physical geofences.
+              </p>
+
+              <div className="space-y-2 max-h-[260px] overflow-y-auto pr-1 divide-y divide-slate-100 dark:divide-slate-800">
+                {Array.isArray(branches) && branches.length > 0 ? (
+                  branches.map((b) => {
+                    const hasGps = b.latitude !== null && b.latitude !== undefined && b.longitude !== null && b.longitude !== undefined;
+                    return (
+                      <div key={b._id} className="pt-2 first:pt-0 flex items-center justify-between text-xs">
+                        <div className="min-w-0 pr-2">
+                          <div className="font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                            <span>{b.branchName}</span>
+                            {b.branchCode && (
+                              <span className="text-[10px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-1 rounded">
+                                {b.branchCode}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400 truncate">
+                            {b.city ? `${b.city}${b.state ? `, ${b.state}` : ""}` : (b.address || "No address")}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {hasGps ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              {b.allowedRadiusMeters || 100}m
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-200 dark:border-amber-800">
+                              No GPS
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="py-4 text-center text-xs text-slate-400">
+                    No branches configured yet.{" "}
+                    <Link to="/company/branches" className="text-blue-500 font-bold hover:underline">
+                      Add a branch
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
 

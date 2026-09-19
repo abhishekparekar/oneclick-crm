@@ -34,6 +34,7 @@ import {
   MapPin,
   Clock,
   ArrowRight,
+  Building,
   Map,
   Calendar,
   MapPinOff,
@@ -1080,7 +1081,14 @@ const CompanyAttendance = () => {
                   <div className="grid grid-cols-2 gap-2">
                     {/* Check In */}
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
-                      <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Punch In</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-amber-600 dark:text-amber-400">Punch In</p>
+                        {activeRecord.punchInLocation?.branchName && (
+                          <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-900 truncate max-w-[110px]" title={activeRecord.punchInLocation.branchName}>
+                            {activeRecord.punchInLocation.branchName}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">{formatTime(activeRecord.punchInTime)}</p>
                       {activeRecord.punchInLocation?.latitude && (
                         <p className="mt-1 text-[9.5px] font-medium text-slate-500 truncate flex items-center gap-1">
@@ -1092,7 +1100,14 @@ const CompanyAttendance = () => {
 
                     {/* Check Out */}
                     <div className="bg-slate-50 dark:bg-slate-900/60 p-2.5 rounded-lg border border-slate-200/80 dark:border-slate-800">
-                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Punch Out</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-[9px] font-black uppercase tracking-wider text-slate-500">Punch Out</p>
+                        {activeRecord.punchOutLocation?.branchName && (
+                          <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-900 truncate max-w-[110px]" title={activeRecord.punchOutLocation.branchName}>
+                            {activeRecord.punchOutLocation.branchName}
+                          </span>
+                        )}
+                      </div>
                       {activeRecord.punchOutTime ? (
                         <p className="text-sm font-black text-emerald-600 dark:text-emerald-400 mt-0.5">{formatTime(activeRecord.punchOutTime)}</p>
                       ) : (
@@ -1348,10 +1363,11 @@ const CompanyAttendance = () => {
                   const statusInfo = STATUS_CFG[rec.status] || STATUS_CFG.absent;
 
                   let geoBadge = <span className="text-[10px] text-slate-400 font-medium">—</span>;
-                  if (rec.gpsValidated) {
+                  if (rec.gpsValidated || rec.punchInLocation?.branchName) {
                     geoBadge = (
                       <span className="inline-flex items-center text-[9.5px] font-black uppercase px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-950/40 dark:border-emerald-800/60 dark:text-emerald-300">
-                        <CheckCircle size={10} className="mr-1 text-emerald-500" /> Validated
+                        <CheckCircle size={10} className="mr-1 text-emerald-500" />
+                        {rec.punchInLocation?.branchName || "Validated"}
                       </span>
                     );
                   } else if (rec.punchInLocation?.latitude && settingsForm.latitude) {
@@ -1368,7 +1384,7 @@ const CompanyAttendance = () => {
                           isInside ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:border-amber-800/60 dark:text-amber-300" : "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:border-rose-800/60 dark:text-rose-300"
                         }`}>
                           <MapPin size={10} className={`mr-1 ${isInside ? "text-amber-500" : "text-rose-500"}`} />
-                          {isInside ? "Inside Office" : `Out (${Math.round(dist)}m)`}
+                          {isInside ? (rec.punchInLocation?.branchName || "Inside Office") : `Out (${Math.round(dist)}m)`}
                         </span>
                       );
                     }
@@ -1409,6 +1425,16 @@ const CompanyAttendance = () => {
                           <span className="text-slate-400">→</span>
                           {rec.punchOutTime ? formatTime(rec.punchOutTime) : (rec.punchInTime ? <span className="text-[9.5px] bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 px-1.5 py-0.5 rounded-md border border-amber-200">In Progress</span> : <span className="text-slate-400">—</span>)}
                         </div>
+                        {(rec.punchInLocation?.branchName || rec.punchOutLocation?.branchName) && (
+                          <div className="text-[9.5px] text-slate-400 font-medium mt-0.5 truncate max-w-[200px] flex items-center gap-1">
+                            <Building size={9} className="shrink-0 text-slate-400" />
+                            {rec.punchInLocation?.branchName && rec.punchOutLocation?.branchName && rec.punchInLocation.branchName !== rec.punchOutLocation.branchName ? (
+                              <span>{rec.punchInLocation.branchName} → {rec.punchOutLocation.branchName}</span>
+                            ) : (
+                              <span>{rec.punchInLocation?.branchName || rec.punchOutLocation?.branchName}</span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       <td className="px-4 sm:px-6 py-3.5 text-center font-bold text-xs text-slate-700 dark:text-slate-300">

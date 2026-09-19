@@ -249,6 +249,7 @@ export default function AddEmployee() {
     departmentId: "",
     designationId: "",
     branchId: "",
+    branchIds: [],
     reportingManagerId: "",
     role: "Employee",
     managerAccessLevel: "department",
@@ -710,6 +711,9 @@ export default function AddEmployee() {
       accessibleDepartments: formData.accessibleDepartments || [],
       designationId: formData.designationId || undefined,
       branchId: formData.branchId || undefined,
+      branchIds: Array.isArray(formData.branchIds) && formData.branchIds.length > 0
+        ? (formData.branchId && !formData.branchIds.includes(formData.branchId) ? [formData.branchId, ...formData.branchIds] : formData.branchIds)
+        : (formData.branchId ? [formData.branchId] : []),
       reportingManagerId: formData.reportingManagerId || undefined,
       role: formData.role || "Employee",
       loginRole: formData.role || "Employee",
@@ -1072,17 +1076,51 @@ export default function AddEmployee() {
                   ]}
                 />
                 <Select
-                  label="Branch Office"
+                  label="Primary Branch Office"
                   required
                   value={formData.branchId}
                   error={formErrors.branchId}
                   onClearError={() => clearError("branchId")}
                   onChange={(v) => {
-                    setFormData((p) => ({ ...p, branchId: v }));
+                    setFormData((p) => {
+                      const others = (p.branchIds || []).filter((id) => id !== v && id !== p.branchId);
+                      return {
+                        ...p,
+                        branchId: v,
+                        branchIds: v ? [v, ...others] : others,
+                      };
+                    });
                     if (v) clearError("branchId");
                   }}
                   options={branchOptions}
-                  placeholder="Select Branch..."
+                  placeholder="Select Primary Branch..."
+                  action={
+                    <button
+                      type="button"
+                      onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
+                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                    >
+                      + New Branch
+                    </button>
+                  }
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-2.5">
+                <MultiSelect
+                  label="Additional Work Branches (Optional)"
+                  selected={(formData.branchIds || []).filter((id) => id !== formData.branchId)}
+                  onChange={(v) => {
+                    const primary = formData.branchId;
+                    const finalBranches = primary && !v.includes(primary) ? [primary, ...v] : v;
+                    setFormData((p) => ({
+                      ...p,
+                      branchIds: finalBranches,
+                    }));
+                  }}
+                  options={branchOptions.filter((b) => b.value !== formData.branchId)}
+                  placeholder="Select additional work branches..."
+                  hint="For employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2)."
                   action={
                     <button
                       type="button"
