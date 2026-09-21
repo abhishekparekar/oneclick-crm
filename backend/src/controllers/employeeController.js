@@ -300,6 +300,7 @@ const getEmployees = async (req, res, next) => {
             { accessibleDepartments: { $in: managerDeptIds } }
           );
         }
+        
 
         if (!filter.$and) {
           filter.$and = [];
