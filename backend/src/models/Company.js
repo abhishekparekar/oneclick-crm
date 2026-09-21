@@ -153,6 +153,20 @@ const companySchema = new mongoose.Schema(
       travelAllowanceRatePerKm: { type: Number, default: 4.0 },
       travelAllowanceTwoWheelerRate: { type: Number, default: 4.0 },
       travelAllowanceFourWheelerRate: { type: Number, default: 8.0 },
+      attendanceNotifications: {
+        punchIn: {
+          enabled: { type: Boolean, default: false },
+          notifyEmployee: { type: Boolean, default: false },
+          notifyManager: { type: Boolean, default: false },
+          notifyAdmin: { type: Boolean, default: false },
+        },
+        punchOut: {
+          enabled: { type: Boolean, default: false },
+          notifyEmployee: { type: Boolean, default: false },
+          notifyManager: { type: Boolean, default: false },
+          notifyAdmin: { type: Boolean, default: false },
+        },
+      },
     },
   },
   {

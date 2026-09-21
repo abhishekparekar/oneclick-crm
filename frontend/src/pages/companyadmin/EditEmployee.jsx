@@ -10,6 +10,7 @@ import {
   getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi,
   getModuleUsageApi
 } from "../../api/companyAdminApi";
+import { getManagerDashboardApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
@@ -277,6 +278,35 @@ export default function EditEmployee() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const avatarInputRef = useRef(null);
 
+  const isHR = window.location.pathname.startsWith("/hr");
+  const isManager = window.location.pathname.startsWith("/manager") || (user?.role || "").toLowerCase() === "manager";
+  const baseRoute = isHR ? "/hr" : isManager ? "/manager" : "/company";
+  const backRoute = isManager ? "/manager/team" : `${baseRoute}/employees`;
+
+  const { data: dashRes } = useQuery({
+    queryKey: ["managerDashboard"],
+    queryFn: () => getManagerDashboardApi().then((r) => r.data),
+    enabled: isManager,
+    staleTime: 30 * 1000,
+  });
+
+  const managerProfile = dashRes?.manager || dashRes?.data?.manager || user?.employee || {};
+
+  const managerAllowedDeptIds = useMemo(() => {
+    if (!isManager) return null;
+    const rawList = [
+      managerProfile.departmentId?._id || managerProfile.departmentId || user?.departmentId?._id || user?.departmentId,
+      ...(managerProfile.departmentIds || []),
+      ...(managerProfile.accessibleDepartments || user?.accessibleDepartments || []),
+    ].filter(Boolean);
+
+    return Array.from(
+      new Set(
+        rawList.map((d) => (typeof d === "object" ? d._id : d)).filter(Boolean).map(String)
+      )
+    );
+  }, [isManager, managerProfile, user]);
+
   // ── Queries ──
   const { data: empRes, isLoading: empLoading, isError, error } = useQuery({
     queryKey: ["employee", id],
@@ -287,6 +317,15 @@ export default function EditEmployee() {
   const { data: desgRes } = useQuery({ queryKey: ["designations"], queryFn: getDesignationsApi, staleTime: 0, refetchOnMount: "always" });
   const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi, staleTime: 0, refetchOnMount: "always" });
   const { data: mgrsRes } = useQuery({ queryKey: ["employees"], queryFn: () => getEmployeesApi({ status: "active" }), staleTime: 0, refetchOnMount: "always" });
+
+  const rawDepts = deptRes?.data?.departments ?? deptRes?.departments ?? (Array.isArray(deptRes?.data) ? deptRes.data : Array.isArray(deptRes) ? deptRes : []);
+  const departments = useMemo(() => {
+    const all = Array.isArray(rawDepts) ? rawDepts : [];
+    if (isManager && managerAllowedDeptIds && managerAllowedDeptIds.length > 0) {
+      return all.filter((d) => managerAllowedDeptIds.includes(String(d._id)));
+    }
+    return all;
+  }, [rawDepts, isManager, managerAllowedDeptIds]);
 
   const { data: leaveRes } = useQuery({
     queryKey: ["leaveBalance", id],
@@ -435,7 +474,6 @@ export default function EditEmployee() {
     }
   }, [leaveRes, formData]);
 
-  const departments = deptRes?.data?.departments ?? deptRes?.departments ?? (Array.isArray(deptRes?.data) ? deptRes.data : Array.isArray(deptRes) ? deptRes : []);
   const designations = desgRes?.data?.designations ?? desgRes?.designations ?? (Array.isArray(desgRes?.data) ? desgRes.data : Array.isArray(desgRes) ? desgRes : []);
   const branches = branchRes?.data?.branches ?? branchRes?.branches ?? (Array.isArray(branchRes?.data) ? branchRes.data : Array.isArray(branchRes) ? branchRes : []);
   const managers = (mgrsRes?.data?.employees ?? mgrsRes?.employees ?? (Array.isArray(mgrsRes?.data) ? mgrsRes.data : Array.isArray(mgrsRes) ? mgrsRes : [])).filter(e => e._id !== id);
@@ -670,7 +708,7 @@ export default function EditEmployee() {
         <AlertTriangle size={36} />
         <p className="text-sm font-extrabold text-slate-900 dark:text-white">Failed to load employee</p>
         <p className="text-xs text-slate-400">{error?.response?.data?.message || "Please check your network and try again."}</p>
-        <Link to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees`} className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
+        <Link to={window.location.pathname.startsWith("/manager") ? "/manager/team" : `${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees`} className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
           Return to Employee Directory
         </Link>
       </div>
@@ -680,7 +718,6 @@ export default function EditEmployee() {
   const name = `${formData.firstName || ""} ${formData.lastName || ""}`.trim() || "Employee";
   const initials = name.slice(0, 2).toUpperCase();
   const photoUrl = getPhotoUrl(formData.photo);
-  const baseRoute = window.location.pathname.startsWith("/hr") ? "/hr" : "/company";
 
   return (
     <div className="min-h-screen pb-20 space-y-3">
@@ -690,7 +727,7 @@ export default function EditEmployee() {
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3 min-w-0">
             <Link
-              to={`${baseRoute}/employees`}
+              to={backRoute}
               className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer shrink-0"
               title="Back to Employees"
             >
@@ -780,14 +817,14 @@ export default function EditEmployee() {
               onClick={() => setStep(s.id)}
               className={`flex-1 flex items-center justify-center gap-1 py-2.5 px-2 text-[10.5px] font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer whitespace-nowrap ${
                 isCurrent
-                  ? "border-amber-500 text-amber-600 dark:text-amber-400 bg-amber-50/60 dark:bg-amber-950/20"
+                  ? "border-[#1268D9] text-[#1268D9] dark:text-blue-400 bg-blue-50/60 dark:bg-blue-950/20"
                   : isCompleted
                   ? "border-emerald-500/40 text-emerald-600 dark:text-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10"
                   : "border-transparent text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-900/40"
               }`}
             >
               <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
-                isCurrent ? "bg-amber-500/20 text-amber-600 dark:text-amber-400" : isCompleted ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
+                isCurrent ? "bg-[#1268D9]/15 text-[#1268D9] dark:text-blue-400" : isCompleted ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400" : "bg-slate-200 dark:bg-slate-800 text-slate-400"
               }`}>
                 {isCompleted ? <CheckCircle2 size={11} strokeWidth={2.5} /> : <Icon size={11} strokeWidth={2.5} />}
               </div>
@@ -901,9 +938,11 @@ export default function EditEmployee() {
                 onChange={(val) => handleChange("accessibleDepartments", val)}
                 options={departments.map(d => ({ value: d._id, label: d.name }))}
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("department")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                    + Add Dept
-                  </button>
+                  !isManager ? (
+                    <button type="button" onClick={() => handleQuickOpen("department")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                      + Add Dept
+                    </button>
+                  ) : null
                 }
               />
               <Select
@@ -912,9 +951,11 @@ export default function EditEmployee() {
                 onChange={(v) => handleChange("designationId", v)}
                 options={designations.map(d => ({ value: d._id, label: `${d.name} (${d.departmentId?.name || 'All'})` }))}
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("designation")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                    + Add Desg
-                  </button>
+                  !isManager ? (
+                    <button type="button" onClick={() => handleQuickOpen("designation")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                      + Add Desg
+                    </button>
+                  ) : null
                 }
               />
             </div>
@@ -933,21 +974,28 @@ export default function EditEmployee() {
                 }}
                 options={branches.map(b => ({ value: b._id, label: b.name || b.branchName }))}
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                    + Add Branch
-                  </button>
+                  !isManager ? (
+                    <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                      + Add Branch
+                    </button>
+                  ) : null
                 }
               />
               <Select
                 label="System Role &amp; Access"
-                value={formData.role || formData.userId?.role || "Employee"}
+                value={isManager ? "Employee" : (formData.role || formData.userId?.role || "Employee")}
+                disabled={isManager}
                 onChange={(v) => handleChange("role", v)}
-                options={[
-                  { value: "Employee", label: "Team Member / Employee" },
-                  { value: "HR", label: "HR Manager" },
-                  { value: "Manager", label: "Manager" },
-                  { value: "CompanyAdmin", label: "Company Admin" }
-                ]}
+                options={
+                  isManager
+                    ? [{ value: "Employee", label: "Team Member / Employee" }]
+                    : [
+                        { value: "Employee", label: "Team Member / Employee" },
+                        { value: "HR", label: "HR Manager" },
+                        { value: "Manager", label: "Manager" },
+                        { value: "CompanyAdmin", label: "Company Admin" },
+                      ]
+                }
               />
             </div>
 
@@ -965,9 +1013,11 @@ export default function EditEmployee() {
                   .map(b => ({ value: b._id, label: b.name || b.branchName }))
                 }
                 action={
-                  <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
-                    + Add Branch
-                  </button>
+                  !isManager ? (
+                    <button type="button" onClick={() => handleQuickOpen("branch")} className="text-[11px] font-extrabold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">
+                      + Add Branch
+                    </button>
+                  ) : null
                 }
                 hint="For employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2)."
               />

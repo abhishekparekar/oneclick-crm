@@ -272,6 +272,75 @@ const getEmployees = async (req, res, next) => {
   try {
     console.log("DB QUERY: getEmployees");
     const filter = buildEmployeeFilter(req);
+
+    if (req.user && (req.user.role || "").toLowerCase() === "manager") {
+      const managerEmp = await Employee.findOne({
+        $or: [
+          { userId: req.user._id },
+          ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+          { _id: req.user._id },
+        ],
+        companyId: req.companyId,
+      }).lean();
+
+      if (managerEmp) {
+        const primaryDeptId = managerEmp.departmentId;
+        const allowedDeptIds = (managerEmp.accessibleDepartments || []).map((id) => id.toString());
+        const managerDeptIds = [];
+        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
+        allowedDeptIds.forEach((id) => {
+          if (id && !managerDeptIds.includes(id)) managerDeptIds.push(id);
+        });
+
+        const mgrConditions = [{ reportingManagerId: managerEmp._id }];
+        if (managerDeptIds.length > 0) {
+          mgrConditions.push(
+            { departmentId: { $in: managerDeptIds } },
+            { departmentIds: { $in: managerDeptIds } },
+            { accessibleDepartments: { $in: managerDeptIds } }
+          );
+        }
+
+        if (!filter.$and) {
+          filter.$and = [];
+        }
+        filter.$and.push({ $or: mgrConditions });
+      }
+    } else if (req.user && (req.user.role || "").toLowerCase() === "employee") {
+      const employeeDoc = await Employee.findOne({
+        $or: [
+          { userId: req.user._id },
+          ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+          { _id: req.user._id },
+        ],
+        companyId: req.companyId,
+      }).lean();
+
+      if (employeeDoc) {
+        const primaryDeptId = employeeDoc.departmentId ? employeeDoc.departmentId.toString() : null;
+        const deptList = (employeeDoc.departmentIds || []).map((id) => (id?._id || id).toString());
+        const accList = (employeeDoc.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+        const myDeptIds = Array.from(new Set([primaryDeptId, ...deptList, ...accList].filter(Boolean)));
+
+        if (myDeptIds.length > 0) {
+          if (!filter.$and) {
+            filter.$and = [];
+          }
+          filter.$and.push({
+            $or: [
+              { _id: employeeDoc._id },
+              { departmentId: { $in: myDeptIds } },
+              { departmentIds: { $in: myDeptIds } },
+              { accessibleDepartments: { $in: myDeptIds } }
+            ]
+          });
+        } else {
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({ _id: employeeDoc._id });
+        }
+      }
+    }
+
     const employees = await Employee.find(filter)
       .select("employeeCode firstName lastName fullName email phone photo documents gender dateOfBirth departmentId departmentIds designationId branchId status role userId managerAccessLevel accessibleDepartments permissions assignedModules isLocationTrackingEnabled allowRemotePunch workMode joiningDate createdAt")
       .populate([

@@ -367,6 +367,10 @@ const AppRoutes = () => {
             <Route path="team-tasks" element={<ManagerTeamTasks />} />
             <Route path="tasks/:id" element={<TaskDetailsPage />} />
             <Route path="team" element={<ManagerTeamMembers />} />
+            <Route path="employees/add" element={<AddEmployee />} />
+            <Route path="employees/edit/:id" element={<EditEmployee />} />
+            <Route path="employees/:id/edit" element={<EditEmployee />} />
+            <Route path="upload-document" element={<UploadDocument />} />
             <Route path="attendance" element={<ManagerAttendanceOverview />} />
             <Route path="attendance-overview" element={<ManagerAttendanceOverview />} />
             <Route path="team-attendance" element={<ManagerAttendance />} />

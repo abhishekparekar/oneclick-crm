@@ -322,7 +322,32 @@ const createDepartment = async (req, res, next) => {
 
 const getDepartments = async (req, res, next) => {
     try {
-        const departments = await Department.find({ companyId: req.companyId }).sort({
+        let query = { companyId: req.companyId };
+
+        if (req.user && (req.user.role || "").toLowerCase() === "employee") {
+            const Employee = require("../models/Employee");
+            const employeeDoc = await Employee.findOne({
+                $or: [
+                    { userId: req.user._id },
+                    ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+                    { _id: req.user._id },
+                ],
+                companyId: req.companyId,
+            }).lean();
+
+            if (employeeDoc) {
+                const primaryDeptId = employeeDoc.departmentId ? employeeDoc.departmentId.toString() : null;
+                const deptList = (employeeDoc.departmentIds || []).map((id) => (id?._id || id).toString());
+                const accList = (employeeDoc.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+                const myDeptIds = Array.from(new Set([primaryDeptId, ...deptList, ...accList].filter(Boolean)));
+
+                if (myDeptIds.length > 0) {
+                    query._id = { $in: myDeptIds };
+                }
+            }
+        }
+
+        const departments = await Department.find(query).sort({
             name: 1,
         });
         res.json({ departments, count: departments.length });
@@ -877,6 +902,7 @@ const updateCompanySettings = async (req, res, next) => {
             return res.status(404).json({ success: false, message: "Company not found" });
         }
         company.settings = { ...company.settings, ...req.body };
+        company.markModified("settings");
         await company.save();
         res.json({ success: true, settings: company.settings, message: "Settings updated successfully" });
     } catch (error) {

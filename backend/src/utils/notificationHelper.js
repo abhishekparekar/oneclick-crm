@@ -1,6 +1,7 @@
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
+const Company = require("../models/Company");
 
 /**
  * Universal safe helper to resolve any mix of User/Employee ObjectIds or strings into unique User ObjectIds
@@ -445,8 +446,25 @@ const notifyAttendancePunch = async ({
     const empUserId = employee.userId ? (employee.userId._id || employee.userId).toString() : null;
     const empName = employee.user?.name || (employee.firstName ? `${employee.firstName} ${employee.lastName || ""}`.trim() : "Employee");
 
-    // 1. Employee Confirmation Notification (Only to employee)
-    if (empUserId) {
+    // Fetch company notification settings
+    const company = await Company.findById(companyId).select("settings.attendanceNotifications").lean();
+    const notifSettings = company?.settings?.attendanceNotifications;
+
+    const actionKey = action === "punch_in" ? "punchIn" : "punchOut";
+    const actionConfig = notifSettings?.[actionKey] || {
+      enabled: false,
+      notifyEmployee: false,
+      notifyManager: false,
+      notifyAdmin: false,
+    };
+
+    // If notifications for this punch action are disabled (default is false), exit immediately
+    if (!actionConfig.enabled) {
+      return;
+    }
+
+    // 1. Employee Confirmation Notification (Only to employee, if enabled)
+    if (empUserId && actionConfig.notifyEmployee) {
       const empTitle = action === "punch_in" ? "Punch In Recorded" : "Punch Out Recorded";
       const empBody = action === "punch_in"
         ? `You punched in at ${timeStr}.`
@@ -469,48 +487,53 @@ const notifyAttendancePunch = async ({
     // 2. Supervisor Notification (Admins, HR, Reporting Manager, Dept Manager)
     const supervisorUserIds = new Set();
 
-    // CompanyAdmin & HR
-    const adminUsers = await User.find({
-      companyId,
-      role: { $in: ["CompanyAdmin", "admin", "Admin", "hr", "HR", "company_admin"] },
-      isActive: { $ne: false },
-      ...(empUserId ? { _id: { $ne: empUserId } } : {})
-    }).select("_id").lean();
-    adminUsers.forEach(u => supervisorUserIds.add(u._id.toString()));
-
-    // Reporting Manager
-    if (employee.reportingManagerId) {
-      const repMgr = await Employee.findOne({ _id: employee.reportingManagerId, companyId }).select("userId").lean();
-      if (repMgr && repMgr.userId) {
-        const repMgrUserId = (repMgr.userId._id || repMgr.userId).toString();
-        if (!empUserId || repMgrUserId !== empUserId) {
-          supervisorUserIds.add(repMgrUserId);
-        }
-      }
+    // CompanyAdmin & HR (only if notifyAdmin is enabled)
+    if (actionConfig.notifyAdmin) {
+      const adminUsers = await User.find({
+        companyId,
+        role: { $in: ["CompanyAdmin", "admin", "Admin", "hr", "HR", "company_admin"] },
+        isActive: { $ne: false },
+        ...(empUserId ? { _id: { $ne: empUserId } } : {})
+      }).select("_id").lean();
+      adminUsers.forEach(u => supervisorUserIds.add(u._id.toString()));
     }
 
-    // Department Managers
-    const deptId = employee.departmentId ? (employee.departmentId._id || employee.departmentId).toString() : null;
-    if (deptId) {
-      const deptMgrs = await Employee.find({
-        companyId,
-        status: "active",
-        $or: [
-          { accessibleDepartments: { $in: [deptId] }, isManager: true },
-          { departmentId: deptId, isManager: true },
-          { departmentId: deptId, role: { $in: ["Manager", "TeamLeader"] } },
-          { accessibleDepartments: { $in: [deptId] }, role: { $in: ["Manager", "TeamLeader"] } },
-          { isManager: true, departmentId: deptId }
-        ]
-      }).select("userId").lean();
-      deptMgrs.forEach(m => {
-        if (m.userId) {
-          const mgrUserId = (m.userId._id || m.userId).toString();
-          if (!empUserId || mgrUserId !== empUserId) {
-            supervisorUserIds.add(mgrUserId);
+    // Managers (Reporting Manager & Department Managers - only if notifyManager is enabled)
+    if (actionConfig.notifyManager) {
+      // Reporting Manager
+      if (employee.reportingManagerId) {
+        const repMgr = await Employee.findOne({ _id: employee.reportingManagerId, companyId }).select("userId").lean();
+        if (repMgr && repMgr.userId) {
+          const repMgrUserId = (repMgr.userId._id || repMgr.userId).toString();
+          if (!empUserId || repMgrUserId !== empUserId) {
+            supervisorUserIds.add(repMgrUserId);
           }
         }
-      });
+      }
+
+      // Department Managers
+      const deptId = employee.departmentId ? (employee.departmentId._id || employee.departmentId).toString() : null;
+      if (deptId) {
+        const deptMgrs = await Employee.find({
+          companyId,
+          status: "active",
+          $or: [
+            { accessibleDepartments: { $in: [deptId] }, isManager: true },
+            { departmentId: deptId, isManager: true },
+            { departmentId: deptId, role: { $in: ["Manager", "TeamLeader"] } },
+            { accessibleDepartments: { $in: [deptId] }, role: { $in: ["Manager", "TeamLeader"] } },
+            { isManager: true, departmentId: deptId }
+          ]
+        }).select("userId").lean();
+        deptMgrs.forEach(m => {
+          if (m.userId) {
+            const mgrUserId = (m.userId._id || m.userId).toString();
+            if (!empUserId || mgrUserId !== empUserId) {
+              supervisorUserIds.add(mgrUserId);
+            }
+          }
+        });
+      }
     }
 
     // Ensure empUserId is strictly removed from supervisor set

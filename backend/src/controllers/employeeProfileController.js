@@ -27,15 +27,18 @@ const maskBankAccount = (num) => {
 
 const populateOptions = [
   { path: "departmentId", select: "name" },
+  { path: "departmentIds", select: "name" },
+  { path: "accessibleDepartments", select: "name" },
   { path: "designationId", select: "name" },
-  { path: "branchId", select: "branchName" },
+  { path: "branchId", select: "branchName name" },
+  { path: "branchIds", select: "branchName name" },
   { path: "reportingManagerId", select: "firstName lastName employeeCode fullName" }
 ];
 
 // Helper to assign permitted fields safely including dateOfBirth parsing
 const assignPermittedFields = (employee, body) => {
   const permitted = [
-    "photo", "gender", "bloodGroup", "maritalStatus", "personalEmail",
+    "photo", "gender", "bloodGroup", "maritalStatus", "personalEmail", "phone",
     "currentAddress", "permanentAddress", "emergencyContact", "bankDetails",
     "educationDetails", "experienceDetails", "aadhaarNumber", "panNumber", "documents"
   ];
@@ -371,9 +374,23 @@ const updateProfile = async (req, res, next) => {
     assignPermittedFields(employee, req.body);
 
     const imgUrl = req.body.photo || req.body.profileImage;
+    const userUpdate = {};
     if (imgUrl) {
       employee.photo = imgUrl;
-      await User.findByIdAndUpdate(req.user._id, { profileImage: imgUrl });
+      userUpdate.profileImage = imgUrl;
+    }
+    if (req.body.phone) {
+      userUpdate.phone = employee.phone;
+    }
+    if (req.body.name) {
+      userUpdate.name = req.body.name.trim();
+      const parts = req.body.name.trim().split(" ");
+      employee.firstName = parts[0] || employee.firstName;
+      employee.lastName = parts.slice(1).join(" ") || employee.lastName;
+      employee.fullName = req.body.name.trim();
+    }
+    if (Object.keys(userUpdate).length > 0) {
+      await User.findByIdAndUpdate(req.user._id, userUpdate);
     }
 
     const errors = validateProfileData(employee);

@@ -116,6 +116,15 @@ export default function ManagerMyTasks() {
   const [activeTab, setActiveTab] = useState("Today");
   const navigate = useNavigate();
 
+  // Helper: local YYYY-MM-DD string (avoids UTC timezone offset bugs)
+  const toLocalDateStr = (date) => {
+    const d = new Date(date);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
       setIsCreateOpen(true);
@@ -136,12 +145,14 @@ export default function ManagerMyTasks() {
     }
   };
 
+  // Initialize with today's date range to match default "Today" tab
+  const todayStr = toLocalDateStr(new Date());
   const [filters, setFilters] = useState({
     departmentId: "",
     priority: "",
     deadlineFilter: "",
-    startDate: "",
-    endDate: "",
+    startDate: todayStr,
+    endDate: todayStr,
     overdue: false,
   });
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
@@ -170,42 +181,51 @@ export default function ManagerMyTasks() {
 
   const isTaskInDateRange = (task, startStr, endStr) => {
     if (!startStr || !endStr) return true;
-    const startD = new Date(startStr);
-    const endD = new Date(endStr);
-    endD.setHours(23, 59, 59, 999);
+    // Parse as LOCAL midnight (avoid UTC timezone offset shifting the date)
+    const [sy, sm, sd] = startStr.split("-").map(Number);
+    const [ey, em, ed] = endStr.split("-").map(Number);
+    const startD = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+    const endD = new Date(ey, em - 1, ed, 23, 59, 59, 999);
+
     const checkBetween = (dateVal) => {
       if (!dateVal) return false;
       const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return false;
       return d >= startD && d <= endD;
     };
-    return checkBetween(task.dueDate || task.endDateTime || task.startDate);
+    // Match if ANY relevant date field falls in the range
+    return (
+      checkBetween(task.startDate || task.startDateTime) ||
+      checkBetween(task.dueDate || task.endDate || task.endDateTime) ||
+      checkBetween(task.nextFollowUpDate)
+    );
   };
 
   const getDates = (tabName) => {
     const now = new Date();
     let start = "", end = "";
     if (tabName === "Today") {
-      start = end = now.toISOString().slice(0, 10);
+      start = end = toLocalDateStr(now);
     } else if (tabName === "Yesterday") {
       const y = new Date(now);
       y.setDate(now.getDate() - 1);
-      start = end = y.toISOString().slice(0, 10);
+      start = end = toLocalDateStr(y);
     } else if (tabName === "This Week") {
       const s = new Date(now);
       s.setDate(now.getDate() - now.getDay());
-      const e = new Date(now);
+      const e = new Date(s);
       e.setDate(s.getDate() + 6);
-      start = s.toISOString().slice(0, 10);
-      end = e.toISOString().slice(0, 10);
+      start = toLocalDateStr(s);
+      end = toLocalDateStr(e);
     } else if (tabName === "Last Month") {
-      start = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 10);
-      end = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().slice(0, 10);
+      start = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+      end = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
     } else if (tabName === "This Month") {
-      start = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-      end = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      start = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 1));
+      end = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 0));
     } else if (tabName === "Next Month") {
-      start = new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().slice(0, 10);
-      end = new Date(now.getFullYear(), now.getMonth() + 2, 0).toISOString().slice(0, 10);
+      start = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+      end = toLocalDateStr(new Date(now.getFullYear(), now.getMonth() + 2, 0));
     }
     return { start, end };
   };
@@ -265,7 +285,18 @@ export default function ManagerMyTasks() {
   }), [allTasks, activeTab, filters]);
 
   const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
-    if (statusFilter && (task.status || "pending").toLowerCase() !== statusFilter.toLowerCase()) return false;
+    if (statusFilter) {
+      const s = (task.status || "pending").toLowerCase();
+      // "overdue" pill: match tasks that are past due and not completed
+      if (statusFilter === "overdue") {
+        const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "re_complete", "cancelled"].includes(s);
+        const due = task.dueDate || task.endDateTime || task.endDate;
+        const isOverdue = !done && due && new Date(due) < new Date();
+        if (!isOverdue) return false;
+      } else {
+        if (s !== statusFilter.toLowerCase()) return false;
+      }
+    }
     if (search) {
       const q = search.toLowerCase();
       const title = (task.title || "").toLowerCase();
@@ -289,9 +320,17 @@ export default function ManagerMyTasks() {
       overdue: 0,
       cancelled: 0,
     };
+    const now = new Date();
     tabFilteredTasks.forEach(t => {
       const s = (t.status || "pending").toLowerCase();
-      counts[s] = (counts[s] || 0) + 1;
+      // Count as overdue if not completed and past due date
+      const done = ["complete", "completed", "done", "late_complete", "re_late_complete", "re_complete", "cancelled"].includes(s);
+      const due = t.dueDate || t.endDateTime || t.endDate;
+      if (!done && due && new Date(due) < now) {
+        counts.overdue = (counts.overdue || 0) + 1;
+      } else {
+        counts[s] = (counts[s] || 0) + 1;
+      }
     });
     return counts;
   }, [tabFilteredTasks]);
@@ -530,7 +569,7 @@ export default function ManagerMyTasks() {
               </div>
             </div>
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2.5">
-              <button onClick={() => { setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", overdue: false }); setStatusFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl transition-colors cursor-pointer">Clear</button>
+              <button onClick={() => { const { start, end } = getDates(activeTab); setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: start, endDate: end, overdue: false }); setStatusFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl transition-colors cursor-pointer">Clear</button>
               <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-md py-2.5 rounded-xl transition-colors cursor-pointer">Apply</button>
             </div>
           </div>

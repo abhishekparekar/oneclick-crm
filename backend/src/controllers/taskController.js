@@ -81,7 +81,21 @@ exports.createTask = async (req, res) => {
         let rawAssignees = Array.isArray(assignedTo) ? assignedTo : (assignedTo ? [assignedTo] : []);
         let assigneeIds = rawAssignees.filter(id => id && mongoose.Types.ObjectId.isValid(id));
         
-        if (assigneeIds.length === 0) {
+        // Check if user has permission to assign tasks to other employees
+        const canAssign = await checkUserPermission(req.user._id, companyId, req.user.role, "tasks", "assign");
+
+        if (req.user.role === "Employee" && !canAssign) {
+            // Employee does not have assign permission. They can ONLY assign to themselves.
+            const selfEmployee = await Employee.findOne({
+                $or: [{ userId: req.user._id }, { email: req.user.email?.toLowerCase() }],
+                companyId
+            }).lean();
+            if (selfEmployee) {
+                assigneeIds = [selfEmployee._id];
+            } else {
+                assigneeIds = [req.user._id];
+            }
+        } else if (assigneeIds.length === 0) {
             if (assignmentType === "self" || req.user.role === "Employee") {
                 const selfEmployee = await Employee.findOne({
                     $or: [{ userId: req.user._id }, { email: req.user.email?.toLowerCase() }],
@@ -402,13 +416,14 @@ exports.getTasks = async (req, res) => {
         let rbacOr = null;
         if (req.user.role === "Employee") {
             // Build identifiers — only use valid ObjectIds
-            const userIdentifiers = [employeeId, req.user?.employeeId].filter(Boolean);
+            const userIdentifiers = [employeeId, req.user?.employeeId, req.user?._id].filter(Boolean);
             
             rbacOr = [
                 // Tasks directly assigned to this employee
                 ...(userIdentifiers.length > 0 ? [{ assignedTo: { $in: userIdentifiers } }] : []),
                 // Tasks created/assigned by this user (self-created)
                 { assignedBy: req.user._id },
+                { createdBy: req.user._id },
                 // Company-wide / company tasks always visible to all employees
                 { assignmentType: { $in: ["company", "company_wide"] } },
                 // Dept tasks for employee's departments
@@ -442,7 +457,18 @@ exports.getTasks = async (req, res) => {
         }
 
         // Apply Filters
-        if (departmentId) query.departmentId = departmentId;
+        if (departmentId) {
+            if (req.user.role === "Employee" && allowedDeptIds.length > 0) {
+                const allowedStr = allowedDeptIds.map(d => d.toString());
+                if (allowedStr.includes(departmentId.toString())) {
+                    query.departmentId = departmentId;
+                } else {
+                    query.departmentId = { $in: allowedDeptIds };
+                }
+            } else {
+                query.departmentId = departmentId;
+            }
+        }
         if (assignedTo) query.assignedTo = assignedTo;
         if (projectId) query.projectId = projectId;
         if (status && !isTemplate) {
@@ -699,7 +725,12 @@ exports.updateTask = async (req, res) => {
         if (title) task.title = title;
         if (description !== undefined) task.description = description;
         task.departmentId = departmentId || undefined;
-        if (assignedTo) task.assignedTo = assignedTo;
+        if (assignedTo) {
+            const canAssign = await checkUserPermission(req.user._id, req.user.companyId, req.user.role, "tasks", "assign");
+            if (req.user.role !== "Employee" || canAssign) {
+                task.assignedTo = assignedTo;
+            }
+        }
         if (priority) task.priority = priority;
         if (req.body.checklist !== undefined) task.checklist = req.body.checklist;
         if (req.body.attachments !== undefined) task.attachments = req.body.attachments;

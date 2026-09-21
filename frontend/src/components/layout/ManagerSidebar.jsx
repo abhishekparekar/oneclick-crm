@@ -24,6 +24,7 @@ import {
   Hexagon,
   Navigation,
   Wallet,
+  FileUp,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ const MANAGER_SECTIONS = [
     title: "TEAM MANAGEMENT",
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
+      { label: "Upload Documents", path: "/manager/upload-document", icon: FileUp, permission: ["teamMembers", "uploadDocs"] },
       { label: "Team Attendance ", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Live Employee Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       // { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
@@ -116,6 +118,10 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         {MANAGER_SECTIONS.map((section, idx) => {
           const liveSubscribed = profileData?.company?.subscribedModules || user?.company?.subscribedModules || user?.subscribedModules;
           const visibleItems = section.items.filter((item) => {
+            if (item.permission) {
+              const [cat, act] = Array.isArray(item.permission) ? item.permission : [item.permission, "view"];
+              if (!hasPermission(cat, act)) return false;
+            }
             if (!item.module && !item.modules) return true;
             if (Array.isArray(liveSubscribed)) {
               const subs = liveSubscribed.map(m => String(m).toLowerCase().trim());

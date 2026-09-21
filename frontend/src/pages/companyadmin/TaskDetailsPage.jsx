@@ -198,7 +198,11 @@ function FollowUpModal({ isOpen, onClose, taskId, onSuccess }) {
 export default function TaskDetailsPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
+
+  const canEditTask = ["CompanyAdmin", "SuperAdmin", "Manager", "HR"].includes(user?.role) ||
+    Boolean(hasPermission && hasPermission("tasks", "edit")) ||
+    Boolean(user?.permissions?.tasks?.edit);
   
   const getBackUrl = () => {
     const role = (user?.role || "").toLowerCase().replace(/\s+/g, "");
@@ -390,7 +394,7 @@ export default function TaskDetailsPage() {
         </div>
 
         <div className="flex items-center gap-1.5 flex-wrap shrink-0 self-start sm:self-auto">
-          {(task.status === "pending" || task.status === "re_pending") && (
+          {canEditTask && (task.status === "pending" || task.status === "re_pending") && (
             <button 
               onClick={() => setShowEdit(true)} 
               className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs"

@@ -128,6 +128,33 @@ const Header = ({ onMenuClick }) => {
   const isEmployee = user?.role === "Employee" || location.pathname.startsWith("/employee");
   const pages = isSuperAdmin ? SUPERADMIN_PAGES : isEmployee ? EMPLOYEE_PAGES : COMPANY_PAGES;
 
+  // ── Quick Create Permissions ──────────────────────────────────────────────
+  const canCreateTask =
+    ["CompanyAdmin", "SuperAdmin"].includes(user?.role)
+      ? Boolean(hasPermission ? hasPermission("tasks") : true)
+      : ["HR", "Manager"].includes(user?.role)
+      ? Boolean(hasPermission ? hasPermission("tasks", "create") : true)
+      : Boolean(
+          (hasPermission && (hasPermission("tasks", "create") || hasPermission("tasks", "add"))) ||
+          user?.permissions?.tasks?.create ||
+          user?.permissions?.tasks?.add
+        );
+
+  const canCreateLead =
+    ["CompanyAdmin", "SuperAdmin"].includes(user?.role)
+      ? Boolean(hasPermission ? hasPermission("leads") : true)
+      : ["HR", "Manager"].includes(user?.role)
+      ? Boolean(hasPermission ? hasPermission("leads", "create") : true)
+      : Boolean(
+          (hasPermission && (hasPermission("leads", "create") || hasPermission("leads", "add"))) ||
+          user?.permissions?.leads?.create ||
+          user?.permissions?.leads?.add
+        );
+
+  const canCreateRequest = !isSuperAdmin;
+
+  const hasAnyQuickAction = canCreateLead || canCreateTask || canCreateRequest;
+
   const searchResults = searchQuery.trim().length > 0
     ? pages.filter((p) =>
         p.label.toLowerCase().includes(searchQuery.toLowerCase())
@@ -367,7 +394,7 @@ const Header = ({ onMenuClick }) => {
       <div className="flex items-center space-x-2">
 
         {/* ── Quick Create Dropdown Button (+ Add Lead & + Add Task) ────── */}
-        {!isSuperAdmin && (
+        {!isSuperAdmin && hasAnyQuickAction && (
           <div className="relative" ref={quickCreateRef}>
             <button
               type="button"
@@ -377,7 +404,7 @@ const Header = ({ onMenuClick }) => {
                 setNotifOpen(false);
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1268D9] hover:bg-[#0D50B8] text-white font-black text-xs shadow-sm shadow-[#1268D9]/25 hover:shadow-md transition-all cursor-pointer"
-              title="Quick Create Lead or Task"
+              title="Quick Actions"
             >
               <Plus size={14} strokeWidth={3} />
               <span className="hidden sm:inline">Create</span>
@@ -391,7 +418,7 @@ const Header = ({ onMenuClick }) => {
                 </div>
 
                 {/* Add Lead */}
-                {hasPermission("leads") && (
+                {canCreateLead && (
                   <button
                     type="button"
                     onClick={() => {
@@ -425,7 +452,7 @@ const Header = ({ onMenuClick }) => {
                 )}
 
                 {/* Add Task */}
-                {hasPermission("tasks") && (
+                {canCreateTask && (
                   <button
                     type="button"
                     onClick={() => {
@@ -459,36 +486,38 @@ const Header = ({ onMenuClick }) => {
                 )}
 
                 {/* Company Request */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuickCreateOpen(false);
-                    const path =
-                      user?.role === "SuperAdmin"
-                        ? "/superadmin/company-requests?create=true"
-                        : user?.role === "HR"
-                        ? "/hr/requests?create=true"
-                        : user?.role === "Manager"
-                        ? "/manager/requests?create=true"
-                        : user?.role === "Employee"
-                        ? "/employee/requests?create=true"
-                        : "/company/requests?create=true";
-                    navigate(path);
-                  }}
-                  className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-emerald-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
-                    <MessageSquare size={16} strokeWidth={2.2} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                      Company Request
-                    </p>
-                    <p className="text-[10px] text-slate-400 font-medium truncate">
-                      Broadcast requirements or queries
-                    </p>
-                  </div>
-                </button>
+                {canCreateRequest && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setQuickCreateOpen(false);
+                      const path =
+                        user?.role === "SuperAdmin"
+                          ? "/superadmin/company-requests?create=true"
+                          : user?.role === "HR"
+                          ? "/hr/requests?create=true"
+                          : user?.role === "Manager"
+                          ? "/manager/requests?create=true"
+                          : user?.role === "Employee"
+                          ? "/employee/requests?create=true"
+                          : "/company/requests?create=true";
+                      navigate(path);
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-emerald-500/10 text-slate-800 dark:text-slate-200 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+                      <MessageSquare size={16} strokeWidth={2.2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                        Company Request
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium truncate">
+                        Broadcast requirements or queries
+                      </p>
+                    </div>
+                  </button>
+                )}
               </div>
             )}
           </div>

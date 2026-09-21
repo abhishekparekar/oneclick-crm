@@ -23,6 +23,8 @@ import { useAuth } from "../../context/AuthContext";
 import {
   getCompanyAttendanceSettingsApi,
   updateCompanyAttendanceSettingsApi,
+  getBranchesApi,
+  updateBranchApi,
 } from "../../api/companyService";
 
 const AttendanceSettingsScreen = ({ navigation }) => {
@@ -43,6 +45,11 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   const [locationError, setLocationError] = useState("");
   const [gpsAccuracy, setGpsAccuracy] = useState(null);
 
+  // --- Branch States ---
+  const [branches, setBranches] = useState([]);
+  const [selectedBranchId, setSelectedBranchId] = useState("main"); // "main" or branch._id
+  const [mainOfficeSettings, setMainOfficeSettings] = useState(null);
+
   // --- Attendance Configuration States ---
   const [officeName, setOfficeName] = useState("Main Office");
   const [allowedRadiusMeters, setAllowedRadiusMeters] = useState("100");
@@ -58,17 +65,22 @@ const AttendanceSettingsScreen = ({ navigation }) => {
   // Derived radius number
   const radiusMeters = parseFloat(allowedRadiusMeters) || 100;
 
-  // ─── Fetch saved settings on mount ───────────────────────────────────────────
+  // ─── Fetch saved settings and branches on mount ────────────────────────────
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      const res = await getCompanyAttendanceSettingsApi();
-      const data = res?.data || res;
+      const [settingsRes, branchesRes] = await Promise.all([
+        getCompanyAttendanceSettingsApi().catch((e) => null),
+        getBranchesApi().catch((e) => null),
+      ]);
+
+      const data = settingsRes?.data || settingsRes;
       const s = data?.settings || data;
+      const branchList = branchesRes?.data?.branches || branchesRes?.data || [];
+      setBranches(branchList);
 
       if (s) {
-        setOfficeName(s.officeName || "Main Office");
-        setAllowedRadiusMeters(String(s.allowedRadiusMeters ?? 100));
+        setMainOfficeSettings(s);
         setAttendanceMode(s.attendanceMode || "office_only");
         setRequireGps(s.requireGps ?? true);
         setRequireSelfie(s.requireSelfie ?? false);
@@ -78,28 +90,99 @@ const AttendanceSettingsScreen = ({ navigation }) => {
         setEarlyLeaveGracePeriodMinutes(String(s.earlyLeaveGracePeriodMinutes ?? 10));
         setAutoHalfDayOnEarlyLeave(s.autoHalfDayOnEarlyLeave ?? true);
 
-        // If a saved location exists and is not the default (0,0), pre-load the map with it
-        if (
-          s.latitude !== null &&
-          s.longitude !== null &&
-          s.latitude !== undefined &&
-          s.longitude !== undefined &&
-          !(Number(s.latitude) === 0 && Number(s.longitude) === 0)
-        ) {
-          const latNum = Number(s.latitude);
-          const lngNum = Number(s.longitude);
-          setSelectedLocation({
-            latitude: latNum,
-            longitude: lngNum,
-          });
-          setLatitudeInput(String(latNum));
-          setLongitudeInput(String(lngNum));
+        // If only 1 branch exists, directly configure that branch / main office
+        if (branchList.length === 1) {
+          const b = branchList[0];
+          setSelectedBranchId(b._id);
+          setOfficeName(b.branchName || s.officeName || "Main Office");
+          setAllowedRadiusMeters(String(b.allowedRadiusMeters ?? s.allowedRadiusMeters ?? 100));
+
+          const latNum = b.latitude ?? s.latitude;
+          const lngNum = b.longitude ?? s.longitude;
+          if (
+            latNum !== null &&
+            lngNum !== null &&
+            latNum !== undefined &&
+            lngNum !== undefined &&
+            !(Number(latNum) === 0 && Number(lngNum) === 0)
+          ) {
+            setSelectedLocation({ latitude: Number(latNum), longitude: Number(lngNum) });
+            setLatitudeInput(String(latNum));
+            setLongitudeInput(String(lngNum));
+          }
+        } else {
+          // Multiple branches or 0 branches: default to Main Office
+          setSelectedBranchId("main");
+          setOfficeName(s.officeName || "Main Office");
+          setAllowedRadiusMeters(String(s.allowedRadiusMeters ?? 100));
+
+          if (
+            s.latitude !== null &&
+            s.longitude !== null &&
+            s.latitude !== undefined &&
+            s.longitude !== undefined &&
+            !(Number(s.latitude) === 0 && Number(s.longitude) === 0)
+          ) {
+            const latNum = Number(s.latitude);
+            const lngNum = Number(s.longitude);
+            setSelectedLocation({ latitude: latNum, longitude: lngNum });
+            setLatitudeInput(String(latNum));
+            setLongitudeInput(String(lngNum));
+          }
         }
       }
     } catch (err) {
       console.warn("[AttendanceSettingsScreen] Settings fetch warning:", err?.message || err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // ─── Switch Branch ─────────────────────────────────────────────────────────
+  const handleSelectBranch = (branchId) => {
+    setSelectedBranchId(branchId);
+    if (branchId === "main") {
+      const s = mainOfficeSettings;
+      setOfficeName(s?.officeName || "Main Office");
+      setAllowedRadiusMeters(String(s?.allowedRadiusMeters ?? 100));
+      if (s?.latitude && s?.longitude) {
+        const latNum = Number(s.latitude);
+        const lngNum = Number(s.longitude);
+        setSelectedLocation({ latitude: latNum, longitude: lngNum });
+        setLatitudeInput(String(latNum));
+        setLongitudeInput(String(lngNum));
+      } else {
+        setSelectedLocation(null);
+        setLatitudeInput("");
+        setLongitudeInput("");
+      }
+    } else {
+      const b = branches.find((item) => item._id === branchId);
+      if (b) {
+        setOfficeName(b.branchName);
+        setAllowedRadiusMeters(String(b.allowedRadiusMeters ?? 100));
+        if (b.latitude && b.longitude) {
+          const latNum = Number(b.latitude);
+          const lngNum = Number(b.longitude);
+          setSelectedLocation({ latitude: latNum, longitude: lngNum });
+          setLatitudeInput(String(latNum));
+          setLongitudeInput(String(lngNum));
+        } else {
+          // If branch doesn't have coordinates yet, use main office coords as reference
+          if (mainOfficeSettings?.latitude && mainOfficeSettings?.longitude) {
+            setSelectedLocation({
+              latitude: Number(mainOfficeSettings.latitude),
+              longitude: Number(mainOfficeSettings.longitude),
+            });
+            setLatitudeInput(String(mainOfficeSettings.latitude));
+            setLongitudeInput(String(mainOfficeSettings.longitude));
+          } else {
+            setSelectedLocation(null);
+            setLatitudeInput("");
+            setLongitudeInput("");
+          }
+        }
+      }
     }
   };
 
@@ -199,35 +282,83 @@ const AttendanceSettingsScreen = ({ navigation }) => {
     }
 
     if (!officeName.trim()) {
-      Alert.alert("Required", "Office Location Name is required");
+      Alert.alert("Required", "Office / Branch Name is required");
       return;
     }
 
     if (!selectedLocation) {
-      Alert.alert("No Location Selected", "Please use 'Use My Current Location' or tap on the map to set the office location.");
+      Alert.alert("No Location Selected", "Please use 'Use My Current Location' or tap on the map to set the geofence location.");
       return;
     }
 
     try {
       setSaving(true);
-      const payload = {
-        officeName,
-        latitude: selectedLocation.latitude,
-        longitude: selectedLocation.longitude,
-        allowedRadiusMeters: radiusMeters,
-        attendanceMode,
-        requireGps,
-        requireSelfie,
-        allowAdminBypassGeoFencing,
-        gracePeriodMinutes: parseInt(gracePeriodMinutes) || 0,
-        autoHalfDayOnLate,
-        earlyLeaveGracePeriodMinutes: parseInt(earlyLeaveGracePeriodMinutes) || 0,
-        autoHalfDayOnEarlyLeave,
-      };
 
-      await updateCompanyAttendanceSettingsApi(payload);
-      Alert.alert("✅ Saved", "Office location settings updated successfully!");
-      fetchSettings();
+      if (selectedBranchId !== "main") {
+        // Save Branch Geofence via updateBranchApi
+        await updateBranchApi(selectedBranchId, {
+          branchName: officeName,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+          allowedRadiusMeters: radiusMeters,
+          requireGps: true,
+        });
+
+        // Update branch in local list
+        setBranches((prev) =>
+          prev.map((b) =>
+            b._id === selectedBranchId
+              ? {
+                  ...b,
+                  branchName: officeName,
+                  latitude: selectedLocation.latitude,
+                  longitude: selectedLocation.longitude,
+                  allowedRadiusMeters: radiusMeters,
+                }
+              : b
+          )
+        );
+
+        // If only 1 branch exists, also sync with main office settings
+        if (branches.length === 1) {
+          await updateCompanyAttendanceSettingsApi({
+            officeName,
+            latitude: selectedLocation.latitude,
+            longitude: selectedLocation.longitude,
+            allowedRadiusMeters: radiusMeters,
+            attendanceMode,
+            requireGps,
+            requireSelfie,
+            allowAdminBypassGeoFencing,
+            gracePeriodMinutes: parseInt(gracePeriodMinutes) || 0,
+            autoHalfDayOnLate,
+            earlyLeaveGracePeriodMinutes: parseInt(earlyLeaveGracePeriodMinutes) || 0,
+            autoHalfDayOnEarlyLeave,
+          }).catch(() => {});
+        }
+
+        Alert.alert("✅ Saved", `"${officeName}" branch geofence updated successfully!`);
+      } else {
+        // Save Main Office Geofence
+        const payload = {
+          officeName,
+          latitude: selectedLocation.latitude,
+          longitude: selectedLocation.longitude,
+          allowedRadiusMeters: radiusMeters,
+          attendanceMode,
+          requireGps,
+          requireSelfie,
+          allowAdminBypassGeoFencing,
+          gracePeriodMinutes: parseInt(gracePeriodMinutes) || 0,
+          autoHalfDayOnLate,
+          earlyLeaveGracePeriodMinutes: parseInt(earlyLeaveGracePeriodMinutes) || 0,
+          autoHalfDayOnEarlyLeave,
+        };
+
+        await updateCompanyAttendanceSettingsApi(payload);
+        setMainOfficeSettings((prev) => ({ ...prev, ...payload }));
+        Alert.alert("✅ Saved", "Main Office geofence settings updated successfully!");
+      }
     } catch (err) {
       Alert.alert("Error", err.response?.data?.message || "Failed to update settings");
     } finally {
@@ -402,11 +533,74 @@ const AttendanceSettingsScreen = ({ navigation }) => {
         </View>
       ) : (
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+          {/* ── BRANCH SELECTOR (Single vs Multiple Branches) ─────────── */}
+          {branches.length > 1 ? (
+            <View style={styles.branchSelectCard}>
+              <View style={styles.sectionHeaderRow}>
+                <Ionicons name="business" size={18} color="#2563eb" />
+                <Text style={styles.sectionTitle}>Select Office / Branch to Geofence</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>
+                Select the branch you want to set GPS coordinates and radius for:
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.branchTabsRow}>
+                <TouchableOpacity
+                  style={[
+                    styles.branchTab,
+                    selectedBranchId === "main" && styles.branchTabActive,
+                  ]}
+                  onPress={() => handleSelectBranch("main")}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.branchDot, mainOfficeSettings?.latitude ? styles.branchDotActive : styles.branchDotInactive]} />
+                  <Text style={[styles.branchTabText, selectedBranchId === "main" && styles.branchTabTextActive]}>
+                    🏢 Main Office
+                  </Text>
+                </TouchableOpacity>
+
+                {branches.map((b) => {
+                  const isSelected = selectedBranchId === b._id;
+                  const hasGps = b.latitude && b.longitude;
+                  return (
+                    <TouchableOpacity
+                      key={b._id}
+                      style={[styles.branchTab, isSelected && styles.branchTabActive]}
+                      onPress={() => handleSelectBranch(b._id)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.branchDot, hasGps ? styles.branchDotActive : styles.branchDotInactive]} />
+                      <Text style={[styles.branchTabText, isSelected && styles.branchTabTextActive]}>
+                        📍 {b.branchName}
+                      </Text>
+                      {hasGps && (
+                        <Text style={[styles.branchRadiusPill, isSelected && styles.branchRadiusPillActive]}>
+                          {b.allowedRadiusMeters || 100}m
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : branches.length === 1 ? (
+            <View style={styles.singleBranchBanner}>
+              <Ionicons name="business" size={20} color="#2563eb" style={{ marginRight: 10 }} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.singleBranchTitle}>Branch: {branches[0].branchName}</Text>
+                <Text style={styles.singleBranchSub}>
+                  Configuring geofence location for your primary office.
+                </Text>
+              </View>
+            </View>
+          ) : null}
+
           {/* ── MAP PICKER ──────────────────────────────────────────────── */}
           <View style={styles.mapCard}>
             <View style={styles.sectionHeaderRow}>
               <Ionicons name="map" size={20} color="#2563eb" />
-              <Text style={styles.sectionTitle}>Set Office Attendance Location</Text>
+              <Text style={styles.sectionTitle}>
+                {selectedBranchId !== "main" ? `Set ${officeName} Geofence` : "Set Office Attendance Location"}
+              </Text>
             </View>
 
             {locationError ? (
@@ -758,10 +952,49 @@ const AttendanceSettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
+          {/* ── ALL BRANCHES GEOFENCE OVERVIEW ─────────────────────── */}
+          {branches.length > 0 && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeaderRow}>
+                <Ionicons name="layers-outline" size={20} color="#2563eb" />
+                <Text style={styles.sectionTitle}>Branch Geofences Status ({branches.length})</Text>
+              </View>
+              <Text style={styles.sectionSubtitle}>
+                Employees assigned to multiple branches can punch at any of these active geofences:
+              </Text>
+              <View style={styles.branchListContainer}>
+                {branches.map((b) => {
+                  const hasGps = b.latitude && b.longitude;
+                  const isCur = selectedBranchId === b._id;
+                  return (
+                    <View key={b._id} style={[styles.branchListItem, isCur && styles.branchListItemSelected]}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.branchListItemName}>{b.branchName}</Text>
+                        <Text style={styles.branchListItemMeta}>
+                          {hasGps
+                            ? `Lat: ${Number(b.latitude).toFixed(4)}, Lng: ${Number(b.longitude).toFixed(4)} · Radius: ${b.allowedRadiusMeters || 100}m`
+                            : "No GPS coordinates configured"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={[styles.branchEditBtn, isCur && styles.branchEditBtnActive]}
+                        onPress={() => handleSelectBranch(b._id)}
+                      >
+                        <Text style={[styles.branchEditBtnText, isCur && styles.branchEditBtnTextActive]}>
+                          {isCur ? "Editing" : "Configure"}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
           {/* ── SAVE / READ-ONLY ─────────────────────────────────────────── */}
           {isAdmin ? (
             <AppButton
-              title={saving ? "Saving Location Settings..." : "Save Office Location"}
+              title={saving ? "Saving Geofence..." : selectedBranchId !== "main" ? `Save ${officeName} Geofence` : "Save Office Geofence"}
               loading={saving}
               disabled={!selectedLocation}
               style={[styles.saveBtn, !selectedLocation && styles.saveBtnDisabled]}
@@ -825,6 +1058,142 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
+  },
+  branchSelectCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+    elevation: 2,
+    shadowColor: "#2563eb",
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  branchTabsRow: {
+    flexDirection: "row",
+    gap: 8,
+    paddingVertical: 4,
+  },
+  branchTab: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    backgroundColor: "#f1f5f9",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    marginRight: 8,
+  },
+  branchTabActive: {
+    backgroundColor: "#eff6ff",
+    borderColor: "#2563eb",
+  },
+  branchTabText: {
+    fontSize: 12.5,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  branchTabTextActive: {
+    color: "#2563eb",
+  },
+  branchDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    marginRight: 6,
+  },
+  branchDotActive: {
+    backgroundColor: "#16a34a",
+  },
+  branchDotInactive: {
+    backgroundColor: "#d97706",
+  },
+  branchRadiusPill: {
+    fontSize: 10,
+    fontWeight: "700",
+    backgroundColor: "#e2e8f0",
+    color: "#475569",
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  branchRadiusPillActive: {
+    backgroundColor: "#bfdbfe",
+    color: "#1d4ed8",
+  },
+  singleBranchBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#eff6ff",
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#bfdbfe",
+  },
+  singleBranchTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1d4ed8",
+  },
+  singleBranchSub: {
+    fontSize: 11,
+    color: "#3b82f6",
+    marginTop: 1,
+  },
+  branchListContainer: {
+    gap: 8,
+    marginTop: 4,
+  },
+  branchListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    marginBottom: 8,
+  },
+  branchListItemSelected: {
+    backgroundColor: "#eff6ff",
+    borderColor: "#93c5fd",
+  },
+  branchListItemName: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#1e293b",
+  },
+  branchListItemMeta: {
+    fontSize: 11,
+    color: "#64748b",
+    marginTop: 2,
+  },
+  branchEditBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+  },
+  branchEditBtnActive: {
+    backgroundColor: "#2563eb",
+    borderColor: "#2563eb",
+  },
+  branchEditBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#475569",
+  },
+  branchEditBtnTextActive: {
+    color: "#ffffff",
   },
   sectionHeaderRow: {
     flexDirection: "row",

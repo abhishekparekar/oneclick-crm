@@ -83,20 +83,26 @@ export const playHarmonicChime = () => {
 
 /**
  * Master notification sound player
- * Tries Web Audio chime first for 0-latency instant sound,
- * then falls back to /sounds/notification.mp3
+ * Plays /sounds/notice11.mp3 as primary notification ringtone,
+ * with graceful fallback to Web Audio synthesizer if audio element playback is restricted.
  */
 export const playNotificationSound = () => {
   try {
-    const played = playHarmonicChime();
-    if (!played) {
-      const audio = new Audio("/sounds/notification.mp3");
-      audio.volume = 0.8;
-      audio.play().catch((e) => {
-        console.log("Audio autoplay restricted by browser policy:", e.message);
-      });
+    if (typeof window !== "undefined") {
+      const audio = new Audio("/sounds/notice11.mp3");
+      audio.volume = 0.9;
+      const playPromise = audio.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((e) => {
+          console.warn("Audio element playback restricted, falling back to chime:", e.message);
+          playHarmonicChime();
+        });
+      }
+    } else {
+      playHarmonicChime();
     }
   } catch (e) {
-    console.warn("Notification sound error:", e);
+    console.warn("Notification sound error, falling back to chime:", e);
+    playHarmonicChime();
   }
 };

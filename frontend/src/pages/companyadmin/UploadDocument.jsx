@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import {
   FileUp, User, Tag, UploadCloud, CheckCircle2,
   ChevronDown, X, FileText, Image as ImageIcon, File, Sparkles,
-  ArrowUp, ArrowDown, ShieldCheck, FolderUp, Check, Search,
+  ArrowUp, ArrowDown, ArrowLeft, ShieldCheck, FolderUp, Check, Search,
   Filter, Eye, Download, ExternalLink, RefreshCw, AlertCircle,
   Building2, Briefcase, Plus, FolderCheck, CreditCard, Award,
   Clock, ArrowRight, UserCheck
@@ -295,6 +295,13 @@ const UploadDocument = () => {
       {/* ── Header Bar (100% Responsive for Mobile & Desktop) ──────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80 dark:border-slate-800">
         <div className="flex items-center gap-2.5 min-w-0">
+          <Link
+            to={window.location.pathname.startsWith("/manager") ? "/manager/team" : window.location.pathname.startsWith("/hr") ? "/hr/employees" : "/company/employees"}
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white transition-all cursor-pointer shrink-0"
+            title="Back to Directory"
+          >
+            <ArrowLeft size={16} />
+          </Link>
           <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 shadow-2xs">
             <FileUp size={22} strokeWidth={2.2} />
           </div>

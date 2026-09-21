@@ -42,6 +42,8 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   const [gpsCoords, setGpsCoords] = useState(null);
   const [capturingGps, setCapturingGps] = useState(false);
   const [isPunchDisabled, setIsPunchDisabled] = useState(false);
+  const [matchedLocationName, setMatchedLocationName] = useState("");
+  const [locationStatusMsg, setLocationStatusMsg] = useState("");
 
   // Camera & Live In-App Selfie State
   const [hasCameraPerm, setHasCameraPerm] = useState(false);
@@ -122,48 +124,70 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         console.warn("Could not fetch today record:", recErr);
       });
 
-      // 2. Capture GPS Location and validate office boundary smoothly in background
-      setCapturingGps(true);
-      captureGPSLocation().then(async (coords) => {
-        const validCoords = coords || {
-          latitude: 18.5204,
-          longitude: 73.8567,
-          address: "Office Location",
-        };
-        setGpsCoords(validCoords);
-        setGpsCaptured(true);
-        setCapturingGps(false);
-
-        try {
-          const { data: res } = await validateLocationApi({
-            latitude: validCoords.latitude,
-            longitude: validCoords.longitude,
-          });
-          if (res && res.success) {
-            const disabled =
-              !res.data.insideArea &&
-              res.data.attendanceMode === "office_only" &&
-              !res.data.isRemoteAllowed;
-            setIsPunchDisabled(disabled);
-          }
-        } catch (valErr) {
-          console.log("Location validation error:", valErr);
-          setIsPunchDisabled(false);
-        }
-      }).catch((gpsErr) => {
-        console.warn("GPS error:", gpsErr);
-        setGpsCoords({
-          latitude: 18.5204,
-          longitude: 73.8567,
-          address: "Office Location",
-        });
-        setGpsCaptured(true);
-        setCapturingGps(false);
-      });
+      // 2. Capture GPS Location and validate office/branch boundary smoothly in background
+      verifyLocation();
     } catch (err) {
       console.error("Init Error:", err);
       setCapturingGps(false);
       setGpsCaptured(true);
+    }
+  };
+
+  const verifyLocation = async () => {
+    try {
+      setCapturingGps(true);
+      setLocationStatusMsg("");
+      const coords = await captureGPSLocation();
+
+      if (!coords || !coords.latitude || !coords.longitude) {
+        setGpsCoords(null);
+        setGpsCaptured(false);
+        setCapturingGps(false);
+        setIsPunchDisabled(true);
+        setLocationStatusMsg("Unable to detect GPS. Please turn ON Location/GPS in your phone settings.");
+        return;
+      }
+
+      setGpsCoords(coords);
+      setGpsCaptured(true);
+      setCapturingGps(false);
+
+      try {
+        const { data: res } = await validateLocationApi({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+
+        if (res && res.success) {
+          const isInside = res.data.insideArea;
+          const isRestricted =
+            !isInside &&
+            res.data.attendanceMode === "office_only" &&
+            !res.data.isRemoteAllowed;
+
+          setIsPunchDisabled(isRestricted);
+
+          if (isInside) {
+            const locName = res.data.matchedBranch?.branchName || res.data.officeName || "Office Area";
+            setMatchedLocationName(locName);
+            setLocationStatusMsg("");
+          } else {
+            const dist = Math.round(res.data.distance || 0);
+            const allowed = res.data.allowedRadius || 100;
+            const nearest = res.data.officeName || "Office";
+            setLocationStatusMsg(`You are ${dist}m away from ${nearest} (Allowed: ${allowed}m)`);
+          }
+        } else {
+          setIsPunchDisabled(false);
+        }
+      } catch (valErr) {
+        console.log("Location validation error:", valErr);
+        setIsPunchDisabled(false);
+      }
+    } catch (gpsErr) {
+      console.warn("GPS verification error:", gpsErr);
+      setCapturingGps(false);
+      setIsPunchDisabled(false);
     }
   };
 
@@ -243,11 +267,23 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         }
       }
 
-      const activeCoords = gpsCoords || {
-        latitude: 18.5204,
-        longitude: 73.8567,
-        address: "Office Location",
-      };
+      let activeCoords = gpsCoords;
+      if (!activeCoords || !activeCoords.latitude) {
+        activeCoords = await captureGPSLocation();
+        if (activeCoords) {
+          setGpsCoords(activeCoords);
+          setGpsCaptured(true);
+        }
+      }
+
+      if (!activeCoords || !activeCoords.latitude) {
+        Alert.alert(
+          "GPS Location Required",
+          "Please turn ON Location/GPS on your device so the app can verify your attendance."
+        );
+        setSubmittingPunch(false);
+        return;
+      }
 
       const payload = {
         ...(action === "in"
@@ -471,10 +507,16 @@ const EmployeePunchScreen = ({ navigation, route }) => {
             </View>
           )}
 
-          <View style={[styles.infoBadge, { backgroundColor: "rgba(255, 255, 255, 0.08)", borderColor: "rgba(255, 255, 255, 0.15)" }]}>
-            <Ionicons name="location-outline" size={14} color="#94A3B8" />
-            <Text style={[styles.infoBadgeText, { color: "#CBD5E1" }]}>
-              {capturingGps ? "Capturing GPS..." : gpsCoords ? `GPS ±${gpsCoords.accuracy || 15}m` : "GPS Ready"}
+          <View style={[styles.infoBadge, { backgroundColor: matchedLocationName ? "rgba(16, 185, 129, 0.15)" : "rgba(255, 255, 255, 0.08)", borderColor: matchedLocationName ? "rgba(16, 185, 129, 0.3)" : "rgba(255, 255, 255, 0.15)" }]}>
+            <Ionicons name="location-outline" size={14} color={matchedLocationName ? "#10B981" : "#94A3B8"} />
+            <Text style={[styles.infoBadgeText, { color: matchedLocationName ? "#10B981" : "#CBD5E1" }]}>
+              {capturingGps
+                ? "Capturing GPS..."
+                : matchedLocationName
+                ? `Inside ${matchedLocationName}`
+                : gpsCoords
+                ? `GPS ±${gpsCoords.accuracy || 15}m`
+                : "GPS Ready"}
             </Text>
           </View>
         </View>
@@ -493,11 +535,22 @@ const EmployeePunchScreen = ({ navigation, route }) => {
           </View>
         ) : isPunchDisabled ? (
           <View style={styles.outsideOfficeContainer}>
-            <Ionicons name="warning" size={28} color="#EF4444" style={{ marginBottom: 8 }} />
-            <Text style={styles.outsideOfficeText}>You are not in the office</Text>
+            <Ionicons name="warning" size={28} color="#EF4444" style={{ marginBottom: 6 }} />
+            <Text style={styles.outsideOfficeText}>Out of Office Boundary</Text>
             <Text style={styles.outsideOfficeSub}>
-              Punching is not allowed outside the authorized office boundary.
+              {locationStatusMsg || "Punching is not allowed outside the authorized office boundary."}
             </Text>
+            <TouchableOpacity
+              style={styles.retryGpsBtn}
+              onPress={verifyLocation}
+              disabled={capturingGps}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="refresh" size={16} color="#FFFFFF" style={{ marginRight: 6 }} />
+              <Text style={styles.retryGpsBtnText}>
+                {capturingGps ? "Checking GPS..." : "Refresh / Re-check GPS"}
+              </Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <TouchableOpacity
@@ -714,8 +767,26 @@ const styles = StyleSheet.create({
   },
   outsideOfficeSub: {
     color: "#F87171",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "500",
+    textAlign: "center",
+    paddingHorizontal: 16,
+    marginBottom: 12,
+  },
+  retryGpsBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#3B82F6",
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  retryGpsBtnText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
   },
   cancelBtn: {
     paddingVertical: 10,

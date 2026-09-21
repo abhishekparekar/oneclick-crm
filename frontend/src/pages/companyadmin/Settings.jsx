@@ -4,7 +4,8 @@ import { getCompanySettingsApi, updateCompanySettingsApi } from "../../api/compa
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Settings as SettingsIcon, Clock, Calendar, Globe, Save, AlertCircle,
-  ShieldCheck, DollarSign, Sparkles, ArrowUp, ArrowDown, Edit2, Loader2
+  ShieldCheck, DollarSign, Sparkles, ArrowUp, ArrowDown, Edit2, Loader2,
+  Bell, LogIn, LogOut, User, Users
 } from "lucide-react";
 
 /* ── Top KPI Stat Card ────────────────────────────────────────────────────────── */
@@ -59,7 +60,21 @@ const Settings = () => {
     fullDayHours: 8,
     workingDays: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
     timezone: "Asia/Kolkata",
-    currency: "INR"
+    currency: "INR",
+    attendanceNotifications: {
+      punchIn: {
+        enabled: false,
+        notifyEmployee: false,
+        notifyManager: false,
+        notifyAdmin: false,
+      },
+      punchOut: {
+        enabled: false,
+        notifyEmployee: false,
+        notifyManager: false,
+        notifyAdmin: false,
+      },
+    },
   });
 
   const [successMsg, setSuccessMsg] = useState("");
@@ -84,7 +99,21 @@ const Settings = () => {
         fullDayHours: s.fullDayHours ?? 8,
         workingDays: s.workingDays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
         timezone: s.timezone || "Asia/Kolkata",
-        currency: s.currency || "INR"
+        currency: s.currency || "INR",
+        attendanceNotifications: {
+          punchIn: {
+            enabled: s.attendanceNotifications?.punchIn?.enabled ?? false,
+            notifyEmployee: s.attendanceNotifications?.punchIn?.notifyEmployee ?? false,
+            notifyManager: s.attendanceNotifications?.punchIn?.notifyManager ?? false,
+            notifyAdmin: s.attendanceNotifications?.punchIn?.notifyAdmin ?? false,
+          },
+          punchOut: {
+            enabled: s.attendanceNotifications?.punchOut?.enabled ?? false,
+            notifyEmployee: s.attendanceNotifications?.punchOut?.notifyEmployee ?? false,
+            notifyManager: s.attendanceNotifications?.punchOut?.notifyManager ?? false,
+            notifyAdmin: s.attendanceNotifications?.punchOut?.notifyAdmin ?? false,
+          },
+        },
       }));
     }
   }, [res]);
@@ -100,7 +129,8 @@ const Settings = () => {
         fullDayHours: data.fullDayHours,
         workingDays: data.workingDays,
         timezone: data.timezone,
-        currency: data.currency
+        currency: data.currency,
+        attendanceNotifications: data.attendanceNotifications,
       };
 
       await updateCompanySettingsApi(companyPayload);
@@ -139,6 +169,22 @@ const Settings = () => {
       } else {
         return { ...prev, workingDays: [...prev.workingDays, day] };
       }
+    });
+  };
+
+  const handleNotificationToggle = (type, field) => {
+    setFormData(prev => {
+      const current = prev.attendanceNotifications?.[type] || {};
+      return {
+        ...prev,
+        attendanceNotifications: {
+          ...prev.attendanceNotifications,
+          [type]: {
+            ...current,
+            [field]: !current[field],
+          },
+        },
+      };
     });
   };
 
@@ -302,8 +348,180 @@ const Settings = () => {
               </div>
             </div>
 
+            {/* ── 3. Attendance Notification Controls ────────────────────────── */}
+            <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-[0_2px_10px_rgba(0,0,0,0.03)] space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800/80">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center font-bold">
+                    <Bell size={16} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Punch Notification Controls</h3>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Configure who receives alerts when employees punch in or punch out
+                    </p>
+                  </div>
+                </div>
+              </div>
 
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Punch In Settings */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  formData.attendanceNotifications?.punchIn?.enabled
+                    ? "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800"
+                    : "bg-slate-100/40 dark:bg-slate-900/20 border-slate-200/40 dark:border-slate-800/40 opacity-70"
+                }`}>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+                        <LogIn size={13} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">Punch-In Notifications</h4>
+                        <p className="text-[11px] text-slate-500">Triggered upon clock-in</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing}
+                        checked={formData.attendanceNotifications?.punchIn?.enabled}
+                        onChange={() => handleNotificationToggle("punchIn", "enabled")}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
 
+                  {/* Recipient Roles */}
+                  <div className="pt-3 space-y-2.5">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                      Target Recipients
+                    </span>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <User size={13} className="text-slate-400" />
+                        Employee (Self Confirmation)
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchIn?.enabled}
+                        checked={formData.attendanceNotifications?.punchIn?.notifyEmployee}
+                        onChange={() => handleNotificationToggle("punchIn", "notifyEmployee")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <Users size={13} className="text-slate-400" />
+                        Department & Reporting Managers
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchIn?.enabled}
+                        checked={formData.attendanceNotifications?.punchIn?.notifyManager}
+                        onChange={() => handleNotificationToggle("punchIn", "notifyManager")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <ShieldCheck size={13} className="text-slate-400" />
+                        Company Administrators & HR
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchIn?.enabled}
+                        checked={formData.attendanceNotifications?.punchIn?.notifyAdmin}
+                        onChange={() => handleNotificationToggle("punchIn", "notifyAdmin")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Punch Out Settings */}
+                <div className={`p-4 rounded-xl border transition-all ${
+                  formData.attendanceNotifications?.punchOut?.enabled
+                    ? "bg-slate-50/50 dark:bg-slate-900/40 border-slate-200/80 dark:border-slate-800"
+                    : "bg-slate-100/40 dark:bg-slate-900/20 border-slate-200/40 dark:border-slate-800/40 opacity-70"
+                }`}>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200/60 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+                        <LogOut size={13} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-bold text-slate-900 dark:text-white">Punch-Out Notifications</h4>
+                        <p className="text-[11px] text-slate-500">Triggered upon clock-out</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing}
+                        checked={formData.attendanceNotifications?.punchOut?.enabled}
+                        onChange={() => handleNotificationToggle("punchOut", "enabled")}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+
+                  {/* Recipient Roles */}
+                  <div className="pt-3 space-y-2.5">
+                    <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                      Target Recipients
+                    </span>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <User size={13} className="text-slate-400" />
+                        Employee (Self Confirmation)
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchOut?.enabled}
+                        checked={formData.attendanceNotifications?.punchOut?.notifyEmployee}
+                        onChange={() => handleNotificationToggle("punchOut", "notifyEmployee")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <Users size={13} className="text-slate-400" />
+                        Department & Reporting Managers
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchOut?.enabled}
+                        checked={formData.attendanceNotifications?.punchOut?.notifyManager}
+                        onChange={() => handleNotificationToggle("punchOut", "notifyManager")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+
+                    <label className="flex items-center justify-between text-xs cursor-pointer select-none">
+                      <span className="flex items-center gap-2 text-slate-700 dark:text-slate-300 font-semibold">
+                        <ShieldCheck size={13} className="text-slate-400" />
+                        Company Administrators & HR
+                      </span>
+                      <input
+                        type="checkbox"
+                        disabled={!isEditing || !formData.attendanceNotifications?.punchOut?.enabled}
+                        checked={formData.attendanceNotifications?.punchOut?.notifyAdmin}
+                        onChange={() => handleNotificationToggle("punchOut", "notifyAdmin")}
+                        className="w-4 h-4 rounded text-amber-500 border-slate-300 focus:ring-amber-400 dark:border-slate-700 dark:bg-slate-800"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
           </fieldset>
 
           {isEditing && (

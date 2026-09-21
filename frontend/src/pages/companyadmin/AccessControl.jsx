@@ -66,6 +66,112 @@ const PermItem = ({ label, checked, onChange }) => (
   </div>
 );
 
+// ── Categories Definition with icon & items ──────────────────────────────────
+const PERMISSION_CATEGORIES = [
+  {
+    key: "tasks",
+    title: "Tasks & Projects",
+    icon: ClipboardList,
+    iconColor: "text-amber-600 dark:text-amber-400",
+    iconBg: "bg-amber-500/10",
+    items: [
+      { key: "create", label: "Create Tasks" },
+      { key: "edit", label: "Edit Tasks" },
+      { key: "assign", label: "Assign Tasks" },
+      { key: "shift", label: "Reschedule / Shift" },
+      { key: "cancel", label: "Cancel Tasks" },
+      { key: "reopen", label: "Re-open Tasks" },
+      { key: "projects", label: "Manage Projects" },
+    ],
+  },
+  {
+    key: "leaves",
+    title: "Leave Approvals",
+    icon: CalendarOff,
+    iconColor: "text-rose-600 dark:text-rose-400",
+    iconBg: "bg-rose-500/10",
+    items: [
+      { key: "approveReject", label: "Approve & Reject" },
+      { key: "viewAllLeaves", label: "View All Leaves" },
+    ],
+  },
+  {
+    key: "attendance",
+    title: "Attendance & Shifts",
+    icon: CalendarCheck,
+    iconColor: "text-indigo-600 dark:text-indigo-400",
+    iconBg: "bg-indigo-500/10",
+    items: [
+      { key: "markAttendance", label: "Manual Punch Override" },
+      { key: "shiftsRosters", label: "Manage Shifts & Rosters" },
+    ],
+  },
+  {
+    key: "teamMembers",
+    title: "Workforce & KYC",
+    icon: UserCog,
+    iconColor: "text-cyan-600 dark:text-cyan-400",
+    iconBg: "bg-cyan-500/10",
+    items: [
+      { key: "add", label: "Add Employees" },
+      { key: "edit", label: "Edit Profiles" },
+      { key: "activeInactive", label: "Toggle Status" },
+      { key: "uploadDocs", label: "Upload Documents" },
+      { key: "salaryStructure", label: "Salary Structure" },
+    ],
+  },
+  {
+    key: "leads",
+    title: "Lead Engine & CRM",
+    icon: Magnet,
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    iconBg: "bg-emerald-500/10",
+    items: [
+      { key: "view", label: "View Pipeline" },
+      { key: "create", label: "Create Leads" },
+      { key: "edit", label: "Edit Deal Stages" },
+      { key: "assignLeads", label: "Reassign Deals" },
+      { key: "delete", label: "Delete Leads" },
+      { key: "campaigns", label: "WhatsApp Campaigns" },
+    ],
+  },
+  {
+    key: "payroll",
+    title: "Payroll & Finance",
+    icon: DollarSign,
+    iconColor: "text-emerald-600 dark:text-emerald-400",
+    iconBg: "bg-emerald-500/10",
+    items: [
+      { key: "view", label: "View Payroll Slips" },
+      { key: "generate", label: "Process Pay Runs" },
+      { key: "settings", label: "Payroll Settings" },
+    ],
+  },
+  {
+    key: "performance",
+    title: "Performance & Reviews",
+    icon: Award,
+    iconColor: "text-purple-600 dark:text-purple-400",
+    iconBg: "bg-purple-500/10",
+    items: [
+      { key: "view", label: "View KPI Metrics" },
+      { key: "evaluate", label: "Submit Appraisals" },
+    ],
+  },
+  {
+    key: "company",
+    title: "Company & BI Analytics",
+    icon: Building2,
+    iconColor: "text-blue-600 dark:text-blue-400",
+    iconBg: "bg-blue-500/10",
+    items: [
+      { key: "announcementsHolidays", label: "Announcements & Holidays" },
+      { key: "departmentsBranches", label: "Departments & Branches" },
+      { key: "reports", label: "BI Reports & Exports" },
+    ],
+  },
+];
+
 // ── Main Access Control Component ─────────────────────────────────────────────
 const AccessControl = () => {
   const queryClient = useQueryClient();
@@ -77,6 +183,37 @@ const AccessControl = () => {
   const [drawerSearch, setDrawerSearch] = useState("");
   const [tempAccessLevel, setTempAccessLevel] = useState("team");
   const [tempDepts, setTempDepts] = useState([]);
+
+  const selectedRole = selectedManager?.role || selectedManager?.userId?.role || "Employee";
+
+  // Filter categories and items dynamically based on selected role:
+  // - Employee: hide Company & BI Analytics, Payroll & Finance, Performance & Reviews
+  // - Manager: hide Payroll & Finance, and remove Departments & Branches from Company & BI Analytics
+  const visiblePermissionCategories = useMemo(() => {
+    if (!selectedManager) return PERMISSION_CATEGORIES;
+
+    if (selectedRole === "Employee") {
+      return PERMISSION_CATEGORIES.filter(
+        (c) => c.key !== "company" && c.key !== "payroll" && c.key !== "performance"
+      );
+    }
+
+    if (selectedRole === "Manager") {
+      return PERMISSION_CATEGORIES
+        .filter((c) => c.key !== "payroll")
+        .map((c) => {
+          if (c.key === "company") {
+            return {
+              ...c,
+              items: c.items.filter((item) => item.key !== "departmentsBranches"),
+            };
+          }
+          return c;
+        });
+    }
+
+    return PERMISSION_CATEGORIES;
+  }, [selectedManager, selectedRole]);
 
   // Granular Permissions State
   const [tempPermissions, setTempPermissions] = useState({
@@ -333,11 +470,11 @@ const AccessControl = () => {
 
   const handleToggleAllGlobal = (shouldEnable) => {
     setTempPermissions((prev) => {
-      const next = {};
-      Object.keys(prev).forEach((cat) => {
-        next[cat] = {};
-        Object.keys(prev[cat]).forEach((k) => {
-          next[cat][k] = shouldEnable;
+      const next = { ...prev };
+      visiblePermissionCategories.forEach((cat) => {
+        next[cat.key] = { ...(prev[cat.key] || {}) };
+        cat.items.forEach((item) => {
+          next[cat.key][item.key] = shouldEnable;
         });
       });
       return next;
@@ -424,132 +561,29 @@ const AccessControl = () => {
     });
   };
 
-  // Drawer Active and Total Count
+  // Drawer Active and Total Count based on visible categories
   const drawerActiveCount = useMemo(() => {
     let count = 0;
-    Object.values(tempPermissions).forEach((sub) => {
+    visiblePermissionCategories.forEach((cat) => {
+      const sub = tempPermissions[cat.key];
       if (typeof sub === "object" && sub !== null) {
-        count += Object.values(sub).filter(Boolean).length;
+        cat.items.forEach((item) => {
+          if (sub[item.key]) count += 1;
+        });
+      } else if (sub === true) {
+        count += 1;
       }
     });
     return count;
-  }, [tempPermissions]);
+  }, [tempPermissions, visiblePermissionCategories]);
 
   const drawerTotalCount = useMemo(() => {
     let total = 0;
-    Object.values(tempPermissions).forEach((sub) => {
-      if (typeof sub === "object" && sub !== null) {
-        total += Object.keys(sub).length;
-      }
+    visiblePermissionCategories.forEach((cat) => {
+      total += cat.items.length;
     });
     return total;
-  }, [tempPermissions]);
-
-  // Categories Definition with icon & items
-  const permissionCategories = [
-    {
-      key: "tasks",
-      title: "Tasks & Projects",
-      icon: ClipboardList,
-      iconColor: "text-amber-600 dark:text-amber-400",
-      iconBg: "bg-amber-500/10",
-      items: [
-        { key: "create", label: "Create Tasks" },
-        { key: "edit", label: "Edit Tasks" },
-        { key: "assign", label: "Assign Tasks" },
-        { key: "shift", label: "Reschedule / Shift" },
-        { key: "cancel", label: "Cancel Tasks" },
-        { key: "reopen", label: "Re-open Tasks" },
-        { key: "projects", label: "Manage Projects" },
-      ],
-    },
-    {
-      key: "leaves",
-      title: "Leave Approvals",
-      icon: CalendarOff,
-      iconColor: "text-rose-600 dark:text-rose-400",
-      iconBg: "bg-rose-500/10",
-      items: [
-        { key: "approveReject", label: "Approve & Reject" },
-        { key: "viewAllLeaves", label: "View All Leaves" },
-      ],
-    },
-    {
-      key: "attendance",
-      title: "Attendance & Shifts",
-      icon: CalendarCheck,
-      iconColor: "text-indigo-600 dark:text-indigo-400",
-      iconBg: "bg-indigo-500/10",
-      items: [
-        { key: "markAttendance", label: "Manual Punch Override" },
-        { key: "shiftsRosters", label: "Manage Shifts & Rosters" },
-      ],
-    },
-    {
-      key: "teamMembers",
-      title: "Workforce & KYC",
-      icon: UserCog,
-      iconColor: "text-cyan-600 dark:text-cyan-400",
-      iconBg: "bg-cyan-500/10",
-      items: [
-        { key: "add", label: "Add Employees" },
-        { key: "edit", label: "Edit Profiles" },
-        { key: "activeInactive", label: "Toggle Status" },
-        { key: "uploadDocs", label: "Upload Documents" },
-        { key: "salaryStructure", label: "Salary Structure" },
-      ],
-    },
-    {
-      key: "leads",
-      title: "Lead Engine & CRM",
-      icon: Magnet,
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-      iconBg: "bg-emerald-500/10",
-      items: [
-        { key: "view", label: "View Pipeline" },
-        { key: "create", label: "Create Leads" },
-        { key: "edit", label: "Edit Deal Stages" },
-        { key: "assignLeads", label: "Reassign Deals" },
-        { key: "delete", label: "Delete Leads" },
-        { key: "campaigns", label: "WhatsApp Campaigns" },
-      ],
-    },
-    {
-      key: "payroll",
-      title: "Payroll & Finance",
-      icon: DollarSign,
-      iconColor: "text-emerald-600 dark:text-emerald-400",
-      iconBg: "bg-emerald-500/10",
-      items: [
-        { key: "view", label: "View Payroll Slips" },
-        { key: "generate", label: "Process Pay Runs" },
-        { key: "settings", label: "Payroll Settings" },
-      ],
-    },
-    {
-      key: "performance",
-      title: "Performance & Reviews",
-      icon: Award,
-      iconColor: "text-purple-600 dark:text-purple-400",
-      iconBg: "bg-purple-500/10",
-      items: [
-        { key: "view", label: "View KPI Metrics" },
-        { key: "evaluate", label: "Submit Appraisals" },
-      ],
-    },
-    {
-      key: "company",
-      title: "Company & BI Analytics",
-      icon: Building2,
-      iconColor: "text-blue-600 dark:text-blue-400",
-      iconBg: "bg-blue-500/10",
-      items: [
-        { key: "announcementsHolidays", label: "Announcements & Holidays" },
-        { key: "departmentsBranches", label: "Departments & Branches" },
-        { key: "reports", label: "BI Reports & Exports" },
-      ],
-    },
-  ];
+  }, [visiblePermissionCategories]);
 
   return (
     <div className="space-y-3 pb-16 font-sans text-slate-900 dark:text-slate-100 max-w-full overflow-hidden">
@@ -1005,7 +1039,7 @@ const AccessControl = () => {
 
             {/* ── 3. High-Density Permissions List Body ── */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
-              {permissionCategories.map((cat) => {
+              {visiblePermissionCategories.map((cat) => {
                 const CategoryIcon = cat.icon;
                 const activeCount = Object.values(tempPermissions[cat.key] || {}).filter(Boolean).length;
                 const totalCount = cat.items.length;

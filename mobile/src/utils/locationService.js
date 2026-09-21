@@ -15,18 +15,11 @@ try {
 
 /**
  * Unified Location Service for One Click Mobile
- * Captures GPS coordinates, handles permissions and fallbacks gracefully without crashing.
+ * Captures accurate GPS coordinates with high accuracy and low accuracy fallback.
  * 
- * @returns {Promise<{latitude: number, longitude: number, accuracy: number, address: string}>}
+ * @returns {Promise<{latitude: number, longitude: number, accuracy: number, address: string}|null>}
  */
 export const captureGPSLocation = async () => {
-  const defaultCoords = {
-    latitude: 18.5204,
-    longitude: 73.8567,
-    accuracy: 25,
-    address: "Current Location",
-  };
-
   try {
     if (Platform.OS === 'android') {
       try {
@@ -34,63 +27,66 @@ export const captureGPSLocation = async () => {
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
         );
         if (!fineGranted) {
-          await PermissionsAndroid.requestMultiple([
+          const res = await PermissionsAndroid.requestMultiple([
             PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
             PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
           ]);
+          const granted =
+            res[PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED ||
+            res[PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION] === PermissionsAndroid.RESULTS.GRANTED;
+          if (!granted) {
+            console.warn("[LocationService] Location permissions denied by user");
+            return null;
+          }
         }
       } catch (permErr) {
         console.warn('Android location permission check error:', permErr);
       }
     }
 
-    return await new Promise((resolve) => {
-      let isDone = false;
-
-      // 3.5 second fallback timer so the UI never blocks or freezes
-      const timer = setTimeout(() => {
-        if (!isDone) {
-          isDone = true;
-          resolve(defaultCoords);
+    // Try High Accuracy first (GPS chip), with 7s timeout
+    const getPos = (highAccuracy, timeout) =>
+      new Promise((resolve, reject) => {
+        try {
+          Geolocation.getCurrentPosition(
+            (position) => {
+              if (position?.coords?.latitude && position?.coords?.longitude) {
+                const lat = Number(position.coords.latitude.toFixed(6));
+                const lng = Number(position.coords.longitude.toFixed(6));
+                const acc = position.coords.accuracy ? Number(position.coords.accuracy.toFixed(1)) : 10;
+                resolve({
+                  latitude: lat,
+                  longitude: lng,
+                  accuracy: acc,
+                  address: `Lat: ${lat}, Long: ${lng}`,
+                });
+              } else {
+                reject(new Error("Invalid coordinates"));
+              }
+            },
+            (error) => reject(error),
+            { enableHighAccuracy: highAccuracy, timeout, maximumAge: 10000 }
+          );
+        } catch (e) {
+          reject(e);
         }
-      }, 3500);
+      });
 
+    try {
+      // 1. First attempt: High Accuracy GPS
+      return await getPos(true, 7000);
+    } catch (highErr) {
+      console.warn("[LocationService] High accuracy GPS notice, trying network fallback:", highErr?.message);
       try {
-        Geolocation.getCurrentPosition(
-          (position) => {
-            if (isDone) return;
-            isDone = true;
-            clearTimeout(timer);
-            const lat = Number(position?.coords?.latitude?.toFixed(6) || 18.5204);
-            const lng = Number(position?.coords?.longitude?.toFixed(6) || 73.8567);
-            const acc = position?.coords?.accuracy ? Number(position.coords.accuracy.toFixed(1)) : 10;
-            resolve({
-              latitude: lat,
-              longitude: lng,
-              accuracy: acc,
-              address: `Lat: ${lat}, Long: ${lng}`,
-            });
-          },
-          (error) => {
-            if (isDone) return;
-            isDone = true;
-            clearTimeout(timer);
-            console.warn("[LocationService] GPS getCurrentPosition notice:", error?.message);
-            resolve(defaultCoords);
-          },
-          { enableHighAccuracy: false, timeout: 3000, maximumAge: 60000 }
-        );
-      } catch (geoCallErr) {
-        if (!isDone) {
-          isDone = true;
-          clearTimeout(timer);
-          console.warn("[LocationService] Geolocation call error:", geoCallErr);
-          resolve(defaultCoords);
-        }
+        // 2. Fallback: Network / cell-tower location
+        return await getPos(false, 4000);
+      } catch (lowErr) {
+        console.warn("[LocationService] Low accuracy GPS fallback error:", lowErr?.message);
+        return null;
       }
-    });
+    }
   } catch (err) {
     console.warn('GPS capture overall error:', err);
-    return defaultCoords;
+    return null;
   }
 };

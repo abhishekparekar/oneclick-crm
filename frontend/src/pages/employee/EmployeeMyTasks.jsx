@@ -159,11 +159,26 @@ const isTaskAssignedToUser = (t, user) => {
     : (user.employeeId ? String(user.employeeId?._id || user.employeeId).toLowerCase() : "");
   const email = (user.email || "").toLowerCase();
 
-  // If department-level task, match user's department
+  // If department-level task, match user's assigned department(s)
   if (t.assignmentType === "department" && t.departmentId) {
     const taskDeptId = String(typeof t.departmentId === "object" ? (t.departmentId._id || t.departmentId.id) : t.departmentId).toLowerCase();
-    const userDeptId = String(user.departmentId?._id || user.departmentId || "").toLowerCase();
-    if (taskDeptId && userDeptId && taskDeptId === userDeptId) return true;
+    const userDeptIds = new Set();
+    const addDept = (d) => {
+      if (!d) return;
+      if (typeof d === "object") {
+        if (d._id) userDeptIds.add(String(d._id).toLowerCase());
+        if (d.id) userDeptIds.add(String(d.id).toLowerCase());
+      } else {
+        userDeptIds.add(String(d).toLowerCase());
+      }
+    };
+    addDept(user.departmentId);
+    if (Array.isArray(user.departmentIds)) user.departmentIds.forEach(addDept);
+    if (Array.isArray(user.accessibleDepartments)) user.accessibleDepartments.forEach(addDept);
+    if (Array.isArray(user.employee?.departmentIds)) user.employee.departmentIds.forEach(addDept);
+    if (Array.isArray(user.employee?.accessibleDepartments)) user.employee.accessibleDepartments.forEach(addDept);
+
+    if (userDeptIds.has(taskDeptId)) return true;
   }
 
   const assigned = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
@@ -196,8 +211,10 @@ const isTaskAssignedToUser = (t, user) => {
 export default function EmployeeMyTasks() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { user: authUser } = useAuth();
-  const canCreate = ["CompanyAdmin", "SuperAdmin", "Manager"].includes(authUser?.role);
+  const { user: authUser, hasPermission } = useAuth();
+  const canCreate = ["CompanyAdmin", "SuperAdmin", "Manager", "HR"].includes(authUser?.role) ||
+    Boolean(hasPermission && (hasPermission("tasks", "create") || hasPermission("tasks", "add"))) ||
+    Boolean(authUser?.permissions?.tasks?.create || authUser?.permissions?.tasks?.add);
 
   const [dateTab, setDateTab] = useState("Today");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -205,7 +222,11 @@ export default function EmployeeMyTasks() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState("list");
-  const [filters, setFilters] = useState({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false });
+  const [filters, setFilters] = useState(() => {
+    const now = new Date();
+    const todayStr = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0") + "-" + String(now.getDate()).padStart(2, "0");
+    return { departmentId: "", deadlineFilter: "", startDate: todayStr, endDate: todayStr, status: "", overdue: false };
+  });
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
 
   // Date Formatting & Range Helpers
@@ -268,13 +289,15 @@ export default function EmployeeMyTasks() {
 
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
-      setIsCreateModalOpen(true);
+      if (canCreate) {
+        setIsCreateModalOpen(true);
+      }
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("create");
       newParams.delete("openCreate");
       setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, canCreate]);
 
   const updateTaskStatusMut = useMutation({
     mutationFn: async (payload) => {
@@ -623,12 +646,14 @@ export default function EmployeeMyTasks() {
           )}
         </h1>
 
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus size={14} strokeWidth={2.5} /> Create Task
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus size={14} strokeWidth={2.5} /> Create Task
+          </button>
+        )}
       </div>
 
       {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}
@@ -1317,6 +1342,7 @@ export default function EmployeeMyTasks() {
           isSubmitting={updateTaskStatusMut.isPending}
         />
       )}
+
     </div>
   );
 }

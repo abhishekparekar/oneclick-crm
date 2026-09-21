@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getMyProfileApi, updateEmployeeProfileApi } from "../../api/employeeApi";
 import { useAuth } from "../../context/AuthContext";
@@ -132,6 +132,44 @@ const EmployeeProfile = () => {
         .filter(Boolean)
         .join(", ")
     : "N/A";
+
+  const allDepartments = useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    const addDept = (item) => {
+      if (!item) return;
+      if (typeof item === "string") {
+        const trimmed = item.trim();
+        if (trimmed && !/^[a-f\d]{24}$/i.test(trimmed)) {
+          const key = trimmed.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push({ name: trimmed });
+          }
+        }
+      } else if (typeof item === "object") {
+        const name = (item.name || item.departmentName || "").trim();
+        if (name && !/^[a-f\d]{24}$/i.test(name)) {
+          const key = name.toLowerCase();
+          if (!seen.has(key)) {
+            seen.add(key);
+            list.push({ name });
+          }
+        }
+      }
+    };
+
+    addDept(profile.departmentId);
+    addDept(profile.department);
+    addDept(profile.departmentName);
+    if (Array.isArray(profile.departmentIds)) profile.departmentIds.forEach(addDept);
+    if (Array.isArray(profile.accessibleDepartments)) profile.accessibleDepartments.forEach(addDept);
+
+    return list.length > 0 ? list : [{ name: profile.departmentName || "N/A" }];
+  }, [profile]);
+
+  const displayDepartmentsStr = allDepartments.map((d) => d.name).join(", ");
+  const primaryDeptName = allDepartments[0]?.name || profile.departmentName || "N/A";
 
   const renderField = (label, value) => (
     <div className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-slate-800/80 last:border-0 gap-4">
@@ -267,7 +305,7 @@ const EmployeeProfile = () => {
             </div>
             <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
               <Building size={12} className="text-amber-500" />
-              <span className="font-medium">{profile.departmentName || profile.department?.name || "N/A"}</span>
+              <span className="font-medium">{displayDepartmentsStr}</span>
             </div>
           </div>
         </div>
@@ -333,10 +371,29 @@ const EmployeeProfile = () => {
 
           {/* Job Information */}
           <AccordionPanel id="job" icon={Briefcase} title="Job Information">
+            {renderField("Primary Department", primaryDeptName)}
+            {allDepartments.length > 1 && (
+              <div className="py-2.5 border-b border-slate-100 dark:border-slate-800/80 last:border-0">
+                <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 block mb-1.5">
+                  All Assigned Departments ({allDepartments.length})
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {allDepartments.map((d, i) => (
+                    <span
+                      key={i}
+                      className="px-2.5 py-0.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 text-xs font-bold"
+                    >
+                      {d.name} {i === 0 && "(Primary)"}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {renderField("Designation", profile.designationName || profile.designation?.name || "N/A")}
             {renderField("Employment Type", profile.employmentType?.replace("-", " "))}
             {renderField("Work Mode", profile.workMode)}
             {renderField("Joining Date", profile.joiningDate ? format(new Date(profile.joiningDate), "MMMM d, yyyy") : null)}
-            {renderField("Reporting Manager", profile.reportingManagerName)}
+            {renderField("Reporting Manager", profile.reportingManagerName || profile.reportingManagerId?.fullName || "Management")}
           </AccordionPanel>
 
           {/* Bank Details */}

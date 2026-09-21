@@ -61,8 +61,15 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
 
   if (catPerm !== undefined && catPerm !== null) {
     if (typeof catPerm === "boolean") return catPerm;
-    if (typeof catPerm === "object" && catPerm[action] !== undefined) {
-      return catPerm[action] === true;
+    if (typeof catPerm === "object") {
+      if (modKey === "leads" && (action === "assign" || action === "assignLeads")) {
+        if (catPerm.assign !== undefined || catPerm.assignLeads !== undefined) {
+          return catPerm.assign === true || catPerm.assignLeads === true;
+        }
+      }
+      if (catPerm[action] !== undefined) {
+        return catPerm[action] === true;
+      }
     }
   }
 
@@ -72,14 +79,14 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
   }
 
   if (userRole === "Manager") {
-    if (category === "tasks") {
+    if (category === "tasks" || normCat === "tasks" || modKey === "tasks") {
       if (action === "cancel") return false;
       return true;
     }
-    if (category === "leaves") {
+    if (category === "leaves" || normCat === "leaves" || modKey === "leave") {
       return true;
     }
-    if (category === "leads") {
+    if (category === "leads" || normCat === "leads" || modKey === "leads") {
       if (action === "delete") return false;
       return true;
     }
@@ -94,11 +101,11 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
   // SuperAdmin & CompanyAdmin get full company-operational permissions
   if (userRole === "CompanyAdmin" || userRole === "SuperAdmin") {
     return {
-      tasks: { view: true, create: true, edit: true, shift: true, cancel: true, reopen: true },
+      tasks: { view: true, create: true, edit: true, assign: true, shift: true, cancel: true, reopen: true },
       leaves: { view: true, approveReject: true },
       teamMembers: { add: true, edit: true, activeInactive: true },
       announcementsHolidays: true,
-      leads: { view: true, create: true, edit: true, delete: true },
+      leads: { view: true, create: true, edit: true, assign: true, assignLeads: true, delete: true },
       attendance: { view: true, markAttendance: true },
       payroll: { view: true },
       projects: { view: true },
@@ -151,6 +158,7 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
         view: canViewTasks,
         create: perm.tasks?.create !== undefined ? perm.tasks.create === true : true,
         edit: perm.tasks?.edit !== undefined ? perm.tasks.edit === true : true,
+        assign: perm.tasks?.assign !== undefined ? perm.tasks.assign === true : true,
         shift: perm.tasks?.shift !== undefined ? perm.tasks.shift === true : true,
         cancel: perm.tasks?.cancel !== undefined ? perm.tasks.cancel === true : true,
         reopen: perm.tasks?.reopen !== undefined ? perm.tasks.reopen === true : true,
@@ -163,12 +171,16 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
         add: perm.teamMembers?.add !== undefined ? perm.teamMembers.add === true : true,
         edit: perm.teamMembers?.edit !== undefined ? perm.teamMembers.edit === true : true,
         activeInactive: perm.teamMembers?.activeInactive !== undefined ? perm.teamMembers.activeInactive === true : true,
+        uploadDocs: perm.teamMembers?.uploadDocs !== undefined ? perm.teamMembers.uploadDocs === true : true,
+        salaryStructure: perm.teamMembers?.salaryStructure !== undefined ? perm.teamMembers.salaryStructure === true : false,
       },
       announcementsHolidays: perm.announcementsHolidays !== undefined ? perm.announcementsHolidays === true : true,
       leads: {
         view: canViewLeads,
         create: perm.leads?.create !== undefined ? perm.leads.create === true : true,
         edit: perm.leads?.edit !== undefined ? perm.leads.edit === true : true,
+        assign: perm.leads?.assign !== undefined ? perm.leads.assign === true : (perm.leads?.assignLeads !== undefined ? perm.leads.assignLeads === true : true),
+        assignLeads: perm.leads?.assignLeads !== undefined ? perm.leads.assignLeads === true : (perm.leads?.assign !== undefined ? perm.leads.assign === true : true),
         delete: perm.leads?.delete !== undefined ? perm.leads.delete === true : true,
       },
       attendance: { view: canViewAttendance, markAttendance: true },
@@ -184,6 +196,7 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
         view: canViewTasks,
         create: perm.tasks?.create !== undefined ? perm.tasks.create === true : true,
         edit: perm.tasks?.edit !== undefined ? perm.tasks.edit === true : true,
+        assign: perm.tasks?.assign !== undefined ? perm.tasks.assign === true : true,
         shift: perm.tasks?.shift !== undefined ? perm.tasks.shift === true : true,
         cancel: perm.tasks?.cancel !== undefined ? perm.tasks.cancel === true : false,
         reopen: perm.tasks?.reopen !== undefined ? perm.tasks.reopen === true : true,
@@ -196,12 +209,16 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
         add: perm.teamMembers?.add === true,
         edit: perm.teamMembers?.edit === true,
         activeInactive: perm.teamMembers?.activeInactive === true,
+        uploadDocs: perm.teamMembers?.uploadDocs === true,
+        salaryStructure: perm.teamMembers?.salaryStructure === true,
       },
       announcementsHolidays: perm.announcementsHolidays === true,
       leads: {
         view: canViewLeads,
         create: perm.leads?.create !== undefined ? perm.leads.create === true : true,
         edit: perm.leads?.edit !== undefined ? perm.leads.edit === true : true,
+        assign: perm.leads?.assign !== undefined ? perm.leads.assign === true : (perm.leads?.assignLeads !== undefined ? perm.leads.assignLeads === true : true),
+        assignLeads: perm.leads?.assignLeads !== undefined ? perm.leads.assignLeads === true : (perm.leads?.assign !== undefined ? perm.leads.assign === true : true),
         delete: perm.leads?.delete !== undefined ? perm.leads.delete === true : false,
       },
       attendance: { view: canViewAttendance, markAttendance: true },
@@ -217,6 +234,7 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
       view: canViewTasks,
       create: perm.tasks?.create === true,
       edit: perm.tasks?.edit === true,
+      assign: perm.tasks?.assign === true,
       shift: perm.tasks?.shift === true,
       cancel: perm.tasks?.cancel === true,
       reopen: perm.tasks?.reopen === true,
@@ -235,6 +253,8 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
       view: canViewLeads,
       create: perm.leads?.create === true,
       edit: perm.leads?.edit === true,
+      assign: perm.leads?.assign === true || perm.leads?.assignLeads === true,
+      assignLeads: perm.leads?.assignLeads === true || perm.leads?.assign === true,
       delete: perm.leads?.delete === true,
     },
     attendance: { view: canViewAttendance, markAttendance: true },

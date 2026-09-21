@@ -21,6 +21,7 @@ const {
   analyzeWhatsAppError,
 } = require("../services/whatsappService");
 const { resolveToUserIds } = require("../utils/notificationHelper");
+const { checkUserPermission } = require("../utils/permissionCheck");
 
 const getCompanyId = (req) => {
   return req.user?.companyId || req.user?._id || null;
@@ -415,16 +416,53 @@ const getLeads = async (req, res) => {
 
     const query = buildCompanyQuery(req, { deletedAt: null });
 
-    // Strict role check: Employees can ONLY see their own created or assigned leads
+    // Strict role check: Employees can ONLY see leads belonging to their assigned department(s) or created/assigned to them
     const isEmployee = req.user?.role?.toLowerCase() === "employee";
     if (isEmployee && req.user?._id) {
+      const employeeDoc = await Employee.findOne({
+        $or: [
+          { userId: req.user._id },
+          ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+          { _id: req.user._id },
+        ],
+        companyId,
+      }).lean();
+
       const userIds = [req.user._id];
       if (req.user.employeeId) userIds.push(req.user.employeeId);
+      if (employeeDoc?._id) userIds.push(employeeDoc._id);
+
+      let deptUserIds = [];
+      if (employeeDoc) {
+        const primaryDeptId = employeeDoc.departmentId ? employeeDoc.departmentId.toString() : null;
+        const deptList = (employeeDoc.departmentIds || []).map((id) => (id?._id || id).toString());
+        const accList = (employeeDoc.accessibleDepartments || []).map((id) => (id?._id || id).toString());
+        const myDeptIds = Array.from(new Set([primaryDeptId, ...deptList, ...accList].filter(Boolean)));
+
+        if (myDeptIds.length > 0) {
+          const deptEmployees = await Employee.find({
+            companyId,
+            $or: [
+              { departmentId: { $in: myDeptIds } },
+              { departmentIds: { $in: myDeptIds } },
+              { accessibleDepartments: { $in: myDeptIds } },
+            ],
+          }).select("_id userId").lean();
+
+          deptEmployees.forEach((e) => {
+            if (e._id) deptUserIds.push(e._id);
+            if (e.userId) deptUserIds.push(e.userId);
+          });
+        }
+      }
+
+      const allAllowedUserIds = Array.from(new Set([...userIds, ...deptUserIds]));
+
       query.$and = query.$and || [];
       query.$and.push({
         $or: [
-          { createdBy: { $in: userIds } },
-          { assignedTo: { $in: userIds } },
+          { createdBy: { $in: allAllowedUserIds } },
+          { assignedTo: { $in: allAllowedUserIds } },
         ],
       });
     }
@@ -602,6 +640,14 @@ const createLead = async (req, res) => {
       tagIds,
     } = req.body;
 
+    const isAllowed = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "create");
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to create leads.",
+      });
+    }
+
     let targetStatusId = statusId;
     if (!targetStatusId) {
       const defStatus =
@@ -610,8 +656,12 @@ const createLead = async (req, res) => {
       targetStatusId = defStatus?._id;
     }
 
+    const canAssign = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "assign");
+
     let resolvedAssignedTo = null;
-    if (assignedTo && assignedTo !== "unassigned") {
+    if (req.user?.role?.toLowerCase() === "employee" && !canAssign) {
+      resolvedAssignedTo = req.user?._id;
+    } else if (assignedTo && assignedTo !== "unassigned") {
       const resolvedIds = await resolveToUserIds(assignedTo, companyId);
       if (resolvedIds.length > 0) {
         resolvedAssignedTo = resolvedIds[0];
@@ -778,13 +828,27 @@ const updateLead = async (req, res) => {
   try {
     const { id } = req.params;
     const companyId = getCompanyId(req);
+
+    const isAllowed = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "edit");
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to edit leads.",
+      });
+    }
+
     const updateData = { ...req.body };
-    if (updateData.assignedTo === "" || updateData.assignedTo === "unassigned") {
-      updateData.assignedTo = null;
-    } else if (updateData.assignedTo) {
-      const resolvedIds = await resolveToUserIds(updateData.assignedTo, companyId);
-      if (resolvedIds.length > 0) {
-        updateData.assignedTo = resolvedIds[0];
+    if (updateData.assignedTo !== undefined) {
+      const canAssign = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "assign");
+      if (req.user?.role?.toLowerCase() === "employee" && !canAssign) {
+        delete updateData.assignedTo;
+      } else if (updateData.assignedTo === "" || updateData.assignedTo === "unassigned") {
+        updateData.assignedTo = null;
+      } else if (updateData.assignedTo) {
+        const resolvedIds = await resolveToUserIds(updateData.assignedTo, companyId);
+        if (resolvedIds.length > 0) {
+          updateData.assignedTo = resolvedIds[0];
+        }
       }
     }
 

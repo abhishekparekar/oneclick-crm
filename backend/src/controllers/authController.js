@@ -250,25 +250,43 @@ const login = async (req, res, next) => {
         { email: user.email?.toLowerCase() }
       ],
       companyId: user.companyId
-    }).lean();
+    })
+      .populate("departmentId", "name")
+      .populate("departmentIds", "name")
+      .populate("accessibleDepartments", "name")
+      .populate("designationId", "name")
+      .populate("branchId", "branchName name")
+      .populate("branchIds", "branchName name")
+      .lean();
 
     if (employee) {
       userObj.assignedModules = Array.isArray(employee.assignedModules) ? employee.assignedModules : (userObj.subscribedModules || []);
       userObj.departmentId = employee.departmentId;
+      userObj.departmentIds = employee.departmentIds || [];
       userObj.accessibleDepartments = employee.accessibleDepartments || [];
+      userObj.branchId = employee.branchId;
+      userObj.branchIds = employee.branchIds || [];
+      userObj.designationId = employee.designationId;
       userObj.profileImage = employee.photo || userObj.profileImage;
       userObj.isLocationTrackingEnabled = Boolean(employee.isLocationTrackingEnabled);
       userObj.employee = {
         _id: employee._id,
         assignedModules: userObj.assignedModules,
         photo: employee.photo,
-        designation: employee.designationName || employee.designation,
+        designation: employee.designationName || employee.designationId?.name || employee.designation,
         employeeCode: employee.employeeCode,
+        departmentId: employee.departmentId,
+        departmentIds: employee.departmentIds || [],
+        accessibleDepartments: employee.accessibleDepartments || [],
+        branchId: employee.branchId,
+        branchIds: employee.branchIds || [],
         isLocationTrackingEnabled: Boolean(employee.isLocationTrackingEnabled),
       };
     } else if (user.role === "CompanyAdmin" && userObj.company) {
       userObj.assignedModules = userObj.subscribedModules || [];
     }
+
+    userObj.permissions = await getUserPermissions(user._id, user.companyId, user.role, user);
 
     // ─── Store active session token hash ──────────────────────────────────────
     if (!BYPASS_SESSION_ROLES.includes(user.role)) {
@@ -356,12 +374,23 @@ const getMe = async (req, res) => {
       { email: req.user.email?.toLowerCase() }
     ],
     companyId: req.user.companyId
-  }).lean();
+  })
+    .populate("departmentId", "name")
+    .populate("departmentIds", "name")
+    .populate("accessibleDepartments", "name")
+    .populate("designationId", "name")
+    .populate("branchId", "branchName name")
+    .populate("branchIds", "branchName name")
+    .lean();
 
   if (employeeObj) {
     userObj.assignedModules = Array.isArray(employeeObj.assignedModules) ? employeeObj.assignedModules : (userObj.subscribedModules || []);
     userObj.departmentId = employeeObj.departmentId;
+    userObj.departmentIds = employeeObj.departmentIds || [];
     userObj.accessibleDepartments = employeeObj.accessibleDepartments || [];
+    userObj.branchId = employeeObj.branchId;
+    userObj.branchIds = employeeObj.branchIds || [];
+    userObj.designationId = employeeObj.designationId;
     userObj.profileImage = employeeObj.photo || userObj.profileImage;
     userObj.isLocationTrackingEnabled = Boolean(employeeObj.isLocationTrackingEnabled);
     userObj.employeeId = employeeObj._id;
@@ -369,8 +398,13 @@ const getMe = async (req, res) => {
       _id: employeeObj._id,
       assignedModules: userObj.assignedModules,
       photo: employeeObj.photo,
-      designation: employeeObj.designationName || employeeObj.designation,
+      designation: employeeObj.designationName || employeeObj.designationId?.name || employeeObj.designation,
       employeeCode: employeeObj.employeeCode,
+      departmentId: employeeObj.departmentId,
+      departmentIds: employeeObj.departmentIds || [],
+      accessibleDepartments: employeeObj.accessibleDepartments || [],
+      branchId: employeeObj.branchId,
+      branchIds: employeeObj.branchIds || [],
       isLocationTrackingEnabled: Boolean(employeeObj.isLocationTrackingEnabled),
     };
   } else if (req.user.role === "CompanyAdmin" && userObj.company) {

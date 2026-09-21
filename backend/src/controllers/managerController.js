@@ -460,11 +460,11 @@ const getManagerTeam = async (req, res, next) => {
       companyId,
     };
 
-    // Status filter (active/inactive/terminated) — default shows active only
-    if (status && ["active", "inactive", "terminated"].includes(status)) {
-      employeeFilter.status = status;
-    } else {
-      employeeFilter.status = "active";
+    // Status filter (active/inactive/terminated/on_leave) — default returns all if status is not specified or "all"
+    if (status && status !== "all") {
+      if (["active", "inactive", "terminated", "on_leave"].includes(status)) {
+        employeeFilter.status = status;
+      }
     }
 
     if (designationId) {

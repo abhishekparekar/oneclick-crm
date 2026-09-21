@@ -243,8 +243,15 @@ export const AuthProvider = ({ children }) => {
     // Specific action-level permissions
     if (catPerm !== undefined && catPerm !== null) {
       if (typeof catPerm === "boolean") return catPerm;
-      if (typeof catPerm === "object" && catPerm[action] !== undefined) {
-        return catPerm[action] === true;
+      if (typeof catPerm === "object") {
+        if (normMod === "leads" && (action === "assign" || action === "assignLeads")) {
+          if (catPerm.assign !== undefined || catPerm.assignLeads !== undefined) {
+            return Boolean(catPerm.assign || catPerm.assignLeads);
+          }
+        }
+        if (catPerm[action] !== undefined) {
+          return catPerm[action] === true;
+        }
       }
     }
 
@@ -263,9 +270,8 @@ export const AuthProvider = ({ children }) => {
       return true;
     }
     if (roleLower === "employee" || roleLower === "team member") {
-      if (["attendance", "leave", "payroll", "projects", "tasks", "leads", "reports"].includes(normMod)) {
-        return true;
-      }
+      if (normMod === "attendance" && action === "markAttendance") return true;
+      return false;
     }
     return false;
   };

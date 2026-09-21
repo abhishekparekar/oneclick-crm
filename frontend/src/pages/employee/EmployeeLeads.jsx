@@ -135,8 +135,16 @@ const resolveLeadStatusName = (lead, statusesList = []) => {
 export default function EmployeeLeads() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const queryClient = useQueryClient();
+
+  const canCreateLead = ["CompanyAdmin", "SuperAdmin", "Manager", "HR"].includes(user?.role) ||
+    Boolean(hasPermission && hasPermission("leads", "create")) ||
+    Boolean(user?.permissions?.leads?.create);
+
+  const canAssignLead = ["CompanyAdmin", "SuperAdmin", "Manager", "HR"].includes(user?.role) ||
+    Boolean(hasPermission && (hasPermission("leads", "assign") || hasPermission("leads", "assignLeads"))) ||
+    Boolean(user?.permissions?.leads?.assign || user?.permissions?.leads?.assignLeads);
 
   const [dateTab, setDateTab] = useState("All Time");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -147,13 +155,15 @@ export default function EmployeeLeads() {
 
   useEffect(() => {
     if (searchParams.get("create") === "true" || searchParams.get("openCreate") === "true") {
-      setShowCreateModal(true);
+      if (canCreateLead) {
+        setShowCreateModal(true);
+      }
       const newParams = new URLSearchParams(searchParams);
       newParams.delete("create");
       newParams.delete("openCreate");
       setSearchParams(newParams, { replace: true });
     }
-  }, [searchParams, setSearchParams]);
+  }, [searchParams, setSearchParams, canCreateLead]);
 
   const handleCloseCreateModal = () => {
     setShowCreateModal(false);
@@ -184,7 +194,24 @@ export default function EmployeeLeads() {
     estimatedValue: "",
     notes: "",
     nextFollowUpDate: "",
+    assignedTo: "",
   });
+
+  // Query colleagues only if user has permission to reassign leads
+  const { data: colleaguesData } = useQuery({
+    queryKey: ["leadsEngineColleagues"],
+    queryFn: async () => {
+      try {
+        const res = await api.get("/company/employees?limit=1000");
+        return res?.data?.employees || res?.data || [];
+      } catch (_) {
+        return [];
+      }
+    },
+    enabled: Boolean(canAssignLead && showCreateModal),
+    staleTime: 60000,
+  });
+  const colleagues = Array.isArray(colleaguesData) ? colleaguesData : [];
 
   // Date Formatting & Range Helpers
   const formatDate = (d) =>
@@ -374,6 +401,7 @@ export default function EmployeeLeads() {
         estimatedValue: "",
         notes: "",
         nextFollowUpDate: "",
+        assignedTo: "",
       });
       queryClient.invalidateQueries(["employeeMyLeads"]);
     },
@@ -447,6 +475,7 @@ export default function EmployeeLeads() {
       estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined,
       notes: form.notes.trim(),
       nextFollowUpDate: form.nextFollowUpDate || undefined,
+      assignedTo: canAssignLead && form.assignedTo ? form.assignedTo : (user?._id || undefined),
     });
   };
 
@@ -464,12 +493,14 @@ export default function EmployeeLeads() {
           )}
         </h1>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
-        >
-          <Plus size={14} strokeWidth={2.5} /> Create Lead
-        </button>
+        {canCreateLead && (
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
+          >
+            <Plus size={14} strokeWidth={2.5} /> Create Lead
+          </button>
+        )}
       </div>
 
       {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}
@@ -907,6 +938,43 @@ export default function EmployeeLeads() {
                         className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30"
                       />
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                      Lead Assignee
+                    </label>
+                    {canAssignLead ? (
+                      <div className="relative">
+                        <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select
+                          value={form.assignedTo || ""}
+                          onChange={(e) => setForm((p) => ({ ...p, assignedTo: e.target.value }))}
+                          className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500/30 cursor-pointer"
+                        >
+                          <option value="">Myself ({user?.name || "You"})</option>
+                          {colleagues.map((c) => {
+                            const cId = c._id || c.id || c.userId?._id || c.userId;
+                            const cName = c.fullName || `${c.firstName || ""} ${c.lastName || ""}`.trim() || c.name || "Colleague";
+                            return (
+                              <option key={cId} value={cId}>
+                                {cName} {c.designationName || c.designation ? `(${c.designationName || c.designation})` : ""}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="w-full pl-3 pr-3 py-2 bg-slate-100 dark:bg-[#0A0F18] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between shadow-2xs cursor-default">
+                        <span className="flex items-center gap-2">
+                          <User size={13} className="text-emerald-500" />
+                          <span>{user?.name || "Myself"} (Own Lead)</span>
+                        </span>
+                        <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold">
+                          Self Only
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

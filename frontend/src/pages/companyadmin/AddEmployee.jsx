@@ -7,6 +7,7 @@ import {
   getBranchesApi, getEmployeesApi, createDepartmentApi,
   createDesignationApi, createBranchApi, getModuleUsageApi
 } from "../../api/companyAdminApi";
+import { getManagerDashboardApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
 import {
   User, Mail, Phone, MapPin, Briefcase, CreditCard, ShieldCheck,
@@ -222,7 +223,9 @@ export default function AddEmployee() {
   }, [user]);
 
   const isHR = window.location.pathname.startsWith("/hr");
-  const baseRoute = isHR ? "/hr" : "/company";
+  const isManager = window.location.pathname.startsWith("/manager") || (user?.role || "").toLowerCase() === "manager";
+  const baseRoute = isHR ? "/hr" : isManager ? "/manager" : "/company";
+  const backRoute = isManager ? "/manager/team" : `${baseRoute}/employees`;
 
   const [activeStep, setActiveStep] = useState(1);
   const [avatarPreview, setAvatarPreview] = useState(null);
@@ -345,6 +348,30 @@ export default function AddEmployee() {
     queryFn: () => getModuleUsageApi().then((r) => r.data),
   });
 
+  const { data: dashRes } = useQuery({
+    queryKey: ["managerDashboard"],
+    queryFn: () => getManagerDashboardApi().then((r) => r.data),
+    enabled: isManager,
+    staleTime: 30 * 1000,
+  });
+
+  const managerProfile = dashRes?.manager || dashRes?.data?.manager || user?.employee || {};
+
+  const managerAllowedDeptIds = useMemo(() => {
+    if (!isManager) return null;
+    const rawList = [
+      managerProfile.departmentId?._id || managerProfile.departmentId || user?.departmentId?._id || user?.departmentId,
+      ...(managerProfile.departmentIds || []),
+      ...(managerProfile.accessibleDepartments || user?.accessibleDepartments || []),
+    ].filter(Boolean);
+
+    return Array.from(
+      new Set(
+        rawList.map((d) => (typeof d === "object" ? d._id : d)).filter(Boolean).map(String)
+      )
+    );
+  }, [isManager, managerProfile, user]);
+
   const moduleUsage = moduleUsageRes?.usage || {};
   const subscribedModules = useMemo(() => {
     if (Array.isArray(moduleUsageRes?.subscribedModules) && moduleUsageRes.subscribedModules.length > 0) {
@@ -397,15 +424,28 @@ export default function AddEmployee() {
   }, [empRes]);
 
   const deptOptions = useMemo(() => {
+    if (isManager && managerAllowedDeptIds && managerAllowedDeptIds.length > 0) {
+      const filtered = departments.filter((d) => managerAllowedDeptIds.includes(String(d._id)));
+      if (filtered.length > 0) {
+        return filtered.map((d) => ({ value: d._id, label: d.name }));
+      }
+    }
     return departments.map((d) => ({ value: d._id, label: d.name }));
-  }, [departments]);
+  }, [departments, isManager, managerAllowedDeptIds]);
 
   const desigOptions = useMemo(() => {
-    return designations.map((d) => ({
+    const list = formData.departmentId
+      ? designations.filter((d) => {
+          const deptId = d.departmentId?._id || d.departmentId;
+          return !deptId || String(deptId) === String(formData.departmentId);
+        })
+      : designations;
+
+    return list.map((d) => ({
       value: d._id,
       label: `${d.name} (${d.departmentId?.name || "General"})`,
     }));
-  }, [designations]);
+  }, [designations, formData.departmentId]);
 
   const branchOptions = useMemo(() => {
     return branches.map((b) => ({
@@ -415,11 +455,43 @@ export default function AddEmployee() {
   }, [branches]);
 
   const managerOptions = useMemo(() => {
+    if (isManager) {
+      const myId = managerProfile._id || user?.employeeId || user?._id;
+      const myName = managerProfile.fullName || `${managerProfile.firstName || ''} ${managerProfile.lastName || ''}`.trim() || user?.name || "Current Manager";
+      const myCode = managerProfile.employeeCode || "Manager";
+      return [{ value: myId, label: `${myName} (${myCode})` }];
+    }
     return managers.map((m) => ({
       value: m._id,
       label: `${m.firstName} ${m.lastName} (${m.employeeCode || "Staff"})`,
     }));
-  }, [managers]);
+  }, [managers, isManager, managerProfile, user]);
+
+  // Auto-set departmentId and reportingManagerId for Manager
+  useEffect(() => {
+    if (isManager && deptOptions.length > 0) {
+      if (!formData.departmentId || !deptOptions.some((o) => o.value === formData.departmentId)) {
+        setFormData((prev) => ({
+          ...prev,
+          departmentId: deptOptions[0].value,
+          accessibleDepartments: [deptOptions[0].value],
+        }));
+        clearError("departmentId");
+      }
+    }
+  }, [isManager, deptOptions, formData.departmentId]);
+
+  useEffect(() => {
+    if (isManager && !formData.reportingManagerId) {
+      const myId = managerProfile._id || user?.employeeId || user?._id;
+      if (myId) {
+        setFormData((prev) => ({
+          ...prev,
+          reportingManagerId: myId,
+        }));
+      }
+    }
+  }, [isManager, managerProfile._id, user?.employeeId, user?._id, formData.reportingManagerId]);
 
   // Auto-calculate Indian Salary Split when CTC changes
   const handleCtcChange = (annualCtc) => {
@@ -525,7 +597,7 @@ export default function AddEmployee() {
       queryClient.removeQueries({ queryKey: ["employees"] });
       queryClient.refetchQueries({ queryKey: ["employees"] });
       toast.success(res?.data?.message || "Employee registered successfully!");
-      navigate(`${baseRoute}/employees`);
+      navigate(backRoute);
     },
     onError: (err) => {
       toast.error(err.response?.data?.message || "Failed to create employee");
@@ -758,7 +830,7 @@ export default function AddEmployee() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <Link
-              to={`${baseRoute}/employees`}
+              to={backRoute}
               className="p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-slate-700 transition-all cursor-pointer"
               title="Back to Employees"
             >
@@ -840,7 +912,7 @@ export default function AddEmployee() {
                 onClick={() => setActiveStep(step.id)}
                 className={`flex-1 flex items-center gap-2.5 py-2.5 px-3 rounded-xl transition-all text-left cursor-pointer ${
                   isActive
-                    ? "bg-amber-500 text-slate-950 font-black shadow-xs"
+                    ? "bg-[#1268D9] text-white font-black shadow-xs"
                     : isDone
                     ? "bg-slate-50 dark:bg-slate-900/80 text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800"
                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-900/60"
@@ -849,19 +921,19 @@ export default function AddEmployee() {
                 <div
                   className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
                     isActive
-                      ? "bg-slate-950/20 text-slate-950"
+                      ? "bg-white/20 text-white"
                       : isDone
                       ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                       : "bg-slate-200 dark:bg-slate-800 text-slate-500 dark:text-slate-400"
                   }`}
                 >
-                  {isDone ? <CheckCheck size={14} /> : <Icon size={14} />}
+                  {isDone ? <CheckCheck size={14} /> : <Icon size={14} className={isActive ? "text-white" : ""} />}
                 </div>
                 <div className="min-w-0">
-                  <p className={`text-[11.5px] leading-tight truncate ${isActive ? "font-black text-slate-950" : "font-extrabold text-slate-800 dark:text-slate-200"}`}>
+                  <p className={`text-[11.5px] leading-tight truncate ${isActive ? "font-black text-white" : "font-extrabold text-slate-800 dark:text-slate-200"}`}>
                     {step.label}
                   </p>
-                  <p className={`text-[9.5px] truncate font-medium ${isActive ? "text-slate-950/80" : "text-slate-500 dark:text-slate-400"}`}>
+                  <p className={`text-[9.5px] truncate font-medium ${isActive ? "text-white/90" : "text-slate-500 dark:text-slate-400"}`}>
                     {step.desc}
                   </p>
                 </div>
@@ -1065,15 +1137,20 @@ export default function AddEmployee() {
                 <Select
                   label="System Role"
                   required
-                  value={formData.role}
+                  value={isManager ? "Employee" : formData.role}
                   error={formErrors.role}
+                  disabled={isManager}
                   onClearError={() => clearError("role")}
                   onChange={(v) => setFormData((p) => ({ ...p, role: v }))}
-                  options={[
-                    { value: "Employee", label: "Employee (Standard Staff)" },
-                    { value: "Manager", label: "Manager (Team & Task Leader)" },
-                    { value: "HR", label: "HR (Human Resources Manager)" },
-                  ]}
+                  options={
+                    isManager
+                      ? [{ value: "Employee", label: "Employee (Team Member)" }]
+                      : [
+                          { value: "Employee", label: "Employee (Standard Staff)" },
+                          { value: "Manager", label: "Manager (Team & Task Leader)" },
+                          { value: "HR", label: "HR (Human Resources Manager)" },
+                        ]
+                  }
                 />
                 <Select
                   label="Primary Branch Office"
@@ -1095,13 +1172,15 @@ export default function AddEmployee() {
                   options={branchOptions}
                   placeholder="Select Primary Branch..."
                   action={
-                    <button
-                      type="button"
-                      onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
-                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                    >
-                      + New Branch
-                    </button>
+                    !isManager ? (
+                      <button
+                        type="button"
+                        onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
+                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                      >
+                        + New Branch
+                      </button>
+                    ) : null
                   }
                 />
               </div>
@@ -1122,13 +1201,15 @@ export default function AddEmployee() {
                   placeholder="Select additional work branches..."
                   hint="For employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2)."
                   action={
-                    <button
-                      type="button"
-                      onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
-                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                    >
-                      + New Branch
-                    </button>
+                    !isManager ? (
+                      <button
+                        type="button"
+                        onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
+                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                      >
+                        + New Branch
+                      </button>
+                    ) : null
                   }
                 />
               </div>
@@ -1154,13 +1235,15 @@ export default function AddEmployee() {
                   options={deptOptions}
                   placeholder={deptLoading ? "Loading departments..." : "Select Department..."}
                   action={
-                    <button
-                      type="button"
-                      onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
-                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                    >
-                      + New Department
-                    </button>
+                    !isManager ? (
+                      <button
+                        type="button"
+                        onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
+                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                      >
+                        + New Department
+                      </button>
+                    ) : null
                   }
                 />
 
@@ -1171,52 +1254,57 @@ export default function AddEmployee() {
                   options={desigOptions}
                   placeholder={desigLoading ? "Loading designations..." : "Select Designation..."}
                   action={
-                    <button
-                      type="button"
-                      onClick={() => { setQuickModal("desig"); setQuickForm({ name: "", departmentId: formData.departmentId || formData.accessibleDepartments?.[0] || "" }); }}
-                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                    >
-                      + New Designation
-                    </button>
+                    !isManager ? (
+                      <button
+                        type="button"
+                        onClick={() => { setQuickModal("desig"); setQuickForm({ name: "", departmentId: formData.departmentId || formData.accessibleDepartments?.[0] || "" }); }}
+                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                      >
+                        + New Designation
+                      </button>
+                    ) : null
                   }
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className={`grid grid-cols-1 ${isManager ? "" : "sm:grid-cols-2"} gap-2.5`}>
                 <Select
                   label="Reporting Manager"
                   value={formData.reportingManagerId}
+                  disabled={isManager}
                   onChange={(v) => setFormData((p) => ({ ...p, reportingManagerId: v }))}
                   options={managerOptions}
                   placeholder="Select Reporting Manager..."
                 />
-                <MultiSelect
-                  label="Additional Accessible Departments (Optional)"
-                  selected={formData.accessibleDepartments || []}
-                  error={formErrors.departmentId}
-                  onChange={(v) => {
-                    const primary = formData.departmentId;
-                    const finalDepts = primary && !v.includes(primary) ? [primary, ...v] : v;
-                    setFormData((p) => ({
-                      ...p,
-                      accessibleDepartments: finalDepts,
-                      departmentId: primary || finalDepts[0] || "",
-                    }));
-                    if (finalDepts.length > 0) clearError("departmentId");
-                  }}
-                  options={deptOptions}
-                  placeholder="Select additional departments..."
-                  hint="Grants cross-department visibility for tasks, teams, and projects."
-                  action={
-                    <button
-                      type="button"
-                      onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
-                      className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                    >
-                      + New Department
-                    </button>
-                  }
-                />
+                {!isManager && (
+                  <MultiSelect
+                    label="Additional Accessible Departments (Optional)"
+                    selected={formData.accessibleDepartments || []}
+                    error={formErrors.departmentId}
+                    onChange={(v) => {
+                      const primary = formData.departmentId;
+                      const finalDepts = primary && !v.includes(primary) ? [primary, ...v] : v;
+                      setFormData((p) => ({
+                        ...p,
+                        accessibleDepartments: finalDepts,
+                        departmentId: primary || finalDepts[0] || "",
+                      }));
+                      if (finalDepts.length > 0) clearError("departmentId");
+                    }}
+                    options={deptOptions}
+                    placeholder="Select additional departments..."
+                    hint="Grants cross-department visibility for tasks, teams, and projects."
+                    action={
+                      <button
+                        type="button"
+                        onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
+                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
+                      >
+                        + New Department
+                      </button>
+                    }
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">

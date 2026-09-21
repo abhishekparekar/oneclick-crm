@@ -60,6 +60,22 @@ const CompanySettingsScreen = ({ navigation }) => {
   const [defaultUnpaidLeaves, setDefaultUnpaidLeaves] = useState("0");
   const [allowPaidLeaveOverflowAsLWP, setAllowPaidLeaveOverflowAsLWP] = useState(true);
 
+  // Attendance Notification Controls
+  const [attendanceNotifications, setAttendanceNotifications] = useState({
+    punchIn: {
+      enabled: false,
+      notifyEmployee: false,
+      notifyManager: false,
+      notifyAdmin: false,
+    },
+    punchOut: {
+      enabled: false,
+      notifyEmployee: false,
+      notifyManager: false,
+      notifyAdmin: false,
+    },
+  });
+
   const fetchSettings = async () => {
     try {
       setLoading(true);
@@ -71,6 +87,22 @@ const CompanySettingsScreen = ({ navigation }) => {
         setLateMarkGraceMinutes(String(s.lateMarkGraceMinutes ?? 15));
         setHalfDayHours(String(s.halfDayHours ?? 4));
         setWorkingDays(s.workingDays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]);
+        if (s.attendanceNotifications) {
+          setAttendanceNotifications({
+            punchIn: {
+              enabled: s.attendanceNotifications.punchIn?.enabled ?? false,
+              notifyEmployee: s.attendanceNotifications.punchIn?.notifyEmployee ?? false,
+              notifyManager: s.attendanceNotifications.punchIn?.notifyManager ?? false,
+              notifyAdmin: s.attendanceNotifications.punchIn?.notifyAdmin ?? false,
+            },
+            punchOut: {
+              enabled: s.attendanceNotifications.punchOut?.enabled ?? false,
+              notifyEmployee: s.attendanceNotifications.punchOut?.notifyEmployee ?? false,
+              notifyManager: s.attendanceNotifications.punchOut?.notifyManager ?? false,
+              notifyAdmin: s.attendanceNotifications.punchOut?.notifyAdmin ?? false,
+            },
+          });
+        }
       }
       
       const leaveRes = await getLeaveSettingsApi();
@@ -110,6 +142,17 @@ const CompanySettingsScreen = ({ navigation }) => {
     }
   };
 
+  const handleNotificationToggle = (type, key, value) => {
+    if (!isAdmin) return;
+    setAttendanceNotifications((prev) => ({
+      ...prev,
+      [type]: {
+        ...prev[type],
+        [key]: value !== undefined ? value : !prev[type][key],
+      },
+    }));
+  };
+
   const handleSaveSettings = async () => {
     if (!isAdmin) {
       Alert.alert("Denied", "Only Company Administrators can modify settings");
@@ -124,6 +167,7 @@ const CompanySettingsScreen = ({ navigation }) => {
         lateMarkGraceMinutes: parseInt(lateMarkGraceMinutes) || 0,
         halfDayHours: parseInt(halfDayHours) || 0,
         workingDays,
+        attendanceNotifications,
       };
 
       const leavePayload = {
@@ -360,6 +404,189 @@ const CompanySettingsScreen = ({ navigation }) => {
             </View>
           </View>
 
+          {/* Punch Notification Controls */}
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeaderRow}>
+              <Ionicons name="notifications-outline" size={20} color="#2563eb" />
+              <Text style={styles.sectionTitle}>Punch Notification Controls</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>
+              Control who receives push and in-app notifications when employees punch in or punch out.
+            </Text>
+
+            {/* Punch In Controls */}
+            <View style={styles.subNotificationCard}>
+              <View style={styles.subCardHeader}>
+                <View style={[styles.badgeIcon, { backgroundColor: "#ecfdf5" }]}>
+                  <Ionicons name="log-in-outline" size={18} color="#10b981" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.subCardTitle}>Punch-In Notifications</Text>
+                  <Text style={styles.subCardDesc}>
+                    {attendanceNotifications.punchIn.enabled
+                      ? "Notifications are active for punch-in"
+                      : "All notifications are OFF for punch-in"}
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: "#cbd5e1", true: "#10b981" }}
+                  thumbColor={attendanceNotifications.punchIn.enabled ? "#ffffff" : "#f1f5f9"}
+                  onValueChange={(val) => handleNotificationToggle("punchIn", "enabled", val)}
+                  value={attendanceNotifications.punchIn.enabled}
+                  disabled={!isAdmin}
+                />
+              </View>
+
+              {attendanceNotifications.punchIn.enabled ? (
+                <View style={styles.recipientOptionsContainer}>
+                  <Text style={styles.recipientGroupLabel}>Send Punch-In alert to:</Text>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="person-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Employee</Text>
+                        <Text style={styles.recipientSub}>Confirmation sent to employee who punched in</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchIn.notifyEmployee ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchIn", "notifyEmployee", val)}
+                      value={attendanceNotifications.punchIn.notifyEmployee}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="people-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Managers</Text>
+                        <Text style={styles.recipientSub}>Reporting & department managers</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchIn.notifyManager ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchIn", "notifyManager", val)}
+                      value={attendanceNotifications.punchIn.notifyManager}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Admin & HR</Text>
+                        <Text style={styles.recipientSub}>Company administrators and HR staff</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchIn.notifyAdmin ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchIn", "notifyAdmin", val)}
+                      value={attendanceNotifications.punchIn.notifyAdmin}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.disabledBanner}>
+                  <Ionicons name="information-circle-outline" size={16} color="#94a3b8" />
+                  <Text style={styles.disabledBannerText}>No one will receive notifications when an employee punches in.</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Punch Out Controls */}
+            <View style={[styles.subNotificationCard, { marginTop: 14 }]}>
+              <View style={styles.subCardHeader}>
+                <View style={[styles.badgeIcon, { backgroundColor: "#fff7ed" }]}>
+                  <Ionicons name="log-out-outline" size={18} color="#f97316" />
+                </View>
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={styles.subCardTitle}>Punch-Out Notifications</Text>
+                  <Text style={styles.subCardDesc}>
+                    {attendanceNotifications.punchOut.enabled
+                      ? "Notifications are active for punch-out"
+                      : "All notifications are OFF for punch-out"}
+                  </Text>
+                </View>
+                <Switch
+                  trackColor={{ false: "#cbd5e1", true: "#f97316" }}
+                  thumbColor={attendanceNotifications.punchOut.enabled ? "#ffffff" : "#f1f5f9"}
+                  onValueChange={(val) => handleNotificationToggle("punchOut", "enabled", val)}
+                  value={attendanceNotifications.punchOut.enabled}
+                  disabled={!isAdmin}
+                />
+              </View>
+
+              {attendanceNotifications.punchOut.enabled ? (
+                <View style={styles.recipientOptionsContainer}>
+                  <Text style={styles.recipientGroupLabel}>Send Punch-Out alert to:</Text>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="person-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Employee</Text>
+                        <Text style={styles.recipientSub}>Confirmation sent to employee who punched out</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchOut.notifyEmployee ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchOut", "notifyEmployee", val)}
+                      value={attendanceNotifications.punchOut.notifyEmployee}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="people-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Managers</Text>
+                        <Text style={styles.recipientSub}>Reporting & department managers</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchOut.notifyManager ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchOut", "notifyManager", val)}
+                      value={attendanceNotifications.punchOut.notifyManager}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+
+                  <View style={styles.recipientRow}>
+                    <View style={styles.recipientInfo}>
+                      <Ionicons name="shield-checkmark-outline" size={16} color="#64748b" style={styles.recipientIcon} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.recipientTitle}>Admin & HR</Text>
+                        <Text style={styles.recipientSub}>Company administrators and HR staff</Text>
+                      </View>
+                    </View>
+                    <Switch
+                      trackColor={{ false: "#cbd5e1", true: "#3b82f6" }}
+                      thumbColor={attendanceNotifications.punchOut.notifyAdmin ? "#ffffff" : "#f1f5f9"}
+                      onValueChange={(val) => handleNotificationToggle("punchOut", "notifyAdmin", val)}
+                      value={attendanceNotifications.punchOut.notifyAdmin}
+                      disabled={!isAdmin}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.disabledBanner}>
+                  <Ionicons name="information-circle-outline" size={16} color="#94a3b8" />
+                  <Text style={styles.disabledBannerText}>No one will receive notifications when an employee punches out.</Text>
+                </View>
+              )}
+            </View>
+          </View>
+
           {/* Action Row */}
           {isAdmin ? (
             <AppButton
@@ -592,6 +819,89 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 13,
     fontWeight: "700",
+  },
+  subNotificationCard: {
+    backgroundColor: "#f8fafc",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    padding: 12,
+  },
+  subCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  badgeIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  subCardTitle: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "#1e293b",
+  },
+  subCardDesc: {
+    fontSize: 11.5,
+    color: "#64748b",
+    marginTop: 1,
+  },
+  recipientOptionsContainer: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+  },
+  recipientGroupLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748b",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  recipientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f1f5f9",
+  },
+  recipientInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 10,
+  },
+  recipientIcon: {
+    marginRight: 8,
+  },
+  recipientTitle: {
+    fontSize: 12.5,
+    fontWeight: "500",
+    color: "#1e293b",
+  },
+  recipientSub: {
+    fontSize: 10.5,
+    color: "#64748b",
+    marginTop: 1,
+  },
+  disabledBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f1f5f9",
+    borderRadius: 6,
+    padding: 8,
+    marginTop: 8,
+  },
+  disabledBannerText: {
+    fontSize: 11.5,
+    color: "#64748b",
+    marginLeft: 6,
+    flex: 1,
   },
 });
 

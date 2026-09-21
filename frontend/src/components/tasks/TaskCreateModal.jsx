@@ -143,17 +143,17 @@ export default function TaskCreateModal({
     // Admins, HR and Managers always have full team assignment access
     if (["CompanyAdmin", "SuperAdmin", "HR", "Manager"].includes(authUser.role)) return true;
     
-    // For standard Employees, strictly check customized permissions granted by Admin
+    // For standard Employees, strictly check customized assign permission granted by Admin
     const perm = authUser.permissions || {};
     const taskPerm = perm.tasks;
 
     if (typeof taskPerm === "object" && taskPerm !== null) {
-      if (taskPerm.create === true || taskPerm.assign === true) return true;
+      if (taskPerm.assign === true) return true;
     } else if (taskPerm === true) {
       return true;
     }
 
-    if (hasPermission && (hasPermission("tasks", "create") || hasPermission("tasks", "assign"))) {
+    if (hasPermission && hasPermission("tasks", "assign")) {
       return true;
     }
 
@@ -528,8 +528,8 @@ export default function TaskCreateModal({
                 </div>
               </div>
 
-              {/* Assignee Picker (Only visible when user has assignment permission) */}
-              {canAssignOthers && (
+              {/* Assignee Picker (Visible when user has assignment permission, otherwise locked to Self) */}
+              {canAssignOthers ? (
                 <div className="relative">
                   <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
                     Assign Staff ({isEmpsLoading ? "..." : departmentFilteredEmployees.length})
@@ -623,6 +623,22 @@ export default function TaskCreateModal({
                       </div>
                     </>
                   )}
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <User size={11} className="text-amber-500" />
+                    Assignee (Self Assignment)
+                  </label>
+                  <div className="w-full px-2.5 py-1.5 bg-slate-100 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between shadow-2xs cursor-default">
+                    <span className="truncate flex items-center gap-1.5 text-slate-700 dark:text-slate-300 font-bold">
+                      <ShieldCheck size={13} className="text-emerald-500 shrink-0" />
+                      <span>{authUser?.name || "Myself (Own Task)"}</span>
+                    </span>
+                    <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 font-bold">
+                      Self Only
+                    </span>
+                  </div>
                 </div>
               )}
 
