@@ -2,13 +2,13 @@ import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { deleteCompanyApi } from "../../api/superAdminApi";
 import toast from "react-hot-toast";
-import { 
-  AlertTriangle, 
-  Trash2, 
-  X, 
-  Clock, 
-  ShieldAlert, 
-  Building2, 
+import {
+  AlertTriangle,
+  Trash2,
+  X,
+  Clock,
+  ShieldAlert,
+  Building2,
   RotateCcw,
   Info
 } from "lucide-react";
@@ -65,7 +65,7 @@ const SuperAdminDeleteCompanyModal = ({ isOpen, onClose, company, onDeleted }) =
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div 
+      <div
         className="w-full max-w-lg bg-white dark:bg-[#111C24] rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-slate-900 dark:text-slate-100 animate-in zoom-in-95 duration-150"
         onClick={(e) => e.stopPropagation()}
       >
@@ -84,8 +84,8 @@ const SuperAdminDeleteCompanyModal = ({ isOpen, onClose, company, onDeleted }) =
               </p>
             </div>
           </div>
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleClose}
             className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
           >
@@ -156,11 +156,10 @@ const SuperAdminDeleteCompanyModal = ({ isOpen, onClose, company, onDeleted }) =
                 if (error) setError("");
               }}
               placeholder="Explain why this organization is being deleted (e.g. client cancellation, duplicate registration)..."
-              className={`w-full p-3 rounded-xl text-xs border bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${
-                error 
-                  ? "border-rose-500 focus:ring-rose-500/20" 
-                  : "border-slate-200 dark:border-slate-800 focus:border-amber-500 focus:ring-amber-500/20"
-              }`}
+              className={`w-full p-3 rounded-xl text-xs border bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 transition-all ${error
+                ? "border-rose-500 focus:ring-rose-500/20"
+                : "border-slate-200 dark:border-slate-800 focus:border-amber-500 focus:ring-amber-500/20"
+                }`}
             />
             {error && (
               <p className="text-[11px] font-semibold text-rose-500 flex items-center gap-1 mt-1">
@@ -169,7 +168,7 @@ const SuperAdminDeleteCompanyModal = ({ isOpen, onClose, company, onDeleted }) =
             )}
 
             {/* Quick Reason Suggestions */}
-            <div className="pt-1">
+            {/* <div className="pt-1">
               <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">
                 Quick reasons:
               </span>
@@ -188,7 +187,7 @@ const SuperAdminDeleteCompanyModal = ({ isOpen, onClose, company, onDeleted }) =
                   </button>
                 ))}
               </div>
-            </div>
+            </div> */}
           </div>
 
           {/* Action Buttons */}
