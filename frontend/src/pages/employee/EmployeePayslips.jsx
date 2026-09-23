@@ -5,7 +5,8 @@ import {
   Receipt, Download, Calendar, X, FileText, Eye,
   Wallet, CheckCircle2, UserCheck, UserX, Clock,
   Umbrella, CalendarCheck, TrendingDown, TrendingUp, ChevronDown,
-  DollarSign, MinusCircle, ShieldCheck, Printer, ArrowUp, ArrowDown
+  DollarSign, MinusCircle, ShieldCheck, Printer, ArrowUp, ArrowDown,
+  Landmark, CalendarX
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -22,26 +23,26 @@ const fmtDay = (v) => {
 
 /* ── Top Metric Stat Card ─────────────────────────────────────────────── */
 const MetricCard = ({ label, value, subtext, Icon, iconBg, iconColor, accentBorder, trend, isPositive }) => (
-  <div className="relative bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-2xs hover:shadow-xs transition-all overflow-hidden flex flex-col justify-between group">
+  <div className="relative bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 p-3 sm:p-3.5 shadow-2xs hover:shadow-xs transition-all overflow-hidden flex flex-col justify-between group min-w-0">
     <div className={`absolute top-0 left-0 right-0 h-[2.5px] ${accentBorder}`} />
-    <div className="flex items-start justify-between gap-2 mb-2">
-      <div>
-        <span className="text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
+    <div className="flex items-start justify-between gap-1.5 mb-1.5">
+      <div className="min-w-0 flex-1">
+        <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider block truncate">
           {label}
         </span>
-        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-1 font-mono">
+        <h3 className="text-base sm:text-lg xl:text-xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5 font-mono truncate" title={String(value)}>
           {value}
         </h3>
       </div>
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg} shrink-0 shadow-2xs`}>
-        <Icon size={18} style={{ color: iconColor }} strokeWidth={2.4} />
+      <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${iconBg} shrink-0 shadow-2xs`}>
+        <Icon size={16} style={{ color: iconColor }} strokeWidth={2.4} />
       </div>
     </div>
-    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-100 dark:border-slate-800/80">
-      <span className="text-slate-400 truncate">{subtext}</span>
+    <div className="flex items-center justify-between text-[10.5px] pt-1.5 border-t border-slate-100 dark:border-slate-800/80 gap-1">
+      <span className="text-slate-400 truncate text-[10px] sm:text-[10.5px]">{subtext}</span>
       {trend && (
-        <span className={`inline-flex items-center font-bold font-mono ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-          {isPositive ? <ArrowUp size={11} strokeWidth={2.5} className="mr-0.5" /> : <ArrowDown size={11} strokeWidth={2.5} className="mr-0.5" />}
+        <span className={`inline-flex items-center font-bold font-mono shrink-0 text-[9.5px] sm:text-[10px] ${isPositive ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
+          {isPositive ? <ArrowUp size={10} strokeWidth={2.5} className="mr-0.5" /> : <ArrowDown size={10} strokeWidth={2.5} className="mr-0.5" />}
           {trend}
         </span>
       )}
@@ -50,16 +51,21 @@ const MetricCard = ({ label, value, subtext, Icon, iconBg, iconColor, accentBord
 );
 
 const EmployeePayslips = () => {
+  const currentYear = new Date().getFullYear();
   const [previewHtml, setPreviewHtml] = useState(null);
-  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+  const [yearFilter, setYearFilter] = useState(currentYear);
+  const [monthFilter, setMonthFilter] = useState("all");
   const [expandedId, setExpandedId] = useState(null);
 
-  const currentYear = new Date().getFullYear();
-  const yearOptions = Array.from({ length: 4 }, (_, i) => currentYear - i);
-
   const { data: payslipsRes, isLoading } = useQuery({
-    queryKey: ["employeeMyPayslips", yearFilter],
-    queryFn: () => api.get(`/payroll/my-payslips?year=${yearFilter}`).then((res) => res.data),
+    queryKey: ["employeeMyPayslips", yearFilter, monthFilter],
+    queryFn: () => {
+      const params = new URLSearchParams();
+      if (yearFilter && yearFilter !== "all") params.append("year", yearFilter);
+      if (monthFilter && monthFilter !== "all") params.append("month", monthFilter);
+      const qs = params.toString();
+      return api.get(`/payroll/my-payslips${qs ? `?${qs}` : ""}`).then((res) => res.data);
+    },
   });
 
   const { data: advanceRes } = useQuery({
@@ -68,22 +74,115 @@ const EmployeePayslips = () => {
   });
   const activeAdvance = advanceRes?.metrics?.activeAdvance || null;
 
-  const payslips = payslipsRes?.data || payslipsRes?.payslips || [];
+  const { data: salaryStructureRes } = useQuery({
+    queryKey: ["employeeMySalaryStructure"],
+    queryFn: () => api.get("/payroll/my-salary-structure").then((res) => res.data?.data || null),
+  });
+  const salaryStructure = salaryStructureRes || null;
+
+  const rawPayslips = useMemo(() => payslipsRes?.data || payslipsRes?.payslips || [], [payslipsRes]);
+
+  const yearOptions = useMemo(() => {
+    const years = new Set([
+      currentYear + 1,
+      currentYear,
+      currentYear - 1,
+      currentYear - 2,
+      currentYear - 3,
+    ]);
+    rawPayslips.forEach((p) => {
+      if (p.year) years.add(Number(p.year));
+    });
+    return Array.from(years).sort((a, b) => b - a);
+  }, [currentYear, rawPayslips]);
+
+  const payslips = useMemo(() => {
+    return rawPayslips.filter((ps) => {
+      if (yearFilter && yearFilter !== "all" && Number(ps.year) !== Number(yearFilter)) {
+        return false;
+      }
+      if (monthFilter && monthFilter !== "all") {
+        const pMonthNum = parseInt(ps.month, 10);
+        const fMonthNum = parseInt(monthFilter, 10);
+        if (!isNaN(pMonthNum) && !isNaN(fMonthNum)) {
+          if (pMonthNum !== fMonthNum) return false;
+        } else {
+          const targetName = MONTH_NAMES[fMonthNum - 1]?.toLowerCase();
+          const psStr = String(ps.month).trim().toLowerCase();
+          if (psStr !== targetName && psStr !== String(monthFilter).toLowerCase()) {
+            return false;
+          }
+        }
+      }
+      return true;
+    });
+  }, [rawPayslips, yearFilter, monthFilter]);
+
   const payslipsCount = payslips.length;
 
-  const totalNetSalary = useMemo(
-    () => payslips.reduce((sum, p) => sum + (p.netSalary || 0), 0),
-    [payslips]
-  );
+  // 1. Proper Agreed Base Salary (Monthly CTC / Gross Salary Structure)
+  const properBaseSalary = useMemo(() => {
+    if (payslips.length > 0) {
+      return payslips.reduce((sum, p) => {
+        const earned = p.earnings?.grossEarnings || 0;
+        const lop = p.deductions?.lopDeduction || 0;
+        const fallback = salaryStructure?.grossSalary || salaryStructure?.monthlyCTC || p.grossSalary || 0;
+        const slipBase = (earned + lop) > 0 ? (earned + lop) : fallback;
+        return sum + slipBase;
+      }, 0);
+    }
+    return salaryStructure?.grossSalary || salaryStructure?.monthlyCTC || 0;
+  }, [payslips, salaryStructure]);
+
+  // 2. Gross Earned (Prorated to attendance)
   const totalGrossSalary = useMemo(
     () => payslips.reduce((sum, p) => sum + (p.grossSalary || p.earnings?.grossEarnings || 0), 0),
     [payslips]
   );
+
+  // 3. Loss of Pay (LOP) Deduction
+  const totalLopDeduction = useMemo(
+    () => payslips.reduce((sum, p) => sum + (p.deductions?.lopDeduction || 0), 0),
+    [payslips]
+  );
+
+  const totalLopDays = useMemo(
+    () => payslips.reduce((sum, p) => sum + (p.attendanceSummary?.lossOfPayDays || p.attendanceSummary?.absentDays || 0), 0),
+    [payslips]
+  );
+
+  // 4. Total Deductions (PF, PT, TDS, Advances)
   const totalDeductions = useMemo(
     () => payslips.reduce((sum, p) => sum + (p.deductions?.totalDeductions || 0), 0),
     [payslips]
   );
-  const avgNet = payslipsCount > 0 ? Math.round(totalNetSalary / payslipsCount) : 0;
+
+  // 5. Net In-Hand Salary Received
+  const totalNetSalary = useMemo(
+    () => payslips.reduce((sum, p) => sum + (p.netSalary || 0), 0),
+    [payslips]
+  );
+
+  // 6. Attendance & Payable Days
+  const totalPayableDays = useMemo(
+    () => payslips.reduce((sum, p) => sum + (p.attendanceSummary?.payableDays !== undefined ? Number(p.attendanceSummary.payableDays) : 0), 0),
+    [payslips]
+  );
+
+  const totalWorkDays = useMemo(
+    () => payslips.reduce((sum, p) => {
+      const cal = p.attendanceSummary?.totalCalendarDays || p.attendanceSummary?.workingDays || 30;
+      return sum + Number(cal);
+    }, 0) || (payslips.length * 30 || 30),
+    [payslips]
+  );
+
+  const attendancePercent = totalWorkDays > 0 ? Math.round((totalPayableDays / totalWorkDays) * 100) : 0;
+
+  const selectedMonthName = monthFilter !== "all" ? MONTH_NAMES[Number(monthFilter) - 1] || monthFilter : null;
+  const currentPeriodText = selectedMonthName
+    ? `${selectedMonthName} ${yearFilter === "all" ? "" : yearFilter}`.trim()
+    : `${yearFilter === "all" ? "All Years" : `Financial Year ${yearFilter}`}`;
 
   const downloadPDF = async (id, monthStr, yearStr) => {
     try {
@@ -114,7 +213,7 @@ const EmployeePayslips = () => {
     <div className="w-full font-sans pb-10 space-y-4 text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto text-xs">
 
       {/* ── Header Banner ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 text-slate-950 flex items-center justify-center shrink-0 shadow-xs">
             <Receipt size={20} strokeWidth={2.2} />
@@ -125,7 +224,7 @@ const EmployeePayslips = () => {
                 My Payslips &amp; Financial Ledger
               </h1>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
-                Financial Year {yearFilter}
+                {currentPeriodText}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
@@ -134,23 +233,63 @@ const EmployeePayslips = () => {
           </div>
         </div>
 
-        {/* Year Filter Switcher */}
-        <div className="flex items-center gap-2 self-start sm:self-auto bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
-          <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-2">Year:</span>
-          <div className="relative">
-            <select
-              value={yearFilter}
-              onChange={(e) => setYearFilter(Number(e.target.value))}
-              className="appearance-none pl-3 pr-8 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-2xs"
-            >
-              {yearOptions.map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={12} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        {/* Year & Month Filter Controls */}
+        <div className="flex items-center gap-2 flex-wrap self-start lg:self-auto bg-slate-50 dark:bg-slate-900 p-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-2xs">
+          {/* Year Filter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1.5">Year:</span>
+            <div className="relative">
+              <select
+                value={yearFilter}
+                onChange={(e) => setYearFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+                className="appearance-none pl-2.5 pr-7 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-2xs"
+              >
+                <option value="all">All Years</option>
+                {yearOptions.map((y) => (
+                  <option key={y} value={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
           </div>
+
+          <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+
+          {/* Month Filter */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 pl-1 sm:pl-0">Month:</span>
+            <div className="relative">
+              <select
+                value={monthFilter}
+                onChange={(e) => setMonthFilter(e.target.value)}
+                className="appearance-none pl-2.5 pr-7 py-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500 cursor-pointer shadow-2xs"
+              >
+                <option value="all">All Months</option>
+                {MONTH_NAMES.map((name, idx) => (
+                  <option key={name} value={String(idx + 1)}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Reset Filters button if altered */}
+          {(yearFilter !== currentYear || monthFilter !== "all") && (
+            <button
+              onClick={() => {
+                setYearFilter(currentYear);
+                setMonthFilter("all");
+              }}
+              title="Reset Filters to Current Year & All Months"
+              className="px-2 py-1 text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
+            >
+              Reset
+            </button>
+          )}
         </div>
       </div>
 
@@ -190,23 +329,26 @@ const EmployeePayslips = () => {
         </div>
       )}
 
-      {/* ── 4 Top KPI Stat Cards ──────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* ── 5 Top KPI Stat Cards ──────────────────────────────────────── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
+        {/* Card 1: Proper Base / CTC Salary */}
         <MetricCard
-          label="Total Net Received"
-          value={fmt(totalNetSalary)}
-          subtext={`YTD Disbursed (${yearFilter})`}
-          Icon={Wallet}
-          iconBg="bg-amber-50 dark:bg-amber-950/40"
-          iconColor="#D97706"
-          accentBorder="bg-amber-500"
-          trend="Net Pay"
+          label="Proper Base Salary"
+          value={fmt(properBaseSalary)}
+          subtext={salaryStructure?.monthlyCTC ? "Fixed Monthly CTC" : "Agreed Base Gross"}
+          Icon={Landmark}
+          iconBg="bg-indigo-50 dark:bg-indigo-950/40"
+          iconColor="#6366F1"
+          accentBorder="bg-indigo-500"
+          trend="Base CTC"
           isPositive={true}
         />
+
+        {/* Card 2: Gross Earned */}
         <MetricCard
-          label="Total Gross Earnings"
+          label="Gross Earned"
           value={fmt(totalGrossSalary)}
-          subtext={`Basic + Allowances`}
+          subtext="Prorated to attendance"
           Icon={DollarSign}
           iconBg="bg-emerald-50 dark:bg-emerald-950/40"
           iconColor="#059669"
@@ -214,10 +356,25 @@ const EmployeePayslips = () => {
           trend="Earned"
           isPositive={true}
         />
+
+        {/* Card 3: Loss of Pay (LOP) */}
+        <MetricCard
+          label="Loss of Pay (LOP)"
+          value={fmt(totalLopDeduction)}
+          subtext={`${fmtDay(totalLopDays)} Unworked / LOP Days`}
+          Icon={CalendarX}
+          iconBg="bg-amber-50 dark:bg-amber-950/40"
+          iconColor="#D97706"
+          accentBorder="bg-amber-500"
+          trend={totalLopDays > 0 ? `${fmtDay(totalLopDays)}d LOP` : "0d LOP"}
+          isPositive={false}
+        />
+
+        {/* Card 4: Total Deductions */}
         <MetricCard
           label="Total Deductions"
           value={fmt(totalDeductions)}
-          subtext={`PF, PT, TDS & Advances`}
+          subtext="PF, PT, TDS & Advances"
           Icon={MinusCircle}
           iconBg="bg-rose-50 dark:bg-rose-950/40"
           iconColor="#DB2777"
@@ -225,15 +382,17 @@ const EmployeePayslips = () => {
           trend="Deducted"
           isPositive={false}
         />
+
+        {/* Card 5: Net In-Hand Pay */}
         <MetricCard
-          label="Average Monthly Net"
-          value={fmt(avgNet)}
-          subtext={`${payslipsCount} Statements released`}
-          Icon={TrendingUp}
+          label="Net In-Hand Pay"
+          value={fmt(totalNetSalary)}
+          subtext={selectedMonthName ? `Disbursed (${selectedMonthName})` : "Take-Home Disbursal"}
+          Icon={Wallet}
           iconBg="bg-blue-50 dark:bg-blue-950/40"
           iconColor="#0284C7"
           accentBorder="bg-blue-500"
-          trend={`${payslipsCount} Slips`}
+          trend="In-Hand"
           isPositive={true}
         />
       </div>
@@ -246,11 +405,13 @@ const EmployeePayslips = () => {
           <div className="flex items-center gap-2">
             <Receipt size={15} className="text-amber-500" />
             <h3 className="font-black text-slate-900 dark:text-white text-xs tracking-wider uppercase">
-              Monthly Disbursal Statements ({yearFilter})
+              {selectedMonthName
+                ? `Salary Statement (${selectedMonthName} ${yearFilter === "all" ? "" : yearFilter})`
+                : `Monthly Disbursal Statements (${yearFilter === "all" ? "All Years" : yearFilter})`}
             </h3>
           </div>
           <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111C24] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs">
-            {payslips.length} Statements
+            {payslips.length} Statement{payslips.length === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -266,7 +427,9 @@ const EmployeePayslips = () => {
             <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center border border-amber-500/20 shadow-2xs">
               <Receipt size={22} strokeWidth={2} />
             </div>
-            <p className="text-slate-900 dark:text-white font-bold text-sm">No Payslips Released Yet for {yearFilter}</p>
+            <p className="text-slate-900 dark:text-white font-bold text-sm">
+              No Payslips Released Yet for {selectedMonthName ? `${selectedMonthName} ` : ""}{yearFilter === "all" ? "All Time" : yearFilter}
+            </p>
             <p className="text-slate-400 text-xs max-w-md">
               Your monthly salary slips will appear here once generated and released by the HR Department. You will receive an instant notification when a new statement is published.
             </p>
@@ -544,7 +707,7 @@ const EmployeePayslips = () => {
 
         {/* Footer info */}
         <div className="flex justify-between items-center text-xs text-slate-400 font-medium px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30">
-          <span>Showing {payslips.length} salary statement{payslips.length === 1 ? "" : "s"} for FY {yearFilter}</span>
+          <span>Showing {payslips.length} salary statement{payslips.length === 1 ? "" : "s"} for {currentPeriodText}</span>
           <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
             <ShieldCheck size={12} />
             HRMS Authenticated Ledger

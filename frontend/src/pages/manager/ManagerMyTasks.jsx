@@ -512,7 +512,7 @@ export default function ManagerMyTasks() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-extrabold shadow-2xs transition-all cursor-pointer"
             >
               <Plus size={13} strokeWidth={3} />
-              <span>New Task</span>
+              <span>Add Task</span>
             </button>
           </div>
         </div>
@@ -749,7 +749,7 @@ export default function ManagerMyTasks() {
             onClick={() => setIsCreateOpen(true)}
             className="mt-3 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs cursor-pointer"
           >
-            Create Task
+            Add Task
           </button>
         </div>
       ) : viewMode === "kanban" ? (

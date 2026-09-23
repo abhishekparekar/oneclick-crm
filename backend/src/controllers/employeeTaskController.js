@@ -868,15 +868,37 @@ const uploadTaskAttachment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
 
-    const { uploadFileToFirebase } = require("../services/firebaseService");
-    const fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "task-attachments");
+    let fileUrl = "";
+    try {
+      const { uploadFileToFirebase } = require("../services/firebaseService");
+      fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "task-attachments");
+    } catch (fbErr) {
+      console.warn("Firebase upload failed in employeeTaskController, falling back to local / base64:", fbErr.message);
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const uploadDir = path.join(__dirname, "../../uploads/task-attachments");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${req.file.originalname}`;
+        const filePath = path.join(uploadDir, uniqueName);
+        fs.writeFileSync(filePath, req.file.buffer);
+        fileUrl = `/uploads/task-attachments/${uniqueName}`;
+      } catch (localErr) {
+        const mimeType = req.file.mimetype || "application/octet-stream";
+        fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+      }
+    }
     
     const newAttachment = {
       fileUrl,
       fileName: req.file.originalname,
-      fileType: req.file.mimetype,
+      fileType: req.file.mimetype || "application/octet-stream",
+      uploadedAt: new Date(),
     };
 
+    if (!task.attachments) task.attachments = [];
     task.attachments.push(newAttachment);
 
     const userName = `${employee.firstName} ${employee.lastName}`;
@@ -914,7 +936,17 @@ const uploadTaskAttachment = async (req, res, next) => {
 
     await task.save();
 
-    res.json({ success: true, message: "Attachment uploaded successfully", task, attachment: newAttachment });
+    res.json({
+      success: true,
+      message: "Attachment uploaded successfully",
+      task,
+      attachment: newAttachment,
+      data: { attachment: newAttachment, fileUrl, fileName: req.file.originalname },
+      fileUrl,
+      url: fileUrl,
+      fileName: req.file.originalname,
+      filename: req.file.originalname
+    });
   } catch (error) {
     next(error);
   }

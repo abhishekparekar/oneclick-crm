@@ -10,11 +10,11 @@ import {
   StatusBar,
   Image,
   PermissionsAndroid,
-  AppState,
 } from "react-native";
 import { useFocusEffect, useIsFocused } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { Camera, CameraType } from "react-native-camera-kit";
+import * as ImagePicker from "expo-image-picker";
 import { useAuth } from "../../context/AuthContext";
 import { useAppData } from "../../context/AppDataContext";
 import {
@@ -53,7 +53,6 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   const cameraRef = useRef(null);
   const isMountedRef = useRef(true);
   const isFocused = useIsFocused();
-  const [appState, setAppState] = useState(AppState.currentState);
 
   const checkCameraPermission = async () => {
     try {
@@ -86,19 +85,13 @@ const EmployeePunchScreen = ({ navigation, route }) => {
   useEffect(() => {
     isMountedRef.current = true;
     checkCameraPermission();
-    const sub = AppState.addEventListener("change", (nextState) => {
-      setAppState(nextState);
-    });
     return () => {
       isMountedRef.current = false;
-      sub.remove();
     };
   }, []);
 
   const initData = async () => {
     try {
-      checkCameraPermission();
-
       // 1. Fetch today record silently in background
       getMyTodayApi().then((todayRes) => {
         let record = null;
@@ -197,7 +190,26 @@ const EmployeePunchScreen = ({ navigation, route }) => {
     }, [])
   );
 
-  const handleCaptureSelfie = async () => {
+  const captureFromNativeCamera = async () => {
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        cameraSide: "front",
+        cameraType: "front",
+        quality: 0.5,
+        allowsEditing: false,
+        base64: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        return result.assets[0].uri;
+      }
+    } catch (pickerErr) {
+      console.warn("[Camera] Native camera picker error:", pickerErr);
+    }
+    return null;
+  };
+
+  const handleCaptureSelfie = async (forceNative = false) => {
     if (capturingSelfie || submittingPunch) return null;
     try {
       setCapturingSelfie(true);
@@ -215,17 +227,49 @@ const EmployeePunchScreen = ({ navigation, route }) => {
         }
       }
 
+      // If user explicitly chose system camera
+      if (forceNative) {
+        const nativeUri = await captureFromNativeCamera();
+        if (nativeUri) {
+          setSelfieUri(nativeUri);
+          setCapturingSelfie(false);
+          return nativeUri;
+        }
+        setCapturingSelfie(false);
+        return null;
+      }
+
+      // 1. Fast in-app camera capture attempt with 1500ms safety timeout to prevent hanging
+      let capturedUri = null;
       if (cameraRef.current && typeof cameraRef.current.capture === "function") {
         try {
-          const photo = await cameraRef.current.capture();
+          const capturePromise = cameraRef.current.capture();
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("In-app capture timeout")), 1500)
+          );
+          const photo = await Promise.race([capturePromise, timeoutPromise]);
           if (photo && photo.uri) {
-            setSelfieUri(photo.uri);
-            setCapturingSelfie(false);
-            return photo.uri;
+            capturedUri = photo.uri;
           }
         } catch (captureErr) {
-          console.warn("In-app camera capture notice:", captureErr);
+          console.log("[Camera] In-app camera capture notice:", captureErr?.message || captureErr);
         }
+      }
+
+      // 2. If in-app camera succeeded, use it
+      if (capturedUri) {
+        setSelfieUri(capturedUri);
+        setCapturingSelfie(false);
+        return capturedUri;
+      }
+
+      // 3. Fallback to native system camera (rock-solid on all devices)
+      console.log("[Camera] In-app capture not available, launching system camera...");
+      const fallbackUri = await captureFromNativeCamera();
+      if (fallbackUri) {
+        setSelfieUri(fallbackUri);
+        setCapturingSelfie(false);
+        return fallbackUri;
       }
 
       setCapturingSelfie(false);
@@ -251,7 +295,7 @@ const EmployeePunchScreen = ({ navigation, route }) => {
 
       let finalSelfieUri = activeSelfie || selfieUri;
 
-      // Upload to Firebase if local file uri with 1.8-second timeout to prevent hanging
+      // Upload to Firebase if local file uri with 3-second timeout to prevent hanging
       if (finalSelfieUri && (finalSelfieUri.startsWith("file://") || finalSelfieUri.startsWith("/"))) {
         try {
           const uploadPromise = uploadSelfieToFirebase(
@@ -259,9 +303,12 @@ const EmployeePunchScreen = ({ navigation, route }) => {
             user?._id || "unknown"
           );
           const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Firebase upload timeout")), 1800)
+            setTimeout(() => reject(new Error("Firebase upload timeout")), 3000)
           );
-          finalSelfieUri = await Promise.race([uploadPromise, timeoutPromise]);
+          const uploadedUrl = await Promise.race([uploadPromise, timeoutPromise]);
+          if (uploadedUrl) {
+            finalSelfieUri = uploadedUrl;
+          }
         } catch (fbErr) {
           console.warn("Firebase upload timeout/error, continuing with punch:", fbErr?.message || fbErr);
         }
@@ -378,11 +425,11 @@ const EmployeePunchScreen = ({ navigation, route }) => {
 
     let activeSelfie = selfieUri;
     if (!activeSelfie) {
-      activeSelfie = await handleCaptureSelfie();
+      activeSelfie = await handleCaptureSelfie(false);
       if (!activeSelfie) {
         Alert.alert(
           "Selfie Required",
-          "Could not capture selfie inside circle. Please ensure your face is framed in the circle and try again."
+          "A selfie photo is required to complete attendance. Please tap the camera button or 'Open Camera directly' to take your selfie."
         );
         return;
       }
@@ -453,7 +500,7 @@ const EmployeePunchScreen = ({ navigation, route }) => {
               <ActivityIndicator size="large" color="#3B82F6" />
               <Text style={{ color: "#94A3B8", marginTop: 8, fontSize: 13, fontWeight: "600" }}>Processing...</Text>
             </View>
-          ) : hasCameraPerm && isFocused && appState === "active" ? (
+          ) : hasCameraPerm && isFocused ? (
             <View style={styles.cameraContainer}>
               <Camera
                 ref={cameraRef}
@@ -462,16 +509,23 @@ const EmployeePunchScreen = ({ navigation, route }) => {
                 flashMode="off"
                 focusMode="on"
                 zoomMode="on"
-                shutterAnimation={false}
+                shutterAnimationDuration={0}
               />
-              <TouchableOpacity
-                style={styles.snapInCircleBtn}
-                onPress={handleCaptureSelfie}
-                disabled={capturingSelfie || submittingPunch}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="camera" size={20} color="#FFFFFF" />
-              </TouchableOpacity>
+              {capturingSelfie ? (
+                <View style={styles.cameraCapturingOverlay}>
+                  <ActivityIndicator size="small" color="#3B82F6" />
+                  <Text style={styles.cameraCapturingText}>Capturing selfie...</Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={styles.snapInCircleBtn}
+                  onPress={() => handleCaptureSelfie(false)}
+                  disabled={capturingSelfie || submittingPunch}
+                  activeOpacity={0.8}
+                >
+                  <Ionicons name="camera" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              )}
             </View>
           ) : hasCameraPerm ? (
             <View style={[styles.cameraContainer, { justifyContent: "center", alignItems: "center" }]}>
@@ -492,6 +546,19 @@ const EmployeePunchScreen = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
         </View>
+
+        {/* Manual Native Camera Button when selfie is not yet taken */}
+        {!selfieUri && (
+          <TouchableOpacity
+            style={styles.systemCameraFallbackBtn}
+            onPress={() => handleCaptureSelfie(true)}
+            disabled={capturingSelfie || submittingPunch}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="camera-reverse-outline" size={16} color="#60A5FA" />
+            <Text style={styles.systemCameraFallbackText}>Open Camera directly</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Status Pill */}
         <View style={styles.statusPillRow}>
@@ -650,6 +717,35 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.25)",
+  },
+  cameraCapturingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  cameraCapturingText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 8,
+  },
+  systemCameraFallbackBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(59, 130, 246, 0.12)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.3)",
+  },
+  systemCameraFallbackText: {
+    color: "#60A5FA",
+    fontSize: 12,
+    fontWeight: "600",
   },
   selfieInner: {
     width: "100%",

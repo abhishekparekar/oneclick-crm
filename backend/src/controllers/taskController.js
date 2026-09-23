@@ -161,11 +161,12 @@ exports.createTask = async (req, res) => {
             : [];
 
         const safeAttachments = Array.isArray(attachments) 
-            ? attachments.filter(a => a && a.fileUrl && a.fileName).map(a => ({
-                fileUrl: String(a.fileUrl),
-                fileName: String(a.fileName),
-                fileType: a.fileType ? String(a.fileType) : "application/octet-stream"
-              })) 
+            ? attachments.map(a => {
+                const fUrl = a?.fileUrl || a?.url || "";
+                const fName = a?.fileName || a?.filename || a?.name || "Attachment";
+                const fType = a?.fileType || a?.type || "application/octet-stream";
+                return fUrl ? { fileUrl: String(fUrl), fileName: String(fName), fileType: String(fType) } : null;
+              }).filter(Boolean)
             : [];
 
         // Parse dates safely to prevent Invalid Date Mongoose errors
@@ -2104,28 +2105,75 @@ exports.uploadTaskAttachment = async (req, res) => {
             return res.status(400).json({ success: false, message: "No file uploaded" });
         }
         
-        let task = await Task.findOne({ _id: req.params.id, companyId: req.user.companyId });
+        let companyId = req.user?.companyId || req.companyId;
+        if (!companyId) {
+            const Employee = require("../models/Employee");
+            const emp = await Employee.findOne({ userId: req.user._id });
+            if (emp) companyId = emp.companyId;
+        }
+
+        let task = companyId ? await Task.findOne({ _id: req.params.id, companyId }) : await Task.findById(req.params.id);
         let isTemplate = false;
+        if (!task && companyId) {
+            task = await TaskTemplate.findOne({ _id: req.params.id, companyId });
+            if (task) isTemplate = true;
+        }
         if (!task) {
-            task = await TaskTemplate.findOne({ _id: req.params.id, companyId: req.user.companyId });
+            task = await Task.findById(req.params.id);
+        }
+        if (!task) {
+            task = await TaskTemplate.findById(req.params.id);
             if (task) isTemplate = true;
         }
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
-        const { uploadFileToFirebase } = require("../services/firebaseService");
-        const fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "task-attachments");
+        let fileUrl = "";
+        try {
+            const { uploadFileToFirebase } = require("../services/firebaseService");
+            fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "task-attachments");
+        } catch (fbErr) {
+            console.warn("Firebase upload failed, falling back to local file / base64:", fbErr.message);
+            try {
+                const fs = require("fs");
+                const path = require("path");
+                const uploadDir = path.join(__dirname, "../../uploads/task-attachments");
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+                const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${req.file.originalname}`;
+                const filePath = path.join(uploadDir, uniqueName);
+                fs.writeFileSync(filePath, req.file.buffer);
+                fileUrl = `/uploads/task-attachments/${uniqueName}`;
+            } catch (localErr) {
+                const mimeType = req.file.mimetype || "application/octet-stream";
+                fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+            }
+        }
 
-        if (!task.attachments) task.attachments = [];
-        task.attachments.push({
+        const newAttachment = {
             fileUrl,
             fileName: req.file.originalname,
-            fileType: req.file.mimetype,
-            uploadedAt: new Date()
-        });
+            fileType: req.file.mimetype || "application/octet-stream",
+            uploadedAt: new Date(),
+            uploadedBy: req.user._id
+        };
+
+        if (!task.attachments) task.attachments = [];
+        task.attachments.push(newAttachment);
 
         await task.save();
 
-        res.json({ success: true, url: fileUrl, filename: req.file.originalname, task });
+        res.json({
+            success: true,
+            url: fileUrl,
+            fileUrl: fileUrl,
+            filename: req.file.originalname,
+            fileName: req.file.originalname,
+            fileType: req.file.mimetype,
+            attachment: newAttachment,
+            data: { attachment: newAttachment, fileUrl, fileName: req.file.originalname },
+            task
+        });
     } catch (error) {
         console.error("Upload task attachment error:", error);
         res.status(500).json({ success: false, message: "Server error" });
@@ -2158,60 +2206,31 @@ exports.toggleChecklistItem = async (req, res) => {
 
         // If entire checklist array is provided, update all
         if (Array.isArray(checklist)) {
-            task.checklist = checklist;
-        } else {
-            let item = null;
+            task.checklist = checklist.map(c => ({
+                title: String(c.title || "").trim(),
+                isCompleted: Boolean(c.isCompleted || c.completed)
+            }));
+            await task.save();
+            return res.json({ success: true, message: "Checklist updated", task });
+        }
 
-            // 1. Try finding by mongoose id() method if valid ObjectId
-            if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
-                try {
-                    if (typeof task.checklist.id === "function") {
-                        item = task.checklist.id(subtaskId);
-                    }
-                } catch (err) {
-                    console.error("Mongoose checklist.id() failed:", err);
-                }
-            }
-
-            // 2. Fallback to searching array by string comparison of _id
-            if (!item && subtaskId) {
-                item = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
-            }
-
-            // 3. Fallback to itemIndex if provided
-            if (!item && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
-                item = task.checklist[itemIndex];
-            }
-
-            if (!item) {
-                return res.status(404).json({ success: false, message: "Checklist item not found" });
-            }
-
-            const nextCompleted = completed !== undefined ? completed : (isCompleted !== undefined ? isCompleted : !item.isCompleted);
-            item.isCompleted = Boolean(nextCompleted);
-
-            // Log activity safely
-            try {
-                if (typeof TaskActivity !== "undefined" && TaskActivity) {
-                    await TaskActivity.create({
-                        companyId: task.companyId,
-                        taskId: task._id,
-                        action: "edited",
-                        remarks: `Checklist item "${item.title}" marked as ${item.isCompleted ? "completed" : "incomplete"}`,
-                        performedBy: req.user?._id
-                    });
-                }
-            } catch (actErr) {
-                console.error("TaskActivity create log ignored:", actErr.message);
+        // Target by itemIndex or subtaskId
+        if (typeof itemIndex === "number" && itemIndex >= 0 && itemIndex < task.checklist.length) {
+            const targetStatus = typeof isCompleted !== "undefined" ? isCompleted : completed;
+            task.checklist[itemIndex].isCompleted = Boolean(targetStatus);
+        } else if (subtaskId) {
+            const item = task.checklist.id(subtaskId) || task.checklist.find(c => c._id?.toString() === subtaskId.toString());
+            if (item) {
+                const targetStatus = typeof isCompleted !== "undefined" ? isCompleted : completed;
+                item.isCompleted = Boolean(targetStatus);
             }
         }
 
         await task.save();
-
-        res.json({ success: true, message: "Checklist item updated successfully", task });
+        res.json({ success: true, message: "Checklist item updated", task });
     } catch (error) {
-        console.error("Checklist toggle error:", error);
-        res.status(500).json({ success: false, message: `Server error: ${error.message}` });
+        console.error("Toggle checklist item error:", error);
+        res.status(500).json({ success: false, message: "Server error" });
     }
 };
 
@@ -2226,17 +2245,41 @@ exports.uploadMediaFile = async (req, res) => {
             const { uploadFileToFirebase } = require("../services/firebaseService");
             fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "task-media");
         } catch (fbErr) {
-            console.warn("Firebase upload failed, falling back to base64 data URI:", fbErr.message);
-            const mimeType = req.file.mimetype || "application/octet-stream";
-            fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+            console.warn("Firebase upload failed, falling back to local storage / base64:", fbErr.message);
+            try {
+                const fs = require("fs");
+                const path = require("path");
+                const uploadDir = path.join(__dirname, "../../uploads/task-media");
+                if (!fs.existsSync(uploadDir)) {
+                    fs.mkdirSync(uploadDir, { recursive: true });
+                }
+                const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${req.file.originalname}`;
+                const filePath = path.join(uploadDir, uniqueName);
+                fs.writeFileSync(filePath, req.file.buffer);
+                fileUrl = `/uploads/task-media/${uniqueName}`;
+            } catch (localErr) {
+                const mimeType = req.file.mimetype || "application/octet-stream";
+                fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+            }
         }
+
+        const attachmentObj = {
+            fileUrl,
+            url: fileUrl,
+            fileName: req.file.originalname,
+            filename: req.file.originalname,
+            fileType: req.file.mimetype || "application/octet-stream",
+        };
 
         res.json({
             success: true,
             url: fileUrl,
             fileUrl: fileUrl,
             filename: req.file.originalname,
+            fileName: req.file.originalname,
             fileType: req.file.mimetype,
+            attachment: attachmentObj,
+            data: attachmentObj,
             message: "Media uploaded successfully"
         });
     } catch (error) {

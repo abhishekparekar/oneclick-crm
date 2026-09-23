@@ -376,7 +376,7 @@ const CompanyDashboard = ({ navigation }) => {
                   <View style={[styles.shortcutIconBox, { backgroundColor: "#F5F3FF" }]}>
                     <Ionicons name="checkbox-outline" size={18} color="#7C3AED" />
                   </View>
-                  <Text style={styles.shortcutText} numberOfLines={1}>New Task</Text>
+                  <Text style={styles.shortcutText} numberOfLines={1}>Add Task</Text>
                 </TouchableOpacity>
               )}
 

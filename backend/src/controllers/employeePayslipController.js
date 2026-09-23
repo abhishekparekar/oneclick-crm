@@ -30,8 +30,27 @@ const getPayslips = async (req, res, next) => {
       companyId: req.companyId,
     };
 
-    if (month) filter.month = month;
-    if (year) filter.year = Number(year);
+    if (month && month !== "all" && month !== "ALL") {
+      const mNum = parseInt(month, 10);
+      if (!isNaN(mNum)) {
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        const mName = monthNames[mNum - 1];
+        filter.month = {
+          $in: [
+            String(mNum),
+            String(mNum).padStart(2, "0"),
+            mName,
+            mName?.toLowerCase()
+          ].filter(Boolean)
+        };
+      } else {
+        filter.month = new RegExp(`^${month}$`, "i");
+      }
+    }
+    if (year && year !== "all" && year !== "ALL") filter.year = Number(year);
 
     const payslips = await Payroll.find(filter).sort({ year: -1, month: -1 }).lean();
 

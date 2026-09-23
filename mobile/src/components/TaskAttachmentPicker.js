@@ -47,6 +47,35 @@ export default function TaskAttachmentPicker({ attachments = [], onChange, label
     }
   };
 
+  const safeDecode = (str) => {
+    if (!str) return "Attachment";
+    try {
+      return decodeURIComponent(str);
+    } catch (_) {
+      return str;
+    }
+  };
+
+  const uploadFileDirectly = async (file) => {
+    const formData = new FormData();
+    formData.append("file", {
+      uri: file.uri,
+      name: file.name,
+      type: file.type || "application/octet-stream",
+    });
+
+    const res = await uploadMediaFileApi(formData);
+    const data = res.data || res;
+    if (data.success || data.fileUrl || data.url) {
+      return {
+        fileName: data.fileName || data.filename || file.name,
+        fileUrl: data.fileUrl || data.url,
+        fileType: data.fileType || file.type,
+      };
+    }
+    throw new Error(data.message || "Upload failed");
+  };
+
   const handlePick = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -54,16 +83,36 @@ export default function TaskAttachmentPicker({ attachments = [], onChange, label
         multiple: true,
         type: "*/*",
       });
-      if (result.canceled) return;
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
 
-      const newStaged = (result.assets || []).map(asset => ({
-        uri: asset.uri,
-        name: asset.name || "attachment",
-        type: asset.mimeType || "application/octet-stream",
-      }));
-      setStagedFiles(prev => [...prev, ...newStaged]);
+      setUploading(true);
+      const newUploadedList = [...attachments];
+      const failed = [];
+
+      for (const asset of result.assets) {
+        const item = {
+          uri: asset.uri,
+          name: asset.name || "attachment",
+          type: asset.mimeType || "application/octet-stream",
+        };
+        try {
+          const uploaded = await uploadFileDirectly(item);
+          if (uploaded) newUploadedList.push(uploaded);
+        } catch (err) {
+          console.warn("Auto upload error for file:", item.name, err);
+          failed.push(item);
+        }
+      }
+
+      onChange(newUploadedList);
+      if (failed.length > 0) {
+        setStagedFiles(prev => [...prev, ...failed]);
+        Alert.alert("Upload Notice", `${failed.length} file(s) could not be uploaded automatically. You can retry.`);
+      }
     } catch (err) {
       Alert.alert("Error", "Failed to pick file.");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -102,11 +151,24 @@ export default function TaskAttachmentPicker({ attachments = [], onChange, label
 
       if (uri) {
         const ext = uri.split('.').pop() || 'm4a';
-        setStagedFiles(prev => [...prev, {
+        const audioFile = {
           uri,
           name: `voice_note_${Date.now()}.${ext}`,
           type: `audio/${ext === 'm4a' ? 'mp4' : ext}`
-        }]);
+        };
+
+        setUploading(true);
+        try {
+          const uploaded = await uploadFileDirectly(audioFile);
+          if (uploaded) {
+            onChange([...attachments, uploaded]);
+          }
+        } catch (err) {
+          setStagedFiles(prev => [...prev, audioFile]);
+          Alert.alert("Notice", "Voice note recorded. Tap upload to save it.");
+        } finally {
+          setUploading(false);
+        }
       }
     } catch (err) {
       console.error('Failed to stop recording', err);
@@ -117,26 +179,14 @@ export default function TaskAttachmentPicker({ attachments = [], onChange, label
   const uploadStagedFile = async (file, index) => {
     try {
       setUploading(true);
-      const formData = new FormData();
-      formData.append("file", {
-        uri: file.uri,
-        name: file.name,
-        type: file.type,
-      });
-      
-      const res = await uploadMediaFileApi(formData);
-      const data = res.data || res;
-      if (data.success) {
-        onChange([...attachments, {
-          fileName: data.fileName,
-          fileUrl: data.fileUrl,
-          fileType: data.fileType,
-        }]);
+      const uploaded = await uploadFileDirectly(file);
+      if (uploaded) {
+        onChange([...attachments, uploaded]);
         setStagedFiles(prev => prev.filter((_, i) => i !== index));
       }
     } catch (err) {
       console.error(err);
-      Alert.alert("Upload Failed", "Could not upload file.");
+      Alert.alert("Upload Failed", "Could not upload file. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -199,7 +249,7 @@ export default function TaskAttachmentPicker({ attachments = [], onChange, label
       {/* Uploaded Files */}
       {attachments.map((file, index) => (
         <View key={`${file.fileUrl}-${index}`} style={styles.row}>
-          <Text style={styles.name} numberOfLines={1}>{decodeURIComponent(file.fileName || "Attachment")}</Text>
+          <Text style={styles.name} numberOfLines={1}>{safeDecode(file.fileName || "Attachment")}</Text>
           <TouchableOpacity onPress={() => onChange(attachments.filter((_, i) => i !== index))}>
             <Ionicons name="close-circle" size={18} color="#94a3b8" />
           </TouchableOpacity>

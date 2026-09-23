@@ -205,7 +205,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                   onPress={() => navigation.navigate("LeadsList", { openAddModal: true })}
                 >
                   <Ionicons name="add" size={16} color="#FFF" />
-                  <Text style={styles.heroAddButtonText}>+ Add Lead</Text>
+                  <Text style={styles.heroAddButtonText}>+ Add New Lead</Text>
                 </TouchableOpacity>
               </View>
 

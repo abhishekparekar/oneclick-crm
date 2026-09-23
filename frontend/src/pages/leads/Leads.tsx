@@ -13,7 +13,7 @@ import {
   ArrowUp, ArrowDown, UserCheck, Sparkles, Filter, SlidersHorizontal, RefreshCw, CheckCircle,
   Kanban, LayoutGrid, List, MessageSquare, Phone, Mail, MoreVertical, Layers, Calendar, ChevronUp, Clock, Globe,
   Layers3, Flame, CheckSquare, Package, FileText, User,
-  Zap, Eye, MapPin
+  Zap, Eye, MapPin, DollarSign
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import MapPlacesSearch from './MapPlacesSearch';
@@ -231,10 +231,38 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
           {lead.company || lead.productService || "General Lead"}
         </span>
 
-        <span className="inline-flex items-center gap-1 text-[9.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 shrink-0 max-w-[100px] truncate">
-          <UserCheck size={9} className="text-indigo-500 shrink-0" />
-          <span className="truncate">{lead.assignedTo?.name || "Unassigned"}</span>
-        </span>
+        {(() => {
+          const assignees: any[] = Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
+            ? lead.assignedToUsers
+            : lead.assignedTo
+            ? [lead.assignedTo]
+            : [];
+          if (assignees.length === 0) {
+            return (
+              <span className="inline-flex items-center gap-1 text-[9.5px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-800 shrink-0">
+                <UserCheck size={9} className="text-slate-400 shrink-0" />
+                <span>Unassigned</span>
+              </span>
+            );
+          }
+          const primaryName = assignees[0]?.name || "Staff";
+          const extra = assignees.length - 1;
+          const allNames = assignees.map((u: any) => u.name || "Staff").join(", ");
+          return (
+            <span
+              title={`Assigned to: ${allNames}`}
+              className="inline-flex items-center gap-1 text-[9.5px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50/80 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 shrink-0 max-w-[130px] truncate"
+            >
+              <UserCheck size={9} className="text-indigo-500 shrink-0" />
+              <span className="truncate">{primaryName}</span>
+              {extra > 0 && (
+                <span className="text-[8.5px] bg-indigo-200 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-200 px-1 rounded-full font-black">
+                  +{extra}
+                </span>
+              )}
+            </span>
+          );
+        })()}
       </div>
 
       {/* Tags (if any) */}
@@ -445,9 +473,20 @@ export default function Leads() {
     name: '', whatsappPhone: '', phone: '', email: '',
     statusId: '', source: '', productService: '',
     dateOfBirth: '', anniversaryDate: '', notes: '', whatsappOptIn: true,
+    nextFollowUpDate: '',
+    estimatedValue: '',
     assignedTo: '',
+    assignedToUserIds: [] as string[],
     tagIds: [] as string[],
   });
+
+  const [addLeadStaffMenuOpen, setAddLeadStaffMenuOpen] = useState(false);
+  const [addLeadStaffSearch, setAddLeadStaffSearch] = useState('');
+
+  // Bulk Assign Multi-Staff State
+  const [bulkAssignEmpIds, setBulkAssignEmpIds] = useState<string[]>([]);
+  const [bulkAssignMenuOpen, setBulkAssignMenuOpen] = useState(false);
+  const [bulkAssignSearch, setBulkAssignSearch] = useState('');
 
   const [selectedLeadId, setSelectedLeadId] = useState<string | null>(null);
 
@@ -496,8 +535,23 @@ export default function Leads() {
       const rawList = Array.isArray(res?.employees) ? res.employees : Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
       const mapped = rawList
         .filter((e: any) => {
-          const r = (e.userId?.role || e.role || '').toLowerCase();
-          return r !== 'superadmin' && r !== 'companyadmin';
+          const r = (e.userId?.role || e.role || '').toLowerCase().trim();
+          if (r === 'superadmin' || r === 'companyadmin' || r === 'admin') return false;
+
+          // Must have leads in assignedModules
+          const rawMods = [
+            ...(Array.isArray(e.assignedModules) ? e.assignedModules : []),
+            ...(Array.isArray(e.userId?.assignedModules) ? e.userId.assignedModules : []),
+          ];
+          const mods = rawMods.map((m: any) => String(m).toLowerCase().trim());
+          if (!mods.includes('leads') && !mods.includes('lead')) return false;
+
+          // Check permissions
+          const perm = e.permissions || e.userId?.permissions || {};
+          const lp = perm.leads ?? perm.lead;
+          if (lp === false || (typeof lp === 'object' && lp !== null && lp.view === false)) return false;
+
+          return true;
         })
         .map((e: any) => {
           const deptName = e.departmentId?.name || '';
@@ -828,18 +882,35 @@ export default function Leads() {
   };
 
   const handleBulkAssign = async () => {
-    if (!bulkAssignEmpId || checkedIds.size === 0) return;
+    const hasAssignees = bulkAssignEmpIds.length > 0 || (bulkAssignEmpId && bulkAssignEmpId !== 'unassigned');
+    const isUnassign = bulkAssignEmpId === 'unassigned';
+    if ((!hasAssignees && !isUnassign) || checkedIds.size === 0) return;
+
     await run('bulk-assign', async () => {
       const leadIds = Array.from(checkedIds);
-      const targetEmp = bulkAssignEmpId === 'unassigned' ? null : bulkAssignEmpId;
+      const targetUserIds = isUnassign ? [] : (bulkAssignEmpIds.length > 0 ? bulkAssignEmpIds : [bulkAssignEmpId]);
       await api.patch('/api/leads/bulk-assign', {
         leadIds,
-        assignedTo: targetEmp,
+        assignedToUsers: targetUserIds,
+        assignedTo: targetUserIds[0] || null,
       });
-      const chosenEmp = employees.find(e => (e.id || e._id) === bulkAssignEmpId);
-      success(`Assigned ${leadIds.length} contact${leadIds.length !== 1 ? 's' : ''} to ${targetEmp ? (chosenEmp?.name || 'Employee') : 'Unassigned'}`);
+
+      if (isUnassign) {
+        success(`Unassigned ${leadIds.length} contact${leadIds.length !== 1 ? 's' : ''}`);
+      } else {
+        const names = targetUserIds
+          .map(id => {
+            const emp = employees.find(e => String(e.id || e._id) === String(id));
+            return emp?.name || 'Staff';
+          })
+          .join(', ');
+        success(`Assigned ${leadIds.length} contact${leadIds.length !== 1 ? 's' : ''} to ${names}`);
+      }
+
       setCheckedIds(new Set());
       setBulkAssignEmpId('');
+      setBulkAssignEmpIds([]);
+      setBulkAssignMenuOpen(false);
       await fetchLeads(pagination.page);
     });
   };
@@ -919,14 +990,24 @@ export default function Leads() {
       if (!payload.email) delete payload.email;
       if (!payload.productService) delete payload.productService;
       if (!payload.notes) delete payload.notes;
+      payload.assignedToUsers = newLead.assignedToUserIds || [];
+      payload.assignedTo = newLead.assignedToUserIds[0] || (newLead.assignedTo || null);
       if (!payload.assignedTo) delete payload.assignedTo;
       if (payload.dateOfBirth) payload.dateOfBirth = new Date(payload.dateOfBirth).toISOString();
       if (payload.anniversaryDate) payload.anniversaryDate = new Date(payload.anniversaryDate).toISOString();
+      if (payload.nextFollowUpDate) payload.nextFollowUpDate = new Date(payload.nextFollowUpDate).toISOString();
+      if (payload.estimatedValue) payload.estimatedValue = Number(payload.estimatedValue) || null;
       await api.post('/api/leads', payload);
       handleCloseAddModal();
       const def = statuses.find((s: any) => s.isDefault) || statuses[0];
       const defSource = sources[0]?.name || 'Walk-in';
-      setNewLead({ name: '', whatsappPhone: '', phone: '', email: '', statusId: def?.id || '', source: defSource, productService: '', dateOfBirth: '', anniversaryDate: '', notes: '', whatsappOptIn: true, assignedTo: '', tagIds: [] });
+      setNewLead({
+        name: '', whatsappPhone: '', phone: '', email: '',
+        statusId: def?.id || '', source: defSource, productService: '',
+        dateOfBirth: '', anniversaryDate: '', notes: '', whatsappOptIn: true,
+        nextFollowUpDate: '', estimatedValue: '',
+        assignedTo: '', assignedToUserIds: [], tagIds: []
+      });
       
       // Auto-reset active search & filters so newly created lead is immediately displayed!
       setSearch('');
@@ -1170,7 +1251,7 @@ export default function Leads() {
             onClick={() => setShowAddModal(true)} 
             className="flex items-center gap-1.5 px-3 h-7.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
           >
-            <UserPlus size={13} strokeWidth={2.5} /> Add Contact
+            <UserPlus size={13} strokeWidth={2.5} /> Add New Lead
           </button>
         </div>
       </div>
@@ -1401,25 +1482,128 @@ export default function Leads() {
 
             <div className="flex flex-wrap items-center gap-1.5">
               {/* Bulk Assign Employee */}
-              <div className="flex items-center gap-1">
+              <div className="relative flex items-center gap-1">
                 <span className="text-slate-500 font-bold text-[10.5px]">Assign:</span>
-                <select
-                  className="h-7 px-2 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none max-w-[180px]"
-                  value={bulkAssignEmpId}
-                  onChange={e => setBulkAssignEmpId(e.target.value)}
+                <button
+                  type="button"
+                  onClick={() => setBulkAssignMenuOpen(!bulkAssignMenuOpen)}
+                  className="h-7 px-2 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none flex items-center justify-between gap-1.5 min-w-[130px] max-w-[200px] cursor-pointer"
                 >
-                  <option value="">Select Employee…</option>
-                  <option value="unassigned">-- Unassign --</option>
-                  {employees.map(emp => (
-                    <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                      {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
-                    </option>
-                  ))}
-                </select>
+                  <span className="truncate">
+                    {bulkAssignEmpIds.length === 0
+                      ? (bulkAssignEmpId === 'unassigned' ? '-- Unassign --' : (bulkAssignEmpId ? (employees.find(e => (e.id || e._id) === bulkAssignEmpId)?.name || '1 selected') : 'Select Staff…'))
+                      : `${bulkAssignEmpIds.length} staff selected`}
+                  </span>
+                  <ChevronDown size={11} className={`text-slate-400 transition-transform shrink-0 ${bulkAssignMenuOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {bulkAssignMenuOpen && (
+                  <div className="absolute top-full left-0 mt-1 w-64 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 z-50 flex flex-col space-y-1.5 animate-fadeIn">
+                    <div className="flex items-center justify-between pb-1 border-b border-slate-100 dark:border-slate-800">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assign Team Members</span>
+                      {(bulkAssignEmpIds.length > 0 || bulkAssignEmpId) && (
+                        <button
+                          type="button"
+                          onClick={() => { setBulkAssignEmpIds([]); setBulkAssignEmpId(''); }}
+                          className="text-[10px] text-rose-500 hover:text-rose-600 font-bold cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBulkAssignEmpId('unassigned');
+                        setBulkAssignEmpIds([]);
+                        setBulkAssignMenuOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
+                        bulkAssignEmpId === 'unassigned'
+                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600'
+                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      <span>-- Unassign Leads --</span>
+                    </button>
+
+                    {employees.length > 4 && (
+                      <div className="relative">
+                        <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={bulkAssignSearch}
+                          onChange={e => setBulkAssignSearch(e.target.value)}
+                          placeholder="Filter staff..."
+                          className="w-full pl-6 pr-2 py-0.5 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg outline-none text-slate-900 dark:text-white"
+                        />
+                      </div>
+                    )}
+
+                    <div className="max-h-48 overflow-y-auto space-y-0.5 custom-scrollbar">
+                      {employees
+                        .filter(emp => {
+                          if (!bulkAssignSearch.trim()) return true;
+                          const name = emp.name || '';
+                          return name.toLowerCase().includes(bulkAssignSearch.toLowerCase());
+                        })
+                        .map(emp => {
+                          const empId = String(emp.id || emp._id);
+                          const isChecked = bulkAssignEmpIds.includes(empId) || bulkAssignEmpId === empId;
+                          return (
+                            <button
+                              key={empId}
+                              type="button"
+                              onClick={() => {
+                                setBulkAssignEmpId('');
+                                const next = bulkAssignEmpIds.includes(empId)
+                                  ? bulkAssignEmpIds.filter(id => id !== empId)
+                                  : [...bulkAssignEmpIds, empId];
+                                setBulkAssignEmpIds(next);
+                              }}
+                              className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
+                                isChecked
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
+                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 truncate">
+                                <span className="truncate">{emp.name}</span>
+                                {(emp.department || emp.role) && (
+                                  <span className="text-[10px] text-slate-400 truncate">({emp.department || emp.role})</span>
+                                )}
+                              </div>
+                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
+                                isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                              }`}>
+                                {isChecked && <Check size={10} strokeWidth={3} />}
+                              </div>
+                            </button>
+                          );
+                        })}
+                      {employees.length === 0 && (
+                        <p className="text-xs text-slate-400 text-center py-2">No staff with leads access found.</p>
+                      )}
+                    </div>
+
+                    <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10.5px]">
+                      <span className="text-slate-400 font-semibold">{bulkAssignEmpIds.length} selected</span>
+                      <button
+                        type="button"
+                        onClick={() => setBulkAssignMenuOpen(false)}
+                        className="px-2.5 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <button
                   onClick={handleBulkAssign}
-                  disabled={!bulkAssignEmpId || isLoading('bulk-assign')}
-                  className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg transition-all flex items-center gap-1 cursor-pointer"
+                  disabled={(!bulkAssignEmpId && bulkAssignEmpIds.length === 0) || isLoading('bulk-assign')}
+                  className="h-7 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-lg transition-all flex items-center gap-1 cursor-pointer disabled:opacity-50"
                 >
                   {isLoading('bulk-assign') ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
                   Assign
@@ -1646,10 +1830,38 @@ export default function Leads() {
                       </td>
 
                       <td className="px-2.5 py-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60">
-                          <UserCheck size={10} className="text-indigo-500 shrink-0" />
-                          <span className="truncate max-w-[100px]">{lead.assignedTo?.name || "Unassigned"}</span>
-                        </span>
+                        {(() => {
+                          const assignees: any[] = Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
+                            ? lead.assignedToUsers
+                            : lead.assignedTo
+                            ? [lead.assignedTo]
+                            : [];
+                          if (assignees.length === 0) {
+                            return (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-800">
+                                <UserCheck size={10} className="text-slate-400 shrink-0" />
+                                <span>Unassigned</span>
+                              </span>
+                            );
+                          }
+                          const primaryName = assignees[0]?.name || "Staff";
+                          const extra = assignees.length - 1;
+                          const allNames = assignees.map((u: any) => u.name || "Staff").join(", ");
+                          return (
+                            <span
+                              title={`Assigned to: ${allNames}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-700 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 px-1.5 py-0.5 rounded border border-indigo-200/60 dark:border-indigo-800/60 max-w-[130px] truncate"
+                            >
+                              <UserCheck size={10} className="text-indigo-500 shrink-0" />
+                              <span className="truncate">{primaryName}</span>
+                              {extra > 0 && (
+                                <span className="text-[8.5px] bg-indigo-200 dark:bg-indigo-800 text-indigo-900 dark:text-indigo-200 px-1 rounded-full font-black">
+                                  +{extra}
+                                </span>
+                              )}
+                            </span>
+                          );
+                        })()}
                       </td>
 
                       <td className="px-2.5 py-1.5 whitespace-nowrap" onClick={e => e.stopPropagation()}>
@@ -1796,238 +2008,423 @@ export default function Leads() {
                 </div>
               )}
 
-              {/* Section 1: Customer Contact Details */}
-              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
-                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <User size={13} className="text-amber-500" />
-                  Customer Contact Information
-                </p>
+              {/* Single Unified Form Card */}
+              <div className="bg-white dark:bg-[#0A1020] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-sm overflow-hidden">
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Full Name <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input 
-                        type="text" 
-                        required 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30" 
-                        placeholder="e.g. Rameshwar Shinde" 
-                        value={newLead.name} 
-                        onChange={e => setNewLead({ ...newLead, name: e.target.value })} 
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      WhatsApp Number <span className="text-rose-500">*</span>
-                    </label>
-                    <div className="relative">
-                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input 
-                        type="tel" 
-                        required 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono" 
-                        placeholder="e.g. 9689119006" 
-                        value={newLead.whatsappPhone} 
-                        onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })} 
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Secondary Phone (Optional)
-                    </label>
-                    <div className="relative">
-                      <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input 
-                        type="tel" 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono" 
-                        placeholder="e.g. 9822001122" 
-                        value={newLead.phone} 
-                        onChange={e => setNewLead({ ...newLead, phone: e.target.value })} 
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Email Address (Optional)
-                    </label>
-                    <div className="relative">
-                      <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input 
-                        type="email" 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30" 
-                        placeholder="client@gmail.com" 
-                        value={newLead.email} 
-                        onChange={e => setNewLead({ ...newLead, email: e.target.value })} 
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Section 2: Requirement & Product Interest */}
-              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
-                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Package size={13} className="text-amber-500" />
-                  Product Requirement & Lead Source
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                        Product / Service Required
+                {/* ── Section 1: Contact Details ─────────────────────────── */}
+                <div className="px-4 pt-4 pb-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-3">
+                    <User size={12} strokeWidth={2.5} />
+                    Customer Contact Information
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Full Name <span className="text-rose-500">*</span>
                       </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowQuickAddProduct(true)}
-                        className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <Plus size={11} strokeWidth={2.5} /> Add New
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Package size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
-                        value={isCustomProduct ? '__CUSTOM__' : newLead.productService}
-                        onChange={e => {
-                          const val = e.target.value;
-                          if (val === '__ADD_NEW__') {
-                            setShowQuickAddProduct(true);
-                          } else if (val === '__CUSTOM__') {
-                            setIsCustomProduct(true);
-                            setNewLead({ ...newLead, productService: customProductText });
-                          } else {
-                            setIsCustomProduct(false);
-                            setNewLead({ ...newLead, productService: val });
-                          }
-                        }}
-                      >
-                        <option value="">-- Select Product / Service --</option>
-                        {(Array.isArray(products) ? products : []).map(prod => (
-                          <option key={prod.id || prod._id} value={prod.name}>
-                            {prod.name} {prod.price ? `(₹${Number(prod.price).toLocaleString()})` : ''}
-                          </option>
-                        ))}
-                        <option value="__CUSTOM__" className="text-blue-600 font-bold">
-                          ✍️ Other / Custom Requirement (Type manually)...
-                        </option>
-                        <option value="__ADD_NEW__" className="text-amber-600 font-bold">
-                          + Add New to Catalog...
-                        </option>
-                      </select>
-                    </div>
-
-                    {isCustomProduct && (
-                      <div className="mt-2 animate-fadeIn">
+                      <div className="relative">
+                        <User size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
                         <input
                           type="text"
-                          autoFocus
                           required
-                          placeholder="Type custom product or service requirement..."
-                          value={customProductText}
-                          onChange={e => {
-                            setCustomProductText(e.target.value);
-                            setNewLead({ ...newLead, productService: e.target.value });
-                          }}
-                          className="w-full px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-400 dark:border-amber-600 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none ring-1 ring-amber-500/30"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                          placeholder="e.g. Rameshwar Shinde"
+                          value={newLead.name}
+                          onChange={e => setNewLead({ ...newLead, name: e.target.value })}
                         />
                       </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                        Lead Source
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowQuickAddSource(true)}
-                        className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
-                      >
-                        <Plus size={11} strokeWidth={3} /> Add Source
-                      </button>
                     </div>
-                    <div className="relative">
-                      <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer" 
-                        value={newLead.source} 
-                        onChange={e => setNewLead({ ...newLead, source: e.target.value })}
-                      >
-                        {(Array.isArray(sources) ? sources : []).map(src => <option key={src.name} value={src.name}>{src.name}</option>)}
-                      </select>
+
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        WhatsApp Number <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="tel"
+                          required
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                          placeholder="e.g. 9689119006"
+                          value={newLead.whatsappPhone}
+                          onChange={e => setNewLead({ ...newLead, whatsappPhone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Secondary Phone (Optional)
+                      </label>
+                      <div className="relative">
+                        <Phone size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="tel"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 font-mono"
+                          placeholder="e.g. 9822001122"
+                          value={newLead.phone}
+                          onChange={e => setNewLead({ ...newLead, phone: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Email Address (Optional)
+                      </label>
+                      <div className="relative">
+                        <Mail size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="email"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                          placeholder="client@gmail.com"
+                          value={newLead.email}
+                          onChange={e => setNewLead({ ...newLead, email: e.target.value })}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Section 3: Stage, Assign & Notes */}
-              <div className="p-4 bg-slate-50 dark:bg-[#0E1522] border border-slate-200/80 dark:border-slate-800/90 rounded-2xl space-y-3 shadow-2xs">
-                <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
-                  <Layers size={13} className="text-amber-500" />
-                  Pipeline Stage & Assignment
-                </p>
+                {/* Divider */}
+                <div className="border-t border-dashed border-slate-200 dark:border-slate-800/80 mx-4" />
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                        Pipeline Status
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowQuickAddStatus(true)}
-                        className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
-                      >
-                        <Plus size={11} strokeWidth={3} /> Add Status
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Layers size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer" 
-                        value={newLead.statusId} 
-                        onChange={e => setNewLead({ ...newLead, statusId: e.target.value })}
-                      >
-                        {(Array.isArray(statuses) ? statuses : []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Assign to Sales Rep / Employee
-                    </label>
-                    <div className="relative">
-                      <Users size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <select 
-                        className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
-                        value={newLead.assignedTo}
-                        onChange={e => setNewLead({ ...newLead, assignedTo: e.target.value })}
-                      >
-                        <option value="">-- Leave Unassigned (Or Auto) --</option>
-                        {employees.map(emp => (
-                          <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                            {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
+                {/* ── Section 2: Requirement & Source ───────────────────── */}
+                <div className="px-4 pt-3 pb-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-3">
+                    <Package size={12} strokeWidth={2.5} />
+                    Product Requirement & Lead Source
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                          Product / Service Required
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddProduct(true)}
+                          className="text-[10.5px] font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <Plus size={11} strokeWidth={2.5} /> Add New
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Package size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                          value={isCustomProduct ? '__CUSTOM__' : newLead.productService}
+                          onChange={e => {
+                            const val = e.target.value;
+                            if (val === '__ADD_NEW__') {
+                              setShowQuickAddProduct(true);
+                            } else if (val === '__CUSTOM__') {
+                              setIsCustomProduct(true);
+                              setNewLead({ ...newLead, productService: customProductText });
+                            } else {
+                              setIsCustomProduct(false);
+                              setNewLead({ ...newLead, productService: val });
+                            }
+                          }}
+                        >
+                          <option value="">-- Select Product / Service --</option>
+                          {(Array.isArray(products) ? products : []).map(prod => (
+                            <option key={prod.id || prod._id} value={prod.name}>
+                              {prod.name} {prod.price ? `(₹${Number(prod.price).toLocaleString()})` : ''}
+                            </option>
+                          ))}
+                          <option value="__CUSTOM__" className="text-blue-600 font-bold">
+                            ✍️ Other / Custom Requirement (Type manually)...
                           </option>
-                        ))}
-                      </select>
+                          <option value="__ADD_NEW__" className="text-amber-600 font-bold">
+                            + Add New to Catalog...
+                          </option>
+                        </select>
+                      </div>
+                      {isCustomProduct && (
+                        <div className="mt-2 animate-fadeIn">
+                          <input
+                            type="text"
+                            autoFocus
+                            required
+                            placeholder="Type custom product or service requirement..."
+                            value={customProductText}
+                            onChange={e => {
+                              setCustomProductText(e.target.value);
+                              setNewLead({ ...newLead, productService: e.target.value });
+                            }}
+                            className="w-full px-3 py-1.5 rounded-xl bg-amber-50/50 dark:bg-amber-950/20 border border-amber-400 dark:border-amber-600 text-xs font-bold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none ring-1 ring-amber-500/30"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                          Lead Source
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddSource(true)}
+                          className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                        >
+                          <Plus size={11} strokeWidth={3} /> Add Source
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Globe size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                          value={newLead.source}
+                          onChange={e => setNewLead({ ...newLead, source: e.target.value })}
+                        >
+                          {(Array.isArray(sources) ? sources : []).map(src => <option key={src.name} value={src.name}>{src.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
+                {/* Divider */}
+                <div className="border-t border-dashed border-slate-200 dark:border-slate-800/80 mx-4" />
+
+                {/* ── Section 3: Pipeline & Assignment ──────────────────── */}
+                <div className="px-4 pt-3 pb-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-3">
+                    <Layers size={12} strokeWidth={2.5} />
+                    Pipeline Stage & Assignment
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                          Pipeline Status
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setShowQuickAddStatus(true)}
+                          className="text-[10.5px] font-extrabold text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 inline-flex items-center gap-0.5 transition-colors cursor-pointer"
+                        >
+                          <Plus size={11} strokeWidth={3} /> Add Status
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Layers size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <select
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                          value={newLead.statusId}
+                          onChange={e => setNewLead({ ...newLead, statusId: e.target.value })}
+                        >
+                          {(Array.isArray(statuses) ? statuses : []).map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
+                          Assign Staff / Team ({newLead.assignedToUserIds.length})
+                        </label>
+                        {newLead.assignedToUserIds.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setNewLead(prev => ({ ...prev, assignedToUserIds: [], assignedTo: '' }))}
+                            className="text-[10px] text-rose-500 hover:text-rose-600 font-semibold cursor-pointer"
+                          >
+                            Clear
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Selected Chips */}
+                      {newLead.assignedToUserIds.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {newLead.assignedToUserIds.map((id, idx) => {
+                            const emp = employees.find(e => (e.id || e._id) === id);
+                            const name = emp?.name || 'Staff';
+                            return (
+                              <span
+                                key={id}
+                                className="inline-flex items-center gap-1 pl-1.5 pr-1 py-0.5 rounded-md text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 border border-indigo-200/80 dark:border-indigo-800/60"
+                              >
+                                <span className="truncate max-w-[90px]">{name}</span>
+                                {idx === 0 && (
+                                  <span className="text-[8px] font-black uppercase bg-amber-400/20 text-amber-800 dark:text-amber-200 px-0.5 rounded">
+                                    Primary
+                                  </span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const updated = newLead.assignedToUserIds.filter(x => x !== id);
+                                    setNewLead(prev => ({ ...prev, assignedToUserIds: updated, assignedTo: updated[0] || '' }));
+                                  }}
+                                  className="w-3.5 h-3.5 rounded hover:bg-indigo-200 dark:hover:bg-indigo-800 text-indigo-600 dark:text-indigo-300 flex items-center justify-center cursor-pointer"
+                                >
+                                  <X size={9} />
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* Staff Multi-Select Trigger & Dropdown */}
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setAddLeadStaffMenuOpen(!addLeadStaffMenuOpen)}
+                          className="w-full pl-3 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 hover:border-amber-500 focus:outline-none flex items-center justify-between cursor-pointer"
+                        >
+                          <span className="flex items-center gap-1.5 truncate">
+                            <Users size={12} className="text-slate-400 shrink-0" />
+                            <span className="truncate">
+                              {newLead.assignedToUserIds.length === 0
+                                ? '-- Leave Unassigned (Or Select Staff) --'
+                                : `+ ${newLead.assignedToUserIds.length} Staff Member${newLead.assignedToUserIds.length > 1 ? 's' : ''} Selected`}
+                            </span>
+                          </span>
+                          <ChevronDown size={12} className={`text-slate-400 transition-transform ${addLeadStaffMenuOpen ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {addLeadStaffMenuOpen && (
+                          <div className="absolute z-40 left-0 right-0 mt-1 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-2 space-y-1.5 max-h-52 flex flex-col animate-fadeIn">
+                            {employees.length > 4 && (
+                              <div className="relative shrink-0">
+                                <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                                <input
+                                  type="text"
+                                  value={addLeadStaffSearch}
+                                  onChange={e => setAddLeadStaffSearch(e.target.value)}
+                                  placeholder="Filter employees..."
+                                  className="w-full pl-7 pr-2 py-1 text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg focus:outline-none focus:border-amber-500 text-slate-900 dark:text-white"
+                                />
+                              </div>
+                            )}
+
+                            <div className="overflow-y-auto space-y-1 custom-scrollbar flex-1">
+                              {employees
+                                .filter(emp => {
+                                  if (!addLeadStaffSearch.trim()) return true;
+                                  const name = emp.name || '';
+                                  return name.toLowerCase().includes(addLeadStaffSearch.toLowerCase());
+                                })
+                                .map(emp => {
+                                  const empId = String(emp.id || emp._id);
+                                  const isChecked = newLead.assignedToUserIds.includes(empId);
+                                  return (
+                                    <button
+                                      key={empId}
+                                      type="button"
+                                      onClick={() => {
+                                        const updated = isChecked
+                                          ? newLead.assignedToUserIds.filter(x => x !== empId)
+                                          : [...newLead.assignedToUserIds, empId];
+                                        setNewLead(prev => ({
+                                          ...prev,
+                                          assignedToUserIds: updated,
+                                          assignedTo: updated[0] || '',
+                                        }));
+                                      }}
+                                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
+                                        isChecked
+                                          ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
+                                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
+                                      }`}
+                                    >
+                                      <div className="flex items-center gap-2 truncate">
+                                        <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
+                                          isChecked ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                        }`}>
+                                          {(emp.name || 'S').charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="truncate">{emp.name}</span>
+                                        {(emp.department || emp.role) && (
+                                          <span className="text-[9.5px] text-slate-400 truncate">({emp.department || emp.role})</span>
+                                        )}
+                                      </div>
+                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
+                                        isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                      }`}>
+                                        {isChecked && <Check size={10} strokeWidth={3} />}
+                                      </div>
+                                    </button>
+                                  );
+                                })}
+                              {employees.length === 0 && (
+                                <p className="text-xs text-slate-400 text-center py-2">No staff found.</p>
+                              )}
+                            </div>
+
+                            <div className="pt-1 border-t border-slate-100 dark:border-slate-800/80 flex items-center justify-between text-[10.5px] shrink-0">
+                              <span className="text-slate-400 font-medium">{newLead.assignedToUserIds.length} selected</span>
+                              <button
+                                type="button"
+                                onClick={() => setAddLeadStaffMenuOpen(false)}
+                                className="px-2 py-0.5 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold cursor-pointer transition-colors"
+                              >
+                                Done
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-dashed border-slate-200 dark:border-slate-800/80 mx-4" />
+
+                {/* ── Section 4: Follow-Up & Deal Value ─────────────────── */}
+                <div className="px-4 pt-3 pb-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-3">
+                    <Clock size={12} strokeWidth={2.5} />
+                    Follow-Up Schedule & Deal Value
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Next Follow-Up Date & Time
+                      </label>
+                      <div className="relative">
+                        <Calendar size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                        <input
+                          type="datetime-local"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 cursor-pointer"
+                          value={newLead.nextFollowUpDate}
+                          onChange={e => setNewLead({ ...newLead, nextFollowUpDate: e.target.value })}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
+                        Est. Deal Value (₹)
+                      </label>
+                      <div className="relative">
+                        <DollarSign size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                          placeholder="e.g. 50000"
+                          value={newLead.estimatedValue}
+                          onChange={e => setNewLead({ ...newLead, estimatedValue: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-dashed border-slate-200 dark:border-slate-800/80 mx-4" />
+
+                {/* ── Section 5: Notes ───────────────────────────────────── */}
+                <div className="px-4 pt-3 pb-4">
+                  <label className="block text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider mb-1">
                     Initial Inquiry Notes (Optional)
                   </label>
                   <div className="relative">
@@ -2037,7 +2434,7 @@ export default function Leads() {
                       value={newLead.notes}
                       onChange={e => setNewLead({ ...newLead, notes: e.target.value })}
                       placeholder="Enter client background, specific expectations or requirement notes..."
-                      className="w-full pl-8 pr-3 py-2 bg-white dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 resize-none"
+                      className="w-full pl-8 pr-3 py-2 bg-slate-50 dark:bg-[#080D14] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-medium text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 resize-none"
                     />
                   </div>
                 </div>
@@ -2058,7 +2455,7 @@ export default function Leads() {
                   className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
                 >
                   {savingLead ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                  <span>{savingLead ? 'Saving...' : 'Save & Add Contact'}</span>
+                  <span>{savingLead ? 'Saving...' : 'Save & Add New Lead'}</span>
                 </button>
               </div>
             </form>

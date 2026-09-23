@@ -544,8 +544,8 @@ const ManagerTasksScreen = ({ navigation, route }) => {
   useFocusEffect(
     useCallback(() => {
       fetchTaskPermissions();
-      fetchMyManagerTasks();
-      fetchTeamTasks();
+      fetchMyManagerTasks(true);
+      fetchTeamTasks(true);
       fetchDashboard(true);
       fetchTeam(true);
     }, [])
@@ -1322,6 +1322,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
                       onPress={() => {
                         setActiveTab("teamTasks");
                         setDeadlineComingFilter("");
+                        fetchTeamTasks(true);
                       }}
                       activeOpacity={0.8}
                     >

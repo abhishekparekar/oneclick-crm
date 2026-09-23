@@ -530,6 +530,9 @@ export default function EditEmployee() {
       setOriginalData(JSON.stringify(formData));
       setIsDirty(false);
       toast.success("Employee profile updated successfully!");
+      setTimeout(() => {
+        navigate(backRoute);
+      }, 350);
     },
     onError: (err) => {
       toast.error(err?.response?.data?.message || "Failed to update employee");
@@ -1677,14 +1680,23 @@ export default function EditEmployee() {
 
         {/* ── Step Navigation Footer ────────────────────────────────────── */}
         <div className="flex items-center justify-between pt-6 mt-6 border-t border-slate-100 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={() => setStep(prev => Math.max(1, prev - 1))}
-            disabled={step === 1}
-            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft size={14} /> <span>Previous Step</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => navigate(backRoute)}
+              className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(prev => Math.max(1, prev - 1))}
+              disabled={step === 1}
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 text-xs font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft size={14} /> <span>Previous Step</span>
+            </button>
+          </div>
 
           <div className="flex items-center gap-2">
             {step < STEPS.length ? (

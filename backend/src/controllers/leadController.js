@@ -132,27 +132,11 @@ const seedDefaultsForCompany = async (companyId) => {
     { name: "Lost", color: "#EF4444", displayOrder: 5, isDefault: false },
   ];
 
-  const existingStatuses = await LeadStatus.find({ companyId });
-  if (existingStatuses.length === 0) {
+  const statusCount = await LeadStatus.countDocuments({ companyId });
+  if (statusCount === 0) {
     await LeadStatus.insertMany(
       defaultStatuses.map((s) => ({ ...s, companyId }))
     );
-  } else if (existingStatuses.length < 5) {
-    const existingNames = new Set(
-      existingStatuses.map((s) => (s.name || "").toLowerCase().trim())
-    );
-    const missing = defaultStatuses.filter(
-      (d) => !existingNames.has(d.name.toLowerCase().trim())
-    );
-    if (missing.length > 0) {
-      await LeadStatus.insertMany(
-        missing.map((s, idx) => ({
-          ...s,
-          companyId,
-          displayOrder: existingStatuses.length + idx + 1,
-        }))
-      );
-    }
   }
 
   const defaultSources = [
@@ -164,7 +148,7 @@ const seedDefaultsForCompany = async (companyId) => {
     "Instagram Direct",
   ];
   const sourceCount = await LeadSource.countDocuments({ companyId });
-  if (sourceCount === 0) {
+  if (sourceCount === 0 && statusCount === 0) {
     await LeadSource.insertMany(
       defaultSources.map((name) => ({ name, companyId }))
     );
@@ -271,6 +255,9 @@ const createStatus = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
     const { name, color, displayOrder, isDefault } = req.body;
+    if (isDefault && companyId) {
+      await LeadStatus.updateMany({ companyId }, { $set: { isDefault: false } });
+    }
     const status = await LeadStatus.create({
       companyId,
       name,
@@ -294,24 +281,90 @@ const createStatus = async (req, res) => {
 const updateStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const updated = await LeadStatus.findByIdAndUpdate(id, req.body, { new: true });
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid status ID" });
+    }
+    const { name, color, displayOrder, isDefault, isActive } = req.body;
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (color !== undefined) updateData.color = color;
+    if (displayOrder !== undefined) updateData.displayOrder = displayOrder;
+    if (isDefault !== undefined) {
+      updateData.isDefault = isDefault;
+      if (isDefault) {
+        const companyId = getCompanyId(req);
+        if (companyId) {
+          await LeadStatus.updateMany({ companyId, _id: { $ne: id } }, { $set: { isDefault: false } });
+        }
+      }
+    }
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    const updated = await LeadStatus.findByIdAndUpdate(id, updateData, { new: true });
     if (!updated) return res.status(404).json({ message: "Status not found" });
     return res.json({
       id: updated._id.toString(),
       _id: updated._id.toString(),
       name: updated.name,
       color: updated.color,
+      displayOrder: updated.displayOrder,
+      isDefault: updated.isDefault,
+      isActive: updated.isActive,
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
 };
 
+const reorderStatuses = async (req, res) => {
+  try {
+    const { items } = req.body;
+    if (!Array.isArray(items)) {
+      return res.status(400).json({ success: false, message: "items must be an array" });
+    }
+    const validItems = items.filter(
+      (it) => it && (it.id || it._id) && mongoose.Types.ObjectId.isValid(it.id || it._id)
+    );
+    const bulkOps = validItems.map((item) => ({
+      updateOne: {
+        filter: { _id: item.id || item._id },
+        update: { $set: { displayOrder: Number(item.displayOrder) || 1 } },
+      },
+    }));
+    if (bulkOps.length > 0) {
+      await LeadStatus.bulkWrite(bulkOps);
+    }
+    return res.json({ success: true, message: "Statuses reordered successfully" });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 const deleteStatus = async (req, res) => {
   try {
     const { id } = req.params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ success: false, message: "Invalid status ID" });
+    }
+    const statusToDelete = await LeadStatus.findById(id);
+    if (!statusToDelete) {
+      return res.status(404).json({ success: false, message: "Status not found" });
+    }
+    if (statusToDelete.isDefault) {
+      return res.status(400).json({ success: false, message: "Cannot delete the default stage" });
+    }
+
+    // Reassign leads in this status to the default/fallback status
+    const fallbackStatus =
+      (await LeadStatus.findOne(buildCompanyQuery(req, { isDefault: true, _id: { $ne: id } }))) ||
+      (await LeadStatus.findOne(buildCompanyQuery(req, { _id: { $ne: id } })));
+
+    if (fallbackStatus) {
+      await Lead.updateMany({ statusId: id }, { $set: { statusId: fallbackStatus._id } });
+    }
+
     await LeadStatus.findByIdAndDelete(id);
-    return res.json({ message: "Status deleted" });
+    return res.json({ success: true, message: "Status deleted successfully" });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -339,12 +392,59 @@ const createSource = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
     const { name } = req.body;
-    const source = await LeadSource.create({ companyId, name });
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Source name is required" });
+    }
+    const source = await LeadSource.create({ companyId, name: name.trim() });
     return res.status(201).json({
       id: source._id.toString(),
       _id: source._id.toString(),
       name: source.name,
     });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+const updateSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid source ID" });
+    }
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ message: "Source name is required" });
+    }
+    const updated = await LeadSource.findByIdAndUpdate(
+      id,
+      { name: name.trim() },
+      { new: true }
+    );
+    if (!updated) {
+      return res.status(404).json({ message: "Lead source not found" });
+    }
+    return res.json({
+      id: updated._id.toString(),
+      _id: updated._id.toString(),
+      name: updated.name,
+    });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
+const deleteSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid source ID" });
+    }
+    const deleted = await LeadSource.findByIdAndDelete(id);
+    if (!deleted) {
+      return res.status(404).json({ message: "Lead source not found" });
+    }
+    return res.json({ success: true, message: "Lead source deleted successfully" });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -463,6 +563,7 @@ const getLeads = async (req, res) => {
         $or: [
           { createdBy: { $in: allAllowedUserIds } },
           { assignedTo: { $in: allAllowedUserIds } },
+          { assignedToUsers: { $in: allAllowedUserIds } },
         ],
       });
     }
@@ -497,8 +598,10 @@ const getLeads = async (req, res) => {
       query.$and = query.$and || [];
       query.$and.push({
         $or: [
-          { assignedTo: null },
-          { assignedTo: { $exists: false } },
+          { assignedTo: null, assignedToUsers: { $size: 0 } },
+          { assignedTo: null, assignedToUsers: { $exists: false } },
+          { assignedTo: { $exists: false }, assignedToUsers: { $size: 0 } },
+          { assignedTo: { $exists: false }, assignedToUsers: { $exists: false } },
         ],
       });
     } else if (assignedTo && assignedTo !== "all") {
@@ -515,7 +618,10 @@ const getLeads = async (req, res) => {
       }
       query.$and = query.$and || [];
       query.$and.push({
-        assignedTo: { $in: candidateIds },
+        $or: [
+          { assignedTo: { $in: candidateIds } },
+          { assignedToUsers: { $in: candidateIds } },
+        ],
       });
     }
 
@@ -549,6 +655,7 @@ const getLeads = async (req, res) => {
       .populate("statusId", "name color")
       .populate("tags", "name color")
       .populate("assignedTo", "name email phone role")
+      .populate("assignedToUsers", "name email phone role")
       .populate("createdBy", "name email")
       .sort(sortObj)
       .skip((page - 1) * limit)
@@ -574,6 +681,26 @@ const getLeads = async (req, res) => {
         }
         : null,
       assignedToId: l.assignedTo?._id?.toString() || (typeof l.assignedTo === "string" ? l.assignedTo : null),
+      assignedToUsers: Array.isArray(l.assignedToUsers) && l.assignedToUsers.length > 0
+        ? l.assignedToUsers.map((u) => ({
+            id: u._id ? u._id.toString() : u.toString(),
+            _id: u._id ? u._id.toString() : u.toString(),
+            name: u.name || "Employee",
+            email: u.email || "",
+            role: u.role || "Employee",
+          }))
+        : (l.assignedTo
+            ? [{
+                id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
+                _id: l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString(),
+                name: l.assignedTo.name || "Employee",
+                email: l.assignedTo.email || "",
+                role: l.assignedTo.role || "Employee",
+              }]
+            : []),
+      assignedToUserIds: Array.isArray(l.assignedToUsers) && l.assignedToUsers.length > 0
+        ? l.assignedToUsers.map((u) => (u._id ? u._id.toString() : u.toString()))
+        : (l.assignedTo ? [l.assignedTo._id ? l.assignedTo._id.toString() : l.assignedTo.toString()] : []),
       createdBy: l.createdBy
         ? {
           id: l.createdBy._id ? l.createdBy._id.toString() : l.createdBy.toString(),
@@ -658,17 +785,26 @@ const createLead = async (req, res) => {
 
     const canAssign = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "assign");
 
-    let resolvedAssignedTo = null;
+    const rawAssigned = req.body.assignedToUsers || req.body.assignedTo || assignedTo;
+    let resolvedAssignedUsers = [];
     if (req.user?.role?.toLowerCase() === "employee" && !canAssign) {
-      resolvedAssignedTo = req.user?._id;
-    } else if (assignedTo && assignedTo !== "unassigned") {
-      const resolvedIds = await resolveToUserIds(assignedTo, companyId);
-      if (resolvedIds.length > 0) {
-        resolvedAssignedTo = resolvedIds[0];
+      resolvedAssignedUsers = [req.user?._id];
+    } else if (rawAssigned && rawAssigned !== "unassigned") {
+      const idsToResolve = Array.isArray(rawAssigned) ? rawAssigned : [rawAssigned];
+      for (const singleId of idsToResolve) {
+        if (!singleId || singleId === "unassigned") continue;
+        const resIds = await resolveToUserIds(singleId, companyId);
+        resIds.forEach((id) => {
+          if (!resolvedAssignedUsers.some((existing) => existing.toString() === id.toString())) {
+            resolvedAssignedUsers.push(id);
+          }
+        });
       }
     } else if (req.user?.role?.toLowerCase() === "employee") {
-      resolvedAssignedTo = req.user?._id;
+      resolvedAssignedUsers = [req.user?._id];
     }
+
+    const resolvedAssignedTo = resolvedAssignedUsers[0] || null;
 
     const newLead = await Lead.create({
       companyId,
@@ -680,6 +816,7 @@ const createLead = async (req, res) => {
       estimatedValue: estimatedValue ? Number(estimatedValue) : null,
       createdBy: req.user?._id || null,
       assignedTo: resolvedAssignedTo || null,
+      assignedToUsers: resolvedAssignedUsers,
       statusId: targetStatusId,
       source: source || "Walk-in",
       productService: productService || null,
@@ -705,7 +842,9 @@ const createLead = async (req, res) => {
 
     const populated = await Lead.findById(newLead._id)
       .populate("statusId", "name color")
-      .populate("tags", "name color");
+      .populate("tags", "name color")
+      .populate("assignedTo", "name email phone role")
+      .populate("assignedToUsers", "name email phone role");
 
     const formatted = {
       id: populated._id.toString(),
@@ -726,6 +865,36 @@ const createLead = async (req, res) => {
       tags: Array.isArray(populated.tags)
         ? populated.tags.map((t) => ({ id: t._id.toString(), name: t.name, color: t.color }))
         : [],
+      assignedTo: populated.assignedTo
+        ? {
+          id: populated.assignedTo._id ? populated.assignedTo._id.toString() : populated.assignedTo.toString(),
+          _id: populated.assignedTo._id ? populated.assignedTo._id.toString() : populated.assignedTo.toString(),
+          name: populated.assignedTo.name || "Employee",
+          email: populated.assignedTo.email || "",
+          role: populated.assignedTo.role || "Employee",
+        }
+        : null,
+      assignedToId: populated.assignedTo?._id?.toString() || (typeof populated.assignedTo === "string" ? populated.assignedTo : null),
+      assignedToUsers: Array.isArray(populated.assignedToUsers) && populated.assignedToUsers.length > 0
+        ? populated.assignedToUsers.map((u) => ({
+            id: u._id ? u._id.toString() : u.toString(),
+            _id: u._id ? u._id.toString() : u.toString(),
+            name: u.name || "Employee",
+            email: u.email || "",
+            role: u.role || "Employee",
+          }))
+        : (populated.assignedTo
+            ? [{
+                id: populated.assignedTo._id ? populated.assignedTo._id.toString() : populated.assignedTo.toString(),
+                _id: populated.assignedTo._id ? populated.assignedTo._id.toString() : populated.assignedTo.toString(),
+                name: populated.assignedTo.name || "Employee",
+                email: populated.assignedTo.email || "",
+                role: populated.assignedTo.role || "Employee",
+              }]
+            : []),
+      assignedToUserIds: Array.isArray(populated.assignedToUsers) && populated.assignedToUsers.length > 0
+        ? populated.assignedToUsers.map((u) => (u._id ? u._id.toString() : u.toString()))
+        : (populated.assignedTo ? [populated.assignedTo._id ? populated.assignedTo._id.toString() : populated.assignedTo.toString()] : []),
       leadNotes: populated.leadNotes || [],
       leadMessages: populated.leadMessages || [],
       leadActivities: populated.leadActivities || [],
@@ -738,22 +907,24 @@ const createLead = async (req, res) => {
       ? `${newLead.company}`
       : newLead.whatsappPhone || newLead.phone || "No contact";
 
-    // 1. If assigned to a specific staff member on creation, notify them directly
-    if (resolvedAssignedTo && resolvedAssignedTo.toString() !== req.user?._id?.toString()) {
-      await notifyUserOrEmployee(
-        newLead.companyId || companyId,
-        resolvedAssignedTo,
-        `Lead Assigned: ${newLead.name}`,
-        `You have been assigned a new lead "${newLead.name}" (${contactInfo}) by ${creatorName}.`,
-        "lead_assigned",
-        { leadId: newLead._id.toString(), leadName: newLead.name }
-      );
+    // 1. If assigned to staff member(s) on creation, notify each directly
+    for (const assigneeId of resolvedAssignedUsers) {
+      if (assigneeId && assigneeId.toString() !== req.user?._id?.toString()) {
+        await notifyUserOrEmployee(
+          newLead.companyId || companyId,
+          assigneeId,
+          `Lead Assigned: ${newLead.name}`,
+          `You have been assigned a new lead "${newLead.name}" (${contactInfo}) by ${creatorName}.`,
+          "lead_assigned",
+          { leadId: newLead._id.toString(), leadName: newLead.name }
+        );
+      }
     }
 
-    // 2. Notify Company Admins & HR (strictly excluding creator and the assignee already notified above)
+    // 2. Notify Company Admins & HR (strictly excluding creator and the assignees already notified above)
     const excludeFromAdmins = [
       req.user?._id,
-      ...(resolvedAssignedTo ? [resolvedAssignedTo] : [])
+      ...resolvedAssignedUsers,
     ];
     await notifyCompanyAdmins(
       companyId,
@@ -777,6 +948,7 @@ const getLeadById = async (req, res) => {
       .populate("statusId", "name color")
       .populate("tags", "name color")
       .populate("assignedTo", "name email phone role")
+      .populate("assignedToUsers", "name email phone role")
       .populate("createdBy", "name email");
     if (!lead) return res.status(404).json({ message: "Lead not found" });
 
@@ -807,6 +979,26 @@ const getLeadById = async (req, res) => {
         }
         : null,
       assignedToId: lead.assignedTo?._id?.toString() || (typeof lead.assignedTo === "string" ? lead.assignedTo : null),
+      assignedToUsers: Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
+        ? lead.assignedToUsers.map((u) => ({
+            id: u._id ? u._id.toString() : u.toString(),
+            _id: u._id ? u._id.toString() : u.toString(),
+            name: u.name || "Employee",
+            email: u.email || "",
+            role: u.role || "Employee",
+          }))
+        : (lead.assignedTo
+            ? [{
+                id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
+                _id: lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString(),
+                name: lead.assignedTo.name || "Employee",
+                email: lead.assignedTo.email || "",
+                role: lead.assignedTo.role || "Employee",
+              }]
+            : []),
+      assignedToUserIds: Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
+        ? lead.assignedToUsers.map((u) => (u._id ? u._id.toString() : u.toString()))
+        : (lead.assignedTo ? [lead.assignedTo._id ? lead.assignedTo._id.toString() : lead.assignedTo.toString()] : []),
       statusId: lead.statusId?._id?.toString() || lead.statusId,
       status: lead.statusId
         ? { id: lead.statusId._id.toString(), name: lead.statusId.name, color: lead.statusId.color }
@@ -818,6 +1010,73 @@ const getLeadById = async (req, res) => {
       leadMessages: (lead.leadMessages || []).map((m) => (m.toJSON ? m.toJSON() : m)),
       leadActivities: (lead.leadActivities || []).map((a) => (a.toJSON ? a.toJSON() : a)),
       documents: lead.documents || [],
+      // Synthesize unified activity logs for all legacy/new views
+      activityLogs: (() => {
+        const logs = [];
+        // 1. From leadActivities
+        (lead.leadActivities || []).forEach((act) => {
+          logs.push({
+            id: act._id?.toString(),
+            action: act.title || "Activity",
+            title: act.title || "Activity",
+            remark: act.description || act.remark || "",
+            type: act.type || "ACTIVITY",
+            attachment: act.attachment || null,
+            createdAt: act.createdAt || lead.createdAt,
+            timestamp: act.createdAt || lead.createdAt,
+          });
+        });
+        // 2. From lead.notes (bracketed or plain lines)
+        if (typeof lead.notes === "string" && lead.notes.trim()) {
+          const lines = lead.notes.split("\n").filter(Boolean);
+          lines.forEach((rawLine, idx) => {
+            const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
+            const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
+            const timeStr = bracketMatch ? bracketMatch[1] : null;
+            let text = bracketMatch ? bracketMatch[2] : line;
+
+            let docObj = null;
+            const docTagMatch = text.match(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/);
+            if (docTagMatch) {
+              docObj = { name: docTagMatch[1], url: docTagMatch[2] };
+              text = text.replace(/\[Doc:.*?\]/, "").trim();
+            }
+
+            // Avoid exact duplicate if already in logs
+            const isDup = logs.some(l => l.remark === text || l.title === text);
+            if (!isDup) {
+              logs.push({
+                id: `note-line-${idx}`,
+                action: text.toLowerCase().includes("status changed") ? "Stage Updated" : "Note",
+                title: text.toLowerCase().includes("status changed") ? "Stage Updated" : "Note / Follow-Up",
+                remark: text,
+                type: "NOTE",
+                attachment: docObj,
+                createdAt: timeStr ? new Date() : lead.createdAt,
+                timestamp: timeStr || new Date(lead.createdAt).toLocaleString("en-IN"),
+                isFromNotesString: true,
+              });
+            }
+          });
+        }
+        // 3. From documents
+        (lead.documents || []).forEach((doc, idx) => {
+          const alreadyLinked = logs.some(l => l.attachment?.url === doc.url);
+          if (!alreadyLinked) {
+            logs.push({
+              id: doc._id?.toString() || `doc-${idx}`,
+              action: "Document Attached",
+              title: "Document Attached",
+              remark: `${doc.name || "File"} (${doc.size || "Document"})`,
+              type: "DOCUMENT",
+              attachment: { name: doc.name, url: doc.url, type: doc.type, size: doc.size },
+              createdAt: doc.uploadedAt || lead.createdAt,
+              timestamp: doc.uploadedAt || lead.createdAt,
+            });
+          }
+        });
+        return logs.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+      })(),
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -838,17 +1097,35 @@ const updateLead = async (req, res) => {
     }
 
     const updateData = { ...req.body };
-    if (updateData.assignedTo !== undefined) {
+    const hasAssignedToField = Object.prototype.hasOwnProperty.call(req.body, "assignedTo");
+    const hasAssignedToUsersField = Object.prototype.hasOwnProperty.call(req.body, "assignedToUsers");
+
+    let resolvedAssignedUsers = null;
+    if (hasAssignedToUsersField || hasAssignedToField) {
+      const rawAssigned = hasAssignedToUsersField ? req.body.assignedToUsers : req.body.assignedTo;
       const canAssign = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "assign");
+
       if (req.user?.role?.toLowerCase() === "employee" && !canAssign) {
         delete updateData.assignedTo;
-      } else if (updateData.assignedTo === "" || updateData.assignedTo === "unassigned") {
+        delete updateData.assignedToUsers;
+      } else if (!rawAssigned || rawAssigned === "unassigned" || (Array.isArray(rawAssigned) && rawAssigned.length === 0)) {
         updateData.assignedTo = null;
-      } else if (updateData.assignedTo) {
-        const resolvedIds = await resolveToUserIds(updateData.assignedTo, companyId);
-        if (resolvedIds.length > 0) {
-          updateData.assignedTo = resolvedIds[0];
+        updateData.assignedToUsers = [];
+        resolvedAssignedUsers = [];
+      } else {
+        const idsToResolve = Array.isArray(rawAssigned) ? rawAssigned : [rawAssigned];
+        resolvedAssignedUsers = [];
+        for (const singleId of idsToResolve) {
+          if (!singleId || singleId === "unassigned") continue;
+          const resIds = await resolveToUserIds(singleId, companyId);
+          resIds.forEach((id) => {
+            if (!resolvedAssignedUsers.some((existing) => existing.toString() === id.toString())) {
+              resolvedAssignedUsers.push(id);
+            }
+          });
         }
+        updateData.assignedTo = resolvedAssignedUsers[0] || null;
+        updateData.assignedToUsers = resolvedAssignedUsers;
       }
     }
 
@@ -860,14 +1137,47 @@ const updateLead = async (req, res) => {
     const prevLead = await Lead.findById(id).populate("statusId", "name");
     if (!prevLead) return res.status(404).json({ message: "Lead not found" });
 
+    // Handle attached documents (single or multiple) if provided in request
+    let newDocs = [];
+    if (Array.isArray(req.body.attachments)) {
+      newDocs = req.body.attachments.filter(a => a && a.url).map(a => ({
+        name: a.name || "Attachment",
+        url: a.url,
+        type: a.fileType || a.type || "document",
+        size: a.size || "",
+        uploadedBy: req.user?._id || null,
+        uploadedAt: new Date(),
+      }));
+    } else if (req.body.attachment && req.body.attachment.url) {
+      newDocs.push({
+        name: req.body.attachment.name || "Attachment",
+        url: req.body.attachment.url,
+        type: req.body.attachment.fileType || req.body.attachment.type || "document",
+        size: req.body.attachment.size || "",
+        uploadedBy: req.user?._id || null,
+        uploadedAt: new Date(),
+      });
+    }
+    const newDocObj = newDocs[0] || null;
+
     const updated = await Lead.findByIdAndUpdate(id, updateData, { new: true })
       .populate("statusId", "name color")
       .populate("tags", "name color")
-      .populate("assignedTo", "name email phone role");
+      .populate("assignedTo", "name email phone role")
+      .populate("assignedToUsers", "name email phone role");
     if (!updated) return res.status(404).json({ message: "Lead not found" });
 
+    if (newDocs.length > 0) {
+      updated.documents = updated.documents || [];
+      newDocs.forEach(d => updated.documents.unshift(d));
+    }
+
+    const remarkText = req.body.remark || req.body.note || "";
+
     // ── Check if Status Changed (Won, Closed, or Stage Update) ──
-    if (updateData.statusId && prevLead.statusId?._id?.toString() !== updateData.statusId.toString()) {
+    const isStatusChanged = updateData.statusId && prevLead.statusId?._id?.toString() !== updateData.statusId.toString();
+
+    if (isStatusChanged) {
       const newStatusName = updated.statusId?.name || "Updated";
       let followUpFormatted = "";
       let followUpDateStr = "";
@@ -909,13 +1219,23 @@ const updateLead = async (req, res) => {
         ? `${req.user?.name || "Staff Member"} closed lead "${updated.name}" as ${newStatusName}.`
         : `${req.user?.name || "Staff Member"} updated stage of "${updated.name}" to "${newStatusName}"${followUpFormatted ? `. Next follow-up: ${followUpFormatted}` : ""}.`;
 
+      // Log to leadActivities
       updated.leadActivities = updated.leadActivities || [];
       updated.leadActivities.unshift({
         title: isWon ? `Lead Won: ${newStatusName}` : isLost ? `Lead Closed (Lost): ${newStatusName}` : `Stage Updated: ${newStatusName}`,
-        description: `Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}`,
+        description: `${remarkText ? remarkText + " — " : ""}Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}${newDocObj ? ` [Doc: ${newDocObj.name}]` : ""}`,
         type: "STATUS_CHANGE",
+        attachment: newDocObj || undefined,
         createdAt: new Date(),
       });
+
+      // Synchronize formatted entry into lead.notes
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-IN");
+      const docTags = newDocs.map(d => `[Doc: ${d.name} | ${d.url}]`).join(" ");
+      const docTag = docTags ? ` ${docTags}` : "";
+      const noteEntry = `• [${timeStr}] Status changed to ${newStatusName}${remarkText ? `: ${remarkText}` : ""}${docTag}`;
+      updated.notes = updated.notes ? `${noteEntry}\n${updated.notes}` : noteEntry;
+
       await updated.save();
 
       const notificationData = {
@@ -938,36 +1258,77 @@ const updateLead = async (req, res) => {
 
       // 2. Notify Company Admins & HR (excluding updater and assigned staff)
       await notifyCompanyAdmins(companyId, [req.user?._id, assignedUserId], title, body, "lead_status", notificationData, dedupKey);
+    } else if (newDocs.length > 0 || remarkText) {
+      // Status didn't change but document or note was attached
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-IN");
+      updated.leadActivities = updated.leadActivities || [];
+
+      if (newDocs.length > 0) {
+        updated.leadActivities.unshift({
+          title: newDocs.length > 1 ? `Documents Attached (${newDocs.length} files)` : "Document Attached",
+          description: newDocs.map(d => `${d.name}${d.size ? ` (${d.size})` : ""}`).join(", "),
+          type: "DOCUMENT",
+          attachment: newDocs[0],
+          createdAt: new Date(),
+        });
+        const docTags = newDocs.map(d => `[Doc: ${d.name} | ${d.url}]`).join(" ");
+        const docNote = `• [${timeStr}] Document${newDocs.length > 1 ? "s" : ""} attached: ${docTags}`;
+        updated.notes = updated.notes ? `${docNote}\n${updated.notes}` : docNote;
+      }
+
+      if (remarkText && !isStatusChanged) {
+        updated.leadActivities.unshift({
+          title: "Note Added",
+          description: remarkText,
+          type: "NOTE",
+          createdAt: new Date(),
+        });
+        const regularNote = `• [${timeStr}] ${remarkText}`;
+        updated.notes = updated.notes ? `${regularNote}\n${updated.notes}` : regularNote;
+      }
+
+      await updated.save();
     }
 
     // ── Check if Lead was Assigned / Reassigned ──
-    const prevAssigneeId = prevLead.assignedTo ? prevLead.assignedTo.toString() : null;
-    const newAssigneeId = updateData.assignedTo ? updateData.assignedTo.toString() : null;
-    const isAssigneeExplicitlySent = Object.prototype.hasOwnProperty.call(req.body, "assignedTo");
+    if (resolvedAssignedUsers !== null) {
+      const prevUserIds = Array.isArray(prevLead.assignedToUsers) && prevLead.assignedToUsers.length > 0
+        ? prevLead.assignedToUsers.map((u) => u.toString())
+        : (prevLead.assignedTo ? [prevLead.assignedTo.toString()] : []);
 
-    if (newAssigneeId && (prevAssigneeId !== newAssigneeId || isAssigneeExplicitlySent)) {
-      const assignedName = updated.assignedTo?.name || "Staff Member";
-      const assignerName = req.user?.name || "Admin";
+      const newUserIds = resolvedAssignedUsers.map((u) => u.toString());
+      const newlyAssigned = newUserIds.filter((uid) => !prevUserIds.includes(uid));
 
-      // 1. Notify newly assigned user
-      await notifyUserOrEmployee(
-        updated.companyId || companyId,
-        newAssigneeId,
-        `Lead Assigned: ${updated.name}`,
-        `You have been assigned lead "${updated.name}" (${updated.company || updated.whatsappPhone || ""}) by ${assignerName}.`,
-        "lead_assigned",
-        { leadId: updated._id.toString(), leadName: updated.name }
-      );
+      if (newlyAssigned.length > 0) {
+        const assignerName = req.user?.name || "Admin";
+        const contactInfo = updated.company || updated.whatsappPhone || "";
 
-      // 2. Notify Admins (strictly excluding assigner and new assignee)
-      await notifyCompanyAdmins(
-        updated.companyId || companyId,
-        [req.user?._id, newAssigneeId],
-        `Lead Assigned: ${updated.name}`,
-        `Lead "${updated.name}" was assigned to ${assignedName} by ${assignerName}.`,
-        "lead",
-        { leadId: updated._id.toString(), leadName: updated.name, assignedTo: assignedName }
-      );
+        for (const newAssigneeId of newlyAssigned) {
+          if (newAssigneeId !== req.user?._id?.toString()) {
+            await notifyUserOrEmployee(
+              updated.companyId || companyId,
+              newAssigneeId,
+              `Lead Assigned: ${updated.name}`,
+              `You have been assigned lead "${updated.name}" (${contactInfo}) by ${assignerName}.`,
+              "lead_assigned",
+              { leadId: updated._id.toString(), leadName: updated.name }
+            );
+          }
+        }
+
+        const assignedNames = Array.isArray(updated.assignedToUsers) && updated.assignedToUsers.length > 0
+          ? updated.assignedToUsers.map((u) => u.name || "Staff").join(", ")
+          : (updated.assignedTo?.name || "Staff");
+
+        await notifyCompanyAdmins(
+          updated.companyId || companyId,
+          [req.user?._id, ...newlyAssigned],
+          `Lead Assigned: ${updated.name}`,
+          `Lead "${updated.name}" was assigned to ${assignedNames || "staff"} by ${assignerName}.`,
+          "lead",
+          { leadId: updated._id.toString(), leadName: updated.name, assignedTo: assignedNames }
+        );
+      }
     }
 
     return res.json({
@@ -982,6 +1343,7 @@ const updateLead = async (req, res) => {
       company: updated.company || updated.productService || "",
       estimatedValue: updated.estimatedValue || null,
       nextFollowUpDate: updated.nextFollowUpDate || null,
+      notes: updated.notes || "",
       assignedTo: updated.assignedTo
         ? {
           id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
@@ -991,6 +1353,27 @@ const updateLead = async (req, res) => {
           role: updated.assignedTo.role || "Employee",
         }
         : null,
+      assignedToId: updated.assignedTo?._id?.toString() || (typeof updated.assignedTo === "string" ? updated.assignedTo : null),
+      assignedToUsers: Array.isArray(updated.assignedToUsers) && updated.assignedToUsers.length > 0
+        ? updated.assignedToUsers.map((u) => ({
+            id: u._id ? u._id.toString() : u.toString(),
+            _id: u._id ? u._id.toString() : u.toString(),
+            name: u.name || "Employee",
+            email: u.email || "",
+            role: u.role || "Employee",
+          }))
+        : (updated.assignedTo
+            ? [{
+                id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
+                _id: updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString(),
+                name: updated.assignedTo.name || "Employee",
+                email: updated.assignedTo.email || "",
+                role: updated.assignedTo.role || "Employee",
+              }]
+            : []),
+      assignedToUserIds: Array.isArray(updated.assignedToUsers) && updated.assignedToUsers.length > 0
+        ? updated.assignedToUsers.map((u) => (u._id ? u._id.toString() : u.toString()))
+        : (updated.assignedTo ? [updated.assignedTo._id ? updated.assignedTo._id.toString() : updated.assignedTo.toString()] : []),
       statusId: updated.statusId?._id?.toString() || updated.statusId,
       status: updated.statusId
         ? { id: updated.statusId._id.toString(), name: updated.statusId.name, color: updated.statusId.color }
@@ -1139,18 +1522,40 @@ const getAssignableUsers = async (req, res) => {
       ...(companyId ? { companyId } : {}),
       status: { $ne: "inactive" },
     })
+      .select("fullName firstName lastName email role assignedModules permissions userId departmentId")
       .populate("departmentId", "name")
-      .populate("userId", "name email role")
+      .populate("userId", "name email role assignedModules permissions")
       .lean();
 
     const result = [];
     const addedUserIds = new Set();
 
     for (const emp of employees) {
-      const uId = emp.userId?._id ? emp.userId._id.toString() : emp._id.toString();
-      const uRole = (emp.userId?.role || emp.role || "employee").toLowerCase();
-      if (uRole === "superadmin" || uRole === "companyadmin") continue;
+      const uRole = (emp.userId?.role || emp.role || "employee").toLowerCase().trim();
+      if (uRole === "superadmin" || uRole === "companyadmin" || uRole === "admin") continue;
 
+      // ── Filter by Leads Module Access ─────────────────────────────────
+      const rawModules = [
+        ...(Array.isArray(emp.assignedModules) ? emp.assignedModules : []),
+        ...(Array.isArray(emp.userId?.assignedModules) ? emp.userId.assignedModules : []),
+      ];
+      const modules = rawModules.map((m) => String(m).toLowerCase().trim());
+      const hasLeadModule = modules.includes("leads") || modules.includes("lead");
+      if (!hasLeadModule) {
+        continue; // Employee does NOT have leads module license/access
+      }
+
+      // ── Filter by Explicit Leads Permissions ──────────────────────────
+      const perm = emp.permissions || emp.userId?.permissions || {};
+      const leadPerm = perm.leads ?? perm.lead;
+      if (leadPerm === false) {
+        continue; // Explicitly disabled
+      }
+      if (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false) {
+        continue; // View disabled
+      }
+
+      const uId = emp.userId?._id ? emp.userId._id.toString() : emp._id.toString();
       const deptName = emp.departmentId?.name || "";
       const empName =
         emp.fullName ||
@@ -1172,12 +1577,28 @@ const getAssignableUsers = async (req, res) => {
       }
     }
 
+    // Also check standalone Users with leads access who don't have Employee records
     const users = await User.find({
       ...(companyId ? { companyId } : {}),
-      role: { $nin: ["superadmin", "companyadmin"] },
+      isActive: { $ne: false },
     }).lean();
 
     for (const u of users) {
+      const uRole = (u.role || "employee").toLowerCase().trim();
+      if (uRole === "superadmin" || uRole === "companyadmin" || uRole === "admin") continue;
+
+      const rawModules = Array.isArray(u.assignedModules) ? u.assignedModules : [];
+      const modules = rawModules.map((m) => String(m).toLowerCase().trim());
+      if (!modules.includes("leads") && !modules.includes("lead")) {
+        continue;
+      }
+
+      const perm = u.permissions || {};
+      const leadPerm = perm.leads ?? perm.lead;
+      if (leadPerm === false || (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false)) {
+        continue;
+      }
+
       const uId = u._id.toString();
       if (!addedUserIds.has(uId)) {
         addedUserIds.add(uId);
@@ -1356,45 +1777,54 @@ const bulkDelete = async (req, res) => {
 
 const bulkAssign = async (req, res) => {
   try {
-    const { leadIds, assignedTo } = req.body;
+    const { leadIds, assignedTo, assignedToUsers } = req.body;
     const companyId = getCompanyId(req);
     if (!Array.isArray(leadIds) || leadIds.length === 0) {
       return res.status(400).json({ message: "leadIds array is required" });
     }
 
-    let resolvedAssignee = null;
-    if (assignedTo && assignedTo !== "unassigned") {
-      const resolvedIds = await resolveToUserIds(assignedTo, companyId);
-      if (resolvedIds.length > 0) {
-        resolvedAssignee = resolvedIds[0];
+    const rawAssigned = assignedToUsers || assignedTo;
+    let resolvedAssignees = [];
+    if (rawAssigned && rawAssigned !== "unassigned") {
+      const idsToResolve = Array.isArray(rawAssigned) ? rawAssigned : [rawAssigned];
+      for (const singleId of idsToResolve) {
+        if (!singleId || singleId === "unassigned") continue;
+        const resIds = await resolveToUserIds(singleId, companyId);
+        resIds.forEach((id) => {
+          if (!resolvedAssignees.some((existing) => existing.toString() === id.toString())) {
+            resolvedAssignees.push(id);
+          }
+        });
       }
     }
 
-    const updateData = { assignedTo: resolvedAssignee || null };
+    const updateData = {
+      assignedTo: resolvedAssignees[0] || null,
+      assignedToUsers: resolvedAssignees,
+    };
     await Lead.updateMany({ _id: { $in: leadIds } }, { $set: updateData });
 
-    if (resolvedAssignee) {
-      const assigneeUser = await User.findById(resolvedAssignee).select("name email").lean();
-      const assigneeName = assigneeUser?.name || "Staff Member";
+    if (resolvedAssignees.length > 0) {
+      for (const assigneeId of resolvedAssignees) {
+        if (assigneeId.toString() !== req.user?._id?.toString()) {
+          await notifyUserOrEmployee(
+            companyId,
+            assigneeId,
+            `${leadIds.length} Leads Assigned to You`,
+            `You have been assigned ${leadIds.length} lead(s) by ${req.user?.name || "Admin"}.`,
+            "lead_assigned",
+            { count: leadIds.length }
+          );
+        }
+      }
 
-      // 1. Notify newly assigned user
-      await notifyUserOrEmployee(
-        companyId,
-        resolvedAssignee,
-        `${leadIds.length} Leads Assigned to You`,
-        `You have been assigned ${leadIds.length} lead(s) by ${req.user?.name || "Admin"}.`,
-        "lead_assigned",
-        { count: leadIds.length }
-      );
-
-      // 2. Notify Admins (strictly excluding assigner and assignee)
       await notifyCompanyAdmins(
         companyId,
-        [req.user?._id, resolvedAssignee],
+        [req.user?._id, ...resolvedAssignees],
         `Bulk Lead Assignment`,
-        `${req.user?.name || "Staff"} assigned ${leadIds.length} lead(s) to ${assigneeName}.`,
+        `${req.user?.name || "Staff"} assigned ${leadIds.length} lead(s) to staff member(s).`,
         "lead",
-        { count: leadIds.length, assignedTo: assigneeName }
+        { count: leadIds.length }
       );
     }
 
@@ -2398,6 +2828,10 @@ const addLeadNote = async (req, res) => {
       createdAt: new Date(),
     });
 
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-IN");
+    const noteEntry = `• [${timeStr}] ${note.trim()}`;
+    lead.notes = lead.notes ? `${noteEntry}\n${lead.notes}` : noteEntry;
+
     await lead.save();
 
     // Notify assigned staff & admins about the new note (excluding note creator)
@@ -2904,27 +3338,96 @@ const sendBroadcastWhatsAppMessage = async (req, res) => {
 const addLeadDocument = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, url, type, size } = req.body;
-    if (!name || !url) {
-      return res.status(400).json({ message: "Document name and url are required" });
+    let rawDocs = [];
+    if (Array.isArray(req.body.documents)) {
+      rawDocs = req.body.documents;
+    } else if (Array.isArray(req.body.files)) {
+      rawDocs = req.body.files;
+    } else if (req.body.name && req.body.url) {
+      rawDocs = [{ name: req.body.name, url: req.body.url, type: req.body.type, size: req.body.size }];
     }
 
-    const docObj = {
-      name,
-      url,
-      type: type || "document",
-      size: size || "",
-      uploadedBy: req.user?._id || null,
-      uploadedAt: new Date(),
-    };
+    const noteText = (req.body.note || req.body.remark || "").trim();
 
-    const lead = await Lead.findByIdAndUpdate(
-      id,
-      { $push: { documents: docObj } },
-      { new: true }
-    );
+    if (rawDocs.length === 0 && !noteText) {
+      return res.status(400).json({ message: "Either document(s) or a note is required" });
+    }
 
-    return res.status(201).json({ success: true, message: "Document attached", lead, document: docObj });
+    const lead = await Lead.findById(id);
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+
+    const newDocs = rawDocs
+      .filter((d) => d && d.url)
+      .map((d) => ({
+        name: d.name || "Attachment",
+        url: d.url,
+        type: d.type || d.fileType || "document",
+        size: d.size || "",
+        uploadedBy: req.user?._id || null,
+        uploadedAt: new Date(),
+      }));
+
+    lead.documents = lead.documents || [];
+    newDocs.forEach((d) => lead.documents.unshift(d));
+
+    lead.leadActivities = lead.leadActivities || [];
+    lead.leadNotes = lead.leadNotes || [];
+
+    const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-IN");
+
+    let noteObj = null;
+    if (noteText) {
+      noteObj = {
+        note: noteText,
+        createdBy: req.user?._id || null,
+        createdAt: new Date(),
+      };
+      lead.leadNotes.unshift(noteObj);
+    }
+
+    const docTags = newDocs.map((d) => `[Doc: ${d.name} | ${d.url}]`).join(" ");
+
+    if (newDocs.length > 0 && noteText) {
+      lead.leadActivities.unshift({
+        title: newDocs.length > 1 ? `Files & Note Added (${newDocs.length} files)` : `File & Note Added: ${newDocs[0].name}`,
+        description: `${noteText} — Files: ${newDocs.map((d) => d.name).join(", ")}`,
+        type: "DOCUMENT",
+        attachment: newDocs[0],
+        createdAt: new Date(),
+      });
+      const combinedNote = `• [${timeStr}] ${noteText} ${docTags}`;
+      lead.notes = lead.notes ? `${combinedNote}\n${lead.notes}` : combinedNote;
+    } else if (newDocs.length > 0) {
+      lead.leadActivities.unshift({
+        title: newDocs.length > 1 ? `Documents Attached (${newDocs.length} files)` : "Document Attached",
+        description: newDocs.length > 1 ? newDocs.map((d) => `${d.name}${d.size ? ` (${d.size})` : ""}`).join(", ") : `${newDocs[0].name}${newDocs[0].size ? ` (${newDocs[0].size})` : ""}`,
+        type: "DOCUMENT",
+        attachment: newDocs[0],
+        createdAt: new Date(),
+      });
+      const docNote = `• [${timeStr}] Document${newDocs.length > 1 ? "s" : ""} attached: ${docTags}`;
+      lead.notes = lead.notes ? `${docNote}\n${lead.notes}` : docNote;
+    } else if (noteText) {
+      lead.leadActivities.unshift({
+        title: "Note Added",
+        description: noteText,
+        type: "NOTE",
+        createdAt: new Date(),
+      });
+      const regularNote = `• [${timeStr}] ${noteText}`;
+      lead.notes = lead.notes ? `${regularNote}\n${lead.notes}` : regularNote;
+    }
+
+    await lead.save();
+
+    return res.status(201).json({
+      success: true,
+      message: newDocs.length > 0 ? `${newDocs.length} file(s) attached successfully` : "Note added successfully",
+      lead,
+      documents: newDocs,
+      document: newDocs[0] || null,
+      note: noteObj,
+    });
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }
@@ -3276,8 +3779,8 @@ const importMapLeads = async (req, res) => {
 };
 
 module.exports = {
-  getStatuses, createStatus, updateStatus, deleteStatus,
-  getSources, createSource,
+  getStatuses, createStatus, updateStatus, deleteStatus, reorderStatuses,
+  getSources, createSource, updateSource, deleteSource,
   getTags, createTag, deleteTag,
   getProducts, createProduct, deleteProduct,
   getLeads, createLead, getLeadById, updateLead, updateLeadStatus, deleteLead, getLeadStats,

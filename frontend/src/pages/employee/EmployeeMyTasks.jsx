@@ -651,7 +651,7 @@ export default function EmployeeMyTasks() {
             onClick={() => setIsCreateModalOpen(true)}
             className="flex items-center gap-1.5 px-3.5 h-8 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all shrink-0 cursor-pointer self-start sm:self-auto"
           >
-            <Plus size={14} strokeWidth={2.5} /> Create Task
+            <Plus size={14} strokeWidth={2.5} /> Add Task
           </button>
         )}
       </div>

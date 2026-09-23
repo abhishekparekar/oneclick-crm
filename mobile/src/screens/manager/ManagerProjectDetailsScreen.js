@@ -175,7 +175,7 @@ const ManagerProjectDetailsScreen = ({ route, navigation }) => {
                     onPress={() => navigation.navigate("ManagerCreateTask", { defaultProjectId: project._id, defaultAssignmentType: "project" })}
                   >
                     <Ionicons name="add" size={14} color="#fff" />
-                    <Text style={styles.addBtnSmText}>New Task</Text>
+                    <Text style={styles.addBtnSmText}>Add Task</Text>
                   </TouchableOpacity>
                 )}
               </View>

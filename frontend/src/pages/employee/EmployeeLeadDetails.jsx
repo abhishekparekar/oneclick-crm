@@ -49,7 +49,7 @@ export default function EmployeeLeadDetails() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [statusRemark, setStatusRemark] = useState("");
-  const [statusAttachedFile, setStatusAttachedFile] = useState(null);
+  const [statusAttachedFiles, setStatusAttachedFiles] = useState([]);
 
   // Messenger / Variables state
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -118,34 +118,38 @@ export default function EmployeeLeadDetails() {
 
   // Update Status Mutation
   const updateStatusMut = useMutation({
-    mutationFn: async ({ statusId, note, nextFollowUp, file }) => {
-      let docObj = null;
-      if (file) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const upRes = await api.post("/tasks/upload-media", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
+    mutationFn: async ({ statusId, note, nextFollowUp, files, file }) => {
+      let docObjs = [];
+      const rawFiles = Array.isArray(files) && files.length > 0 ? files : (file ? [file] : []);
+      if (rawFiles.length > 0) {
+        const uploadPromises = rawFiles.map(async (f) => {
+          const formData = new FormData();
+          formData.append("file", f);
+          const upRes = await api.post("/tasks/upload-media", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          const uData = upRes.data || {};
+          const fileUrl = uData.fileUrl || uData.url;
+          if (fileUrl) {
+            return {
+              name: uData.fileName || f.name,
+              url: fileUrl,
+              type: uData.fileType || f.type || "document",
+              size: `${(f.size / 1024).toFixed(1)} KB`,
+            };
+          }
+          return null;
         });
-        const uData = upRes.data || {};
-        if (uData.fileUrl || uData.url) {
-          docObj = {
-            name: uData.fileName || file.name,
-            url: uData.fileUrl || uData.url,
-            type: uData.fileType || file.type || "document",
-            size: `${(file.size / 1024).toFixed(1)} KB`,
-          };
-          await api.post(`/leads-engine/leads/${leadId}/documents`, docObj).catch(() => {});
-        }
+        const res = await Promise.all(uploadPromises);
+        docObjs = res.filter(Boolean);
       }
-
-      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString();
-      const statusName = statuses.find(s => String(s._id || s.id) === String(statusId))?.name || "Stage Updated";
-      const docTag = docObj ? ` [Doc: ${docObj.name} | ${docObj.url}]` : "";
-      const noteWithDoc = `• [${timeStr}] Status changed to ${statusName}${note ? `: ${note}` : ""}${docTag}`;
 
       return api.patch(`/leads-engine/leads/${leadId}`, {
         statusId,
-        notes: noteWithDoc ? `${noteWithDoc}\n${lead.notes || ""}` : undefined,
+        remark: note || undefined,
+        note: note || undefined,
+        attachments: docObjs,
+        attachment: docObjs[0] || undefined,
         nextFollowUpDate: nextFollowUp || undefined,
       });
     },
@@ -153,40 +157,48 @@ export default function EmployeeLeadDetails() {
       toast.success("Lead status & documents updated!");
       setShowStatusModal(false);
       setStatusRemark("");
-      setStatusAttachedFile(null);
+      setStatusAttachedFiles([]);
       queryClient.invalidateQueries(["employeeLeadDetails", leadId]);
       queryClient.invalidateQueries(["employeeMyLeads"]);
+      refetch();
     },
     onError: (err) => toast.error(err.response?.data?.message || "Failed to update status"),
   });
 
   // Direct Document Upload Handler for Documents Card
   const handleDirectDocUpload = async (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const rawFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (rawFiles.length === 0) return;
     setDirectUploadingDoc(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const upRes = await api.post("/tasks/upload-media", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const uData = upRes.data || {};
-      if (uData.fileUrl || uData.url) {
-        const docObj = {
+      const uploadPromises = rawFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const upRes = await api.post("/tasks/upload-media", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const uData = upRes.data || {};
+        const fileUrl = uData.fileUrl || uData.url;
+        if (!fileUrl) throw new Error(`Failed to upload ${file.name}`);
+        return {
           name: uData.fileName || file.name,
-          url: uData.fileUrl || uData.url,
+          url: fileUrl,
           type: uData.fileType || file.type || "document",
           size: `${(file.size / 1024).toFixed(1)} KB`,
         };
-        await api.post(`/leads-engine/leads/${leadId}/documents`, docObj);
-        toast.success("Document attached to lead!");
-        refetch();
-      }
+      });
+
+      const docs = await Promise.all(uploadPromises);
+      await api.post(`/leads-engine/leads/${leadId}/documents`, {
+        documents: docs,
+      });
+      toast.success(`${docs.length} document(s) attached to lead!`);
+      refetch();
     } catch (err) {
-      toast.error("Failed to upload document");
+      toast.error(err?.response?.data?.message || err.message || "Failed to upload document");
     } finally {
       setDirectUploadingDoc(false);
+      e.target.value = "";
     }
   };
 
@@ -269,6 +281,108 @@ export default function EmployeeLeadDetails() {
       return "bg-teal-100 text-teal-800 border-teal-300 dark:bg-teal-950/60 dark:text-teal-300 dark:border-teal-700";
     return "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-950/60 dark:text-blue-300 dark:border-blue-700";
   };
+
+  const allDocumentsList = (() => {
+    const docsMap = new Map();
+    (lead.documents || []).forEach((d) => {
+      if (d.url) docsMap.set(d.url, d);
+    });
+    if (typeof lead.notes === "string") {
+      const matches = lead.notes.matchAll(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/g);
+      for (const m of matches) {
+        const name = m[1];
+        const url = m[2];
+        if (url && !docsMap.has(url)) {
+          docsMap.set(url, { name, url, type: "document", size: "" });
+        }
+      }
+    }
+    return Array.from(docsMap.values());
+  })();
+
+  const unifiedTimeline = (() => {
+    const list = [];
+
+    // 1. From lead.notes
+    if (typeof lead.notes === "string" && lead.notes.trim()) {
+      const lines = lead.notes.split("\n").filter(Boolean);
+      lines.forEach((rawLine, idx) => {
+        const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
+        const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
+        const timestampStr = bracketMatch ? bracketMatch[1] : null;
+        let text = bracketMatch ? bracketMatch[2] : line;
+
+        let docObj = null;
+        const docTagMatch = text.match(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/);
+        if (docTagMatch) {
+          docObj = { name: docTagMatch[1], url: docTagMatch[2] };
+          text = text.replace(/\[Doc:.*?\]/, "").trim();
+        }
+
+        const isStatus = text.toLowerCase().includes("status changed") || text.toLowerCase().includes("stage updated");
+
+        list.push({
+          id: `note-${idx}`,
+          title: isStatus ? "Stage Updated" : docObj ? "Document Attached" : "Note / Activity",
+          text: text,
+          timestamp: timestampStr || (lead.createdAt ? new Date(lead.createdAt).toLocaleDateString("en-IN") : "Recent Activity"),
+          attachment: docObj,
+          isStatus,
+          createdAt: timestampStr ? new Date() : new Date(lead.createdAt || Date.now()),
+        });
+      });
+    }
+
+    // 2. From lead.leadActivities
+    (lead.leadActivities || []).forEach((act, idx) => {
+      const isDup = list.some((l) => l.text === act.description || l.title === act.title);
+      if (!isDup) {
+        list.push({
+          id: act._id || `act-${idx}`,
+          title: act.title || "Status Updated",
+          text: act.description || "",
+          timestamp: act.createdAt
+            ? new Date(act.createdAt).toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "Recent Activity",
+          attachment: act.attachment || null,
+          isStatus: act.type === "STATUS_CHANGE",
+          createdAt: new Date(act.createdAt || Date.now()),
+        });
+      }
+    });
+
+    // 3. From lead.documents
+    (lead.documents || []).forEach((doc, idx) => {
+      const isDup = list.some((l) => l.attachment?.url === doc.url);
+      if (!isDup) {
+        list.push({
+          id: doc._id || `doc-${idx}`,
+          title: "Document Attached",
+          text: `${doc.name || "File"} ${doc.size ? `(${doc.size})` : ""}`,
+          timestamp: doc.uploadedAt
+            ? new Date(doc.uploadedAt).toLocaleString("en-IN", {
+                day: "2-digit",
+                month: "short",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "Uploaded",
+          attachment: { name: doc.name, url: doc.url, type: doc.type, size: doc.size },
+          isStatus: false,
+          createdAt: new Date(doc.uploadedAt || Date.now()),
+        });
+      }
+    });
+
+    return list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  })();
 
   const resolvedStatusName =
     lead?.status?.name ||
@@ -434,6 +548,52 @@ export default function EmployeeLeadDetails() {
               </div>
             </div>
 
+            {/* Section 3: Attached Documents & Files */}
+            <div className="space-y-3 pt-1">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
+                <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
+                  <Paperclip size={15} className="text-amber-500" /> Attached Proposals &amp; Docs ({allDocumentsList.length})
+                </h2>
+                <label className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg text-[10.5px] font-bold cursor-pointer transition-colors flex items-center gap-1">
+                  <Plus size={11} strokeWidth={2.5} />
+                  <span>{directUploadingDoc ? "Uploading..." : "Attach Doc"}</span>
+                  <input type="file" multiple disabled={directUploadingDoc} onChange={handleDirectDocUpload} className="hidden" />
+                </label>
+              </div>
+
+              {allDocumentsList.length === 0 ? (
+                <div className="p-4 text-center bg-slate-50/60 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-[11px]">
+                  No documents attached to this lead yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {allDocumentsList.map((doc, idx) => (
+                    <div
+                      key={doc._id || idx}
+                      className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText size={14} className="text-amber-500 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{doc.name || "Document"}</p>
+                          {doc.size && <p className="text-[9.5px] text-slate-400 font-mono">{doc.size}</p>}
+                        </div>
+                      </div>
+                      <a
+                        href={doc.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors shrink-0"
+                        title="Open file"
+                      >
+                        <ExternalLink size={12} />
+                      </a>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* ── RIGHT SECTION (5 / 12 width): TIMELINE & ACTIVITY HISTORY ───────── */}
@@ -442,60 +602,76 @@ export default function EmployeeLeadDetails() {
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2">
                 <Clock size={15} className="text-amber-500" /> Timeline &amp; Activity History
               </h2>
-              <span className="text-[10px] font-bold text-slate-400">
-                {lead.notes ? lead.notes.split("\n").filter(Boolean).length : 0} logs
+              <span className="text-[10px] font-bold text-slate-400 font-mono">
+                {unifiedTimeline.length} logs
               </span>
             </div>
 
             {/* Timeline Stream */}
             <div className="space-y-4 pt-1 max-h-[580px] overflow-y-auto custom-scrollbar pr-1">
-              {lead.notes && lead.notes.split("\n").filter(Boolean).length > 0 ? (
+              {unifiedTimeline.length > 0 ? (
                 <div className="relative pl-6 space-y-4 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-800">
-                  {lead.notes.split("\n").filter(Boolean).map((rawLine, idx) => {
-                    const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
-                    const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
-                    const timestamp = bracketMatch ? bracketMatch[1] : null;
-                    let text = bracketMatch ? bracketMatch[2] : line;
-
-                    // Extract attached document tag [Doc: name | url]
-                    const docTagMatch = text.match(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/);
-                    let docName = null;
-                    let docUrl = null;
-                    if (docTagMatch) {
-                      docName = docTagMatch[1];
-                      docUrl = docTagMatch[2];
-                      text = text.replace(/\[Doc:.*?\]/, "").trim();
-                    }
+                  {unifiedTimeline.map((item, idx) => {
+                    const isStatus = item.isStatus;
+                    const isDoc = Boolean(item.attachment);
 
                     return (
-                      <div key={idx} className="relative group">
+                      <div key={item.id || idx} className="relative group">
                         {/* Dot on connector line */}
-                        <div className="absolute -left-6 top-1.5 w-5 h-5 rounded-full bg-amber-50 dark:bg-amber-950/60 border-2 border-amber-500 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <div
+                          className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
+                            isStatus
+                              ? "bg-amber-50 dark:bg-amber-950/60 border-amber-500"
+                              : isDoc
+                              ? "bg-purple-50 dark:bg-purple-950/60 border-purple-500"
+                              : "bg-blue-50 dark:bg-blue-950/60 border-blue-500"
+                          }`}
+                        >
+                          <div
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              isStatus
+                                ? "bg-amber-500"
+                                : isDoc
+                                ? "bg-purple-500"
+                                : "bg-blue-500"
+                            }`}
+                          />
                         </div>
 
                         {/* Content Card */}
                         <div className="p-3 bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 transition-all space-y-1.5 shadow-2xs">
-                          {timestamp && (
-                            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                          <div className="flex items-center justify-between gap-2">
+                            <span
+                              className={`text-[10px] font-black uppercase tracking-wider ${
+                                isStatus
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : isDoc
+                                  ? "text-purple-600 dark:text-purple-400"
+                                  : "text-slate-500 dark:text-slate-400"
+                              }`}
+                            >
+                              {item.title}
+                            </span>
+                            <div className="flex items-center gap-1.5 text-[10px] font-mono font-bold text-slate-400">
                               <Clock size={10} />
-                              <span>{timestamp}</span>
+                              <span>{item.timestamp}</span>
                             </div>
-                          )}
-                          <p className="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed">
-                            {text}
+                          </div>
+
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white leading-relaxed whitespace-pre-wrap">
+                            {item.text}
                           </p>
 
                           {/* Inline Attached Document Pill */}
-                          {docUrl && (
+                          {item.attachment?.url && (
                             <a
-                              href={docUrl}
+                              href={item.attachment.url}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
                             >
                               <FileText size={13} className="text-amber-500 shrink-0" />
-                              <span className="truncate max-w-[200px]">{docName || "Attached Document"}</span>
+                              <span className="truncate max-w-[200px]">{item.attachment.name || "Attached Document"}</span>
                               <ExternalLink size={10} className="text-slate-400 group-hover:text-amber-500 shrink-0" />
                             </a>
                           )}
@@ -576,39 +752,52 @@ export default function EmployeeLeadDetails() {
 
               {/* Document / Proposal Attachment Field */}
               <div>
-                <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center gap-1">
-                  <Paperclip size={13} className="text-orange-600" /> Attach Proposal / Quotation / Doc (Optional)
+                <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1 flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <Paperclip size={13} className="text-orange-600" /> Attach Proposals / Docs (Multiple Allowed)
+                  </span>
+                  {statusAttachedFiles.length > 0 && (
+                    <span className="text-orange-600 font-mono text-[10px]">{statusAttachedFiles.length} file(s) selected</span>
+                  )}
                 </label>
-                {statusAttachedFile ? (
-                  <div className="p-2.5 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800 flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <FileText size={15} className="text-orange-700 shrink-0" />
-                      <div className="truncate">
-                        <p className="font-bold text-orange-950 dark:text-orange-200 truncate text-[11px]">{statusAttachedFile.name}</p>
-                        <p className="text-[9.5px] text-orange-700 dark:text-orange-300 font-mono">{(statusAttachedFile.size / 1024).toFixed(1)} KB</p>
+
+                {statusAttachedFiles.length > 0 && (
+                  <div className="space-y-1 mb-2">
+                    {statusAttachedFiles.map((file, idx) => (
+                      <div key={idx} className="p-2 bg-orange-50 dark:bg-orange-950/30 rounded-xl border border-orange-200 dark:border-orange-800 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          <FileText size={14} className="text-orange-700 shrink-0" />
+                          <div className="truncate">
+                            <p className="font-bold text-orange-950 dark:text-orange-200 truncate text-[11px]">{file.name}</p>
+                            <p className="text-[9.5px] text-orange-700 dark:text-orange-300 font-mono">{(file.size / 1024).toFixed(1)} KB</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setStatusAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                          className="p-1 text-rose-600 hover:text-rose-800 cursor-pointer shrink-0"
+                        >
+                          <X size={13} />
+                        </button>
                       </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setStatusAttachedFile(null)}
-                      className="p-1 text-rose-600 hover:text-rose-800 cursor-pointer shrink-0"
-                    >
-                      <X size={14} />
-                    </button>
+                    ))}
                   </div>
-                ) : (
-                  <label className="flex items-center justify-center gap-2 p-2.5 bg-ca-bg hover:bg-ca-surface rounded-xl border border-dashed border-ca-border cursor-pointer transition-colors text-ca-text-secondary hover:text-ca-text font-bold text-[11px]">
-                    <Paperclip size={14} />
-                    <span>Upload Proposal / Quotation / Doc</span>
-                    <input
-                      type="file"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) setStatusAttachedFile(e.target.files[0]);
-                      }}
-                      className="hidden"
-                    />
-                  </label>
                 )}
+
+                <label className="flex items-center justify-center gap-2 p-2.5 bg-ca-bg hover:bg-ca-surface rounded-xl border border-dashed border-ca-border cursor-pointer transition-colors text-ca-text-secondary hover:text-ca-text font-bold text-[11px]">
+                  <Paperclip size={14} />
+                  <span>Choose Files to Attach</span>
+                  <input
+                    type="file"
+                    multiple
+                    onChange={(e) => {
+                      const newFiles = e.target.files ? Array.from(e.target.files) : [];
+                      setStatusAttachedFiles((prev) => [...prev, ...newFiles]);
+                      e.target.value = "";
+                    }}
+                    className="hidden"
+                  />
+                </label>
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-ca-border">

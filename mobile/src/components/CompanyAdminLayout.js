@@ -801,7 +801,7 @@ const CompanyAdminLayout = ({
                   <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalOptionText}>Create New Task</Text>
+                  <Text style={styles.modalOptionText}>Add Task</Text>
                   <Text style={styles.modalOptionSub}>Assign task to staff or department</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94A3B8" />

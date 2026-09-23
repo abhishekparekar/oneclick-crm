@@ -306,7 +306,7 @@ export default function HRDashboard() {
                     onClick={() => setShowAddLeadModal(true)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#f97316] hover:bg-[#ea580c] text-white text-[11px] font-bold shadow-xs transition-all cursor-pointer"
                   >
-                    <Plus size={12} /> Add Lead
+                    <Plus size={12} /> Add New Lead
                   </button>
                   <Link
                     to="/hr/leads"

@@ -581,7 +581,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
               activeOpacity={0.8}
             >
               <Ionicons name="add" size={18} color="#ffffff" />
-              <Text style={styles.addBtnText}>Add Lead</Text>
+              <Text style={styles.addBtnText}>Add New Lead</Text>
             </TouchableOpacity>
           )}
         </View>

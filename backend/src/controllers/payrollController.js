@@ -5,15 +5,34 @@ const { calculateEmployeePayroll } = require("../services/payrollCalculationServ
 const { getCompanyAttendanceSummary } = require("../services/payrollAttendanceService");
 const { generatePayslipHTML, generatePayslipPDF } = require("../services/pdfGeneratorService");
 const Company = require("../models/Company");
+const { getManagerTeamEmployeeIds, resolveManagerEmployee } = require("./managerController");
+
+const getAllowedEmployeeIdsForManager = async (req) => {
+  const managerEmp = await resolveManagerEmployee(req);
+  if (!managerEmp) return [];
+  return await getManagerTeamEmployeeIds(managerEmp, req.companyId);
+};
 
 // ─────────────────────────────────────────────
 // PREVIEW PAYROLL
 // ─────────────────────────────────────────────
 const previewPayroll = async (req, res, next) => {
   try {
-    const { month, year, employeeIds, overrides = {} } = req.body;
+    let { month, year, employeeIds, overrides = {} } = req.body;
     if (!month || !year || !employeeIds || !employeeIds.length) {
       return res.status(400).json({ success: false, message: "Month, year, and employeeIds are required" });
+    }
+
+    if (req.user.role === "Manager") {
+      const allowedIds = await getAllowedEmployeeIdsForManager(req);
+      const allowedSet = new Set(allowedIds.map(id => id.toString()));
+      employeeIds = employeeIds.filter(id => allowedSet.has(id.toString()));
+      if (employeeIds.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "You are only permitted to preview payroll for employees in your department/team."
+        });
+      }
     }
 
     const previews = [];
@@ -50,9 +69,21 @@ const previewPayroll = async (req, res, next) => {
 // ─────────────────────────────────────────────
 const generatePayroll = async (req, res, next) => {
   try {
-    const { month, year, employeeIds, overrides = {} } = req.body;
+    let { month, year, employeeIds, overrides = {} } = req.body;
     if (!month || !year || !employeeIds || !employeeIds.length) {
       return res.status(400).json({ success: false, message: "Month, year, and employeeIds are required" });
+    }
+
+    if (req.user.role === "Manager") {
+      const allowedIds = await getAllowedEmployeeIdsForManager(req);
+      const allowedSet = new Set(allowedIds.map(id => id.toString()));
+      employeeIds = employeeIds.filter(id => allowedSet.has(id.toString()));
+      if (employeeIds.length === 0) {
+        return res.status(403).json({
+          success: false,
+          message: "You are only permitted to generate payroll for employees in your department/team."
+        });
+      }
     }
 
     let generatedCount = 0;
@@ -129,6 +160,17 @@ const recalculatePayroll = async (req, res, next) => {
     const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
 
+    if (req.user.role === "Manager") {
+      const allowedIds = await getAllowedEmployeeIdsForManager(req);
+      const allowedSet = new Set(allowedIds.map(id => id.toString()));
+      if (!allowedSet.has(payroll.employeeId.toString())) {
+        return res.status(403).json({
+          success: false,
+          message: "You are only permitted to recalculate payroll for employees in your department/team."
+        });
+      }
+    }
+
     const empOverrides = overrides[payroll.employeeId] || {};
     const result = await calculateEmployeePayroll(
       payroll.employeeId, payroll.month, payroll.year, req.companyId, empOverrides
@@ -168,7 +210,7 @@ const recalculatePayroll = async (req, res, next) => {
 };
 
 // ─────────────────────────────────────────────
-// GET ALL PAYROLLS FOR A MONTH (Admin/HR)
+// GET ALL PAYROLLS FOR A MONTH (Admin/HR/Manager)
 // ─────────────────────────────────────────────
 const getCompanyPayrolls = async (req, res, next) => {
   try {
@@ -177,6 +219,11 @@ const getCompanyPayrolls = async (req, res, next) => {
     if (month) query.month = String(month);
     if (year) query.year = Number(year);
     if (status) query.status = status;
+
+    if (req.user.role === "Manager") {
+      const allowedIds = await getAllowedEmployeeIdsForManager(req);
+      query.employeeId = { $in: allowedIds };
+    }
 
     const payrolls = await Payroll.find(query)
       .populate({
@@ -218,10 +265,39 @@ const getCompanyPayrolls = async (req, res, next) => {
 const getEmployeePayrolls = async (req, res, next) => {
   try {
     const { month, year } = req.query;
-    const employeeId = req.params.employeeId || req.user.employeeId;
+    let employeeId = req.params.employeeId || req.user.employeeId;
+    if (!employeeId) {
+      const emp = await Employee.findOne({ userId: req.user._id, companyId: req.companyId });
+      if (emp) employeeId = emp._id;
+    }
+    if (!employeeId) {
+      return res.json({ success: true, data: [] });
+    }
+
     let query = { companyId: req.companyId, employeeId };
-    if (month) query.month = String(month);
-    if (year) query.year = Number(year);
+    if (month && month !== "all" && month !== "ALL") {
+      const mNum = parseInt(month, 10);
+      if (!isNaN(mNum)) {
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        const mName = monthNames[mNum - 1];
+        query.month = {
+          $in: [
+            String(mNum),
+            String(mNum).padStart(2, "0"),
+            mName,
+            mName?.toLowerCase()
+          ].filter(Boolean)
+        };
+      } else {
+        query.month = new RegExp(`^${month}$`, "i");
+      }
+    }
+    if (year && year !== "all" && year !== "ALL") {
+      query.year = Number(year);
+    }
 
     const payrolls = await Payroll.find(query)
       .populate({
@@ -265,7 +341,12 @@ const getAttendanceSummary = async (req, res, next) => {
     if (!month || !year) {
       return res.status(400).json({ success: false, message: "month and year are required" });
     }
-    const summaries = await getCompanyAttendanceSummary(month, year, req.companyId);
+    let summaries = await getCompanyAttendanceSummary(month, year, req.companyId);
+    if (req.user.role === "Manager") {
+      const allowedIds = await getAllowedEmployeeIdsForManager(req);
+      const allowedSet = new Set(allowedIds.map(id => id.toString()));
+      summaries = summaries.filter(s => allowedSet.has((s.employeeId?._id || s.employeeId)?.toString()));
+    }
     res.json({ success: true, data: summaries, month, year });
   } catch (err) {
     next(err);
@@ -279,9 +360,17 @@ const getPayslipDetails = async (req, res, next) => {
   try {
     const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
-    if (req.user.role === "Employee" || req.user.role === "Manager") {
+    if (req.user.role === "Employee") {
       if (payroll.employeeId.toString() !== req.user.employeeId?.toString()) {
         return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    } else if (req.user.role === "Manager") {
+      const isSelf = payroll.employeeId.toString() === req.user.employeeId?.toString();
+      if (!isSelf) {
+        const allowedIds = await getAllowedEmployeeIdsForManager(req);
+        if (!allowedIds.map(id => id.toString()).includes(payroll.employeeId.toString())) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
       }
     }
     res.json({ success: true, payslip: payroll });
@@ -294,6 +383,19 @@ const getPayslipPreview = async (req, res, next) => {
   try {
     const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    if (req.user.role === "Employee") {
+      if (payroll.employeeId.toString() !== req.user.employeeId?.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    } else if (req.user.role === "Manager") {
+      const isSelf = payroll.employeeId.toString() === req.user.employeeId?.toString();
+      if (!isSelf) {
+        const allowedIds = await getAllowedEmployeeIdsForManager(req);
+        if (!allowedIds.map(id => id.toString()).includes(payroll.employeeId.toString())) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+      }
+    }
     const company = await Company.findById(req.companyId);
     const settings = await PayrollSettings.findOne({ companyId: req.companyId });
     const html = generatePayslipHTML(payroll, company, settings || {});
@@ -307,6 +409,19 @@ const downloadPayslipPDF = async (req, res, next) => {
   try {
     const payroll = await Payroll.findOne({ _id: req.params.id, companyId: req.companyId });
     if (!payroll) return res.status(404).json({ success: false, message: "Payroll not found" });
+    if (req.user.role === "Employee") {
+      if (payroll.employeeId.toString() !== req.user.employeeId?.toString()) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    } else if (req.user.role === "Manager") {
+      const isSelf = payroll.employeeId.toString() === req.user.employeeId?.toString();
+      if (!isSelf) {
+        const allowedIds = await getAllowedEmployeeIdsForManager(req);
+        if (!allowedIds.map(id => id.toString()).includes(payroll.employeeId.toString())) {
+          return res.status(403).json({ success: false, message: "Access denied" });
+        }
+      }
+    }
     const company = await Company.findById(req.companyId);
     const settings = await PayrollSettings.findOne({ companyId: req.companyId });
     const html = generatePayslipHTML(payroll, company, settings || {});

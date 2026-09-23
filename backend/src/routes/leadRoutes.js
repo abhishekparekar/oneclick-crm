@@ -3,8 +3,8 @@ const router = express.Router();
 const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 const {
-  getStatuses, createStatus, updateStatus, deleteStatus,
-  getSources, createSource,
+  getStatuses, createStatus, updateStatus, deleteStatus, reorderStatuses,
+  getSources, createSource, updateSource, deleteSource,
   getTags, createTag, deleteTag,
   getProducts, createProduct, deleteProduct,
   getLeads, createLead, getLeadById, updateLead, updateLeadStatus, deleteLead, getLeadStats,
@@ -55,12 +55,19 @@ router.get("/dashboard/lead-status-counts", getLeadStatusCounts);
 // Statuses
 router.get("/statuses", getStatuses);
 router.post("/statuses", createStatus);
+router.patch("/statuses/reorder", reorderStatuses);
+router.put("/statuses/reorder", reorderStatuses);
+router.post("/statuses/reorder", reorderStatuses);
 router.patch("/statuses/:id", updateStatus);
+router.put("/statuses/:id", updateStatus);
 router.delete("/statuses/:id", deleteStatus);
 
 // Sources
 router.get("/sources", getSources);
 router.post("/sources", createSource);
+router.patch("/sources/:id", updateSource);
+router.put("/sources/:id", updateSource);
+router.delete("/sources/:id", deleteSource);
 
 // Products & Services
 router.get("/products", getProducts);
@@ -126,7 +133,19 @@ router.get("/assignable-users", getAssignableUsers);
 router.get("/leads/stats", getLeadStats);
 router.get("/leads/opt-in-counts", getOptInCounts);
 router.get("/leads/statuses", getStatuses);
+router.post("/leads/statuses", createStatus);
+router.patch("/leads/statuses/reorder", reorderStatuses);
+router.put("/leads/statuses/reorder", reorderStatuses);
+router.post("/leads/statuses/reorder", reorderStatuses);
+router.patch("/leads/statuses/:id", updateStatus);
+router.put("/leads/statuses/:id", updateStatus);
+router.delete("/leads/statuses/:id", deleteStatus);
+
 router.get("/leads/sources", getSources);
+router.post("/leads/sources", createSource);
+router.patch("/leads/sources/:id", updateSource);
+router.put("/leads/sources/:id", updateSource);
+router.delete("/leads/sources/:id", deleteSource);
 router.get("/leads/tags", getTags);
 router.get("/leads/products", getProducts);
 router.get("/leads/assignable-users", getAssignableUsers);

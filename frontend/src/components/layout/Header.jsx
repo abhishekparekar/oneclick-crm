@@ -476,7 +476,7 @@ const Header = ({ onMenuClick }) => {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                        Create Work Task
+                        Add Task
                       </p>
                       <p className="text-[10px] text-slate-400 font-medium truncate">
                         Assign task, checklist &amp; deadline

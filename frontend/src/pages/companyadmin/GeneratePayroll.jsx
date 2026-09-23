@@ -719,7 +719,7 @@ const GeneratePayroll = () => {
 
           <div className="flex gap-2 pt-2">
             <Link
-              to={window.location.pathname.startsWith("/hr") ? "/hr/payroll/history" : "/company/payroll/history"}
+              to={window.location.pathname.startsWith("/manager") ? "/manager/payroll/history" : window.location.pathname.startsWith("/hr") ? "/hr/payroll/history" : "/company/payroll/history"}
               className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs shadow-2xs transition-all"
             >
               View Payroll History

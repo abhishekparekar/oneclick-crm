@@ -63,7 +63,7 @@ const EmployeeLocationTracking = () => {
 
   // Fetch Live Employees Query
   const {
-    data: liveData,
+    data: liveResponse,
     isLoading: loadingLive,
     refetch: refetchLive,
     isFetching: isFetchingLive,
@@ -71,14 +71,22 @@ const EmployeeLocationTracking = () => {
     queryKey: ["liveEmployeeLocations"],
     queryFn: async () => {
       const res = await getLiveEmployeeLocationsApi();
-      return res.data?.data || res.data || [];
+      return res.data || {};
     },
     refetchInterval: 4000, // 4s ultra-fast live polling for real-time tracking
   });
 
-  const employees = useMemo(() => (Array.isArray(liveData) ? liveData : []), [liveData]);
+  const employees = useMemo(() => {
+    if (Array.isArray(liveResponse)) return liveResponse;
+    if (Array.isArray(liveResponse?.data)) return liveResponse.data;
+    return [];
+  }, [liveResponse]);
 
-  // Auto-select employee with active GPS coordinates (e.g. viki) so map opens focused immediately
+  const officeLocation = useMemo(() => {
+    return liveResponse?.officeLocation || employees[0]?.officeLocation || null;
+  }, [liveResponse, employees]);
+
+  // Auto-select employee with active GPS coordinates so map opens focused immediately
   useEffect(() => {
     if (!selectedEmployee && employees.length > 0) {
       const bestEmp =
@@ -90,6 +98,7 @@ const EmployeeLocationTracking = () => {
       }
     }
   }, [employees, selectedEmployee]);
+
 
   // Fetch Trail Query (when an employee and date are selected in trail mode)
   const {
@@ -124,8 +133,8 @@ const EmployeeLocationTracking = () => {
         (statusFilter === "active" && emp.trackingStatus === "active") ||
         (statusFilter === "field" && Boolean(emp.isLocationTrackingEnabled)) ||
         (statusFilter === "office" && !emp.isLocationTrackingEnabled) ||
-        (statusFilter === "halt" && emp.motionStatus === "stationary" && emp.latitude) ||
-        (statusFilter === "moving" && emp.motionStatus === "moving") ||
+        (statusFilter === "halt" && emp.trackingStatus === "active" && emp.motionStatus === "stationary" && emp.latitude) ||
+        (statusFilter === "moving" && emp.trackingStatus === "active" && emp.motionStatus === "moving") ||
         (statusFilter === "low_bat" && emp.batteryLevel !== null && emp.batteryLevel !== undefined && emp.batteryLevel < 20) ||
         (statusFilter === "stopped" && (emp.trackingStatus === "stopped" || emp.trackingStatus === "no_signal" || emp.trackingStatus === "disabled"));
 
@@ -155,11 +164,11 @@ const EmployeeLocationTracking = () => {
     [employees]
   );
   const haltingCount = useMemo(
-    () => employees.filter((e) => e.motionStatus === "stationary" && e.stoppageDurationMinutes > 2 && e.latitude).length,
+    () => employees.filter((e) => e.trackingStatus === "active" && e.motionStatus === "stationary" && e.stoppageDurationMinutes > 2 && e.latitude).length,
     [employees]
   );
   const movingCount = useMemo(
-    () => employees.filter((e) => e.motionStatus === "moving" && e.latitude).length,
+    () => employees.filter((e) => e.trackingStatus === "active" && e.motionStatus === "moving" && e.latitude).length,
     [employees]
   );
   const stoppedTrackingCount = useMemo(
@@ -276,15 +285,22 @@ const EmployeeLocationTracking = () => {
   useEffect(() => {
     if (!mapReady || !mapContainerRef.current || mapInstanceRef.current) return;
 
-    const L = window.L;
-    // Default center Pune / India
+    const initialCenter =
+      officeLocation && officeLocation.latitude && officeLocation.longitude
+        ? [officeLocation.latitude, officeLocation.longitude]
+        : selectedEmployee && selectedEmployee.latitude && selectedEmployee.longitude
+        ? [selectedEmployee.latitude, selectedEmployee.longitude]
+        : [20.5937, 78.9629];
+    const initialZoom = (officeLocation?.latitude || selectedEmployee?.latitude) ? 15 : 5;
+
     const map = L.map(mapContainerRef.current, {
-      center: [18.5204, 73.8567],
-      zoom: 12,
+      center: initialCenter,
+      zoom: initialZoom,
       zoomControl: false,
       fadeAnimation: true,
       zoomAnimation: true,
     });
+
 
     mapInstanceRef.current = map;
     setTileLayer(mapType);
@@ -366,13 +382,13 @@ const EmployeeLocationTracking = () => {
 
         // Stoppage / Speed Pill attached on top or bottom of marker
         let statusBadgeHtml = "";
-        if (isMoving && emp.speed > 0) {
+        if (isTrackingActive && isMoving && emp.speed > 0) {
           statusBadgeHtml = `
             <div style="position: absolute; top: -10px; font-size: 9.5px; font-weight: 800; background: #2563EB; color: #FFF; padding: 1.5px 6px; border-radius: 99px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1.5px solid #FFF; white-space: nowrap; z-index: 30;">
               ⚡ ${Math.round(emp.speed)} km/h
             </div>
           `;
-        } else if (emp.stoppageText && emp.stoppageText !== "0 mins") {
+        } else if (isTrackingActive && emp.stoppageText && emp.stoppageText !== "0 mins") {
           statusBadgeHtml = `
             <div style="position: absolute; bottom: -10px; font-size: 9px; font-weight: 800; background: #DC2626; color: #FFF; padding: 1px 6px; border-radius: 99px; box-shadow: 0 2px 8px rgba(0,0,0,0.5); border: 1.5px solid #FFF; white-space: nowrap; z-index: 30;">
               🛑 ${emp.stoppageText}
@@ -436,23 +452,31 @@ const EmployeeLocationTracking = () => {
             </div>
 
             <!-- Stoppage & Motion Highlights -->
-            <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;">
-              <div style="display: flex; align-items: center; justify-content: space-between;">
-                <span style="font-size: 11px; font-weight: 700; color: #475569;">
-                  ${isMoving ? "🚗 Movement Status:" : "🛑 Stoppage Duration:"}
-                </span>
-                <span style="font-size: 12px; font-weight: 900; color: ${isMoving ? "#2563EB" : "#DC2626"};">
-                  ${isMoving ? `Moving (${Math.round(emp.speed)} km/h)` : `${emp.stoppageText || "0 mins"} थांबले`}
-                </span>
-              </div>
-              ${
-                !isMoving && emp.stoppedSince
-                  ? `<div style="font-size: 10px; color: #64748B; margin-top: 3px;">
-                       📍 Stopped here since: <b>${new Date(emp.stoppedSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b>
-                     </div>`
-                  : ""
-              }
-            </div>
+            ${
+              isTrackingActive
+                ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;">
+                     <div style="display: flex; align-items: center; justify-content: space-between;">
+                       <span style="font-size: 11px; font-weight: 700; color: #475569;">
+                         ${isMoving ? "🚗 Movement Status:" : "🛑 Stoppage Duration:"}
+                       </span>
+                       <span style="font-size: 12px; font-weight: 900; color: ${isMoving ? "#2563EB" : "#DC2626"};">
+                         ${isMoving ? `Moving (${Math.round(emp.speed)} km/h)` : `${emp.stoppageText || "0 mins"} थांबले`}
+                       </span>
+                     </div>
+                     ${
+                       !isMoving && emp.stoppedSince
+                         ? `<div style="font-size: 10px; color: #64748B; margin-top: 3px;">
+                              📍 Stopped here since: <b>${new Date(emp.stoppedSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b>
+                            </div>`
+                         : ""
+                     }
+                   </div>`
+                : `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 7px 9px; margin-bottom: 8px;">
+                     <span style="font-size: 11px; font-weight: 700; color: #64748B;">
+                       🛑 ${emp.trackingStatus === "stopped" ? "Duty Inactive / Punched Out" : "Duty Inactive (Off-Duty)"}
+                     </span>
+                   </div>`
+            }
 
             <!-- Signal & Battery Meta -->
             <div style="font-size: 10.5px; color: #64748B; space-y: 2px; line-height: 1.5;">
@@ -469,16 +493,51 @@ const EmployeeLocationTracking = () => {
         bounds.push([emp.latitude, emp.longitude]);
       });
 
+      // Render Company Office Marker if available
+      if (officeLocation && officeLocation.latitude && officeLocation.longitude) {
+        const officeIcon = L.divIcon({
+          html: `
+            <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+              <div style="
+                width: 38px; height: 38px; border-radius: 50%; 
+                border: 3px solid #6366F1;
+                background: #1E1B4B; color: #FFFFFF; display: flex; align-items: center; justify-content: center;
+                font-size: 19px; box-shadow: 0 4px 14px rgba(0,0,0,0.6);
+              ">
+                🏢
+              </div>
+              <div style="position: absolute; bottom: -8px; font-size: 8.5px; font-weight: 800; background: #4F46E5; color: #FFF; padding: 1px 5px; border-radius: 4px; white-space: nowrap; border: 1px solid #FFF;">
+                Office
+              </div>
+            </div>
+          `,
+          className: "custom-leaflet-marker",
+          iconSize: [44, 44],
+          iconAnchor: [22, 22],
+        });
+
+        const officeMarker = L.marker([officeLocation.latitude, officeLocation.longitude], { icon: officeIcon })
+          .bindPopup(`<b>🏢 ${officeLocation.name || "Company Office"}</b><br/><span style="font-size:11px; color:#64748B;">${officeLocation.address || "Office / Branch Headquarters"}</span>`);
+        markersGroupRef.current.addLayer(officeMarker);
+      }
+
       if (selectedEmployee?.latitude && selectedEmployee?.longitude) {
         mapInstanceRef.current.setView([selectedEmployee.latitude, selectedEmployee.longitude], 16);
       } else if (bounds.length === 1) {
         mapInstanceRef.current.setView(bounds[0], 16);
       } else if (bounds.length > 1) {
         mapInstanceRef.current.fitBounds(bounds, { padding: [60, 60], maxZoom: 17 });
+      } else if (officeLocation?.latitude && officeLocation?.longitude) {
+        // Fallback to Company Office location when no tracking is active
+        mapInstanceRef.current.setView([officeLocation.latitude, officeLocation.longitude], 16);
+      } else {
+        // Fallback to India overview
+        mapInstanceRef.current.setView([20.5937, 78.9629], 5);
       }
       setTimeout(() => {
         mapInstanceRef.current?.invalidateSize({ pan: false });
       }, 200);
+
     } else if (viewMode === "trail" && (trailData?.trail?.length > 0 || trailData?.cleanTrail?.length > 0)) {
       const rawCleanPoints =
         trailData?.cleanTrail && trailData.cleanTrail.length > 0
@@ -705,14 +764,37 @@ const EmployeeLocationTracking = () => {
       setTimeout(() => {
         mapInstanceRef.current?.invalidateSize({ pan: false });
       }, 200);
+    } else if (viewMode === "trail") {
+      // No trail recorded for selected employee / date
+      if (officeLocation && officeLocation.latitude && officeLocation.longitude) {
+        const officeIcon = L.divIcon({
+          html: `<div style="width:38px;height:38px;border-radius:50%;background:#4F46E5;border:2.5px solid #FFF;color:#FFF;display:flex;align-items:center;justify-content:center;font-size:18px;box-shadow:0 4px 12px rgba(0,0,0,0.5);">🏢</div>`,
+          iconSize: [38, 38],
+          iconAnchor: [19, 19],
+        });
+        const offMarker = L.marker([officeLocation.latitude, officeLocation.longitude], { icon: officeIcon })
+          .bindPopup(`<b>🏢 ${officeLocation.name || "Company Office"}</b><br/>No route trail for selected date (Tracking inactive or stationary at office)`);
+        markersGroupRef.current.addLayer(offMarker);
+        mapInstanceRef.current.setView([officeLocation.latitude, officeLocation.longitude], 16);
+      } else {
+        mapInstanceRef.current.setView([20.5937, 78.9629], 5);
+      }
     }
-  }, [employees, viewMode, trailData, selectedEmployee, mapReady]);
+  }, [employees, viewMode, trailData, selectedEmployee, mapReady, officeLocation]);
 
   // Center on employee when clicked in list
   const handleSelectStaff = (emp) => {
     setSelectedEmployee(emp);
     if (emp.latitude && emp.longitude && mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([emp.latitude, emp.longitude], 16, {
+        duration: 1.2,
+      });
+      setTimeout(() => {
+        mapInstanceRef.current?.invalidateSize({ pan: false });
+      }, 400);
+      mapContainerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else if (officeLocation?.latitude && officeLocation?.longitude && mapInstanceRef.current) {
+      mapInstanceRef.current.flyTo([officeLocation.latitude, officeLocation.longitude], 16, {
         duration: 1.2,
       });
       setTimeout(() => {
@@ -732,8 +814,11 @@ const EmployeeLocationTracking = () => {
       mapInstanceRef.current.flyTo(activeCoords[0], 16, { duration: 1.2 });
     } else if (activeCoords.length > 1) {
       mapInstanceRef.current.flyToBounds(activeCoords, { padding: [60, 60], maxZoom: 17, duration: 1.2 });
+    } else if (officeLocation?.latitude && officeLocation?.longitude) {
+      mapInstanceRef.current.flyTo([officeLocation.latitude, officeLocation.longitude], 16, { duration: 1.2 });
     }
   };
+
 
   // Copy GPS Coordinates to Clipboard
   const handleCopyCoordinates = (lat, lng) => {
@@ -1153,7 +1238,7 @@ const EmployeeLocationTracking = () => {
           )}
 
           {/* Selected Employee Floating Cockpit HUD */}
-          {selectedEmployee && selectedEmployee.latitude && (
+          {selectedEmployee && (
             <div className="absolute bottom-4 left-4 right-4 md:right-auto md:w-[420px] z-20 hud-glass-panel p-4 rounded-2xl shadow-xl flex flex-col gap-3 transition-all animate-in fade-in slide-in-from-bottom-3">
               {/* Header: Avatar, Name, Designation, Close Button */}
               <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
@@ -1204,7 +1289,7 @@ const EmployeeLocationTracking = () => {
                       ? "Active"
                       : selectedEmployee.trackingStatus === "idle"
                       ? "Idle"
-                      : "Off-Duty"}
+                      : "Off-Duty (NA)"}
                   </span>
 
                   <button
@@ -1218,27 +1303,57 @@ const EmployeeLocationTracking = () => {
                 </div>
               </div>
 
+              {/* Location Bar: Live Location OR Office OR NA */}
+              <div className="bg-muted/40 px-2.5 py-1.5 rounded-xl border border-border/70 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <MapPin size={13} className={selectedEmployee.latitude ? "text-emerald-500 flex-shrink-0" : "text-amber-500 flex-shrink-0"} />
+                  <span className="text-[11px] font-bold text-foreground truncate">
+                    {selectedEmployee.latitude && selectedEmployee.longitude
+                      ? selectedEmployee.address || `${Number(selectedEmployee.latitude).toFixed(4)}, ${Number(selectedEmployee.longitude).toFixed(4)}`
+                      : officeLocation
+                      ? `🏢 ${officeLocation.name} (Office Location)`
+                      : "Location: NA (Tracking Inactive)"}
+                  </span>
+                </div>
+                {!selectedEmployee.latitude && (
+                  <span className="text-[9px] font-black uppercase px-1.5 py-0.5 rounded bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/25 flex-shrink-0">
+                    NA
+                  </span>
+                )}
+              </div>
+
               {/* Telemetry Pods */}
               <div className="grid grid-cols-2 gap-2">
                 {/* Pod 1: Motion / Halt */}
                 <div className="bg-muted/40 p-2.5 rounded-xl border border-border/70 text-xs flex flex-col justify-between">
                   <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
-                    {selectedEmployee.motionStatus === "moving" ? "Motion Speed" : "हॉल्ट वेळ (Stoppage)"}
+                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving"
+                      ? "Motion Speed"
+                      : selectedEmployee.trackingStatus === "active"
+                      ? "हॉल्ट वेळ (Stoppage)"
+                      : "ड्यूटी स्थिती (Status)"}
                   </p>
                   <p className="font-black text-sm text-foreground mt-1 flex items-center gap-1.5">
-                    {selectedEmployee.motionStatus === "moving" ? (
+                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.motionStatus === "moving" ? (
                       <>
                         <Car size={14} className="text-blue-500" />
                         <span className="text-blue-600 dark:text-blue-400">{Math.round(selectedEmployee.speed)} km/h</span>
                       </>
-                    ) : (
+                    ) : selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude ? (
                       <>
                         <Timer size={14} className="text-rose-500" />
                         <span className="text-rose-600 dark:text-rose-400">{selectedEmployee.stoppageText || "0 mins"} थांबले</span>
                       </>
+                    ) : (
+                      <>
+                        <Timer size={14} className="text-slate-400" />
+                        <span className="text-muted-foreground text-xs font-bold">
+                          {selectedEmployee.trackingStatus === "stopped" ? "Punched Out" : "NA (Off-Duty)"}
+                        </span>
+                      </>
                     )}
                   </p>
-                  {selectedEmployee.stoppedSince && selectedEmployee.motionStatus !== "moving" && (
+                  {selectedEmployee.trackingStatus === "active" && selectedEmployee.stoppedSince && selectedEmployee.motionStatus !== "moving" && selectedEmployee.latitude && (
                     <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
                       पोहोचले: <b>{new Date(selectedEmployee.stoppedSince).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</b>
                     </p>
@@ -1259,7 +1374,9 @@ const EmployeeLocationTracking = () => {
                     </span>
                   </p>
                   <p className="text-[10px] text-muted-foreground mt-0.5 font-semibold">
-                    🎯 Pure GPS Verified
+                    {selectedEmployee.trackingStatus === "active" && selectedEmployee.latitude
+                      ? "🎯 Pure GPS Verified"
+                      : "Standby (NA)"}
                   </p>
                 </div>
               </div>
@@ -1276,12 +1393,26 @@ const EmployeeLocationTracking = () => {
 
                   <button
                     type="button"
-                    onClick={() => handleCopyCoordinates(selectedEmployee.latitude, selectedEmployee.longitude)}
+                    onClick={() => {
+                      if (selectedEmployee.latitude && selectedEmployee.longitude) {
+                        handleCopyCoordinates(selectedEmployee.latitude, selectedEmployee.longitude);
+                      } else if (officeLocation?.latitude && officeLocation?.longitude) {
+                        handleCopyCoordinates(officeLocation.latitude, officeLocation.longitude);
+                      }
+                    }}
                     className="bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground px-2 py-0.5 rounded-md border border-border font-bold flex items-center gap-1 transition-all cursor-pointer"
-                    title="Copy Coordinates"
+                    title={selectedEmployee.latitude ? "Copy GPS Coordinates" : officeLocation ? "Copy Office Coordinates" : "No GPS Coordinates Available"}
                   >
                     {copiedCoord ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
-                    <span>{copiedCoord ? "Copied!" : "GPS Pos"}</span>
+                    <span>
+                      {copiedCoord
+                        ? "Copied!"
+                        : selectedEmployee.latitude
+                        ? "GPS Pos"
+                        : officeLocation
+                        ? "Office GPS"
+                        : "NA"}
+                    </span>
                   </button>
                 </div>
 
@@ -1296,6 +1427,7 @@ const EmployeeLocationTracking = () => {
               </div>
             </div>
           )}
+
 
           {/* Leaflet Map Canvas */}
           <div ref={mapContainerRef} className="w-full h-full flex-1" style={{ zIndex: 1, minHeight: isFullscreen ? '100%' : '420px' }} />
@@ -1451,7 +1583,7 @@ const EmployeeLocationTracking = () => {
 
                 const leftAccent = isTrackingActive
                   ? "border-l-[3px] border-l-emerald-500"
-                  : emp.latitude && emp.motionStatus === "stationary"
+                  : isTrackingActive && emp.motionStatus === "stationary"
                   ? "border-l-[3px] border-l-amber-500"
                   : "border-l-[3px] border-l-slate-300 dark:border-l-slate-700";
 
@@ -1522,19 +1654,22 @@ const EmployeeLocationTracking = () => {
                     {/* Bottom Row: Motion / Distance / Battery / Ping */}
                     <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[10px]">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        {isMoving ? (
+                        {isTrackingActive && isMoving ? (
                           <div className="flex items-center gap-0.5 text-blue-600 dark:text-blue-400 font-extrabold bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20 text-[9.5px]">
                             <Car size={10} />
                             <span>{Math.round(emp.speed)} km/h</span>
                           </div>
-                        ) : emp.latitude ? (
+                        ) : isTrackingActive && emp.latitude ? (
                           <div className="flex items-center gap-0.5 text-amber-700 dark:text-amber-400 font-extrabold bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 text-[9.5px]">
                             <Timer size={10} />
                             <span>थांबून: {emp.stoppageText || "0m"}</span>
                           </div>
                         ) : (
-                          <span className="text-[9.5px] text-muted-foreground">GPS बंद</span>
+                          <span className="text-[9.5px] font-bold text-muted-foreground bg-muted/60 px-1.5 py-0.5 rounded border border-border">
+                            {emp.trackingStatus === "stopped" ? "Punched Out" : officeLocation ? `🏢 ${officeLocation.name}` : "📍 Off-Duty"}
+                          </span>
                         )}
+
 
                         {(parseFloat(emp.todayDistanceKm) > 0 || (emp.todayDistanceText && emp.todayDistanceText !== "0 km" && emp.todayDistanceText !== "0.00 km")) && (
                           <div className="text-[9.5px] font-black text-indigo-600 dark:text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded border border-indigo-500/20 flex items-center gap-1">

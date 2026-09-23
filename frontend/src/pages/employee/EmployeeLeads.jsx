@@ -498,7 +498,7 @@ export default function EmployeeLeads() {
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1.5 px-3.5 h-8 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer self-start sm:self-auto"
           >
-            <Plus size={14} strokeWidth={2.5} /> Create Lead
+            <Plus size={14} strokeWidth={2.5} /> Add New Lead
           </button>
         )}
       </div>
@@ -646,13 +646,13 @@ export default function EmployeeLeads() {
           </div>
           <h3 className="font-black text-sm text-slate-800 dark:text-slate-200">No Leads Found</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
-            There are no leads matching your selected date or status filter. Click &quot;Create Lead&quot; to add a new prospective client.
+            There are no leads matching your selected date or status filter. Click &quot;Add New Lead&quot; to add a new prospective client.
           </p>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white font-black text-xs rounded-xl shadow-md cursor-pointer"
           >
-            + Create New Lead
+            + Add New Lead
           </button>
         </div>
       ) : viewMode === "grid" ? (
@@ -1134,7 +1134,7 @@ export default function EmployeeLeads() {
                   className="px-6 py-2.5 bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-xs rounded-xl shadow-lg shadow-orange-600/20 cursor-pointer flex items-center gap-1.5 transition-all disabled:opacity-50"
                 >
                   <Sparkles size={14} />
-                  <span>{createLeadMut.isPending ? "Saving Lead..." : "Save & Create Lead"}</span>
+                  <span>{createLeadMut.isPending ? "Saving Lead..." : "Save & Add New Lead"}</span>
                 </button>
               </div>
             </form>

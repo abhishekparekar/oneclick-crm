@@ -579,7 +579,20 @@ function LeadDetailsScreenComponent({ route, navigation }) {
       setStatusModalVisible(false);
       Alert.alert(
         "Stage Updated 🎉",
-        `Pipeline stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`
+        `Pipeline stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`,
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else if (navigation?.navigate) {
+                navigation.navigate("Leads");
+              }
+            },
+          },
+        ],
+        { cancelable: false }
       );
       fetchDetails();
     } catch (err) {
@@ -618,7 +631,23 @@ function LeadDetailsScreenComponent({ route, navigation }) {
       await leadsService.updateLead(leadId, editForm);
       setEditModalVisible(false);
       fetchDetails();
-      Alert.alert("Saved", "Lead profile updated successfully.");
+      Alert.alert(
+        "Saved",
+        "Lead profile updated successfully.",
+        [
+          {
+            text: "OK",
+            onPress: () => {
+              if (navigation?.canGoBack && navigation.canGoBack()) {
+                navigation.goBack();
+              } else if (navigation?.navigate) {
+                navigation.navigate("Leads");
+              }
+            },
+          },
+        ],
+        { cancelable: false }
+      );
     } catch (err) {
       Alert.alert("Error", "Failed to save updates.");
     } finally {

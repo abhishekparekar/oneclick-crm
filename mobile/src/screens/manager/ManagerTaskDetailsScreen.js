@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   StatusBar,
   Modal,
   ScrollView,
+  Linking,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons, Feather } from "@expo/vector-icons";
@@ -22,7 +23,8 @@ import { useAuth } from "../../context/AuthContext";
 import { Audio } from 'expo-av';
 import TaskActionModal from "../../components/TaskActionModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
-import { submitFollowUpApi, updateTaskChecklistApi, uploadMediaFileApi as uploadMedia } from "../../api/taskService";
+import { submitFollowUpApi, updateTaskChecklistApi, uploadMediaFileApi as uploadMedia, uploadTaskAttachmentApi } from "../../api/taskService";
+import { getBackendHost } from "../../api/api";
 import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -91,6 +93,145 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
   const [sound, setSound] = useState(null);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const recordingTimerRef = useRef(null);
+
+  const [uploadingDirectFile, setUploadingDirectFile] = useState(false);
+
+  const safeDecode = (str) => {
+    if (!str) return "Attachment";
+    try {
+      return decodeURIComponent(str);
+    } catch (_) {
+      return str;
+    }
+  };
+
+  const resolveFileUrl = (url) => {
+    if (!url) return "";
+    if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+      return url;
+    }
+    const host = getBackendHost();
+    const protocol = host.includes("vercel.app") ? "https" : "http";
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+    return `${protocol}://${host}${cleanPath}`;
+  };
+
+  const handleOpenFile = async (rawUrl) => {
+    const fullUrl = resolveFileUrl(rawUrl);
+    if (!fullUrl) return;
+    try {
+      await WebBrowser.openBrowserAsync(fullUrl);
+    } catch (err) {
+      console.error("Browser open error, trying Linking:", err);
+      try {
+        await Linking.openURL(fullUrl);
+      } catch (linkErr) {
+        Alert.alert("Cannot Open File", "Could not open attachment link.");
+      }
+    }
+  };
+
+  const getFileBadge = (fileName = "", fileType = "") => {
+    const fn = (fileName || "").toLowerCase();
+    const ft = (fileType || "").toLowerCase();
+    if (ft.includes("image") || fn.endsWith(".jpg") || fn.endsWith(".jpeg") || fn.endsWith(".png") || fn.endsWith(".webp")) {
+      return { icon: "image-outline", color: "#8B5CF6", bg: "#F3E8FF", label: "IMG" };
+    }
+    if (ft.includes("pdf") || fn.endsWith(".pdf")) {
+      return { icon: "document-text-outline", color: "#EF4444", bg: "#FEE2E2", label: "PDF" };
+    }
+    if (ft.includes("audio") || fn.endsWith(".m4a") || fn.endsWith(".mp3") || fn.endsWith(".wav")) {
+      return { icon: "musical-notes-outline", color: "#F59E0B", bg: "#FEF3C7", label: "AUDIO" };
+    }
+    if (fn.endsWith(".xls") || fn.endsWith(".xlsx") || fn.endsWith(".csv")) {
+      return { icon: "grid-outline", color: "#10B981", bg: "#D1FAE5", label: "SHEET" };
+    }
+    return { icon: "document-outline", color: "#2563EB", bg: "#EFF6FF", label: "DOC" };
+  };
+
+  const allAttachments = useMemo(() => {
+    const list = [];
+    const seenUrls = new Set();
+
+    if (Array.isArray(task?.attachments)) {
+      task.attachments.forEach((att, idx) => {
+        const url = att?.fileUrl || att?.url;
+        if (url && !seenUrls.has(url)) {
+          seenUrls.add(url);
+          list.push({
+            ...att,
+            fileUrl: url,
+            fileName: att.fileName || att.filename || att.name || "Attachment",
+            fileType: att.fileType || att.type || "",
+            id: att._id || `task-att-${idx}`,
+            source: "task"
+          });
+        }
+      });
+    }
+
+    if (Array.isArray(task?.comments)) {
+      task.comments.forEach((c, cIdx) => {
+        if (Array.isArray(c?.attachments)) {
+          c.attachments.forEach((att, aIdx) => {
+            const url = att?.fileUrl || att?.url;
+            if (url && !seenUrls.has(url)) {
+              seenUrls.add(url);
+              list.push({
+                ...att,
+                fileUrl: url,
+                fileName: att.fileName || att.filename || att.name || "Attachment",
+                fileType: att.fileType || att.type || "",
+                uploaderName: c.senderName,
+                uploadedAt: att.uploadedAt || c.createdAt,
+                id: att._id || `comm-att-${cIdx}-${aIdx}`,
+                source: "comment"
+              });
+            }
+          });
+        }
+      });
+    }
+
+    return list;
+  }, [task]);
+
+  const handleDirectFileUpload = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: "*/*",
+      });
+      if (result.canceled || !result.assets || result.assets.length === 0) return;
+
+      const file = result.assets[0];
+      setUploadingDirectFile(true);
+
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name,
+        type: file.mimeType || "application/octet-stream"
+      });
+
+      const uploadRes = await uploadTaskAttachmentApi(taskId, formData).catch(async () => {
+        return await uploadMedia(formData);
+      });
+      const resData = uploadRes?.data || uploadRes;
+
+      if (resData && (resData.success || resData.fileUrl || resData.url || resData.task)) {
+        Alert.alert("Success", "Document attached to task successfully!");
+        await fetchTask();
+      } else {
+        throw new Error(resData?.message || "Upload failed");
+      }
+    } catch (err) {
+      console.error("Direct upload error:", err);
+      Alert.alert("Upload Failed", err?.response?.data?.message || err.message || "Could not upload document.");
+    } finally {
+      setUploadingDirectFile(false);
+    }
+  };
 
   const [actionModalVisible, setActionModalVisible] = useState(false);
   const [actionType, setActionType] = useState("");
@@ -370,21 +511,25 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
         formData.append("file", {
           uri: attachedFile.uri,
           name: attachedFile.name,
-          type: attachedFile.type
+          type: attachedFile.type || "application/octet-stream"
         });
         
-        const uploadRes = await uploadMedia(formData);
-        if (uploadRes && uploadRes.success) {
+        const uploadRes = await uploadMedia(formData).catch(async () => {
+          return await uploadTaskAttachmentApi(taskId, formData).catch(() => null);
+        });
+        const resData = uploadRes?.data || uploadRes;
+        if (resData && (resData.fileUrl || resData.url || resData.attachment?.fileUrl)) {
           attachmentsList.push({
-            fileUrl: uploadRes.fileUrl,
-            fileName: uploadRes.fileName,
-            fileType: uploadRes.fileType
+            fileUrl: resData.fileUrl || resData.url || resData.attachment?.fileUrl,
+            fileName: resData.fileName || resData.filename || resData.attachment?.fileName || attachedFile.name || "Attachment",
+            fileType: resData.fileType || resData.attachment?.fileType || attachedFile.type || "application/octet-stream"
           });
         }
         setUploadingMedia(false);
       }
 
-      await addComment(taskId, newComment, attachmentsList);
+      const commentToSend = newComment.trim() || (attachmentsList.length > 0 ? "Attachment uploaded" : "Status update");
+      await addComment(taskId, commentToSend, attachmentsList);
       setNewComment("");
       setAttachedFile(null);
       await fetchTask();
@@ -894,27 +1039,94 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
           </View>
 
           {/* ── Native Attachments ── */}
-          {task?.attachments && task.attachments.length > 0 && (
-            <View style={styles.nativeSectionContainer}>
-              <Text style={styles.nativeSectionLabel}>ATTACHED FILES ({task.attachments.length})</Text>
-              <View style={styles.nativeAttGrid}>
-                {task.attachments.map((att, idx) => (
-                  <TouchableOpacity
-                    key={idx}
-                    style={styles.nativeAttCard}
-                    onPress={() => WebBrowser.openBrowserAsync(att.fileUrl).catch(err => console.error("URL Open Err", err))}
-                    activeOpacity={0.75}
-                  >
-                    <Ionicons name="document-text-outline" size={18} color="#2563EB" />
-                    <Text style={styles.nativeAttName} numberOfLines={1}>
-                      {decodeURIComponent(att.fileName || "Attachment")}
-                    </Text>
-                    <Ionicons name="arrow-down-circle-outline" size={16} color="#64748B" />
-                  </TouchableOpacity>
-                ))}
-              </View>
+          <View style={styles.nativeSectionContainer}>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <Text style={styles.nativeSectionLabel}>ATTACHED FILES & DOCUMENTS ({allAttachments.length})</Text>
+              <TouchableOpacity
+                style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#EFF6FF", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 6, borderWidth: 1, borderColor: "#BFDBFE" }}
+                onPress={handleDirectFileUpload}
+                disabled={uploadingDirectFile}
+                activeOpacity={0.7}
+              >
+                {uploadingDirectFile ? (
+                  <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 4 }} />
+                ) : (
+                  <Ionicons name="cloud-upload-outline" size={14} color="#2563EB" style={{ marginRight: 4 }} />
+                )}
+                <Text style={{ fontSize: 11.5, fontWeight: "700", color: "#2563EB" }}>
+                  {uploadingDirectFile ? "Uploading..." : "+ Add File"}
+                </Text>
+              </TouchableOpacity>
             </View>
-          )}
+
+            {allAttachments.length === 0 ? (
+              <TouchableOpacity
+                style={{
+                  borderWidth: 1.5,
+                  borderColor: "#CBD5E1",
+                  borderStyle: "dashed",
+                  borderRadius: 10,
+                  paddingVertical: 18,
+                  paddingHorizontal: 14,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  backgroundColor: "#F8FAFC"
+                }}
+                onPress={handleDirectFileUpload}
+                disabled={uploadingDirectFile}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="document-attach-outline" size={28} color="#94A3B8" style={{ marginBottom: 6 }} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: "#475569" }}>No files or documents attached yet</Text>
+                <Text style={{ fontSize: 11.5, color: "#64748B", marginTop: 2, textAlign: "center" }}>
+                  Tap here to upload document, photo, or audio for this task
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.nativeAttGrid}>
+                {allAttachments.map((att, idx) => {
+                  const isImg = (att.fileType || "").toLowerCase().includes("image") || /\.(jpg|jpeg|png|webp)$/i.test(att.fileName || "");
+                  const badge = getFileBadge(att.fileName, att.fileType);
+                  const fullUrl = resolveFileUrl(att.fileUrl);
+
+                  return (
+                    <TouchableOpacity
+                      key={att.id || idx}
+                      style={styles.nativeAttCard}
+                      onPress={() => handleOpenFile(att.fileUrl)}
+                      activeOpacity={0.75}
+                    >
+                      {isImg && fullUrl ? (
+                        <Image
+                          source={{ uri: fullUrl }}
+                          style={{ width: 42, height: 42, borderRadius: 6, backgroundColor: "#E2E8F0" }}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={{ width: 40, height: 40, borderRadius: 6, backgroundColor: badge.bg, alignItems: "center", justifyContent: "center" }}>
+                          <Ionicons name={badge.icon} size={20} color={badge.color} />
+                        </View>
+                      )}
+
+                      <View style={{ flex: 1, marginLeft: 6 }}>
+                        <Text style={styles.nativeAttName} numberOfLines={1}>
+                          {safeDecode(att.fileName || "Attachment")}
+                        </Text>
+                        <Text style={{ fontSize: 10.5, color: "#64748B", marginTop: 2 }}>
+                          {badge.label} • {att.uploaderName ? `By ${att.uploaderName}` : "Task File"}
+                          {att.uploadedAt ? ` • ${new Date(att.uploadedAt).toLocaleDateString([], { month: "short", day: "numeric" })}` : ""}
+                        </Text>
+                      </View>
+
+                      <View style={{ padding: 4, backgroundColor: "#F1F5F9", borderRadius: 20 }}>
+                        <Ionicons name="open-outline" size={16} color="#2563EB" />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
           {/* ── Native Discussion Stream ── */}
           <View style={styles.nativeSectionContainer}>
@@ -949,15 +1161,15 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                           styles.nativeCommentAtt,
                           { backgroundColor: isCurrentUser ? "rgba(255, 255, 255, 0.18)" : "#E2E8F0" }
                         ]}
-                        onPress={() => WebBrowser.openBrowserAsync(att.fileUrl).catch(err => console.error("URL Open Err", err))}
+                        onPress={() => handleOpenFile(att.fileUrl)}
                       >
                         {att.fileType?.startsWith('image') ? (
-                          <Image source={{ uri: att.fileUrl }} style={styles.nativeCommentImg} resizeMode="cover" />
+                          <Image source={{ uri: resolveFileUrl(att.fileUrl) }} style={styles.nativeCommentImg} resizeMode="cover" />
                         ) : (
                           <Ionicons name="document-outline" size={14} color={isCurrentUser ? "#FFFFFF" : "#475569"} />
                         )}
                         <Text style={[styles.nativeCommentAttText, { color: isCurrentUser ? "#FFFFFF" : "#475569" }]} numberOfLines={1}>
-                          {decodeURIComponent(att.fileName || "Attachment")}
+                          {safeDecode(att.fileName || "Attachment")}
                         </Text>
                       </TouchableOpacity>
                     ))}

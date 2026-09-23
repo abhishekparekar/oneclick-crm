@@ -52,6 +52,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
   const [viewMode, setViewMode] = useState("live");
   const [mapType, setMapType] = useState("satellite"); // satellite or streets
   const [employees, setEmployees] = useState([]);
+  const [officeLocation, setOfficeLocation] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [loadingLive, setLoadingLive] = useState(true);
   const [loadingTrail, setLoadingTrail] = useState(false);
@@ -81,6 +82,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       postToMap({
         type: "UPDATE_EMPLOYEES",
         employees: employees,
+        officeLocation: officeLocation,
         selectedId: selectedEmployee?._id,
       });
     } else if (viewMode === "trail" && trailData.trail) {
@@ -102,9 +104,11 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         startTime: trailData.startTime,
         endTime: trailData.endTime,
         isStationary: isStationary,
+        officeLocation: officeLocation,
       });
     }
-  }, [mapReady, employees, selectedEmployee, viewMode, trailData]);
+  }, [mapReady, employees, selectedEmployee, viewMode, trailData, officeLocation]);
+
 
   // Fetch live employee locations
   const fetchLiveLocations = async (silent = false) => {
@@ -115,6 +119,8 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       const res = await getLiveEmployeeLocationsApi();
       const list = res.data?.data || res.data || [];
       let validList = Array.isArray(list) ? list : [];
+      const office = res.data?.officeLocation || list?.[0]?.officeLocation || null;
+      if (office) setOfficeLocation(office);
 
       // Strict self-only handling for Employee role
       if (isEmployee) {
@@ -128,6 +134,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             postToMap({
               type: "UPDATE_EMPLOYEES",
               employees: [myEmp],
+              officeLocation: office,
               selectedId: myEmp._id,
             });
             if (myEmp.latitude && myEmp.longitude) {
@@ -136,6 +143,13 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                 latitude: myEmp.latitude,
                 longitude: myEmp.longitude,
                 zoom: 17,
+              });
+            } else if (office?.latitude && office?.longitude) {
+              postToMap({
+                type: "CENTER_COORDS",
+                latitude: office.latitude,
+                longitude: office.longitude,
+                zoom: 16,
               });
             }
           }
@@ -173,6 +187,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         postToMap({
           type: "UPDATE_EMPLOYEES",
           employees: validList,
+          officeLocation: office,
           selectedId: selectedEmployee?._id || validList[0]?._id,
         });
       }
@@ -206,6 +221,8 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
       setLoadingTrail(true);
       const res = await getEmployeeLocationTrailApi(safeEmpId, dateStr);
       const data = res.data?.data || { trail: [], distanceKm: 0, totalPoints: 0 };
+      const office = res.data?.officeLocation || officeLocation;
+      if (office && !officeLocation) setOfficeLocation(office);
       setTrailData(data);
 
       if (mapReady) {
@@ -219,6 +236,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           employeeName: isEmployee ? (user?.name || "My Route") : selectedEmployee?.name,
           startTime: data.startTime,
           endTime: data.endTime,
+          officeLocation: office,
         });
       }
     } catch (err) {
@@ -278,11 +296,19 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
         longitude: emp.longitude,
         zoom: 17,
       });
+    } else if (officeLocation?.latitude && officeLocation?.longitude) {
+      postToMap({
+        type: "CENTER_COORDS",
+        latitude: officeLocation.latitude,
+        longitude: officeLocation.longitude,
+        zoom: 16,
+      });
     }
     if (viewMode === "trail") {
       fetchTrailHistory(emp._id, getDateValue(selectedDateFilter));
     }
   };
+
 
   const handleModeSwitch = (mode) => {
     setViewMode(mode);
@@ -525,7 +551,7 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
           map = L.map('map', {
             zoomControl: false,
             attributionControl: false
-          }).setView([18.5204, 73.8567], 15);
+          }).setView([20.5937, 78.9629], 5);
 
           setTiles('satellite');
           markersLayer.addTo(map);
@@ -566,9 +592,17 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             });
           }
 
-          function renderEmployees(employees, selectedId) {
+          function renderEmployees(employees, selectedId, officeLocation) {
             markersLayer.clearLayers();
             var bounds = [];
+
+            if (officeLocation && officeLocation.latitude && officeLocation.longitude) {
+              var offHtml = '<div style="background:#4F46E5; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2.5px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,0.4);">🏢</div>';
+              var offIcon = L.divIcon({ className: 'custom-leaflet-marker', html: offHtml, iconSize: [36, 36], iconAnchor: [18, 18] });
+              var offMarker = L.marker([officeLocation.latitude, officeLocation.longitude], { icon: offIcon })
+                .bindPopup('<b>🏢 ' + (officeLocation.name || 'Company Office') + '</b><br/>' + (officeLocation.address || 'Office Location'));
+              markersLayer.addLayer(offMarker);
+            }
 
             (employees || []).forEach(function(emp) {
               if (!emp.latitude || !emp.longitude) return;
@@ -606,6 +640,10 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
               } else {
                 map.fitBounds(bounds, { padding: [70, 70], maxZoom: 17 });
               }
+            } else if (officeLocation && officeLocation.latitude && officeLocation.longitude) {
+              map.setView([officeLocation.latitude, officeLocation.longitude], 16);
+            } else {
+              map.setView([20.5937, 78.9629], 5);
             }
           }
 
@@ -619,9 +657,22 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             return (brng + 360) % 360;
           }
 
-          function renderTrail(trail, employeeName, halts, startTime, endTime, isStationary) {
+          function renderTrail(trail, employeeName, halts, startTime, endTime, isStationary, officeLocation) {
             trailLayer.clearLayers();
-            if (!trail || trail.length === 0) return;
+            if (!trail || trail.length === 0) {
+              if (officeLocation && officeLocation.latitude && officeLocation.longitude) {
+                var offHtml = '<div style="background:#4F46E5; color:#fff; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center; font-size:18px; border:2.5px solid #fff; box-shadow:0 3px 8px rgba(0,0,0,0.4);">🏢</div>';
+                var offIcon = L.divIcon({ className: 'custom-leaflet-marker', html: offHtml, iconSize: [36, 36], iconAnchor: [18, 18] });
+                var offMarker = L.marker([officeLocation.latitude, officeLocation.longitude], { icon: offIcon })
+                  .bindPopup('<b>🏢 ' + (officeLocation.name || 'Company Office') + '</b><br/>No route trail for selected date - Office Location');
+                trailLayer.addLayer(offMarker);
+                map.setView([officeLocation.latitude, officeLocation.longitude], 16);
+              } else {
+                map.setView([20.5937, 78.9629], 5);
+              }
+              return;
+            }
+
 
             if (trail.length === 1 || isStationary) {
               var pt = trail[0];
@@ -724,10 +775,11 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
             try {
               var data = typeof raw === 'string' ? JSON.parse(raw) : raw;
               if (data.type === 'UPDATE_EMPLOYEES') {
-                renderEmployees(data.employees || [], data.selectedId);
+                renderEmployees(data.employees || [], data.selectedId, data.officeLocation);
               } else if (data.type === 'UPDATE_TRAIL') {
-                renderTrail(data.trail || [], data.employeeName, data.halts || [], data.startTime, data.endTime, data.isStationary);
+                renderTrail(data.trail || [], data.employeeName, data.halts || [], data.startTime, data.endTime, data.isStationary, data.officeLocation);
               } else if (data.type === 'CENTER_COORDS') {
+
                 map.flyTo([data.latitude, data.longitude], data.zoom || 17, { duration: 0.8 });
               } else if (data.type === 'FIT_BOUNDS') {
                 if (data.bounds && data.bounds.length > 0) {
@@ -1116,10 +1168,11 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                     ? `Halt ${selectedEmployee?.stoppageText || ""}`
                     : selectedEmployee?.isOnline
                     ? "Active"
-                    : "Stopped"}
+                    : "NA - Tracking Stopped"}
                 </Text>
               </View>
             </View>
+
 
             <View style={styles.personalMetaGrid}>
               <View style={styles.personalMetaItem}>
@@ -1312,11 +1365,20 @@ const EmployeeLocationTrackingScreen = ({ navigation, route }) => {
                               ? `Halt ${emp.stoppageText}`
                               : isOnline
                               ? "Active"
-                              : "Stopped"}
+                              : "NA (Off-Duty)"}
                           </Text>
                         </View>
 
+                        {!emp.latitude && (
+                          <View style={{ backgroundColor: "rgba(100, 116, 139, 0.12)", paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, borderColor: "rgba(100, 116, 139, 0.2)" }}>
+                            <Text style={{ fontSize: 9.5, fontWeight: "800", color: "#64748B" }}>
+                              {officeLocation ? `🏢 ${officeLocation.name}` : "NA"}
+                            </Text>
+                          </View>
+                        )}
+
                         <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+
                           {emp.todayDistanceText ? (
                             <View style={[styles.todayDistanceBadge, { flexDirection: "row", alignItems: "center" }]}>
                               <Text style={styles.todayDistanceText}>

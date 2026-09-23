@@ -229,6 +229,7 @@ const PayrollHistory = () => {
     toast.success("CSV exported!");
   };
 
+  const isManager = window.location.pathname.startsWith("/manager");
   const isHR = window.location.pathname.startsWith("/hr");
 
   return (
@@ -255,7 +256,7 @@ const PayrollHistory = () => {
           <button onClick={exportToCSV} className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 font-bold rounded-xl text-xs hover:bg-slate-50 transition-all shadow-2xs cursor-pointer">
             <Download size={13} className="text-slate-400" /><span>Export CSV</span>
           </button>
-          <Link to={isHR ? "/hr/payroll/generate" : "/company/payroll/generate"} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-2xs transition-all">
+          <Link to={isManager ? "/manager/payroll/generate" : isHR ? "/hr/payroll/generate" : "/company/payroll/generate"} className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold rounded-xl text-xs shadow-2xs transition-all">
             <Calculator size={14} strokeWidth={2.5} /><span>Run Payroll</span>
           </Link>
         </div>

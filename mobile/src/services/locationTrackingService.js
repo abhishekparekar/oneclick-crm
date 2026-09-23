@@ -771,7 +771,7 @@ class LocationTrackingService {
       if (this.memoryQueue.length === 0 && this.isTracking && !this.isPollingGps) {
         try {
           const freshCoord = await this.getCurrentLocation();
-          if (freshCoord && freshCoord.latitude && freshCoord.longitude && (!freshCoord.accuracy || freshCoord.accuracy <= 25)) {
+          if (freshCoord && freshCoord.latitude && freshCoord.longitude && (!freshCoord.accuracy || freshCoord.accuracy <= 70)) {
             this.memoryQueue.push({
               latitude: Number(freshCoord.latitude.toFixed(6)),
               longitude: Number(freshCoord.longitude.toFixed(6)),

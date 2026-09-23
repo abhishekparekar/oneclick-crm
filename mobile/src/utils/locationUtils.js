@@ -109,11 +109,11 @@ export const isValidGpsPoint = (point, previousPoint = null) => {
   const hardwareSpeedKmh = (Number(point.speed) || 0) * 3.6;
   const effectiveSpeedKmh = Math.max(hardwareSpeedKmh, calculatedSpeedKmh);
 
-  // Pure GPS Satellite Check: Satellite GPS provides accuracy <= 25 meters.
-  // Cell Tower and Wi-Fi network triangulation produce 40m - 1500m.
-  const PURE_GPS_MAX_ACCURACY = 25.0;
+  // High-accuracy GPS filter: GPS provides accuracy <= 70 meters.
+  // Cell Tower and Wi-Fi network triangulation produce 150m - 1500m.
+  const PURE_GPS_MAX_ACCURACY = 70.0;
   if (!isNaN(accuracy) && accuracy > PURE_GPS_MAX_ACCURACY) {
-    console.log(`[LocationFilter] Rejected Cell-Tower / Network point: ${accuracy}m (Allowed Pure GPS <= ${PURE_GPS_MAX_ACCURACY}m)`);
+    console.log(`[LocationFilter] Rejected Coarse / Network point: ${accuracy}m (Allowed GPS <= ${PURE_GPS_MAX_ACCURACY}m)`);
     return false;
   }
 

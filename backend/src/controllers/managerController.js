@@ -1618,24 +1618,16 @@ const getTeamTasks = async (req, res, next) => {
     const manager = await resolveManagerEmployee(req);
     if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
 
-    let teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
-    
-    if (departmentId) {
-      const mongoose = require("mongoose");
-      const Employee = require("../models/Employee");
-      const deptObjectId = new mongoose.Types.ObjectId(departmentId);
-      const filtered = await Employee.find({
-        companyId,
-        _id: { $in: teamIds },
-        $or: [
-          { departmentId: deptObjectId },
-          { departmentIds: deptObjectId }
-        ]
-      }).select("_id").lean();
-      teamIds = filtered.map(e => e._id);
-    }
+    const managerEmpId = manager._id;
+    const managerUserId = req.user?._id;
+    const managerEmpIdStr = managerEmpId.toString();
+    const managerUserIdStr = managerUserId ? managerUserId.toString() : null;
+
+    let allTeamIds = await getManagerTeamEmployeeIds(managerEmpId, companyId);
+
+    // Comprehensive scope: Tasks assigned to team members, tasks created/assigned by manager, and tasks in manager's department(s)
     let teamFilterOr = [
-      { assignedTo: { $in: teamIds } },
+      { assignedTo: { $in: allTeamIds } },
       { assignedBy: req.user._id }
     ];
     if (manager.departmentId) {
@@ -1647,9 +1639,14 @@ const getTeamTasks = async (req, res, next) => {
 
     if (isTemplate) {
       const TaskTemplate = require("../models/TaskTemplate");
-      let filter = { companyId, $or: teamFilterOr };
+      let filter = {
+        companyId,
+        $or: teamFilterOr,
+        assignmentType: { $ne: "self" }
+      };
       if (priority) filter.priority = priority;
       if (projectId) filter.projectId = projectId;
+      if (departmentId) filter.departmentId = departmentId;
       if (employeeId) {
         delete filter.$or;
         filter.assignedTo = employeeId;
@@ -1658,7 +1655,7 @@ const getTeamTasks = async (req, res, next) => {
         filter.title = new RegExp(search.trim(), "i");
       }
       
-      const templates = await TaskTemplate.find(filter)
+      let templates = await TaskTemplate.find(filter)
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
@@ -1673,6 +1670,26 @@ const getTeamTasks = async (req, res, next) => {
         .lean();
         
       templates.forEach(t => t.assignees = t.assignedTo);
+
+      if (!employeeId) {
+        templates = templates.filter(t => {
+          if (t.assignmentType === "self") return false;
+          const assignees = Array.isArray(t.assignedTo)
+            ? t.assignedTo
+            : t.assignedTo
+            ? [t.assignedTo]
+            : (t.assignees || []);
+          if (assignees.length === 0) return true;
+          const allAreManager = assignees.every(a => {
+            const aId = (a?._id || a?.id || a || "").toString();
+            return (
+              (managerEmpId && aId === managerEmpIdStr) ||
+              (managerUserId && aId === managerUserIdStr)
+            );
+          });
+          return !allAreManager;
+        });
+      }
       
       return res.json({
         success: true,
@@ -1684,7 +1701,11 @@ const getTeamTasks = async (req, res, next) => {
       });
     }
 
-    let filter = { companyId, $or: teamFilterOr };
+    let filter = {
+      companyId,
+      $or: teamFilterOr,
+      assignmentType: { $ne: "self" }
+    };
     
     if (status) {
       filter.status = status;
@@ -1693,6 +1714,7 @@ const getTeamTasks = async (req, res, next) => {
     }
     if (priority) filter.priority = priority;
     if (projectId) filter.projectId = projectId;
+    if (departmentId) filter.departmentId = departmentId;
     if (employeeId) {
       delete filter.$or;
       filter.assignedTo = employeeId;
@@ -1705,8 +1727,6 @@ const getTeamTasks = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 100;
     const skip = (page - 1) * limit;
-
-    const totalCount = await Task.countDocuments(filter);
 
     const tasks = await Task.find(filter)
       .populate({ path: "projectId", select: "name", strictPopulate: false })
@@ -1726,13 +1746,39 @@ const getTeamTasks = async (req, res, next) => {
 
     tasks.forEach(t => t.assignees = t.assignedTo);
 
+    // Exclude tasks assigned SOLELY to the manager (personal tasks).
+    // Tasks assigned to team members, unassigned department tasks, or "Myself & Team" tasks remain visible.
+    let finalTasks = tasks;
+    if (!employeeId) {
+      finalTasks = tasks.filter(task => {
+        if (task.assignmentType === "self") return false;
+        const assignees = Array.isArray(task.assignedTo)
+          ? task.assignedTo
+          : task.assignedTo
+          ? [task.assignedTo]
+          : (task.assignees || []);
+
+        if (assignees.length === 0) return true;
+
+        const allAreManager = assignees.every(a => {
+          const aId = (a?._id || a?.id || a || "").toString();
+          return (
+            (managerEmpId && aId === managerEmpIdStr) ||
+            (managerUserId && aId === managerUserIdStr)
+          );
+        });
+
+        return !allAreManager;
+      });
+    }
+
     return res.json({ 
       success: true, 
-      count: tasks.length,
-      totalCount,
+      count: finalTasks.length,
+      totalCount: finalTasks.length,
       page,
-      totalPages: Math.ceil(totalCount / limit),
-      data: tasks 
+      totalPages: Math.ceil(finalTasks.length / limit) || 1,
+      data: finalTasks 
     });
   } catch (error) {
     next(error);
@@ -2916,20 +2962,63 @@ const getTeamTasksReport = async (req, res, next) => {
   try {
     const companyId = req.companyId;
     const manager = await resolveManagerEmployee(req);
-    const teamIds = await getManagerTeamEmployeeIds(manager._id, companyId);
+    const managerEmpId = manager._id;
+    const managerUserId = req.user?._id;
+    const managerEmpIdStr = managerEmpId.toString();
+    const managerUserIdStr = managerUserId ? managerUserId.toString() : null;
+
+    let allTeamIds = await getManagerTeamEmployeeIds(managerEmpId, companyId);
     
+    let teamFilterOr = [
+      { assignedTo: { $in: allTeamIds } },
+      { assignedBy: req.user._id }
+    ];
+    if (manager.departmentId) {
+      teamFilterOr.push({ departmentId: manager.departmentId });
+    }
+    if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
+      teamFilterOr.push({ departmentId: { $in: manager.accessibleDepartments } });
+    }
+
     const { status, employeeId, projectId } = req.query;
-    let filter = { companyId, assignedTo: { $in: teamIds } };
+    let filter = {
+      companyId,
+      $or: teamFilterOr,
+      assignmentType: { $ne: "self" }
+    };
     
     if (status) filter.status = status;
-    if (employeeId) filter.assignedTo = employeeId;
+    if (employeeId) {
+      delete filter.$or;
+      filter.assignedTo = employeeId;
+    }
     if (projectId) filter.projectId = projectId;
     
-    const tasks = await Task.find(filter)
+    let tasks = await Task.find(filter)
       .populate("assignedTo", "firstName lastName fullName employeeCode")
       .populate("projectId", "name")
       .sort({ createdAt: -1 })
       .lean();
+
+    if (!employeeId) {
+      tasks = tasks.filter(task => {
+        if (task.assignmentType === "self") return false;
+        const assignees = Array.isArray(task.assignedTo)
+          ? task.assignedTo
+          : task.assignedTo
+          ? [task.assignedTo]
+          : [];
+        if (assignees.length === 0) return true;
+        const allAreManager = assignees.every(a => {
+          const aId = (a?._id || a?.id || a || "").toString();
+          return (
+            (managerEmpId && aId === managerEmpIdStr) ||
+            (managerUserId && aId === managerUserIdStr)
+          );
+        });
+        return !allAreManager;
+      });
+    }
 
     const formattedTasks = tasks.map(t => ({
       ...t,
@@ -3205,5 +3294,6 @@ module.exports = {
   markAnnouncementRead,
   getProjectChangeRequests,
   updateProjectChangeRequestStatus,
-  toggleTaskTemplateStatus
+  toggleTaskTemplateStatus,
+  resolveManagerEmployee
 };

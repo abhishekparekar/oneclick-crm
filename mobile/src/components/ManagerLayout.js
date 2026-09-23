@@ -576,7 +576,7 @@ const ManagerLayout = ({
                 <View style={[styles.modalOptionIcon, { backgroundColor: '#EFF6FF' }]}>
                   <Ionicons name="checkbox-outline" size={20} color="#1268D9" />
                 </View>
-                <Text style={styles.modalOptionText}>Create New Task</Text>
+                <Text style={styles.modalOptionText}>Add Task</Text>
               </TouchableOpacity>
             )}
 

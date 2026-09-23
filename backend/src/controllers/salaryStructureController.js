@@ -1,5 +1,6 @@
 const SalaryStructure = require("../models/SalaryStructure");
 const Employee = require("../models/Employee");
+const { getManagerTeamEmployeeIds, resolveManagerEmployee } = require("./managerController");
 
 const createSalaryStructure = async (req, res, next) => {
   try {
@@ -65,6 +66,14 @@ const createSalaryStructure = async (req, res, next) => {
 
 const getSalaryStructureByEmployee = async (req, res, next) => {
   try {
+    if (req.user.role === "Manager") {
+      const managerEmp = await resolveManagerEmployee(req);
+      const allowedIds = managerEmp ? await getManagerTeamEmployeeIds(managerEmp, req.companyId) : [];
+      if (!allowedIds.map(id => id.toString()).includes(req.params.employeeId.toString())) {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
+    }
+
     const ss = await SalaryStructure.findOne({
       employeeId: req.params.employeeId,
       companyId: req.companyId,
@@ -113,9 +122,51 @@ const getSalaryStructureHistory = async (req, res, next) => {
   }
 };
 
+const getMySalaryStructure = async (req, res, next) => {
+  try {
+    let employeeId = req.user.employeeId;
+    if (!employeeId) {
+      const emp = await Employee.findOne({ userId: req.user._id, companyId: req.companyId });
+      if (emp) employeeId = emp._id;
+    }
+    if (!employeeId) {
+      return res.json({ success: true, data: null });
+    }
+
+    const ss = await SalaryStructure.findOne({
+      employeeId,
+      companyId: req.companyId,
+      status: "active",
+    });
+
+    if (!ss) {
+      const emp = await Employee.findOne({ _id: employeeId, companyId: req.companyId });
+      if (emp && emp.salaryDetails && emp.salaryDetails.basic) {
+        return res.json({
+          success: true,
+          data: {
+            monthlyCTC: emp.salaryDetails.ctc || 0,
+            basicSalary: emp.salaryDetails.basic || 0,
+            hra: emp.salaryDetails.hra || 0,
+            allowances: emp.salaryDetails.allowances || 0,
+            deductions: emp.salaryDetails.deductions || 0,
+            grossSalary: (emp.salaryDetails.basic || 0) + (emp.salaryDetails.hra || 0) + (emp.salaryDetails.allowances || 0),
+            isLegacy: true,
+          },
+        });
+      }
+    }
+
+    res.json({ success: true, data: ss });
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   createSalaryStructure,
   getSalaryStructureByEmployee,
+  getMySalaryStructure,
   updateSalaryStructure,
   getSalaryStructureHistory,
 };

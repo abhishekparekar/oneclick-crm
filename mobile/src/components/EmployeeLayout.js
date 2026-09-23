@@ -248,7 +248,7 @@ const EmployeeLayout = ({
                     }
                   }}
                 >
-                  <Text style={styles.fabMenuText}>Add Lead</Text>
+                  <Text style={styles.fabMenuText}>Add New Lead</Text>
                   <View style={[styles.fabMenuIcon, { backgroundColor: '#FFF7ED' }]}>
                     <Ionicons name="person-add" size={16} color="#2875BD" />
                   </View>

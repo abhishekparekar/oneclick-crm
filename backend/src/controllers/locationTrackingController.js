@@ -3,9 +3,12 @@ const Employee = require("../models/Employee");
 const Attendance = require("../models/Attendance");
 const User = require("../models/User");
 const Company = require("../models/Company");
+const CompanyAttendanceSettings = require("../models/CompanyAttendanceSettings");
+const Branch = require("../models/Branch");
 const TrackingAllowance = require("../models/TrackingAllowance");
 const mongoose = require("mongoose");
 const https = require("https");
+
 
 // Helper to calculate distance in meters between two lat/lon points
 const getHaversineDistanceMeters = (lat1, lon1, lat2, lon2) => {
@@ -40,9 +43,9 @@ const formatStoppageDuration = (minutes) => {
 const calculateTrueGpsDistanceMeters = (pts) => {
   if (!Array.isArray(pts) || pts.length < 2) return 0;
 
-  // 1. Strict Pure Satellite GPS filter (Satellite accuracy <= 25m; cell tower/network fixes are > 25m)
-  const accuratePts = pts.filter((p) => p.accuracy && Number(p.accuracy) <= 25);
-  const candidatePts = accuratePts.length >= 2 ? accuratePts : pts.filter((p) => !p.accuracy || Number(p.accuracy) <= 30);
+  // 1. High-accuracy GPS filter (allows standard smartphone GPS fixes <= 70m)
+  const accuratePts = pts.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
+  const candidatePts = accuratePts.length >= 2 ? accuratePts : pts;
   if (candidatePts.length < 2) return 0;
 
   // 2. Excursion / Teleportation Filter: Suppress points that jump out and snap back within 90s
@@ -293,8 +296,8 @@ const syncBatchLocations = async (req, res) => {
       const lng = Number(pt.longitude);
       const acc = Number(pt.accuracy) || 0;
 
-      // Drop cell-tower / network triangulation fixes (> 25m) - Pure Satellite GPS only
-      if (acc > 25) {
+      // Drop coarse network / cell-tower fixes (> 70m)
+      if (acc > 70) {
         continue;
       }
 
@@ -466,15 +469,44 @@ const getLiveEmployeeLocations = async (req, res) => {
     const yesterdayUtc = yesterdayDate.toISOString().slice(0, 10);
 
     // 1. Fetch today's attendance records to know punch status (In/Out)
-    const attendances = await Attendance.find({
-      employeeId: { $in: employeeIds },
-      date: { $in: [todayIst, todayUtc] },
-    }).sort({ createdAt: 1 }).lean();
+    // Also fetch Company Attendance Settings, Branches and Company info to resolve office location
+    const [attendances, attSettings, branches, companyDoc] = await Promise.all([
+      Attendance.find({
+        employeeId: { $in: employeeIds },
+        date: { $in: [todayIst, todayUtc] },
+      }).sort({ createdAt: 1 }).lean(),
+      CompanyAttendanceSettings.findOne({ companyId }).lean().catch(() => null),
+      Branch.find({ companyId, status: "active" }).lean().catch(() => []),
+      Company.findById(companyId).select("companyName address city state pincode").lean().catch(() => null),
+    ]);
+
+    let officeLocation = null;
+    if (attSettings && attSettings.latitude && attSettings.longitude) {
+      officeLocation = {
+        name: attSettings.officeName || "Main Office",
+        latitude: Number(attSettings.latitude),
+        longitude: Number(attSettings.longitude),
+        address: companyDoc?.address || "",
+        radius: attSettings.allowedRadiusMeters || 100,
+      };
+    } else if (Array.isArray(branches) && branches.length > 0) {
+      const branchWithCoords = branches.find((b) => b.latitude && b.longitude);
+      if (branchWithCoords) {
+        officeLocation = {
+          name: branchWithCoords.branchName || "Main Branch",
+          latitude: Number(branchWithCoords.latitude),
+          longitude: Number(branchWithCoords.longitude),
+          address: branchWithCoords.address || companyDoc?.address || "",
+          radius: branchWithCoords.allowedRadiusMeters || 100,
+        };
+      }
+    }
 
     const attendanceMap = new Map();
     attendances.forEach((att) => {
       attendanceMap.set(att.employeeId.toString(), att);
     });
+
 
     // 2. Fetch today's continuous GPS trail history from EmployeeLocation for stoppage duration calculation
     // Calculate exact start of today in IST (UTC+5:30) to NEVER leak yesterday's points into today's travel!
@@ -662,13 +694,13 @@ const getLiveEmployeeLocations = async (req, res) => {
       }
 
       // ── Calculate Stoppage / Halt Duration (तो स्टाफ किती वेळ झाला तिथे थांबलाय) ──
-      let motionStatus = "stationary"; // "moving" | "stationary"
+      let motionStatus = "off_duty"; // "moving" | "stationary" | "off_duty"
       let stoppageDurationMinutes = 0;
-      let stoppageText = "0 mins";
-      let stoppedSince = lastUpdated;
+      let stoppageText = "";
+      let stoppedSince = null;
 
-      if (latitude && longitude) {
-        const isMoving = trackingStatus === "active" && speed > 3.0;
+      if (trackingStatus === "active" && latitude && longitude) {
+        const isMoving = speed > 3.0;
 
         if (isMoving) {
           motionStatus = "moving";
@@ -678,6 +710,14 @@ const getLiveEmployeeLocations = async (req, res) => {
         } else {
           motionStatus = "stationary";
           let stoppageStartTime = new Date(lastUpdated || now);
+
+          // Stoppage duration can never exceed today's punchIn duration
+          if (todayAtt && todayAtt.punchInTime) {
+            const punchInMs = new Date(todayAtt.punchInTime).getTime();
+            if (stoppageStartTime.getTime() < punchInMs) {
+              stoppageStartTime = new Date(punchInMs);
+            }
+          }
 
           // Trace backward through recent GPS trail to find exact arrival time at this spot
           const trail = locData?.trail || [];
@@ -740,13 +780,18 @@ const getLiveEmployeeLocations = async (req, res) => {
         punchInTime: todayAtt ? todayAtt.punchInTime : null,
         punchOutTime: todayAtt ? todayAtt.punchOutTime : null,
         isLocationTrackingEnabled: Boolean(emp.isLocationTrackingEnabled),
+        displayLocation: latitude && longitude ? address || "Current Location" : (officeLocation ? `${officeLocation.name} (Office)` : "NA"),
+        displayAddress: address || (officeLocation ? officeLocation.address : "NA"),
+        officeLocation: officeLocation,
       };
     });
 
     return res.status(200).json({
       success: true,
+      officeLocation: officeLocation,
       data: liveTrackList,
     });
+
   } catch (error) {
     console.error("[LocationTracking] Live locations error:", error);
     return res.status(500).json({ success: false, message: "Failed to fetch live employee locations" });
@@ -890,13 +935,43 @@ const getEmployeeLocationTrail = async (req, res) => {
       .lean();
 
     if (rawTrail.length === 0) {
+      const [attSettings, branches, companyDoc] = await Promise.all([
+        CompanyAttendanceSettings.findOne({ companyId }).lean().catch(() => null),
+        Branch.find({ companyId, status: "active" }).lean().catch(() => []),
+        Company.findById(companyId).select("companyName address city state pincode").lean().catch(() => null),
+      ]);
+
+      let officeLocation = null;
+      if (attSettings && attSettings.latitude && attSettings.longitude) {
+        officeLocation = {
+          name: attSettings.officeName || "Main Office",
+          latitude: Number(attSettings.latitude),
+          longitude: Number(attSettings.longitude),
+          address: companyDoc?.address || "",
+          radius: attSettings.allowedRadiusMeters || 100,
+        };
+      } else if (Array.isArray(branches) && branches.length > 0) {
+        const branchWithCoords = branches.find((b) => b.latitude && b.longitude);
+        if (branchWithCoords) {
+          officeLocation = {
+            name: branchWithCoords.branchName || "Main Branch",
+            latitude: Number(branchWithCoords.latitude),
+            longitude: Number(branchWithCoords.longitude),
+            address: branchWithCoords.address || companyDoc?.address || "",
+            radius: branchWithCoords.allowedRadiusMeters || 100,
+          };
+        }
+      }
+
       return res.status(200).json({
         success: true,
+        officeLocation: officeLocation,
         data: {
           trail: [],
           cleanTrail: [],
           isStationaryAllDay: true,
           totalPoints: 0,
+
           distanceKm: 0,
           maxSpeed: 0,
           avgSpeed: 0,
@@ -914,10 +989,9 @@ const getEmployeeLocationTrail = async (req, res) => {
       });
     }
 
-    // 1. Pure Satellite GPS filter: hardware GPS satellites have accuracy <= 25m.
-    // Cell Tower and Wi-Fi triangulation produce > 25m up to 1500m.
-    const validPoints = rawTrail.filter((p) => p.accuracy && Number(p.accuracy) <= 25);
-    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail.filter((p) => !p.accuracy || p.accuracy <= 30);
+    // 1. GPS filter: hardware GPS provides accuracy <= 70m.
+    const validPoints = rawTrail.filter((p) => !p.accuracy || Number(p.accuracy) <= 70);
+    let candidatePoints = validPoints.length >= 2 ? validPoints : rawTrail;
     if (candidatePoints.length < 2) candidatePoints = rawTrail;
 
     // 1b. Discard cold-start cell-tower glitch at point[0]:

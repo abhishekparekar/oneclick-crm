@@ -81,6 +81,14 @@ const HR_NAV_SECTIONS = [
     ],
   },
   {
+    title: "LEAD CRM & AUTOMATION",
+    items: [
+      { label: "WhatsApp Campaigns", path: "/hr/leads/campaigns", icon: Megaphone, module: "leads" },
+      { label: "Service Reminders", path: "/hr/leads/reminders", icon: Clock, module: "leads" },
+      { label: "Lead Settings", path: "/hr/leads/settings", icon: Settings, module: "leads" },
+    ],
+  },
+  {
     title: "ACCOUNT & SETTINGS",
     items: [
       { label: "My Profile", path: "/hr/profile", icon: UserCircle },

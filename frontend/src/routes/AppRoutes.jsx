@@ -30,8 +30,6 @@ import ManagerSettings from "../pages/manager/ManagerSettings";
 
 // Employee
 import EmployeeDashboard from "../pages/employee/EmployeeDashboard";
-import EmployeeLeads from "../pages/employee/EmployeeLeads";
-import EmployeeLeadDetails from "../pages/employee/EmployeeLeadDetails";
 import EmployeeMyTasks from "../pages/employee/EmployeeMyTasks";
 import EmployeeAttendance from "../pages/employee/EmployeeAttendance";
 import EmployeeAttendanceDetail from "../pages/employee/EmployeeAttendanceDetail";
@@ -70,7 +68,6 @@ import SuperAdminModuleRoute from "../components/layout/SuperAdminModuleRoute";
 
 // HR — Dashboard & Leads
 import HRDashboard from "../pages/hr/HRDashboard";
-import HRLeads from "../pages/hr/HRLeads";
 import HRLeadDetails from "../pages/hr/HRLeadDetails";
 
 // Company Requests & Query Hub
@@ -298,6 +295,7 @@ const AppRoutes = () => {
             {/* Lead Engine & WhatsApp Automations Module */}
             <Route element={<ModuleRoute module="leads" />}>
               <Route path="leads" element={<Leads />} />
+              <Route path="leads/:id" element={<HRLeadDetails />} />
               <Route path="leads/automation" element={<Flows />} />
               <Route path="leads/campaigns" element={<Campaigns />} />
               <Route path="leads/reminders" element={<Reminders />} />
@@ -353,8 +351,12 @@ const AppRoutes = () => {
             <Route path="settings" element={<Settings />} />
 
             {/* Lead CRM */}
-            <Route path="leads" element={<HRLeads />} />
+            <Route path="leads" element={<Leads />} />
             <Route path="leads/:id" element={<HRLeadDetails />} />
+            <Route path="leads/automation" element={<Flows />} />
+            <Route path="leads/campaigns" element={<Campaigns />} />
+            <Route path="leads/reminders" element={<Reminders />} />
+            <Route path="leads/settings" element={<LeadSettings />} />
           </Route>
         </Route>
 
@@ -379,6 +381,8 @@ const AppRoutes = () => {
             <Route path="team-leaves" element={<ManagerTeamLeaves />} />
             <Route path="my-leave" element={<ManagerMyLeave />} />
             <Route path="payslips" element={<EmployeePayslips />} />
+            <Route path="payroll/generate" element={<GeneratePayroll />} />
+            <Route path="payroll/history" element={<PayrollHistory />} />
             <Route path="projects" element={<ManagerProjects />} />
             <Route path="projects/:id" element={<ManagerProjectDetails />} />
             <Route path="reports" element={<ManagerReports />} />
@@ -389,6 +393,7 @@ const AppRoutes = () => {
 
             {/* Lead Engine & WhatsApp CRM */}
             <Route path="leads" element={<Leads />} />
+            <Route path="leads/:id" element={<HRLeadDetails />} />
             <Route path="leads/automation" element={<Flows />} />
             <Route path="leads/campaigns" element={<Campaigns />} />
             <Route path="leads/reminders" element={<Reminders />} />
@@ -421,8 +426,8 @@ const AppRoutes = () => {
             <Route path="activities" element={<EmployeeActivities />} />
 
             {/* Lead CRM */}
-            <Route path="leads" element={<EmployeeLeads />} />
-            <Route path="leads/:id" element={<EmployeeLeadDetails />} />
+            <Route path="leads" element={<Leads />} />
+            <Route path="leads/:id" element={<HRLeadDetails />} />
           </Route>
         </Route>
       </Route>

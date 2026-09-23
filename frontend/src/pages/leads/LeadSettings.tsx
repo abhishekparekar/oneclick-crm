@@ -464,23 +464,28 @@ export default function LeadSettings() {
       if (editingStatus) await api.patch(`/api/statuses/${editingStatus.id}`, payload);
       else { const maxOrder = statuses.reduce((max, s) => (s.displayOrder > max ? s.displayOrder : max), 0); await api.post('/api/statuses', { ...payload, displayOrder: maxOrder + 1 }); }
       setShowStatusModal(false); setEditingStatus(null); setStatusName(''); setStatusColor('#6366f1'); setStatusIsDefault(false);
-      const updated = await api.get('/api/statuses'); setStatuses(updated || []);
+      const updated = await api.get('/api/statuses'); setStatuses(Array.isArray(updated) ? updated : (updated?.statuses || updated?.data || []));
       success(editingStatus ? 'Stage updated!' : 'Stage created!');
     } catch (err: any) { error('Failed to save stage', err.message); }
     finally { setStatusSaving(false); }
   };
 
   const handleDeleteStatus = async (id: string) => {
-    const target = statuses.find(s => s.id === id);
+    const target = statuses.find(s => s.id === id || s._id === id);
     if (!target) return;
     if (target.isDefault) { warning('Cannot delete', 'Cannot delete the default stage.'); return; }
     const ok = await confirm({ title: 'Delete Stage', message: `Delete stage "${target.name}"? This cannot be undone.`, confirmLabel: 'Delete', danger: true });
     if (!ok) return;
-    await run(`del-status-${id}`, async () => {
-      await api.delete(`/api/statuses/${id}`);
-      const u = await api.get('/api/statuses');
-      setStatuses(u || []);
-      success('Stage deleted');
+    const targetId = target.id || target._id || id;
+    await run(`del-status-${targetId}`, async () => {
+      try {
+        await api.delete(`/api/statuses/${targetId}`);
+        const u = await api.get('/api/statuses');
+        setStatuses(Array.isArray(u) ? u : (u?.statuses || u?.data || []));
+        success('Stage deleted');
+      } catch (err: any) {
+        error('Failed to delete stage', err.message);
+      }
     });
   };
 
@@ -488,9 +493,15 @@ export default function LeadSettings() {
     const list = [...statuses]; const newIdx = direction === 'UP' ? index - 1 : index + 1;
     if (newIdx < 0 || newIdx >= list.length) return;
     const temp = list[index]; list[index] = list[newIdx]; list[newIdx] = temp;
-    const items = list.map((item, idx) => ({ id: item.id, displayOrder: idx + 1 }));
-    try { setStatuses(list.map((item, idx) => ({ ...item, displayOrder: idx + 1 }))); await api.patch('/api/statuses/reorder', { items }); }
-    catch (err: any) { error('Failed to reorder', err.message); const r = await api.get('/api/statuses'); setStatuses(r || []); }
+    const items = list.map((item, idx) => ({ id: item.id || item._id, displayOrder: idx + 1 }));
+    try {
+      setStatuses(list.map((item, idx) => ({ ...item, displayOrder: idx + 1 })));
+      await api.patch('/api/statuses/reorder', { items });
+    } catch (err: any) {
+      error('Failed to reorder', err.message);
+      const r = await api.get('/api/statuses');
+      setStatuses(Array.isArray(r) ? r : (r?.statuses || r?.data || []));
+    }
   };
 
   const handleSaveSource = async (e: React.FormEvent) => {
@@ -498,9 +509,10 @@ export default function LeadSettings() {
     if (!sourceName.trim()) { warning('Name required', 'Source name is required.'); return; }
     setSourceSaving(true);
     try {
-      const payload = { name: sourceName };
-      if (editingSource) {
-        await api.patch(`/api/sources/${editingSource.id}`, payload);
+      const payload = { name: sourceName.trim() };
+      const sourceId = editingSource?.id || editingSource?._id;
+      if (editingSource && sourceId) {
+        await api.patch(`/api/sources/${sourceId}`, payload);
       } else {
         await api.post('/api/sources', payload);
       }
@@ -515,7 +527,7 @@ export default function LeadSettings() {
   };
 
   const handleDeleteSource = async (id: string) => {
-    const target = sources.find(s => s.id === id);
+    const target = sources.find(s => s.id === id || s._id === id);
     if (!target) return;
     const ok = await confirm({
       title: 'Delete Lead Source',
@@ -524,9 +536,10 @@ export default function LeadSettings() {
       danger: true
     });
     if (!ok) return;
-    await run(`del-source-${id}`, async () => {
+    const targetId = target.id || target._id || id;
+    await run(`del-source-${targetId}`, async () => {
       try {
-        await api.delete(`/api/sources/${id}`);
+        await api.delete(`/api/sources/${targetId}`);
         await fetchSources();
         success('Lead source deleted');
       } catch (err: any) {
@@ -1158,29 +1171,32 @@ export default function LeadSettings() {
             {statuses.length === 0 ? (
               <p className="text-xs text-slate-400 text-center py-8 font-semibold">No pipeline stages configured.</p>
             ) : (
-              statuses.map((status, index) => (
-                <div key={status.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center space-x-2.5">
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
-                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{status.name}</span>
-                    {status.isDefault && (
-                      <span className="text-[9.5px] font-black uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-500">
-                        Default
-                      </span>
-                    )}
+              statuses.map((status, index) => {
+                const sId = status.id || status._id;
+                return (
+                  <div key={sId} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: status.color }} />
+                      <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{status.name}</span>
+                      {status.isDefault && (
+                        <span className="text-[9.5px] font-black uppercase px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-500">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <button disabled={index === 0} onClick={() => handleReorderStatus(index, 'UP')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▲</button>
+                      <button disabled={index === statuses.length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▼</button>
+                      <button onClick={() => { setEditingStatus(status); setStatusName(status.name); setStatusColor(status.color); setStatusIsDefault(status.isDefault); setShowStatusModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
+                        <Edit2 size={13} />
+                      </button>
+                      <button disabled={status.isDefault || isLoading(`del-status-${sId}`)} onClick={() => handleDeleteStatus(sId)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center space-x-1">
-                    <button disabled={index === 0} onClick={() => handleReorderStatus(index, 'UP')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▲</button>
-                    <button disabled={index === statuses.length - 1} onClick={() => handleReorderStatus(index, 'DOWN')} className="p-1 text-slate-400 hover:text-slate-600 text-xs font-bold">▼</button>
-                    <button onClick={() => { setEditingStatus(status); setStatusName(status.name); setStatusColor(status.color); setStatusIsDefault(status.isDefault); setShowStatusModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
-                      <Edit2 size={13} />
-                    </button>
-                    <button disabled={status.isDefault || isLoading(`del-status-${status.id}`)} onClick={() => handleDeleteStatus(status.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </SectionCard>
@@ -1203,19 +1219,22 @@ export default function LeadSettings() {
             {(!Array.isArray(sources) || sources.length === 0) ? (
               <p className="text-xs text-slate-400 text-center py-8 font-semibold">No lead acquisition channels configured.</p>
             ) : (
-              (Array.isArray(sources) ? sources : []).map((source) => (
-                <div key={source.id} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{source.name}</span>
-                  <div className="flex items-center space-x-1">
-                    <button onClick={() => { setEditingSource(source); setSourceName(source.name); setShowSourceModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
-                      <Edit2 size={13} />
-                    </button>
-                    <button disabled={isLoading(`del-source-${source.id}`)} onClick={() => handleDeleteSource(source.id)} className="p-1.5 text-slate-400 hover:text-rose-500">
-                      <Trash2 size={13} />
-                    </button>
+              (Array.isArray(sources) ? sources : []).map((source) => {
+                const srcId = source.id || source._id;
+                return (
+                  <div key={srcId} className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between">
+                    <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">{source.name}</span>
+                    <div className="flex items-center space-x-1">
+                      <button onClick={() => { setEditingSource(source); setSourceName(source.name); setShowSourceModal(true); }} className="p-1.5 text-slate-400 hover:text-amber-500">
+                        <Edit2 size={13} />
+                      </button>
+                      <button disabled={isLoading(`del-source-${srcId}`)} onClick={() => handleDeleteSource(srcId)} className="p-1.5 text-slate-400 hover:text-rose-500">
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </SectionCard>

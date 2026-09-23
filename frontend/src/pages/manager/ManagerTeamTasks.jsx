@@ -11,6 +11,7 @@ import {
   SlidersHorizontal
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 
 const formatDateDDMMYYYY = (val) => {
@@ -145,8 +146,33 @@ export default function ManagerTeamTasks() {
     retry: 1,
   });
 
+  const { user } = useAuth();
+  const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
+  const managerEmpId = user?.employeeId || user?._id || managerProfile?._id;
+  const managerUserId = user?._id;
+
   const _raw = tasksRes?.tasks || tasksRes?.data || [];
-  const allTasks = Array.isArray(_raw) ? _raw : [];
+  const allTasks = useMemo(() => {
+    const list = Array.isArray(_raw) ? _raw : [];
+    if (!managerEmpId && !managerUserId) return list;
+    return list.filter((task) => {
+      if (task.assignmentType === "self") return false;
+      const assigneesArr = Array.isArray(task.assignedTo)
+        ? task.assignedTo
+        : task.assignedTo
+        ? [task.assignedTo]
+        : (task.assignees || []);
+      if (assigneesArr.length === 0) return true;
+      const allAreManager = assigneesArr.every((a) => {
+        const aId = (a?._id || a?.id || a || "").toString();
+        return (
+          (managerEmpId && aId === managerEmpId.toString()) ||
+          (managerUserId && aId === managerUserId.toString())
+        );
+      });
+      return !allAreManager;
+    });
+  }, [_raw, managerEmpId, managerUserId]);
 
   const isTaskInDateRange = (task, startStr, endStr) => {
     if (!startStr || !endStr) return true;
@@ -338,16 +364,20 @@ export default function ManagerTeamTasks() {
   };
 
   const rawMembers = teamRes?.teamMembers || teamRes?.data?.teamMembers || teamRes?.team || [];
-  const employees = rawMembers.map(m => ({
-    ...m,
-    _id: m._id,
-    name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
-    firstName: m.firstName || m.name,
-    lastName: m.lastName || "",
-    departmentId: m.departmentId?._id || m.departmentId,
-  }));
+  const employees = rawMembers
+    .filter((m) => {
+      const mId = (m?._id || m?.id || "").toString();
+      return mId !== managerEmpId?.toString() && mId !== managerUserId?.toString();
+    })
+    .map((m) => ({
+      ...m,
+      _id: m._id,
+      name: m.fullName || `${m.firstName || ""} ${m.lastName || ""}`.trim(),
+      firstName: m.firstName || m.name,
+      lastName: m.lastName || "",
+      departmentId: m.departmentId?._id || m.departmentId,
+    }));
 
-  const managerProfile = dashRes?.manager || dashRes?.data?.manager || {};
   const allowedDepts = useMemo(() => [
     managerProfile.departmentId,
     ...(managerProfile.departmentIds || []),
@@ -464,7 +494,7 @@ export default function ManagerTeamTasks() {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-lg text-xs font-extrabold shadow-2xs transition-all cursor-pointer"
             >
               <Plus size={13} strokeWidth={3} />
-              <span>New Task</span>
+              <span>Add Task</span>
             </button>
           </div>
         </div>
@@ -720,7 +750,7 @@ export default function ManagerTeamTasks() {
             onClick={() => setIsCreateOpen(true)}
             className="mt-3 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-extrabold text-xs cursor-pointer"
           >
-            Create Task
+            Add Task
           </button>
         </div>
       ) : viewMode === "kanban" ? (

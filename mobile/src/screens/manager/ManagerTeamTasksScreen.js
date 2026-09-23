@@ -399,11 +399,11 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
   useFocusEffect(
     useCallback(() => {
-      fetchTeamTasks();
-      fetchMyManagerTasks();
+      fetchTeamTasks(true);
+      fetchMyManagerTasks(true);
       fetchProjects();
-      fetchDashboard();
-      fetchTeam();
+      fetchDashboard(true);
+      fetchTeam(true);
       fetchTaskPermissions();
     }, [])
   );
@@ -511,15 +511,6 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchTaskPermissions();
-      fetchMyManagerTasks();
-      fetchTeamTasks();
-      fetchDashboard(true);
-      fetchTeam(true);
-    }, [])
-  );
 
   useEffect(() => {
     const loadStatuses = async () => {

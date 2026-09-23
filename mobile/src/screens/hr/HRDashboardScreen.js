@@ -722,7 +722,7 @@ const HRDashboardScreen = ({ navigation }) => {
                   <Ionicons name="checkbox-outline" size={20} color="#2563eb" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalOptionText}>Create New Task</Text>
+                  <Text style={styles.modalOptionText}>Add Task</Text>
                   <Text style={styles.modalOptionSub}>Assign work to employees & track progress</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={16} color="#94a3b8" />

@@ -90,6 +90,12 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
       if (action === "delete") return false;
       return true;
     }
+    if (category === "payroll" || normCat === "payroll" || modKey === "payroll") {
+      if (action === "generate" || action === "create") {
+        return perm.payroll?.generate === true;
+      }
+      return perm.payroll?.view === true;
+    }
     return false; // Team Members and Announcements/Holidays default to false for Manager
   }
 
@@ -222,7 +228,10 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
         delete: perm.leads?.delete !== undefined ? perm.leads.delete === true : false,
       },
       attendance: { view: canViewAttendance, markAttendance: true },
-      payroll: { view: canViewPayroll },
+      payroll: {
+        view: canViewPayroll,
+        generate: perm.payroll?.generate === true,
+      },
       projects: { view: canViewProjects },
       reports: { view: canViewReports },
     };

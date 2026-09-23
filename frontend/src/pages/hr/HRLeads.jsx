@@ -336,7 +336,7 @@ export default function HRLeads() {
             className="flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-[#f97316] to-[#ea580c] hover:from-[#ea580c] hover:to-[#c2410c] text-white rounded-xl text-xs font-black shadow-md shadow-orange-500/20 transition-all cursor-pointer"
           >
             <Plus size={14} strokeWidth={3} />
-            Add Lead
+            Add New Lead
           </button>
         </div>
       </div>

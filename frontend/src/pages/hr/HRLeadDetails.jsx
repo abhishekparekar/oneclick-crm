@@ -50,7 +50,7 @@ export default function HRLeadDetails() {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [statusRemark, setStatusRemark] = useState("");
-  const [statusAttachedFile, setStatusAttachedFile] = useState(null);
+  const [statusAttachedFiles, setStatusAttachedFiles] = useState([]);
 
   // Messenger / Variables state
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -127,36 +127,45 @@ export default function HRLeadDetails() {
 
   // Update Status Mutation
   const updateStatusMut = useMutation({
-    mutationFn: async ({ statusId, followUpDate, remark, file }) => {
-      let docObj = null;
-      if (file) {
-        const formData = new FormData();
-        formData.append("file", file);
-        const upRes = await api.post("/tasks/upload-media", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
+    mutationFn: async ({ statusId, followUpDate, remark, files, file }) => {
+      let docObjs = [];
+      const rawFiles = Array.isArray(files) && files.length > 0 ? files : (file ? [file] : []);
+      if (rawFiles.length > 0) {
+        const uploadPromises = rawFiles.map(async (f) => {
+          const formData = new FormData();
+          formData.append("file", f);
+          const upRes = await api.post("/tasks/upload-media", formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+          const uData = upRes.data || {};
+          const fileUrl = uData.fileUrl || uData.url;
+          if (fileUrl) {
+            return {
+              name: f.name,
+              url: fileUrl,
+              fileType: f.type || "application/octet-stream",
+              size: `${(f.size / 1024).toFixed(1)} KB`,
+            };
+          }
+          return null;
         });
-        const uData = upRes.data || {};
-        if (uData.fileUrl || uData.url) {
-          docObj = {
-            name: file.name,
-            url: uData.fileUrl || uData.url,
-            fileType: file.type || "application/octet-stream",
-          };
-        }
+        const res = await Promise.all(uploadPromises);
+        docObjs = res.filter(Boolean);
       }
 
       return api.put(`/leads-engine/leads/${leadId}`, {
         statusId: statusId || selectedStatusId,
         nextFollowUpDate: followUpDate || nextFollowUpDate || null,
         remark: remark || null,
-        attachment: docObj,
+        attachments: docObjs,
+        attachment: docObjs[0] || null,
       });
     },
     onSuccess: () => {
       toast.success("Lead status & follow-up updated successfully!");
       setShowStatusModal(false);
       setStatusRemark("");
-      setStatusAttachedFile(null);
+      setStatusAttachedFiles([]);
       queryClient.invalidateQueries(["hrLeadDetails", leadId]);
       queryClient.invalidateQueries(["hrMyLeads"]);
       queryClient.invalidateQueries(["hrDashboardLeads"]);
@@ -264,9 +273,132 @@ export default function HRLeadDetails() {
       statusId: selectedStatusId,
       followUpDate: nextFollowUpDate,
       remark: statusRemark,
-      file: statusAttachedFile,
+      files: statusAttachedFiles,
     });
   };
+
+  const handleDirectDocUpload = async (e) => {
+    const rawFiles = e.target.files ? Array.from(e.target.files) : [];
+    if (rawFiles.length === 0) return;
+    setDirectUploadingDoc(true);
+    try {
+      const uploadPromises = rawFiles.map(async (file) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await api.post("/tasks/upload-media", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        const data = res.data || {};
+        const fileUrl = data.fileUrl || data.url;
+        if (!fileUrl) throw new Error(`Failed to upload ${file.name}`);
+        return {
+          name: file.name,
+          url: fileUrl,
+          type: file.type || "document",
+          size: `${(file.size / 1024).toFixed(1)} KB`,
+        };
+      });
+
+      const docs = await Promise.all(uploadPromises);
+      await api.post(`/leads-engine/leads/${leadId}/documents`, {
+        documents: docs,
+      });
+      toast.success(`${docs.length} document(s) attached successfully!`);
+      refetch();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to upload file");
+    } finally {
+      setDirectUploadingDoc(false);
+      e.target.value = "";
+    }
+  };
+
+  const allDocumentsList = (() => {
+    const docsMap = new Map();
+    (lead.documents || []).forEach((d) => {
+      if (d.url) docsMap.set(d.url, d);
+    });
+    if (typeof lead.notes === "string") {
+      const matches = lead.notes.matchAll(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/g);
+      for (const m of matches) {
+        const name = m[1];
+        const url = m[2];
+        if (url && !docsMap.has(url)) {
+          docsMap.set(url, { name, url, type: "document", size: "" });
+        }
+      }
+    }
+    return Array.from(docsMap.values());
+  })();
+
+  const unifiedActivities = (() => {
+    const list = Array.isArray(lead.activityLogs) && lead.activityLogs.length > 0 ? [...lead.activityLogs] : [];
+
+    // Supplement from leadActivities
+    (lead.leadActivities || []).forEach((act, idx) => {
+      const isDup = list.some((l) => l.remark === act.description || l.title === act.title);
+      if (!isDup) {
+        list.push({
+          id: act._id || `act-${idx}`,
+          action: act.title || "Status Updated",
+          title: act.title || "Status Updated",
+          remark: act.description || "",
+          attachment: act.attachment || null,
+          createdAt: act.createdAt || lead.createdAt,
+          timestamp: act.createdAt || lead.createdAt,
+        });
+      }
+    });
+
+    // Supplement from lead.notes string
+    if (typeof lead.notes === "string" && lead.notes.trim()) {
+      const lines = lead.notes.split("\n").filter(Boolean);
+      lines.forEach((rawLine, idx) => {
+        const line = rawLine.replace(/^[•\-\*]\s*/, "").trim();
+        const bracketMatch = line.match(/^\[(.*?)\]\s*(.*)$/);
+        const timeStr = bracketMatch ? bracketMatch[1] : null;
+        let text = bracketMatch ? bracketMatch[2] : line;
+
+        let docObj = null;
+        const docTagMatch = text.match(/\[Doc:\s*(.*?)\s*\|\s*(.*?)\]/);
+        if (docTagMatch) {
+          docObj = { name: docTagMatch[1], url: docTagMatch[2] };
+          text = text.replace(/\[Doc:.*?\]/, "").trim();
+        }
+
+        const isDup = list.some((l) => l.remark === text || (docObj && l.attachment?.url === docObj.url));
+        if (!isDup) {
+          list.push({
+            id: `note-line-${idx}`,
+            action: text.toLowerCase().includes("status changed") ? "Stage Transition" : "Note / Follow-Up",
+            title: text.toLowerCase().includes("status changed") ? "Stage Transition" : "Note / Follow-Up",
+            remark: text,
+            attachment: docObj,
+            createdAt: timeStr ? new Date() : lead.createdAt,
+            timestamp: timeStr || new Date(lead.createdAt).toLocaleString("en-IN"),
+          });
+        }
+      });
+    }
+
+    // Supplement from lead.documents
+    (lead.documents || []).forEach((doc, idx) => {
+      const isDup = list.some((l) => l.attachment?.url === doc.url);
+      if (!isDup) {
+        list.push({
+          id: doc._id || `doc-${idx}`,
+          action: "Document Attached",
+          title: "Document Attached",
+          remark: `${doc.name || "File"} ${doc.size ? `(${doc.size})` : ""}`,
+          attachment: { name: doc.name, url: doc.url, type: doc.type, size: doc.size },
+          createdAt: doc.uploadedAt || lead.createdAt,
+          timestamp: doc.uploadedAt || lead.createdAt,
+        });
+      }
+    });
+
+    return list.sort((a, b) => new Date(b.createdAt || b.timestamp || 0) - new Date(a.createdAt || a.timestamp || 0));
+  })();
 
   const currentStatusObj = statuses.find(
     (s) => String(s._id || s.id) === String(lead.statusId || lead.status?._id || lead.status?.id)
@@ -291,7 +423,14 @@ export default function HRLeadDetails() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate("/hr/leads")}
+            onClick={() => {
+              const returnPath = window.location.pathname.startsWith("/company")
+                ? "/company/leads"
+                : window.location.pathname.startsWith("/manager")
+                ? "/manager/leads"
+                : "/hr/leads";
+              navigate(returnPath);
+            }}
             className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors cursor-pointer shrink-0 border border-slate-200 dark:border-slate-700"
             title="Back to Leads List"
           >
@@ -317,7 +456,7 @@ export default function HRLeadDetails() {
               </span>
             </div>
             <p className="text-[11px] text-slate-400 mt-0.5">
-              HR Recruitment Pipeline • Registered on {new Date(lead.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+              {window.location.pathname.startsWith("/company") ? "Admin Lead Pipeline" : window.location.pathname.startsWith("/manager") ? "Team Lead Pipeline" : "HR Recruitment Pipeline"} • Registered on {new Date(lead.createdAt || Date.now()).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
             </p>
           </div>
         </div>
@@ -477,12 +616,59 @@ export default function HRLeadDetails() {
             </div>
           </div>
 
+          {/* Card 3: Attached Documents & Proposals */}
+          <div className="bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-2">
+                <Paperclip size={14} className="text-amber-500" />
+                Attached Files ({allDocumentsList.length})
+              </h3>
+              <label className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30 rounded-lg text-[10.5px] font-bold cursor-pointer transition-colors flex items-center gap-1">
+                <Plus size={11} strokeWidth={2.5} />
+                <span>{directUploadingDoc ? "Uploading..." : "Attach File"}</span>
+                <input type="file" multiple disabled={directUploadingDoc} onChange={handleDirectDocUpload} className="hidden" />
+              </label>
+            </div>
+
+            {allDocumentsList.length === 0 ? (
+              <div className="text-center py-6 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-[11px]">
+                No files or documents attached yet.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {allDocumentsList.map((doc, idx) => (
+                  <div
+                    key={doc._id || idx}
+                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <FileText size={14} className="text-amber-500 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-bold text-slate-900 dark:text-white truncate text-[11.5px]">{doc.name || "Document"}</p>
+                        {doc.size && <p className="text-[10px] text-slate-400 font-mono">{doc.size}</p>}
+                      </div>
+                    </div>
+                    <a
+                      href={doc.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors"
+                      title="Open document"
+                    >
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
         </div>
 
         {/* RIGHT COLUMN (2/3): WhatsApp Messenger & Interaction Timeline */}
         <div className="lg:col-span-2 space-y-4">
           
-          {/* Card 3: Interactive WhatsApp Outreach Engine */}
+          {/* Card 4: Interactive WhatsApp Outreach Engine */}
           <div className="bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
               <div className="flex items-center gap-2">
@@ -654,22 +840,22 @@ export default function HRLeadDetails() {
             )}
           </div>
 
-          {/* Card 4: Timeline, History & Activity Logs */}
+          {/* Card 5: Unified Activity & Timeline Stream */}
           <div className="bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
             <h3 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-2">
               <Clock size={14} className="text-amber-500" />
-              Recruitment Activity &amp; Status Logs ({lead.activityLogs?.length || 0})
+              Recruitment Activity &amp; Status Logs ({unifiedActivities.length})
             </h3>
 
-            {(!lead.activityLogs || lead.activityLogs.length === 0) ? (
+            {unifiedActivities.length === 0 ? (
               <div className="text-center py-8 bg-slate-50 dark:bg-slate-900/40 rounded-xl border border-dashed border-slate-200 dark:border-slate-800 text-slate-400 text-xs">
                 No past activity logged for this candidate yet. Updates and notes will appear here in chronological order.
               </div>
             ) : (
               <div className="space-y-2.5">
-                {lead.activityLogs.map((log, idx) => (
+                {unifiedActivities.map((log, idx) => (
                   <div
-                    key={idx}
+                    key={log.id || idx}
                     className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200/80 dark:border-slate-800 flex items-start gap-3"
                   >
                     <div className="w-7 h-7 rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
@@ -681,12 +867,15 @@ export default function HRLeadDetails() {
                           {log.action || log.title || "Status Updated"}
                         </span>
                         <span className="text-[10px] text-slate-400 font-mono">
-                          {new Date(log.createdAt || log.timestamp || Date.now()).toLocaleString("en-IN", {
-                            day: "2-digit",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {typeof log.timestamp === "string" && log.timestamp.length > 5 && !log.timestamp.includes("T")
+                            ? log.timestamp
+                            : new Date(log.createdAt || log.timestamp || Date.now()).toLocaleString("en-IN", {
+                                day: "2-digit",
+                                month: "short",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              })}
                         </span>
                       </div>
                       {log.remark && (
@@ -700,10 +889,11 @@ export default function HRLeadDetails() {
                             href={log.attachment.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-[10.5px] font-bold text-amber-600 dark:text-amber-400 hover:underline"
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded-lg text-[11px] font-bold hover:underline"
                           >
-                            <Paperclip size={11} />
+                            <Paperclip size={12} />
                             <span>{log.attachment.name || "View Attachment"}</span>
+                            <ExternalLink size={10} className="ml-0.5" />
                           </a>
                         </div>
                       )}
@@ -800,14 +990,38 @@ export default function HRLeadDetails() {
               </div>
 
               <div>
-                <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Attach Document / Resume (Optional)
+                <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center justify-between">
+                  <span>Attach Document / Proposal / Resume (Multiple Allowed)</span>
+                  {statusAttachedFiles.length > 0 && (
+                    <span className="text-amber-500 font-mono text-[10px]">{statusAttachedFiles.length} file(s) selected</span>
+                  )}
                 </label>
                 <input
                   type="file"
-                  onChange={(e) => setStatusAttachedFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={(e) => {
+                    const newFiles = e.target.files ? Array.from(e.target.files) : [];
+                    setStatusAttachedFiles((prev) => [...prev, ...newFiles]);
+                    e.target.value = "";
+                  }}
                   className="w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-50 dark:file:bg-amber-950/40 file:text-amber-700 dark:file:text-amber-300 cursor-pointer"
                 />
+                {statusAttachedFiles.length > 0 && (
+                  <div className="space-y-1 mt-2">
+                    {statusAttachedFiles.map((f, idx) => (
+                      <div key={idx} className="flex items-center justify-between px-2.5 py-1 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 text-[11px]">
+                        <span className="truncate max-w-[280px] font-medium text-slate-700 dark:text-slate-300">{f.name}</span>
+                        <button
+                          type="button"
+                          onClick={() => setStatusAttachedFiles((prev) => prev.filter((_, i) => i !== idx))}
+                          className="text-rose-500 hover:text-rose-700 p-0.5 cursor-pointer"
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

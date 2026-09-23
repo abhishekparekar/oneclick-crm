@@ -815,12 +815,12 @@ export default function TaskBoard() {
               <RefreshCw size={13} className={isFetching ? "animate-spin" : ""}/>
             </button>
 
-            {/* Primary Action Button (+ New Task) with Crisp White Text */}
+            {/* Primary Action Button (+ Add Task) with Crisp White Text */}
             <button
               onClick={() => setIsCreateOpen(true)}
               className="flex items-center gap-1.5 px-3.5 h-7 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <Plus size={14} strokeWidth={3} /> New Task
+              <Plus size={14} strokeWidth={3} /> Add Task
             </button>
           </div>
         </div>

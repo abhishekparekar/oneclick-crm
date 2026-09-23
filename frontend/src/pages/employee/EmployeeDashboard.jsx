@@ -743,7 +743,7 @@ const EmployeeDashboard = () => {
                     onClick={() => setShowAddLeadModal(true)}
                     className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer"
                   >
-                    <Plus size={13} /> Add Lead
+                    <Plus size={13} /> Add New Lead
                   </button>
                   <Link
                     to="/employee/leads"

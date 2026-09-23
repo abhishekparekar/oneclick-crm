@@ -118,6 +118,15 @@ const useManagerController = () => {
     }
   }, []);
 
+  const extractTaskList = (res) => {
+    if (!res) return [];
+    if (Array.isArray(res)) return res;
+    if (Array.isArray(res.data)) return res.data;
+    if (Array.isArray(res.data?.data)) return res.data.data;
+    if (Array.isArray(res.tasks)) return res.tasks;
+    return [];
+  };
+
   const [myManagerTasks, setMyManagerTasks] = useState([]);
   const isFetchingMyTasksRef = useRef(false);
   const fetchMyManagerTasks = useCallback(async (force = false) => {
@@ -128,11 +137,17 @@ const useManagerController = () => {
     setTasksError(null);
     try {
       const [res, tplRes] = await Promise.all([
-        managerApi.getMyManagerTasks().catch(() => ({ data: [] })),
-        managerApi.getMyManagerTasks({ isTemplate: true }).catch(() => ({ data: [] }))
+        managerApi.getMyManagerTasks().catch((e) => {
+          console.error("[ManagerController] getMyManagerTasks error:", e?.response?.data || e.message);
+          return { data: [] };
+        }),
+        managerApi.getMyManagerTasks({ isTemplate: true }).catch((e) => {
+          console.error("[ManagerController] getMyManagerTasks templates error:", e?.response?.data || e.message);
+          return { data: [] };
+        })
       ]);
-      const tasks = res.data?.data || res.data || [];
-      const templates = tplRes.data?.data || tplRes.data || [];
+      const tasks = extractTaskList(res);
+      const templates = extractTaskList(tplRes);
       setMyManagerTasks([...tasks, ...templates]);
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);
@@ -155,11 +170,17 @@ const useManagerController = () => {
     setTasksError(null);
     try {
       const [res, tplRes] = await Promise.all([
-        managerApi.getTeamTasks(params).catch(() => ({ data: { data: [] } })),
-        managerApi.getTeamTasks({ ...params, isTemplate: true }).catch(() => ({ data: { data: [] } }))
+        managerApi.getTeamTasks(params).catch((e) => {
+          console.error("[ManagerController] getTeamTasks error:", e?.response?.data || e.message);
+          return { data: [] };
+        }),
+        managerApi.getTeamTasks({ ...params, isTemplate: true }).catch((e) => {
+          console.error("[ManagerController] getTeamTasks templates error:", e?.response?.data || e.message);
+          return { data: [] };
+        })
       ]);
-      const tasks = res.data?.data || res.data || [];
-      const templates = tplRes.data?.data || tplRes.data || [];
+      const tasks = extractTaskList(res);
+      const templates = extractTaskList(tplRes);
       setTeamTasks([...tasks, ...templates]);
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);

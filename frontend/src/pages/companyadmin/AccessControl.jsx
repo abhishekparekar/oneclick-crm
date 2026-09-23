@@ -188,7 +188,7 @@ const AccessControl = () => {
 
   // Filter categories and items dynamically based on selected role:
   // - Employee: hide Company & BI Analytics, Payroll & Finance, Performance & Reviews
-  // - Manager: hide Payroll & Finance, and remove Departments & Branches from Company & BI Analytics
+  // - Manager: allow Payroll & Finance (Process Pay Runs), but remove Settings and Departments & Branches
   const visiblePermissionCategories = useMemo(() => {
     if (!selectedManager) return PERMISSION_CATEGORIES;
 
@@ -200,8 +200,13 @@ const AccessControl = () => {
 
     if (selectedRole === "Manager") {
       return PERMISSION_CATEGORIES
-        .filter((c) => c.key !== "payroll")
         .map((c) => {
+          if (c.key === "payroll") {
+            return {
+              ...c,
+              items: c.items.filter((item) => item.key !== "settings"),
+            };
+          }
           if (c.key === "company") {
             return {
               ...c,
