@@ -358,13 +358,15 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   // Edit Lead Modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [employees, setEmployees] = useState([]);
+  const [assignDropdownOpen, setAssignDropdownOpen] = useState(false);
+  const [assignSearch, setAssignSearch] = useState("");
   const [editForm, setEditForm] = useState({
     name: "",
     whatsappPhone: "",
     email: "",
     company: "",
     estimatedValue: "",
-    assignedTo: "",
+    assignedToUsers: [], // array of user IDs for multi-assign
     notes: "",
   });
 
@@ -773,20 +775,48 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   const openEditModal = () => {
     const activeLead = lead;
     if (activeLead) {
+      // Build initial assignedToUsers array from lead data
+      let initialAssigned = [];
+      if (Array.isArray(activeLead.assignedToUsers) && activeLead.assignedToUsers.length > 0) {
+        initialAssigned = activeLead.assignedToUsers.map((u) =>
+          String(u?._id || u?.id || u || "")
+        ).filter(Boolean);
+      } else if (activeLead.assignedTo) {
+        const singleId = String(
+          activeLead.assignedTo?._id ||
+          activeLead.assignedTo?.id ||
+          (typeof activeLead.assignedTo === "string" ? activeLead.assignedTo : "")
+        );
+        if (singleId) initialAssigned = [singleId];
+      }
       setEditForm({
         name: activeLead.name || "",
         whatsappPhone: activeLead.whatsappPhone || activeLead.phone || "",
         email: activeLead.email || "",
         company: activeLead.company || "",
         estimatedValue: activeLead.estimatedValue ? String(activeLead.estimatedValue) : "",
-        assignedTo:
-          activeLead.assignedTo?._id ||
-          activeLead.assignedTo?.id ||
-          (typeof activeLead.assignedTo === "string" ? activeLead.assignedTo : ""),
+        assignedToUsers: initialAssigned,
         notes: activeLead.notes || "",
       });
     }
+    setAssignDropdownOpen(false);
+    setAssignSearch("");
     setEditModalVisible(true);
+  };
+
+  // Toggle a user in/out of assignedToUsers array
+  const toggleAssignUser = (userId) => {
+    const id = String(userId);
+    setEditForm((prev) => {
+      const current = prev.assignedToUsers || [];
+      const exists = current.includes(id);
+      return {
+        ...prev,
+        assignedToUsers: exists
+          ? current.filter((x) => x !== id)
+          : [...current, id],
+      };
+    });
   };
 
   // ── Save Lead Profile Edits ─────────────────────────────────
@@ -794,8 +824,20 @@ function LeadDetailsScreenComponent({ route, navigation }) {
     if (updating) return;
     try {
       setUpdating(true);
-      await leadsService.updateLead(leadId, editForm);
+      const payload = {
+        name: editForm.name,
+        whatsappPhone: editForm.whatsappPhone,
+        email: editForm.email,
+        company: editForm.company,
+        estimatedValue: editForm.estimatedValue,
+        notes: editForm.notes,
+        // Send assignedToUsers array; backend sets assignedTo = first element
+        assignedToUsers: editForm.assignedToUsers,
+        assignedTo: editForm.assignedToUsers?.[0] || null,
+      };
+      await leadsService.updateLead(leadId, payload);
       setEditModalVisible(false);
+      setAssignDropdownOpen(false);
       // Refresh lead data in background without navigating away
       fetchDetails();
       Alert.alert("Saved", "Lead profile updated successfully.");
@@ -1212,13 +1254,21 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                   <Text style={styles.compactCellLabel}>ASSIGNED REP</Text>
                   <View style={styles.compactValueRow}>
                     <Ionicons name="person-outline" size={11} color="#4F46E5" style={{ marginRight: 3 }} />
-                    <Text style={[styles.compactCellValue, { color: "#4F46E5" }]} numberOfLines={1}>
+                    <Text style={[styles.compactCellValue, { color: "#4F46E5" }]} numberOfLines={2}>
                       {(() => {
-                        if (!lead?.assignedTo) return "Unassigned";
-                        if (typeof lead.assignedTo === "string") return lead.assignedTo;
-                        const repName = lead.assignedTo.name || "Employee";
-                        const repDept = lead.assignedTo.departmentId?.name || lead.assignedTo.department;
-                        return repDept ? `${repName} (${repDept})` : repName;
+                        // Show all assigned team members from assignedToUsers array
+                        const users = Array.isArray(lead?.assignedToUsers) && lead.assignedToUsers.length > 0
+                          ? lead.assignedToUsers
+                          : lead?.assignedTo ? [lead.assignedTo] : [];
+                        if (users.length === 0) return "Unassigned";
+                        return users
+                          .map((u) => {
+                            if (!u) return null;
+                            if (typeof u === "string") return u;
+                            return u.name || "Employee";
+                          })
+                          .filter(Boolean)
+                          .join(", ");
                       })()}
                     </Text>
                   </View>
@@ -2222,54 +2272,243 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                   placeholderTextColor="#94A3B8"
                 />
 
-                <Text style={styles.fieldLabel}>Assign To Representative</Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 6 }}>
-                  {currentUserId ? (
-                    <TouchableOpacity
-                      style={[styles.choiceChip, editForm.assignedTo === currentUserId && styles.choiceChipActive]}
-                      onPress={() => setEditForm((p) => ({ ...p, assignedTo: currentUserId }))}
-                    >
-                      <Ionicons
-                        name="person-circle"
-                        size={12}
-                        color={editForm.assignedTo === currentUserId ? "#FFF" : THEME.primary}
-                        style={{ marginRight: 3 }}
-                      />
-                      <Text style={[styles.choiceChipText, editForm.assignedTo === currentUserId && styles.choiceChipTextActive]}>
-                        Me (Self)
+                {/* ── Assign To Team Members (multi-select dropdown) ── */}
+                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <Text style={styles.fieldLabel}>Assign To Team Members</Text>
+                  {editForm.assignedToUsers?.length > 0 && (
+                    <View style={{ backgroundColor: THEME.primary, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyBold }}>
+                        {editForm.assignedToUsers.length} selected
                       </Text>
-                    </TouchableOpacity>
-                  ) : null}
-
-                  {employees
-                    .filter((emp) => {
-                      const empId = emp._id || emp.id;
-                      return empId && String(empId) !== String(currentUserId);
-                    })
-                    .map((emp) => {
-                      const empId = String(emp._id || emp.id || "");
-                      const isSelected = empId && String(editForm.assignedTo) === empId;
-                      return (
-                        <TouchableOpacity
-                          key={empId}
-                          style={[styles.choiceChip, isSelected && styles.choiceChipActive]}
-                          onPress={() => setEditForm((p) => ({ ...p, assignedTo: empId }))}
-                        >
-                          <Ionicons name="person" size={11} color={isSelected ? "#FFF" : THEME.primary} style={{ marginRight: 3 }} />
-                          <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
-                            {emp.label || emp.name || "Staff"}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-
-                  {/* If no employees loaded, show a hint */}
-                  {employees.length === 0 && (
-                    <Text style={{ fontSize: 11, color: THEME.textMuted, fontFamily: FONTS.body, alignSelf: "center", marginLeft: 2 }}>
-                      No team members found
-                    </Text>
+                    </View>
                   )}
-                </ScrollView>
+                </View>
+
+                {/* Dropdown trigger */}
+                <TouchableOpacity
+                  style={{
+                    flexDirection: "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    borderWidth: 1,
+                    borderColor: assignDropdownOpen ? THEME.primary : THEME.border,
+                    borderRadius: 8,
+                    paddingHorizontal: 10,
+                    paddingVertical: 9,
+                    backgroundColor: assignDropdownOpen ? THEME.primaryBg : "#F8FAFC",
+                    marginBottom: assignDropdownOpen ? 0 : 10,
+                  }}
+                  activeOpacity={0.7}
+                  onPress={() => { setAssignDropdownOpen((v) => !v); setAssignSearch(""); }}
+                >
+                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                    <Ionicons name="people-outline" size={13} color={THEME.primary} style={{ marginRight: 4 }} />
+                    {editForm.assignedToUsers?.length === 0 ? (
+                      <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body }}>
+                        Tap to select team members
+                      </Text>
+                    ) : (
+                      // Show selected names as small tags
+                      (() => {
+                        const allOptions = [
+                          ...(currentUserId ? [{ _id: currentUserId, name: "Me (Self)", isSelf: true }] : []),
+                          ...employees,
+                        ];
+                        return editForm.assignedToUsers.map((uid) => {
+                          const found = allOptions.find((e) => String(e._id || e.id) === String(uid));
+                          const label = found?.isSelf ? "Me" : (found?.name || uid.slice(-6));
+                          return (
+                            <View
+                              key={uid}
+                              style={{
+                                backgroundColor: THEME.primary,
+                                borderRadius: 4,
+                                paddingHorizontal: 6,
+                                paddingVertical: 2,
+                                flexDirection: "row",
+                                alignItems: "center",
+                                gap: 3,
+                              }}
+                            >
+                              <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyMedium }}>{label}</Text>
+                              <TouchableOpacity
+                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                onPress={() => toggleAssignUser(uid)}
+                              >
+                                <Ionicons name="close" size={9} color="#FFF" />
+                              </TouchableOpacity>
+                            </View>
+                          );
+                        });
+                      })()
+                    )}
+                  </View>
+                  <Ionicons
+                    name={assignDropdownOpen ? "chevron-up" : "chevron-down"}
+                    size={14}
+                    color={THEME.textMuted}
+                    style={{ marginLeft: 6 }}
+                  />
+                </TouchableOpacity>
+
+                {/* Dropdown panel */}
+                {assignDropdownOpen && (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor: THEME.primary,
+                      borderTopWidth: 0,
+                      borderBottomLeftRadius: 8,
+                      borderBottomRightRadius: 8,
+                      backgroundColor: "#FFF",
+                      marginBottom: 10,
+                      maxHeight: 220,
+                      overflow: "hidden",
+                    }}
+                  >
+                    {/* Search bar */}
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        borderBottomWidth: 1,
+                        borderBottomColor: THEME.borderLight,
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        gap: 6,
+                      }}
+                    >
+                      <Ionicons name="search" size={13} color={THEME.textMuted} />
+                      <TextInput
+                        style={{
+                          flex: 1,
+                          fontSize: 12,
+                          fontFamily: FONTS.body,
+                          color: THEME.textPrimary,
+                          padding: 0,
+                        }}
+                        placeholder="Search team members..."
+                        placeholderTextColor={THEME.textMuted}
+                        value={assignSearch}
+                        onChangeText={setAssignSearch}
+                        autoCapitalize="none"
+                      />
+                    </View>
+
+                    <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                      {/* Self option */}
+                      {currentUserId && ("Me (Self)".toLowerCase().includes(assignSearch.toLowerCase())) && (
+                        <TouchableOpacity
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "center",
+                            paddingHorizontal: 12,
+                            paddingVertical: 9,
+                            borderBottomWidth: 1,
+                            borderBottomColor: THEME.borderLight,
+                            backgroundColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primaryBg : "#FFF",
+                          }}
+                          onPress={() => toggleAssignUser(currentUserId)}
+                        >
+                          <View
+                            style={{
+                              width: 16,
+                              height: 16,
+                              borderRadius: 3,
+                              borderWidth: 1.5,
+                              borderColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primary : THEME.border,
+                              backgroundColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primary : "#FFF",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              marginRight: 8,
+                            }}
+                          >
+                            {editForm.assignedToUsers.includes(String(currentUserId)) && (
+                              <Ionicons name="checkmark" size={10} color="#FFF" />
+                            )}
+                          </View>
+                          <Ionicons name="person-circle-outline" size={14} color={THEME.primary} style={{ marginRight: 6 }} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }}>Me (Self)</Text>
+                            <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }}>Current User</Text>
+                          </View>
+                        </TouchableOpacity>
+                      )}
+
+                      {/* All employees */}
+                      {employees
+                        .filter((emp) => {
+                          const empId = String(emp._id || emp.id || "");
+                          if (empId === String(currentUserId)) return false;
+                          if (!assignSearch) return true;
+                          const name = (emp.name || emp.label || "").toLowerCase();
+                          const dept = (emp.department || "").toLowerCase();
+                          const q = assignSearch.toLowerCase();
+                          return name.includes(q) || dept.includes(q);
+                        })
+                        .map((emp) => {
+                          const empId = String(emp._id || emp.id || "");
+                          const isSelected = editForm.assignedToUsers.includes(empId);
+                          return (
+                            <TouchableOpacity
+                              key={empId}
+                              style={{
+                                flexDirection: "row",
+                                alignItems: "center",
+                                paddingHorizontal: 12,
+                                paddingVertical: 9,
+                                borderBottomWidth: 1,
+                                borderBottomColor: THEME.borderLight,
+                                backgroundColor: isSelected ? THEME.primaryBg : "#FFF",
+                              }}
+                              onPress={() => toggleAssignUser(empId)}
+                            >
+                              <View
+                                style={{
+                                  width: 16,
+                                  height: 16,
+                                  borderRadius: 3,
+                                  borderWidth: 1.5,
+                                  borderColor: isSelected ? THEME.primary : THEME.border,
+                                  backgroundColor: isSelected ? THEME.primary : "#FFF",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  marginRight: 8,
+                                }}
+                              >
+                                {isSelected && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                              </View>
+                              <Ionicons name="person-outline" size={13} color={THEME.textSecondary} style={{ marginRight: 6 }} />
+                              <View style={{ flex: 1 }}>
+                                <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }} numberOfLines={1}>
+                                  {emp.name || "Employee"}
+                                </Text>
+                                {(emp.department || emp.role) ? (
+                                  <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }} numberOfLines={1}>
+                                    {emp.department || emp.role}
+                                  </Text>
+                                ) : null}
+                              </View>
+                            </TouchableOpacity>
+                          );
+                        })}
+
+                      {/* Empty state */}
+                      {employees.filter((emp) => {
+                        if (!assignSearch) return true;
+                        const name = (emp.name || "").toLowerCase();
+                        return name.includes(assignSearch.toLowerCase());
+                      }).length === 0 && !assignSearch && employees.length === 0 && (
+                        <View style={{ padding: 16, alignItems: "center" }}>
+                          <Ionicons name="people-outline" size={24} color={THEME.textMuted} />
+                          <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body, marginTop: 6 }}>
+                            No team members available
+                          </Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
 
                 <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
                 <TextInput
