@@ -692,7 +692,7 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
     const today = startOfDay(now);
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
-
+ 
     const currentDay = now.getDay();
     const distanceToMonday = currentDay === 0 ? 6 : currentDay - 1;
     const startOfWeek = new Date(today);
