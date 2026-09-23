@@ -2420,7 +2420,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                             paddingVertical: 9,
                             borderBottomWidth: 1,
                             borderBottomColor: THEME.borderLight,
-                            backgroundColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primaryBg : "#FFF",
+                            backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primaryBg : "#FFF",
                           }}
                           onPress={() => toggleAssignUser(currentUserId)}
                         >
@@ -2430,14 +2430,14 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                               height: 16,
                               borderRadius: 3,
                               borderWidth: 1.5,
-                              borderColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primary : THEME.border,
-                              backgroundColor: editForm.assignedToUsers.includes(String(currentUserId)) ? THEME.primary : "#FFF",
+                              borderColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : THEME.border,
+                              backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : "#FFF",
                               alignItems: "center",
                               justifyContent: "center",
                               marginRight: 8,
                             }}
                           >
-                            {editForm.assignedToUsers.includes(String(currentUserId)) && (
+                            {(editForm.assignedToUsers || []).includes(String(currentUserId)) && (
                               <Ionicons name="checkmark" size={10} color="#FFF" />
                             )}
                           </View>
@@ -2462,7 +2462,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                         })
                         .map((emp) => {
                           const empId = String(emp._id || emp.id || "");
-                          const isSelected = editForm.assignedToUsers.includes(empId);
+                          const isSelected = (editForm.assignedToUsers || []).includes(empId);
                           return (
                             <TouchableOpacity
                               key={empId}
