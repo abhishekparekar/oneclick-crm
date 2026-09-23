@@ -436,6 +436,8 @@ const TaskBoardScreen = ({ navigation }) => {
     setSelectedDepts([]);
     setSelectedEmployeeIds([]);
     setDeadlineComingFilter("");
+    setDateFilter("all_time");
+    setTaskFilter("");
   };
 
   useEffect(() => {

@@ -1370,6 +1370,8 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
                     setSelectedDepts([]);
                     setSelectedEmployeeIds([]);
                     setDeadlineComingFilter("");
+                    setDateFilter("all_time");
+                    setTaskFilter("");
                     setShowFilter(false);
                   }}
                 >

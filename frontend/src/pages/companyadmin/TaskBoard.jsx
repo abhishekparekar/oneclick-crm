@@ -417,6 +417,20 @@ export default function TaskBoard() {
 
   const handleApplyFilters = () => {
     setFilters({ ...tempFilters });
+    if (!tempFilters.startDate && !tempFilters.endDate) {
+      setActiveTab("All Time");
+    } else {
+      const tabs = ["Today", "Yesterday", "This Week", "Last Month", "This Month", "Next Month"];
+      const matched = tabs.find(t => {
+        const d = getDates(t);
+        return d.start === tempFilters.startDate && d.end === tempFilters.endDate;
+      });
+      if (matched) {
+        setActiveTab(matched);
+      } else {
+        setActiveTab("");
+      }
+    }
     setShowFiltersDropdown(false);
   };
 
@@ -425,6 +439,7 @@ export default function TaskBoard() {
     setTempFilters(empty);
     setFilters(empty);
     setStatusFilter("");
+    setActiveTab("All Time");
     setShowFiltersDropdown(false);
   };
 
@@ -1239,7 +1254,7 @@ export default function TaskBoard() {
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
               From: {formatDateDDMMYYYY(filters.startDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, startDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
@@ -1248,14 +1263,20 @@ export default function TaskBoard() {
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
               To: {formatDateDDMMYYYY(filters.endDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, endDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
           )}
 
           <button
-            onClick={() => { setFilters({ departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setStatusFilter(""); }}
+            onClick={() => {
+              const empty = { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false };
+              setTempFilters(empty);
+              setFilters(empty);
+              setStatusFilter("");
+              setActiveTab("All Time");
+            }}
             className="text-xs font-black text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
           >
             Reset All

@@ -1332,6 +1332,8 @@ export default function MyTasksScreen({ route, navigation }) {
                     setSelectedPriority("");
                     setDeadlineComingFilter("");
                     setSelectedDepts([]);
+                    setActiveDateFilter("All Time");
+                    setActiveStatus("");
                     setShowFilters(false);
                   }}
                 >

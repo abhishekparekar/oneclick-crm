@@ -860,7 +860,7 @@ export default function EmployeeMyTasks() {
           {/* Reset Filters */}
           {activeFiltersCount > 0 && (
             <button
-              onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); }}
+              onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); setDateTab("All Time"); }}
               className="h-7 px-2 rounded-lg text-xs font-bold text-rose-600 hover:bg-rose-50 border border-rose-200 dark:border-rose-800 dark:hover:bg-rose-950/30 transition-all cursor-pointer flex items-center gap-1"
             >
               <X size={11} /> Reset
@@ -928,7 +928,7 @@ export default function EmployeeMyTasks() {
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs">
               From: {formatDateDDMMYYYY(filters.startDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, startDate: "" })); setDateTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
@@ -937,14 +937,14 @@ export default function EmployeeMyTasks() {
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-orange-300 dark:border-orange-700 text-orange-900 dark:text-orange-200 font-bold text-[11px] shadow-2xs">
               To: {formatDateDDMMYYYY(filters.endDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, endDate: "" })); setDateTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
           )}
 
           <button
-            onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); }}
+            onClick={() => { setFilters({ departmentId: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false }); setPriorityFilter("all"); setDateTab("All Time"); }}
             className="text-xs font-black text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
           >
             Reset All

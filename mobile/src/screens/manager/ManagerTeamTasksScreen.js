@@ -1360,6 +1360,8 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
                     setSelectedDepts([]);
                     setSelectedEmployeeIds([]);
                     setDeadlineComingFilter("");
+                    setDateFilter("all_time");
+                    setTaskFilter("");
                     setShowFilter(false);
                   }}
                 >

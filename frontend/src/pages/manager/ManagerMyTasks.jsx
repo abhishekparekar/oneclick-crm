@@ -578,8 +578,13 @@ export default function ManagerMyTasks() {
               </div>
             </div>
             <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2.5">
-              <button onClick={() => { const { start, end } = getDates(activeTab); setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: start, endDate: end, overdue: false }); setStatusFilter(""); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl transition-colors cursor-pointer">Clear</button>
-              <button onClick={() => setShowFiltersDropdown(false)} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-md py-2.5 rounded-xl transition-colors cursor-pointer">Apply</button>
+              <button onClick={() => { setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", overdue: false }); setStatusFilter(""); setActiveTab("All Time"); setShowFiltersDropdown(false); }} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl transition-colors cursor-pointer">Clear</button>
+              <button onClick={() => {
+                if (!filters.startDate && !filters.endDate) {
+                  setActiveTab("All Time");
+                }
+                setShowFiltersDropdown(false);
+              }} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-md py-2.5 rounded-xl transition-colors cursor-pointer">Apply</button>
             </div>
           </div>
         </div>
@@ -711,7 +716,7 @@ export default function ManagerMyTasks() {
           {filters.startDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold text-[11px] shadow-2xs">
               From: {formatDateDDMMYYYY(filters.startDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, startDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, startDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
@@ -720,14 +725,14 @@ export default function ManagerMyTasks() {
           {filters.endDate && (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-teal-300 dark:border-teal-700 text-teal-900 dark:text-teal-200 font-bold text-[11px] shadow-2xs">
               To: {formatDateDDMMYYYY(filters.endDate)}
-              <button onClick={() => setFilters(prev => ({ ...prev, endDate: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
+              <button onClick={() => { setFilters(prev => ({ ...prev, endDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
                 <X size={12} />
               </button>
             </span>
           )}
 
           <button
-            onClick={() => { setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", overdue: false }); setStatusFilter(""); }}
+            onClick={() => { setFilters({ departmentId: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", overdue: false }); setStatusFilter(""); setActiveTab("All Time"); }}
             className="text-xs font-black text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
           >
             Reset All
