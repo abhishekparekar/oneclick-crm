@@ -24,6 +24,10 @@ import { useAuth } from "../../context/AuthContext";
 import { COLORS, FONTS } from "../../theme/tokens";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
+import * as DocumentPicker from "expo-document-picker";
+import * as Sharing from "expo-sharing";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../config/firebase";
 
 const { width } = Dimensions.get("window");
 
@@ -338,6 +342,9 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   const [includeFollowUp, setIncludeFollowUp] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const [stageAttachedDoc, setStageAttachedDoc] = useState(null);
+  const [stageDocUploading, setStageDocUploading] = useState(false);
 
   // Reminder Modal & State
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
@@ -543,6 +550,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
       const payload = {
         statusId: selectedStageId,
         ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
+        ...(stageAttachedDoc ? { document: stageAttachedDoc, documents: [stageAttachedDoc] } : {}),
       };
 
       // Optimistic UI update
@@ -551,9 +559,16 @@ function LeadDetailsScreenComponent({ route, navigation }) {
         statusId: selectedStageId,
         status: newStatusObj || prev?.status,
         ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
+        ...(stageAttachedDoc ? { documents: [stageAttachedDoc, ...(prev?.documents || [])] } : {}),
       }));
 
       const updated = await leadsService.updateLead(leadId, payload);
+      if (stageAttachedDoc) {
+        try {
+          await leadsService.addLeadDocument(leadId, stageAttachedDoc);
+        } catch (_) {}
+      }
+      setStageAttachedDoc(null);
       if (updated?.status) {
         setLead((prev) => ({
           ...prev,
@@ -601,6 +616,136 @@ function LeadDetailsScreenComponent({ route, navigation }) {
     } finally {
       setUpdatingStage(false);
     }
+  };
+
+  // ── Document Attachment Handlers ────────────────────────────
+  const handleAttachDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setUploadingDoc(true);
+
+        let finalUrl = file.uri;
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
+          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const sRef = ref(storage, fileName);
+          await uploadBytes(sRef, blob);
+          finalUrl = await getDownloadURL(sRef);
+        } catch (storageErr) {
+          try {
+            const upRes = await leadsService.uploadLeadDocument(file);
+            if (upRes?.url) finalUrl = upRes.url;
+          } catch (_) {}
+        }
+
+        const docData = {
+          name: file.name || "Attached Document",
+          url: finalUrl,
+          type: file.mimeType || "application/octet-stream",
+          size: file.size ? `${(file.size / 1024).toFixed(1)} KB` : "1 File",
+        };
+
+        await leadsService.addLeadDocument(leadId, docData);
+
+        const timestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString();
+        const docNote = `• [${timestamp}] 📎 Attached Document: "${file.name}"`;
+        const updatedNotes = lead?.notes ? `${docNote}\n${lead.notes}` : docNote;
+        await leadsService.updateLead(leadId, { notes: updatedNotes });
+
+        Alert.alert("Success", `Document "${file.name}" attached successfully!`);
+        fetchDetails();
+      }
+    } catch (err) {
+      console.warn("Document pick error:", err?.message || err);
+      Alert.alert("Error", "Could not attach document.");
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const handlePickStageDoc = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setStageDocUploading(true);
+        let finalUrl = file.uri;
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
+          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const sRef = ref(storage, fileName);
+          await uploadBytes(sRef, blob);
+          finalUrl = await getDownloadURL(sRef);
+        } catch (_) {
+          try {
+            const upRes = await leadsService.uploadLeadDocument(file);
+            if (upRes?.url) finalUrl = upRes.url;
+          } catch (_) {}
+        }
+        setStageAttachedDoc({
+          name: file.name || "Attached Document",
+          url: finalUrl,
+          type: file.mimeType || "application/octet-stream",
+          size: file.size ? `${(file.size / 1024).toFixed(1)} KB` : "",
+        });
+      }
+    } catch (err) {
+      console.warn("Stage doc pick error:", err);
+      Alert.alert("Notice", "Could not pick document.");
+    } finally {
+      setStageDocUploading(false);
+    }
+  };
+
+  const handleOpenDocument = async (docUrl) => {
+    if (!docUrl) return;
+    try {
+      if ((await Sharing.isAvailableAsync()) && docUrl.startsWith("file://")) {
+        await Sharing.shareAsync(docUrl);
+      } else {
+        await Linking.openURL(docUrl);
+      }
+    } catch (err) {
+      Linking.openURL(docUrl).catch(() => {
+        Alert.alert("Notice", "Document: " + docUrl);
+      });
+    }
+  };
+
+  const handleDeleteDocument = async (docId, docName) => {
+    Alert.alert(
+      "Remove Document",
+      `Are you sure you want to remove "${docName || "this document"}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await leadsService.deleteLeadDocument(leadId, docId);
+              Alert.alert("Removed", "Document removed.");
+              fetchDetails();
+            } catch (err) {
+              Alert.alert("Error", "Could not remove document.");
+            }
+          },
+        },
+      ]
+    );
   };
 
   // ── Fast Inline Add Note ────────────────────────────────────
@@ -1263,6 +1408,90 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                   </View>
                 </View>
 
+                {/* ── ATTACHED DOCUMENTS CARD ── */}
+                <View style={styles.docSectionCard}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="folder-open-outline" size={16} color={THEME.primary} />
+                      <Text style={styles.sectionHeaderTitle}>
+                        ATTACHED DOCUMENTS ({lead?.documents?.length || 0})
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.miniAttachLink}
+                      onPress={handleAttachDocument}
+                      disabled={uploadingDoc}
+                      activeOpacity={0.7}
+                    >
+                      {uploadingDoc ? (
+                        <ActivityIndicator size="small" color={THEME.primary} />
+                      ) : (
+                        <>
+                          <Ionicons name="add-circle" size={15} color={THEME.primary} />
+                          <Text style={styles.miniAttachLinkText}>Add File</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  {(!Array.isArray(lead?.documents) || lead.documents.length === 0) ? (
+                    <View style={styles.emptyDocWrap}>
+                      <Ionicons name="document-text-outline" size={26} color="#CBD5E1" />
+                      <Text style={styles.emptyDocText}>No documents or proposals attached yet.</Text>
+                      <TouchableOpacity
+                        style={styles.emptyAddDocBtn}
+                        onPress={handleAttachDocument}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="cloud-upload-outline" size={14} color="#4F46E5" />
+                        <Text style={styles.emptyAddDocBtnText}>Upload First Document</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    lead.documents.map((doc, idx) => {
+                      const docId = doc._id || doc.id || String(idx);
+                      const isPdf = (doc.name || "").toLowerCase().endsWith(".pdf");
+                      const isImg = (doc.type || "").includes("image") || (doc.name || "").match(/\.(jpg|jpeg|png|webp)$/i);
+                      return (
+                        <View key={docId} style={styles.docItemRow}>
+                          <View style={[styles.docIconWrap, { backgroundColor: isPdf ? "#FEE2E2" : isImg ? "#ECFDF5" : "#EFF6FF" }]}>
+                            <Ionicons
+                              name={isPdf ? "document-text" : isImg ? "image" : "folder-open"}
+                              size={18}
+                              color={isPdf ? "#EF4444" : isImg ? "#10B981" : "#3B82F6"}
+                            />
+                          </View>
+
+                          <TouchableOpacity style={styles.docInfoCol} onPress={() => handleOpenDocument(doc.url)}>
+                            <Text style={styles.docNameText} numberOfLines={1}>
+                              {doc.name}
+                            </Text>
+                            <Text style={styles.docSubText}>
+                              {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.docOpenBtn}
+                            onPress={() => handleOpenDocument(doc.url)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="eye-outline" size={15} color="#4F46E5" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.docDeleteBtn}
+                            onPress={() => handleDeleteDocument(docId, doc.name)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+
                 {/* Compact Timeline Feed */}
                 <View style={styles.timelineContainer}>
                   <Text style={styles.sectionHeaderTitle}>COMMUNICATION TIMELINE</Text>
@@ -1720,6 +1949,60 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                         </TouchableOpacity>
                       </View>
                     </View>
+                  )}
+                </View>
+
+                {/* 4. Optional Document Attachment */}
+                <View style={styles.stageDocSection}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
+                      <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
+                    </View>
+                    {stageAttachedDoc && (
+                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {stageAttachedDoc ? (
+                    <View style={styles.stageDocPreviewCard}>
+                      <View style={styles.stageDocIconBox}>
+                        <Ionicons
+                          name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
+                          size={18}
+                          color="#0284C7"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.stageDocName} numberOfLines={1}>
+                          {stageAttachedDoc.name}
+                        </Text>
+                        <Text style={styles.stageDocSize}>
+                          {stageAttachedDoc.size || "Ready to attach"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.stageDocPickBtn}
+                      onPress={handlePickStageDoc}
+                      disabled={stageDocUploading || updatingStage}
+                      activeOpacity={0.7}
+                    >
+                      {stageDocUploading ? (
+                        <ActivityIndicator size="small" color="#0284C7" />
+                      ) : (
+                        <>
+                          <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
+                          <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   )}
                 </View>
               </ScrollView>
@@ -3276,5 +3559,158 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONTS.displayBold,
     color: "#FFFFFF",
+  },
+  // ── Document Styles ──
+  docSectionCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+  miniAttachLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: "#EEF2FF",
+  },
+  miniAttachLinkText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.primary,
+  },
+  emptyDocWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#CBD5E1",
+  },
+  emptyDocText: {
+    fontSize: 12,
+    color: "#94A3B8",
+    fontFamily: FONTS.bodyRegular,
+    marginTop: 6,
+    textAlign: "center",
+  },
+  emptyAddDocBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: "#EEF2FF",
+  },
+  emptyAddDocBtnText: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#4F46E5",
+  },
+  docItemRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F1F5F9",
+    gap: 10,
+  },
+  docIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  docInfoCol: {
+    flex: 1,
+  },
+  docNameText: {
+    fontSize: 12.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#1E293B",
+  },
+  docSubText: {
+    fontSize: 10.5,
+    color: "#64748B",
+    marginTop: 1,
+  },
+  docOpenBtn: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "#EEF2FF",
+  },
+  docDeleteBtn: {
+    padding: 6,
+    borderRadius: 6,
+    backgroundColor: "#FEE2E2",
+  },
+  stageDocSection: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#F0F9FF",
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  stageDocTitle: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#0369A1",
+    letterSpacing: 0.5,
+  },
+  stageDocPickBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#38BDF8",
+  },
+  stageDocPickBtnText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0284C7",
+  },
+  stageDocPreviewCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFFFFF",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E0F2FE",
+  },
+  stageDocIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    backgroundColor: "#E0F2FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stageDocName: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  stageDocSize: {
+    fontSize: 10,
+    color: "#64748B",
   },
 });

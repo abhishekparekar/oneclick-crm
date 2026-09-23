@@ -718,6 +718,7 @@ const getLeads = async (req, res) => {
       whatsappOptIn: l.whatsappOptIn,
       createdAt: l.createdAt,
       nextFollowUpDate: l.nextFollowUpDate || null,
+      documents: l.documents || [],
       statusId: l.statusId?._id?.toString() || l.statusId,
       status: l.statusId
         ? { id: l.statusId._id.toString(), name: l.statusId.name, color: l.statusId.color }
@@ -806,6 +807,57 @@ const createLead = async (req, res) => {
 
     const resolvedAssignedTo = resolvedAssignedUsers[0] || null;
 
+    // Handle attached documents on creation
+    let initialDocs = [];
+    if (Array.isArray(req.body.documents)) {
+      initialDocs = req.body.documents;
+    } else if (Array.isArray(req.body.attachments)) {
+      initialDocs = req.body.attachments;
+    } else if (req.body.document && (req.body.document.url || req.body.document.uri || req.body.document.fileUrl)) {
+      initialDocs = [req.body.document];
+    } else if (req.body.docUrl || req.body.fileUrl) {
+      initialDocs = [{
+        name: req.body.docName || req.body.fileName || "Attachment",
+        url: req.body.docUrl || req.body.fileUrl,
+        type: req.body.docType || req.body.fileType || "document",
+        size: req.body.docSize || "",
+      }];
+    }
+
+    const formattedInitialDocs = initialDocs
+      .filter((d) => d && (d.url || d.fileUrl || d.uri))
+      .map((d) => ({
+        name: d.name || d.fileName || "Attachment",
+        url: d.url || d.fileUrl || d.uri,
+        type: d.type || d.fileType || "document",
+        size: d.size || "",
+        uploadedBy: req.user?._id || null,
+        uploadedAt: new Date(),
+      }));
+
+    const initialActivities = [
+      {
+        title: "Lead Created",
+        description: `Lead registered with name "${name}" and source "${source || "Walk-in"}".`,
+        type: "LEAD_CREATED",
+        createdAt: new Date(),
+      },
+    ];
+
+    let finalNotes = notes || null;
+    if (formattedInitialDocs.length > 0) {
+      initialActivities.unshift({
+        title: formattedInitialDocs.length > 1 ? `Documents Attached (${formattedInitialDocs.length} files)` : `Document Attached: ${formattedInitialDocs[0].name}`,
+        description: formattedInitialDocs.map((d) => `${d.name}${d.size ? ` (${d.size})` : ""}`).join(", "),
+        type: "DOCUMENT",
+        attachment: formattedInitialDocs[0],
+        createdAt: new Date(),
+      });
+      const docTags = formattedInitialDocs.map(d => `[Doc: ${d.name} | ${d.url}]`).join(" ");
+      const docNote = `• Document attached: ${docTags}`;
+      finalNotes = finalNotes ? `${finalNotes}\n${docNote}` : docNote;
+    }
+
     const newLead = await Lead.create({
       companyId,
       name,
@@ -826,18 +878,12 @@ const createLead = async (req, res) => {
       followUpNotified: false,
       address: address || null,
       city: city || null,
-      notes: notes || null,
+      notes: finalNotes,
       whatsappOptIn: whatsappOptIn !== undefined ? whatsappOptIn : true,
       tags: Array.isArray(tagIds) ? tagIds : [],
-      leadNotes: notes ? [{ note: notes, createdBy: req.user?._id || null, createdAt: new Date() }] : [],
-      leadActivities: [
-        {
-          title: "Lead Created",
-          description: `Lead registered with name "${name}" and source "${source || "Walk-in"}".`,
-          type: "LEAD_CREATED",
-          createdAt: new Date(),
-        },
-      ],
+      documents: formattedInitialDocs,
+      leadNotes: finalNotes ? [{ note: finalNotes, createdBy: req.user?._id || null, createdAt: new Date() }] : [],
+      leadActivities: initialActivities,
     });
 
     const populated = await Lead.findById(newLead._id)
@@ -1419,6 +1465,39 @@ const updateLeadStatus = async (req, res) => {
 
     if (!updated) return res.status(404).json({ message: "Lead not found" });
 
+    // Handle documents attached during status update
+    let newDocs = [];
+    if (Array.isArray(req.body.documents)) {
+      newDocs = req.body.documents;
+    } else if (Array.isArray(req.body.attachments)) {
+      newDocs = req.body.attachments;
+    } else if (req.body.document && (req.body.document.url || req.body.document.uri || req.body.document.fileUrl)) {
+      newDocs = [req.body.document];
+    } else if (req.body.docUrl || req.body.fileUrl) {
+      newDocs = [{
+        name: req.body.docName || req.body.fileName || "Attachment",
+        url: req.body.docUrl || req.body.fileUrl,
+        type: req.body.docType || req.body.fileType || "document",
+        size: req.body.docSize || "",
+      }];
+    }
+
+    const formattedDocs = newDocs
+      .filter((d) => d && (d.url || d.fileUrl || d.uri))
+      .map((d) => ({
+        name: d.name || d.fileName || "Attachment",
+        url: d.url || d.fileUrl || d.uri,
+        type: d.type || d.fileType || "document",
+        size: d.size || "",
+        uploadedBy: req.user?._id || null,
+        uploadedAt: new Date(),
+      }));
+
+    if (formattedDocs.length > 0) {
+      updated.documents = updated.documents || [];
+      formattedDocs.forEach((d) => updated.documents.unshift(d));
+    }
+
     // Format follow-up if present
     let followUpFormatted = "";
     let followUpDateStr = "";
@@ -1439,18 +1518,29 @@ const updateLeadStatus = async (req, res) => {
       }
     }
 
+    const remarkText = (req.body.remark || req.body.note || "").trim();
+
     // Log activity if status actually changed or follow-up updated
-    if (prevLead.statusId?._id?.toString() !== statusId.toString() || nextFollowUpDate) {
+    if (prevLead.statusId?._id?.toString() !== statusId.toString() || nextFollowUpDate || formattedDocs.length > 0 || remarkText) {
       const newStatusName = updated.statusId?.name || "Updated";
       const companyId = getCompanyId(req);
 
       updated.leadActivities = updated.leadActivities || [];
+      const docNameSuffix = formattedDocs.length > 0 ? ` [Attached: ${formattedDocs.map((d) => d.name).join(", ")}]` : "";
       updated.leadActivities.unshift({
         title: `Stage Updated: ${newStatusName}`,
-        description: `Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}`,
+        description: `${remarkText ? remarkText + " — " : ""}Stage updated from ${prevLead.statusId?.name || "Previous"} to ${newStatusName}${followUpFormatted ? ` (Next follow-up: ${followUpFormatted})` : ""}${docNameSuffix}`,
         type: "STATUS_CHANGE",
+        attachment: formattedDocs[0] || undefined,
         createdAt: new Date(),
       });
+
+      const timeStr = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) + ", " + new Date().toLocaleDateString("en-IN");
+      const docTags = formattedDocs.map(d => `[Doc: ${d.name} | ${d.url}]`).join(" ");
+      const docTag = docTags ? ` ${docTags}` : "";
+      const noteEntry = `• [${timeStr}] Status changed to ${newStatusName}${followUpFormatted ? ` (Follow-up: ${followUpFormatted})` : ""}${remarkText ? `: ${remarkText}` : ""}${docTag}`;
+      updated.notes = updated.notes ? `${noteEntry}\n${updated.notes}` : noteEntry;
+
       await updated.save();
 
       const isWon =
@@ -1504,6 +1594,7 @@ const updateLeadStatus = async (req, res) => {
         ? { id: updated.statusId._id.toString(), name: updated.statusId.name, color: updated.statusId.color }
         : null,
       nextFollowUpDate: updated.nextFollowUpDate || null,
+      documents: updated.documents || [],
     });
   } catch (err) {
     return res.status(500).json({ message: err.message });
@@ -3335,19 +3426,106 @@ const sendBroadcastWhatsAppMessage = async (req, res) => {
   }
 };
 
+const uploadLeadDocumentFile = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file provided" });
+    }
+
+    let fileUrl = "";
+    try {
+      const { uploadFileToFirebase } = require("../services/firebaseService");
+      fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "lead-documents");
+    } catch (fbErr) {
+      try {
+        const fs = require("fs");
+        const path = require("path");
+        const uploadDir = path.join(__dirname, "../../uploads/lead-documents");
+        if (!fs.existsSync(uploadDir)) {
+          fs.mkdirSync(uploadDir, { recursive: true });
+        }
+        const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${req.file.originalname}`;
+        const filePath = path.join(uploadDir, uniqueName);
+        fs.writeFileSync(filePath, req.file.buffer);
+        fileUrl = `/uploads/lead-documents/${uniqueName}`;
+      } catch (localErr) {
+        const mimeType = req.file.mimetype || "application/octet-stream";
+        fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+      }
+    }
+
+    return res.json({
+      success: true,
+      url: fileUrl,
+      fileUrl: fileUrl,
+      name: req.file.originalname,
+      fileName: req.file.originalname,
+      type: req.file.mimetype || "document",
+      fileType: req.file.mimetype || "document",
+      size: req.file.size ? `${(req.file.size / 1024).toFixed(1)} KB` : "",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 const addLeadDocument = async (req, res) => {
   try {
     const { id } = req.params;
     let rawDocs = [];
-    if (Array.isArray(req.body.documents)) {
+
+    // 1. If file uploaded via multipart
+    if (req.file) {
+      let fileUrl = "";
+      try {
+        const { uploadFileToFirebase } = require("../services/firebaseService");
+        fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "lead-documents");
+      } catch (fbErr) {
+        try {
+          const fs = require("fs");
+          const path = require("path");
+          const uploadDir = path.join(__dirname, "../../uploads/lead-documents");
+          if (!fs.existsSync(uploadDir)) {
+            fs.mkdirSync(uploadDir, { recursive: true });
+          }
+          const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${req.file.originalname}`;
+          const filePath = path.join(uploadDir, uniqueName);
+          fs.writeFileSync(filePath, req.file.buffer);
+          fileUrl = `/uploads/lead-documents/${uniqueName}`;
+        } catch (localErr) {
+          const mimeType = req.file.mimetype || "application/octet-stream";
+          fileUrl = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
+        }
+      }
+      rawDocs = [{
+        name: req.file.originalname,
+        url: fileUrl,
+        type: req.file.mimetype || "document",
+        size: req.file.size ? `${(req.file.size / 1024).toFixed(1)} KB` : "",
+      }];
+    } else if (Array.isArray(req.body.documents)) {
       rawDocs = req.body.documents;
+    } else if (Array.isArray(req.body.attachments)) {
+      rawDocs = req.body.attachments;
     } else if (Array.isArray(req.body.files)) {
       rawDocs = req.body.files;
-    } else if (req.body.name && req.body.url) {
-      rawDocs = [{ name: req.body.name, url: req.body.url, type: req.body.type, size: req.body.size }];
+    } else if (req.body.url || req.body.fileUrl) {
+      rawDocs = [{
+        name: req.body.name || req.body.fileName || "Attachment",
+        url: req.body.url || req.body.fileUrl,
+        type: req.body.type || req.body.fileType || "document",
+        size: req.body.size || "",
+      }];
+    } else if (req.body.name) {
+      rawDocs = [{
+        name: req.body.name,
+        url: req.body.url || req.body.uri || "",
+        type: req.body.type || req.body.fileType || "document",
+        size: req.body.size || "",
+      }];
     }
 
-    const noteText = (req.body.note || req.body.remark || "").trim();
+    const noteText = (req.body.note || req.body.remark || req.body.notes || "").trim();
 
     if (rawDocs.length === 0 && !noteText) {
       return res.status(400).json({ message: "Either document(s) or a note is required" });
@@ -3356,11 +3534,20 @@ const addLeadDocument = async (req, res) => {
     const lead = await Lead.findById(id);
     if (!lead) return res.status(404).json({ message: "Lead not found" });
 
+    // Optional statusId or nextFollowUpDate update if passed
+    if (req.body.statusId) {
+      lead.statusId = req.body.statusId;
+    }
+    if (req.body.nextFollowUpDate) {
+      lead.nextFollowUpDate = new Date(req.body.nextFollowUpDate);
+      lead.followUpNotified = false;
+    }
+
     const newDocs = rawDocs
-      .filter((d) => d && d.url)
+      .filter((d) => d && (d.url || d.fileUrl || d.uri))
       .map((d) => ({
-        name: d.name || "Attachment",
-        url: d.url,
+        name: d.name || d.fileName || "Attachment",
+        url: d.url || d.fileUrl || d.uri,
         type: d.type || d.fileType || "document",
         size: d.size || "",
         uploadedBy: req.user?._id || null,
@@ -3791,7 +3978,7 @@ module.exports = {
   getCampaigns, createCampaign, scheduleCampaign, cancelCampaign, deleteCampaign,
   getReminders, createReminder, runReminderScheduler,
   getPublicToken, getBusiness, getEngagementSettings,
-  addLeadDocument, deleteLeadDocument,
+  addLeadDocument, deleteLeadDocument, uploadLeadDocumentFile,
   sendLeadTemplateMessage, getLeadMessages, getLeadActivities, addLeadNote,
   sendMobileLeadTemplateMessage, sendMobileTestWhatsappMessage,
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,

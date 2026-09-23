@@ -20,6 +20,8 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
 import * as Sharing from "expo-sharing";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../config/firebase";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import leadsService from "../../api/leadsService";
 import { useAuth } from "../../context/AuthContext";
@@ -314,6 +316,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const [includeFollowUp, setIncludeFollowUp] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [updatingStage, setUpdatingStage] = useState(false);
+  const [stageAttachedDoc, setStageAttachedDoc] = useState(null);
+  const [stageDocUploading, setStageDocUploading] = useState(false);
 
   // Reminder Modal & Follow-ups
   const [reminderModalVisible, setReminderModalVisible] = useState(false);
@@ -447,6 +451,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       const payload = {
         statusId: selectedStageId,
         ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
+        ...(stageAttachedDoc ? { document: stageAttachedDoc, documents: [stageAttachedDoc] } : {}),
       };
 
       // Optimistic UI update
@@ -455,9 +460,16 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
         statusId: selectedStageId,
         status: newStatusObj || prev?.status,
         ...(followUpIso ? { nextFollowUpDate: followUpIso } : {}),
+        ...(stageAttachedDoc ? { documents: [stageAttachedDoc, ...(prev?.documents || [])] } : {}),
       }));
 
       const updated = await leadsService.updateLead(leadId, payload);
+      if (stageAttachedDoc) {
+        try {
+          await leadsService.addLeadDocument(leadId, stageAttachedDoc);
+        } catch (_) {}
+      }
+      setStageAttachedDoc(null);
       if (updated?.status) {
         setLead((prev) => ({
           ...prev,
@@ -511,6 +523,45 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       fetchDetails();
     } finally {
       setUpdatingStage(false);
+    }
+  };
+
+  const handlePickStageDoc = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setStageDocUploading(true);
+        let finalUrl = file.uri;
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
+          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const sRef = ref(storage, fileName);
+          await uploadBytes(sRef, blob);
+          finalUrl = await getDownloadURL(sRef);
+        } catch (_) {
+          try {
+            const upRes = await leadsService.uploadLeadDocument(file);
+            if (upRes?.url) finalUrl = upRes.url;
+          } catch (_) {}
+        }
+        setStageAttachedDoc({
+          name: file.name || "Attached Document",
+          url: finalUrl,
+          type: file.mimeType || "application/octet-stream",
+          size: file.size ? `${(file.size / 1024).toFixed(1)} KB` : "",
+        });
+      }
+    } catch (err) {
+      console.warn("Stage doc pick error:", err);
+      Alert.alert("Notice", "Could not pick document.");
+    } finally {
+      setStageDocUploading(false);
     }
   };
 
@@ -1453,6 +1504,60 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                         </TouchableOpacity>
                       </View>
                     </View>
+                  )}
+                </View>
+
+                {/* 4. Optional Document Attachment */}
+                <View style={styles.stageDocSection}>
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                      <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
+                      <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
+                    </View>
+                    {stageAttachedDoc && (
+                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                        <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  {stageAttachedDoc ? (
+                    <View style={styles.stageDocPreviewCard}>
+                      <View style={styles.stageDocIconBox}>
+                        <Ionicons
+                          name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
+                          size={18}
+                          color="#0284C7"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.stageDocName} numberOfLines={1}>
+                          {stageAttachedDoc.name}
+                        </Text>
+                        <Text style={styles.stageDocSize}>
+                          {stageAttachedDoc.size || "Ready to attach"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.stageDocPickBtn}
+                      onPress={handlePickStageDoc}
+                      disabled={stageDocUploading || updatingStage}
+                      activeOpacity={0.7}
+                    >
+                      {stageDocUploading ? (
+                        <ActivityIndicator size="small" color="#0284C7" />
+                      ) : (
+                        <>
+                          <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
+                          <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
                   )}
                 </View>
               </ScrollView>
@@ -2511,5 +2616,64 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONTS.displayBold,
     color: "#FFFFFF",
+  },
+  stageDocSection: {
+    marginTop: 12,
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#F0F9FF",
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+  },
+  stageDocTitle: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#0369A1",
+    letterSpacing: 0.5,
+  },
+  stageDocPickBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#38BDF8",
+  },
+  stageDocPickBtnText: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0284C7",
+  },
+  stageDocPreviewCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FFFFFF",
+    padding: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E0F2FE",
+  },
+  stageDocIconBox: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    backgroundColor: "#E0F2FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stageDocName: {
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyBold,
+    color: "#0F172A",
+  },
+  stageDocSize: {
+    fontSize: 10,
+    color: "#64748B",
   },
 });

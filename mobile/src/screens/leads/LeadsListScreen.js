@@ -23,6 +23,9 @@ import leadsService from "../../api/leadsService";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateFormatter";
+import * as DocumentPicker from "expo-document-picker";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { storage } from "../../config/firebase";
 
 const THEME = {
   primary: "#1268D9",
@@ -101,6 +104,8 @@ export default function LeadsListScreen({ navigation, route }) {
   const [customProductText, setCustomProductText] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");
   const [followUpTime, setFollowUpTime] = useState("");
+  const [leadDoc, setLeadDoc] = useState(null);
+  const [docUploading, setDocUploading] = useState(false);
 
   const getTodayFormatted = useCallback(() => formatDateToDDMMYYYY(new Date()), []);
   const getTomorrowFormatted = useCallback(() => formatDateToDDMMYYYY(new Date(Date.now() + 86400000)), []);
@@ -330,6 +335,7 @@ export default function LeadsListScreen({ navigation, route }) {
         phone: form.whatsappPhone,
         productService: isCustomProduct ? customProductText : form.productService,
         nextFollowUpDate: finalFollowUpIso,
+        ...(leadDoc ? { document: leadDoc, documents: [leadDoc] } : {}),
       };
       await leadsService.createLead(leadPayload);
       setModalVisible(false);
@@ -337,6 +343,7 @@ export default function LeadsListScreen({ navigation, route }) {
       setCustomProductText("");
       setFollowUpDate("");
       setFollowUpTime("");
+      setLeadDoc(null);
       setForm({
         name: "",
         whatsappPhone: "",
@@ -355,6 +362,45 @@ export default function LeadsListScreen({ navigation, route }) {
       Alert.alert("Error", "Failed to create lead.");
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handlePickLeadDoc = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        copyToCacheDirectory: true,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const file = result.assets[0];
+        setDocUploading(true);
+        let finalUrl = file.uri;
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
+          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const sRef = ref(storage, fileName);
+          await uploadBytes(sRef, blob);
+          finalUrl = await getDownloadURL(sRef);
+        } catch (_) {
+          try {
+            const upRes = await leadsService.uploadLeadDocument(file);
+            if (upRes?.url) finalUrl = upRes.url;
+          } catch (_) {}
+        }
+        setLeadDoc({
+          name: file.name || "Attached Document",
+          url: finalUrl,
+          type: file.mimeType || "application/octet-stream",
+          size: file.size ? `${(file.size / 1024).toFixed(1)} KB` : "",
+        });
+      }
+    } catch (err) {
+      console.warn("Lead doc pick error:", err);
+      Alert.alert("Notice", "Could not pick document.");
+    } finally {
+      setDocUploading(false);
     }
   };
 
@@ -1086,6 +1132,47 @@ export default function LeadsListScreen({ navigation, route }) {
                       onChangeText={(v) => setForm((p) => ({ ...p, notes: v }))}
                     />
                   </View>
+
+                  {/* Document Attachment Field */}
+                  <Text style={[styles.fieldLabel, { marginTop: 12 }]}>ATTACH DOCUMENT / INQUIRY FILE (OPTIONAL)</Text>
+                  {leadDoc ? (
+                    <View style={styles.addLeadDocPreview}>
+                      <View style={styles.addLeadDocIconWrap}>
+                        <Ionicons
+                          name={(leadDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
+                          size={18}
+                          color="#0284C7"
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.addLeadDocName} numberOfLines={1}>
+                          {leadDoc.name}
+                        </Text>
+                        <Text style={styles.addLeadDocSize}>
+                          {leadDoc.size || "Ready to attach"}
+                        </Text>
+                      </View>
+                      <TouchableOpacity onPress={() => setLeadDoc(null)}>
+                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.addLeadDocPickerBtn}
+                      onPress={handlePickLeadDoc}
+                      disabled={docUploading}
+                      activeOpacity={0.7}
+                    >
+                      {docUploading ? (
+                        <ActivityIndicator size="small" color="#0284C7" />
+                      ) : (
+                        <>
+                          <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
+                          <Text style={styles.addLeadDocPickerBtnText}>Attach Document or Photo</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  )}
                 </View>
               </ScrollView>
 
@@ -2853,5 +2940,52 @@ const styles = StyleSheet.create({
   },
   quickPresetChipTextActive: {
     color: "#FFFFFF",
+  },
+  addLeadDocPreview: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F0F9FF",
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+    marginBottom: 8,
+  },
+  addLeadDocIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    backgroundColor: "#E0F2FE",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addLeadDocName: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  addLeadDocSize: {
+    fontSize: 10.5,
+    color: "#64748B",
+  },
+  addLeadDocPickerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#94A3B8",
+    marginBottom: 8,
+  },
+  addLeadDocPickerBtnText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#0284C7",
   },
 });

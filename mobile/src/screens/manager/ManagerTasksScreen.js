@@ -1310,6 +1310,7 @@ const ManagerTasksScreen = ({ navigation, route }) => {
                       onPress={() => {
                         setActiveTab("myTasks");
                         setDeadlineComingFilter("");
+                        fetchMyManagerTasks(true);
                       }}
                       activeOpacity={0.8}
                     >

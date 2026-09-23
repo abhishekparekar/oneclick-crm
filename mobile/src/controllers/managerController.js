@@ -148,14 +148,15 @@ const useManagerController = () => {
       ]);
       const tasks = extractTaskList(res);
       const templates = extractTaskList(tplRes);
-      setMyManagerTasks([...tasks, ...templates]);
+      const safeTemplates = templates.map((t) => ({ ...t, isTemplate: true }));
+      setMyManagerTasks([...tasks, ...safeTemplates]);
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);
     } finally {
       isFetchingMyTasksRef.current = false;
       setLoadingTasks(false);
     }
-  }, [myManagerTasks.length]);
+  }, []);
 
   const [teamTasks, setTeamTasks] = useState([]);
   const [loadingTasks, setLoadingTasks] = useState(false);
@@ -170,25 +171,26 @@ const useManagerController = () => {
     setTasksError(null);
     try {
       const [res, tplRes] = await Promise.all([
-        managerApi.getTeamTasks(params).catch((e) => {
+        managerApi.getTeamTasks({ limit: 500, ...params }).catch((e) => {
           console.error("[ManagerController] getTeamTasks error:", e?.response?.data || e.message);
           return { data: [] };
         }),
-        managerApi.getTeamTasks({ ...params, isTemplate: true }).catch((e) => {
+        managerApi.getTeamTasks({ limit: 500, ...params, isTemplate: true }).catch((e) => {
           console.error("[ManagerController] getTeamTasks templates error:", e?.response?.data || e.message);
           return { data: [] };
         })
       ]);
       const tasks = extractTaskList(res);
       const templates = extractTaskList(tplRes);
-      setTeamTasks([...tasks, ...templates]);
+      const safeTemplates = templates.map((t) => ({ ...t, isTemplate: true }));
+      setTeamTasks([...tasks, ...safeTemplates]);
     } catch (err) {
       setTasksError(err?.response?.data?.message || err.message);
     } finally {
       isFetchingTeamTasksRef.current = false;
       setLoadingTasks(false);
     }
-  }, [teamTasks.length]);
+  }, []);
 
   const createTeamTask = useCallback(async (payload) => {
     const res = await managerApi.createTask(payload);

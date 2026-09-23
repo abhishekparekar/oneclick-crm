@@ -332,13 +332,48 @@ export const leadsService = {
     return { message: "Deleted" };
   },
 
-  addLeadDocument: async (leadId, docData) => {
+  uploadLeadDocument: async (file) => {
     try {
-      const response = await api.post(`/leads-engine/leads/${leadId}/documents`, docData);
+      const formData = new FormData();
+      formData.append("file", {
+        uri: file.uri,
+        name: file.name || "document",
+        type: file.mimeType || file.type || "application/octet-stream",
+      });
+      const response = await api.post("/leads-engine/leads/upload-document", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
       return response.data;
     } catch (_) {
       try {
-        const response = await api.post(`/leads/${leadId}/documents`, docData);
+        const formData = new FormData();
+        formData.append("file", {
+          uri: file.uri,
+          name: file.name || "document",
+          type: file.mimeType || file.type || "application/octet-stream",
+        });
+        const response = await api.post("/leads/upload-document", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data;
+      } catch (err) {
+        console.warn("[leadsService] uploadLeadDocument error:", err.message);
+        throw err;
+      }
+    }
+  },
+
+  addLeadDocument: async (leadId, docData) => {
+    try {
+      const isFormData = typeof FormData !== "undefined" && docData instanceof FormData;
+      const headers = isFormData ? { "Content-Type": "multipart/form-data" } : undefined;
+      const response = await api.post(`/leads-engine/leads/${leadId}/documents`, docData, { headers });
+      return response.data;
+    } catch (_) {
+      try {
+        const isFormData = typeof FormData !== "undefined" && docData instanceof FormData;
+        const headers = isFormData ? { "Content-Type": "multipart/form-data" } : undefined;
+        const response = await api.post(`/leads/${leadId}/documents`, docData, { headers });
         return response.data;
       } catch (err) {
         console.warn("[leadsService] addLeadDocument error:", err.message);

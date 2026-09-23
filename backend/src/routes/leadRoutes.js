@@ -15,7 +15,7 @@ const {
   getCampaigns, createCampaign, scheduleCampaign, cancelCampaign, deleteCampaign,
   getReminders, createReminder, runReminderScheduler,
   getPublicToken, getBusiness, getEngagementSettings,
-  addLeadDocument, deleteLeadDocument,
+  addLeadDocument, deleteLeadDocument, uploadLeadDocumentFile,
   sendLeadTemplateMessage, getLeadMessages, getLeadActivities, addLeadNote,
   sendMobileLeadTemplateMessage, sendMobileTestWhatsappMessage,
   getWhatsappAccount, connectWhatsapp, disconnectWhatsapp, testWhatsappConnection,
@@ -23,6 +23,7 @@ const {
   getDashboardSummary, getUpcomingMessages, getRecentActivity, getLeadStatusCounts,
   searchMapPlaces, importMapLeads,
 } = require("../controllers/leadController");
+const upload = require("../middleware/uploadMiddleware");
 
 const optionalAuth = async (req, res, next) => {
   if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
@@ -181,7 +182,9 @@ router.post("/whatsapp/send", sendTestWhatsappMessage);
 router.post("/mobile/leads/:id/send-template", sendMobileLeadTemplateMessage);
 router.post("/mobile/whatsapp/send", sendMobileTestWhatsappMessage);
 
-router.post("/leads/:id/documents", addLeadDocument);
+router.post("/leads/upload-document", upload.single("file"), uploadLeadDocumentFile);
+router.post("/upload-document", upload.single("file"), uploadLeadDocumentFile);
+router.post("/leads/:id/documents", upload.single("file"), addLeadDocument);
 router.delete("/leads/:id/documents/:docId", deleteLeadDocument);
 
 module.exports = router;

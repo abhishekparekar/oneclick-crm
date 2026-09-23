@@ -1565,15 +1565,17 @@ const getMyTasks = async (req, res, next) => {
     let tasks;
     if (isTemplate) {
       const TaskTemplate = require("../models/TaskTemplate");
-      tasks = await TaskTemplate.find({ companyId, assignedTo: { $in: [manager._id, req.user._id] } })
+      tasks = await TaskTemplate.find({
+        companyId,
+        $or: [
+          { assignedTo: { $in: [manager._id, req.user._id] } },
+          { assignedBy: req.user._id, assignmentType: "self" }
+        ]
+      })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
-          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds",
-          populate: [
-            { path: "departmentId", select: "name", strictPopulate: false },
-            { path: "departmentIds", select: "name", strictPopulate: false }
-          ]
+          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
         })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .sort({ createdAt: -1 })
@@ -1584,20 +1586,23 @@ const getMyTasks = async (req, res, next) => {
         t.assignees = t.assignedTo || [];
       });
     } else {
-      tasks = await Task.find({ companyId, assignedTo: { $in: [manager._id, req.user._id] }, status: { $ne: "cancelled" } })
+      tasks = await Task.find({
+        companyId,
+        $or: [
+          { assignedTo: { $in: [manager._id, req.user._id] } },
+          { assignedBy: req.user._id, assignmentType: "self" }
+        ],
+        status: { $ne: "cancelled" }
+      })
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
-          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds",
-          populate: [
-            { path: "departmentId", select: "name", strictPopulate: false },
-            { path: "departmentIds", select: "name", strictPopulate: false }
-          ]
+          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
         })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .sort({ createdAt: -1 })
         .lean();
-      tasks.forEach(t => t.assignees = t.assignedTo);
+      tasks.forEach(t => t.assignees = t.assignedTo || []);
     }
 
     return res.json({ success: true, data: tasks });
@@ -1630,11 +1635,17 @@ const getTeamTasks = async (req, res, next) => {
       { assignedTo: { $in: allTeamIds } },
       { assignedBy: req.user._id }
     ];
-    if (manager.departmentId) {
-      teamFilterOr.push({ departmentId: manager.departmentId });
+    const rawDeptId = manager.departmentId?._id || manager.departmentId;
+    if (rawDeptId) {
+      teamFilterOr.push({ departmentId: rawDeptId });
     }
     if (manager.accessibleDepartments && manager.accessibleDepartments.length > 0) {
-      teamFilterOr.push({ departmentId: { $in: manager.accessibleDepartments } });
+      const accDeptIds = manager.accessibleDepartments
+        .map(d => d?._id || d)
+        .filter(Boolean);
+      if (accDeptIds.length > 0) {
+        teamFilterOr.push({ departmentId: { $in: accDeptIds } });
+      }
     }
 
     if (isTemplate) {
@@ -1659,17 +1670,16 @@ const getTeamTasks = async (req, res, next) => {
         .populate({ path: "projectId", select: "name", strictPopulate: false })
         .populate({ 
           path: "assignedTo", 
-          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds",
-          populate: [
-            { path: "departmentId", select: "name", strictPopulate: false },
-            { path: "departmentIds", select: "name", strictPopulate: false }
-          ]
+          select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
         })
         .populate({ path: "departmentId", select: "name", strictPopulate: false })
         .sort({ createdAt: -1 })
         .lean();
         
-      templates.forEach(t => t.assignees = t.assignedTo);
+      templates.forEach(t => {
+        t.isTemplate = true;
+        t.assignees = t.assignedTo || [];
+      });
 
       if (!employeeId) {
         templates = templates.filter(t => {
@@ -1725,18 +1735,14 @@ const getTeamTasks = async (req, res, next) => {
     }
 
     const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 100;
+    const limit = parseInt(req.query.limit, 10) || 500;
     const skip = (page - 1) * limit;
 
     const tasks = await Task.find(filter)
       .populate({ path: "projectId", select: "name", strictPopulate: false })
       .populate({ 
         path: "assignedTo", 
-        select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds",
-        populate: [
-          { path: "departmentId", select: "name", strictPopulate: false },
-          { path: "departmentIds", select: "name", strictPopulate: false }
-        ]
+        select: "firstName lastName fullName photo employeeCode designationId departmentName departmentId departmentIds"
       })
       .populate({ path: "departmentId", select: "name", strictPopulate: false })
       .sort({ createdAt: -1 })
@@ -1744,7 +1750,7 @@ const getTeamTasks = async (req, res, next) => {
       .limit(limit)
       .lean();
 
-    tasks.forEach(t => t.assignees = t.assignedTo);
+    tasks.forEach(t => t.assignees = t.assignedTo || []);
 
     // Exclude tasks assigned SOLELY to the manager (personal tasks).
     // Tasks assigned to team members, unassigned department tasks, or "Myself & Team" tasks remain visible.

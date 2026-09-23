@@ -69,6 +69,8 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
   const { user, hasPermission } = useAuth();
   const insets = useSafeAreaInsets();
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef(null);
+  const recordingTimerRef = useRef(null);
 
   useEffect(() => {
     if (Platform.OS === 'android') {

@@ -1206,6 +1206,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
                     onPress={() => {
                       setActiveTab("myTasks");
                       setDeadlineComingFilter("");
+                      fetchMyManagerTasks(true);
                     }}
                   >
                     <Text style={[styles.segmentText, activeTab === "myTasks" && styles.segmentTextActive]}>My Tasks</Text>
@@ -1215,6 +1216,7 @@ const ManagerMyTasksScreen = ({ navigation, route }) => {
                     onPress={() => {
                       setActiveTab("teamTasks");
                       setDeadlineComingFilter("");
+                      fetchTeamTasks(true);
                     }}
                   >
                     <Text style={[styles.segmentText, activeTab === "teamTasks" && styles.segmentTextActive]}>Team Tasks</Text>
