@@ -298,27 +298,7 @@ export const leadsService = {
     return { success: true, updated: leadIds.length };
   },
 
-  getAssignableUsers: async () => {
-    try {
-      const response = await api.get("/leads-engine/assignable-users");
-      const list = response.data?.data || response.data?.users || response.data || [];
-      if (Array.isArray(list) && list.length > 0) return list;
-    } catch (_) {}
-    try {
-      const response = await api.get("/employees");
-      const list = response.data?.employees || response.data?.data || response.data || [];
-      return list.map((e) => ({
-        id: e.userId?._id || e._id,
-        _id: e.userId?._id || e._id,
-        name: e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name,
-        department: e.departmentId?.name || "",
-        role: e.role || "Employee",
-        label: e.departmentId?.name ? `${e.fullName || e.name} (${e.departmentId.name})` : `${e.fullName || e.name}`,
-      }));
-    } catch (_) {
-      return [];
-    }
-  },
+
 
   deleteLead: async (id) => {
     const list = await getLocalData(STORAGE_KEYS.LEADS, DEFAULT_LEADS);
@@ -508,30 +488,39 @@ export const leadsService = {
   },
 
   // ── Assignable Staff & Products ─────────────────────────────
+  // Returns employees normalized to { _id: userId, name, department, role, label }
+  // _id is always the User document _id (userId) so it matches lead.assignedTo correctly.
   getAssignableUsers: async () => {
     try {
       const response = await api.get("/company/employees", { params: { status: "active" } });
       const emps = response?.data?.employees || response?.data?.data || response?.data || [];
       if (Array.isArray(emps) && emps.length > 0) {
-        return emps.map((e) => ({
-          id: e._id,
-          _id: e._id,
-          name: `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name || "Employee",
-          department: e.departmentId?.name || e.department || "General",
-          departmentId: e.departmentId?._id || e.departmentId || "",
-          role: e.designationId?.name || e.role || "Staff",
-          designation: e.designationId?.name || e.designation || "",
-          email: e.email || "",
-          phone: e.phone || "",
-          label: `${e.firstName || ""} ${e.lastName || ""}`.trim(),
-        }));
+        return emps.map((e) => {
+          // Employee records have a userId ref pointing to the User document.
+          // assignedTo on leads stores User._id, so we must expose userId._id here.
+          const userId = e.userId?._id || e.userId || e._id;
+          const fullName = `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name || e.fullName || "Employee";
+          const dept = e.departmentId?.name || e.department || "";
+          return {
+            id: userId,
+            _id: userId,
+            name: fullName,
+            department: dept,
+            departmentId: e.departmentId?._id || e.departmentId || "",
+            role: e.designationId?.name || e.designation || e.role || "Staff",
+            email: e.email || "",
+            phone: e.phone || "",
+            label: dept ? `${fullName} (${dept})` : fullName,
+          };
+        });
       }
-    } catch (_) {
-      try {
-        const response = await api.get("/leads-engine/assignable-users");
-        if (Array.isArray(response?.data)) return response.data;
-      } catch (err) {}
-    }
+    } catch (_) {}
+    // Fallback: leads-engine assignable-users endpoint
+    try {
+      const response = await api.get("/leads-engine/assignable-users");
+      const list = response?.data?.data || response?.data?.users || response?.data || [];
+      if (Array.isArray(list) && list.length > 0) return list;
+    } catch (_) {}
     return [];
   },
 

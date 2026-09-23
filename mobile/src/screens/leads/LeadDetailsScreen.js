@@ -769,32 +769,39 @@ function LeadDetailsScreenComponent({ route, navigation }) {
     }
   };
 
+  // ── Open Edit Modal (always re-sync form from latest lead) ──
+  const openEditModal = () => {
+    const activeLead = lead;
+    if (activeLead) {
+      setEditForm({
+        name: activeLead.name || "",
+        whatsappPhone: activeLead.whatsappPhone || activeLead.phone || "",
+        email: activeLead.email || "",
+        company: activeLead.company || "",
+        estimatedValue: activeLead.estimatedValue ? String(activeLead.estimatedValue) : "",
+        assignedTo:
+          activeLead.assignedTo?._id ||
+          activeLead.assignedTo?.id ||
+          (typeof activeLead.assignedTo === "string" ? activeLead.assignedTo : ""),
+        notes: activeLead.notes || "",
+      });
+    }
+    setEditModalVisible(true);
+  };
+
   // ── Save Lead Profile Edits ─────────────────────────────────
   const handleSaveEdits = async () => {
+    if (updating) return;
     try {
       setUpdating(true);
       await leadsService.updateLead(leadId, editForm);
       setEditModalVisible(false);
+      // Refresh lead data in background without navigating away
       fetchDetails();
-      Alert.alert(
-        "Saved",
-        "Lead profile updated successfully.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              if (navigation?.canGoBack && navigation.canGoBack()) {
-                navigation.goBack();
-              } else if (navigation?.navigate) {
-                navigation.navigate("Leads");
-              }
-            },
-          },
-        ],
-        { cancelable: false }
-      );
+      Alert.alert("Saved", "Lead profile updated successfully.");
     } catch (err) {
-      Alert.alert("Error", "Failed to save updates.");
+      console.warn("[LeadDetails] handleSaveEdits error:", err?.message || err);
+      Alert.alert("Error", "Failed to save updates. Please try again.");
     } finally {
       setUpdating(false);
     }
@@ -976,7 +983,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <TouchableOpacity
             style={{ padding: 4 }}
-            onPress={() => setEditModalVisible(true)}
+            onPress={() => openEditModal()}
           >
             <Feather name="edit-2" size={18} color="#FFFFFF" />
           </TouchableOpacity>
@@ -1138,7 +1145,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                 </View>
                 <TouchableOpacity
                   style={styles.compactEditBtn}
-                  onPress={() => setEditModalVisible(true)}
+                  onPress={() => openEditModal()}
                   activeOpacity={0.7}
                 >
                   <Feather name="edit-2" size={11} color={THEME.primary} />
@@ -2170,7 +2177,11 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
                 <Text style={styles.fieldLabel}>Full Name</Text>
                 <TextInput
                   style={styles.modalFieldInput}
@@ -2231,10 +2242,13 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                   ) : null}
 
                   {employees
-                    .filter((emp) => (emp._id || emp.id) !== currentUserId)
-                    .map((emp) => {
+                    .filter((emp) => {
                       const empId = emp._id || emp.id;
-                      const isSelected = editForm.assignedTo === empId;
+                      return empId && String(empId) !== String(currentUserId);
+                    })
+                    .map((emp) => {
+                      const empId = String(emp._id || emp.id || "");
+                      const isSelected = empId && String(editForm.assignedTo) === empId;
                       return (
                         <TouchableOpacity
                           key={empId}
@@ -2243,11 +2257,18 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                         >
                           <Ionicons name="person" size={11} color={isSelected ? "#FFF" : THEME.primary} style={{ marginRight: 3 }} />
                           <Text style={[styles.choiceChipText, isSelected && styles.choiceChipTextActive]}>
-                            {emp.label || `${emp.name} (${emp.department || emp.role || 'Staff'})`}
+                            {emp.label || emp.name || "Staff"}
                           </Text>
                         </TouchableOpacity>
                       );
                     })}
+
+                  {/* If no employees loaded, show a hint */}
+                  {employees.length === 0 && (
+                    <Text style={{ fontSize: 11, color: THEME.textMuted, fontFamily: FONTS.body, alignSelf: "center", marginLeft: 2 }}>
+                      No team members found
+                    </Text>
+                  )}
                 </ScrollView>
 
                 <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
