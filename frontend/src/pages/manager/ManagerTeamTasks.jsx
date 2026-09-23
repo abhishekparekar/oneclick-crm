@@ -116,13 +116,18 @@ export default function ManagerTeamTasks() {
   const [activeTab, setActiveTab] = useState("Today");
   const navigate = useNavigate();
 
+  // Initialize filters with today's date since activeTab defaults to "Today"
+  const _initDates = (() => {
+    const now = new Date();
+    return now.toISOString().slice(0, 10);
+  })();
   const [filters, setFilters] = useState({
     departmentId: "",
     assignedTo: "",
     priority: "",
     deadlineFilter: "",
-    startDate: "",
-    endDate: "",
+    startDate: _initDates, // default to today since activeTab = "Today"
+    endDate: _initDates,
     overdue: false,
   });
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);

@@ -372,9 +372,39 @@ export default function TaskBoard() {
   const [filters, setFilters] = useState(() => {
     try {
       const stored = sessionStorage.getItem("tb_filters");
-      return stored ? JSON.parse(stored) : { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false };
+      const storedTab = sessionStorage.getItem("tb_activeTab") || "Today";
+      const parsed = stored ? JSON.parse(stored) : null;
+      // Always recompute startDate/endDate from the active tab on mount
+      // so Today always reflects today, not a stale date from yesterday's session
+      const now = new Date();
+      const fmt = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+      const todayStr = fmt(now);
+      let initStart = "", initEnd = "";
+      if (storedTab === "Today") { initStart = initEnd = todayStr; }
+      else if (storedTab === "Yesterday") { const y = new Date(now); y.setDate(now.getDate() - 1); initStart = initEnd = fmt(y); }
+      else if (storedTab === "This Week") {
+        const s = new Date(now); s.setDate(now.getDate() - now.getDay());
+        const e = new Date(now); e.setDate(s.getDate() + 6);
+        initStart = fmt(s); initEnd = fmt(e);
+      } else if (storedTab === "Last Month") {
+        initStart = fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+        initEnd = fmt(new Date(now.getFullYear(), now.getMonth(), 0));
+      } else if (storedTab === "This Month") {
+        initStart = fmt(new Date(now.getFullYear(), now.getMonth(), 1));
+        initEnd = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+      } else if (storedTab === "Next Month") {
+        initStart = fmt(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+        initEnd = fmt(new Date(now.getFullYear(), now.getMonth() + 2, 0));
+      }
+      return {
+        ...(parsed || { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", status: "", overdue: false }),
+        startDate: initStart,
+        endDate: initEnd,
+      };
     } catch {
-      return { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: "", endDate: "", status: "", overdue: false };
+      const now = new Date();
+      const todayStr = now.toISOString().slice(0, 10);
+      return { departmentId: "", assignedTo: "", priority: "", deadlineFilter: "", startDate: todayStr, endDate: todayStr, status: "", overdue: false };
     }
   });
   const [tempFilters, setTempFilters] = useState(filters);
