@@ -461,13 +461,27 @@ function LeadDetailsScreenComponent({ route, navigation }) {
 
       const activeLead = leadData || lead;
       if (activeLead) {
+        // Build assignedToUsers array from lead data
+        let initAssigned = [];
+        if (Array.isArray(activeLead.assignedToUsers) && activeLead.assignedToUsers.length > 0) {
+          initAssigned = activeLead.assignedToUsers
+            .map((u) => String(u?._id || u?.id || u || ""))
+            .filter(Boolean);
+        } else if (activeLead.assignedTo) {
+          const sid = String(
+            activeLead.assignedTo?._id ||
+            activeLead.assignedTo?.id ||
+            (typeof activeLead.assignedTo === "string" ? activeLead.assignedTo : "")
+          );
+          if (sid) initAssigned = [sid];
+        }
         setEditForm({
           name: activeLead.name || "",
           whatsappPhone: activeLead.whatsappPhone || "",
           email: activeLead.email || "",
           company: activeLead.company || "",
           estimatedValue: activeLead.estimatedValue ? String(activeLead.estimatedValue) : "",
-          assignedTo: activeLead.assignedTo?._id || activeLead.assignedTo?.id || activeLead.assignedTo || "",
+          assignedToUsers: initAssigned,
           notes: activeLead.notes || "",
         });
       }
@@ -2275,10 +2289,10 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                 {/* ── Assign To Team Members (multi-select dropdown) ── */}
                 <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                   <Text style={styles.fieldLabel}>Assign To Team Members</Text>
-                  {editForm.assignedToUsers?.length > 0 && (
+                  {(editForm.assignedToUsers || []).length > 0 && (
                     <View style={{ backgroundColor: THEME.primary, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
                       <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyBold }}>
-                        {editForm.assignedToUsers.length} selected
+                        {(editForm.assignedToUsers || []).length} selected
                       </Text>
                     </View>
                   )}
@@ -2303,7 +2317,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                 >
                   <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
                     <Ionicons name="people-outline" size={13} color={THEME.primary} style={{ marginRight: 4 }} />
-                    {editForm.assignedToUsers?.length === 0 ? (
+                    {(editForm.assignedToUsers || []).length === 0 ? (
                       <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body }}>
                         Tap to select team members
                       </Text>
@@ -2314,7 +2328,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                           ...(currentUserId ? [{ _id: currentUserId, name: "Me (Self)", isSelf: true }] : []),
                           ...employees,
                         ];
-                        return editForm.assignedToUsers.map((uid) => {
+                        return (editForm.assignedToUsers || []).map((uid) => {
                           const found = allOptions.find((e) => String(e._id || e.id) === String(uid));
                           const label = found?.isSelf ? "Me" : (found?.name || uid.slice(-6));
                           return (
