@@ -2411,7 +2411,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
 
                     <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
                       {/* Self option */}
-                      {currentUserId && ("Me (Self)".toLowerCase().includes(assignSearch.toLowerCase())) && (
+                      {currentUserId && (!assignSearch || "me (self)".includes(assignSearch.toLowerCase()) || (user?.name || "").toLowerCase().includes(assignSearch.toLowerCase())) && (
                         <TouchableOpacity
                           style={{
                             flexDirection: "row",
@@ -2443,8 +2443,12 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                           </View>
                           <Ionicons name="person-circle-outline" size={14} color={THEME.primary} style={{ marginRight: 6 }} />
                           <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }}>Me (Self)</Text>
-                            <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }}>Current User</Text>
+                            <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }}>
+                              {user?.name ? `${user.name} (Me)` : "Me (Self)"}
+                            </Text>
+                            <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }}>
+                              {user?.role || "Current User"}
+                            </Text>
                           </View>
                         </TouchableOpacity>
                       )}
@@ -2457,8 +2461,9 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                           if (!assignSearch) return true;
                           const name = (emp.name || emp.label || "").toLowerCase();
                           const dept = (emp.department || "").toLowerCase();
+                          const role = (emp.role || "").toLowerCase();
                           const q = assignSearch.toLowerCase();
-                          return name.includes(q) || dept.includes(q);
+                          return name.includes(q) || dept.includes(q) || role.includes(q);
                         })
                         .map((emp) => {
                           const empId = String(emp._id || emp.id || "");
@@ -2499,7 +2504,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                                 </Text>
                                 {(emp.department || emp.role) ? (
                                   <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }} numberOfLines={1}>
-                                    {emp.department || emp.role}
+                                    {emp.department && emp.role ? `${emp.department} • ${emp.role}` : (emp.department || emp.role)}
                                   </Text>
                                 ) : null}
                               </View>
@@ -2509,14 +2514,19 @@ function LeadDetailsScreenComponent({ route, navigation }) {
 
                       {/* Empty state */}
                       {employees.filter((emp) => {
+                        const empId = String(emp._id || emp.id || "");
+                        if (empId === String(currentUserId)) return false;
                         if (!assignSearch) return true;
-                        const name = (emp.name || "").toLowerCase();
-                        return name.includes(assignSearch.toLowerCase());
-                      }).length === 0 && !assignSearch && employees.length === 0 && (
+                        const name = (emp.name || emp.label || "").toLowerCase();
+                        const dept = (emp.department || "").toLowerCase();
+                        const role = (emp.role || "").toLowerCase();
+                        const q = assignSearch.toLowerCase();
+                        return name.includes(q) || dept.includes(q) || role.includes(q);
+                      }).length === 0 && (
                         <View style={{ padding: 16, alignItems: "center" }}>
                           <Ionicons name="people-outline" size={24} color={THEME.textMuted} />
                           <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body, marginTop: 6 }}>
-                            No team members available
+                            {assignSearch ? "No matching team members" : "No other team members available"}
                           </Text>
                         </View>
                       )}

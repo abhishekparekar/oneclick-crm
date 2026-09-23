@@ -491,13 +491,25 @@ export const leadsService = {
   // Returns employees normalized to { _id: userId, name, department, role, label }
   // _id is always the User document _id (userId) so it matches lead.assignedTo correctly.
   getAssignableUsers: async () => {
+    // 1. Prioritize dedicated assignable-users endpoint (returns Admins + Lead-authorized staff)
+    try {
+      const response = await api.get("/leads-engine/assignable-users");
+      const list = response?.data?.data || response?.data?.users || (Array.isArray(response?.data) ? response.data : []);
+      if (Array.isArray(list) && list.length > 0) return list;
+    } catch (_) {}
+
+    try {
+      const response = await api.get("/assignable-users");
+      const list = response?.data?.data || response?.data?.users || (Array.isArray(response?.data) ? response.data : []);
+      if (Array.isArray(list) && list.length > 0) return list;
+    } catch (_) {}
+
+    // 2. Fallback to /company/employees
     try {
       const response = await api.get("/company/employees", { params: { status: "active" } });
       const emps = response?.data?.employees || response?.data?.data || response?.data || [];
       if (Array.isArray(emps) && emps.length > 0) {
         return emps.map((e) => {
-          // Employee records have a userId ref pointing to the User document.
-          // assignedTo on leads stores User._id, so we must expose userId._id here.
           const userId = e.userId?._id || e.userId || e._id;
           const fullName = `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.name || e.fullName || "Employee";
           const dept = e.departmentId?.name || e.department || "";
@@ -514,12 +526,6 @@ export const leadsService = {
           };
         });
       }
-    } catch (_) {}
-    // Fallback: leads-engine assignable-users endpoint
-    try {
-      const response = await api.get("/leads-engine/assignable-users");
-      const list = response?.data?.data || response?.data?.users || response?.data || [];
-      if (Array.isArray(list) && list.length > 0) return list;
     } catch (_) {}
     return [];
   },

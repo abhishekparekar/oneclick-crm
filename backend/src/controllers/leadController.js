@@ -10,6 +10,7 @@ const WhatsappSetting = require("../models/WhatsappSetting");
 const WhatsappLog = require("../models/WhatsappLog");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
+const Department = require("../models/Department");
 const Notification = require("../models/Notification");
 const DeviceToken = require("../models/DeviceToken");
 const { sendPushNotification } = require("../services/firebaseService");
@@ -1608,7 +1609,38 @@ const getAssignableUsers = async (req, res) => {
     const companyId = getCompanyId(req);
     const Employee = require("../models/Employee");
     const User = require("../models/User");
+    const Department = require("../models/Department");
 
+    const result = [];
+    const addedUserIds = new Set();
+
+    // 1. Company Admins & Admins (always have full lead access by default)
+    if (companyId) {
+      const adminUsers = await User.find({
+        $or: [{ companyId }, { _id: companyId }],
+        role: { $regex: /^(companyadmin|company_admin|admin|superadmin)$/i },
+        isActive: { $ne: false },
+      }).select("name email role profileImage").lean();
+
+      for (const admin of adminUsers) {
+        const uId = admin._id.toString();
+        if (!addedUserIds.has(uId)) {
+          addedUserIds.add(uId);
+          result.push({
+            id: uId,
+            _id: uId,
+            name: admin.name || "Admin",
+            email: admin.email || "",
+            department: "Administration",
+            role: admin.role || "Admin",
+            label: `${admin.name || "Admin"} (${admin.role || "Admin"})`,
+            isAdmin: true,
+          });
+        }
+      }
+    }
+
+    // 2. Active Employees with Lead Access
     const employees = await Employee.find({
       ...(companyId ? { companyId } : {}),
       status: { $ne: "inactive" },
@@ -1618,32 +1650,37 @@ const getAssignableUsers = async (req, res) => {
       .populate("userId", "name email role assignedModules permissions")
       .lean();
 
-    const result = [];
-    const addedUserIds = new Set();
-
     for (const emp of employees) {
       const uRole = (emp.userId?.role || emp.role || "employee").toLowerCase().trim();
-      if (uRole === "superadmin" || uRole === "companyadmin" || uRole === "admin") continue;
+      const isAdmin = ["superadmin", "companyadmin", "admin"].includes(uRole);
 
-      // ── Filter by Leads Module Access ─────────────────────────────────
+      // Check leads module access
       const rawModules = [
         ...(Array.isArray(emp.assignedModules) ? emp.assignedModules : []),
         ...(Array.isArray(emp.userId?.assignedModules) ? emp.userId.assignedModules : []),
       ];
       const modules = rawModules.map((m) => String(m).toLowerCase().trim());
       const hasLeadModule = modules.includes("leads") || modules.includes("lead");
-      if (!hasLeadModule) {
-        continue; // Employee does NOT have leads module license/access
-      }
 
-      // ── Filter by Explicit Leads Permissions ──────────────────────────
+      // Check explicit leads permissions
       const perm = emp.permissions || emp.userId?.permissions || {};
       const leadPerm = perm.leads ?? perm.lead;
-      if (leadPerm === false) {
-        continue; // Explicitly disabled
+      const hasLeadPerm =
+        leadPerm === true ||
+        (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view !== false);
+
+      // Skip if neither admin, nor assigned leads module, nor has explicit leads permission
+      if (!isAdmin && !hasLeadModule && !hasLeadPerm) {
+        continue;
       }
-      if (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false) {
-        continue; // View disabled
+
+      // Skip if explicitly disabled
+      if (
+        !isAdmin &&
+        (leadPerm === false ||
+          (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false))
+      ) {
+        continue;
       }
 
       const uId = emp.userId?._id ? emp.userId._id.toString() : emp._id.toString();
@@ -1664,11 +1701,12 @@ const getAssignableUsers = async (req, res) => {
           department: deptName,
           role: emp.role || emp.userId?.role || "Employee",
           label: deptName ? `${empName} (${deptName})` : `${empName} (${emp.role || "Employee"})`,
+          isAdmin,
         });
       }
     }
 
-    // Also check standalone Users with leads access who don't have Employee records
+    // 3. Standalone Users with Lead Access
     const users = await User.find({
       ...(companyId ? { companyId } : {}),
       isActive: { $ne: false },
@@ -1676,17 +1714,27 @@ const getAssignableUsers = async (req, res) => {
 
     for (const u of users) {
       const uRole = (u.role || "employee").toLowerCase().trim();
-      if (uRole === "superadmin" || uRole === "companyadmin" || uRole === "admin") continue;
+      const isAdmin = ["superadmin", "companyadmin", "admin"].includes(uRole);
 
       const rawModules = Array.isArray(u.assignedModules) ? u.assignedModules : [];
       const modules = rawModules.map((m) => String(m).toLowerCase().trim());
-      if (!modules.includes("leads") && !modules.includes("lead")) {
-        continue;
-      }
+      const hasLeadModule = modules.includes("leads") || modules.includes("lead");
 
       const perm = u.permissions || {};
       const leadPerm = perm.leads ?? perm.lead;
-      if (leadPerm === false || (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false)) {
+      const hasLeadPerm =
+        leadPerm === true ||
+        (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view !== false);
+
+      if (!isAdmin && !hasLeadModule && !hasLeadPerm) {
+        continue;
+      }
+
+      if (
+        !isAdmin &&
+        (leadPerm === false ||
+          (typeof leadPerm === "object" && leadPerm !== null && leadPerm.view === false))
+      ) {
         continue;
       }
 
@@ -1701,6 +1749,7 @@ const getAssignableUsers = async (req, res) => {
           department: "",
           role: u.role || "Employee",
           label: `${u.name} (${u.role || "Staff"})`,
+          isAdmin,
         });
       }
     }
