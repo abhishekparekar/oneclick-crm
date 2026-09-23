@@ -116,6 +116,8 @@ const ManagerBottomTabs = () => {
             iconName = focused ? "albums" : "albums-outline";
           } else if (route.name === "ManagerTeamLeaves") {
             iconName = focused ? "calendar-clear" : "calendar-clear-outline";
+          } else if (route.name === "CompanyRequests") {
+            iconName = focused ? "chatbubbles" : "chatbubbles-outline";
           } else if (route.name === "ManagerProfile") {
             iconName = focused ? "person" : "person-outline";
           }
@@ -157,6 +159,11 @@ const ManagerBottomTabs = () => {
         name="ManagerTeam"
         component={ManagerTeamScreen}
         options={{ tabBarLabel: "My Team", headerShown: false }}
+      />
+      <Tab.Screen
+        name="CompanyRequests"
+        component={CompanyRequestsScreen}
+        options={{ tabBarLabel: "Requests", headerShown: false }}
       />
       <Tab.Screen
         name="ManagerProfile"
@@ -276,6 +283,7 @@ const ManagerStackScreen = () => {
       <Stack.Screen name="ManagerEditEmployee" component={HREditEmployeeScreen} />
       <Stack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       <Stack.Screen name="CompanyRequests" component={CompanyRequestsScreen} />
+      <Stack.Screen name="Requests" component={CompanyRequestsScreen} />
     </Stack.Navigator>
   );
 };

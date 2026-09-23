@@ -63,6 +63,9 @@ const SCREEN_TO_TAB = {
   ManagerTeamLeaveDetailsScreen: "Leaves",
   ManagerMyLeave: "Leaves",
   ManagerApplyLeave: "Leaves",
+  CompanyRequests: "Requests",
+  CompanyRequestsScreen: "Requests",
+  Requests: "Requests",
 };
 
 const BOTTOM_TABS = [
@@ -230,7 +233,8 @@ const ManagerLayout = ({
        currentRouteName.includes("Attendance") ? "Attendance" :
        currentRouteName.includes("Leave") ? "Leaves" :
        currentRouteName.includes("Project") ? "Projects" :
-       currentRouteName.includes("Team") ? "Team" : "Home");
+       currentRouteName.includes("Team") ? "Team" :
+       currentRouteName.includes("Request") ? "Requests" : "Home");
   }
 
   // Sync activeTabLabel to LayoutContext safely
@@ -618,6 +622,23 @@ const ManagerLayout = ({
                 <Text style={styles.modalOptionText}>Regularize Attendance</Text>
               </TouchableOpacity>
             )}
+
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => {
+                setFabVisible(false);
+                navigation.navigate("CompanyRequests");
+              }}
+            >
+              <View style={[styles.modalOptionIcon, { backgroundColor: '#EEF2FF' }]}>
+                <Ionicons name="chatbubbles-outline" size={20} color="#6366F1" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.modalOptionText}>Company Request</Text>
+                <Text style={styles.modalOptionSub}>Broadcast query, task, or data inquiry</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalCancelButton}

@@ -508,6 +508,14 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 onPress: () => navigation.navigate("ManagerProjects"),
               },
               {
+                label: "Requests",
+                icon: "chatbubbles",
+                c: "#6366F1",
+                bg: "#EEF2FF",
+                border: "#C7D2FE",
+                onPress: () => navigation.navigate("CompanyRequests"),
+              },
+              {
                 label: "My Team",
                 icon: "people",
                 c: "#EC4899",

@@ -184,6 +184,35 @@ export default function CompanyRequestsScreen({ navigation }) {
     }
   };
 
+  const handleDeleteRequest = () => {
+    if (!selectedRequest?._id) return;
+    Alert.alert(
+      "Delete Request",
+      "Are you sure you want to delete this company request?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              setSubmitting(true);
+              await api.delete(`/internal-requests/${selectedRequest._id}`);
+              Alert.alert("Success", "Request deleted successfully.");
+              setDetailsModalVisible(false);
+              setSelectedRequest(null);
+              fetchData();
+            } catch (err) {
+              Alert.alert("Error", err?.response?.data?.message || "Failed to delete request");
+            } finally {
+              setSubmitting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const renderItem = ({ item }) => {
     const priorityInfo = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.Medium;
     const statusInfo = STATUS_CONFIG[item.status] || STATUS_CONFIG.Open;
@@ -273,7 +302,17 @@ export default function CompanyRequestsScreen({ navigation }) {
       >
         <View style={styles.headerTopRow}>
           <TouchableOpacity
-            onPress={() => navigation.goBack()}
+            onPress={() => {
+              if (navigation.canGoBack()) {
+                navigation.goBack();
+              } else if (user?.role === "manager" || user?.role === "Manager") {
+                navigation.navigate("ManagerDashboard");
+              } else if (user?.role === "company_admin" || user?.role === "admin") {
+                navigation.navigate("CompanyDashboard");
+              } else {
+                navigation.navigate("EmployeeDashboard");
+              }
+            }}
             style={styles.headerBackBtn}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
@@ -631,12 +670,28 @@ export default function CompanyRequestsScreen({ navigation }) {
                     {selectedRequest.title}
                   </Text>
                 </View>
-                <TouchableOpacity
-                  onPress={() => setDetailsModalVisible(false)}
-                  style={styles.modalCloseBtn}
-                >
-                  <Ionicons name="close" size={20} color="#64748B" />
-                </TouchableOpacity>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  {(user?.role === "company_admin" ||
+                    user?.role === "admin" ||
+                    user?.role === "manager" ||
+                    user?.role === "Manager" ||
+                    String(selectedRequest.requesterId?._id || selectedRequest.requesterId) === String(user?._id)) && (
+                    <TouchableOpacity
+                      onPress={handleDeleteRequest}
+                      style={[styles.modalCloseBtn, { backgroundColor: "#FEE2E2" }]}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Delete Request"
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    onPress={() => setDetailsModalVisible(false)}
+                    style={styles.modalCloseBtn}
+                  >
+                    <Ionicons name="close" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Chat & Details Scroll */}
