@@ -88,31 +88,43 @@ const getDurationString = (startDate, endDate) => {
   return parts.join(" ");
 };
 
-// Helper for deadline coming filter
+// Helper for deadline coming filter (checks startDateTime, followUp, AND endDateTime)
 const matchesDeadlineComingFilter = (task, filterKey) => {
   if (!filterKey) return true;
-  const deadlineStr = task.endDateTime || task.endDate || task.deadlineTime;
-  if (!deadlineStr) return false;
 
   const now = new Date();
   const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
-
   const today = startOfDay(now);
-  const targetDate = startOfDay(new Date(deadlineStr));
-
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
+  // Collect ALL relevant dates: start, followup, end
+  const candidateDates = [
+    task.startDateTime,
+    task.startDate,
+    task.nextFollowUpDate,
+    task.followUpDate,
+    task.endDateTime,
+    task.endDate,
+    task.deadlineTime,
+  ]
+    .filter(Boolean)
+    .map((d) => startOfDay(new Date(d)));
+
+  if (candidateDates.length === 0) return false;
+
+  const matchesDay = (refDay) =>
+    candidateDates.some((d) => d.getTime() === refDay.getTime());
+
   switch (filterKey) {
     case "yesterday":
-      return targetDate.getTime() === yesterday.getTime();
+      return matchesDay(yesterday);
     case "today":
-      return targetDate.getTime() === today.getTime();
+      return matchesDay(today);
     case "tomorrow":
-      return targetDate.getTime() === tomorrow.getTime();
+      return matchesDay(tomorrow);
     case "all":
     default:
       return true;
@@ -578,9 +590,9 @@ const TaskBoardScreen = ({ navigation }) => {
 
     const s = normalizeStatusValue(task.status);
     const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
-    if ((tabKey === "today" || tabKey === "Today") && !isCompletedOrDone) {
-      return true;
-    }
+
+    // NOTE: Removed the old early-return that showed ALL non-completed tasks
+    // under "today" — that was wrong. Now we properly check dates below.
 
     const now = new Date();
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());

@@ -684,9 +684,8 @@ const ManagerTeamTasksScreen = ({ navigation, route }) => {
 
     const s = normalizeStatusValue(task.status);
     const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
-    if ((tabKey === "today" || tabKey === "Today") && !isCompletedOrDone) {
-      return true;
-    }
+    // NOTE: Removed early-return that showed ALL non-completed tasks under "today"
+    // Now properly checks dates below.
 
     const now = new Date();
     const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());

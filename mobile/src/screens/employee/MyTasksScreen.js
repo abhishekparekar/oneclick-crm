@@ -566,10 +566,8 @@ export default function MyTasksScreen({ route, navigation }) {
     }
 
     const isCompletedOrDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled", "cancel"].includes(s);
-    // For Today tab: active/pending tasks needing attention should always remain visible
-    if ((dateTab === "Today" || dateTab === "today") && !isCompletedOrDone) {
-      return true;
-    }
+    // NOTE: Removed early-return that showed ALL non-completed tasks under "today"
+    // Now properly checks dates below.
 
     const now = new Date();
     const formatDate = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
