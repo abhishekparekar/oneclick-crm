@@ -541,20 +541,29 @@ export default function TaskBoard() {
 
     let passesDeadline = true;
     if (filters.deadlineFilter) {
-      const raw = task.endDateTime || task.endDate || task.dueDate;
-      const d = raw ? new Date(raw) : null;
+      // Collect ALL relevant dates: start, followup, end
       const now = new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
 
+      const candidateDates = [
+        task.startDateTime, task.startDate,
+        task.nextFollowUpDate, task.followUpDate,
+        task.endDateTime, task.endDate, task.dueDate,
+      ].filter(Boolean).map(v => new Date(v));
+
+      const anyInRange = (start, end) => candidateDates.some(d => d >= start && d <= end);
+
       if (filters.deadlineFilter === "today") {
-        passesDeadline = d && d >= startOfToday && d <= endOfToday;
+        passesDeadline = anyInRange(startOfToday, endOfToday);
       } else if (filters.deadlineFilter === "tomorrow") {
-        passesDeadline = d && d >= startOfTomorrow && d <= endOfTomorrow;
+        passesDeadline = anyInRange(startOfTomorrow, endOfTomorrow);
       } else if (filters.deadlineFilter === "overdue") {
         const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes((task.status || "").toLowerCase());
+        const raw = task.endDateTime || task.endDate || task.dueDate;
+        const d = raw ? new Date(raw) : null;
         passesDeadline = !isDone && d && !isNaN(d.getTime()) && now.getTime() >= d.getTime();
       }
     }

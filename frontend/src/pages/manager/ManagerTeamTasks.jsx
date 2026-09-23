@@ -184,7 +184,11 @@ export default function ManagerTeamTasks() {
       const d = new Date(dateVal);
       return d >= startD && d <= endD;
     };
-    return checkBetween(task.dueDate || task.endDateTime || task.startDate);
+    return (
+      checkBetween(task.startDateTime || task.startDate) ||
+      checkBetween(task.nextFollowUpDate || task.followUpDate) ||
+      checkBetween(task.endDateTime || task.endDate || task.dueDate || task.finishDate)
+    );
   };
 
   const getDates = (tabName) => {
@@ -251,20 +255,29 @@ export default function ManagerTeamTasks() {
     }
 
     if (filters.deadlineFilter) {
-      const raw = task.dueDate || task.endDateTime || task.endDate;
-      const d = raw ? new Date(raw) : null;
+      // Collect ALL relevant dates: start, followup, end
       const now = new Date();
       const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
       const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
       const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
 
+      const candidateDates = [
+        task.startDateTime, task.startDate,
+        task.nextFollowUpDate, task.followUpDate,
+        task.endDateTime, task.endDate, task.dueDate,
+      ].filter(Boolean).map(v => new Date(v));
+
+      const anyInRange = (start, end) => candidateDates.some(d => d >= start && d <= end);
+
       if (filters.deadlineFilter === "today") {
-        if (!d || d < startOfToday || d > endOfToday) return false;
+        if (!anyInRange(startOfToday, endOfToday)) return false;
       } else if (filters.deadlineFilter === "tomorrow") {
-        if (!d || d < startOfTomorrow || d > endOfTomorrow) return false;
+        if (!anyInRange(startOfTomorrow, endOfTomorrow)) return false;
       } else if (filters.deadlineFilter === "overdue") {
         const isDone = ["complete", "completed", "done", "late_complete", "re_late_complete"].includes((task.status || "").toLowerCase());
+        const raw = task.dueDate || task.endDateTime || task.endDate;
+        const d = raw ? new Date(raw) : null;
         if (isDone || !d || d >= now) return false;
       }
     }

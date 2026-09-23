@@ -545,18 +545,25 @@ export default function EmployeeMyTasks() {
 
       // Deadline Filter
       if (filters.deadlineFilter) {
-        const raw = t.endDateTime || t.endDate || t.dueDate;
-        const d = raw ? new Date(raw) : null;
+        // Collect ALL relevant dates: start, followup, end
         const now = new Date();
         const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         const startOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         const endOfTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 23, 59, 59, 999);
 
+        const candidateDates = [
+          t.startDateTime, t.startDate,
+          t.nextFollowUpDate, t.followUpDate,
+          t.endDateTime, t.endDate, t.dueDate,
+        ].filter(Boolean).map(v => new Date(v));
+
+        const anyInRange = (start, end) => candidateDates.some(d => d >= start && d <= end);
+
         if (filters.deadlineFilter === "today") {
-          if (!d || d < startOfToday || d > endOfToday) return false;
+          if (!anyInRange(startOfToday, endOfToday)) return false;
         } else if (filters.deadlineFilter === "tomorrow") {
-          if (!d || d < startOfTomorrow || d > endOfTomorrow) return false;
+          if (!anyInRange(startOfTomorrow, endOfTomorrow)) return false;
         } else if (filters.deadlineFilter === "overdue") {
           if (!checkIsOverdue(t)) return false;
         }
