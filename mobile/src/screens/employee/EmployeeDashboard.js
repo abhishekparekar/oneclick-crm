@@ -189,7 +189,8 @@ export default function EmployeeDashboard({ navigation }) {
   const profileCompletion = data.profileCompletion || { isCompleted: false, percentage: 0 };
   const todayAttendance = data.todayAttendance || null;
   const attendanceSummary = data.attendanceSummary || { present: 0, late: 0, absent: 0, halfDay: 0 };
-  const taskSummary = data.taskSummary || { assignedTasks: 0, pending: 0, dueToday: 0, overdue: 0, completedThisWeek: 0 };
+  const taskSummary = data.taskSummary || { assignedTasks: 0, totalTasks: 0, pending: 0, dueToday: 0, overdue: 0, completedThisWeek: 0 };
+  const totalEmployeeTasks = taskSummary.totalTasks ?? taskSummary.assignedTasks ?? ((taskSummary.pending || 0) + (taskSummary.completed || 0));
   const projectSummary = data.projectSummary || { activeProjects: 0, completedProjects: 0, projectProgress: 0 };
   const leaveSummary = data.leaveSummary || { leaveBalance: { casual: 12, sick: 10, annual: 15, lop: 0 }, pendingRequests: 0, approvedLeaves: 0 };
   const announcements = data.announcements || [];
@@ -544,7 +545,7 @@ export default function EmployeeDashboard({ navigation }) {
                   activeOpacity={0.75}
                 >
                   <Text style={styles.overviewLabel}>Tasks</Text>
-                  <Text style={styles.overviewNumber}>{taskSummary.pending ?? 28}</Text>
+                  <Text style={styles.overviewNumber}>{totalEmployeeTasks}</Text>
                   <View style={[styles.trendPill, { backgroundColor: "#ECFDF5" }]}>
                     <Text style={[styles.trendText, { color: "#10B981" }]}>+15%</Text>
                   </View>
@@ -721,7 +722,7 @@ export default function EmployeeDashboard({ navigation }) {
                 onPress={() => navigation.navigate("Tasks")}
                 activeOpacity={0.75}
               >
-                <Text style={styles.leadKpiNum}>{taskSummary.assignedTasks ?? taskSummary.totalTasks ?? 0}</Text>
+                <Text style={styles.leadKpiNum}>{totalEmployeeTasks}</Text>
                 <Text style={styles.leadKpiLabel}>Total Tasks</Text>
               </TouchableOpacity>
 

@@ -33,6 +33,7 @@ const ALL_MODULES = [
   { key: "tasks",       label: "Task Management",        icon: "checkbox-outline",     color: "#F59E0B" },
   { key: "projects",    label: "Project Workspace",      icon: "folder-open-outline",  color: "#3B82F6" },
   { key: "leads",       label: "Leads Engine & CRM",     icon: "magnet-outline",       color: "#EC4899" },
+  { key: "map_leads",   label: "Map Leads Finder",       icon: "map-outline",          color: "#0284C7" },
   { key: "reports",     label: "Analytics & Reports",    icon: "stats-chart-outline",  color: "#6366F1" },
   { key: "whatsapp",    label: "WhatsApp Automation",    icon: "logo-whatsapp",        color: "#25D366" },
   { key: "performance", label: "Performance Appraisal",  icon: "trending-up-outline",  color: "#F97316" },
@@ -44,6 +45,7 @@ const ALL_MODULES = [
 const MODULE_CAPS = [
   { key: "tasks",      label: "Tasks Seat Cap",      color: "#F59E0B" },
   { key: "leads",      label: "Leads Seat Cap",      color: "#EC4899" },
+  { key: "map_leads",  label: "Map Leads Seat Cap",  color: "#0284C7" },
   { key: "attendance", label: "Attendance Seat Cap", color: "#10B981" },
   { key: "leave",      label: "Leaves Seat Cap",     color: "#06B6D4" },
   { key: "payroll",    label: "Payroll Seat Cap",    color: "#8B5CF6" },

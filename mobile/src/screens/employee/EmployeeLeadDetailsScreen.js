@@ -19,9 +19,9 @@ import {
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as DocumentPicker from "expo-document-picker";
-import * as Sharing from "expo-sharing";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
+import { SUPPORTED_DOCUMENT_MIMES, getFileIconMeta, openLeadDocument } from "../../utils/documentViewer";
 import EmployeeLayout from "../../components/EmployeeLayout";
 import leadsService from "../../api/leadsService";
 import { useAuth } from "../../context/AuthContext";
@@ -529,7 +529,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const handlePickStageDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -706,7 +706,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const handleAttachDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: "*/*",
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
 
@@ -714,9 +714,25 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
         const file = result.assets[0];
         setUploadingDoc(true);
 
+        let finalUrl = file.uri;
+        try {
+          const response = await fetch(file.uri);
+          const blob = await response.blob();
+          const fileExt = (file.name || "doc").split('.').pop() || "pdf";
+          const fileName = `lead_documents/${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+          const sRef = ref(storage, fileName);
+          await uploadBytes(sRef, blob);
+          finalUrl = await getDownloadURL(sRef);
+        } catch (storageErr) {
+          try {
+            const upRes = await leadsService.uploadLeadDocument(file);
+            if (upRes?.url) finalUrl = upRes.url;
+          } catch (_) {}
+        }
+
         const docData = {
           name: file.name || "Attached Document",
-          url: file.uri,
+          url: finalUrl,
           type: file.mimeType || "application/octet-stream",
           size: file.size ? `${(file.size / 1024).toFixed(1)} KB` : "1 File",
         };
@@ -739,19 +755,8 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
     }
   };
 
-  const handleOpenDocument = async (docUrl) => {
-    if (!docUrl) return;
-    try {
-      if ((await Sharing.isAvailableAsync()) && docUrl.startsWith("file://")) {
-        await Sharing.shareAsync(docUrl);
-      } else {
-        await Linking.openURL(docUrl);
-      }
-    } catch (err) {
-      Linking.openURL(docUrl).catch(() => {
-        Alert.alert("Notice", "Document: " + docUrl);
-      });
-    }
+  const handleOpenDocument = async (docUrl, docName, docType) => {
+    await openLeadDocument(docUrl, docName, docType);
   };
 
   const handleDeleteDocument = async (docId, docName) => {
@@ -1142,22 +1147,30 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                 ) : (
                   lead.documents.map((doc, idx) => {
                     const docId = doc._id || doc.id || String(idx);
-                    const isPdf = (doc.name || "").toLowerCase().endsWith(".pdf");
-                    const isImg = (doc.type || "").includes("image") || (doc.name || "").match(/\.(jpg|jpeg|png|webp)$/i);
+                    const meta = getFileIconMeta(doc.name, doc.type);
                     return (
                       <View key={docId} style={styles.docItemRow}>
-                        <View style={[styles.docIconWrap, { backgroundColor: isPdf ? "#FEE2E2" : isImg ? "#ECFDF5" : "#EFF6FF" }]}>
+                        <View style={[styles.docIconWrap, { backgroundColor: meta.bg }]}>
                           <Ionicons
-                            name={isPdf ? "document-text" : isImg ? "image" : "folder-open"}
+                            name={meta.icon}
                             size={18}
-                            color={isPdf ? "#EF4444" : isImg ? "#10B981" : "#3B82F6"}
+                            color={meta.color}
                           />
                         </View>
 
-                        <TouchableOpacity style={styles.docInfoCol} onPress={() => handleOpenDocument(doc.url)}>
-                          <Text style={styles.docNameText} numberOfLines={1}>
-                            {doc.name}
-                          </Text>
+                        <TouchableOpacity
+                          style={styles.docInfoCol}
+                          onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
+                          activeOpacity={0.7}
+                        >
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <Text style={styles.docNameText} numberOfLines={1}>
+                              {doc.name || "Attached File"}
+                            </Text>
+                            <View style={[styles.docTypeBadge, { backgroundColor: meta.bg }]}>
+                              <Text style={[styles.docTypeBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                            </View>
+                          </View>
                           <Text style={styles.docSubText}>
                             {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
                           </Text>
@@ -1165,7 +1178,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
 
                         <TouchableOpacity
                           style={styles.docOpenBtn}
-                          onPress={() => handleOpenDocument(doc.url)}
+                          onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
                           activeOpacity={0.7}
                         >
                           <Ionicons name="eye-outline" size={15} color="#4F46E5" />
@@ -2061,6 +2074,16 @@ const styles = StyleSheet.create({
     backgroundColor: "#FEE2E2",
     alignItems: "center",
     justifyContent: "center",
+  },
+  docTypeBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignSelf: "center",
+  },
+  docTypeBadgeText: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
   },
   timelineCard: {
     backgroundColor: "#FFF",

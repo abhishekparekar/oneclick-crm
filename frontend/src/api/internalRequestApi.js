@@ -23,3 +23,10 @@ export const updateInternalRequestStatusApi = (id, status) => {
 export const deleteInternalRequestApi = (id) => {
   return api.delete(`/internal-requests/${id}`);
 };
+
+export const uploadInternalRequestFileApi = (formData) => {
+  return api.post("/internal-requests/upload", formData, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+

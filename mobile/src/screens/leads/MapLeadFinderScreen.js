@@ -17,6 +17,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
+import { useAuth } from "../../context/AuthContext";
 import leadsService from "../../api/leadsService";
 import { COLORS, FONTS, SPACING, ROUNDING, SHADOWS } from "../../theme/tokens";
 
@@ -36,6 +37,20 @@ const QUICK_CITIES = ["Pune", "Mumbai", "Nashik", "Bengaluru", "Delhi", "Nagpur"
 export default function MapLeadFinderScreen() {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
+  const { user, hasPermission } = useAuth();
+
+  const isSuperAdmin = Boolean(
+    user?.role === "SuperAdmin" ||
+    user?.role === "SubSuperAdmin" ||
+    user?.role === "superadmin" ||
+    user?.role === "subsuperadmin"
+  );
+  const canAccessMapLeads = isSuperAdmin || Boolean(
+    hasPermission?.("map_leads") ||
+    hasPermission?.("map_lead") ||
+    user?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim())) ||
+    user?.company?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim()))
+  );
 
   const [keyword, setKeyword] = useState("Hospitals");
   const [city, setCity] = useState("Pune");
@@ -54,9 +69,11 @@ export default function MapLeadFinderScreen() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    loadStatuses();
-    handleSearch("Hospitals", "Pune");
-  }, []);
+    if (canAccessMapLeads) {
+      loadStatuses();
+      handleSearch("Hospitals", "Pune");
+    }
+  }, [canAccessMapLeads]);
 
   const loadStatuses = async () => {
     try {
@@ -181,6 +198,28 @@ export default function MapLeadFinderScreen() {
   };
 
   const selectedStage = statuses.find((s) => (s.id || s._id) === selectedStatusId);
+
+  if (!canAccessMapLeads) {
+    return (
+      <View style={[styles.container, { paddingTop: insets.top, justifyContent: "center", alignItems: "center", padding: 24 }]}>
+        <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: "#FEF3C7", justifyContent: "center", alignItems: "center", marginBottom: 16 }}>
+          <Ionicons name="lock-closed" size={32} color="#D97706" />
+        </View>
+        <Text style={{ fontSize: 18, fontWeight: "900", color: "#0F172A", marginBottom: 8, textAlign: "center" }}>
+          Map Leads Module Locked
+        </Text>
+        <Text style={{ fontSize: 13, color: "#64748B", textAlign: "center", lineHeight: 20, marginBottom: 24, maxWidth: 300 }}>
+          Access to Live Map Lead Scraping is not enabled for your company. Please contact Super Admin to include this module in your subscription plan.
+        </Text>
+        <TouchableOpacity
+          style={{ backgroundColor: "#0F172A", paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 14 }}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>

@@ -261,6 +261,7 @@ export const AuthProvider = ({ children }) => {
     if (!category) return "";
     const cat = String(category).toLowerCase().trim();
     if (cat === "leave" || cat === "leaves") return "leave";
+    if (cat === "map_leads" || cat === "map_lead" || cat === "mapleads" || cat === "maplead") return "map_leads";
     if (cat === "lead" || cat === "leads") return "leads";
     if (cat === "task" || cat === "tasks") return "tasks";
     if (cat === "project" || cat === "projects") return "projects";
@@ -278,7 +279,7 @@ export const AuthProvider = ({ children }) => {
 
   const SUITE_MODULES = [
     "attendance", "leave", "payroll", "tasks", "projects", "leads", "reports",
-    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin", "locationTracking"
+    "recruitment", "performance", "whatsapp", "mobileapp", "webadmin", "locationTracking", "map_leads"
   ];
 
   const hasPermission = (category, action) => {

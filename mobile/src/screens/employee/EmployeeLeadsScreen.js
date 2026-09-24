@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Animated,
 } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +30,7 @@ import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateF
 import * as DocumentPicker from "expo-document-picker";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
+import { SUPPORTED_DOCUMENT_MIMES } from "../../utils/documentViewer";
 
 const { width } = Dimensions.get("window");
 
@@ -70,6 +72,31 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [statusPickerVisible, setStatusPickerVisible] = useState(false);
   const [leadForStatusChange, setLeadForStatusChange] = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [updatingLeadId, setUpdatingLeadId] = useState(null);
+  const [statusUpdateSuccess, setStatusUpdateSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState(null);
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+
+  const showToast = useCallback((message) => {
+    setToastMessage(message);
+    Animated.sequence([
+      Animated.timing(toastOpacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.delay(2200),
+      Animated.timing(toastOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setToastMessage(null);
+    });
+  }, [toastOpacity]);
+
   const [savingLead, setSavingLead] = useState(false);
   const [leadDoc, setLeadDoc] = useState(null);
   const [docUploading, setDocUploading] = useState(false);
@@ -348,7 +375,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
   const handlePickLeadDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -384,16 +411,78 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
     }
   };
 
+  const openStatusPicker = (lead) => {
+    setLeadForStatusChange(lead);
+    setUpdatingStatusId(null);
+    setStatusUpdateSuccess(false);
+    setStatusPickerVisible(true);
+  };
+
+  const closeStatusPicker = () => {
+    if (updatingStatusId) return;
+    setStatusPickerVisible(false);
+    setLeadForStatusChange(null);
+    setUpdatingStatusId(null);
+    setStatusUpdateSuccess(false);
+  };
+
   const handleQuickStatusChange = async (newStatusId) => {
-    if (!leadForStatusChange) return;
+    if (!leadForStatusChange || updatingStatusId) return;
+    const leadId = leadForStatusChange.id || leadForStatusChange._id;
+    const currentStatusId =
+      leadForStatusChange.statusId ||
+      leadForStatusChange.status?.id ||
+      leadForStatusChange.status?._id;
+
+    if (String(currentStatusId) === String(newStatusId)) {
+      closeStatusPicker();
+      return;
+    }
+
+    const targetStatus = statuses.find(
+      (s) => String(s.id || s._id) === String(newStatusId)
+    );
+
+    setUpdatingStatusId(newStatusId);
+    setUpdatingLeadId(leadId);
+    setStatusUpdateSuccess(false);
+
     try {
-      const leadId = leadForStatusChange.id || leadForStatusChange._id;
-      await leadsService.updateLead(leadId, { statusId: newStatusId });
-      setStatusPickerVisible(false);
-      setLeadForStatusChange(null);
-      loadData();
+      const updated = await leadsService.updateLead(leadId, { statusId: newStatusId });
+
+      // Immediate optimistic update
+      setLeads((prev) =>
+        prev.map((l) => {
+          const lId = l.id || l._id;
+          if (lId === leadId) {
+            return {
+              ...l,
+              statusId: newStatusId,
+              status: targetStatus || updated?.status || l.status,
+            };
+          }
+          return l;
+        })
+      );
+
+      setStatusUpdateSuccess(true);
+
+      setTimeout(() => {
+        setStatusPickerVisible(false);
+        setLeadForStatusChange(null);
+        setUpdatingStatusId(null);
+        setUpdatingLeadId(null);
+        setStatusUpdateSuccess(false);
+        showToast(`Status updated to "${targetStatus?.name || "Updated"}"`);
+        loadData();
+      }, 450);
     } catch (err) {
-      Alert.alert("Error", "Failed to update status.");
+      console.warn("[handleQuickStatusChange] error:", err?.message || err);
+      Alert.alert("Update Failed", "Could not update lead status. Please try again.");
+      setUpdatingStatusId(null);
+      setUpdatingLeadId(null);
+      setStatusUpdateSuccess(false);
+      loadData();
     }
   };
 
@@ -461,14 +550,20 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             </View>
 
             <TouchableOpacity
-              style={[styles.statusBadge, { backgroundColor: `${statusColor}12`, borderColor: `${statusColor}30` }]}
-              onPress={() => {
-                setLeadForStatusChange(item);
-                setStatusPickerVisible(true);
-              }}
-              activeOpacity={0.7}
+              style={[
+                styles.statusBadge,
+                { backgroundColor: `${statusColor}12`, borderColor: `${statusColor}30` },
+                updatingLeadId === (item.id || item._id) && { opacity: 0.8 },
+              ]}
+              onPress={() => openStatusPicker(item)}
+              activeOpacity={0.65}
+              disabled={updatingLeadId === (item.id || item._id)}
             >
-              <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              {updatingLeadId === (item.id || item._id) ? (
+                <ActivityIndicator size="small" color={statusColor} style={{ marginRight: 4, transform: [{ scale: 0.75 }] }} />
+              ) : (
+                <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+              )}
               <Text style={[styles.statusBadgeText, { color: statusColor }]}>{statusName}</Text>
               <Ionicons name="chevron-down" size={11} color={statusColor} style={{ marginLeft: 2 }} />
             </TouchableOpacity>
@@ -1154,12 +1249,12 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
           visible={statusPickerVisible}
           transparent
           animationType="slide"
-          onRequestClose={() => setStatusPickerVisible(false)}
+          onRequestClose={closeStatusPicker}
         >
           <TouchableOpacity
             style={styles.bottomSheetOverlay}
             activeOpacity={1}
-            onPress={() => setStatusPickerVisible(false)}
+            onPress={closeStatusPicker}
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -1179,12 +1274,39 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
                   )}
                 </View>
                 <TouchableOpacity
-                  onPress={() => setStatusPickerVisible(false)}
-                  style={styles.modalCloseCircle}
+                  onPress={closeStatusPicker}
+                  style={[styles.modalCloseCircle, updatingStatusId && { opacity: 0.4 }]}
+                  disabled={!!updatingStatusId}
                 >
                   <Ionicons name="close" size={20} color="#64748B" />
                 </TouchableOpacity>
               </View>
+
+              {/* Status Update In-Progress / Success Indicator Banner */}
+              {updatingStatusId && (
+                <View
+                  style={[
+                    styles.statusUpdatingBanner,
+                    statusUpdateSuccess && styles.statusUpdatingBannerSuccess,
+                  ]}
+                >
+                  {statusUpdateSuccess ? (
+                    <Ionicons name="checkmark-circle" size={16} color="#059669" style={{ marginRight: 6 }} />
+                  ) : (
+                    <ActivityIndicator size="small" color="#2563EB" style={{ marginRight: 6 }} />
+                  )}
+                  <Text
+                    style={[
+                      styles.statusUpdatingBannerText,
+                      statusUpdateSuccess && styles.statusUpdatingBannerTextSuccess,
+                    ]}
+                  >
+                    {statusUpdateSuccess
+                      ? "Status updated successfully!"
+                      : `Updating status to "${statuses.find((s) => String(s.id || s._id) === String(updatingStatusId))?.name || "..."}"...`}
+                  </Text>
+                </View>
+              )}
 
               <ScrollView style={styles.statusOptionsList} showsVerticalScrollIndicator={false}>
                 {statuses.map((s) => {
@@ -1194,26 +1316,52 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
                     leadForStatusChange?.statusId ||
                     leadForStatusChange?.status?.id ||
                     leadForStatusChange?.status?._id;
-                  const isCurrent = currentStatusId === sId;
+                  const isCurrent = String(currentStatusId) === String(sId);
+                  const isUpdatingThis = String(updatingStatusId) === String(sId);
+                  const isAnotherUpdating = !!updatingStatusId && !isUpdatingThis;
 
                   return (
                     <TouchableOpacity
                       key={sId}
                       style={[
                         styles.statusOptionItem,
-                        isCurrent && { backgroundColor: `${color}12`, borderColor: color },
+                        isCurrent && !updatingStatusId && { backgroundColor: `${color}12`, borderColor: color },
+                        isUpdatingThis && {
+                          backgroundColor: `${color}18`,
+                          borderColor: statusUpdateSuccess ? "#10B981" : color,
+                          borderWidth: 1.5,
+                        },
+                        isAnotherUpdating && { opacity: 0.4 },
                       ]}
                       onPress={() => handleQuickStatusChange(sId)}
+                      disabled={!!updatingStatusId}
                       activeOpacity={0.7}
                     >
                       <View style={styles.statusOptionLeft}>
                         <View style={[styles.statusOptionDot, { backgroundColor: color }]} />
-                        <Text style={[styles.statusOptionText, isCurrent && { color: color, fontFamily: FONTS.headerBold }]}>
+                        <Text
+                          style={[
+                            styles.statusOptionText,
+                            (isCurrent || isUpdatingThis) && { color: color, fontFamily: FONTS.headerBold },
+                          ]}
+                        >
                           {s.name}
                         </Text>
                       </View>
 
-                      {isCurrent ? (
+                      {isUpdatingThis ? (
+                        statusUpdateSuccess ? (
+                          <View style={styles.statusOptionRightBadge}>
+                            <Text style={[styles.statusOptionStatusText, { color: "#059669" }]}>Updated</Text>
+                            <Ionicons name="checkmark-circle" size={22} color="#059669" />
+                          </View>
+                        ) : (
+                          <View style={styles.statusOptionRightBadge}>
+                            <Text style={[styles.statusOptionStatusText, { color }]}>Updating...</Text>
+                            <ActivityIndicator size="small" color={color} />
+                          </View>
+                        )
+                      ) : isCurrent ? (
                         <Ionicons name="checkmark-circle" size={22} color={color} />
                       ) : (
                         <Ionicons name="radio-button-off" size={20} color="#CBD5E1" />
@@ -1309,6 +1457,14 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
           >
             <Ionicons name="add" size={30} color="#FFFFFF" />
           </TouchableOpacity>
+        )}
+
+        {/* ── Toast Feedback Notification ── */}
+        {toastMessage && (
+          <Animated.View style={[styles.floatingToast, { opacity: toastOpacity }]}>
+            <Ionicons name="checkmark-circle" size={18} color="#10B981" style={{ marginRight: 8 }} />
+            <Text style={styles.floatingToastText}>{toastMessage}</Text>
+          </Animated.View>
         )}
       </View>
     </EmployeeLayout>
@@ -1925,6 +2081,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: FONTS.headerSemiBold,
     color: "#1E293B",
+  },
+  statusUpdatingBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  statusUpdatingBannerSuccess: {
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+  },
+  statusUpdatingBannerText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyMedium,
+    color: "#1E40AF",
+  },
+  statusUpdatingBannerTextSuccess: {
+    color: "#065F46",
+    fontFamily: FONTS.headerSemiBold,
+  },
+  statusOptionRightBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statusOptionStatusText: {
+    fontSize: 12,
+    fontFamily: FONTS.headerSemiBold,
+  },
+  floatingToast: {
+    position: "absolute",
+    bottom: 85,
+    alignSelf: "center",
+    backgroundColor: "#0F172A",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 9999,
+    maxWidth: "90%",
+  },
+  floatingToastText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontFamily: FONTS.bodySemiBold,
   },
   detailHero: {
     paddingVertical: 8,

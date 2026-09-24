@@ -25,9 +25,9 @@ import { COLORS, FONTS } from "../../theme/tokens";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import * as DocumentPicker from "expo-document-picker";
-import * as Sharing from "expo-sharing";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
+import { SUPPORTED_DOCUMENT_MIMES, getFileIconMeta, openLeadDocument } from "../../utils/documentViewer";
 
 const { width } = Dimensions.get("window");
 
@@ -638,7 +638,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   const handleAttachDocument = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
 
@@ -690,7 +690,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   const handlePickStageDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -726,19 +726,8 @@ function LeadDetailsScreenComponent({ route, navigation }) {
     }
   };
 
-  const handleOpenDocument = async (docUrl) => {
-    if (!docUrl) return;
-    try {
-      if ((await Sharing.isAvailableAsync()) && docUrl.startsWith("file://")) {
-        await Sharing.shareAsync(docUrl);
-      } else {
-        await Linking.openURL(docUrl);
-      }
-    } catch (err) {
-      Linking.openURL(docUrl).catch(() => {
-        Alert.alert("Notice", "Document: " + docUrl);
-      });
-    }
+  const handleOpenDocument = async (docUrl, docName, docType) => {
+    await openLeadDocument(docUrl, docName, docType);
   };
 
   const handleDeleteDocument = async (docId, docName) => {
@@ -1521,22 +1510,30 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                   ) : (
                     lead.documents.map((doc, idx) => {
                       const docId = doc._id || doc.id || String(idx);
-                      const isPdf = (doc.name || "").toLowerCase().endsWith(".pdf");
-                      const isImg = (doc.type || "").includes("image") || (doc.name || "").match(/\.(jpg|jpeg|png|webp)$/i);
+                      const meta = getFileIconMeta(doc.name, doc.type);
                       return (
                         <View key={docId} style={styles.docItemRow}>
-                          <View style={[styles.docIconWrap, { backgroundColor: isPdf ? "#FEE2E2" : isImg ? "#ECFDF5" : "#EFF6FF" }]}>
+                          <View style={[styles.docIconWrap, { backgroundColor: meta.bg }]}>
                             <Ionicons
-                              name={isPdf ? "document-text" : isImg ? "image" : "folder-open"}
+                              name={meta.icon}
                               size={18}
-                              color={isPdf ? "#EF4444" : isImg ? "#10B981" : "#3B82F6"}
+                              color={meta.color}
                             />
                           </View>
 
-                          <TouchableOpacity style={styles.docInfoCol} onPress={() => handleOpenDocument(doc.url)}>
-                            <Text style={styles.docNameText} numberOfLines={1}>
-                              {doc.name}
-                            </Text>
+                          <TouchableOpacity
+                            style={styles.docInfoCol}
+                            onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <Text style={styles.docNameText} numberOfLines={1}>
+                                {doc.name || "Attached File"}
+                              </Text>
+                              <View style={[styles.docTypeBadge, { backgroundColor: meta.bg }]}>
+                                <Text style={[styles.docTypeBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                              </View>
+                            </View>
                             <Text style={styles.docSubText}>
                               {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
                             </Text>
@@ -1544,7 +1541,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
 
                           <TouchableOpacity
                             style={styles.docOpenBtn}
-                            onPress={() => handleOpenDocument(doc.url)}
+                            onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
                             activeOpacity={0.7}
                           >
                             <Ionicons name="eye-outline" size={15} color="#4F46E5" />
@@ -3937,6 +3934,16 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: 6,
     backgroundColor: "#FEE2E2",
+  },
+  docTypeBadge: {
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 4,
+    alignSelf: "center",
+  },
+  docTypeBadgeText: {
+    fontSize: 9,
+    fontFamily: FONTS.bodyBold,
   },
   stageDocSection: {
     marginTop: 12,

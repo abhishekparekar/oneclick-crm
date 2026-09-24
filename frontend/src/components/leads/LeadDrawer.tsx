@@ -7,6 +7,7 @@ import TemplatePreview from './TemplatePreview';
 import MediaUrlUploader from './MediaUrlUploader';
 import { useToast } from './Toast';
 import { useActionLoader } from './ActionLoader';
+import { resolveDocumentUrl, getFileMeta, openDocument } from '../../utils/documentViewer';
 import {
   X, MessageSquare, FileText, History, Save, Trash2, Plus,
   Loader2, Send, User, Calendar, AlertCircle, CheckCircle, Clock, Tag,
@@ -516,7 +517,8 @@ export default function LeadDrawer({
   const openFullLeadDetails = () => {
     const isCompany = window.location.pathname.startsWith('/company');
     const isManager = window.location.pathname.startsWith('/manager');
-    const prefix = isCompany ? '/company/leads' : isManager ? '/manager/leads' : '/hr/leads';
+    const isEmployee = window.location.pathname.startsWith('/employee');
+    const prefix = isCompany ? '/company/leads' : isManager ? '/manager/leads' : isEmployee ? '/employee/leads' : '/hr/leads';
     navigate(`${prefix}/${leadId}`);
   };
 
@@ -1199,27 +1201,44 @@ export default function LeadDrawer({
                           )}
 
                           {/* Attached Document Pill */}
-                          {item.attachment?.url && (
-                            <div className="pt-1">
-                              <a
-                                href={item.attachment.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
-                              >
-                                <Paperclip size={12} className="text-amber-500 shrink-0" />
-                                <span className="truncate max-w-[240px]">
-                                  {item.attachment.name || 'Attached File'}
-                                </span>
-                                {item.attachment.size && (
-                                  <span className="text-[9.5px] text-slate-400 font-mono">
-                                    ({item.attachment.size})
+                          {item.attachment?.url && (() => {
+                            const meta = getFileMeta(item.attachment.name, item.attachment.type);
+                            const fullUrl = resolveDocumentUrl(item.attachment.url);
+                            return (
+                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => openDocument(item.attachment.url, item.attachment.name, item.attachment.type)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${meta.bg} ${meta.border} ${meta.color} hover:opacity-90`}
+                                  title="View file"
+                                >
+                                  <span className="px-1 py-0.2 rounded text-[9px] font-extrabold uppercase bg-white/70 dark:bg-black/40">
+                                    {meta.label}
                                   </span>
+                                  <span className="truncate max-w-[220px]">
+                                    {item.attachment.name || 'Attached File'}
+                                  </span>
+                                  {item.attachment.size && (
+                                    <span className="text-[9.5px] opacity-75 font-mono">
+                                      ({item.attachment.size})
+                                    </span>
+                                  )}
+                                  <ExternalLink size={11} className="shrink-0 ml-0.5 opacity-70" />
+                                </button>
+                                {fullUrl && (
+                                  <a
+                                    href={fullUrl}
+                                    download={item.attachment.name || 'file'}
+                                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-slate-500 hover:text-amber-500 transition-colors"
+                                    title="Download file"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Download size={11} />
+                                  </a>
                                 )}
-                                <ExternalLink size={11} className="text-slate-400 group-hover:text-amber-500 shrink-0 ml-1" />
-                              </a>
-                            </div>
-                          )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -1379,8 +1398,8 @@ export default function LeadDrawer({
                       )}
                       <div className="space-y-2">
                         {allDocumentsList.map((doc: any, idx: number) => {
-                          const isImg = (doc.name || '').match(/\.(jpg|jpeg|png|webp|gif)$/i);
-                          const isPdf = (doc.name || '').match(/\.pdf$/i);
+                          const meta = getFileMeta(doc.name, doc.type);
+                          const resolvedUrl = resolveDocumentUrl(doc.url);
 
                           return (
                             <div
@@ -1389,15 +1408,9 @@ export default function LeadDrawer({
                             >
                               <div className="flex items-center gap-3 min-w-0">
                                 <div
-                                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
-                                    isImg
-                                      ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800 text-blue-600'
-                                      : isPdf
-                                      ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-600'
-                                      : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800 text-amber-600'
-                                  }`}
+                                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${meta.bg} ${meta.border} ${meta.color} font-black text-[10px] uppercase`}
                                 >
-                                  {isImg ? <Image size={16} /> : isPdf ? <FileText size={16} /> : <File size={16} />}
+                                  {meta.label}
                                 </div>
                                 <div className="min-w-0">
                                   <p className="text-xs font-bold text-slate-900 dark:text-white truncate">
@@ -1410,15 +1423,25 @@ export default function LeadDrawer({
                               </div>
 
                               <div className="flex items-center gap-1.5 shrink-0">
-                                <a
-                                  href={doc.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors"
-                                  title="Open in new tab"
+                                <button
+                                  type="button"
+                                  onClick={() => openDocument(doc.url, doc.name, doc.type)}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                  title="Open / View document"
                                 >
                                   <ExternalLink size={13} />
-                                </a>
+                                </button>
+                                {resolvedUrl && (
+                                  <a
+                                    href={resolvedUrl}
+                                    download={doc.name || 'document'}
+                                    className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition-colors cursor-pointer"
+                                    title="Download document"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Download size={13} />
+                                  </a>
+                                )}
                                 {doc._id && (
                                   <button
                                     type="button"
@@ -1464,19 +1487,33 @@ export default function LeadDrawer({
 
                               {docMatches.length > 0 && (
                                 <div className="flex flex-wrap gap-1.5 pt-1">
-                                  {docMatches.map((dm, dIdx) => (
-                                    <a
-                                      key={dIdx}
-                                      href={dm[2]}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 rounded-lg text-[11px] font-bold hover:underline"
-                                    >
-                                      <Paperclip size={11} />
-                                      <span className="truncate max-w-[200px]">{dm[1]}</span>
-                                      <ExternalLink size={10} />
-                                    </a>
-                                  ))}
+                                  {docMatches.map((dm, dIdx) => {
+                                    const meta = getFileMeta(dm[1]);
+                                    const fullUrl = resolveDocumentUrl(dm[2]);
+                                    return (
+                                      <div key={dIdx} className="inline-flex items-center gap-1">
+                                        <button
+                                          type="button"
+                                          onClick={() => openDocument(dm[2], dm[1])}
+                                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${meta.bg} ${meta.border} ${meta.color}`}
+                                        >
+                                          <span className="text-[9px] uppercase font-black">{meta.label}</span>
+                                          <span className="truncate max-w-[180px]">{dm[1]}</span>
+                                          <ExternalLink size={10} />
+                                        </button>
+                                        {fullUrl && (
+                                          <a
+                                            href={fullUrl}
+                                            download={dm[1] || 'attachment'}
+                                            className="p-1 rounded-md text-slate-400 hover:text-amber-600 dark:hover:text-amber-400"
+                                            title="Download"
+                                          >
+                                            <Download size={11} />
+                                          </a>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               )}
 

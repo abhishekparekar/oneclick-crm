@@ -23,7 +23,7 @@ import {
 } from "../../api/superAdminService";
 
 const MODULES = [
-  "tasks", "leads", "attendance", "location_tracking", "projects",
+  "tasks", "leads", "map_leads", "attendance", "location_tracking", "projects",
   "whatsapp", "mobileApp", "webAdmin", "leave", "payroll",
   "recruitment", "performance", "reports"
 ];
@@ -31,6 +31,7 @@ const MODULES = [
 const MODULE_CAP_ITEMS = [
   { key: "tasks",             label: "Tasks Module",               color: "#f59e0b" },
   { key: "leads",             label: "Leads Engine & CRM",         color: "#f59e0b" },
+  { key: "map_leads",         label: "Map Leads Finder",           color: "#3B82F6" },
   { key: "attendance",        label: "Attendance & Bio-Punch",     color: "#10b981" },
   { key: "location_tracking", label: "Field GPS Location Tracking",color: "#ec4899" },
   { key: "projects",          label: "Projects Workspace",         color: "#06B6D4" },
@@ -69,6 +70,7 @@ const AddCompanyScreen = ({ route, navigation }) => {
       payroll: 0,
       tasks: 0,
       leads: 0,
+      map_leads: 0,
       projects: 0,
       reports: 0,
     },
@@ -134,6 +136,7 @@ const AddCompanyScreen = ({ route, navigation }) => {
           payroll: 0,
           tasks: 0,
           leads: 0,
+          map_leads: 0,
           projects: 0,
           reports: 0,
         },

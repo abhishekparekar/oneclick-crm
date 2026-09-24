@@ -26,9 +26,9 @@ import { COLORS, FONTS } from "../../theme/tokens";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateFormatter";
-import * as DocumentPicker from "expo-document-picker";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
+import { SUPPORTED_DOCUMENT_MIMES } from "../../utils/documentViewer";
 
 const { width } = Dimensions.get("window");
 
@@ -399,7 +399,7 @@ export default function HRLeadsScreen({ navigation, route }) {
   const handlePickLeadDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {

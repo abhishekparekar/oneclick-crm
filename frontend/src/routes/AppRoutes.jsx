@@ -44,6 +44,8 @@ import EmployeeNotifications from "../pages/employee/EmployeeNotifications";
 import EmployeeSettings from "../pages/employee/EmployeeSettings";
 import EmployeeTaskDetails from "../pages/employee/EmployeeTaskDetails";
 import EmployeeActivities from "../pages/employee/EmployeeActivities";
+import EmployeeLeads from "../pages/employee/EmployeeLeads";
+import EmployeeLeadDetails from "../pages/employee/EmployeeLeadDetails";
 
 // SuperAdmin
 import SuperAdminDashboard from "../pages/superadmin/SuperAdminDashboard";
@@ -426,8 +428,8 @@ const AppRoutes = () => {
             <Route path="activities" element={<EmployeeActivities />} />
 
             {/* Lead CRM */}
-            <Route path="leads" element={<Leads />} />
-            <Route path="leads/:id" element={<HRLeadDetails />} />
+            <Route path="leads" element={<EmployeeLeads />} />
+            <Route path="leads/:id" element={<EmployeeLeadDetails />} />
           </Route>
         </Route>
       </Route>

@@ -5,8 +5,9 @@ import { useActionLoader } from '../../components/leads/ActionLoader';
 import {
   MapPin, Search, Download, Check, Sparkles, Filter, Building2, Phone,
   Mail, Globe, Star, CheckCircle2, AlertCircle, RefreshCw, X, ArrowRight,
-  ChevronRight, Layers, UserCheck, CheckSquare, Square, ExternalLink, HelpCircle
+  ChevronRight, Layers, UserCheck, CheckSquare, Square, ExternalLink, HelpCircle, Lock
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const POPULAR_CATEGORIES = [
   { label: 'Hospitals & Clinics', keyword: 'Hospitals', icon: '🏥' },
@@ -48,8 +49,22 @@ interface MapPlacesSearchProps {
 }
 
 export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = false }: MapPlacesSearchProps) {
+  const { user, hasPermission } = useAuth();
   const { success, error } = useToast();
   const { isLoading, run } = useActionLoader();
+
+  const isSuperAdmin = Boolean(
+    user?.role === "SuperAdmin" ||
+    user?.role === "SubSuperAdmin" ||
+    user?.role === "superadmin" ||
+    user?.role === "subsuperadmin"
+  );
+  const canAccessMapLeads = isSuperAdmin || Boolean(
+    hasPermission?.("map_leads") ||
+    hasPermission?.("map_lead") ||
+    user?.subscribedModules?.some?.((m: string) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim())) ||
+    user?.company?.subscribedModules?.some?.((m: string) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim()))
+  );
 
   const [keyword, setKeyword] = useState('Hospitals');
   const [city, setCity] = useState('Pune');
@@ -191,6 +206,29 @@ export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = fa
       }
     });
   };
+
+  if (!canAccessMapLeads) {
+    return (
+      <div className={`text-center bg-white dark:bg-[#111C24] rounded-3xl border border-slate-200 dark:border-slate-800 p-8 sm:p-12 ${isModal ? 'm-2' : 'max-w-2xl mx-auto my-10'}`}>
+        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+          <Lock size={30} />
+        </div>
+        <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Map Leads Module Locked</h3>
+        <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-6 leading-relaxed">
+          Access to Live Map Lead Scraping & Place Finder is not licensed for your company. Please contact your Super Administrator to enable this module in your subscription plan.
+        </p>
+        {isModal && onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+          >
+            Close
+          </button>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`space-y-4 ${isModal ? 'p-1' : 'p-4 max-w-7xl mx-auto'}`}>

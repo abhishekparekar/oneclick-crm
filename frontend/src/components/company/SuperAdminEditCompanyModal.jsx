@@ -10,12 +10,13 @@ import {
 
 const ALL_SYSTEM_MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects",
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking", "map_leads"
 ];
 
 const DISPLAY_MODULES = [
   { key: "tasks", label: "Tasks" },
   { key: "leads", label: "Leads Engine" },
+  { key: "map_leads", label: "Map Leads", subtext: "Live Google Maps Scraping" },
   { key: "attendance", label: "Attendance" },
   { key: "location_tracking", label: "Location Tracking", subtext: "Live GPS Tracking" },
   { key: "projects", label: "Projects" },

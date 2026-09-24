@@ -3,6 +3,8 @@ const User = require("../models/User");
 const Employee = require("../models/Employee");
 const Department = require("../models/Department");
 const Notification = require("../models/Notification");
+const path = require("path");
+const fs = require("fs");
 
 // Helper to get companyId from req
 const getCompanyId = (req) => {
@@ -394,6 +396,51 @@ const deleteRequest = async (req, res) => {
   }
 };
 
+// @desc    Upload file attachment for internal request
+// @route   POST /api/internal-requests/upload
+// @access  Private
+const uploadRequestAttachment = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    let fileUrl;
+    try {
+      const { uploadFileToFirebase } = require("../services/firebaseService");
+      fileUrl = await uploadFileToFirebase(req.file.buffer, req.file.originalname, "internal-requests");
+    } catch (fbErr) {
+      console.warn("Firebase upload failed, saving locally:", fbErr.message);
+      const uploadDir = path.join(__dirname, "../../uploads/internal-requests");
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const ext = path.extname(req.file.originalname);
+      const baseName = path.basename(req.file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, "_");
+      const uniqueName = `${Date.now()}-${Math.round(Math.random() * 1e9)}-${baseName}${ext}`;
+      const filePath = path.join(uploadDir, uniqueName);
+      fs.writeFileSync(filePath, req.file.buffer);
+      fileUrl = `/uploads/internal-requests/${uniqueName}`;
+    }
+
+    const fileMeta = {
+      name: req.file.originalname,
+      url: fileUrl,
+      type: req.file.mimetype || "application/octet-stream",
+      size: req.file.size ? `${(req.file.size / 1024).toFixed(1)} KB` : "",
+    };
+
+    return res.status(200).json({
+      success: true,
+      message: "File uploaded successfully",
+      file: fileMeta,
+    });
+  } catch (err) {
+    console.error("[InternalRequest] uploadRequestAttachment error:", err);
+    return res.status(500).json({ success: false, message: err.message || "File upload failed" });
+  }
+};
+
 module.exports = {
   getRequests,
   getRequestById,
@@ -401,4 +448,5 @@ module.exports = {
   replyToRequest,
   updateRequestStatus,
   deleteRequest,
+  uploadRequestAttachment,
 };

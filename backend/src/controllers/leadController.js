@@ -3745,12 +3745,32 @@ const { searchPlaces } = require("../services/mapPlacesService");
 
 const searchMapPlaces = async (req, res) => {
   try {
+    const companyId = getCompanyId(req);
+
+    const roleLower = String(req.user?.role || "").toLowerCase();
+    const isSuperAdminRole = roleLower === "superadmin" || roleLower === "subsuperadmin";
+
+    // Verify company has map_leads module access
+    if (companyId && !isSuperAdminRole) {
+      const Company = require("../models/Company");
+      const company = await Company.findById(companyId).select("subscribedModules");
+      if (company && Array.isArray(company.subscribedModules)) {
+        const subList = company.subscribedModules.map((s) => String(s).toLowerCase().trim());
+        const hasMapAccess = subList.some((s) => ["map_leads", "map_lead", "mapleads", "maplead"].includes(s));
+        if (!hasMapAccess) {
+          return res.status(403).json({
+            success: false,
+            message: "Map Leads module is not enabled for your company subscription. Please contact Super Admin.",
+          });
+        }
+      }
+    }
+
     const { keyword, category, city, location, limit } = req.body || req.query;
     const queryKeyword = (keyword || category || "Businesses").trim();
     const queryCity = (city || location || "Mumbai").trim();
     const queryLimit = parseInt(limit, 10) || 25;
 
-    const companyId = getCompanyId(req);
     const places = await searchPlaces({
       keyword: queryKeyword,
       city: queryCity,
@@ -3843,6 +3863,26 @@ const searchMapPlaces = async (req, res) => {
 const importMapLeads = async (req, res) => {
   try {
     const companyId = getCompanyId(req);
+
+    const roleLower = String(req.user?.role || "").toLowerCase();
+    const isSuperAdminRole = roleLower === "superadmin" || roleLower === "subsuperadmin";
+
+    // Verify company has map_leads module access
+    if (companyId && !isSuperAdminRole) {
+      const Company = require("../models/Company");
+      const company = await Company.findById(companyId).select("subscribedModules");
+      if (company && Array.isArray(company.subscribedModules)) {
+        const subList = company.subscribedModules.map((s) => String(s).toLowerCase().trim());
+        const hasMapAccess = subList.some((s) => ["map_leads", "map_lead", "mapleads", "maplead"].includes(s));
+        if (!hasMapAccess) {
+          return res.status(403).json({
+            success: false,
+            message: "Map Leads module is not enabled for your company subscription. Please contact Super Admin.",
+          });
+        }
+      }
+    }
+
     await seedDefaultsForCompany(companyId);
 
     const { places, statusId, assignedTo, source, tagIds } = req.body || {};

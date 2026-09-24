@@ -30,6 +30,8 @@ const ALL_MODULES = [
   { id: "projects", label: "Project Management", icon: "briefcase-outline", desc: "Milestones, progress bars, and budget calculations" },
   { id: "recruitment", label: "Recruitment (ATS)", icon: "people-outline", desc: "Job postings, applicant pipeline, and scheduler" },
   { id: "performance", label: "Performance & Review", icon: "bar-chart-outline", desc: "OKRs, self-evaluation, and 360 appraisals" },
+  { id: "leads", label: "Leads Engine & CRM", icon: "magnet-outline", desc: "Lead pipelines, stages, follow-ups, and auto-conversion" },
+  { id: "map_leads", label: "Live Map Leads Finder", icon: "map-outline", desc: "Google Maps live lead scraping and place finder" },
   { id: "reports", label: "Analytics & Custom Reports", icon: "document-text-outline", desc: "CSV exports, interactive graphs, and charts" },
   { id: "whatsapp", label: "WhatsApp Alerts Integration", icon: "logo-whatsapp", desc: "Automated direct notifications and messaging alerts" },
 ];

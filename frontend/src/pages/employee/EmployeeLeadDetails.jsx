@@ -7,8 +7,10 @@ import {
   ArrowLeft, Magnet, Phone, MessageSquare, Calendar, Building,
   DollarSign, Tag, CheckCircle2, AlertCircle, Clock, Send,
   Paperclip, ExternalLink, X, Plus, Sparkles, User, ShieldCheck,
-  CheckCircle, ChevronRight, Layers, FileText, Smartphone, Mail, CheckCheck
+  CheckCircle, ChevronRight, Layers, FileText, Smartphone, Mail, CheckCheck,
+  Download
 } from "lucide-react";
+import { resolveDocumentUrl, getFileMeta, openDocument } from "../../utils/documentViewer";
 
 const formatLeadId = (lead) => {
   if (!lead) return "L-01";
@@ -567,29 +569,49 @@ export default function EmployeeLeadDetails() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {allDocumentsList.map((doc, idx) => (
-                    <div
-                      key={doc._id || idx}
-                      className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2"
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <FileText size={14} className="text-amber-500 shrink-0" />
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{doc.name || "Document"}</p>
-                          {doc.size && <p className="text-[9.5px] text-slate-400 font-mono">{doc.size}</p>}
+                  {allDocumentsList.map((doc, idx) => {
+                    const meta = getFileMeta(doc.name, doc.type);
+                    const resolvedUrl = resolveDocumentUrl(doc.url);
+                    return (
+                      <div
+                        key={doc._id || idx}
+                        className="p-2.5 rounded-xl bg-slate-50/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-slate-800/80 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div
+                            className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border font-extrabold text-[8.5px] uppercase ${meta.bg} ${meta.border} ${meta.color}`}
+                          >
+                            {meta.label}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-bold text-slate-900 dark:text-white truncate text-[11px]">{doc.name || "Document"}</p>
+                            {doc.size && <p className="text-[9.5px] text-slate-400 font-mono">{doc.size}</p>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => openDocument(doc.url, doc.name, doc.type)}
+                            className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors shrink-0 cursor-pointer"
+                            title="Open / View file"
+                          >
+                            <ExternalLink size={12} />
+                          </button>
+                          {resolvedUrl && (
+                            <a
+                              href={resolvedUrl}
+                              download={doc.name || "document"}
+                              className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors shrink-0 cursor-pointer"
+                              title="Download file"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Download size={12} />
+                            </a>
+                          )}
                         </div>
                       </div>
-                      <a
-                        href={doc.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors shrink-0"
-                        title="Open file"
-                      >
-                        <ExternalLink size={12} />
-                      </a>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -663,18 +685,37 @@ export default function EmployeeLeadDetails() {
                           </p>
 
                           {/* Inline Attached Document Pill */}
-                          {item.attachment?.url && (
-                            <a
-                              href={item.attachment.url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-amber-500 transition-all text-[11px] font-bold text-slate-800 dark:text-slate-200 shadow-2xs group"
-                            >
-                              <FileText size={13} className="text-amber-500 shrink-0" />
-                              <span className="truncate max-w-[200px]">{item.attachment.name || "Attached Document"}</span>
-                              <ExternalLink size={10} className="text-slate-400 group-hover:text-amber-500 shrink-0" />
-                            </a>
-                          )}
+                          {item.attachment?.url && (() => {
+                            const meta = getFileMeta(item.attachment.name, item.attachment.type);
+                            const fullUrl = resolveDocumentUrl(item.attachment.url);
+                            return (
+                              <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                                <button
+                                  type="button"
+                                  onClick={() => openDocument(item.attachment.url, item.attachment.name, item.attachment.type)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${meta.bg} ${meta.border} ${meta.color} hover:opacity-90`}
+                                  title="Open / View document"
+                                >
+                                  <span className="px-1 py-0.2 rounded text-[8.5px] font-extrabold uppercase bg-white/70 dark:bg-black/40">
+                                    {meta.label}
+                                  </span>
+                                  <span className="truncate max-w-[200px]">{item.attachment.name || "Attached Document"}</span>
+                                  <ExternalLink size={10} className="shrink-0 opacity-70 ml-0.5" />
+                                </button>
+                                {fullUrl && (
+                                  <a
+                                    href={fullUrl}
+                                    download={item.attachment.name || "attachment"}
+                                    className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-amber-500 transition-colors cursor-pointer"
+                                    title="Download file"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <Download size={11} />
+                                  </a>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -812,7 +853,7 @@ export default function EmployeeLeadDetails() {
                     statusId: selectedStatusId,
                     note: statusRemark,
                     nextFollowUp: nextFollowUpDate,
-                    file: statusAttachedFile
+                    files: statusAttachedFiles,
                   })}
                   disabled={updateStatusMut.isPending}
                   className="px-5 py-2 bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white font-black text-xs rounded-xl shadow-md cursor-pointer flex items-center gap-1.5"

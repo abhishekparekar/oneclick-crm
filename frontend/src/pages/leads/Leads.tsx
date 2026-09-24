@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import MapPlacesSearch from './MapPlacesSearch';
+import { useAuth } from '../../context/AuthContext';
 
 // ── Status Colors ─────────────────────────────────────────────────────────────
 const STATUS_COLORS = [
@@ -398,8 +399,23 @@ function StatusPopover({
 }
 
 export default function Leads() {
+  const { user, hasPermission } = useAuth();
   const { success, error, confirm } = useToast();
   const { isLoading, run } = useActionLoader();
+
+  const isSuperAdmin = Boolean(
+    user?.role === "SuperAdmin" ||
+    user?.role === "SubSuperAdmin" ||
+    user?.role === "superadmin" ||
+    user?.role === "subsuperadmin"
+  );
+  const canAccessMapLeads = isSuperAdmin || Boolean(
+    hasPermission?.("map_leads") ||
+    hasPermission?.("map_lead") ||
+    user?.subscribedModules?.some?.((m: string) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim())) ||
+    user?.company?.subscribedModules?.some?.((m: string) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim()))
+  );
+
   const [leads, setLeads] = useState<any[]>([]);
   const [pagination, setPagination] = useState<any>({ page: 1, limit: 20, total: 0, totalPages: 1 });
   const [statuses, setStatuses] = useState<any[]>([]);
@@ -1214,13 +1230,15 @@ export default function Leads() {
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5 relative z-30">
-          <button 
-            type="button"
-            onClick={() => setShowMapPlacesModal(true)} 
-            className="flex items-center gap-1 px-2.5 h-7.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
-          >
-            <MapPin size={12} className="text-blue-600 dark:text-blue-400" /> Map Leads
-          </button>
+          {canAccessMapLeads && (
+            <button 
+              type="button"
+              onClick={() => setShowMapPlacesModal(true)} 
+              className="flex items-center gap-1 px-2.5 h-7.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
+            >
+              <MapPin size={12} className="text-blue-600 dark:text-blue-400" /> Map Leads
+            </button>
+          )}
 
           <button 
             type="button"
@@ -2927,7 +2945,7 @@ export default function Leads() {
       )}
 
       {/* ── MAP PLACES LEAD FINDER MODAL ── */}
-      {showMapPlacesModal && createPortal(
+      {showMapPlacesModal && canAccessMapLeads && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-6 bg-slate-900/80 backdrop-blur-xs overflow-y-auto">
           <div className="bg-white dark:bg-[#111C24] rounded-3xl max-w-6xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-slate-200 dark:border-slate-800 p-2 sm:p-4">
             <MapPlacesSearch

@@ -101,6 +101,7 @@ const companySchema = new mongoose.Schema(
     moduleLimits: {
       tasks:      { type: Number, default: 0 },
       leads:      { type: Number, default: 0 },
+      map_leads:  { type: Number, default: 0 },
       attendance: { type: Number, default: 0 },
       leave:      { type: Number, default: 0 },
       payroll:    { type: Number, default: 0 },

@@ -324,6 +324,7 @@ const SuperAdminCompanyDetails = () => {
                   const allSystemModules = [
                     { key: "tasks", label: "Task Management" },
                     { key: "leads", label: "Leads Engine & CRM" },
+                    { key: "map_leads", label: "Map Leads Finder & Scraping" },
                     { key: "attendance", label: "Time & Attendance" },
                     { key: "location_tracking", label: "Live GPS Location Tracking" },
                     { key: "projects", label: "Projects Workspace" },

@@ -496,6 +496,24 @@ const CompanyDashboard = ({ navigation }) => {
                   <Text style={styles.metricSub}>Active portfolio</Text>
                 </TouchableOpacity>
               )}
+
+              {/* Total Tasks Tile */}
+              {canAccessTasks && (
+                <TouchableOpacity
+                  style={styles.metricCard}
+                  onPress={() => navigation.navigate("DashboardStack", { screen: "TaskBoard" })}
+                  activeOpacity={0.85}
+                >
+                  <View style={styles.metricTopRow}>
+                    <View style={[styles.metricIconBox, { backgroundColor: "#F3E8FF" }]}>
+                      <Ionicons name="checkbox-outline" size={20} color="#9333EA" />
+                    </View>
+                    <Text style={[styles.metricValue, { color: "#9333EA" }]}>{taskStatsObj?.totalTasks || 0}</Text>
+                  </View>
+                  <Text style={styles.metricLabel}>Total Tasks</Text>
+                  <Text style={styles.metricSub}>{taskStatsObj?.pendingTasks || 0} active / pending</Text>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Task Overview Card */}

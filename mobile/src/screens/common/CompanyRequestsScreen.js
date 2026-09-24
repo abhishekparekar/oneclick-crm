@@ -19,9 +19,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import * as DocumentPicker from "expo-document-picker";
 import api from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 import { COLORS, FONTS } from "../../theme/tokens";
+import { openDocument, getFileIconMeta } from "../../utils/documentViewer";
+import { uploadInternalRequestAttachmentApi } from "../../api/internalRequestApi";
 
 const { width } = Dimensions.get("window");
 
@@ -92,7 +95,13 @@ export default function CompanyRequestsScreen({ navigation }) {
     targetType: "ALL_EMPLOYEES",
     targetDepartmentId: "",
     description: "",
+    attachments: [],
   });
+  const [uploadingCreateDoc, setUploadingCreateDoc] = useState(false);
+
+  // Reply Attachment State
+  const [replyAttachments, setReplyAttachments] = useState([]);
+  const [uploadingReplyDoc, setUploadingReplyDoc] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -124,6 +133,49 @@ export default function CompanyRequestsScreen({ navigation }) {
     fetchData();
   };
 
+  const handlePickCreateDoc = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const file = res.assets[0];
+
+      setUploadingCreateDoc(true);
+      const uploaded = await uploadInternalRequestAttachmentApi(file);
+      setForm((prev) => ({
+        ...prev,
+        attachments: [...(prev.attachments || []), uploaded],
+      }));
+    } catch (err) {
+      console.warn("Document pick/upload error:", err);
+      Alert.alert("Upload Error", err?.message || "Failed to upload selected document");
+    } finally {
+      setUploadingCreateDoc(false);
+    }
+  };
+
+  const handlePickReplyDoc = async () => {
+    try {
+      const res = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+      });
+      if (res.canceled || !res.assets || res.assets.length === 0) return;
+      const file = res.assets[0];
+
+      setUploadingReplyDoc(true);
+      const uploaded = await uploadInternalRequestAttachmentApi(file);
+      setReplyAttachments((prev) => [...prev, uploaded]);
+    } catch (err) {
+      console.warn("Reply document pick/upload error:", err);
+      Alert.alert("Upload Error", err?.message || "Failed to upload selected document");
+    } finally {
+      setUploadingReplyDoc(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!form.title.trim() || !form.description.trim()) {
       return Alert.alert("Required Fields", "Please enter request title and detailed instructions.");
@@ -140,6 +192,7 @@ export default function CompanyRequestsScreen({ navigation }) {
         targetType: "ALL_EMPLOYEES",
         targetDepartmentId: "",
         description: "",
+        attachments: [],
       });
       fetchData();
     } catch (err) {
@@ -150,13 +203,15 @@ export default function CompanyRequestsScreen({ navigation }) {
   };
 
   const handleSendReply = async () => {
-    if (!replyText.trim() || !selectedRequest) return;
+    if ((!replyText.trim() && replyAttachments.length === 0) || !selectedRequest) return;
     try {
       setSubmitting(true);
       const res = await api.post(`/internal-requests/${selectedRequest._id}/reply`, {
-        message: replyText.trim(),
+        message: replyText.trim() || "Shared document(s)",
+        attachments: replyAttachments,
       });
       setReplyText("");
+      setReplyAttachments([]);
       if (res.data?.data) {
         setSelectedRequest(res.data.data);
       }
@@ -281,6 +336,13 @@ export default function CompanyRequestsScreen({ navigation }) {
                 {responsesCount} {responsesCount === 1 ? "Reply" : "Replies"}
               </Text>
             </View>
+
+            {item.attachments && item.attachments.length > 0 && (
+              <View style={styles.attachmentCountPill}>
+                <Feather name="paperclip" size={11} color="#0284C7" />
+                <Text style={styles.attachmentCountText}>{item.attachments.length}</Text>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -342,7 +404,7 @@ export default function CompanyRequestsScreen({ navigation }) {
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={17} color="#94A3B8" style={{ marginLeft: 4 }} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: "#0F172A" }]}
             placeholder="Search requests by title or code..."
             placeholderTextColor="#94A3B8"
             value={search}
@@ -480,7 +542,7 @@ export default function CompanyRequestsScreen({ navigation }) {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
               <Text style={styles.fieldLabel}>Request Title *</Text>
               <TextInput
-                style={styles.fieldInput}
+                style={[styles.fieldInput, { color: "#0F172A" }]}
                 placeholder="e.g. Q3 Sales Data & Expense Receipts"
                 placeholderTextColor="#94A3B8"
                 value={form.title}
@@ -600,7 +662,7 @@ export default function CompanyRequestsScreen({ navigation }) {
 
               <Text style={styles.fieldLabel}>Instructions / Details *</Text>
               <TextInput
-                style={[styles.fieldInput, styles.fieldTextArea]}
+                style={[styles.fieldInput, styles.fieldTextArea, { color: "#0F172A" }]}
                 placeholder="Specify what details, attachments, or action is expected..."
                 placeholderTextColor="#94A3B8"
                 multiline
@@ -609,10 +671,56 @@ export default function CompanyRequestsScreen({ navigation }) {
                 onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
               />
 
+              <Text style={styles.fieldLabel}>Attach Documents / Files</Text>
+              <View style={{ marginBottom: 14 }}>
+                <TouchableOpacity
+                  style={styles.attachBtn}
+                  onPress={handlePickCreateDoc}
+                  disabled={uploadingCreateDoc}
+                  activeOpacity={0.7}
+                >
+                  {uploadingCreateDoc ? (
+                    <ActivityIndicator size="small" color={THEME.primary} />
+                  ) : (
+                    <Feather name="paperclip" size={16} color={THEME.primary} />
+                  )}
+                  <Text style={styles.attachBtnText}>
+                    {uploadingCreateDoc ? "Uploading Document..." : "Add Document (PDF, Word, Excel, etc.)"}
+                  </Text>
+                </TouchableOpacity>
+
+                {form.attachments && form.attachments.length > 0 && (
+                  <View style={{ marginTop: 8, gap: 6 }}>
+                    {form.attachments.map((att, idx) => {
+                      const iconMeta = getFileIconMeta(att.name, att.type);
+                      return (
+                        <View key={idx} style={styles.attachmentChip}>
+                          <MaterialCommunityIcons name={iconMeta.name} size={18} color={iconMeta.color} />
+                          <Text style={styles.attachmentChipText} numberOfLines={1}>
+                            {att.name} {att.size ? `(${att.size})` : ""}
+                          </Text>
+                          <TouchableOpacity
+                            onPress={() =>
+                              setForm((p) => ({
+                                ...p,
+                                attachments: p.attachments.filter((_, i) => i !== idx),
+                              }))
+                            }
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+              </View>
+
               <TouchableOpacity
                 style={styles.submitBtn}
                 onPress={handleCreate}
-                disabled={submitting}
+                disabled={submitting || uploadingCreateDoc}
                 activeOpacity={0.85}
               >
                 {submitting ? (
@@ -699,6 +807,39 @@ export default function CompanyRequestsScreen({ navigation }) {
                 {/* Main Overview */}
                 <View style={styles.overviewBox}>
                   <Text style={styles.overviewDesc}>{selectedRequest.description}</Text>
+
+                  {selectedRequest.attachments && selectedRequest.attachments.length > 0 && (
+                    <View style={{ marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#E2E8F0" }}>
+                      <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: THEME.textSecondary, marginBottom: 6 }}>
+                        Attached Documents ({selectedRequest.attachments.length}):
+                      </Text>
+                      <View style={{ gap: 6 }}>
+                        {selectedRequest.attachments.map((att, idx) => {
+                          const iconMeta = getFileIconMeta(att.name, att.type);
+                          return (
+                            <TouchableOpacity
+                              key={idx}
+                              style={styles.attachmentViewChip}
+                              onPress={() => openDocument(att.url, att.name, att.type)}
+                              activeOpacity={0.7}
+                            >
+                              <MaterialCommunityIcons name={iconMeta.name} size={20} color={iconMeta.color} />
+                              <View style={{ flex: 1, marginLeft: 8 }}>
+                                <Text style={styles.attachmentChipName} numberOfLines={1}>
+                                  {att.name}
+                                </Text>
+                                {att.size ? (
+                                  <Text style={styles.attachmentChipSize}>{att.size}</Text>
+                                ) : null}
+                              </View>
+                              <Feather name="external-link" size={14} color="#64748B" />
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
                   <View style={styles.overviewMetaRow}>
                     <Text style={styles.metaSub}>
                       Requested By:{" "}
@@ -781,25 +922,85 @@ export default function CompanyRequestsScreen({ navigation }) {
                         </Text>
                       </View>
                       <Text style={styles.bubbleText}>{resp.message}</Text>
+                      {resp.attachments && resp.attachments.length > 0 && (
+                        <View style={{ marginTop: 6, gap: 4 }}>
+                          {resp.attachments.map((att, attIdx) => {
+                            const iconMeta = getFileIconMeta(att.name, att.type);
+                            return (
+                              <TouchableOpacity
+                                key={attIdx}
+                                style={styles.bubbleAttachmentChip}
+                                onPress={() => openDocument(att.url, att.name, att.type)}
+                                activeOpacity={0.7}
+                              >
+                                <MaterialCommunityIcons name={iconMeta.name} size={16} color={iconMeta.color} />
+                                <Text style={styles.bubbleAttachmentName} numberOfLines={1}>
+                                  {att.name} {att.size ? `(${att.size})` : ""}
+                                </Text>
+                                <Feather name="external-link" size={12} color="#64748B" />
+                              </TouchableOpacity>
+                            );
+                          })}
+                        </View>
+                      )}
                     </View>
                   ))
                 )}
               </ScrollView>
 
+              {/* Reply Attached docs preview */}
+              {replyAttachments.length > 0 && (
+                <View style={{ paddingHorizontal: 4, paddingBottom: 6, flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                  {replyAttachments.map((att, idx) => {
+                    const iconMeta = getFileIconMeta(att.name, att.type);
+                    return (
+                      <View key={idx} style={styles.replyAttachmentChip}>
+                        <MaterialCommunityIcons name={iconMeta.name} size={14} color={iconMeta.color} />
+                        <Text style={styles.replyAttachmentText} numberOfLines={1}>
+                          {att.name}
+                        </Text>
+                        <TouchableOpacity
+                          onPress={() => setReplyAttachments((p) => p.filter((_, i) => i !== idx))}
+                          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        >
+                          <Ionicons name="close-circle" size={16} color="#94A3B8" />
+                        </TouchableOpacity>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
               {/* Reply Input Box */}
               <View style={styles.replyBox}>
+                <TouchableOpacity
+                  style={styles.replyAttachBtn}
+                  onPress={handlePickReplyDoc}
+                  disabled={uploadingReplyDoc}
+                  activeOpacity={0.7}
+                >
+                  {uploadingReplyDoc ? (
+                    <ActivityIndicator size="small" color={THEME.primary} />
+                  ) : (
+                    <Feather name="paperclip" size={18} color="#64748B" />
+                  )}
+                </TouchableOpacity>
+
                 <TextInput
-                  style={styles.replyInput}
-                  placeholder="Type feedback, response, or data note..."
+                  style={[styles.replyInput, { color: "#0F172A" }]}
+                  placeholder="Type feedback or attach document..."
                   placeholderTextColor="#94A3B8"
                   value={replyText}
                   onChangeText={setReplyText}
                   multiline
                 />
                 <TouchableOpacity
-                  style={[styles.replySendBtn, !replyText.trim() && { opacity: 0.5 }]}
+                  style={[
+                    styles.replySendBtn,
+                    (!replyText.trim() && replyAttachments.length === 0) && { opacity: 0.5 },
+                  ]}
                   onPress={handleSendReply}
-                  disabled={submitting || !replyText.trim()}
+                  disabled={submitting || (!replyText.trim() && replyAttachments.length === 0)}
                 >
                   {submitting ? (
                     <ActivityIndicator size="small" color="#FFF" />
@@ -1434,6 +1635,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 12.5,
     fontFamily: FONTS.body,
+    color: "#0F172A",
     maxHeight: 70,
   },
   replySendBtn: {
@@ -1441,6 +1643,125 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  attachmentCountPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0F9FF",
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#BAE6FD",
+    gap: 3,
+  },
+  attachmentCountText: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyBold,
+    color: "#0284C7",
+  },
+  attachBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderStyle: "dashed",
+    borderRadius: 8,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    gap: 6,
+  },
+  attachBtnText: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.primary,
+  },
+  attachmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: THEME.border,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 6,
+  },
+  attachmentChipText: {
+    flex: 1,
+    fontSize: 11.5,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.textPrimary,
+  },
+  attachmentViewChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  attachmentChipName: {
+    fontSize: 12,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  attachmentChipSize: {
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: THEME.textMuted,
+    marginTop: 1,
+  },
+  bubbleAttachmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    gap: 6,
+    marginTop: 2,
+  },
+  bubbleAttachmentName: {
+    flex: 1,
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: THEME.textPrimary,
+  },
+  replyAttachmentChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1,
+    borderColor: "#BFDBFE",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    gap: 4,
+  },
+  replyAttachmentText: {
+    maxWidth: 120,
+    fontSize: 10.5,
+    fontFamily: FONTS.bodyMedium,
+    color: THEME.primary,
+  },
+  replyAttachBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
     justifyContent: "center",
   },

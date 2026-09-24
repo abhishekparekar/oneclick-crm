@@ -38,6 +38,7 @@ import { useAuth } from "../../context/AuthContext";
 import { LinearGradient } from "expo-linear-gradient";
 import { formatDateToDDMMYYYY, formatDateTimeToDDMMYYYY } from "../../utils/dateFormatter";
 import { COLORS, SPACING, ROUNDING, SHADOWS, FONTS } from "../../theme/tokens";
+import { openDocument } from "../../utils/documentViewer";
 
 const STATUS_COLORS = {
   pending:          { bg: "#FEF9C3", text: "#A16207", border: "#FDE047", darkBg: "#B45309", label: "Pending" },
@@ -122,19 +123,10 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
     return `${protocol}://${host}${cleanPath}`;
   };
 
-  const handleOpenFile = async (rawUrl) => {
+  const handleOpenFile = async (rawUrl, fileName = "", fileType = "") => {
     const fullUrl = resolveFileUrl(rawUrl);
     if (!fullUrl) return;
-    try {
-      await WebBrowser.openBrowserAsync(fullUrl);
-    } catch (err) {
-      console.error("Browser open error, trying Linking:", err);
-      try {
-        await Linking.openURL(fullUrl);
-      } catch (linkErr) {
-        Alert.alert("Cannot Open File", "Could not open attachment link.");
-      }
-    }
+    openDocument(fullUrl, fileName, fileType);
   };
 
   const getFileBadge = (fileName = "", fileType = "") => {
@@ -883,7 +875,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                     <TouchableOpacity
                       key={att.id || idx}
                       style={styles.nativeAttCard}
-                      onPress={() => handleOpenFile(att.fileUrl)}
+                      onPress={() => handleOpenFile(att.fileUrl, att.fileName, att.fileType)}
                       activeOpacity={0.75}
                     >
                       {isImg && fullUrl ? (
@@ -951,7 +943,7 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
                           styles.nativeCommentAtt,
                           { backgroundColor: isCurrentUser ? "rgba(255, 255, 255, 0.18)" : "#E2E8F0" }
                         ]}
-                        onPress={() => handleOpenFile(att.fileUrl)}
+                        onPress={() => handleOpenFile(att.fileUrl, att.fileName, att.fileType)}
                       >
                         {att.fileType?.startsWith('image') ? (
                           <Image source={{ uri: resolveFileUrl(att.fileUrl) }} style={styles.nativeCommentImg} resizeMode="cover" />

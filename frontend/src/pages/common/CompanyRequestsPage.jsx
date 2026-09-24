@@ -9,7 +9,9 @@ import {
   replyToInternalRequestApi,
   updateInternalRequestStatusApi,
   deleteInternalRequestApi,
+  uploadInternalRequestFileApi,
 } from "../../api/internalRequestApi";
+import { openDocument, getFileMeta, resolveDocumentUrl } from "../../utils/documentViewer";
 import { getDepartmentsApi, getEmployeesApi } from "../../api/companyAdminApi";
 import {
   MessageSquare,
@@ -116,9 +118,11 @@ export default function CompanyRequestsPage({ role = "hr" }) {
   const [replyMessage, setReplyMessage] = useState("");
   const [replyAttachments, setReplyAttachments] = useState([]);
   const [isResolutionReply, setIsResolutionReply] = useState(false);
+  const [uploadingReplyFile, setUploadingReplyFile] = useState(false);
   const replyFileInputRef = useRef(null);
 
   // Create Form State
+  const [uploadingCreateFile, setUploadingCreateFile] = useState(false);
   const [form, setForm] = useState({
     title: "",
     category: "Data Request",
@@ -291,49 +295,80 @@ export default function CompanyRequestsPage({ role = "hr" }) {
   });
 
   // File Upload Handlers
-  const handleCreateFileUpload = (e) => {
+  const handleCreateFileUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setForm((prev) => ({
-          ...prev,
-          attachments: [
-            ...prev.attachments,
+    setUploadingCreateFile(true);
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await uploadInternalRequestFileApi(formData);
+        if (res.data?.file) {
+          setForm((prev) => ({
+            ...prev,
+            attachments: [...prev.attachments, res.data.file],
+          }));
+          toast.success(`${file.name} uploaded`);
+        }
+      } catch (err) {
+        console.warn("Upload endpoint failed, falling back to local data url:", err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          setForm((prev) => ({
+            ...prev,
+            attachments: [
+              ...prev.attachments,
+              {
+                name: file.name,
+                url: reader.result,
+                type: file.type || "document",
+                size: `${(file.size / 1024).toFixed(1)} KB`,
+              },
+            ],
+          }));
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    setUploadingCreateFile(false);
+    if (createFileInputRef.current) createFileInputRef.current.value = "";
+  };
+
+  const handleReplyFileUpload = async (e) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+
+    setUploadingReplyFile(true);
+    for (const file of files) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await uploadInternalRequestFileApi(formData);
+        if (res.data?.file) {
+          setReplyAttachments((prev) => [...prev, res.data.file]);
+          toast.success(`${file.name} uploaded`);
+        }
+      } catch (err) {
+        console.warn("Upload endpoint failed, falling back to local data url:", err);
+        const reader = new FileReader();
+        reader.onload = () => {
+          setReplyAttachments((prev) => [
+            ...prev,
             {
               name: file.name,
               url: reader.result,
               type: file.type || "document",
               size: `${(file.size / 1024).toFixed(1)} KB`,
             },
-          ],
-        }));
-      };
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const handleReplyFileUpload = (e) => {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        setReplyAttachments((prev) => [
-          ...prev,
-          {
-            name: file.name,
-            url: reader.result,
-            type: file.type || "document",
-            size: `${(file.size / 1024).toFixed(1)} KB`,
-          },
-        ]);
-      };
-      reader.readAsDataURL(file);
-    });
+          ]);
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+    setUploadingReplyFile(false);
+    if (replyFileInputRef.current) replyFileInputRef.current.value = "";
   };
 
   const handleCreateSubmit = (e) => {
@@ -987,11 +1022,21 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
+                      disabled={uploadingCreateFile}
                       onClick={() => createFileInputRef.current?.click()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#080D14] hover:bg-slate-100 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer transition-all shadow-2xs"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white dark:bg-[#080D14] hover:bg-slate-100 text-amber-600 dark:text-amber-400 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer transition-all shadow-2xs disabled:opacity-50"
                     >
-                      <UploadCloud size={13} />
-                      <span>Attach Documents / Files</span>
+                      {uploadingCreateFile ? (
+                        <>
+                          <RefreshCw size={13} className="animate-spin text-amber-500" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <UploadCloud size={13} />
+                          <span>Attach Documents / Files</span>
+                        </>
+                      )}
                     </button>
 
                     {form.attachments.map((att, i) => (
@@ -1083,20 +1128,23 @@ export default function CompanyRequestsPage({ role = "hr" }) {
 
                 {activeRequest.attachments?.length > 0 && (
                   <div className="pt-2 border-t border-slate-200 dark:border-slate-800 flex flex-wrap gap-1.5">
-                    {activeRequest.attachments.map((att, i) => (
-                      <a
-                        key={i}
-                        href={att.url}
-                        download={att.name}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1 px-2 py-1 rounded bg-white dark:bg-slate-800 text-amber-700 dark:text-amber-400 text-[10.5px] font-bold border border-slate-200 dark:border-slate-700"
-                      >
-                        <Paperclip size={10} />
-                        <span className="truncate max-w-[120px]">{att.name}</span>
-                        <Download size={10} className="text-slate-400" />
-                      </a>
-                    ))}
+                    {activeRequest.attachments.map((att, i) => {
+                      const meta = getFileMeta(att.name, att.type);
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => openDocument(att.url, att.name, att.type)}
+                          title={`Click to open ${att.name}`}
+                          className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-[11px] font-bold border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs transition-all"
+                        >
+                          <Paperclip size={11} className={meta.color} />
+                          <span className="truncate max-w-[140px]">{att.name}</span>
+                          {att.size && <span className="text-[9.5px] text-slate-400 font-mono">({att.size})</span>}
+                          <Eye size={11} className="text-slate-400 ml-0.5" />
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1132,19 +1180,23 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                         </p>
                         {resp.attachments?.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {resp.attachments.map((att, i) => (
-                              <a
-                                key={i}
-                                href={att.url}
-                                download={att.name}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-slate-800 text-[10px] font-bold text-cyan-600 border border-slate-200 dark:border-slate-700"
-                              >
-                                <Paperclip size={9} />
-                                <span>{att.name}</span>
-                              </a>
-                            ))}
+                            {resp.attachments.map((att, i) => {
+                              const meta = getFileMeta(att.name, att.type);
+                              return (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  onClick={() => openDocument(att.url, att.name, att.type)}
+                                  title={`Click to open ${att.name}`}
+                                  className="flex items-center gap-1 px-2 py-0.5 rounded bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[10px] font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 cursor-pointer shadow-2xs"
+                                >
+                                  <Paperclip size={10} className={meta.color} />
+                                  <span className="truncate max-w-[120px]">{att.name}</span>
+                                  {att.size && <span className="text-[9px] text-slate-400 font-mono">({att.size})</span>}
+                                  <Eye size={9} className="text-slate-400 ml-0.5" />
+                                </button>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1172,7 +1224,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                         <Paperclip size={10} />
                         <span className="truncate max-w-[120px]">{att.name}</span>
                         <button type="button" onClick={() => setReplyAttachments(p => p.filter((_, idx) => idx !== i))}>
-                          <X size={11} className="text-slate-400 hover:text-rose-500" />
+                          <X size={11} className="text-slate-400 hover:text-rose-500 cursor-pointer ml-1" />
                         </button>
                       </div>
                     ))}
@@ -1184,11 +1236,21 @@ export default function CompanyRequestsPage({ role = "hr" }) {
                     <input type="file" ref={replyFileInputRef} onChange={handleReplyFileUpload} multiple className="hidden" />
                     <button
                       type="button"
+                      disabled={uploadingReplyFile}
                       onClick={() => replyFileInputRef.current?.click()}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer"
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 text-xs font-bold cursor-pointer disabled:opacity-50"
                     >
-                      <Paperclip size={12} className="text-amber-500" />
-                      <span>Attach</span>
+                      {uploadingReplyFile ? (
+                        <>
+                          <RefreshCw size={12} className="text-amber-500 animate-spin" />
+                          <span>Uploading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Paperclip size={12} className="text-amber-500" />
+                          <span>Attach</span>
+                        </>
+                      )}
                     </button>
                     <label className="flex items-center gap-1 text-[10.5px] text-slate-500 cursor-pointer">
                       <input

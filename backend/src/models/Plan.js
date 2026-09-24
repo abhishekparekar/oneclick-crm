@@ -13,7 +13,8 @@ const MODULES = [
   "mobileApp",
   "webAdmin",
   "leads",
-  "location_tracking"
+  "location_tracking",
+  "map_leads"
 ];
 
 const planSchema = new mongoose.Schema(

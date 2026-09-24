@@ -23,9 +23,9 @@ import leadsService from "../../api/leadsService";
 import AppDatePicker from "../../components/AppDatePicker";
 import AppTimePicker from "../../components/AppTimePicker";
 import { formatDateToDDMMYYYY, combineDateAndTimeToISO } from "../../utils/dateFormatter";
-import * as DocumentPicker from "expo-document-picker";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { storage } from "../../config/firebase";
+import { SUPPORTED_DOCUMENT_MIMES } from "../../utils/documentViewer";
 
 const THEME = {
   primary: "#1268D9",
@@ -48,10 +48,23 @@ const THEME = {
 const AVATAR_COLORS = ["#1E293B", "#3B82F6", "#10B981", "#8B5CF6", "#1268D9", "#06B6D4"];
 
 export default function LeadsListScreen({ navigation, route }) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const userRole = (user?.role || "").toLowerCase();
   const isManager = userRole === "manager";
   const isEmployee = userRole === "employee" || userRole === "team member";
+
+  const isSuperAdmin = Boolean(
+    user?.role === "SuperAdmin" ||
+    user?.role === "SubSuperAdmin" ||
+    user?.role === "superadmin" ||
+    user?.role === "subsuperadmin"
+  );
+  const canAccessMapLeads = isSuperAdmin || Boolean(
+    hasPermission?.("map_leads") ||
+    hasPermission?.("map_lead") ||
+    user?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim())) ||
+    user?.company?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim()))
+  );
   const [leads, setLeads] = useState([]);
   const [statuses, setStatuses] = useState([]);
   const [sources, setSources] = useState([]);
@@ -368,7 +381,7 @@ export default function LeadsListScreen({ navigation, route }) {
   const handlePickLeadDoc = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ["application/pdf", "image/*", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "*/*"],
+        type: SUPPORTED_DOCUMENT_MIMES,
         copyToCacheDirectory: true,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -639,13 +652,15 @@ export default function LeadsListScreen({ navigation, route }) {
             />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.newLeadPillBtn, { backgroundColor: "#0284C7", marginRight: 4 }]}
-            onPress={() => navigation.navigate("MapLeadFinder")}
-          >
-            <Ionicons name="map-outline" size={15} color="#FFF" />
-            <Text style={styles.newLeadPillText}>Map Leads</Text>
-          </TouchableOpacity>
+          {canAccessMapLeads && (
+            <TouchableOpacity
+              style={[styles.newLeadPillBtn, { backgroundColor: "#0284C7", marginRight: 4 }]}
+              onPress={() => navigation.navigate("MapLeadFinder")}
+            >
+              <Ionicons name="map-outline" size={15} color="#FFF" />
+              <Text style={styles.newLeadPillText}>Map Leads</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity
             style={styles.newLeadPillBtn}

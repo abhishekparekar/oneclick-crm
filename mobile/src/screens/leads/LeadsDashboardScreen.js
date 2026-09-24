@@ -42,10 +42,23 @@ const THEME = {
 const AVATAR_COLORS = ["#1E293B", "#3B82F6", "#10B981", "#8B5CF6", "#1268D9", "#06B6D4"];
 
 export default function LeadsDashboardScreen({ navigation }) {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
   const userRole = (user?.role || "").toLowerCase();
   const isManager = userRole === "manager";
   const isEmployee = userRole === "employee" || userRole === "team member";
+
+  const isSuperAdmin = Boolean(
+    user?.role === "SuperAdmin" ||
+    user?.role === "SubSuperAdmin" ||
+    user?.role === "superadmin" ||
+    user?.role === "subsuperadmin"
+  );
+  const canAccessMapLeads = isSuperAdmin || Boolean(
+    hasPermission?.("map_leads") ||
+    hasPermission?.("map_lead") ||
+    user?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim())) ||
+    user?.company?.subscribedModules?.some?.((m) => ["map_leads", "map_lead", "mapleads"].includes(String(m).toLowerCase().trim()))
+  );
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [summary, setSummary] = useState({
@@ -235,45 +248,47 @@ export default function LeadsDashboardScreen({ navigation }) {
             </LinearGradient>
 
             {/* ── Map Place Leads Discovery Banner ── */}
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#0284C7",
-                borderRadius: 16,
-                padding: 12,
-                marginTop: 10,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-                ...SHADOWS.sm,
-              }}
-              activeOpacity={0.85}
-              onPress={() => navigation.navigate("MapLeadFinder")}
-            >
-              <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
-                <View
-                  style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: 10,
-                    backgroundColor: "rgba(255,255,255,0.2)",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    marginRight: 10,
-                  }}
-                >
-                  <Ionicons name="map" size={20} color="#FFFFFF" />
+            {canAccessMapLeads && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: "#0284C7",
+                  borderRadius: 16,
+                  padding: 12,
+                  marginTop: 10,
+                  flexDirection: "row",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  ...SHADOWS.sm,
+                }}
+                activeOpacity={0.85}
+                onPress={() => navigation.navigate("MapLeadFinder")}
+              >
+                <View style={{ flexDirection: "row", alignItems: "center", flex: 1 }}>
+                  <View
+                    style={{
+                      width: 38,
+                      height: 38,
+                      borderRadius: 10,
+                      backgroundColor: "rgba(255,255,255,0.2)",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginRight: 10,
+                    }}
+                  >
+                    <Ionicons name="map" size={20} color="#FFFFFF" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13, fontWeight: "900", color: "#FFFFFF" }}>
+                      📍 Map Scraping Leads
+                    </Text>
+                    <Text style={{ fontSize: 10.5, color: "#E0F2FE", fontWeight: "600" }}>
+                      Scrape & discover local businesses from live maps into CRM
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "900", color: "#FFFFFF" }}>
-                    📍 Map Scraping Leads
-                  </Text>
-                  <Text style={{ fontSize: 10.5, color: "#E0F2FE", fontWeight: "600" }}>
-                    Scrape & discover local businesses from live maps into CRM
-                  </Text>
-                </View>
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
-            </TouchableOpacity>
+                <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+              </TouchableOpacity>
+            )}
 
             {/* ── 2. Compact Navigation Tiles ── */}
             <View style={styles.tilesRow}>

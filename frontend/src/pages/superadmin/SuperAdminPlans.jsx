@@ -13,7 +13,7 @@ import {
 
 const MODULES = [
   "attendance", "leave", "payroll", "tasks", "projects", 
-  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking"
+  "recruitment", "performance", "reports", "whatsapp", "mobileApp", "webAdmin", "leads", "location_tracking", "map_leads"
 ];
 
 

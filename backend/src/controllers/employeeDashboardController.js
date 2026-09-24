@@ -77,11 +77,13 @@ const getEmployeeDashboardSummary = async (req, res, next) => {
       }
     }
 
+    const assigneeMatchIds = [employeeId, req.user._id, employee.userId].filter(Boolean);
+
     const taskQueryBase = {
       companyId,
-      isLive: true, // Dashboard shows only live tasks, not templates
+      isLive: { $ne: false },
       $or: [
-        { assignedTo: employeeId },
+        { assignedTo: { $in: assigneeMatchIds } },
         allowedDeptIds.length > 0 ? { departmentId: { $in: allowedDeptIds }, assignmentType: { $in: ["department", "company", "company_wide"] } } : null,
         { assignmentType: { $in: ["company", "company_wide"] } }
       ].filter(Boolean)
@@ -93,7 +95,7 @@ const getEmployeeDashboardSummary = async (req, res, next) => {
 
     // Fast counts for Tasks
     const totalRegularTasks = await Task.countDocuments(taskQueryBase);
-    const templateQuery = { companyId, assignedTo: employeeId };
+    const templateQuery = { companyId, assignedTo: { $in: assigneeMatchIds } };
     if (departmentId) {
       templateQuery.departmentId = departmentId;
     }
@@ -302,6 +304,7 @@ const getEmployeeDashboardSummary = async (req, res, next) => {
     }
 
     const taskSummary = {
+      totalTasks,
       assignedTasks: totalTasks,
       pending: pendingTasksCount,
       inProgress: inProgressTasksCount,

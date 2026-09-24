@@ -8,8 +8,9 @@ import {
   DollarSign, Tag, CheckCircle2, AlertCircle, Clock, Send,
   Paperclip, ExternalLink, X, Plus, Sparkles, User, ShieldCheck,
   CheckCircle, ChevronRight, Layers, FileText, Smartphone, Mail,
-  CheckCheck, Users, Briefcase, Trash2, RefreshCw, XCircle
+  CheckCheck, Users, Briefcase, Trash2, RefreshCw, XCircle, Download
 } from "lucide-react";
+import { resolveDocumentUrl, getFileMeta, openDocument } from "../../utils/documentViewer";
 
 const formatLeadId = (lead) => {
   if (!lead) return "LD-01";
@@ -636,29 +637,49 @@ export default function HRLeadDetails() {
               </div>
             ) : (
               <div className="space-y-2">
-                {allDocumentsList.map((doc, idx) => (
-                  <div
-                    key={doc._id || idx}
-                    className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText size={14} className="text-amber-500 shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-bold text-slate-900 dark:text-white truncate text-[11.5px]">{doc.name || "Document"}</p>
-                        {doc.size && <p className="text-[10px] text-slate-400 font-mono">{doc.size}</p>}
+                {allDocumentsList.map((doc, idx) => {
+                  const meta = getFileMeta(doc.name, doc.type);
+                  const resolvedUrl = resolveDocumentUrl(doc.url);
+                  return (
+                    <div
+                      key={doc._id || idx}
+                      className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800 flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div
+                          className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border font-extrabold text-[8.5px] uppercase ${meta.bg} ${meta.border} ${meta.color}`}
+                        >
+                          {meta.label}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 dark:text-white truncate text-[11.5px]">{doc.name || "Document"}</p>
+                          {doc.size && <p className="text-[10px] text-slate-400 font-mono">{doc.size}</p>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => openDocument(doc.url, doc.name, doc.type)}
+                          className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                          title="Open / View document"
+                        >
+                          <ExternalLink size={12} />
+                        </button>
+                        {resolvedUrl && (
+                          <a
+                            href={resolvedUrl}
+                            download={doc.name || "document"}
+                            className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors cursor-pointer"
+                            title="Download document"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Download size={12} />
+                          </a>
+                        )}
                       </div>
                     </div>
-                    <a
-                      href={doc.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="p-1 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-amber-600 shadow-2xs border border-slate-200 dark:border-slate-700 transition-colors"
-                      title="Open document"
-                    >
-                      <ExternalLink size={12} />
-                    </a>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -883,20 +904,37 @@ export default function HRLeadDetails() {
                           {log.remark}
                         </p>
                       )}
-                      {log.attachment?.url && (
-                        <div className="mt-1.5">
-                          <a
-                            href={log.attachment.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 rounded-lg text-[11px] font-bold hover:underline"
-                          >
-                            <Paperclip size={12} />
-                            <span>{log.attachment.name || "View Attachment"}</span>
-                            <ExternalLink size={10} className="ml-0.5" />
-                          </a>
-                        </div>
-                      )}
+                      {log.attachment?.url && (() => {
+                        const meta = getFileMeta(log.attachment.name, log.attachment.type);
+                        const fullUrl = resolveDocumentUrl(log.attachment.url);
+                        return (
+                          <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => openDocument(log.attachment.url, log.attachment.name, log.attachment.type)}
+                              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-bold shadow-2xs transition-all cursor-pointer ${meta.bg} ${meta.border} ${meta.color} hover:opacity-90`}
+                              title="Open / View document"
+                            >
+                              <span className="px-1 py-0.2 rounded text-[8.5px] font-extrabold uppercase bg-white/70 dark:bg-black/40">
+                                {meta.label}
+                              </span>
+                              <span className="truncate max-w-[200px]">{log.attachment.name || "Attachment"}</span>
+                              <ExternalLink size={10} className="shrink-0 opacity-70 ml-0.5" />
+                            </button>
+                            {fullUrl && (
+                              <a
+                                href={fullUrl}
+                                download={log.attachment.name || "attachment"}
+                                className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-500 hover:text-amber-500 transition-colors cursor-pointer"
+                                title="Download file"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <Download size={11} />
+                              </a>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
