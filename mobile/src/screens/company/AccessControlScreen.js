@@ -57,6 +57,18 @@ const AccessControlScreen = ({ navigation }) => {
     const displayRole = mgr.role || mgr.userId?.role || "Employee";
     const hasCustomized = mgr.permissions && Object.keys(mgr.permissions).length > 0;
 
+    const rawAssigned = mgr.assignedModules || mgr.userId?.assignedModules || [];
+    const assignedMods = Array.isArray(rawAssigned)
+      ? rawAssigned.map((m) => String(m).toLowerCase().trim())
+      : [];
+    const hasTasksMod = assignedMods.length === 0 || assignedMods.includes("tasks") || assignedMods.includes("task");
+    const isOldEmpTasks = (
+      displayRole === "Employee" &&
+      perm.tasks &&
+      perm.tasks.create === false &&
+      perm.tasks.edit === false
+    );
+
     let defaultTasks = { create: false, edit: false, shift: false, cancel: false, reopen: false };
     let defaultLeaves = { approveReject: false };
     let defaultTeamMembers = { add: false, edit: false, activeInactive: false };
@@ -73,11 +85,13 @@ const AccessControlScreen = ({ navigation }) => {
         defaultLeaves = { approveReject: true };
         defaultTeamMembers = { add: false, edit: false, activeInactive: false };
         defaultAnnouncementsHolidays = false;
+      } else {
+        defaultTasks = { create: hasTasksMod, edit: hasTasksMod, shift: false, cancel: false, reopen: false };
       }
     } else {
       defaultTasks = {
-        create: perm.tasks?.create || false,
-        edit: perm.tasks?.edit || false,
+        create: (displayRole === "Employee" && (isOldEmpTasks || perm.tasks?.create === undefined)) ? hasTasksMod : Boolean(perm.tasks?.create),
+        edit: (displayRole === "Employee" && (isOldEmpTasks || perm.tasks?.edit === undefined)) ? hasTasksMod : Boolean(perm.tasks?.edit),
         shift: perm.tasks?.shift || false,
         cancel: perm.tasks?.cancel || false,
         reopen: perm.tasks?.reopen || false,

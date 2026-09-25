@@ -2285,7 +2285,7 @@ const generatePayroll = async (req, res, next) => {
         for (const emp of employees) {
             try {
                 let ss = emp.salaryDetails;
-                if (!ss || Object.keys(ss).length === 0 || (!ss.basic && !ss.basicSalary)) {
+                if (!ss || Object.keys(ss).length === 0 || (!ss.basic && !ss.basicSalary && !ss.grossSalary && !ss.ctc)) {
                     ss = salaryByEmp[emp._id.toString()] || {
                         basicSalary: 20000,
                         hra: 8000,
@@ -2294,10 +2294,18 @@ const generatePayroll = async (req, res, next) => {
                     };
                 }
 
-                const ssBasic = ss.basic || ss.basicSalary || 20000;
-                const ssHra = ss.hra || 8000;
-                const ssAllowances = ss.allowances || 4000;
-                const ssDeductions = ss.deductions || 1500;
+                const ssBasic = Number(ss.basic) > 0 ? Number(ss.basic) : (Number(ss.basicSalary) > 0 ? Math.round(Number(ss.basicSalary) / 12) : 20000);
+                const ssHra = Number(ss.hra) || 0;
+                const calcAllowances = (Number(ss.conveyance || ss.conveyanceAllowance) || 0) +
+                                       (Number(ss.medicalAllowance) || 0) +
+                                       (Number(ss.specialAllowance) || 0) +
+                                       (Number(ss.otherAllowance) || 0);
+                const ssAllowances = ss.allowances !== undefined ? Number(ss.allowances) : calcAllowances;
+                const calcDeductions = (Number(ss.pfEmployee !== undefined ? ss.pfEmployee : ss.pf) || 0) +
+                                       (Number(ss.professionalTax) || 0) +
+                                       (Number(ss.esiEmployee !== undefined ? ss.esiEmployee : ss.esi) || 0) +
+                                       (Number(ss.tds) || 0);
+                const ssDeductions = ss.totalDeductions !== undefined ? Number(ss.totalDeductions) : (ss.deductions !== undefined ? Number(ss.deductions) : calcDeductions);
 
                 // 1. Use pre-fetched attendance records
                 const attendanceRecords = attendanceByEmp[emp._id.toString()] || [];

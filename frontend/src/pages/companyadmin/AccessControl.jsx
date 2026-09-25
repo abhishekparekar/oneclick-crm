@@ -347,6 +347,27 @@ const AccessControl = () => {
     const displayRole = manager.role || manager.userId?.role || "Employee";
     const hasCustomized = manager.permissions && Object.keys(manager.permissions).length > 0;
 
+    const rawAssigned = manager.assignedModules || manager.userId?.assignedModules || [];
+    const assignedMods = Array.isArray(rawAssigned)
+      ? rawAssigned.map((m) => String(m).toLowerCase().trim())
+      : [];
+    const hasTasksMod = assignedMods.length === 0 || assignedMods.includes("tasks") || assignedMods.includes("task");
+    const hasLeadsMod = assignedMods.includes("leads") || assignedMods.includes("lead");
+
+    const isOldEmpDefaultTasks = (
+      displayRole === "Employee" &&
+      perm.tasks &&
+      perm.tasks.create === false &&
+      perm.tasks.edit === false &&
+      !perm.tasks.assign &&
+      !perm.tasks.projects
+    );
+
+    const isOldEmpDefaultLeads = (
+      displayRole === "Employee" &&
+      (!perm.leads || (perm.leads.create === false && perm.leads.edit === false && !perm.leads.delete && !perm.leads.assignLeads))
+    );
+
     let initTasks = { create: false, edit: false, shift: false, cancel: false, reopen: false, assign: false, projects: false };
     let initLeaves = { approveReject: false, viewAllLeaves: false };
     let initAttendance = { markAttendance: false, shiftsRosters: false };
@@ -384,11 +405,25 @@ const AccessControl = () => {
         initPayroll = { view: false, generate: false, settings: false };
         initPerformance = { view: true, evaluate: true };
         initCompany = { announcementsHolidays: false, departmentsBranches: false, reports: true };
+      } else {
+        // Employee default
+        initTasks = { create: hasTasksMod, edit: hasTasksMod, shift: false, cancel: false, reopen: false, assign: false, projects: false };
+        initLeaves = { approveReject: false, viewAllLeaves: false };
+        initAttendance = { markAttendance: false, shiftsRosters: false };
+        initTeamMembers = { add: false, edit: false, activeInactive: false, uploadDocs: false, salaryStructure: false };
+        initLeads = { view: hasLeadsMod, create: hasLeadsMod, edit: hasLeadsMod, delete: false, assignLeads: false, campaigns: false };
+        initPayroll = { view: false, generate: false, settings: false };
+        initPerformance = { view: false, evaluate: false };
+        initCompany = { announcementsHolidays: false, departmentsBranches: false, reports: false };
       }
     } else {
       initTasks = {
-        create: perm.tasks?.create || false,
-        edit: perm.tasks?.edit || false,
+        create: (displayRole === "Employee" && (isOldEmpDefaultTasks || perm.tasks?.create === undefined))
+          ? hasTasksMod
+          : Boolean(perm.tasks?.create),
+        edit: (displayRole === "Employee" && (isOldEmpDefaultTasks || perm.tasks?.edit === undefined))
+          ? hasTasksMod
+          : Boolean(perm.tasks?.edit),
         shift: perm.tasks?.shift || false,
         cancel: perm.tasks?.cancel || false,
         reopen: perm.tasks?.reopen || false,
@@ -411,9 +446,15 @@ const AccessControl = () => {
         salaryStructure: perm.teamMembers?.salaryStructure || false,
       };
       initLeads = {
-        view: perm.leads?.view || perm.leads === true || false,
-        create: perm.leads?.create || false,
-        edit: perm.leads?.edit || false,
+        view: (displayRole === "Employee" && (isOldEmpDefaultLeads || perm.leads?.view === undefined))
+          ? hasLeadsMod
+          : Boolean(perm.leads?.view || perm.leads === true),
+        create: (displayRole === "Employee" && (isOldEmpDefaultLeads || perm.leads?.create === undefined))
+          ? hasLeadsMod
+          : Boolean(perm.leads?.create),
+        edit: (displayRole === "Employee" && (isOldEmpDefaultLeads || perm.leads?.edit === undefined))
+          ? hasLeadsMod
+          : Boolean(perm.leads?.edit),
         delete: perm.leads?.delete || false,
         assignLeads: perm.leads?.assignLeads || false,
         campaigns: perm.leads?.campaigns || false,
@@ -539,12 +580,17 @@ const AccessControl = () => {
       });
       toast.success("Applied Sales & CRM Lead preset");
     } else if (presetType === "none") {
+      const rawAssigned = selectedManager?.assignedModules || selectedManager?.userId?.assignedModules || [];
+      const assignedMods = Array.isArray(rawAssigned) ? rawAssigned.map((m) => String(m).toLowerCase().trim()) : [];
+      const hasTasksMod = assignedMods.length === 0 || assignedMods.includes("tasks") || assignedMods.includes("task");
+      const hasLeadsMod = assignedMods.includes("leads") || assignedMods.includes("lead");
+
       setTempPermissions({
-        tasks: { create: false, edit: false, shift: false, cancel: false, reopen: false, assign: false, projects: false },
+        tasks: { create: hasTasksMod, edit: hasTasksMod, shift: false, cancel: false, reopen: false, assign: false, projects: false },
         leaves: { approveReject: false, viewAllLeaves: false },
         attendance: { markAttendance: false, shiftsRosters: false },
         teamMembers: { add: false, edit: false, activeInactive: false, uploadDocs: false, salaryStructure: false },
-        leads: { view: false, create: false, edit: false, delete: false, assignLeads: false, campaigns: false },
+        leads: { view: hasLeadsMod, create: hasLeadsMod, edit: hasLeadsMod, delete: false, assignLeads: false, campaigns: false },
         payroll: { view: false, generate: false, settings: false },
         performance: { view: false, evaluate: false },
         company: { announcementsHolidays: false, departmentsBranches: false, reports: false },

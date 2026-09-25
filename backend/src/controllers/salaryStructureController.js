@@ -83,18 +83,43 @@ const getSalaryStructureByEmployee = async (req, res, next) => {
     // If no explicit SalaryStructure model exists, try to fallback to old `salaryDetails`
     if (!ss) {
       const emp = await Employee.findOne({ _id: req.params.employeeId, companyId: req.companyId });
-      if (emp && emp.salaryDetails && emp.salaryDetails.basic) {
-         return res.json({
-           success: true,
-           data: {
-             monthlyCTC: emp.salaryDetails.ctc || 0,
-             basicSalary: emp.salaryDetails.basic || 0,
-             hra: emp.salaryDetails.hra || 0,
-             allowances: emp.salaryDetails.allowances || 0,
-             deductions: emp.salaryDetails.deductions || 0,
-             isLegacy: true,
-           }
-         });
+      if (emp && emp.salaryDetails && (emp.salaryDetails.basic || emp.salaryDetails.basicSalary || emp.salaryDetails.ctc || emp.salaryDetails.grossSalary)) {
+        const sd = emp.salaryDetails;
+        const basicSalary = Number(sd.basic) > 0 ? Number(sd.basic) : (Number(sd.basicSalary) > 0 ? Math.round(Number(sd.basicSalary) / 12) : 0);
+        const hra = Number(sd.hra) || 0;
+        const conveyanceAllowance = Number(sd.conveyance || sd.conveyanceAllowance) || 0;
+        const medicalAllowance = Number(sd.medicalAllowance) || 0;
+        const specialAllowance = Number(sd.specialAllowance) || 0;
+        const otherAllowance = Number(sd.otherAllowance) || 0;
+        const grossSalary = Number(sd.grossSalary) > 0 ? Number(sd.grossSalary) : (basicSalary + hra + conveyanceAllowance + medicalAllowance + specialAllowance + otherAllowance);
+        const monthlyCTC = Number(sd.monthlyCtc) > 0 ? Number(sd.monthlyCtc) : (Number(sd.ctc) > 0 ? Math.round(Number(sd.ctc) / 12) : grossSalary);
+        const pf = Number(sd.pfEmployee !== undefined ? sd.pfEmployee : sd.pf) || 0;
+        const esi = Number(sd.esiEmployee !== undefined ? sd.esiEmployee : sd.esi) || 0;
+        const professionalTax = Number(sd.professionalTax) || 0;
+        const tds = Number(sd.tds) || 0;
+        const totalDeductions = Number(sd.totalDeductions) || (pf + esi + professionalTax + tds);
+        const netSalary = Number(sd.netSalary) || Math.max(0, grossSalary - totalDeductions);
+
+        return res.json({
+          success: true,
+          data: {
+            monthlyCTC,
+            basicSalary,
+            hra,
+            conveyanceAllowance,
+            medicalAllowance,
+            specialAllowance,
+            otherAllowance,
+            grossSalary,
+            pf,
+            esi,
+            professionalTax,
+            tds,
+            totalDeductions,
+            netSalary,
+            isLegacy: true,
+          }
+        });
       }
     }
     
@@ -141,16 +166,40 @@ const getMySalaryStructure = async (req, res, next) => {
 
     if (!ss) {
       const emp = await Employee.findOne({ _id: employeeId, companyId: req.companyId });
-      if (emp && emp.salaryDetails && emp.salaryDetails.basic) {
+      if (emp && emp.salaryDetails && (emp.salaryDetails.basic || emp.salaryDetails.basicSalary || emp.salaryDetails.ctc || emp.salaryDetails.grossSalary)) {
+        const sd = emp.salaryDetails;
+        const basicSalary = Number(sd.basic) > 0 ? Number(sd.basic) : (Number(sd.basicSalary) > 0 ? Math.round(Number(sd.basicSalary) / 12) : 0);
+        const hra = Number(sd.hra) || 0;
+        const conveyanceAllowance = Number(sd.conveyance || sd.conveyanceAllowance) || 0;
+        const medicalAllowance = Number(sd.medicalAllowance) || 0;
+        const specialAllowance = Number(sd.specialAllowance) || 0;
+        const otherAllowance = Number(sd.otherAllowance) || 0;
+        const grossSalary = Number(sd.grossSalary) > 0 ? Number(sd.grossSalary) : (basicSalary + hra + conveyanceAllowance + medicalAllowance + specialAllowance + otherAllowance);
+        const monthlyCTC = Number(sd.monthlyCtc) > 0 ? Number(sd.monthlyCtc) : (Number(sd.ctc) > 0 ? Math.round(Number(sd.ctc) / 12) : grossSalary);
+        const pf = Number(sd.pfEmployee !== undefined ? sd.pfEmployee : sd.pf) || 0;
+        const esi = Number(sd.esiEmployee !== undefined ? sd.esiEmployee : sd.esi) || 0;
+        const professionalTax = Number(sd.professionalTax) || 0;
+        const tds = Number(sd.tds) || 0;
+        const totalDeductions = Number(sd.totalDeductions) || (pf + esi + professionalTax + tds);
+        const netSalary = Number(sd.netSalary) || Math.max(0, grossSalary - totalDeductions);
+
         return res.json({
           success: true,
           data: {
-            monthlyCTC: emp.salaryDetails.ctc || 0,
-            basicSalary: emp.salaryDetails.basic || 0,
-            hra: emp.salaryDetails.hra || 0,
-            allowances: emp.salaryDetails.allowances || 0,
-            deductions: emp.salaryDetails.deductions || 0,
-            grossSalary: (emp.salaryDetails.basic || 0) + (emp.salaryDetails.hra || 0) + (emp.salaryDetails.allowances || 0),
+            monthlyCTC,
+            basicSalary,
+            hra,
+            conveyanceAllowance,
+            medicalAllowance,
+            specialAllowance,
+            otherAllowance,
+            grossSalary,
+            pf,
+            esi,
+            professionalTax,
+            tds,
+            totalDeductions,
+            netSalary,
             isLegacy: true,
           },
         });

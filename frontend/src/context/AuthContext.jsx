@@ -252,7 +252,11 @@ export const AuthProvider = ({ children }) => {
           }
         }
         if (catPerm[action] !== undefined) {
-          return catPerm[action] === true;
+          // If legacy default permissions where tasks.create/edit were false for employees, allow fallback to grant default access
+          const isOldTasks = normMod === "tasks" && (action === "create" || action === "edit") && !catPerm.assign && !catPerm.projects && (roleLower === "employee" || roleLower === "team member");
+          if (!isOldTasks) {
+            return catPerm[action] === true;
+          }
         }
       }
     }
@@ -273,6 +277,18 @@ export const AuthProvider = ({ children }) => {
     }
     if (roleLower === "employee" || roleLower === "team member") {
       if (normMod === "attendance" && action === "markAttendance") return true;
+      if (normMod === "tasks" && (action === "create" || action === "edit" || action === "add")) {
+        const rawAssigned = user?.assignedModules || user?.employee?.assignedModules || [];
+        const mods = Array.isArray(rawAssigned) ? rawAssigned.map((m) => String(m).toLowerCase().trim()) : [];
+        const hasTaskMod = mods.length === 0 || mods.includes("tasks") || mods.includes("task");
+        return hasTaskMod && catPerm?.[action] !== false;
+      }
+      if (normMod === "leads" && (action === "create" || action === "edit" || action === "add")) {
+        const rawAssigned = user?.assignedModules || user?.employee?.assignedModules || [];
+        const mods = Array.isArray(rawAssigned) ? rawAssigned.map((m) => String(m).toLowerCase().trim()) : [];
+        const hasLeadMod = mods.includes("leads") || mods.includes("lead");
+        return hasLeadMod && catPerm?.[action] !== false;
+      }
       return false;
     }
     return false;

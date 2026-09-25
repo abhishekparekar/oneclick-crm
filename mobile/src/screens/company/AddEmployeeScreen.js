@@ -201,19 +201,34 @@ const AddEmployeeScreen = ({ navigation }) => {
     },
 
     salaryDetails: {
-      ctc: 360000,
-      basicSalary: 180000,
-      hra: 72000,
-      conveyance: 19200,
-      medicalAllowance: 15000,
-      specialAllowance: 73800,
+      ctc: 0,
+      monthlyCtc: 0,
+      basic: 0,
+      basicSalary: 0,
+      hra: 0,
+      annualHra: 0,
+      conveyance: 0,
+      medicalAllowance: 0,
+      specialAllowance: 0,
+      annualSpecialAllowance: 0,
       otherAllowance: 0,
-      pfEmployee: 21600,
-      pfEmployer: 21600,
+      grossSalary: 0,
+      annualGross: 0,
+      pf: 0,
+      pfEmployee: 0,
+      pfEmployer: 0,
+      annualPfEmployee: 0,
+      annualPfEmployer: 0,
+      esi: 0,
       esiEmployee: 0,
       esiEmployer: 0,
-      professionalTax: 2400,
+      professionalTax: 0,
+      annualProfessionalTax: 0,
       tds: 0,
+      totalDeductions: 0,
+      netSalary: 0,
+      inHandSalary: 0,
+      annualNetSalary: 0,
     },
 
     bankDetails: {
@@ -302,29 +317,73 @@ const AddEmployeeScreen = ({ navigation }) => {
 
   // Auto-calculate Indian Salary Split when CTC changes
   const handleCtcChange = (annualCtc) => {
-    const ctc = Number(annualCtc) || 0;
-    const basic = Math.round(ctc * 0.5);
+    const ctc = Math.max(0, Number(annualCtc) || 0);
+    if (ctc <= 0) {
+      setFormData((prev) => ({
+        ...prev,
+        salaryDetails: {
+          ...prev.salaryDetails,
+          ctc: 0,
+          monthlyCtc: 0,
+          basic: 0,
+          basicSalary: 0,
+          hra: 0,
+          annualHra: 0,
+          conveyance: 0,
+          medicalAllowance: 0,
+          specialAllowance: 0,
+          annualSpecialAllowance: 0,
+          pf: 0,
+          pfEmployee: 0,
+          pfEmployer: 0,
+          professionalTax: 0,
+          annualProfessionalTax: 0,
+          tds: 0,
+          grossSalary: 0,
+          netSalary: 0,
+          totalDeductions: 0,
+        },
+      }));
+      return;
+    }
+    const monthlyCtc = Math.round(ctc / 12);
+    const basic = Math.round(monthlyCtc * 0.5);
     const hra = Math.round(basic * 0.4);
-    const conveyance = 19200;
-    const medical = 15000;
+    const conveyance = 1600;
+    const medical = 1250;
     const pfEmp = Math.round(basic * 0.12);
     const pfEmplr = Math.round(basic * 0.12);
-    const pt = 2400;
-    const special = Math.max(0, ctc - (basic + hra + conveyance + medical + pfEmplr));
+    const pt = 200;
+    const special = Math.max(0, monthlyCtc - (basic + hra + conveyance + medical + pfEmplr));
+    const gross = basic + hra + conveyance + medical + special;
+    const deductions = pfEmp + pt;
+    const net = Math.max(0, gross - deductions);
 
     setFormData((prev) => ({
       ...prev,
       salaryDetails: {
         ...prev.salaryDetails,
         ctc,
-        basicSalary: basic,
+        monthlyCtc,
+        basic,
+        basicSalary: basic * 12,
         hra,
+        annualHra: hra * 12,
         conveyance,
         medicalAllowance: medical,
         specialAllowance: special,
+        annualSpecialAllowance: special * 12,
+        grossSalary: gross,
+        annualGross: gross * 12,
+        pf: pfEmp,
         pfEmployee: pfEmp,
         pfEmployer: pfEmplr,
+        annualPfEmployee: pfEmp * 12,
+        annualPfEmployer: pfEmplr * 12,
         professionalTax: pt,
+        annualProfessionalTax: pt * 12,
+        totalDeductions: deductions,
+        netSalary: net,
       },
     }));
   };

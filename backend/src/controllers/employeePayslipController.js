@@ -1,5 +1,8 @@
 const Employee = require("../models/Employee");
 const Payroll = require("../models/Payroll");
+const Company = require("../models/Company");
+const PayrollSettings = require("../models/PayrollSettings");
+const { generatePayslipHTML, generatePayslipPDF } = require("../services/pdfGeneratorService");
 
 // Helper to resolve employee profile
 const getEmployeeProfile = async (req) => {
@@ -102,48 +105,18 @@ const downloadPayslip = async (req, res, next) => {
       return res.status(404).json({ success: false, message: "Payslip record not found" });
     }
 
-    // Set mock PDF headers and return placeholder message
+    const company = await Company.findById(req.companyId);
+    const settings = await PayrollSettings.findOne({ companyId: req.companyId });
+    const html = generatePayslipHTML(payslip, company, settings || {});
+    const pdfBuffer = await generatePayslipPDF(html);
+
+    const code = payslip.employeeSnapshot?.employeeCode || employee.employeeCode || "EMP";
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename=payslip_${payslip.month}_${payslip.year}.pdf`
+      `attachment; filename=Payslip_${code}_${payslip.month}_${payslip.year}.pdf`
     );
-
-    // Return simple placeholder text representing a PDF structure
-    res.send(`%PDF-1.4
-%Oneclick PAYSLIP GENERATOR
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R >>
-endobj
-4 0 obj
-<< /Length 120 >>
-stream
-BT
-/F1 12 Tf
-72 712 Td
-(Oneclick Payslip Summary - Month: ${payslip.month} Year: ${payslip.year}) Tj
-(Basic: ${payslip.basicSalary} | Net NetSalary: ${payslip.netSalary} | Status: ${payslip.status}) Tj
-ET
-endstream
-endobj
-xref
-0 5
-0000000000 65535 f 
-0000000009 00000 n 
-0000000058 00005 n 
-0000000115 00000 n 
-0000000201 00000 n 
-trailer
-<< /Size 5 /Root 1 0 R >>
-startxref
-370
-%%EOF`);
+    res.send(pdfBuffer);
   } catch (error) {
     next(error);
   }

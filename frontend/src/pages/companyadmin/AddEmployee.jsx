@@ -15,7 +15,8 @@ import {
   ChevronUp, CheckCircle2, X, Lock, Download, AlertTriangle, RefreshCw,
   Plus, Loader2, Building2, CalendarDays, Upload, Eye, ChevronRight,
   ChevronLeft, CheckCheck, Trash2, ExternalLink, Sparkles, Shield,
-  DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu, Zap, ArrowUpRight
+  DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu, Zap, ArrowUpRight,
+  Wallet, Percent
 } from "lucide-react";
 
 const ALL_MODULES = [
@@ -66,12 +67,12 @@ const Field = ({ label, required, children, className = "", action, hint, error 
   </div>
 );
 
-const Input = ({ label, type = "text", value, onChange, onBlur, placeholder, disabled = false, required = false, hint, className = "", error, onClearError, maxLength }) => (
+const Input = ({ label, type = "text", value, onChange, onBlur, placeholder, disabled = false, required = false, hint, className = "", error, onClearError, maxLength, allowZero = false }) => (
   <Field label={label} required={required} hint={hint} className={className} error={error}>
     <input
       type={type === "email" ? "text" : type === "tel" ? "text" : type}
       inputMode={type === "email" ? "email" : type === "tel" ? "numeric" : type === "number" ? "numeric" : undefined}
-      value={(type === "number" && (value === 0 || value === "0")) ? "" : (value ?? "")}
+      value={(type === "number" && !allowZero && (value === 0 || value === "0")) ? "" : (value ?? "")}
       maxLength={maxLength}
       onChange={(e) => { if (onClearError) onClearError(); onChange(e.target.value); }}
       onBlur={onBlur}
@@ -286,19 +287,34 @@ export default function AddEmployee() {
     },
 
     salaryDetails: {
-      ctc: 360000,
-      basicSalary: 180000,
-      hra: 72000,
-      conveyance: 19200,
-      medicalAllowance: 15000,
-      specialAllowance: 73800,
-      otherAllowance: "",
-      pfEmployee: 21600,
-      pfEmployer: 21600,
-      esiEmployee: "",
-      esiEmployer: "",
-      professionalTax: 2400,
-      tds: "",
+      ctc: 0,
+      monthlyCtc: 0,
+      basic: 0,
+      basicSalary: 0,
+      hra: 0,
+      annualHra: 0,
+      conveyance: 0,
+      medicalAllowance: 0,
+      specialAllowance: 0,
+      annualSpecialAllowance: 0,
+      otherAllowance: 0,
+      grossSalary: 0,
+      annualGross: 0,
+      pf: 0,
+      pfEmployee: 0,
+      pfEmployer: 0,
+      annualPfEmployee: 0,
+      annualPfEmployer: 0,
+      esi: 0,
+      esiEmployee: 0,
+      esiEmployer: 0,
+      professionalTax: 0,
+      annualProfessionalTax: 0,
+      tds: 0,
+      totalDeductions: 0,
+      netSalary: 0,
+      inHandSalary: 0,
+      annualNetSalary: 0,
     },
 
     bankDetails: {
@@ -317,6 +333,14 @@ export default function AddEmployee() {
   const [quickModal, setQuickModal] = useState(null);
   const [quickForm, setQuickForm] = useState({ name: "", code: "", departmentId: "", city: "" });
   const [quickSaving, setQuickSaving] = useState(false);
+
+  // Salary Configuration States
+  const [salaryViewMode, setSalaryViewMode] = useState("monthly"); // "monthly" | "annual"
+  const [autoCalcEarnings, setAutoCalcEarnings] = useState(false); // User requested toggle for Earnings
+  const [autoCalcDeductions, setAutoCalcDeductions] = useState(false); // User requested toggle for Deductions (OFF by default)
+  const [includePf, setIncludePf] = useState(true);
+  const [includePt, setIncludePt] = useState(true);
+  const [includeEsi, setIncludeEsi] = useState(false);
 
   // Queries
   const { data: deptRes, isLoading: deptLoading } = useQuery({
@@ -493,36 +517,340 @@ export default function AddEmployee() {
     }
   }, [isManager, managerProfile._id, user?.employeeId, user?._id, formData.reportingManagerId]);
 
-  // Auto-calculate Indian Salary Split when CTC changes
-  const handleCtcChange = (annualCtc) => {
-    const ctc = Number(annualCtc) || 0;
-    const basic = Math.round(ctc * 0.5);
-    const hra = Math.round(basic * 0.4);
-    const conveyance = 19200;
-    const medical = 15000;
-    const pfEmp = Math.round(basic * 0.12);
-    const pfEmplr = Math.round(basic * 0.12);
-    const pt = 2400;
-    const special = Math.max(0, ctc - (basic + hra + conveyance + medical + pfEmplr));
+  // Helper to calculate statutory Indian Salary breakup
+  const computeSalarySplit = (annualCtc, opts = {}) => {
+    const ctc = Math.max(0, Number(annualCtc) || 0);
+    const withPf = opts.includePf !== undefined ? opts.includePf : includePf;
+    const withPt = opts.includePt !== undefined ? opts.includePt : (includePt && ctc > 0);
+    const withEsi = opts.includeEsi !== undefined ? opts.includeEsi : includeEsi;
+    const calcDeductions = opts.calculateDeductions !== undefined ? opts.calculateDeductions : autoCalcDeductions;
+    const customTds = opts.tds !== undefined ? Number(opts.tds) || 0 : (Number(formData.salaryDetails?.tds) || 0);
 
-    setFormData((prev) => ({
-      ...prev,
-      salaryDetails: {
-        ctc,
-        basicSalary: basic,
-        hra,
-        conveyance,
-        medicalAllowance: medical,
-        specialAllowance: special,
-        otherAllowance: "",
-        pfEmployee: pfEmp,
-        pfEmployer: pfEmplr,
-        esiEmployee: "",
-        esiEmployer: "",
-        professionalTax: pt,
-        tds: "",
-      },
-    }));
+    if (ctc <= 0) {
+      return {
+        ctc: 0,
+        monthlyCtc: 0,
+        basic: 0,
+        basicSalary: 0,
+        hra: 0,
+        annualHra: 0,
+        conveyance: 0,
+        medicalAllowance: 0,
+        specialAllowance: 0,
+        annualSpecialAllowance: 0,
+        otherAllowance: 0,
+        grossSalary: 0,
+        annualGross: 0,
+        pf: 0,
+        pfEmployee: 0,
+        pfEmployer: 0,
+        annualPfEmployee: 0,
+        annualPfEmployer: 0,
+        esi: 0,
+        esiEmployee: 0,
+        esiEmployer: 0,
+        professionalTax: 0,
+        annualProfessionalTax: 0,
+        tds: 0,
+        totalDeductions: 0,
+        netSalary: 0,
+        inHandSalary: 0,
+        annualNetSalary: 0,
+      };
+    }
+
+    const monthlyCtc = Math.round(ctc / 12);
+    // Basic is 50% of CTC
+    const monthlyBasic = Math.round(monthlyCtc * 0.5);
+    // HRA is 40% of Basic
+    const monthlyHra = Math.round(monthlyBasic * 0.4);
+    // Standard allowances
+    const monthlyConveyance = Math.min(1600, Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra)));
+    const monthlyMedical = Math.min(1250, Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra + monthlyConveyance)));
+
+    // Employer PF (for CTC breakdown)
+    const monthlyPfEmplr = (calcDeductions && withPf)
+      ? Math.round(monthlyBasic * 0.12)
+      : (Number(formData.salaryDetails?.pfEmployer) || 0);
+
+    // Special allowance balances CTC
+    const monthlySpecial = Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra + monthlyConveyance + monthlyMedical + monthlyPfEmplr));
+
+    // Gross salary
+    const monthlyGross = monthlyBasic + monthlyHra + monthlyConveyance + monthlyMedical + monthlySpecial;
+
+    // Deductions: only auto-compute if calcDeductions is ON
+    let monthlyPfEmp = 0;
+    let monthlyPt = 0;
+    let monthlyEsiEmp = 0;
+    let monthlyEsiEmplr = 0;
+
+    if (calcDeductions) {
+      monthlyPfEmp = withPf ? Math.round(monthlyBasic * 0.12) : 0;
+      monthlyPt = withPt ? 200 : 0;
+      monthlyEsiEmp = (withEsi && monthlyGross <= 21000) ? Math.round(monthlyGross * 0.0075) : 0;
+      monthlyEsiEmplr = (withEsi && monthlyGross <= 21000) ? Math.round(monthlyGross * 0.0325) : 0;
+    } else {
+      // Preserve existing deduction inputs
+      monthlyPfEmp = opts.pf !== undefined ? Number(opts.pf) || 0 : (Number(formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf) || 0);
+      monthlyPt = opts.professionalTax !== undefined ? Number(opts.professionalTax) || 0 : (Number(formData.salaryDetails?.professionalTax) || 0);
+      monthlyEsiEmp = opts.esi !== undefined ? Number(opts.esi) || 0 : (Number(formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi) || 0);
+      monthlyEsiEmplr = Number(formData.salaryDetails?.esiEmployer) || 0;
+    }
+
+    const monthlyDeductions = monthlyPfEmp + monthlyPt + monthlyEsiEmp + customTds;
+    const monthlyNet = Math.max(0, monthlyGross - monthlyDeductions);
+
+    return {
+      ctc,
+      monthlyCtc,
+      basic: monthlyBasic,
+      basicSalary: monthlyBasic * 12,
+      hra: monthlyHra,
+      annualHra: monthlyHra * 12,
+      conveyance: monthlyConveyance,
+      medicalAllowance: monthlyMedical,
+      specialAllowance: monthlySpecial,
+      annualSpecialAllowance: monthlySpecial * 12,
+      otherAllowance: Number(formData.salaryDetails?.otherAllowance) || 0,
+      grossSalary: monthlyGross,
+      annualGross: monthlyGross * 12,
+      pf: monthlyPfEmp,
+      pfEmployee: monthlyPfEmp,
+      pfEmployer: monthlyPfEmplr,
+      annualPfEmployee: monthlyPfEmp * 12,
+      annualPfEmployer: monthlyPfEmplr * 12,
+      esi: monthlyEsiEmp,
+      esiEmployee: monthlyEsiEmp,
+      esiEmployer: monthlyEsiEmplr,
+      professionalTax: monthlyPt,
+      annualProfessionalTax: monthlyPt * 12,
+      tds: customTds,
+      totalDeductions: monthlyDeductions,
+      netSalary: monthlyNet,
+      inHandSalary: monthlyNet,
+      annualNetSalary: monthlyNet * 12,
+    };
+  };
+
+  const handleCtcChange = (annualCtc, forceAutoSplit = false) => {
+    const ctc = Math.max(0, Number(annualCtc) || 0);
+    const shouldSplit = forceAutoSplit || autoCalcEarnings;
+
+    if (shouldSplit) {
+      const split = computeSalarySplit(ctc, { calculateDeductions: autoCalcDeductions });
+      setFormData((prev) => ({
+        ...prev,
+        salaryDetails: split,
+      }));
+    } else {
+      // Manual earnings mode: update CTC and monthlyCtc, leave earnings & deductions untouched
+      setFormData((prev) => {
+        const cur = prev.salaryDetails || {};
+        return {
+          ...prev,
+          salaryDetails: {
+            ...cur,
+            ctc,
+            monthlyCtc: Math.round(ctc / 12),
+          },
+        };
+      });
+    }
+  };
+
+  const handleMonthlySalaryChange = (monthlyAmount) => {
+    const m = Math.max(0, Number(monthlyAmount) || 0);
+    const annual = m * 12;
+    handleCtcChange(annual);
+  };
+
+  const handleToggleAutoCalcEarnings = (enabled) => {
+    setAutoCalcEarnings(enabled);
+    if (enabled) {
+      const curCtc = Number(formData.salaryDetails?.ctc) || ((Number(formData.salaryDetails?.grossSalary) || 0) * 12);
+      if (curCtc > 0) {
+        handleCtcChange(curCtc, true);
+      }
+    }
+  };
+
+  const handleToggleAutoCalcDeductions = (enabled) => {
+    setAutoCalcDeductions(enabled);
+    if (enabled) {
+      setFormData((prev) => {
+        const cur = prev.salaryDetails || {};
+        const basic = Number(cur.basic) || 0;
+        const gross = Number(cur.grossSalary) || 0;
+        const withPf = includePf;
+        const withPt = includePt && gross > 0;
+        const withEsi = includeEsi;
+
+        const newPf = withPf ? Math.round(basic * 0.12) : 0;
+        const newPt = withPt ? 200 : 0;
+        const newEsi = (withEsi && gross <= 21000) ? Math.round(gross * 0.0075) : 0;
+        const newEsiEmplr = (withEsi && gross <= 21000) ? Math.round(gross * 0.0325) : 0;
+        const tds = Number(cur.tds) || 0;
+
+        const ded = newPf + newPt + newEsi + tds;
+        const net = Math.max(0, gross - ded);
+
+        return {
+          ...prev,
+          salaryDetails: {
+            ...cur,
+            pf: newPf,
+            pfEmployee: newPf,
+            pfEmployer: newPf,
+            annualPfEmployee: newPf * 12,
+            annualPfEmployer: newPf * 12,
+            professionalTax: newPt,
+            annualProfessionalTax: newPt * 12,
+            esi: newEsi,
+            esiEmployee: newEsi,
+            esiEmployer: newEsiEmplr,
+            totalDeductions: ded,
+            netSalary: net,
+            inHandSalary: net,
+            annualNetSalary: net * 12,
+          },
+        };
+      });
+    }
+  };
+
+  const handleCustomSalaryChange = (field, rawVal, isAnnualField = false) => {
+    const num = rawVal === "" ? 0 : Number(rawVal) || 0;
+    const monthlyVal = isAnnualField ? Math.round(num / 12) : num;
+
+    setFormData((prev) => {
+      const cur = prev.salaryDetails || {};
+      const updated = { ...cur };
+
+      if (field === "basic" || field === "basicSalary") {
+        updated.basic = monthlyVal;
+        updated.basicSalary = monthlyVal * 12;
+        // Only auto-recalculate PF if autoCalcDeductions is ON
+        if (autoCalcDeductions && includePf) {
+          const newPf = Math.round(monthlyVal * 0.12);
+          updated.pf = newPf;
+          updated.pfEmployee = newPf;
+          updated.pfEmployer = newPf;
+          updated.annualPfEmployee = newPf * 12;
+          updated.annualPfEmployer = newPf * 12;
+        }
+      } else if (field === "hra") {
+        updated.hra = monthlyVal;
+        updated.annualHra = monthlyVal * 12;
+      } else if (field === "specialAllowance") {
+        updated.specialAllowance = monthlyVal;
+        updated.annualSpecialAllowance = monthlyVal * 12;
+      } else if (field === "conveyance") {
+        updated.conveyance = monthlyVal;
+      } else if (field === "medicalAllowance") {
+        updated.medicalAllowance = monthlyVal;
+      } else if (field === "otherAllowance") {
+        updated.otherAllowance = monthlyVal;
+      } else if (field === "pf" || field === "pfEmployee") {
+        updated.pf = monthlyVal;
+        updated.pfEmployee = monthlyVal;
+        updated.annualPfEmployee = monthlyVal * 12;
+        if (!updated.pfEmployer) {
+          updated.pfEmployer = monthlyVal;
+          updated.annualPfEmployer = monthlyVal * 12;
+        }
+      } else if (field === "professionalTax") {
+        updated.professionalTax = monthlyVal;
+        updated.annualProfessionalTax = monthlyVal * 12;
+      } else if (field === "tds") {
+        updated.tds = monthlyVal;
+      } else if (field === "esi" || field === "esiEmployee") {
+        updated.esi = monthlyVal;
+        updated.esiEmployee = monthlyVal;
+      }
+
+      // Dynamic calculation of Gross
+      const b = Number(updated.basic) || 0;
+      const h = Number(updated.hra) || 0;
+      const sp = Number(updated.specialAllowance) || 0;
+      const c = Number(updated.conveyance) || 0;
+      const med = Number(updated.medicalAllowance) || 0;
+      const oth = Number(updated.otherAllowance) || 0;
+      const gross = b + h + sp + c + med + oth;
+
+      // Deductions
+      let pfe = Number(updated.pfEmployee !== undefined ? updated.pfEmployee : updated.pf) || 0;
+      let pfem = updated.pfEmployer !== undefined ? Number(updated.pfEmployer) : pfe;
+      let pt = Number(updated.professionalTax) || 0;
+      let esie = Number(updated.esiEmployee !== undefined ? updated.esiEmployee : updated.esi) || 0;
+      let esiem = updated.esiEmployer !== undefined ? Number(updated.esiEmployer) : Math.round(esie * 4.33);
+
+      if (autoCalcDeductions) {
+        if (includePt && gross > 0 && !pt) {
+          pt = 200;
+          updated.professionalTax = 200;
+          updated.annualProfessionalTax = 2400;
+        }
+        if (includeEsi && gross <= 21000 && !esie) {
+          esie = Math.round(gross * 0.0075);
+          esiem = Math.round(gross * 0.0325);
+          updated.esi = esie;
+          updated.esiEmployee = esie;
+          updated.esiEmployer = esiem;
+        }
+      }
+
+      const tax = Number(updated.tds) || 0;
+      const ded = pfe + pt + esie + tax;
+      const net = Math.max(0, gross - ded);
+
+      // CTC calculation
+      const annualCtc = (Number(updated.ctc) > 0 && autoCalcEarnings)
+        ? Number(updated.ctc)
+        : Math.round((gross + pfem + esiem) * 12);
+
+      return {
+        ...prev,
+        salaryDetails: {
+          ...updated,
+          grossSalary: gross,
+          annualGross: gross * 12,
+          totalDeductions: ded,
+          netSalary: net,
+          inHandSalary: net,
+          annualNetSalary: net * 12,
+          ctc: annualCtc,
+          monthlyCtc: Math.round(annualCtc / 12),
+        },
+      };
+    });
+  };
+
+  const handleTogglePf = (checked) => {
+    setIncludePf(checked);
+    if (autoCalcDeductions) {
+      const ctc = formData.salaryDetails?.ctc || 0;
+      const split = computeSalarySplit(ctc, { includePf: checked, calculateDeductions: true });
+      setFormData((prev) => ({ ...prev, salaryDetails: split }));
+    }
+  };
+
+  const handleTogglePt = (checked) => {
+    setIncludePt(checked);
+    if (autoCalcDeductions) {
+      const ctc = formData.salaryDetails?.ctc || 0;
+      const split = computeSalarySplit(ctc, { includePt: checked, calculateDeductions: true });
+      setFormData((prev) => ({ ...prev, salaryDetails: split }));
+    }
+  };
+
+  const handleToggleEsi = (checked) => {
+    setIncludeEsi(checked);
+    if (autoCalcDeductions) {
+      const ctc = formData.salaryDetails?.ctc || 0;
+      const split = computeSalarySplit(ctc, { includeEsi: checked, calculateDeductions: true });
+      setFormData((prev) => ({ ...prev, salaryDetails: split }));
+    }
   };
 
   const handleAvatarUpload = (e) => {
@@ -998,6 +1326,12 @@ export default function AddEmployee() {
                 <span className="text-slate-500 dark:text-slate-400">Annual CTC:</span>
                 <span className="text-emerald-600 dark:text-emerald-400 font-black font-mono">
                   ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-t border-slate-100 dark:border-slate-800/80 pt-1 mt-0.5">
+                <span className="text-slate-500 dark:text-slate-400">Net In-Hand:</span>
+                <span className="text-blue-600 dark:text-blue-400 font-black font-mono">
+                  ₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")} / mo
                 </span>
               </div>
             </div>
@@ -1549,82 +1883,431 @@ export default function AddEmployee() {
 
           {/* STEP 4: Salary & Compensation */}
           {activeStep === 4 && (
-            <div className="space-y-3 animate-fadeIn">
-              <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <DollarSign size={16} className="text-amber-500" /> Salary Structure &amp; Allowances
-                </h3>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Standard Indian payroll breakup with automatic CTC calculation</p>
-              </div>
-
-              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="space-y-4 animate-fadeIn">
+              {/* Step Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 gap-2">
                 <div>
-                  <span className="text-[10.5px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider">
-                    Annual Cost to Company (CTC)
-                  </span>
-                  <div className="text-xl font-black text-slate-900 dark:text-white font-mono mt-0.5">
-                    ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
-                  </div>
-                  <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Auto-splits Basic, HRA, PF &amp; Special Allowance</span>
+                  <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+                    <DollarSign size={16} className="text-amber-500" /> Salary Structure &amp; Allowances
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    Standard Indian payroll breakup with automatic CTC calculation, Gross Earnings, and Net In-Hand Take-Home salary.
+                  </p>
                 </div>
 
-                <div className="w-full sm:w-48">
-                  <label className="text-[10px] font-extrabold text-slate-700 dark:text-slate-300 uppercase block mb-1">Set Annual CTC (₹)</label>
-                  <input
+                {/* View Mode Toggle: Monthly vs Annual */}
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 self-start sm:self-auto">
+                  <button
+                    type="button"
+                    onClick={() => setSalaryViewMode("monthly")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      salaryViewMode === "monthly"
+                        ? "bg-white dark:bg-[#111C24] text-slate-900 dark:text-white shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    Monthly (₹/mo)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSalaryViewMode("annual")}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      salaryViewMode === "annual"
+                        ? "bg-white dark:bg-[#111C24] text-slate-900 dark:text-white shadow-2xs"
+                        : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
+                    }`}
+                  >
+                    Annual (₹/yr)
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Main CTC & Monthly Input Card with Quick Presets ── */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-blue-500/10 border border-amber-500/30 space-y-3.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+                  {/* Annual CTC Input */}
+                  <div className="lg:col-span-4">
+                    <label className="text-[10.5px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider block mb-1">
+                      Annual Cost to Company (CTC)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        placeholder="e.g. 360000"
+                        value={formData.salaryDetails?.ctc ?? ""}
+                        onChange={(e) => handleCtcChange(e.target.value)}
+                        className="w-full pl-7 pr-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Monthly CTC / Gross Input */}
+                  <div className="lg:col-span-4">
+                    <label className="text-[10.5px] font-black uppercase text-blue-900 dark:text-blue-300 tracking-wider block mb-1">
+                      Monthly CTC / Gross Salary
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-2.5 text-xs font-bold text-slate-400">₹</span>
+                      <input
+                        type="number"
+                        placeholder="e.g. 30000"
+                        value={formData.salaryDetails?.monthlyCtc || Math.round((Number(formData.salaryDetails?.ctc) || 0) / 12) || ""}
+                        onChange={(e) => handleMonthlySalaryChange(e.target.value)}
+                        className="w-full pl-7 pr-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Auto-Split Button */}
+                  <div className="lg:col-span-4 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleCtcChange(formData.salaryDetails?.ctc || 0, true)}
+                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer"
+                    >
+                      <Sparkles size={13} /> Auto-Split Standard (50/40)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Presets & Statutory Options */}
+                <div className="pt-2 border-t border-amber-500/20 flex flex-wrap items-center justify-between gap-2.5">
+                  {/* Preset Pills */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mr-1">Presets:</span>
+                    {[
+                      { label: "₹15K/mo", val: 180000 },
+                      { label: "₹25K/mo", val: 300000 },
+                      { label: "₹35K/mo", val: 420000 },
+                      { label: "₹50K/mo", val: 600000 },
+                      { label: "₹75K/mo", val: 900000 },
+                      { label: "₹1L/mo", val: 1200000 },
+                    ].map((p) => (
+                      <button
+                        key={p.val}
+                        type="button"
+                        onClick={() => handleCtcChange(p.val, true)}
+                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
+                          Number(formData.salaryDetails?.ctc) === p.val
+                            ? "bg-amber-500 text-slate-950 border-amber-500 shadow-2xs"
+                            : "bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Statutory Toggles */}
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includePf}
+                        onChange={(e) => handleTogglePf(e.target.checked)}
+                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
+                      />
+                      <span>PF (12%)</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includePt}
+                        onChange={(e) => handleTogglePt(e.target.checked)}
+                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
+                      />
+                      <span>PT (₹200/mo)</span>
+                    </label>
+
+                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={includeEsi}
+                        onChange={(e) => handleToggleEsi(e.target.checked)}
+                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
+                      />
+                      <span>ESI (0.75%)</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── LIVE KPI STATS RIBBON ── */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#0B101B] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-slate-400 block tracking-wider">Annual CTC</span>
+                  <div className="text-base font-black text-slate-900 dark:text-white font-mono mt-0.5">
+                    ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[9.5px] font-semibold text-slate-500">
+                    ₹{Math.round((Number(formData.salaryDetails?.ctc) || 0) / 12).toLocaleString("en-IN")} / mo
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#0B101B] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-blue-500 block tracking-wider">Gross Earnings</span>
+                  <div className="text-base font-black text-blue-600 dark:text-blue-400 font-mono mt-0.5">
+                    ₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[9.5px] font-semibold text-slate-500">
+                    ₹{((Number(formData.salaryDetails?.grossSalary) || 0) * 12).toLocaleString("en-IN")} / yr
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-white dark:bg-[#0B101B] border border-slate-200/90 dark:border-slate-800 shadow-2xs">
+                  <span className="text-[10px] font-black uppercase text-rose-500 block tracking-wider">Total Deductions</span>
+                  <div className="text-base font-black text-rose-600 dark:text-rose-400 font-mono mt-0.5">
+                    -₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[9.5px] font-semibold text-slate-500">
+                    PF + PT + TDS + ESI
+                  </span>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-emerald-800 dark:text-emerald-300 tracking-wider">
+                      Net Take-Home
+                    </span>
+                    <CheckCircle2 size={12} className="text-emerald-500" />
+                  </div>
+                  <div className="text-base font-black text-emerald-600 dark:text-emerald-400 font-mono mt-0.5">
+                    ₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}
+                  </div>
+                  <span className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                    In-Hand Bank Deposit
+                  </span>
+                </div>
+              </div>
+
+              {/* ── SECTION 1: EARNINGS BREAKDOWN ── */}
+              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800/80 space-y-3">
+                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2 gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <Coins size={14} className="text-amber-500" /> 1. Monthly Earnings (Gross Components)
+                  </span>
+
+                  <div className="flex items-center gap-2.5">
+                    {/* Auto-Calculate Toggle for Earnings */}
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Auto-Calculate</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAutoCalcEarnings(!autoCalcEarnings)}
+                        className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          autoCalcEarnings ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            autoCalcEarnings ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                      <span className={`text-[10px] font-black tracking-wider ${autoCalcEarnings ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`}>
+                        {autoCalcEarnings ? "ON" : "OFF"}
+                      </span>
+                    </div>
+
+                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                      Gross: ₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")} / mo
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Basic Salary (Monthly)" : "Basic Salary (Annual)"}
                     type="number"
-                    value={formData.salaryDetails?.ctc}
-                    onChange={(e) => handleCtcChange(e.target.value)}
-                    className="w-full px-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                    allowZero={true}
+                    placeholder="Basic salary"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.basic
+                        : formData.salaryDetails?.basicSalary
+                    }
+                    onChange={(v) => handleCustomSalaryChange("basic", v, salaryViewMode === "annual")}
+                    hint="Standard 50% of CTC"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "House Rent Allowance (HRA)" : "HRA (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="House rent allowance"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.hra
+                        : (Number(formData.salaryDetails?.hra) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("hra", v, salaryViewMode === "annual")}
+                    hint="Standard 40% of Basic"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Special Allowance" : "Special Allowance (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Special allowance"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.specialAllowance
+                        : (Number(formData.salaryDetails?.specialAllowance) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("specialAllowance", v, salaryViewMode === "annual")}
+                    hint="Balancing component"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Conveyance Allowance" : "Conveyance (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Conveyance allowance"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.conveyance
+                        : (Number(formData.salaryDetails?.conveyance) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("conveyance", v, salaryViewMode === "annual")}
+                    hint="Standard ₹1,600/mo"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Medical Allowance" : "Medical (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Medical allowance"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.medicalAllowance
+                        : (Number(formData.salaryDetails?.medicalAllowance) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("medicalAllowance", v, salaryViewMode === "annual")}
+                    hint="Standard ₹1,250/mo"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Other Allowance" : "Other Allowance (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Performance / Other"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.otherAllowance
+                        : (Number(formData.salaryDetails?.otherAllowance) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("otherAllowance", v, salaryViewMode === "annual")}
+                    hint="Optional extra allowance"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <Input
-                  label="Basic Salary (Annual)"
-                  type="number"
-                  placeholder="Enter basic salary"
-                  value={formData.salaryDetails?.basicSalary}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, basicSalary: Number(v) } }))}
-                />
-                <Input
-                  label="House Rent Allowance (HRA)"
-                  type="number"
-                  placeholder="Enter house rent allowance"
-                  value={formData.salaryDetails?.hra}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, hra: Number(v) } }))}
-                />
-                <Input
-                  label="Special Allowance"
-                  type="number"
-                  placeholder="Enter special allowance"
-                  value={formData.salaryDetails?.specialAllowance}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, specialAllowance: Number(v) } }))}
-                />
-              </div>
+              {/* ── SECTION 2: DEDUCTIONS & COMPLIANCE ── */}
+              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800/80 space-y-3">
+                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2 gap-2">
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-rose-500" /> 2. Monthly Deductions &amp; Statutory Taxes
+                  </span>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                <Input
-                  label="Provident Fund (Employee)"
-                  type="number"
-                  placeholder="Enter provident fund deduction"
-                  value={formData.salaryDetails?.pfEmployee}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, pfEmployee: Number(v) } }))}
-                />
-                <Input
-                  label="Professional Tax (PT)"
-                  type="number"
-                  placeholder="Enter professional tax"
-                  value={formData.salaryDetails?.professionalTax}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, professionalTax: Number(v) } }))}
-                />
-                <Input
-                  label="TDS / Tax Withholding"
-                  type="number"
-                  placeholder="Enter TDS deduction"
-                  value={formData.salaryDetails?.tds}
-                  onChange={(v) => setFormData((p) => ({ ...p, salaryDetails: { ...p.salaryDetails, tds: Number(v) } }))}
-                />
+                  <div className="flex items-center gap-2.5">
+                    {/* Auto-Calculate Toggle for Deductions */}
+                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                      <span className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Auto-Calculate</span>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleAutoCalcDeductions(!autoCalcDeductions)}
+                        className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                          autoCalcDeductions ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-600"
+                        }`}
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            autoCalcDeductions ? "translate-x-4" : "translate-x-0"
+                          }`}
+                        />
+                      </button>
+                      <span className={`text-[10px] font-black tracking-wider ${autoCalcDeductions ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
+                        {autoCalcDeductions ? "ON" : "OFF"}
+                      </span>
+                    </div>
+
+                    <span className="text-xs font-black text-rose-600 dark:text-rose-400 font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
+                      Deductions: -₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")} / mo
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Provident Fund (Employee PF)" : "PF Employee (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="PF employee deduction"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? (formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf)
+                        : (Number(formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("pfEmployee", v, salaryViewMode === "annual")}
+                    hint="12% of basic salary"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Professional Tax (PT)" : "Professional Tax (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Professional tax"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.professionalTax
+                        : (formData.salaryDetails?.annualProfessionalTax || (Number(formData.salaryDetails?.professionalTax) || 0) * 12)
+                    }
+                    onChange={(v) => handleCustomSalaryChange("professionalTax", v, salaryViewMode === "annual")}
+                    hint="Standard ₹200/mo (₹2,400/yr)"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "Employee State Insurance (ESI)" : "ESI Employee (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="ESI deduction"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? (formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi)
+                        : (Number(formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("esiEmployee", v, salaryViewMode === "annual")}
+                    hint="0.75% (Gross <= ₹21,000)"
+                  />
+
+                  <Input
+                    label={salaryViewMode === "monthly" ? "TDS / Income Tax" : "TDS / Tax (Annual)"}
+                    type="number"
+                    allowZero={true}
+                    placeholder="Enter TDS deduction"
+                    value={
+                      salaryViewMode === "monthly"
+                        ? formData.salaryDetails?.tds
+                        : (Number(formData.salaryDetails?.tds) || 0) * 12
+                    }
+                    onChange={(v) => handleCustomSalaryChange("tds", v, salaryViewMode === "annual")}
+                    hint="Monthly tax withholding"
+                  />
+                </div>
+
+                {/* Section 3 Note: Employer Contributions in CTC */}
+                <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                  <span>
+                    Employer PF (12% of Basic): <strong className="text-slate-800 dark:text-slate-200">₹{(Number(formData.salaryDetails?.pfEmployer) || Number(formData.salaryDetails?.pfEmployee) || 0).toLocaleString("en-IN")}/mo</strong> (Included in Annual CTC, not deducted from employee)
+                  </span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                    Net Take-Home = Gross (₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}) - Deductions (₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")}) = ₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}/mo
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -1862,8 +2545,13 @@ export default function AddEmployee() {
                 <div>
                   <span className="text-[10.5px] font-black text-emerald-800 dark:text-emerald-300 uppercase">Annual CTC Compensation</span>
                   <h4 className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
-                    ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}
+                    ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")} / year
                   </h4>
+                  <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-3 mt-1">
+                    <span>Monthly Gross: <strong>₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}</strong></span>
+                    <span>•</span>
+                    <span>Net Take-Home: <strong className="text-emerald-600 dark:text-emerald-400">₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}/mo</strong></span>
+                  </div>
                 </div>
                 <span className="px-3.5 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-2xs self-start sm:self-auto">
                   Ready to Register

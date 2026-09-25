@@ -6,11 +6,59 @@ const Designation = require("../models/Designation");
 const Branch = require("../models/Branch");
 const LeaveBalance = require("../models/LeaveBalance");
 const CompanyLeaveSettings = require("../models/CompanyLeaveSettings");
+const SalaryStructure = require("../models/SalaryStructure");
 const Company = require("../models/Company");
 const {
   findCompanyResource,
   validateDepartmentBelongsToCompany,
 } = require("../utils/companyScope");
+
+const syncSalaryStructureForEmployee = async (employee, companyId) => {
+  try {
+    if (!employee || !employee.salaryDetails) return;
+    const sd = employee.salaryDetails;
+    if (sd.basic || sd.basicSalary || sd.ctc || sd.grossSalary) {
+      const basicSalary = Number(sd.basic) > 0 ? Number(sd.basic) : (Number(sd.basicSalary) > 0 ? Math.round(Number(sd.basicSalary) / 12) : 0);
+      const hra = Number(sd.hra) || 0;
+      const conveyanceAllowance = Number(sd.conveyance || sd.conveyanceAllowance) || 0;
+      const medicalAllowance = Number(sd.medicalAllowance) || 0;
+      const specialAllowance = Number(sd.specialAllowance) || 0;
+      const otherAllowance = Number(sd.otherAllowance) || 0;
+      const grossSalary = Number(sd.grossSalary) > 0 ? Number(sd.grossSalary) : (basicSalary + hra + conveyanceAllowance + medicalAllowance + specialAllowance + otherAllowance);
+      const monthlyCTC = Number(sd.monthlyCtc) > 0 ? Number(sd.monthlyCtc) : (Number(sd.ctc) > 0 ? Math.round(Number(sd.ctc) / 12) : grossSalary);
+      const pf = Number(sd.pfEmployee !== undefined ? sd.pfEmployee : sd.pf) || 0;
+      const esi = Number(sd.esiEmployee !== undefined ? sd.esiEmployee : sd.esi) || 0;
+      const professionalTax = Number(sd.professionalTax) || 0;
+      const tds = Number(sd.tds) || 0;
+      const totalDeductions = Number(sd.totalDeductions) || (pf + esi + professionalTax + tds);
+      const netSalary = Number(sd.netSalary) || Math.max(0, grossSalary - totalDeductions);
+
+      await SalaryStructure.findOneAndUpdate(
+        { employeeId: employee._id, companyId },
+        {
+          monthlyCTC,
+          basicSalary,
+          hra,
+          conveyanceAllowance,
+          medicalAllowance,
+          specialAllowance,
+          otherAllowance,
+          grossSalary,
+          pf,
+          esi,
+          professionalTax,
+          tds,
+          totalDeductions,
+          netSalary,
+          status: "active",
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+    }
+  } catch (err) {
+    console.error("SalaryStructure auto-sync error:", err.message);
+  }
+};
 const generateNextEmployeeCode = require("../utils/generateNextEmployeeCode");
 const tempPasswordFromPhone = require("../utils/tempPasswordFromPhone");
 const { notifyUser } = require("../utils/notificationHelper");
@@ -605,6 +653,77 @@ const createEmployee = async (req, res, next) => {
       }
     }
 
+    const hasTasks = finalAssignedModules.some(m => ["tasks", "task"].includes(String(m).toLowerCase().trim()));
+    const hasLeads = finalAssignedModules.some(m => ["leads", "lead"].includes(String(m).toLowerCase().trim()));
+
+    let finalPermissions = permissions;
+    if (!finalPermissions || Object.keys(finalPermissions).length === 0) {
+      if (role === "HR") {
+        finalPermissions = {
+          tasks: { view: hasTasks, create: true, edit: true, shift: true, cancel: true, reopen: true },
+          leaves: { approveReject: true },
+          teamMembers: { add: true, edit: true, activeInactive: true },
+          announcementsHolidays: true,
+          leads: { view: hasLeads, create: true, edit: true, assign: true, assignLeads: true, delete: true },
+        };
+      } else if (role === "Manager") {
+        finalPermissions = {
+          tasks: { view: hasTasks, create: true, edit: true, shift: true, cancel: false, reopen: true },
+          leaves: { approveReject: true },
+          teamMembers: { add: false, edit: false, activeInactive: false },
+          announcementsHolidays: false,
+          leads: { view: hasLeads, create: true, edit: true, assign: true, assignLeads: true, delete: false },
+        };
+      } else {
+        // Role Employee: default create and edit to true whenever the module is assigned
+        finalPermissions = {
+          tasks: {
+            view: hasTasks,
+            create: hasTasks,
+            edit: hasTasks,
+            shift: false,
+            cancel: false,
+            reopen: false,
+          },
+          leaves: { approveReject: false },
+          teamMembers: { add: false, edit: false, activeInactive: false },
+          announcementsHolidays: false,
+          leads: {
+            view: hasLeads,
+            create: hasLeads,
+            edit: hasLeads,
+            delete: false,
+            assignLeads: false,
+            campaigns: false,
+          },
+        };
+      }
+    } else if (role === "Employee") {
+      // If permissions object was partially passed, ensure default create/edit if assigned
+      if (hasTasks) {
+        finalPermissions.tasks = {
+          view: true,
+          create: true,
+          edit: true,
+          shift: false,
+          cancel: false,
+          reopen: false,
+          ...(finalPermissions.tasks || {}),
+        };
+      }
+      if (hasLeads) {
+        finalPermissions.leads = {
+          view: true,
+          create: true,
+          edit: true,
+          delete: false,
+          assignLeads: false,
+          campaigns: false,
+          ...(finalPermissions.leads || {}),
+        };
+      }
+    }
+
     const user = await User.create({
       name: fullName,
       email: emailLower,
@@ -614,33 +733,8 @@ const createEmployee = async (req, res, next) => {
       companyId,
       isPasswordResetRequired: true,
       assignedModules: finalAssignedModules,
+      permissions: finalPermissions || {},
     });
-
-    let finalPermissions = permissions;
-    if (!finalPermissions || Object.keys(finalPermissions).length === 0) {
-      if (role === "HR") {
-        finalPermissions = {
-          tasks: { create: true, edit: true, shift: true, cancel: true, reopen: true },
-          leaves: { approveReject: true },
-          teamMembers: { add: true, edit: true, activeInactive: true },
-          announcementsHolidays: true,
-        };
-      } else if (role === "Manager") {
-        finalPermissions = {
-          tasks: { create: true, edit: true, shift: true, cancel: false, reopen: true },
-          leaves: { approveReject: true },
-          teamMembers: { add: false, edit: false, activeInactive: false },
-          announcementsHolidays: false,
-        };
-      } else {
-        finalPermissions = {
-          tasks: { create: false, edit: false, shift: false, cancel: false, reopen: false },
-          leaves: { approveReject: false },
-          teamMembers: { add: false, edit: false, activeInactive: false },
-          announcementsHolidays: false,
-        };
-      }
-    }
 
     let employee = null;
 
@@ -754,6 +848,7 @@ const createEmployee = async (req, res, next) => {
     }
 
     await syncUserFromEmployeeStatus(employee);
+    await syncSalaryStructureForEmployee(employee, companyId);
 
     // Notify employee of their new account
     try {
@@ -1083,8 +1178,28 @@ const updateEmployee = async (req, res, next) => {
           const isAssigned = sanitizedModules.includes(sm) || (sm === "leaves" && (sanitizedModules.includes("leave") || sanitizedModules.includes("leaves")));
           if (typeof curPerm[sm] === "object" && curPerm[sm] !== null) {
             curPerm[sm].view = isAssigned;
+            if (employee.role === "Employee" && isAssigned) {
+              if (sm === "tasks") {
+                if (curPerm.tasks.create === undefined) curPerm.tasks.create = true;
+                if (curPerm.tasks.edit === undefined) curPerm.tasks.edit = true;
+              }
+              if (sm === "leads") {
+                if (curPerm.leads.create === undefined) curPerm.leads.create = true;
+                if (curPerm.leads.edit === undefined) curPerm.leads.edit = true;
+              }
+            }
           } else if (isAssigned) {
-            curPerm[sm] = { view: true };
+            if (employee.role === "Employee") {
+              if (sm === "tasks") {
+                curPerm[sm] = { view: true, create: true, edit: true, shift: false, cancel: false, reopen: false };
+              } else if (sm === "leads") {
+                curPerm[sm] = { view: true, create: true, edit: true, delete: false, assignLeads: false, campaigns: false };
+              } else {
+                curPerm[sm] = { view: true };
+              }
+            } else {
+              curPerm[sm] = { view: true };
+            }
           }
         }
         employee.permissions = curPerm;
@@ -1157,10 +1272,15 @@ const updateEmployee = async (req, res, next) => {
 
     if (user) {
       user.isLocationTrackingEnabled = Boolean(employee.isLocationTrackingEnabled);
+      if (req.body.permissions !== undefined || employee.isModified("permissions")) {
+        user.permissions = employee.permissions;
+        user.markModified("permissions");
+      }
       await user.save();
     }
     await employee.save();
     await syncUserFromEmployeeStatus(employee);
+    await syncSalaryStructureForEmployee(employee, req.companyId);
 
     // Create Audit Log
     await AuditLog.create({

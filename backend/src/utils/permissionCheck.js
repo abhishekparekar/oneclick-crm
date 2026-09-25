@@ -23,7 +23,8 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
     return false;
   }
 
-  const assigned = Array.isArray(employee.assignedModules)
+  const hasAssignedArr = Array.isArray(employee.assignedModules);
+  const assigned = hasAssignedArr
     ? employee.assignedModules.map((m) => String(m).toLowerCase().trim())
     : [];
 
@@ -59,6 +60,20 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
     return true;
   }
 
+  const isOldDefaultTasks = (tp) => {
+    if (!tp || typeof tp !== "object") return false;
+    const keys = Object.keys(tp);
+    return keys.length <= 6 && !tp.create && !tp.edit && !tp.shift && !tp.cancel && !tp.reopen && tp.assign === undefined && tp.projects === undefined;
+  };
+
+  const isOldDefaultLeads = (lp) => {
+    if (!lp || typeof lp !== "object") return true;
+    return !lp.create && !lp.edit && !lp.delete && !lp.assignLeads && !lp.campaigns && (lp.view === undefined || lp.view === true);
+  };
+
+  const hasTasksAssigned = !hasAssignedArr || assigned.includes("tasks") || assigned.includes("task");
+  const hasLeadsAssigned = !hasAssignedArr || assigned.includes("leads") || assigned.includes("lead");
+
   if (catPerm !== undefined && catPerm !== null) {
     if (typeof catPerm === "boolean") return catPerm;
     if (typeof catPerm === "object") {
@@ -68,6 +83,15 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
         }
       }
       if (catPerm[action] !== undefined) {
+        // If employee has tasks/leads assigned and has the legacy default permissions where create/edit were false, default to true
+        if (userRole === "Employee" || !userRole) {
+          if (modKey === "tasks" && (action === "create" || action === "edit") && hasTasksAssigned && isOldDefaultTasks(catPerm)) {
+            return true;
+          }
+          if (modKey === "leads" && (action === "create" || action === "edit") && hasLeadsAssigned && isOldDefaultLeads(catPerm)) {
+            return true;
+          }
+        }
         return catPerm[action] === true;
       }
     }
@@ -99,7 +123,16 @@ const checkUserPermission = async (userId, companyId, userRole, category, action
     return false; // Team Members and Announcements/Holidays default to false for Manager
   }
 
-  // normal Employees default to false for manager/administrative actions
+  // normal Employees: default tasks and leads create & edit to true if module is assigned
+  if (userRole === "Employee" || !userRole) {
+    if ((category === "tasks" || normCat === "tasks" || modKey === "tasks") && (action === "create" || action === "edit") && hasTasksAssigned) {
+      return true;
+    }
+    if ((category === "leads" || normCat === "leads" || modKey === "leads") && (action === "create" || action === "edit") && hasLeadsAssigned) {
+      return true;
+    }
+  }
+
   return false;
 };
 
@@ -238,11 +271,28 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
   }
 
   // normal Employees:
+  const isOldDefaultTasks = (tp) => {
+    if (!tp || typeof tp !== "object") return false;
+    const keys = Object.keys(tp);
+    return keys.length <= 6 && !tp.create && !tp.edit && !tp.shift && !tp.cancel && !tp.reopen && tp.assign === undefined && tp.projects === undefined;
+  };
+
+  const isOldDefaultLeads = (lp) => {
+    if (!lp || typeof lp !== "object") return true;
+    return !lp.create && !lp.edit && !lp.delete && !lp.assignLeads && !lp.campaigns && (lp.view === undefined || lp.view === true);
+  };
+
+  const taskCreateAllowed = canViewTasks && (perm.tasks?.create === true || perm.tasks?.create === undefined || isOldDefaultTasks(perm.tasks));
+  const taskEditAllowed = canViewTasks && (perm.tasks?.edit === true || perm.tasks?.edit === undefined || isOldDefaultTasks(perm.tasks));
+
+  const leadCreateAllowed = canViewLeads && (perm.leads?.create === true || perm.leads?.create === undefined || isOldDefaultLeads(perm.leads));
+  const leadEditAllowed = canViewLeads && (perm.leads?.edit === true || perm.leads?.edit === undefined || isOldDefaultLeads(perm.leads));
+
   return {
     tasks: {
       view: canViewTasks,
-      create: perm.tasks?.create === true,
-      edit: perm.tasks?.edit === true,
+      create: Boolean(taskCreateAllowed),
+      edit: Boolean(taskEditAllowed),
       assign: perm.tasks?.assign === true,
       shift: perm.tasks?.shift === true,
       cancel: perm.tasks?.cancel === true,
@@ -260,8 +310,8 @@ const getUserPermissions = async (userId, companyId, userRole, userDoc) => {
     announcementsHolidays: perm.announcementsHolidays === true,
     leads: {
       view: canViewLeads,
-      create: perm.leads?.create === true,
-      edit: perm.leads?.edit === true,
+      create: Boolean(leadCreateAllowed),
+      edit: Boolean(leadEditAllowed),
       assign: perm.leads?.assign === true || perm.leads?.assignLeads === true,
       assignLeads: perm.leads?.assignLeads === true || perm.leads?.assign === true,
       delete: perm.leads?.delete === true,

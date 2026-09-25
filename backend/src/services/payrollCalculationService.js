@@ -35,24 +35,50 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
   let ss = await SalaryStructure.findOne({ employeeId, companyId, status: "active" });
   if (!ss) {
     const sd = emp.salaryDetails;
-    if (sd && (sd.basic || sd.ctc)) {
-      const basicSalary = sd.basic || 0;
-      const hra = sd.hra || 0;
-      const specialAllowance = sd.specialAllowance || 0;
-      const grossSalary = basicSalary + hra + specialAllowance;
+    if (sd && (sd.basic !== undefined || sd.basicSalary !== undefined || sd.ctc !== undefined || sd.grossSalary !== undefined)) {
+      let basicSalary = 0;
+      if (Number(sd.basic) > 0) {
+        basicSalary = Number(sd.basic);
+      } else if (Number(sd.basicSalary) > 0) {
+        basicSalary = Math.round(Number(sd.basicSalary) / 12);
+      }
+
+      const hra = Number(sd.hra) || 0;
+      const conveyanceAllowance = Number(sd.conveyance || sd.conveyanceAllowance) || 0;
+      const medicalAllowance = Number(sd.medicalAllowance) || 0;
+      const specialAllowance = Number(sd.specialAllowance) || 0;
+      const otherAllowance = Number(sd.otherAllowance) || 0;
+
+      const calcGross = basicSalary + hra + conveyanceAllowance + medicalAllowance + specialAllowance + otherAllowance;
+      const grossSalary = Number(sd.grossSalary) > 0 ? Number(sd.grossSalary) : calcGross;
+      const monthlyCTC = Number(sd.monthlyCtc) > 0
+        ? Number(sd.monthlyCtc)
+        : (Number(sd.ctc) > 0 ? Math.round(Number(sd.ctc) / 12) : grossSalary);
+
+      const pf = Number(sd.pfEmployee !== undefined ? sd.pfEmployee : sd.pf) || 0;
+      const esi = Number(sd.esiEmployee !== undefined ? sd.esiEmployee : sd.esi) || 0;
+      const professionalTax = Number(sd.professionalTax) || 0;
+      const tds = Number(sd.tds) || 0;
+      const otherDeductions = Number(sd.otherDeductions) || 0;
+      const totalDeductions = pf + esi + professionalTax + tds + otherDeductions;
+      const netSalary = Math.max(0, grossSalary - totalDeductions);
+
       ss = {
-        monthlyCTC: sd.ctc || grossSalary,
-        basicSalary, hra,
-        conveyanceAllowance: 0,
-        medicalAllowance: 0,
+        monthlyCTC,
+        basicSalary,
+        hra,
+        conveyanceAllowance,
+        medicalAllowance,
         specialAllowance,
-        otherAllowance: 0,
+        otherAllowance,
         grossSalary,
-        pf: sd.pf || 0,
-        esi: sd.esi || 0,
-        professionalTax: 0,
-        tds: sd.tds || 0,
-        otherDeductions: 0,
+        pf,
+        esi,
+        professionalTax,
+        tds,
+        otherDeductions,
+        totalDeductions,
+        netSalary,
         isLegacy: true,
       };
     } else {
