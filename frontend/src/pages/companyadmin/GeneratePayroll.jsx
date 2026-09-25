@@ -402,7 +402,7 @@ const GeneratePayroll = () => {
                     const rawPhoto = p.employeeSnapshot?.photo || p.photo || empObj?.photo || empObj?.user?.profileImage || empObj?.userId?.profileImage || null;
                     const photoUrl = getPhotoUrl(rawPhoto);
                     const empOverrides = overrides[p.employeeId] || {};
-                    const hasOverrides = empOverrides.bonus || empOverrides.incentive || empOverrides.advanceDeduction;
+                    const hasOverrides = empOverrides.bonus || empOverrides.incentive || empOverrides.advanceDeduction || empOverrides.overtimePay;
                     const att = p.attendanceSummary || p.calculatedPayroll?.attendanceDetails || {};
                     const monthLeavesCount = att.monthLeaves ?? ((att.paidLeaveDays || 0) + (att.unpaidLeaveDays || 0));
                     const gross = p.grossSalary || p.earnings?.grossEarnings || p.calculatedPayroll?.grossSalary || p.calculatedPayroll?.earnings?.grossEarnings || 0;
@@ -457,6 +457,11 @@ const GeneratePayroll = () => {
                                 <span className="text-rose-500 font-bold">{fmtDays(att.absentDays || 0)}A</span>
                                 {att.halfDays > 0 && <><span>·</span><span className="text-purple-600 font-bold">{fmtDays(att.halfDays)}HD</span></>}
                               </div>
+                              {att.totalOvertimeHours > 0 && (
+                                <span className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-0.5">
+                                  +{att.totalOvertimeHours}h OT
+                                </span>
+                              )}
                             </div>
                           ) : "—"}
                         </td>
@@ -471,7 +476,16 @@ const GeneratePayroll = () => {
                           ) : "—"}
                         </td>
                         <td className="px-3 py-3 text-right font-bold text-emerald-600 dark:text-emerald-400 font-mono">
-                          {p.success ? fmt(gross) : "—"}
+                          {p.success ? (
+                            <div>
+                              <span>{fmt(gross)}</span>
+                              {p.earnings?.overtimePay > 0 && (
+                                <span className="block text-[9.5px] font-semibold text-amber-600 dark:text-amber-400">
+                                  incl. {fmt(p.earnings.overtimePay)} OT
+                                </span>
+                              )}
+                            </div>
+                          ) : "—"}
                         </td>
                         <td className="px-3 py-3 text-right font-bold text-rose-600 dark:text-rose-400 font-mono">
                           {p.success ? fmt(deductions) : "—"}
@@ -651,6 +665,37 @@ const GeneratePayroll = () => {
                       placeholder="0"
                       className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold mt-1 text-slate-900 dark:text-white"
                     />
+                  </div>
+
+                  {/* Overtime Pay Adjustment */}
+                  <div className="p-2.5 rounded-xl bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 space-y-1.5">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-bold text-amber-900 dark:text-amber-300">
+                        Overtime (Beyond {activeOverrideEmp.attendanceSummary?.shiftHours || 8}h Shift)
+                      </span>
+                      <span className="font-mono font-black text-amber-700 dark:text-amber-400">
+                        {activeOverrideEmp.attendanceSummary?.totalOvertimeHours || 0} hrs
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+                      <span>Rate: {fmt(activeOverrideEmp.earnings?.overtimeHourlyRate || 0)}/hr</span>
+                      <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                        Auto: {fmt(activeOverrideEmp.earnings?.overtimePay || 0)}
+                      </span>
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-600 dark:text-slate-400 uppercase block mt-1">
+                        Override Overtime Pay (₹)
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={overrides[activeOverrideEmp.employeeId]?.overtimePay ?? ""}
+                        onChange={(e) => setOverride(activeOverrideEmp.employeeId, "overtimePay", e.target.value)}
+                        placeholder={String(activeOverrideEmp.earnings?.overtimePay || 0)}
+                        className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl font-bold mt-1 text-slate-900 dark:text-white"
+                      />
+                    </div>
                   </div>
 
                   <div>

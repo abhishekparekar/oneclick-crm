@@ -897,13 +897,38 @@ const getCompanySettings = async (req, res, next) => {
 // PUT /api/company/settings
 const updateCompanySettings = async (req, res, next) => {
     try {
-        const company = await Company.findById(req.companyId);
+        const updateOps = {};
+        Object.keys(req.body).forEach(key => {
+            if (req.body[key] !== undefined) {
+                updateOps[`settings.${key}`] = req.body[key];
+            }
+        });
+
+        const company = await Company.findByIdAndUpdate(
+            req.companyId,
+            { $set: updateOps },
+            { new: true, runValidators: true }
+        );
         if (!company) {
             return res.status(404).json({ success: false, message: "Company not found" });
         }
-        company.settings = { ...company.settings, ...req.body };
-        company.markModified("settings");
-        await company.save();
+
+        if (req.body.fullDayHours !== undefined || req.body.halfDayHours !== undefined) {
+            try {
+                const PayrollSettings = require("../models/PayrollSettings");
+                const updateFields = {};
+                if (req.body.fullDayHours !== undefined) updateFields.fullDayMinHours = Number(req.body.fullDayHours) || 8;
+                if (req.body.halfDayHours !== undefined) updateFields.halfDayMinHours = Number(req.body.halfDayHours) || 4;
+                await PayrollSettings.findOneAndUpdate(
+                    { companyId: req.companyId },
+                    { $set: updateFields },
+                    { upsert: true }
+                );
+            } catch (err) {
+                console.error("PayrollSettings sync error:", err.message);
+            }
+        }
+
         res.json({ success: true, settings: company.settings, message: "Settings updated successfully" });
     } catch (error) {
         next(error);
@@ -2191,6 +2216,7 @@ const createOrUpdateSalaryStructure = async (req, res, next) => {
         if (hra !== undefined) structure.hra = hra;
         if (allowances !== undefined) structure.allowances = allowances;
         if (deductions !== undefined) structure.deductions = deductions;
+        if (req.body.overtimeHourlyRate !== undefined) structure.overtimeHourlyRate = Math.max(0, Number(req.body.overtimeHourlyRate) || 0);
 
         await structure.save();
         res.json({ success: true, salaryStructure: structure, message: "Salary structure updated successfully" });

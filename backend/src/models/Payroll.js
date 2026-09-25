@@ -47,6 +47,7 @@ const payrollSchema = new mongoose.Schema(
       lateDays: { type: Number, default: 0 },
       payableDays: { type: Number, default: 0 },
       lossOfPayDays: { type: Number, default: 0 },
+      totalOvertimeHours: { type: Number, default: 0 },
     },
     earnings: {
       basicSalary: { type: Number, default: 0 },
@@ -55,6 +56,11 @@ const payrollSchema = new mongoose.Schema(
       medicalAllowance: { type: Number, default: 0 },
       specialAllowance: { type: Number, default: 0 },
       otherAllowance: { type: Number, default: 0 },
+      bonus: { type: Number, default: 0 },
+      incentive: { type: Number, default: 0 },
+      overtimePay: { type: Number, default: 0 },
+      overtimeHours: { type: Number, default: 0 },
+      overtimeHourlyRate: { type: Number, default: 0 },
       grossEarnings: { type: Number, default: 0 },
     },
     deductions: {

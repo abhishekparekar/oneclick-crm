@@ -54,6 +54,7 @@ const generatePayslipHTML = (payroll, company, settings = {}) => {
     ["Other Allowance", earn.otherAllowance],
     ...(earn.bonus > 0 ? [["Bonus / Incentive", earn.bonus]] : []),
     ...(earn.incentive > 0 ? [["Performance Incentive", earn.incentive]] : []),
+    ...(earn.overtimePay > 0 ? [[`Overtime Pay (${earn.overtimeHours || 0} hrs @ ₹${earn.overtimeHourlyRate || 0}/hr)`, earn.overtimePay]] : []),
   ].filter(([, v]) => Number(v) > 0);
 
   const deductionRows = [

@@ -62,6 +62,7 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
       const otherDeductions = Number(sd.otherDeductions) || 0;
       const totalDeductions = pf + esi + professionalTax + tds + otherDeductions;
       const netSalary = Math.max(0, grossSalary - totalDeductions);
+      const overtimeHourlyRate = Number(sd.overtimeHourlyRate || sd.overtimeRate) || 0;
 
       ss = {
         monthlyCTC,
@@ -79,6 +80,7 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
         otherDeductions,
         totalDeductions,
         netSalary,
+        overtimeHourlyRate,
         isLegacy: true,
       };
     } else {
@@ -147,7 +149,16 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
   // One-time bonus/incentive added during generation
   const bonus = overrides.bonus || 0;
   const incentive = overrides.incentive || 0;
-  const grossEarnings = earnedBasic + earnedHRA + earnedConveyance + earnedMedical + earnedSpecial + earnedOther + bonus + incentive;
+
+  // Overtime Pay Calculation
+  const overtimeHourlyRate = Number(ss.overtimeHourlyRate || emp.salaryDetails?.overtimeHourlyRate || 0);
+  const totalOvertimeHours = Number(attendance.totalOvertimeHours) || 0;
+  const calculatedOvertimePay = round(totalOvertimeHours * overtimeHourlyRate);
+  const overtimePay = (overrides.overtimePay !== undefined && overrides.overtimePay !== null && overrides.overtimePay !== "")
+    ? Math.max(0, Number(overrides.overtimePay) || 0)
+    : calculatedOvertimePay;
+
+  const grossEarnings = earnedBasic + earnedHRA + earnedConveyance + earnedMedical + earnedSpecial + earnedOther + bonus + incentive + overtimePay;
 
   // 9. Statutory Deductions (fixed from salary structure)
   const pf = (settings.pfEnabled !== false && ss.pf > 0) ? ss.pf : 0;
@@ -242,6 +253,9 @@ const calculateEmployeePayroll = async (employeeId, month, year, companyId, over
       otherAllowance: round(earnedOther),
       bonus: round(bonus),
       incentive: round(incentive),
+      overtimePay: round(overtimePay),
+      overtimeHours: round(totalOvertimeHours),
+      overtimeHourlyRate: round(overtimeHourlyRate),
       grossEarnings: round(grossEarnings),
     },
     deductions: {

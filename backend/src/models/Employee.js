@@ -257,6 +257,7 @@ const employeeSchema = new mongoose.Schema(
         esiEmployer: { type: Number, default: 0 },
         tds: { type: Number, default: 0 },
         professionalTax: { type: Number, default: 0 },
+        overtimeHourlyRate: { type: Number, default: 0 },
       }, { _id: false }),
       default: () => ({}),
     },

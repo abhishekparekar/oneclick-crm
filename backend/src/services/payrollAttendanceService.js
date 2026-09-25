@@ -45,12 +45,17 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
   if (!emp) throw new Error("Employee not found");
 
   // Load settings with safe defaults
+  const Company = require("../models/Company");
+  const company = await Company.findById(companyId).select("settings").lean();
+
   let settings = await PayrollSettings.findOne({ companyId });
   const weeklyOffDays = settings?.weeklyOffDays?.length ? settings.weeklyOffDays : [0]; // Default: Sunday
   const includeWeeklyOffAsPaid = settings?.includeWeeklyOffAsPaid ?? false;
   const includeHolidayAsPaid = settings?.includeHolidayAsPaid ?? true;
-  const fullDayMinHours = settings?.fullDayMinHours ?? 8;
-  const halfDayMinHours = settings?.halfDayMinHours ?? 4;
+
+  // Dynamically resolve fullDayMinHours from Company settings (Settings.jsx) or PayrollSettings (supports 8, 9, 10+ hours per company)
+  const fullDayMinHours = Number(company?.settings?.fullDayHours || settings?.fullDayMinHours || 8);
+  const halfDayMinHours = Number(company?.settings?.halfDayHours || settings?.halfDayMinHours || Math.round(fullDayMinHours / 2));
 
   // 1. Determine effective start date (mid-month joiners)
   let effectiveStartStr = startStr;
@@ -236,6 +241,19 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
   let payableDays = Math.round(finalPayableDays * 100) / 100;
   let lossOfPayDays = Math.round(finalLOPDays * 100) / 100;
 
+  // Calculate Overtime Hours beyond shift minimum hours (default 8 hrs)
+  let totalOvertimeHours = 0;
+  attendanceRecords.forEach((att) => {
+    const status = (att.status || "").toLowerCase();
+    if (status !== "absent" && status !== "unpaid_leave") {
+      const h = Number(att.totalHours) || 0;
+      if (h > fullDayMinHours) {
+        totalOvertimeHours += (h - fullDayMinHours);
+      }
+    }
+  });
+  totalOvertimeHours = Math.round(totalOvertimeHours * 100) / 100;
+
   return {
     totalCalendarDays,
     workingDays,
@@ -249,6 +267,8 @@ const getPayrollAttendanceSummary = async (employeeId, month, year, companyId) =
     unpaidLeaveDays,
     payableDays: Math.round(payableDays * 100) / 100,
     lossOfPayDays: Math.round(lossOfPayDays * 100) / 100,
+    totalOvertimeHours,
+    shiftHours: fullDayMinHours,
   };
 };
 

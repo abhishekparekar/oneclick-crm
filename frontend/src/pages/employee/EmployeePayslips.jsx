@@ -576,7 +576,7 @@ const EmployeePayslips = () => {
                         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2">
                           Attendance &amp; Working Days Record ({monthName} {ps.year})
                         </span>
-                        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 text-center">
+                        <div className="grid grid-cols-2 sm:grid-cols-6 lg:grid-cols-7 gap-2 text-center">
                           <div className="p-2 rounded-lg bg-emerald-50/80 dark:bg-emerald-950/30 border border-emerald-200/60 dark:border-emerald-800/40">
                             <span className="text-[9px] font-bold text-emerald-700 dark:text-emerald-400 uppercase block">Present Days</span>
                             <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 font-mono">{fmtDay(att.presentDays || 0)}</span>
@@ -601,6 +601,12 @@ const EmployeePayslips = () => {
                             <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase block">Payable Days</span>
                             <span className="text-xs font-black text-amber-800 dark:text-amber-300 font-mono">{fmtDay(att.payableDays || 0)}</span>
                           </div>
+                          {att.totalOvertimeHours > 0 && (
+                            <div className="p-2 rounded-lg bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 col-span-2 sm:col-span-1">
+                              <span className="text-[9px] font-bold text-amber-700 dark:text-amber-400 uppercase block">Overtime</span>
+                              <span className="text-xs font-black text-amber-800 dark:text-amber-300 font-mono">{att.totalOvertimeHours} hrs</span>
+                            </div>
+                          )}
                         </div>
                       </div>
 
@@ -626,6 +632,10 @@ const EmployeePayslips = () => {
                               ["Other Allowance", ps.earnings?.otherAllowance],
                               ps.earnings?.bonus > 0 && ["Performance Bonus", ps.earnings?.bonus],
                               ps.earnings?.incentive > 0 && ["Special Incentive", ps.earnings?.incentive],
+                              ps.earnings?.overtimePay > 0 && [
+                                `Overtime Pay (${ps.earnings?.overtimeHours || 0}h @ ₹${ps.earnings?.overtimeHourlyRate || 0}/h)`,
+                                ps.earnings?.overtimePay
+                              ],
                             ]
                               .filter(Boolean)
                               .map(

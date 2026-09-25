@@ -83,40 +83,41 @@ const Settings = () => {
 
   const { data: res, isLoading: isCompanyLoading } = useQuery({
     queryKey: ['companySettings'],
-    queryFn: getCompanySettingsApi
+    queryFn: () => getCompanySettingsApi().then((r) => r?.data || r),
   });
 
+  const settingsData = res?.data?.settings || res?.settings || res?.data || null;
+
   useEffect(() => {
-    if (res?.data?.settings) {
-      const s = res.data.settings;
+    if (settingsData) {
       setFormData(prev => ({
         ...prev,
-        shiftStartTime: s.shiftStartTime || "09:30",
-        shiftEndTime: s.shiftEndTime || "18:30",
-        graceMinutes: s.graceMinutes ?? 15,
-        lateMarkGraceMinutes: s.lateMarkGraceMinutes ?? 15,
-        halfDayHours: s.halfDayHours ?? 4,
-        fullDayHours: s.fullDayHours ?? 8,
-        workingDays: s.workingDays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
-        timezone: s.timezone || "Asia/Kolkata",
-        currency: s.currency || "INR",
+        shiftStartTime: settingsData.shiftStartTime || "09:30",
+        shiftEndTime: settingsData.shiftEndTime || "18:30",
+        graceMinutes: settingsData.graceMinutes ?? 15,
+        lateMarkGraceMinutes: settingsData.lateMarkGraceMinutes ?? 15,
+        halfDayHours: settingsData.halfDayHours ?? 4,
+        fullDayHours: settingsData.fullDayHours ?? 8,
+        workingDays: settingsData.workingDays || ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        timezone: settingsData.timezone || "Asia/Kolkata",
+        currency: settingsData.currency || "INR",
         attendanceNotifications: {
           punchIn: {
-            enabled: s.attendanceNotifications?.punchIn?.enabled ?? false,
-            notifyEmployee: s.attendanceNotifications?.punchIn?.notifyEmployee ?? false,
-            notifyManager: s.attendanceNotifications?.punchIn?.notifyManager ?? false,
-            notifyAdmin: s.attendanceNotifications?.punchIn?.notifyAdmin ?? false,
+            enabled: settingsData.attendanceNotifications?.punchIn?.enabled ?? false,
+            notifyEmployee: settingsData.attendanceNotifications?.punchIn?.notifyEmployee ?? false,
+            notifyManager: settingsData.attendanceNotifications?.punchIn?.notifyManager ?? false,
+            notifyAdmin: settingsData.attendanceNotifications?.punchIn?.notifyAdmin ?? false,
           },
           punchOut: {
-            enabled: s.attendanceNotifications?.punchOut?.enabled ?? false,
-            notifyEmployee: s.attendanceNotifications?.punchOut?.notifyEmployee ?? false,
-            notifyManager: s.attendanceNotifications?.punchOut?.notifyManager ?? false,
-            notifyAdmin: s.attendanceNotifications?.punchOut?.notifyAdmin ?? false,
+            enabled: settingsData.attendanceNotifications?.punchOut?.enabled ?? false,
+            notifyEmployee: settingsData.attendanceNotifications?.punchOut?.notifyEmployee ?? false,
+            notifyManager: settingsData.attendanceNotifications?.punchOut?.notifyManager ?? false,
+            notifyAdmin: settingsData.attendanceNotifications?.punchOut?.notifyAdmin ?? false,
           },
         },
       }));
     }
-  }, [res]);
+  }, [settingsData]);
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {
@@ -133,9 +134,15 @@ const Settings = () => {
         attendanceNotifications: data.attendanceNotifications,
       };
 
-      await updateCompanySettingsApi(companyPayload);
+      const response = await updateCompanySettingsApi(companyPayload);
+      return response?.data?.settings || companyPayload;
     },
-    onSuccess: () => {
+    onSuccess: (updatedSettings) => {
+      if (updatedSettings) {
+        setFormData(prev => ({ ...prev, ...updatedSettings }));
+        queryClient.setQueryData(['companySettings'], { success: true, settings: updatedSettings });
+      }
+      queryClient.invalidateQueries({ queryKey: ['companySettings'] });
       queryClient.invalidateQueries(['companySettings']);
       setSuccessMsg("System settings updated successfully.");
       setIsEditing(false);

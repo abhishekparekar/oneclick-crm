@@ -32,6 +32,7 @@ const syncSalaryStructureForEmployee = async (employee, companyId) => {
       const tds = Number(sd.tds) || 0;
       const totalDeductions = Number(sd.totalDeductions) || (pf + esi + professionalTax + tds);
       const netSalary = Number(sd.netSalary) || Math.max(0, grossSalary - totalDeductions);
+      const overtimeHourlyRate = Number(sd.overtimeHourlyRate || sd.overtimeRate) || 0;
 
       await SalaryStructure.findOneAndUpdate(
         { employeeId: employee._id, companyId },
@@ -43,6 +44,7 @@ const syncSalaryStructureForEmployee = async (employee, companyId) => {
           medicalAllowance,
           specialAllowance,
           otherAllowance,
+          overtimeHourlyRate,
           grossSalary,
           pf,
           esi,
@@ -445,6 +447,16 @@ const getEmployeeById = async (req, res, next) => {
 
     const empObj = employee.toObject();
     empObj.photo = empObj.photo || empObj.documents?.photo || empObj.userId?.profileImage || "";
+
+    try {
+      const activeSs = await SalaryStructure.findOne({ employeeId: employee._id, companyId: req.companyId, status: "active" }).lean();
+      if (activeSs && activeSs.overtimeHourlyRate !== undefined) {
+        if (!empObj.salaryDetails) empObj.salaryDetails = {};
+        if (empObj.salaryDetails.overtimeHourlyRate === undefined || empObj.salaryDetails.overtimeHourlyRate === 0) {
+          empObj.salaryDetails.overtimeHourlyRate = activeSs.overtimeHourlyRate;
+        }
+      }
+    } catch (_) {}
 
     res.json({ employee: empObj });
   } catch (error) {

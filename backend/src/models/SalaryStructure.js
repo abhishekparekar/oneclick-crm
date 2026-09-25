@@ -44,6 +44,11 @@ const salaryStructureSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    overtimeHourlyRate: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     grossSalary: {
       type: Number, // basic + hra + allowances
       required: true,

@@ -8,7 +8,7 @@ import {
   getBranchesApi, getEmployeesApi,
   createDepartmentApi, createDesignationApi, createBranchApi,
   getLeaveBalanceApi, updateLeaveBalanceApi, uploadEmployeeDocumentApi,
-  getModuleUsageApi
+  getModuleUsageApi, getCompanySettingsApi
 } from "../../api/companyAdminApi";
 import { getManagerDashboardApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
@@ -19,7 +19,7 @@ import {
   AlertTriangle, RefreshCw, Plus, Loader2, Building2, CalendarDays,
   Upload, Eye, ChevronRight, ChevronLeft, CheckCheck, Trash2,
   ExternalLink, Sparkles, Shield, DollarSign, Users, AlertCircle, FileCheck,
-  Calendar, Cpu
+  Calendar, Cpu, Clock
 } from "lucide-react";
 
 const ALL_MODULES = [
@@ -38,6 +38,17 @@ const getPhotoUrl = (rawPhoto) => {
   }
   const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
   return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
+
+const formatTime12h = (time24) => {
+  if (!time24) return "";
+  const [hStr, mStr] = time24.split(":");
+  let h = parseInt(hStr, 10);
+  const m = mStr || "00";
+  if (isNaN(h)) return time24;
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
 };
 
 // ── Step Definitions ────────────────────────────────────────────────────────
@@ -336,6 +347,40 @@ export default function EditEmployee() {
     queryKey: ["companyModuleUsage"],
     queryFn: () => getModuleUsageApi().then((r) => r.data),
   });
+
+  const { data: companySettingsRes } = useQuery({
+    queryKey: ["companySettings"],
+    queryFn: () => getCompanySettingsApi().then((r) => r?.data || r),
+    staleTime: 60 * 1000,
+  });
+
+  const companySettings = useMemo(() => {
+    return (
+      companySettingsRes?.data?.settings ||
+      companySettingsRes?.settings ||
+      companySettingsRes?.data ||
+      user?.company?.settings ||
+      user?.companySettings ||
+      {}
+    );
+  }, [companySettingsRes, user]);
+
+  const shiftFullDayHours = useMemo(() => {
+    if (companySettings?.fullDayHours) return Number(companySettings.fullDayHours);
+    if (companySettings?.fullDayMinHours) return Number(companySettings.fullDayMinHours);
+    if (companySettings?.shiftStartTime && companySettings?.shiftEndTime) {
+      const [sh, sm] = companySettings.shiftStartTime.split(":").map(Number);
+      const [eh, em] = companySettings.shiftEndTime.split(":").map(Number);
+      let diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+      if (diff < 0) diff += 24 * 60;
+      const calcHours = Math.round(diff / 60);
+      if (calcHours > 0) return calcHours;
+    }
+    return 8;
+  }, [companySettings]);
+
+  const shiftStartTime = companySettings?.shiftStartTime || "09:30";
+  const shiftEndTime = companySettings?.shiftEndTime || "18:30";
 
   const moduleUsage = moduleUsageRes?.usage || {};
   const subscribedModules = useMemo(() => {
@@ -1288,6 +1333,45 @@ export default function EditEmployee() {
               </div>
             </div>
 
+            {/* Overtime Policy Highlight Box */}
+            <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 dark:from-amber-950/30 dark:via-slate-900/40 dark:to-amber-950/20 rounded-2xl p-4 border-2 border-amber-400/80 dark:border-amber-500/50 shadow-sm space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 dark:border-amber-800/60 pb-2.5">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                    <Clock size={16} strokeWidth={2.5} />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                        Overtime Hourly Rate (ओव्हरटाईम पेमेंट दर)
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 uppercase tracking-wider shadow-2xs">
+                        Beyond {shiftFullDayHours}h Shift
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                      कंपनी शिफ्ट वेळ: <strong className="text-slate-800 dark:text-slate-200">{formatTime12h(shiftStartTime)} ते {formatTime12h(shiftEndTime)} ({shiftFullDayHours} तास पूर्ण दिवस)</strong>. या {shiftFullDayHours} तासांपेक्षा जास्त काम केल्यास प्रति तास किती द्यायचे ते येथे सेट करा.
+                    </p>
+                  </div>
+                </div>
+
+                <span className="text-xs font-mono font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-3 py-1 rounded-xl border border-amber-300 dark:border-amber-700">
+                  ₹{Number(formData.salaryDetails?.overtimeHourlyRate || 0).toLocaleString("en-IN")} / hr
+                </span>
+              </div>
+
+              <div className="max-w-xs">
+                <Input
+                  label="Overtime Rate Per Hour (₹ / hr)"
+                  type="number"
+                  value={formData.salaryDetails?.overtimeHourlyRate}
+                  onChange={(v) => handleNestedChange("salaryDetails", "overtimeHourlyRate", v)}
+                  placeholder="₹ 150"
+                  hint={`${shiftFullDayHours} तासांच्या वरील प्रत्येक जास्तीच्या तासाला मिळणारा निश्चित ओव्हरटाईम दर`}
+                />
+              </div>
+            </div>
+
             {/* Leave Balance Quotas (Month-Wise with Auto Annual Total) */}
             <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1594,6 +1678,7 @@ export default function EditEmployee() {
                   <div><span className="text-slate-400 text-[10px] block">Monthly Basic</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.basic ? `₹${Number(formData.salaryDetails.basic).toLocaleString('en-IN')}` : "—"}</span></div>
                   <div><span className="text-slate-400 text-[10px] block">HRA</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.hra ? `₹${Number(formData.salaryDetails.hra).toLocaleString('en-IN')}` : "—"}</span></div>
                   <div><span className="text-slate-400 text-[10px] block">PF Deduction</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.pf ? `₹${Number(formData.salaryDetails.pf).toLocaleString('en-IN')}` : "—"}</span></div>
+                  <div><span className="text-slate-400 text-[10px] block">OT Rate</span><span className="font-bold text-slate-800 dark:text-slate-200">{formData.salaryDetails?.overtimeHourlyRate ? `₹${Number(formData.salaryDetails.overtimeHourlyRate).toLocaleString('en-IN')}/hr` : "—"}</span></div>
                 </div>
               </div>
 

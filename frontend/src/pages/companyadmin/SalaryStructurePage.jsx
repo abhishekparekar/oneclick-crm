@@ -34,6 +34,7 @@ const SalaryStructurePage = () => {
     medicalAllowance: 0,
     specialAllowance: 0,
     otherAllowance: 0,
+    overtimeHourlyRate: 0,
     pf: 0,
     esi: 0,
     professionalTax: 0,
@@ -41,9 +42,16 @@ const SalaryStructurePage = () => {
     otherDeductions: 0,
   });
 
+  const [companySettings, setCompanySettings] = useState(null);
+
   useEffect(() => {
     fetchEmployees();
+    api.get("/company/settings")
+      .then((res) => setCompanySettings(res.data?.settings || res.data || null))
+      .catch(() => {});
   }, []);
+
+  const shiftFullDayHours = Number(companySettings?.fullDayHours || 8);
 
   const fetchEmployees = async () => {
     try {
@@ -74,6 +82,7 @@ const SalaryStructurePage = () => {
           medicalAllowance: opt(data.medicalAllowance),
           specialAllowance: opt(data.specialAllowance),
           otherAllowance: opt(data.otherAllowance ?? data.allowances),
+          overtimeHourlyRate: opt(data.overtimeHourlyRate),
           pf: opt(data.pf),
           esi: opt(data.esi),
           professionalTax: opt(data.professionalTax),
@@ -86,14 +95,14 @@ const SalaryStructurePage = () => {
       } else {
         setStructure({
           monthlyCTC: 0, basicSalary: 0, hra: "", conveyanceAllowance: "", medicalAllowance: "",
-          specialAllowance: "", otherAllowance: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
+          specialAllowance: "", otherAllowance: "", overtimeHourlyRate: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
         });
       }
     } catch (error) {
       console.error("Error fetching salary structure:", error);
       setStructure({
         monthlyCTC: 0, basicSalary: 0, hra: "", conveyanceAllowance: "", medicalAllowance: "",
-        specialAllowance: "", otherAllowance: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
+        specialAllowance: "", otherAllowance: "", overtimeHourlyRate: "", pf: "", esi: "", professionalTax: "", tds: "", otherDeductions: ""
       });
     } finally {
       setLoading(false);
@@ -147,6 +156,7 @@ const SalaryStructurePage = () => {
       medicalAllowance: medical,
       specialAllowance: special,
       otherAllowance: "",
+      overtimeHourlyRate: structure.overtimeHourlyRate || "",
       pf: pf,
       esi: "",
       professionalTax: pt,
@@ -498,6 +508,22 @@ const SalaryStructurePage = () => {
                               <span className="font-mono text-slate-900 dark:text-white">{fmt(structure.otherAllowance)}</span>
                             </div>
                             <input type="number" name="otherAllowance" value={structure.otherAllowance || ""} onChange={handleChange} className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500" />
+                          </div>
+
+                          <div>
+                            <div className="flex justify-between text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1">
+                              <span>Overtime Hourly Rate (₹ / hr)</span>
+                              <span className="font-mono text-slate-900 dark:text-white">{structure.overtimeHourlyRate ? `${fmt(structure.overtimeHourlyRate)}/hr` : "₹ 0/hr"}</span>
+                            </div>
+                            <input
+                              type="number"
+                              name="overtimeHourlyRate"
+                              placeholder="0"
+                              value={structure.overtimeHourlyRate || ""}
+                              onChange={handleChange}
+                              className="w-full px-3 py-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            />
+                            <span className="text-[10px] text-slate-400 mt-0.5 block">Fixed payout per hour worked beyond {shiftFullDayHours} hrs shift</span>
                           </div>
                         </div>
                       </div>

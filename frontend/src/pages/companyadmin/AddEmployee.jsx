@@ -5,7 +5,8 @@ import { toast } from "react-hot-toast";
 import {
   createEmployeeApi, getDepartmentsApi, getDesignationsApi,
   getBranchesApi, getEmployeesApi, createDepartmentApi,
-  createDesignationApi, createBranchApi, getModuleUsageApi
+  createDesignationApi, createBranchApi, getModuleUsageApi,
+  getCompanySettingsApi
 } from "../../api/companyAdminApi";
 import { getManagerDashboardApi } from "../../api/managerApi";
 import { useAuth } from "../../context/AuthContext";
@@ -16,7 +17,7 @@ import {
   Plus, Loader2, Building2, CalendarDays, Upload, Eye, ChevronRight,
   ChevronLeft, CheckCheck, Trash2, ExternalLink, Sparkles, Shield,
   DollarSign, Users, AlertCircle, FileCheck, Calendar, Cpu, Zap, ArrowUpRight,
-  Wallet, Percent
+  Wallet, Percent, Clock
 } from "lucide-react";
 
 const ALL_MODULES = [
@@ -35,6 +36,16 @@ const getPhotoUrl = (rawPhoto) => {
   }
   const base = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/+api$/, "").replace(/\/+$/, "");
   return `${base}/${trimmed.replace(/^\/+/, "")}`;
+};
+
+const formatTime12h = (t) => {
+  if (!t) return "";
+  const parts = t.split(":");
+  let h = parseInt(parts[0], 10);
+  const m = parts[1] || "00";
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${String(h).padStart(2, "0")}:${m} ${ampm}`;
 };
 
 // ── Step Definitions ────────────────────────────────────────────────────────
@@ -298,6 +309,7 @@ export default function AddEmployee() {
       specialAllowance: 0,
       annualSpecialAllowance: 0,
       otherAllowance: 0,
+      overtimeHourlyRate: 0,
       grossSalary: 0,
       annualGross: 0,
       pf: 0,
@@ -371,6 +383,40 @@ export default function AddEmployee() {
     queryKey: ["companyModuleUsage"],
     queryFn: () => getModuleUsageApi().then((r) => r.data),
   });
+
+  const { data: settingsRes } = useQuery({
+    queryKey: ["companySettings"],
+    queryFn: () => getCompanySettingsApi().then((r) => r?.data || r),
+    staleTime: 60 * 1000,
+  });
+
+  const companySettings = useMemo(() => {
+    return (
+      settingsRes?.data?.settings ||
+      settingsRes?.settings ||
+      settingsRes?.data ||
+      user?.company?.settings ||
+      user?.companySettings ||
+      {}
+    );
+  }, [settingsRes, user]);
+
+  const shiftFullDayHours = useMemo(() => {
+    if (companySettings?.fullDayHours) return Number(companySettings.fullDayHours);
+    if (companySettings?.fullDayMinHours) return Number(companySettings.fullDayMinHours);
+    if (companySettings?.shiftStartTime && companySettings?.shiftEndTime) {
+      const [sh, sm] = companySettings.shiftStartTime.split(":").map(Number);
+      const [eh, em] = companySettings.shiftEndTime.split(":").map(Number);
+      let diff = (eh * 60 + (em || 0)) - (sh * 60 + (sm || 0));
+      if (diff < 0) diff += 24 * 60;
+      const calcHours = Math.round(diff / 60);
+      if (calcHours > 0) return calcHours;
+    }
+    return 8;
+  }, [companySettings]);
+
+  const shiftStartTime = companySettings?.shiftStartTime || "09:30";
+  const shiftEndTime = companySettings?.shiftEndTime || "18:30";
 
   const { data: dashRes } = useQuery({
     queryKey: ["managerDashboard"],
@@ -613,6 +659,7 @@ export default function AddEmployee() {
       specialAllowance: monthlySpecial,
       annualSpecialAllowance: monthlySpecial * 12,
       otherAllowance: Number(formData.salaryDetails?.otherAllowance) || 0,
+      overtimeHourlyRate: Number(formData.salaryDetails?.overtimeHourlyRate) || 0,
       grossSalary: monthlyGross,
       annualGross: monthlyGross * 12,
       pf: monthlyPfEmp,
@@ -751,6 +798,8 @@ export default function AddEmployee() {
         updated.medicalAllowance = monthlyVal;
       } else if (field === "otherAllowance") {
         updated.otherAllowance = monthlyVal;
+      } else if (field === "overtimeHourlyRate") {
+        updated.overtimeHourlyRate = Math.max(0, Number(rawVal) || 0);
       } else if (field === "pf" || field === "pfEmployee") {
         updated.pf = monthlyVal;
         updated.pfEmployee = monthlyVal;
@@ -2202,6 +2251,46 @@ export default function AddEmployee() {
                     }
                     onChange={(v) => handleCustomSalaryChange("otherAllowance", v, salaryViewMode === "annual")}
                     hint="Optional extra allowance"
+                  />
+                </div>
+              </div>
+
+              {/* ── OVERTIME HOURLY RATE (HIGHLIGHTED POLICY CARD) ── */}
+              <div className="bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 dark:from-amber-950/30 dark:via-slate-900/40 dark:to-amber-950/20 rounded-2xl p-4 border-2 border-amber-400/80 dark:border-amber-500/50 shadow-sm space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200/70 dark:border-amber-800/60 pb-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-bold shadow-xs">
+                      <Clock size={16} strokeWidth={2.5} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                          Overtime Hourly Rate (ओव्हरटाईम पेमेंट दर)
+                        </span>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 uppercase tracking-wider shadow-2xs">
+                          Beyond {shiftFullDayHours}h Shift
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
+                        कंपनी शिफ्ट वेळ: <strong className="text-slate-800 dark:text-slate-200">{formatTime12h(shiftStartTime)} ते {formatTime12h(shiftEndTime)} ({shiftFullDayHours} तास पूर्ण दिवस)</strong>. या {shiftFullDayHours} तासांपेक्षा जास्त काम केल्यास प्रति तास किती द्यायचे ते येथे टाका.
+                      </p>
+                    </div>
+                  </div>
+
+                  <span className="text-xs font-mono font-black text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/60 px-3 py-1 rounded-xl border border-amber-300 dark:border-amber-700">
+                    ₹{Number(formData.salaryDetails?.overtimeHourlyRate || 0).toLocaleString("en-IN")} / hr
+                  </span>
+                </div>
+
+                <div className="max-w-xs">
+                  <Input
+                    label={`Overtime Rate Per Hour (Beyond ${shiftFullDayHours}h)`}
+                    type="number"
+                    allowZero={true}
+                    placeholder="e.g. 150"
+                    value={formData.salaryDetails?.overtimeHourlyRate}
+                    onChange={(v) => handleCustomSalaryChange("overtimeHourlyRate", v)}
+                    hint={`दिवसाच्या ${shiftFullDayHours} तासांच्या वरील प्रत्येक तासाला मिळणारा निश्चित दर`}
                   />
                 </div>
               </div>

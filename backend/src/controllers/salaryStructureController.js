@@ -13,6 +13,7 @@ const createSalaryStructure = async (req, res, next) => {
       medicalAllowance,
       specialAllowance,
       otherAllowance,
+      overtimeHourlyRate,
       pf,
       esi,
       professionalTax,
@@ -39,6 +40,7 @@ const createSalaryStructure = async (req, res, next) => {
       medicalAllowance: medicalAllowance || 0,
       specialAllowance: specialAllowance || 0,
       otherAllowance: otherAllowance || 0,
+      overtimeHourlyRate: Math.max(0, Number(overtimeHourlyRate) || 0),
       grossSalary,
       pf: pf || 0,
       esi: esi || 0,
@@ -99,6 +101,7 @@ const getSalaryStructureByEmployee = async (req, res, next) => {
         const tds = Number(sd.tds) || 0;
         const totalDeductions = Number(sd.totalDeductions) || (pf + esi + professionalTax + tds);
         const netSalary = Number(sd.netSalary) || Math.max(0, grossSalary - totalDeductions);
+        const overtimeHourlyRate = Number(sd.overtimeHourlyRate || sd.overtimeRate) || 0;
 
         return res.json({
           success: true,
@@ -110,6 +113,7 @@ const getSalaryStructureByEmployee = async (req, res, next) => {
             medicalAllowance,
             specialAllowance,
             otherAllowance,
+            overtimeHourlyRate,
             grossSalary,
             pf,
             esi,
