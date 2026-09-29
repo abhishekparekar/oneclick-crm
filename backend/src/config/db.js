@@ -54,10 +54,8 @@ const connectDB = async () => {
   }
 
   const defaultUri = "mongodb+srv://Abhiparekar58:Abhi%408485@oneclick.zy12ers.mongodb.net/icoded_hrms?retryWrites=true&w=majority";
-  let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI;
-  if (!mongoUri || mongoUri.includes("127.0.0.1") || mongoUri.includes("localhost")) {
-    mongoUri = defaultUri;
-  }
+  let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || defaultUri;
+
 
   const poolOptions = {
     maxPoolSize: 50,
@@ -68,10 +66,11 @@ const connectDB = async () => {
   };
 
   try {
-    console.log("[DB] Connecting to MongoDB Atlas Cloud...");
+    const isLocal = mongoUri.includes("127.0.0.1") || mongoUri.includes("localhost");
+    console.log(`[DB] Connecting to MongoDB (${isLocal ? "Local VPS" : "Atlas Cloud"})...`);
     const conn = await mongoose.connect(mongoUri, poolOptions);
     isConnected = conn.connections[0].readyState === 1;
-    console.log("[DB] Connected to MongoDB Atlas Cloud");
+    console.log(`[DB] Connected successfully to ${isLocal ? "Local VPS MongoDB" : "MongoDB Atlas Cloud"}`);
     seedInitialData().catch(err => console.warn("[DB Seed Warning]:", err.message));
   } catch (error) {
     console.error("[DB Connection Error]:", error.message);
