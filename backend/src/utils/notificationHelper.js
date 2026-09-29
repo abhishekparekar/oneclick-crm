@@ -389,7 +389,7 @@ const notifyTaskAll = async (
       : assigneeUserIds;
 
     const taskId = data?.taskId || data?.templateId || "";
-    const actionKey = data?.action || data?.status || "update";
+    const actionKey = data?.action || data?.status || (data?.stage !== undefined ? `stage_${data.stage}` : "update");
 
     // 2. Notify Assignees with assignee-tailored notification
     if (finalAssigneeUserIds.length > 0) {

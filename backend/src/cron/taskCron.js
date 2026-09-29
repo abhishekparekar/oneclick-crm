@@ -255,6 +255,7 @@ const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTempl
   try {
     const { notifyUser } = require("../utils/notificationHelper");
     const Employee = require("../models/Employee");
+    const User = require("../models/User");
 
     // Find all tasks that are currently pending or in progress (both template and manual)
     const pendingTasks = await Task.find({
@@ -266,38 +267,73 @@ const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTempl
       return;
     }
 
-    // Collect all assignee IDs across tasks
-    const allAssigneeIds = [];
-    pendingTasks.forEach(t => {
+    // Collect all assignee IDs and department IDs across tasks
+    const allAssigneeIds = new Set();
+    const allDeptIds = new Set();
+
+    pendingTasks.forEach((t) => {
       const assignees = Array.isArray(t.assignedTo) ? t.assignedTo : (t.assignedTo ? [t.assignedTo] : []);
-      assignees.forEach(id => {
-        if (id) allAssigneeIds.push(id);
+      assignees.forEach((id) => {
+        if (id) allAssigneeIds.add(id.toString());
       });
+      if (t.departmentId) allDeptIds.add(t.departmentId.toString());
+      if (Array.isArray(t.departmentIds)) {
+        t.departmentIds.forEach((d) => { if (d) allDeptIds.add(d.toString()); });
+      }
     });
 
-    if (allAssigneeIds.length === 0) return;
+    const assigneeIdList = [...allAssigneeIds];
+    const deptIdList = [...allDeptIds];
 
-    // Fetch all active employees
-    const employees = await Employee.find({
-      $or: [
-        { _id: { $in: allAssigneeIds } },
-        { userId: { $in: allAssigneeIds } }
-      ],
-      status: "active"
-    }).populate("userId");
+    // 1. Fetch active employees directly assigned OR belonging to assigned departments
+    const empOrConditions = [];
+    if (assigneeIdList.length > 0) {
+      empOrConditions.push({ _id: { $in: assigneeIdList } });
+      empOrConditions.push({ userId: { $in: assigneeIdList } });
+    }
+    if (deptIdList.length > 0) {
+      empOrConditions.push({ departmentId: { $in: deptIdList } });
+      empOrConditions.push({ departmentIds: { $in: deptIdList } });
+    }
+
+    const employeeQuery = { status: "active" };
+    if (empOrConditions.length > 0) {
+      employeeQuery.$or = empOrConditions;
+    }
+
+    const employees = await Employee.find(employeeQuery).populate("userId");
+
+    // 2. Fetch direct User assignees (e.g. managers/admins assigned without Employee record)
+    const directUsers = assigneeIdList.length > 0
+      ? await User.find({ _id: { $in: assigneeIdList }, isActive: true }).select("_id name companyId").lean()
+      : [];
 
     // Map: employeeId -> { userId, empName, companyId }
+    // Map: userId -> { userId, empName, companyId }
     const empIdToUserMap = new Map();
-    employees.forEach(emp => {
+    employees.forEach((emp) => {
       if (emp.userId) {
         const uId = (emp.userId._id || emp.userId).toString();
         const info = {
           userId: uId,
-          empName: emp.firstName || "Team Member",
-          companyId: emp.companyId
+          empName: emp.firstName || emp.name || "Team Member",
+          companyId: emp.companyId,
+          departmentId: (emp.departmentId?._id || emp.departmentId || "").toString(),
         };
         empIdToUserMap.set(emp._id.toString(), info);
         empIdToUserMap.set(uId, info);
+      }
+    });
+
+    directUsers.forEach((u) => {
+      const uId = u._id.toString();
+      if (!empIdToUserMap.has(uId)) {
+        empIdToUserMap.set(uId, {
+          userId: uId,
+          empName: u.name || "Team Member",
+          companyId: u.companyId,
+          departmentId: "",
+        });
       }
     });
 
@@ -305,22 +341,50 @@ const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTempl
     const userTaskMap = new Map(); // key: userId -> { companyId, empName, tasks: [] }
     for (const task of pendingTasks) {
       const assignees = Array.isArray(task.assignedTo) ? task.assignedTo : (task.assignedTo ? [task.assignedTo] : []);
+      const taskDeptIds = [
+        ...(task.departmentId ? [task.departmentId.toString()] : []),
+        ...(Array.isArray(task.departmentIds) ? task.departmentIds.map((d) => d.toString()) : []),
+      ];
+
+      const matchedUserIds = new Set();
+
+      // Check direct assignees
       for (const rawId of assignees) {
         if (!rawId) continue;
-        const idStr = rawId.toString();
-        const empInfo = empIdToUserMap.get(idStr);
-        if (empInfo) {
-          if (!userTaskMap.has(empInfo.userId)) {
-            userTaskMap.set(empInfo.userId, {
-              companyId: task.companyId || empInfo.companyId,
-              empName: empInfo.empName,
-              tasks: []
+        const info = empIdToUserMap.get(rawId.toString());
+        if (info) matchedUserIds.add(info.userId);
+      }
+
+      // Check department matches
+      if (taskDeptIds.length > 0) {
+        for (const emp of employees) {
+          const empDept = (emp.departmentId?._id || emp.departmentId || "").toString();
+          if (empDept && taskDeptIds.includes(empDept) && emp.userId) {
+            matchedUserIds.add((emp.userId._id || emp.userId).toString());
+          }
+        }
+      }
+
+      for (const uId of matchedUserIds) {
+        const info = empIdToUserMap.get(uId);
+        if (info) {
+          if (!userTaskMap.has(uId)) {
+            userTaskMap.set(uId, {
+              companyId: task.companyId || info.companyId,
+              empName: info.empName,
+              tasks: [],
             });
           }
-          userTaskMap.get(empInfo.userId).tasks.push(task);
+          const existingTasks = userTaskMap.get(uId).tasks;
+          if (!existingTasks.some((t) => t._id.toString() === task._id.toString())) {
+            existingTasks.push(task);
+          }
         }
       }
     }
+
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const slotCode = partName.toLowerCase().replace(/[^a-z0-9]/g, "_");
 
     let sentCount = 0;
     for (const [userId, info] of userTaskMap.entries()) {
@@ -330,6 +394,7 @@ const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTempl
       const topTask = info.tasks[0];
       const title = `${titlePrefix}: ${taskCount} Pending Task${taskCount > 1 ? "s" : ""}`;
       const body = msgTemplate(info.empName, taskCount, topTask.title);
+      const idempotencyKey = `task_batch_${slotCode}_${todayKey}_${userId}`;
 
       await notifyUser(
         userId,
@@ -337,8 +402,9 @@ const sendPendingTasksBatchNotification = async (partName, titlePrefix, msgTempl
         title,
         body,
         "task",
-        { taskCount, topTaskId: topTask._id.toString() }
-      ).catch(err => console.error(`[CRON] ${partName} error for user ${userId}:`, err));
+        { taskCount, topTaskId: topTask._id.toString() },
+        idempotencyKey
+      ).catch((err) => console.error(`[CRON] ${partName} error for user ${userId}:`, err));
 
       sentCount++;
     }
@@ -376,6 +442,8 @@ const sendAdminMorningPendingTasksSummary = async () => {
       }
     }
 
+    const todayKey = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+
     for (const [companyId, tasks] of companyTaskMap.entries()) {
       const taskCount = tasks.length;
       if (taskCount === 0) continue;
@@ -392,6 +460,7 @@ const sendAdminMorningPendingTasksSummary = async () => {
 
       const title = `📋 Daily Task Overview: ${taskCount} Pending Task${taskCount > 1 ? "s" : ""}`;
       const body = `Good morning Admin! There are ${taskCount} total pending task(s) active in your company today. Track team progress and workflow status.`;
+      const idKey = `admin_morning_tasks_${todayKey}`;
 
       await notifyManyUsers(
         adminUserIds,
@@ -399,7 +468,8 @@ const sendAdminMorningPendingTasksSummary = async () => {
         title,
         body,
         "task",
-        { totalPendingTasks: taskCount }
+        { totalPendingTasks: taskCount },
+        idKey
       ).catch(e => console.error("[CRON] Admin morning summary error:", e));
     }
 
@@ -522,7 +592,13 @@ const checkTaskDeadlinesAndReminders = async () => {
             "🚨 Task Overdue Alert",
             `Task "${task.title}" has crossed its deadline (${timeStr})! Immediate action or follow-up required.`,
             "task",
-            { taskId: task._id.toString(), stage: 3 }
+            { taskId: task._id.toString(), stage: 3, action: "overdue" },
+            {
+              assigneeTitle: "🚨 Task Overdue Alert",
+              assigneeBody: `Task "${task.title}" has crossed its deadline (${timeStr})! Immediate action or follow-up required.`,
+              supervisorTitle: `🚨 Team Task Overdue: ${task.title}`,
+              supervisorBody: `Task "${task.title}" has crossed its deadline (${timeStr}) and is now overdue.`,
+            }
           ).catch(e => console.error("[CRON] Stage 3 overdue error:", e));
         }
       } else {
@@ -549,7 +625,13 @@ const checkTaskDeadlinesAndReminders = async () => {
             "⏰ Task Due in 2 Hours",
             `Task "${task.title}" is due at ${timeStr}. Please wrap up pending work.`,
             "task",
-            { taskId: task._id.toString(), stage: 1 }
+            { taskId: task._id.toString(), stage: 1, action: "due_2h" },
+            {
+              assigneeTitle: "⏰ Task Due in 2 Hours",
+              assigneeBody: `Task "${task.title}" is due at ${timeStr}. Please wrap up pending work.`,
+              supervisorTitle: `⏰ Team Task Due in 2h: ${task.title}`,
+              supervisorBody: `Task "${task.title}" is due at ${timeStr}. Assignee is wrapping up.`,
+            }
           ).catch(e => console.error("[CRON] Stage 1 reminder error:", e));
         }
         // ── Stage 2: 30-Minute Urgent Notice (30 min >= diff > 0 min) ──
@@ -565,7 +647,13 @@ const checkTaskDeadlinesAndReminders = async () => {
             "⚠️ Urgent: Task Due in 30 Mins",
             `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
             "task",
-            { taskId: task._id.toString(), stage: 2 }
+            { taskId: task._id.toString(), stage: 2, action: "due_30m" },
+            {
+              assigneeTitle: "⚠️ Urgent: Task Due in 30 Mins",
+              assigneeBody: `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}). Finish now or submit follow-up!`,
+              supervisorTitle: `⚠️ Team Task Due in 30m: ${task.title}`,
+              supervisorBody: `Urgent: Task "${task.title}" is due in 30 minutes (${timeStr}).`,
+            }
           ).catch(e => console.error("[CRON] Stage 2 reminder error:", e));
         }
       }
