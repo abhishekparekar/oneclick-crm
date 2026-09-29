@@ -131,7 +131,7 @@ const COMPANY_SECTIONS = [
 ];
 
 // ─── Super Admin Sidebar ──────────────────────────────────────────────────
-const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
+const SuperAdminSidebar = ({ logout, onItemClick, isCollapsed = false, onToggleCollapse }) => {
   const location = useLocation();
   const { user } = useAuth();
   const { isSuperAdmin, isSubSuperAdmin, canView } = useSuperAdminPermissions();
