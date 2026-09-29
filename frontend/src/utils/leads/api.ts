@@ -12,8 +12,9 @@ export const getLeadsBaseUrl = (): string => {
     if (host === 'localhost' || host === '127.0.0.1' || host.startsWith('192.168.') || host.startsWith('10.') || host.startsWith('172.')) {
       return `${window.location.protocol}//${host}:5000`;
     }
+    return `${window.location.protocol}//${window.location.host}`;
   }
-  return 'https://oneclick-crm-black.vercel.app';
+  return 'https://crmoneclick.com';
 };
 
 interface RequestOptions extends RequestInit {
@@ -84,7 +85,7 @@ export const api = {
 
       if (response.status === 401) {
         console.warn('Leads API 401 Unauthorized for endpoint:', endpoint);
-        throw new Error('Unauthorized access to Lead Engine.');
+        throw new Error('Unauthorized access to Leads.');
       }
 
       if (!response.ok) {

@@ -3,15 +3,19 @@ import { NativeModules, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Constants from "expo-constants";
 
-// Toggle this to true if you want to force the mobile app to use the live Vercel backend during local development
+// Toggle this to true to force the mobile app to use the live VPS backend
 const FORCE_LIVE = true;
+
+// VPS Live Host (Set to your VPS IP:8080 for testing or crmoneclick.com once DNS is active)
+export const VPS_LIVE_HOST = "crmoneclick.com";
 
 let _cachedHost = null;
 
 export const getBackendHost = () => {
   if (FORCE_LIVE) {
-    return "oneclick-crm-black.vercel.app";
+    return VPS_LIVE_HOST;
   }
+
 
   if (_cachedHost) {
     return _cachedHost;
@@ -60,15 +64,15 @@ export const getBackendHost = () => {
     return _cachedHost;
   }
 
-  return "oneclick-crm-black.vercel.app";
+  return VPS_LIVE_HOST;
 };
 
 export const getApiBaseUrl = () => {
   const host = getBackendHost();
-  if (host.includes("vercel.app")) {
-    return `https://${host}/api`;
+  if (host.includes("crmoneclick.com") || host.includes("https://")) {
+    return host.startsWith("http") ? `${host}/api` : `https://${host}/api`;
   }
-  return `http://${host}/api`;
+  return host.startsWith("http") ? `${host}/api` : `http://${host}/api`;
 };
 
 // ─── Callback for Session Invalidation ────────────────────────────────────────
@@ -136,12 +140,12 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Automatic failover: If local endpoint encounters Network Error and hasn't retried yet, switch to live cloud backend
-    if (!error.response && !originalRequest._retry && !originalRequest.baseURL?.includes("vercel.app")) {
-      console.log("[API] Local network unreachable, automatically failing over to cloud backend...");
+    // Automatic failover: If local endpoint encounters Network Error and hasn't retried yet, switch to live VPS backend
+    if (!error.response && !originalRequest._retry && !originalRequest.baseURL?.includes(VPS_LIVE_HOST)) {
+      console.log("[API] Local network unreachable, automatically failing over to VPS backend...");
       originalRequest._retry = true;
-      _cachedHost = "oneclick-crm-black.vercel.app";
-      originalRequest.baseURL = "https://oneclick-crm-black.vercel.app/api";
+      _cachedHost = VPS_LIVE_HOST;
+      originalRequest.baseURL = getApiBaseUrl();
       return api(originalRequest);
     }
 

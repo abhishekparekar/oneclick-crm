@@ -7,8 +7,9 @@ export const getApiBaseUrl = () => {
     if (host === "localhost" || host === "127.0.0.1" || host.startsWith("192.168.") || host.startsWith("10.") || host.startsWith("172.")) {
       return `${window.location.protocol}//${host}:5000/api`;
     }
+    return `${window.location.protocol}//${window.location.host}/api`;
   }
-  return "https://oneclick-crm-black.vercel.app/api";
+  return "https://crmoneclick.com/api";
 };
 
 const api = axios.create({
