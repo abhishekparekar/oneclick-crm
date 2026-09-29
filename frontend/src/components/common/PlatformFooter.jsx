@@ -101,7 +101,7 @@ const PlatformFooter = ({ variant = "public" }) => {
             <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/[0.07] space-y-1 hover:border-amber-500/30 transition-all">
               <div className="flex items-center gap-2 text-purple-400 text-xs font-bold">
                 <Cpu size={14} />
-                <span>Lead Engine &amp; Automations</span>
+                <span>Leads &amp; Automations</span>
               </div>
               <p className="text-[11px] text-slate-400 leading-normal">
                 WhatsApp automated lead drips, customer reminder pipelines, and sales team lead scoring.

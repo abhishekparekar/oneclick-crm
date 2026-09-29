@@ -540,7 +540,7 @@ export const leadsService = {
       { id: "p1", name: "Standard HRMS Package", price: 45000 },
       { id: "p2", name: "Enterprise HRMS + Payroll", price: 95000 },
       { id: "p3", name: "Biometric Hardware Integration", price: 25000 },
-      { id: "p4", name: "Custom CRM & Lead Engine", price: 75000 },
+      { id: "p4", name: "Leads", price: 75000 },
     ];
   },
 

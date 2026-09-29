@@ -59,7 +59,7 @@ const THEME = {
 // ── Modules Catalog matching Web ALL_MODULES ───────────────────
 const ALL_MODULES = [
   { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks", icon: "checkbox-outline" },
-  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns", icon: "magnet-outline" },
+  { key: "leads", label: "Leads", desc: "Manage leads & WhatsApp campaigns", icon: "magnet-outline" },
   { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization", icon: "finger-print-outline" },
   { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards", icon: "folder-open-outline" },
 ];

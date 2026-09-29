@@ -51,7 +51,7 @@ const buildManagerSections = (hasPermission) => {
         ...(canAccessLeads
           ? [
               {
-                label: "Lead Engine CRM",
+                label: "Leads",
                 screen: "LeadsEngine",
                 targetScreen: "LeadsDashboard",
                 icon: "magnet-outline",

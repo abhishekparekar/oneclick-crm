@@ -169,7 +169,7 @@ export default function LeadsDashboardScreen({ navigation }) {
   const Layout = isEmployee ? EmployeeLayout : CompanyAdminLayout;
   const layoutProps = isEmployee
     ? { navigation, title: "Lead CRM", activeTabOverride: "Leads" }
-    : { navigation, activeTab: "Leads", headerTitle: "Lead Engine", showSearch: false };
+    : { navigation, activeTab: "Leads", headerTitle: "Leads", showSearch: false };
 
   return (
     <Layout
@@ -300,7 +300,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                 <View style={[styles.tileIconCircle, { backgroundColor: "#EFF6FF" }]}>
                   <Ionicons name="grid-outline" size={17} color="#1268D9" />
                 </View>
-                <Text style={styles.tileTitle}>CRM Board</Text>
+                <Text style={styles.tileTitle}>All leads</Text>
                 <Text style={styles.tileSubtitle}>{summary.totalLeads} Leads</Text>
               </TouchableOpacity>
 
@@ -336,7 +336,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                 <View style={[styles.tileIconCircle, { backgroundColor: "#FEF3C7" }]}>
                   <Ionicons name="options-outline" size={17} color="#D97706" />
                 </View>
-                <Text style={styles.tileTitle}>Pipeline</Text>
+                <Text style={styles.tileTitle}>setting</Text>
                 <Text style={styles.tileSubtitle}>Stages</Text>
               </TouchableOpacity>
             </View>

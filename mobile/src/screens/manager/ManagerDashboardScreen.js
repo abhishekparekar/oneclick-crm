@@ -483,7 +483,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 onPress: () => navigation.navigate("ManagerTeamAttendance"),
               },
               {
-                label: "Lead Engine",
+                label: "Leads",
                 icon: "magnet",
                 c: "#8B5CF6",
                 bg: "#F5F3FF",
@@ -826,7 +826,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
               <View style={styles.leadCardHeader}>
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="magnet" size={16} color="#8B5CF6" style={{ marginRight: 6 }} />
-                  <Text style={styles.leadCardTitle}>Lead Engine & CRM Pipeline</Text>
+                  <Text style={styles.leadCardTitle}>Leads</Text>
                   {loadingLeads && (
                     <ActivityIndicator size="small" color="#8B5CF6" style={{ marginLeft: 6 }} />
                   )}
@@ -936,7 +936,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 activeOpacity={0.8}
               >
                 <Ionicons name="magnet-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-                <Text style={styles.openLeadsPipelineText}>Manage Lead Engine CRM</Text>
+                <Text style={styles.openLeadsPipelineText}>Manage Leads</Text>
                 <Ionicons name="arrow-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
               </TouchableOpacity>
             </View>

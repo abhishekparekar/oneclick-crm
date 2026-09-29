@@ -9,7 +9,7 @@ try {
 
 const User = require("../src/models/User");
 
-const MONGO_URI = process.env.MONGODB_URI || "mongodb+srv://Abhiparekar58:Abhi%408485@oneclick.zy12ers.mongodb.net/icoded_hrms?retryWrites=true&w=majority";
+const MONGO_URI = process.env.MONGODB_URI || process.env.MONGO_URI || "mongodb://127.0.0.1:27017/icoded_hrms";
 
 async function resetPassword() {
   try {

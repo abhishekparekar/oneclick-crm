@@ -343,7 +343,7 @@ export default function LeadSettingsScreen({ navigation }) {
   return (
     <CompanyAdminLayout
       navigation={navigation}
-      title="Lead Engine & WhatsApp"
+      title="Leads & WhatsApp"
       subtitle="CRM  & WhatsApp API integration"
       activeTab="Lead Settings"
     >

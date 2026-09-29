@@ -40,7 +40,7 @@ const NATIVE_SECTIONS = [
         module: "tasks",
       },
       {
-        label: "Lead Engine",
+        label: "Leads",
         screen: "LeadsEngine",
         targetScreen: "LeadsDashboard",
         icon: "magnet-outline",

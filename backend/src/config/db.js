@@ -53,9 +53,8 @@ const connectDB = async () => {
     return;
   }
 
-  const defaultUri = "mongodb+srv://Abhiparekar58:Abhi%408485@oneclick.zy12ers.mongodb.net/icoded_hrms?retryWrites=true&w=majority";
+  const defaultUri = "mongodb://127.0.0.1:27017/icoded_hrms";
   let mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || defaultUri;
-
 
   const poolOptions = {
     maxPoolSize: 50,
@@ -67,23 +66,13 @@ const connectDB = async () => {
 
   try {
     const isLocal = mongoUri.includes("127.0.0.1") || mongoUri.includes("localhost");
-    console.log(`[DB] Connecting to MongoDB (${isLocal ? "Local VPS" : "Atlas Cloud"})...`);
+    console.log(`[DB] Connecting to MongoDB (${isLocal ? "Local VPS MongoDB" : mongoUri})...`);
     const conn = await mongoose.connect(mongoUri, poolOptions);
     isConnected = conn.connections[0].readyState === 1;
-    console.log(`[DB] Connected successfully to ${isLocal ? "Local VPS MongoDB" : "MongoDB Atlas Cloud"}`);
+    console.log(`[DB] Connected successfully to ${isLocal ? "Local VPS MongoDB" : "Database"}`);
     seedInitialData().catch(err => console.warn("[DB Seed Warning]:", err.message));
   } catch (error) {
     console.error("[DB Connection Error]:", error.message);
-    if (mongoUri !== defaultUri) {
-      try {
-        console.log("[DB] Retrying connection with default MongoDB Atlas URI...");
-        const conn = await mongoose.connect(defaultUri, poolOptions);
-        isConnected = conn.connections[0].readyState === 1;
-        console.log("[DB] Connected to MongoDB Atlas Cloud (fallback)");
-      } catch (fallbackErr) {
-        console.error("[DB Fallback Error]:", fallbackErr.message);
-      }
-    }
   }
 };
 

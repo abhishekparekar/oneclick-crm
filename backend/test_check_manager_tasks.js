@@ -1,7 +1,6 @@
 const dns = require('dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']);
-const mongoose = require('mongoose');
-const uri = 'mongodb+srv://Abhiparekar58:Abhi%408485@oneclick.zy12ers.mongodb.net/icoded_hrms?retryWrites=true&w=majority';
+const uri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/icoded_hrms';
 
 async function run() {
   await mongoose.connect(uri);
