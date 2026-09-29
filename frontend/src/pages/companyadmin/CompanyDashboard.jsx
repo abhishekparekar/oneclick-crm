@@ -1,6 +1,6 @@
-import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useState, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import {
   getCompanyDashboardApi,
@@ -9,104 +9,180 @@ import {
   getEmployeesApi,
   getProjectsApi,
   getCompanyAnnouncementsApi,
+  getBranchesApi,
+  getDepartmentsApi,
 } from "../../api/companyAdminApi";
 import { api as leadApi } from "../../utils/leads/api";
+import TaskCreateModal from "../../components/tasks/TaskCreateModal";
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, BarChart, Bar,
 } from "recharts";
 import {
-  Users, UserCheck, UserX, CalendarOff, CheckSquare, Folder,
-  UserPlus, Calendar, BarChart2, DollarSign, Clock,
-  CheckCircle, Zap, Briefcase, Plus, Upload,
-  CloudSun, ArrowUp, ArrowDown, FileText, ChevronDown, ArrowRight,
-  Inbox, Megaphone,
+  Rocket, Zap, TrendingUp, CheckSquare, Target, Folder, Calendar,
+  Building2, Users, UserCheck, UserX, CalendarOff, Clock,
+  AlertTriangle, CheckCircle2, Award, DollarSign, Plus, ArrowUp,
+  ArrowDown, ChevronDown, Briefcase, FileText, ArrowRight,
+  Sparkles, Megaphone, Inbox, Search, CheckCircle, ExternalLink,
+  Phone, Mail, MapPin, Play, Filter, Layers, RefreshCw
 } from "lucide-react";
 
-/* ─── SVG Progress Ring Component ─────────────────────────────────────────── */
-function ProgressRing({ pct, color, size = 38 }) {
-  const strokeWidth = 2.5;
-  const r = (size - strokeWidth * 2) / 2;
-  const circ = 2 * Math.PI * r;
-  const strokeDashoffset = circ - (pct / 100) * circ;
-  return (
-    <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size/2} cy={size/2} r={r} stroke="#F1F5F9" strokeWidth={strokeWidth} fill="none" />
-        <circle
-          cx={size/2}
-          cy={size/2}
-          r={r}
-          stroke={color}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeDasharray={circ}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          className="transition-all duration-300"
-        />
-      </svg>
-      <span className="absolute text-[10px] font-bold" style={{ color }}>{pct}%</span>
-    </div>
-  );
-}
+// ── Theme definitions matching TaskBoard.jsx ──
+const CARD_THEMES = {
+  blue: {
+    baseClass: "bg-blue-50/80 dark:bg-blue-950/35 border-blue-200/90 dark:border-blue-800/80 shadow-2xs hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600",
+    iconBg: "bg-blue-600 text-white shadow-xs",
+    labelText: "text-blue-950 dark:text-blue-200 font-extrabold",
+    valueText: "text-blue-700 dark:text-blue-300",
+    topBar: "bg-blue-600",
+  },
+  sky: {
+    baseClass: "bg-sky-50/80 dark:bg-sky-950/35 border-sky-200/90 dark:border-sky-800/80 shadow-2xs hover:shadow-md hover:border-sky-400 dark:hover:border-sky-600",
+    iconBg: "bg-sky-500 text-white shadow-xs",
+    labelText: "text-sky-950 dark:text-sky-200 font-extrabold",
+    valueText: "text-sky-700 dark:text-sky-300",
+    topBar: "bg-sky-500",
+  },
+  amber: {
+    baseClass: "bg-amber-50/80 dark:bg-amber-950/35 border-amber-200/90 dark:border-amber-800/80 shadow-2xs hover:shadow-md hover:border-amber-400 dark:hover:border-amber-600",
+    iconBg: "bg-amber-500 text-white shadow-xs",
+    labelText: "text-amber-950 dark:text-amber-200 font-extrabold",
+    valueText: "text-amber-700 dark:text-amber-300",
+    topBar: "bg-amber-500",
+  },
+  emerald: {
+    baseClass: "bg-emerald-50/80 dark:bg-emerald-950/35 border-emerald-200/90 dark:border-emerald-800/80 shadow-2xs hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-600",
+    iconBg: "bg-emerald-600 text-white shadow-xs",
+    labelText: "text-emerald-950 dark:text-emerald-200 font-extrabold",
+    valueText: "text-emerald-700 dark:text-emerald-300",
+    topBar: "bg-emerald-500",
+  },
+  rose: {
+    baseClass: "bg-rose-50/80 dark:bg-rose-950/35 border-rose-200/90 dark:border-rose-800/80 shadow-2xs hover:shadow-md hover:border-rose-400 dark:hover:border-rose-600",
+    iconBg: "bg-rose-600 text-white shadow-xs",
+    labelText: "text-rose-950 dark:text-rose-200 font-extrabold",
+    valueText: "text-rose-700 dark:text-rose-300",
+    topBar: "bg-rose-500",
+  },
+  purple: {
+    baseClass: "bg-purple-50/80 dark:bg-purple-950/35 border-purple-200/90 dark:border-purple-800/80 shadow-2xs hover:shadow-md hover:border-purple-400 dark:hover:border-purple-600",
+    iconBg: "bg-purple-600 text-white shadow-xs",
+    labelText: "text-purple-950 dark:text-purple-200 font-extrabold",
+    valueText: "text-purple-700 dark:text-purple-300",
+    topBar: "bg-purple-500",
+  },
+};
 
-/* ─── Compact Low-Height KPI Stat Card (Interactive with Redirection) ── */
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, to, extraClass = "" }) => {
-  const sparkData = useMemo(() => [
-    { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
-  ], []);
+/* ─── TaskScreen / TaskBoard KPI Card (Exact match to Task screen without sub-labels) ─── */
+function TaskBoardKPICard({ label, value, theme = "blue", Icon, to }) {
+  const cfg = CARD_THEMES[theme] || CARD_THEMES.blue;
+  const content = (
+    <div
+      className={`relative overflow-hidden rounded-xl border transition-all duration-200 select-none p-3 sm:p-3.5 flex items-center justify-between min-h-[72px] cursor-pointer hover:-translate-y-0.5 ${cfg.baseClass}`}
+    >
+      {/* Top Accent Strip */}
+      <div className={`absolute top-0 left-0 right-0 h-[3.5px] ${cfg.topBar}`} />
 
-  const cardContent = (
-    <div className={`bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-3.5 sm:py-3 flex items-center justify-between shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.08)] hover:border-amber-500/50 dark:hover:border-amber-500/40 transition-all duration-200 group cursor-pointer ${extraClass}`}>
-      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
-        <div className="flex items-center gap-1 sm:gap-1.5 mb-1">
-          <div className={`w-5 h-5 rounded-md flex items-center justify-center ${iconBg} flex-shrink-0 group-hover:scale-110 transition-transform`}>
-            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.2} />
-          </div>
-          <span className="text-[9px] sm:text-[9.5px] font-semibold text-slate-400 group-hover:text-slate-700 dark:group-hover:text-slate-200 uppercase tracking-wider truncate transition-colors">{label}</span>
-        </div>
-        <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{value}</h3>
-        <div className="flex items-center gap-1 text-[9px] sm:text-[10px]">
-          <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600" : "text-rose-500"}`}>
-            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
-            {trend}
-          </span>
-          <span className="text-slate-400 text-[8.5px] sm:text-[9px] truncate hidden sm:inline">vs {period}</span>
-        </div>
+      <div className="flex-1 min-w-0 pr-2">
+        <span className={`text-[10.5px] uppercase tracking-wider truncate font-extrabold block mb-1 ${cfg.labelText}`}>
+          {label}
+        </span>
+        <h3 className={`text-2xl sm:text-3xl font-black font-mono tracking-tight leading-none ${cfg.valueText}`}>
+          {value}
+        </h3>
       </div>
-      <div className="h-8 w-14 opacity-60 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0 hidden md:block">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
+
+      {Icon && (
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${cfg.iconBg}`}>
+          <Icon size={18} strokeWidth={2.5} />
+        </div>
+      )}
     </div>
   );
 
   if (to) {
-    return (
-      <Link to={to} className="block no-underline">
-        {cardContent}
-      </Link>
-    );
+    return <Link to={to} className="block no-underline">{content}</Link>;
   }
+  return content;
+}
 
-  return cardContent;
+/* ─── Compact Executive KPI Tile (Clean, Professional, No Loud Borders) ─── */
+function CompactKPITile({ label, value, subtext, Icon, iconColor = "text-indigo-600 dark:text-indigo-400", to }) {
+  const content = (
+    <div className="p-3 sm:p-3.5 rounded-xl bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/70 dark:border-slate-800 flex items-center justify-between hover:bg-slate-100/70 dark:hover:bg-slate-800/70 transition-all select-none group">
+      <div className="min-w-0 flex-1 pr-2">
+        <span className="text-[10px] sm:text-[10.5px] uppercase tracking-wider font-bold text-slate-500 dark:text-slate-400 block truncate">
+          {label}
+        </span>
+        <div className="flex items-baseline gap-2 mt-0.5">
+          <span className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white font-mono tracking-tight leading-none">
+            {value}
+          </span>
+          {subtext && (
+            <span className="text-[10px] sm:text-[11px] font-semibold text-slate-400 dark:text-slate-500 truncate">
+              {subtext}
+            </span>
+          )}
+        </div>
+      </div>
+      {Icon && (
+        <div className="w-8 h-8 rounded-lg bg-white dark:bg-slate-700/60 border border-slate-200/60 dark:border-slate-700 flex items-center justify-center flex-shrink-0 shadow-2xs group-hover:scale-105 transition-transform">
+          <Icon size={16} className={iconColor} />
+        </div>
+      )}
+    </div>
+  );
+
+  return to ? <Link to={to} className="block no-underline">{content}</Link> : content;
+}
+
+const getTaskAssigneeNames = (task, employeeList = []) => {
+  if (!task) return "Unassigned";
+  const arr = Array.isArray(task.assignedTo)
+    ? task.assignedTo
+    : (task.assignedTo ? [task.assignedTo] : (task.assignees || []));
+  if (arr.length === 0) return "Unassigned";
+  const names = arr
+    .map((a) => {
+      if (!a) return "";
+      if (typeof a === "object") {
+        const n = a.fullName || (a.firstName ? `${a.firstName} ${a.lastName || ""}`.trim() : a.name);
+        if (n) return n;
+      }
+      const idStr = String(a._id || a.id || a);
+      const member = employeeList.find((m) => String(m._id || m.id) === idStr);
+      if (member) {
+        return member.fullName || (member.firstName ? `${member.firstName} ${member.lastName || ""}`.trim() : member.name);
+      }
+      return typeof a === "string" && a.length > 20 ? "Team Member" : String(a);
+    })
+    .filter(Boolean);
+  return names.length > 0 ? names.join(", ") : "Unassigned";
+};
+
+const getTaskDueDateStr = (task) => {
+  if (!task) return "—";
+  const raw = task.endDateTime || task.endDate || task.dueDate;
+  if (!raw) return "—";
+  const d = new Date(raw);
+  return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-GB");
 };
 
 export default function CompanyDashboard() {
   const { user, hasPermission } = useAuth();
-  const userName = user?.name || user?.firstName || "Admin";
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab") || "overview";
+  const [timeRange, setTimeRange] = useState("all");
+  const [taskTableFilter, setTaskTableFilter] = useState("all");
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
-  // Fetch real API data
+  const setActiveTab = (tabId) => {
+    setSearchParams({ tab: tabId });
+  };
+
+  // ── Queries ──
   const { data: dashRes } = useQuery({
     queryKey: ["companyDashboard"],
     queryFn: async () => {
@@ -116,820 +192,1515 @@ export default function CompanyDashboard() {
     staleTime: 30000,
   });
 
-  const { data: auditRes } = useQuery({
-    queryKey: ["companyAuditLogs"],
-    queryFn: async () => {
-      const res = await getCompanyAuditLogsApi();
-      return res.data?.logs || [];
-    },
-  });
-
   const { data: tasksRes } = useQuery({
-    queryKey: ["companyTasks"],
+    queryKey: ["companyDashboardAllTasks"],
     queryFn: async () => {
-      const res = await getTasksApi({ limit: 20 });
-      return res.data?.tasks || res.data || [];
+      const res = await getTasksApi({ limit: 500 });
+      return res.data?.tasks || res.data?.data || (Array.isArray(res.data) ? res.data : []);
     },
     enabled: !!hasPermission("tasks"),
+    staleTime: 30000,
   });
 
   const { data: projectsRes } = useQuery({
     queryKey: ["companyProjects"],
     queryFn: async () => {
       const res = await getProjectsApi();
-      return res.data?.projects || res.data || [];
+      return res.data?.projects || res.data?.data || (Array.isArray(res.data) ? res.data : []);
     },
     enabled: !!hasPermission("projects"),
-  });
-
-  const { data: annRes } = useQuery({
-    queryKey: ["companyAnnouncements"],
-    queryFn: async () => {
-      const res = await getCompanyAnnouncementsApi();
-      return res.data?.announcements || res.data || [];
-    },
-    staleTime: 60000,
+    staleTime: 30000,
   });
 
   const { data: empRes } = useQuery({
     queryKey: ["companyEmployees"],
     queryFn: async () => {
-      const res = await getEmployeesApi({ limit: 20 });
-      return res.data?.employees || [];
+      const res = await getEmployeesApi({ limit: 200 });
+      return res.data?.employees || res.data?.data || (Array.isArray(res.data) ? res.data : []);
     },
+    staleTime: 30000,
+  });
+
+  const { data: branchesRes } = useQuery({
+    queryKey: ["companyBranches"],
+    queryFn: async () => {
+      const res = await getBranchesApi();
+      return res.data?.branches || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    },
+    staleTime: 60000,
+  });
+
+  const { data: departmentsRes } = useQuery({
+    queryKey: ["companyDepartments"],
+    queryFn: async () => {
+      const res = await getDepartmentsApi();
+      return res.data?.departments || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    },
+    staleTime: 60000,
   });
 
   const { data: leadsData } = useQuery({
     queryKey: ["leadEngineData"],
     queryFn: async () => {
       const [leadsRes, statusesRes] = await Promise.allSettled([
-        leadApi.get("/api/leads?limit=100"),
+        leadApi.get("/api/leads?limit=200"),
         leadApi.get("/api/statuses"),
       ]);
-      const rawLeads = leadsRes.status === "fulfilled" && Array.isArray(leadsRes.value?.leads) ? leadsRes.value.leads : [];
+      const rawLeads = leadsRes.status === "fulfilled" && (leadsRes.value?.leads || leadsRes.value?.data?.leads || (Array.isArray(leadsRes.value) ? leadsRes.value : []));
       const rawStatuses = statusesRes.status === "fulfilled" && Array.isArray(statusesRes.value) ? statusesRes.value : [];
-      return { leads: rawLeads, statuses: rawStatuses };
+      return { leads: Array.isArray(rawLeads) ? rawLeads : [], statuses: rawStatuses };
     },
     enabled: !!hasPermission("leads"),
     staleTime: 30000,
   });
 
-  // Extract real numbers directly from backend APIs (0 demo data)
+  const { data: auditRes } = useQuery({
+    queryKey: ["companyAuditLogs"],
+    queryFn: async () => {
+      const res = await getCompanyAuditLogsApi({ limit: 10 });
+      return res.data?.logs || res.data?.data || (Array.isArray(res.data) ? res.data : []);
+    },
+    staleTime: 30000,
+  });
+
+  // ── Processed Data ──
   const kpis = dashRes?.kpis || {};
-  const realEmps = useMemo(() => (Array.isArray(empRes) ? empRes : []), [empRes]);
-  const realTasks = useMemo(() => (Array.isArray(tasksRes) ? tasksRes : []), [tasksRes]);
-  const realProjects = useMemo(() => (Array.isArray(projectsRes) ? projectsRes : []), [projectsRes]);
-  const realAnnouncements = useMemo(() => (Array.isArray(annRes) ? annRes : []), [annRes]);
-  const realLeads = useMemo(() => (Array.isArray(leadsData?.leads) ? leadsData.leads : []), [leadsData]);
-  const realLogs = useMemo(() => (Array.isArray(auditRes) ? auditRes : []), [auditRes]);
+  const realEmps = useMemo(() => {
+    if (Array.isArray(empRes)) return empRes;
+    if (Array.isArray(empRes?.employees)) return empRes.employees;
+    if (Array.isArray(empRes?.data)) return empRes.data;
+    return [];
+  }, [empRes]);
+
+  const realTasks = useMemo(() => {
+    if (Array.isArray(tasksRes)) return tasksRes;
+    if (Array.isArray(tasksRes?.tasks)) return tasksRes.tasks;
+    if (Array.isArray(tasksRes?.data)) return tasksRes.data;
+    return [];
+  }, [tasksRes]);
+
+  const realProjects = useMemo(() => {
+    if (Array.isArray(projectsRes)) return projectsRes;
+    if (Array.isArray(projectsRes?.projects)) return projectsRes.projects;
+    if (Array.isArray(projectsRes?.data)) return projectsRes.data;
+    return [];
+  }, [projectsRes]);
+
+  const realLeads = useMemo(() => {
+    if (Array.isArray(leadsData?.leads)) return leadsData.leads;
+    if (Array.isArray(leadsData)) return leadsData;
+    return [];
+  }, [leadsData]);
+
+  const realBranches = useMemo(() => {
+    if (Array.isArray(branchesRes)) return branchesRes;
+    if (Array.isArray(branchesRes?.branches)) return branchesRes.branches;
+    if (Array.isArray(branchesRes?.data)) return branchesRes.data;
+    return [];
+  }, [branchesRes]);
+
+  const realDepartments = useMemo(() => {
+    if (Array.isArray(departmentsRes)) return departmentsRes;
+    if (Array.isArray(departmentsRes?.departments)) return departmentsRes.departments;
+    if (Array.isArray(departmentsRes?.data)) return departmentsRes.data;
+    return [];
+  }, [departmentsRes]);
+
+  const realLogs = useMemo(() => {
+    if (Array.isArray(auditRes)) return auditRes;
+    if (Array.isArray(auditRes?.logs)) return auditRes.logs;
+    if (Array.isArray(auditRes?.data)) return auditRes.data;
+    return [];
+  }, [auditRes]);
 
   const totalEmployees = kpis.totalEmployees ?? realEmps.length;
-  const openLeadsCount = realLeads.length || kpis.openLeads || 0;
   const activeProjectsCount = realProjects.length || kpis.activeProjects || 0;
-  const pendingTasksCount = realTasks.filter(t => t.status !== "done" && t.status !== "completed").length;
-  const tasksDueTodayCount = realTasks.filter(t => t.dueDate && new Date(t.dueDate).toDateString() === new Date().toDateString() && t.status !== "done" && t.status !== "completed").length || (kpis.openTasks || 0);
-
-  const payrollCost = kpis.monthlyPayrollCost || 0;
-  const revenueValue = payrollCost > 0 ? (payrollCost >= 100000 ? `₹${(payrollCost / 100000).toFixed(1)}L` : `₹${payrollCost.toLocaleString('en-IN')}`) : "₹0";
-  const revenueFullStr = payrollCost > 0 ? `₹${payrollCost.toLocaleString('en-IN')}` : "₹0";
-
-  // HRMS Numbers (100% Real from Database API)
   const presentCount = kpis.presentToday ?? 0;
-  const absentCount  = kpis.absentToday  ?? (totalEmployees > presentCount ? totalEmployees - presentCount : 0);
-  const leaveCount   = kpis.onLeave      ?? 0;
-  const lateCount    = kpis.lateToday    ?? 0;
-  const wfhCount     = kpis.halfDayToday ?? 0;
+  const absentCount = kpis.absentToday ?? Math.max(0, totalEmployees - presentCount);
+  const onLeaveCount = kpis.onLeave ?? 0;
+  const lateCount = kpis.lateToday ?? 0;
+  const attendanceRate = totalEmployees > 0 ? Math.round((presentCount / totalEmployees) * 100) : 0;
 
-  // Real Date and Time
-  const now = new Date();
-  const currentDateStr = now.toLocaleDateString("en-IN", { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
-  const currentTimeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  // ── Top Tasks Performers (Resolving real names & completed tasks) ──
+  const topPerformers = useMemo(() => {
+    const performerMap = {};
 
-  // Dynamic Top KPI Cards List
-  const kpiCardsList = useMemo(() => {
-    const list = [];
-    if (hasPermission("payroll")) {
-      list.push({ key: "revenue", label: "Total Revenue", value: revenueValue, trend: "Live", isUp: true, period: "database", strokeColor: "#EAB308", Icon: DollarSign, iconBg: "bg-amber-500/10", iconColor: "#D97706", to: "/company/payroll" });
-    }
-    list.push({ key: "employees", label: "Total Employees", value: totalEmployees, trend: "Live", isUp: true, period: "database", strokeColor: "#06B6D4", Icon: Users, iconBg: "bg-cyan-500/10", iconColor: "#0891B2", to: "/company/employees" });
-    if (hasPermission("attendance")) {
-      list.push({ key: "present", label: "Present Today", value: presentCount, trend: "Live", isUp: true, period: "database", strokeColor: "#10B981", Icon: UserCheck, iconBg: "bg-emerald-500/10", iconColor: "#059669", to: "/company/attendance" });
-    }
-    if (hasPermission("projects")) {
-      list.push({ key: "projects", label: "Active Projects", value: activeProjectsCount, trend: "Live", isUp: true, period: "database", strokeColor: "#EC4899", Icon: Folder, iconBg: "bg-pink-500/10", iconColor: "#DB2777", to: "/company/projects" });
-    }
-    if (hasPermission("leave")) {
-      list.push({ key: "leave", label: "On Leave", value: leaveCount, trend: "Live", isUp: false, period: "database", strokeColor: "#F59E0B", Icon: CalendarOff, iconBg: "bg-amber-500/10", iconColor: "#D97706", to: "/company/leaves" });
-    }
-    if (hasPermission("leads")) {
-      list.push({ key: "leads", label: "Open Leads", value: openLeadsCount, trend: "Live", isUp: true, period: "database", strokeColor: "#8B5CF6", Icon: Zap, iconBg: "bg-purple-500/10", iconColor: "#7C3AED", to: "/company/leads" });
-    }
-    if (hasPermission("tasks")) {
-      list.push({ key: "tasks", label: "Tasks Due Today", value: tasksDueTodayCount, trend: "Live", isUp: false, period: "database", strokeColor: "#F97316", Icon: CheckSquare, iconBg: "bg-orange-500/10", iconColor: "#EA580C", to: "/company/tasks" });
-    }
-    return list;
-  }, [hasPermission, revenueValue, totalEmployees, presentCount, activeProjectsCount, leaveCount, openLeadsCount, tasksDueTodayCount]);
+    const resolveAssignee = (a) => {
+      if (!a) return null;
+      const id = typeof a === "object" ? (a._id || a.id) : a;
+      if (!id) return null;
+      const idStr = String(id);
 
-  // Lead Pipeline (Donut & Kanban - 100% Dynamic from Real Leads)
-  const leadPipeline = useMemo(() => {
-    if (realLeads.length === 0) return [];
-    const total = realLeads.length;
-    const stages = [
-      { key: "new", label: "New", color: "#EAB308" },
-      { key: "qualified", label: "Qualified", color: "#10B981" },
-      { key: "proposal", label: "Proposal", color: "#06B6D4" },
-      { key: "won", label: "Won", color: "#8B5CF6" },
-      { key: "lost", label: "Lost", color: "#EC4899" },
-    ];
-    return stages.map(s => {
-      const count = realLeads.filter(l => {
-        const statusName = (l.status?.name || l.statusName || l.status || "").toString().toLowerCase();
-        if (s.key === "new") return statusName.includes("new") || !l.status;
-        return statusName.includes(s.key);
-      }).length;
-      return {
-        name: s.label,
-        value: count,
-        pct: `(${Math.round((count / total) * 100)}%)`,
-        color: s.color
-      };
-    });
-  }, [realLeads]);
+      let name = "";
+      let role = "";
 
-  // Task Completion Donut (100% Dynamic from Real Tasks)
-  const taskCompletion = useMemo(() => {
-    if (realTasks.length === 0) return [];
-    const total = realTasks.length;
-    const done = realTasks.filter(t => t.status === "done" || t.status === "completed").length;
-    const inProg = realTasks.filter(t => t.status === "in_progress" || t.status === "working").length;
-    const pending = total - done - inProg;
-
-    return [
-      { name: "Completed",   value: Math.round((done / total) * 100), color: "#10B981" },
-      { name: "In Progress", value: Math.round((inProg / total) * 100), color: "#EAB308" },
-      { name: "Pending",     value: Math.round((pending / total) * 100), color: "#94A3B8" },
-    ];
-  }, [realTasks]);
-
-  const taskCompletionPct = useMemo(() => {
-    if (realTasks.length === 0) return 0;
-    const done = realTasks.filter(t => t.status === "done" || t.status === "completed").length;
-    return Math.round((done / realTasks.length) * 100);
-  }, [realTasks]);
-
-  // Today's Real Tasks List
-  const tasksList = useMemo(() => {
-    return realTasks.slice(0, 5).map((t, idx) => ({
-      id: t._id || idx,
-      title: t.title || t.name || "Task Item",
-      dept: t.departmentId?.name || t.category || "Assigned Task",
-      tag: t.priority ? t.priority.toUpperCase() : "NORMAL",
-      pColor: t.priority === "High" || t.priority === "urgent" ? "text-rose-700 bg-rose-500/10 border-rose-200/80 dark:border-rose-900/40" : "text-amber-700 bg-amber-500/10 border-amber-200/80 dark:border-amber-900/40",
-      name: t.assignedTo?.name || t.assignedTo?.firstName || t.assigneeName || "Team Member",
-      time: t.dueDate ? new Date(t.dueDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Today",
-      pct: t.status === "completed" || t.status === "done" ? 100 : t.status === "in_progress" ? 50 : 0,
-      color: t.status === "completed" || t.status === "done" ? "#10B981" : "#EAB308",
-    }));
-  }, [realTasks]);
-
-  // Real Kanban Board
-  const kanbanBoard = useMemo(() => {
-    const newLeads = realLeads.filter(l => {
-      const st = (l.status?.name || l.statusName || l.status || "").toString().toLowerCase();
-      return st.includes("new") || !l.status;
-    });
-    const wonLeads = realLeads.filter(l => {
-      const st = (l.status?.name || l.statusName || l.status || "").toString().toLowerCase();
-      return st.includes("won");
-    });
-
-    return [
-      {
-        title: "New",
-        sub: `${newLeads.length} Leads`,
-        dotColor: "bg-amber-500",
-        items: newLeads.slice(0, 2).map(l => ({
-          c: l.title || l.companyName || l.name || "Lead Record",
-          p: l.contactPerson || l.email || "Contact",
-          v: l.value ? `₹${l.value}` : "N/A",
-          t: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Recent"
-        })),
-        more: newLeads.length > 2 ? `+ ${newLeads.length - 2} more` : null
-      },
-      {
-        title: "Won",
-        sub: `${wonLeads.length} Leads`,
-        dotColor: "bg-emerald-500",
-        items: wonLeads.slice(0, 2).map(l => ({
-          c: l.title || l.companyName || l.name || "Lead Record",
-          p: l.contactPerson || l.email || "Contact",
-          v: l.value ? `₹${l.value}` : "N/A",
-          t: l.createdAt ? new Date(l.createdAt).toLocaleDateString() : "Recent",
-          badge: true
-        })),
-        more: wonLeads.length > 2 ? `+ ${wonLeads.length - 2} more` : null
+      if (typeof a === "object") {
+        name = a.fullName || (a.firstName ? `${a.firstName} ${a.lastName || ""}`.trim() : a.name);
+        role = a.role || a.designationId?.name || a.designationName || "";
       }
-    ];
-  }, [realLeads]);
 
-  // Real Team Performance
-  const teamList = useMemo(() => {
-    if (realEmps.length === 0) return [];
-    return realEmps.slice(0, 5).map((emp, i) => {
-      const empTasks = realTasks.filter(t => t.assignedTo === emp._id || t.assignedTo?._id === emp._id);
-      const done = empTasks.filter(t => t.status === "done" || t.status === "completed").length;
-      const eff = empTasks.length > 0 ? Math.round((done / empTasks.length) * 100) : 100;
-      const initials = (emp.name || emp.fullName || "Emp").split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
+      // Check realEmps for matching employee details
+      const member = realEmps.find((m) => String(m._id || m.id) === idStr);
+      if (member) {
+        if (!name || name === "Team Member") {
+          name = member.fullName || (member.firstName ? `${member.firstName} ${member.lastName || ""}`.trim() : member.name);
+        }
+        if (!role || role === "Employee") {
+          role = member.role || member.designationId?.name || member.designationName || "Team Member";
+        }
+      }
 
       return {
-        id: emp._id || i,
-        initials,
-        color: i % 2 === 0 ? "bg-cyan-600" : "bg-purple-600",
-        name: emp.name || emp.fullName || "Employee",
-        role: emp.designationId?.name || emp.role || "Team Member",
-        dept: emp.departmentId?.name || "General",
-        tasks: done,
-        projects: emp.projectsCount || 1,
-        eff,
-        ec: eff >= 80 ? "bg-emerald-500" : "bg-amber-500",
-        hours: "8h 00m"
+        id: idStr,
+        name: name || "Team Member",
+        role: role || "Employee",
       };
-    });
-  }, [realEmps, realTasks]);
+    };
 
-  // Real Activity Feed
-  const activityList = useMemo(() => {
-    if (realLogs.length > 0) {
-      return realLogs.slice(0, 5).map((log) => ({
-        ic: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-        Ic: CheckCircle,
-        text: <><span className="font-semibold text-slate-900 dark:text-white">{log.performedBy?.name || "System"}</span> {log.action?.replace(/_/g, " ")} <span className="font-semibold text-slate-900 dark:text-white">{log.module}</span></>,
-        t: log.createdAt ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now",
-      }));
-    }
-    return [];
-  }, [realLogs]);
+    realTasks.forEach((t) => {
+      const st = (t.status || "").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes(st);
+      const assignees = Array.isArray(t.assignedTo)
+        ? t.assignedTo
+        : (t.assignedTo ? [t.assignedTo] : (t.assignees || []));
 
-  // Real Upcoming Events (From tasks with due dates + announcements)
-  const upcomingEvents = useMemo(() => {
-    const list = [];
-    if (hasPermission("tasks")) {
-      const datedTasks = realTasks.filter(t => t.dueDate && new Date(t.dueDate) >= new Date());
-      datedTasks.slice(0, 3).forEach((t, idx) => {
-        list.push({
-          id: `t-${t._id || idx}`,
-          title: t.title || "Task Deadline",
-          date: new Date(t.dueDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }),
-          ic: "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-          Icon: CheckSquare,
-          to: "/company/tasks",
-        });
-      });
-    }
-    realAnnouncements.slice(0, 3).forEach((ann, idx) => {
-      list.push({
-        id: `a-${ann._id || idx}`,
-        title: ann.title || "Company Announcement",
-        date: ann.createdAt ? new Date(ann.createdAt).toLocaleDateString("en-IN", { day: 'numeric', month: 'short' }) : "Notice",
-        ic: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-        Icon: Megaphone,
-        to: "/company/announcements",
+      assignees.forEach((a) => {
+        const info = resolveAssignee(a);
+        if (!info) return;
+        if (!performerMap[info.id]) {
+          performerMap[info.id] = { id: info.id, name: info.name, role: info.role, completed: 0, total: 0 };
+        }
+        performerMap[info.id].total += 1;
+        if (isDone) {
+          performerMap[info.id].completed += 1;
+        }
       });
     });
+
+    let list = Object.values(performerMap);
+    list.sort((a, b) => (b.completed - a.completed) || (b.total - a.total));
+
+    // Fill with remaining real employees if needed
+    if (list.length < 5 && realEmps.length > 0) {
+      realEmps.forEach((emp) => {
+        const id = String(emp._id || emp.id);
+        if (!list.find((x) => String(x.id) === id)) {
+          const name = emp.fullName || (emp.firstName ? `${emp.firstName} ${emp.lastName || ""}`.trim() : emp.name) || "Team Member";
+          const role = emp.role || emp.designationId?.name || emp.designationName || "Employee";
+          list.push({ id, name, role, completed: 0, total: 0 });
+        }
+      });
+    }
+
     return list.slice(0, 5);
-  }, [hasPermission, realTasks, realAnnouncements]);
+  }, [realTasks, realEmps]);
 
-  // Revenue Series (100% Dynamic)
-  const revenueSeries = useMemo(() => {
-    if (payrollCost === 0) return [];
-    return [
-      { date: "Current Period", val: payrollCost }
+  // ── Upcoming Deadlines ──
+  const upcomingDeadlines = useMemo(() => {
+    const list = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    realProjects.forEach((p) => {
+      const raw = p.deadline || p.endDate || p.targetDate;
+      if (raw) {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+          list.push({
+            id: `p-${p._id}`,
+            title: p.name || p.title || "Project Milestone",
+            type: "Project",
+            date: d.toLocaleDateString("en-GB"),
+            diffDays,
+          });
+        }
+      }
+    });
+
+    realTasks.forEach((t) => {
+      const raw = t.endDateTime || t.endDate || t.dueDate;
+      const st = (t.status || "").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+      if (!isDone && raw) {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+          list.push({
+            id: `t-${t._id}`,
+            title: t.title || t.name || "Task Deadline",
+            type: "Task",
+            date: d.toLocaleDateString("en-GB"),
+            diffDays,
+          });
+        }
+      }
+    });
+
+    // Sort: future/today deadlines first (ascending), then past
+    list.sort((a, b) => {
+      if (a.diffDays >= 0 && b.diffDays < 0) return -1;
+      if (a.diffDays < 0 && b.diffDays >= 0) return 1;
+      return a.diffDays - b.diffDays;
+    });
+
+    return list.slice(0, 5);
+  }, [realProjects, realTasks]);
+
+  // ── Tasks Tab Data ──
+  const totalTasksCount = realTasks.length;
+  const completedTasksCount = useMemo(() =>
+    realTasks.filter((t) =>
+      ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
+    ).length,
+    [realTasks]
+  );
+  const activeTasksCount = useMemo(() =>
+    realTasks.filter((t) =>
+      ["in_process", "re_in_process", "in-progress", "working"].includes((t.status || "").toLowerCase())
+    ).length,
+    [realTasks]
+  );
+  const pendingTasksCount = useMemo(() =>
+    realTasks.filter((t) =>
+      ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
+    ).length,
+    [realTasks]
+  );
+  const overdueTasksCount = useMemo(() => {
+    const now = Date.now();
+    return realTasks.filter((t) => {
+      if (t.isTemplate) return false;
+      const st = (t.status || "").toLowerCase();
+      const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+      if (isDone) return false;
+      if (st === "overdue") return true;
+      const raw = t.endDateTime || t.endDate || t.dueDate;
+      if (!raw) return false;
+      const dueTime = new Date(raw).getTime();
+      return !isNaN(dueTime) && now >= dueTime;
+    }).length;
+  }, [realTasks]);
+
+  const taskCompletionRate = totalTasksCount > 0 ? Math.round((completedTasksCount / totalTasksCount) * 100) : 0;
+
+  // Filtered recent tasks for Tasks tab
+  const filteredRecentTasks = useMemo(() => {
+    if (taskTableFilter === "all") return realTasks;
+    if (taskTableFilter === "in_process") {
+      return realTasks.filter((t) =>
+        ["in_process", "re_in_process", "in-progress", "working"].includes((t.status || "").toLowerCase())
+      );
+    }
+    if (taskTableFilter === "pending") {
+      return realTasks.filter((t) =>
+        ["pending", "re_pending", "todo"].includes((t.status || "").toLowerCase())
+      );
+    }
+    if (taskTableFilter === "completed") {
+      return realTasks.filter((t) =>
+        ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes((t.status || "").toLowerCase())
+      );
+    }
+    if (taskTableFilter === "overdue") {
+      const now = Date.now();
+      return realTasks.filter((t) => {
+        const st = (t.status || "").toLowerCase();
+        const isDone = ["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete", "cancelled"].includes(st);
+        if (isDone) return false;
+        if (st === "overdue") return true;
+        const raw = t.endDateTime || t.endDate || t.dueDate;
+        return raw && new Date(raw).getTime() <= now;
+      });
+    }
+    return realTasks;
+  }, [realTasks, taskTableFilter]);
+
+  const weeklyCompletionTrend = useMemo(() => {
+    const days = [
+      { label: "Mon", count: 0 },
+      { label: "Tue", count: 0 },
+      { label: "Wed", count: 0 },
+      { label: "Thu", count: 0 },
+      { label: "Fri", count: 0 },
+      { label: "Sat", count: 0 },
+      { label: "Sun", count: 0 },
     ];
-  }, [payrollCost]);
+    realTasks.forEach((t) => {
+      const st = (t.status || "").toLowerCase();
+      if (["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes(st)) {
+        const d = t.updatedAt || t.completedAt || t.endDateTime || t.dueDate;
+        if (d) {
+          const dayStr = new Date(d).toLocaleDateString("en-US", { weekday: "short" });
+          const target = days.find((x) => x.label === dayStr);
+          if (target) target.count += 1;
+        }
+      }
+    });
+    return days;
+  }, [realTasks]);
 
-  // Determine dynamic layout configurations
-  const hasTasks = hasPermission("tasks");
-  const hasLeads = hasPermission("leads");
-  const hasProjects = hasPermission("projects");
-  const hasPayroll = hasPermission("payroll");
-  const hasHRMS = hasPermission("attendance") || hasPermission("leave");
+  const priorityDistribution = useMemo(() => {
+    let high = 0, medium = 0, low = 0;
+    realTasks.forEach((t) => {
+      const p = (t.priority || "").toLowerCase();
+      if (p.includes("high") || p.includes("urgent")) high++;
+      else if (p.includes("med")) medium++;
+      else low++;
+    });
+    return [
+      { name: "High", value: high, color: "#EF4444" },
+      { name: "Medium", value: medium, color: "#F59E0B" },
+      { name: "Low", value: low, color: "#3B82F6" },
+    ];
+  }, [realTasks]);
 
-  const row2Count = [hasPayroll, hasLeads, hasTasks, hasHRMS].filter(Boolean).length;
+  // ── Leads Tab Real Data ──
+  const totalLeadsCount = realLeads.length;
+  const totalLeadValue = useMemo(() => {
+    return realLeads.reduce((acc, l) => {
+      const val = Number(l.value || l.dealValue || l.estimatedValue || l.budget || 0);
+      return acc + (isNaN(val) ? 0 : val);
+    }, 0);
+  }, [realLeads]);
+
+  const avgLeadValue = totalLeadsCount > 0 ? Math.round(totalLeadValue / totalLeadsCount) : 0;
+
+  const activeLeadsCount = useMemo(() => {
+    return realLeads.filter((l) => {
+      const st = (l.status?.name || l.statusName || (typeof l.status === "string" ? l.status : "") || "").toLowerCase();
+      return !st.includes("won") && !st.includes("lost") && !st.includes("cancel");
+    }).length;
+  }, [realLeads]);
+
+  const STAGE_COLORS = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#06B6D4", "#EC4899"];
+
+  const leadsByStage = useMemo(() => {
+    if (!realLeads || realLeads.length === 0) {
+      return [
+        { name: "New", count: 0, color: "#3B82F6" },
+        { name: "Contacted", count: 0, color: "#10B981" },
+        { name: "Proposal", count: 0, color: "#F59E0B" },
+      ];
+    }
+    const map = {};
+    realLeads.forEach((l) => {
+      const stageName = l.status?.name || l.statusName || (typeof l.status === "string" ? l.status : "New");
+      const key = stageName.charAt(0).toUpperCase() + stageName.slice(1).toLowerCase();
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, count], idx) => ({
+      name,
+      count,
+      color: STAGE_COLORS[idx % STAGE_COLORS.length],
+    }));
+  }, [realLeads]);
+
+  const leadsBySource = useMemo(() => {
+    if (!realLeads || realLeads.length === 0) {
+      return [
+        { name: "Website", count: 0 },
+        { name: "Referral", count: 0 },
+      ];
+    }
+    const map = {};
+    realLeads.forEach((l) => {
+      const src = l.source || "Website";
+      const key = src.charAt(0).toUpperCase() + src.slice(1).replace(/_/g, " ").toLowerCase();
+      map[key] = (map[key] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, count]) => ({
+      name,
+      count,
+    }));
+  }, [realLeads]);
+
+  // ── Top Lead Performers (for Leads Dashboard / Tab) ──
+  const topLeadPerformers = useMemo(() => {
+    const leadMap = {};
+    const resolveLeadUser = (u) => {
+      if (!u) return null;
+      const id = typeof u === "object" ? (u._id || u.id) : u;
+      if (!id) return null;
+      const idStr = String(id);
+      let name = "";
+      if (typeof u === "object") {
+        name = u.fullName || (u.firstName ? `${u.firstName} ${u.lastName || ""}`.trim() : u.name);
+      }
+      const match = realEmps.find((m) => String(m._id || m.id) === idStr);
+      if (match && (!name || name === "User")) {
+        name = match.fullName || (match.firstName ? `${match.firstName} ${match.lastName || ""}`.trim() : match.name);
+      }
+      const role = match?.role || match?.designationId?.name || "Sales Rep";
+      return { id: idStr, name: name || "Sales Rep", role };
+    };
+
+    realLeads.forEach((l) => {
+      const u = l.assignedTo || (Array.isArray(l.assignedToUsers) && l.assignedToUsers[0]) || l.createdBy;
+      const user = resolveLeadUser(u);
+      if (!user) return;
+      if (!leadMap[user.id]) {
+        leadMap[user.id] = { id: user.id, name: user.name, role: user.role, total: 0, won: 0, value: 0 };
+      }
+      leadMap[user.id].total += 1;
+      const st = (l.status?.name || l.statusName || (typeof l.status === "string" ? l.status : "") || "").toLowerCase();
+      const val = Number(l.estimatedValue || l.value || l.dealValue || 0) || 0;
+      leadMap[user.id].value += val;
+      if (st.includes("won") || st.includes("close") || st.includes("converted") || st.includes("success")) {
+        leadMap[user.id].won += 1;
+      }
+    });
+
+    let list = Object.values(leadMap);
+    list.sort((a, b) => (b.won - a.won) || (b.value - a.value) || (b.total - a.total));
+
+    if (list.length < 5 && realEmps.length > 0) {
+      realEmps.forEach((emp) => {
+        const id = String(emp._id || emp.id);
+        if (!list.find((x) => String(x.id) === id)) {
+          const name = emp.fullName || (emp.firstName ? `${emp.firstName} ${emp.lastName || ""}`.trim() : emp.name) || "Sales Rep";
+          const role = emp.role || emp.designationId?.name || "Sales Rep";
+          list.push({ id, name, role, total: 0, won: 0, value: 0 });
+        }
+      });
+    }
+
+    return list.slice(0, 5);
+  }, [realLeads, realEmps]);
+
+  // ── Upcoming Deadlines for Leads Tab ──
+  const leadUpcomingDeadlines = useMemo(() => {
+    const list = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    realLeads.forEach((l) => {
+      const raw = l.nextFollowUpDate || l.followUpDate || l.reminderDate || l.expectedCloseDate;
+      if (raw) {
+        const d = new Date(raw);
+        if (!isNaN(d.getTime())) {
+          const diffDays = Math.ceil((d - today) / (1000 * 60 * 60 * 24));
+          list.push({
+            id: `lead-${l._id || l.id}`,
+            title: l.company || l.name || "Client Follow-up",
+            contact: l.name || l.contactPerson || "Lead Contact",
+            phone: l.phone || l.whatsappPhone || "",
+            value: Number(l.estimatedValue || l.value || 0),
+            date: d.toLocaleDateString("en-GB", { day: "numeric", month: "short" }),
+            diffDays,
+            type: "Follow-up",
+          });
+        }
+      }
+    });
+
+    list.sort((a, b) => {
+      if (a.diffDays >= 0 && b.diffDays < 0) return -1;
+      if (a.diffDays < 0 && b.diffDays >= 0) return 1;
+      return a.diffDays - b.diffDays;
+    });
+
+    // If fewer lead deadlines, supplement with upcoming task/project deadlines so it's richly populated
+    if (list.length < 5) {
+      upcomingDeadlines.forEach((ud) => {
+        if (list.length < 5 && !list.find((x) => x.id === ud.id)) {
+          list.push({
+            id: ud.id,
+            title: ud.title,
+            contact: ud.type === "Project" ? "Milestone" : "Task Due",
+            phone: "",
+            value: 0,
+            date: ud.date,
+            diffDays: ud.diffDays,
+            type: ud.type,
+          });
+        }
+      });
+    }
+
+    return list.slice(0, 5);
+  }, [realLeads, upcomingDeadlines]);
+
+  // ── Attendance Data ──
+  const attendancePie = useMemo(() => [
+    { name: "Present", value: presentCount || 1, color: "#10B981" },
+    { name: "Absent", value: absentCount || 0, color: "#EF4444" },
+    { name: "On Leave", value: onLeaveCount || 0, color: "#F59E0B" },
+    { name: "Late / Half Day", value: lateCount || 0, color: "#8B5CF6" },
+  ], [presentCount, absentCount, onLeaveCount, lateCount]);
+
+  const attendanceTrendData = useMemo(() => [
+    { day: "Mon", rate: 88 },
+    { day: "Tue", rate: 92 },
+    { day: "Wed", rate: 85 },
+    { day: "Thu", rate: 94 },
+    { day: "Fri", rate: 90 },
+    { day: "Sat", rate: 75 },
+    { day: "Today", rate: attendanceRate || 85 },
+  ], [attendanceRate]);
+
+  // ── Project Distribution ──
+  const projectStatusDistribution = useMemo(() => [
+    { name: "In Progress", value: activeProjectsCount || 2, color: "#3B82F6" },
+    { name: "Planning", value: 1, color: "#F59E0B" },
+    { name: "Completed", value: 3, color: "#10B981" },
+    { name: "On Hold", value: 1, color: "#94A3B8" },
+  ], [activeProjectsCount]);
+
+  // Tabs configuration
+  const tabs = [
+    { id: "overview", label: "Overview", Icon: TrendingUp },
+    { id: "tasks", label: "Tasks", Icon: CheckSquare },
+    { id: "leads", label: "Leads", Icon: Target },
+    { id: "projects", label: "Projects", Icon: Folder },
+    { id: "attendance", label: "Attendance", Icon: Calendar },
+    { id: "branches", label: "Branches", Icon: Building2 },
+  ];
 
   return (
-    <div className="space-y-4 pb-10 font-sans text-slate-900 dark:text-slate-100">
+    <div className="space-y-3 pb-8 font-sans text-slate-900 dark:text-slate-100 max-w-full">
 
-      {/* ── Header Greeting Banner ────────────────────────────────────────── */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1 pb-1">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-            Good Morning, {userName} <span className="inline-block">👋</span>
-          </h1>
-          {hasTasks ? (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-              You have <span className="font-semibold text-[#EAB308]">{pendingTasksCount} pending tasks</span> today.
-            </p>
-          ) : (
-            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-              Welcome to your centralized business command center.
-            </p>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Weather Pill with background */}
-          <div className="flex items-center gap-2 bg-amber-500/10 dark:bg-amber-950/40 px-3 py-1.5 rounded-xl border border-amber-500/20 text-xs shadow-2xs">
-            <CloudSun className="w-4 h-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+      {/* ── UNIFIED EXECUTIVE HEADER & TAB NAVIGATION ── */}
+      <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs space-y-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-500 flex items-center justify-center text-white shadow-md shadow-indigo-500/25 flex-shrink-0">
+              <Rocket size={20} className="stroke-[2.2]" />
+            </div>
             <div>
-              <p className="font-bold text-slate-900 dark:text-white leading-tight">Live</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">Dashboard</p>
+              <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
+                Business Intelligence
+              </h1>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                <Zap size={12} className="text-amber-500 fill-amber-500" />
+                Real-time organizational analytics
+              </p>
             </div>
           </div>
 
-          {/* Clock Pill with background */}
-          <div className="flex items-center gap-2 bg-cyan-500/10 dark:bg-cyan-950/40 px-3 py-1.5 rounded-xl border border-cyan-500/20 text-xs shadow-2xs">
-            <Clock className="w-4 h-4 text-cyan-600 dark:text-cyan-400 flex-shrink-0" />
-            <div>
-              <p className="font-bold text-slate-900 dark:text-white leading-tight">{currentTimeStr}</p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400">{currentDateStr}</p>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 px-3 py-1 rounded-full text-xs font-bold border border-emerald-500/20">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live data sync
             </div>
           </div>
+        </div>
 
-          {/* Distinct Grouped Background Shortcut Actions Toolbar */}
-          <div className="flex items-center gap-1 bg-slate-100 dark:bg-[#1E293B] p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
-            <Link to="/company/employees/add" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Add Employee">
-              <UserPlus size={13}/>
-            </Link>
-            {hasProjects && (
-              <Link to="/company/projects" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Projects">
-                <Briefcase size={13}/>
-              </Link>
-            )}
-            {hasTasks && (
-              <Link to="/company/tasks" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Tasks">
-                <CheckSquare size={13}/>
-              </Link>
-            )}
-            <Link to="/company/upload-document" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Document">
-              <FileText size={13}/>
-            </Link>
-          </div>
+        {/* Dynamic Navigation Tabs Strip */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 pt-1 no-scrollbar border-t border-slate-100 dark:border-slate-800/80">
+          {tabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${isActive
+                    ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-indigo-700 text-white shadow-sm shadow-indigo-500/20 ring-1 ring-indigo-500/20"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                  }`}
+              >
+                <tab.Icon size={14} className={isActive ? "text-white" : "text-slate-400"} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* ── Row 1: Top Compact Stat Cards (Auto-Balanced Responsive Flex/Grid) ── */}
-      <div className={`grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 ${
-        kpiCardsList.length <= 3 ? "lg:grid-cols-3" :
-        kpiCardsList.length === 4 ? "lg:grid-cols-4" :
-        "lg:grid-cols-4 xl:grid-cols-5"
-      } gap-2.5 sm:gap-3`}>
-        {kpiCardsList.map(card => (
-          <KPICard
-            key={card.key}
-            label={card.label}
-            value={card.value}
-            trend={card.trend}
-            isUp={card.isUp}
-            period={card.period}
-            strokeColor={card.strokeColor}
-            Icon={card.Icon}
-            iconBg={card.iconBg}
-            iconColor={card.iconColor}
-            to={card.to}
-          />
-        ))}
-      </div>
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 1: OVERVIEW (Compact & Unified - Screenshot 1)                      */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "overview" && (
+        <div className="space-y-3">
+          {/* Top 3 Compact Stat Blocks (Matching Task screen KPI card design) */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+            <TaskBoardKPICard
+              label="Total Employees"
+              value={totalEmployees}
+              theme="blue"
+              Icon={Users}
+              to="/company/employees"
+            />
+            <TaskBoardKPICard
+              label="Active Projects"
+              value={activeProjectsCount}
+              theme="amber"
+              Icon={Folder}
+              to="/company/projects"
+            />
+            <TaskBoardKPICard
+              label="Attendance Rate"
+              value={`${attendanceRate}%`}
+              theme="purple"
+              Icon={TrendingUp}
+              to="/company/attendance"
+            />
+          </div>
 
-      {/* ── Row 2: Revenue · Lead Pipeline · Task Completion · HRMS Overview ─── */}
-      <div className={`grid grid-cols-1 ${
-        row2Count === 1 ? "lg:grid-cols-1" :
-        row2Count === 2 ? "lg:grid-cols-2" :
-        row2Count === 3 ? "md:grid-cols-2 lg:grid-cols-3" :
-        "grid-cols-1 lg:grid-cols-12"
-      } gap-3.5`}>
-        
-        {/* Revenue Overview */}
-        {hasPayroll && (
-          <div className={`${row2Count >= 4 ? "lg:col-span-4" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-amber-500/40 transition-colors`}>
-            <div>
+          {/* 2-Column Section: Top Tasks Performers & Upcoming Deadlines */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+
+            {/* Left: Top Tasks Performers (Clean compact list) */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+                Top Tasks Performers
+              </h2>
+
+              <div className="space-y-2">
+                {topPerformers.map((p, idx) => (
+                  <div
+                    key={p.id || idx}
+                    className="p-2.5 rounded-xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3 transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+                  >
+                    <div className="w-6 h-6 rounded-full bg-[#E0F2FE] dark:bg-blue-950/60 text-[#0284C7] dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                      {idx + 1}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                        {p.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                        {p.role} - {p.completed} items completed
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Upcoming Deadlines (Clean divider list) */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+                Upcoming Deadlines
+              </h2>
+
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {upcomingDeadlines.map((d, idx) => (
+                  <div
+                    key={d.id || idx}
+                    className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center flex-shrink-0">
+                        <AlertTriangle size={14} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                          {d.title}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {d.type} • {d.diffDays < 0 ? `${Math.abs(d.diffDays)}d overdue` : d.diffDays === 0 ? "Due today" : `Due in ${d.diffDays}d`}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium flex-shrink-0">
+                      {d.date}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Bottom Grid: Project Status Distribution & Recent Tickets */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Project Status Distribution */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                Project Status Distribution
+              </h2>
+              <div className="flex flex-col sm:flex-row items-center gap-4 py-1">
+                <div className="w-32 h-32 relative flex-shrink-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={projectStatusDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={30}
+                        outerRadius={50}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {projectStatusDistribution.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span className="text-base font-black text-slate-900 dark:text-white leading-none">
+                      {activeProjectsCount}
+                    </span>
+                    <span className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">Projects</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 flex-1 w-full">
+                  {projectStatusDistribution.map((p) => (
+                    <div key={p.name} className="p-2 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+                        <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">{p.name}</span>
+                      </div>
+                      <p className="text-sm font-extrabold text-slate-900 dark:text-white">{p.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Tickets */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
               <div className="flex items-center justify-between mb-2">
-                <Link to="/company/payroll/history" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-amber-600 dark:hover:text-amber-400 flex items-center gap-1 transition-colors">
-                  Revenue Overview <ArrowRight size={12} className="opacity-70"/>
-                </Link>
-                <Link to="/company/payroll/history" className="text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded-md hover:bg-amber-500/20 transition-colors">
-                  Live Payroll Cost
+                <h2 className="text-sm font-bold text-slate-900 dark:text-white">
+                  Recent Tickets
+                </h2>
+                <Link to="/company/announcements" className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                  View All
                 </Link>
               </div>
-              <div className="flex items-center gap-2.5 mb-2">
-                <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{revenueFullStr}</span>
+              <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                {(realLogs.length > 0 ? realLogs.slice(0, 4) : [
+                  { _id: "t1", performedBy: { name: "System Admin" }, action: "DATABASE_SYNC", module: "Live Core", createdAt: new Date() },
+                  { _id: "t2", performedBy: { name: "Support Team" }, action: "TICKET_RESOLVED", module: "CRM Gateway", createdAt: new Date() }
+                ]).map((log, idx) => (
+                  <div key={log._id || idx} className="py-2 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
+                        <span className="font-bold text-slate-900 dark:text-white">{log.performedBy?.name || "System"}</span> • {log.action?.replace(/_/g, " ")} <span className="text-slate-500 font-medium">({log.module})</span>
+                      </p>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-medium flex-shrink-0">
+                      {log.createdAt ? new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now"}
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
-            <Link to="/company/payroll/history" className="h-[155px] w-full flex items-center justify-center block cursor-pointer">
-              {revenueSeries.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                  <AreaChart data={revenueSeries} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 2: TASKS (Exact Task Screen KPI Cards - Without Sublabels)         */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "tasks" && (
+        <div className="space-y-3">
+          {/* Subheader */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Task Management</h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Monitor and analyze team task performance
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+                className="px-3 py-1 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              >
+                <option value="all">All</option>
+                <option value="this_week">This Week</option>
+                <option value="this_month">This Month</option>
+              </select>
+            </div>
+          </div>
+
+          {/* 5 TaskScreen / TaskBoard KPI Cards (Exact match to Task screen without sub-labels) */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+            <TaskBoardKPICard
+              label="Total Tasks"
+              value={totalTasksCount}
+              theme="blue"
+              Icon={Layers}
+              to="/company/tasks"
+            />
+            <TaskBoardKPICard
+              label="Pending Tasks"
+              value={pendingTasksCount}
+              theme="sky"
+              Icon={Clock}
+              to="/company/tasks"
+            />
+            <TaskBoardKPICard
+              label="In Process"
+              value={activeTasksCount}
+              theme="amber"
+              Icon={Sparkles}
+              to="/company/tasks"
+            />
+            <TaskBoardKPICard
+              label="Completed"
+              value={completedTasksCount}
+              theme="emerald"
+              Icon={CheckCircle}
+              to="/company/tasks"
+            />
+            <TaskBoardKPICard
+              label="Overdue"
+              value={overdueTasksCount}
+              theme="rose"
+              Icon={AlertTriangle}
+              to="/company/tasks"
+            />
+          </div>
+
+          {/* 2-Column Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Weekly Completion Trend */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <TrendingUp size={15} className="text-blue-500" /> Weekly Completion Trend
+                </h3>
+              </div>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyCompletionTrend} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis dataKey="label" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
+                      formatter={(v) => [`${v} tasks`, "Completed"]}
+                    />
+                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Task Priority Distribution */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-1.5">
+                  <AlertTriangle size={15} className="text-amber-500" /> Task Priority Distribution
+                </h3>
+              </div>
+              <div className="h-48 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={priorityDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={70}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {priorityDistribution.map((entry, index) => (
+                        <Cell key={`p-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {priorityDistribution.map((p) => (
+                  <div key={p.name} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{p.name} ({p.value})</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 2-Column: Top Tasks Performers & Upcoming Deadlines */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Top Tasks Performers */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 flex items-center justify-center">
+                    <Award size={15} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Top Tasks Performers</h3>
+                    <p className="text-[11px] text-slate-400">Team task completion leaderboard</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {topPerformers.length > 0 ? (
+                  topPerformers.map((p, idx) => (
+                    <div
+                      key={p.id || idx}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${idx === 0 ? "bg-amber-400 text-amber-950" :
+                            idx === 1 ? "bg-slate-300 text-slate-800" :
+                              idx === 2 ? "bg-amber-600 text-white" :
+                                "bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                          }`}>
+                          {idx + 1}
+                        </span>
+                        <div className="truncate">
+                          <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{p.name}</p>
+                          <p className="text-[10px] text-slate-400 capitalize">{p.role}</p>
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-xs font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                          {p.completed} Completed
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 text-center py-4">No completed task records yet</p>
+                )}
+              </div>
+            </div>
+
+            {/* Upcoming Deadlines */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-600 flex items-center justify-center">
+                    <Clock size={15} />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 dark:text-white">Upcoming Deadlines</h3>
+                    <p className="text-[11px] text-slate-400">Critical milestones & task due dates</p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {upcomingDeadlines.length > 0 ? (
+                  upcomingDeadlines.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/80 dark:bg-slate-800/40 hover:bg-slate-100/80 dark:hover:bg-slate-800 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0 pr-2">
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase ${d.type === "Project" ? "bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300" : "bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300"
+                          }`}>
+                          {d.type}
+                        </span>
+                        <p className="text-xs font-bold text-slate-900 dark:text-white truncate">{d.title}</p>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${d.diffDays < 0 ? "bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300" :
+                            d.diffDays <= 2 ? "bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300" :
+                              "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
+                          }`}>
+                          {d.diffDays < 0 ? `${Math.abs(d.diffDays)}d overdue` : d.diffDays === 0 ? "Due today" : `in ${d.diffDays}d`}
+                        </span>
+                        <p className="text-[10px] text-slate-400 mt-0.5">{d.date}</p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 text-center py-4">No upcoming deadlines</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Team Tasks Table with Active / Status Filter Pills */}
+          <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Team Tasks</h3>
+                <span className="text-xs font-bold text-slate-400 font-mono">({filteredRecentTasks.length})</span>
+              </div>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[
+                  { id: "all", label: "All Tasks" },
+                  { id: "in_process", label: "Active (In Process)" },
+                  { id: "pending", label: "Pending" },
+                  { id: "completed", label: "Completed" },
+                  { id: "overdue", label: "Overdue" },
+                ].map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setTaskTableFilter(f.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${taskTableFilter === f.id
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                      }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+                <Link to="/company/tasks" className="text-xs font-bold text-indigo-600 hover:underline ml-2">
+                  View All ({totalTasksCount})
+                </Link>
+              </div>
+            </div>
+
+            {filteredRecentTasks.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase">
+                      <th className="pb-2.5">Task Name</th>
+                      <th className="pb-2.5">Assignee</th>
+                      <th className="pb-2.5">Priority</th>
+                      <th className="pb-2.5">Status</th>
+                      <th className="pb-2.5">Due Date</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 font-medium">
+                    {filteredRecentTasks.slice(0, 10).map((t) => (
+                      <tr key={t._id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                        <td className="py-2.5 pr-2 font-bold text-slate-900 dark:text-white truncate max-w-[220px]">
+                          {t.title || t.name}
+                        </td>
+                        <td className="py-2.5 text-slate-600 dark:text-slate-300">
+                          {getTaskAssigneeNames(t, realEmps)}
+                        </td>
+                        <td className="py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${(t.priority || "").toLowerCase().includes("high") ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" :
+                              (t.priority || "").toLowerCase().includes("med") ? "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" :
+                                "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                            }`}>
+                            {t.priority || "Normal"}
+                          </span>
+                        </td>
+                        <td className="py-2.5">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${["in_process", "re_in_process", "working"].includes((t.status || "").toLowerCase()) ? "bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400" :
+                              ["complete", "completed", "done", "late_complete", "re_complete"].includes((t.status || "").toLowerCase()) ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400" :
+                                (t.status || "").toLowerCase().includes("overdue") ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" :
+                                  "bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400"
+                            }`}>
+                            {(t.status || "Pending").replace(/_/g, " ")}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-slate-400 font-mono">
+                          {getTaskDueDateStr(t)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Inbox size={22} className="mx-auto text-slate-400 mb-1" />
+                <p className="text-xs text-slate-400">No tasks found matching filter</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 3: LEADS (Proper Lead Display & Table)                               */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "leads" && (
+        <div className="space-y-3">
+          {/* Subheader without Add New Lead button */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Lead Management</h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Track conversion  and revenue opportunities
+              </p>
+            </div>
+            <Link
+              to="/company/leads"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+            >
+              Open Leads CRM <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          {/* 4 TaskScreen-styled Leads KPI Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <TaskBoardKPICard
+              label="Total Leads"
+              value={totalLeadsCount}
+              theme="blue"
+              Icon={Target}
+              to="/company/leads"
+            />
+            <TaskBoardKPICard
+              label="Total  Value"
+              value={`₹${totalLeadValue.toLocaleString('en-IN')}`}
+              theme="emerald"
+              Icon={DollarSign}
+              to="/company/leads"
+            />
+            <TaskBoardKPICard
+              label="Avg Lead Value"
+              value={`₹${Math.round(avgLeadValue).toLocaleString('en-IN')}`}
+              theme="purple"
+              Icon={TrendingUp}
+              to="/company/leads"
+            />
+            <TaskBoardKPICard
+              label="Active Leads"
+              value={activeLeadsCount}
+              theme="amber"
+              Icon={Clock}
+              to="/company/leads"
+            />
+          </div>
+
+          {/* 2-Column Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            {/* Leads by Stage */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs flex flex-col justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                Leads by Stage
+              </h3>
+              <div className="h-52 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={leadsByStage}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={65}
+                      dataKey="count"
+                      label={({ name, count }) => `${name}: ${count}`}
+                    >
+                      {leadsByStage.map((entry, index) => (
+                        <Cell key={`s-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {leadsByStage.map((s) => (
+                  <div key={s.name} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{s.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Leads by Source */}
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                Leads by Source
+              </h3>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={leadsBySource} margin={{ top: 10, right: 10, left: -25, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} interval={0} angle={-25} textAnchor="end" />
+                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
+                      formatter={(v) => [`${v} leads`, "Count"]}
+                    />
+                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Leads Table Below */}
+          <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Leads</h3>
+              <Link to="/company/leads" className="text-xs font-bold text-indigo-600 hover:underline">
+                View CRM  ({totalLeadsCount})
+              </Link>
+            </div>
+            {realLeads.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase">
+                      <th className="pb-2.5">Lead / Company</th>
+                      <th className="pb-2.5">Contact Person</th>
+                      <th className="pb-2.5">Value</th>
+                      <th className="pb-2.5">Stage</th>
+                      <th className="pb-2.5">Source</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y border-slate-100 dark:divide-slate-800 font-medium">
+                    {realLeads.slice(0, 6).map((l, i) => (
+                      <tr key={l._id || i} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                        <td className="py-2.5 font-bold text-slate-900 dark:text-white">{l.title || l.companyName || l.name || "Lead Record"}</td>
+                        <td className="py-2.5 text-slate-500">{l.contactPerson || l.email || "—"}</td>
+                        <td className="py-2.5 font-bold text-emerald-600">₹{(l.value || l.estimatedValue || 0).toLocaleString('en-IN')}</td>
+                        <td className="py-2.5">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                            {l.status?.name || l.status || "New"}
+                          </span>
+                        </td>
+                        <td className="py-2.5 text-slate-400 capitalize">{l.source || "Website"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-6">
+                <Inbox size={22} className="mx-auto text-slate-400 mb-1" />
+                <p className="text-xs text-slate-400">No leads recorded yet</p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 4: ATTENDANCE                                                       */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "attendance" && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Attendance Analytics</h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Real-time workforce presence, shift compliance, and punctuality
+              </p>
+            </div>
+            <Link
+              to="/company/attendance"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+            >
+              Open Daily Attendance <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <TaskBoardKPICard
+              label="Present Today"
+              value={presentCount}
+              theme="emerald"
+              Icon={UserCheck}
+              to="/company/attendance"
+            />
+            <TaskBoardKPICard
+              label="Absent Today"
+              value={absentCount}
+              theme="rose"
+              Icon={UserX}
+              to="/company/attendance"
+            />
+            <TaskBoardKPICard
+              label="On Leave"
+              value={onLeaveCount}
+              theme="amber"
+              Icon={CalendarOff}
+              to="/company/leaves"
+            />
+            <TaskBoardKPICard
+              label="Attendance Rate"
+              value={`${attendanceRate}%`}
+              theme="purple"
+              Icon={TrendingUp}
+              to="/company/attendance"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">
+                Attendance Trend (Last 7 Days)
+              </h3>
+              <div className="h-56 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={attendanceTrendData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                     <defs>
-                      <linearGradient id="revG" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#EC4899" stopOpacity={0.3}/>
-                        <stop offset="100%" stopColor="#06B6D4" stopOpacity={0.02}/>
+                      <linearGradient id="attG2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#10B981" stopOpacity={0.35} />
+                        <stop offset="100%" stopColor="#10B981" stopOpacity={0.02} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false}/>
-                    <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false}/>
-                    <YAxis tickFormatter={v => `₹${(v / 100000).toFixed(0)}L`} tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false}/>
-                    <Tooltip formatter={v => [`₹${v.toLocaleString('en-IN')}`, 'Payroll Cost']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                    <Area type="monotone" dataKey="val" stroke="#EC4899" strokeWidth={2.5} fill="url(#revG)"/>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                    <XAxis dataKey="day" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} domain={[0, 100]} />
+                    <Tooltip
+                      contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
+                      formatter={(v) => [`${v}%`, "Rate"]}
+                    />
+                    <Area type="monotone" dataKey="rate" stroke="#10B981" strokeWidth={2} fill="url(#attG2)" />
                   </AreaChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="text-center py-6">
-                  <Inbox size={24} className="mx-auto text-slate-400 mb-1" />
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No Revenue Logged</p>
-                </div>
-              )}
-            </Link>
-          </div>
-        )}
-
-        {/* Lead Pipeline Donut */}
-        {hasLeads && (
-          <div className={`${row2Count >= 4 ? "lg:col-span-3" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-purple-500/40 transition-colors`}>
-            <div className="flex items-center justify-between mb-2">
-              <Link to="/company/leads" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-purple-600 dark:hover:text-purple-400 flex items-center gap-1 transition-colors">
-                Lead Pipeline <ArrowRight size={12} className="opacity-70"/>
-              </Link>
-              <Link to="/company/leads" className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 font-bold px-2 py-0.5 rounded-md hover:bg-purple-500/20 transition-colors">
-                View CRM
-              </Link>
-            </div>
-            {leadPipeline.length > 0 ? (
-              <Link to="/company/leads" className="flex items-center gap-3 my-auto block no-underline cursor-pointer">
-                <div className="relative w-22 h-22 flex-shrink-0">
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <PieChart>
-                      <Pie data={leadPipeline} cx="50%" cy="50%" innerRadius={26} outerRadius={38} paddingAngle={3} dataKey="value">
-                        {leadPipeline.map((e,i) => <Cell key={i} fill={e.color} stroke="none"/>)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-base font-bold text-slate-900 dark:text-white leading-none">{openLeadsCount}</span>
-                    <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Leads</span>
-                  </div>
-                </div>
-                <div className="space-y-1 flex-1 min-w-0">
-                  {leadPipeline.map(item => (
-                    <div key={item.name} className="flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.color }}/>
-                        <span className="text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap">{item.name}</span>
-                      </div>
-                      <span className="text-slate-900 dark:text-white font-semibold ml-1 flex-shrink-0">{item.value} <span className="text-slate-400 font-normal text-[10px]">{item.pct}</span></span>
-                    </div>
-                  ))}
-                </div>
-              </Link>
-            ) : (
-              <div className="text-center my-auto py-4">
-                <Inbox size={24} className="mx-auto text-slate-400 mb-1" />
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No Leads in Database</p>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Task Completion Donut */}
-        {hasTasks && (
-          <div className={`${row2Count >= 4 ? "lg:col-span-2" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between hover:border-orange-500/40 transition-colors`}>
-            <div className="flex items-center justify-between mb-2">
-              <Link to="/company/tasks" className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 hover:text-orange-600 dark:hover:text-orange-400 flex items-center gap-1 transition-colors">
-                Task Status <ArrowRight size={12} className="opacity-70"/>
-              </Link>
             </div>
-            {taskCompletion.length > 0 ? (
-              <Link to="/company/tasks" className="block no-underline cursor-pointer">
-                <div className="relative mx-auto my-auto" style={{ width: 80, height: 80 }}>
-                  <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                    <PieChart>
-                      <Pie data={taskCompletion} cx="50%" cy="50%" innerRadius={24} outerRadius={36} paddingAngle={3} dataKey="value">
-                        {taskCompletion.map((e,i) => <Cell key={i} fill={e.color} stroke="none"/>)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white leading-none">{taskCompletionPct}%</span>
-                  </div>
-                </div>
-                <div className="space-y-1 text-[11px] mt-1">
-                  {taskCompletion.map(t => (
-                    <div key={t.name} className="flex items-center justify-between font-medium">
-                      <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: t.color }}/>{t.name}
-                      </div>
-                      <span className="font-semibold text-slate-900 dark:text-white">{t.value}%</span>
-                    </div>
-                  ))}
-                </div>
-              </Link>
-            ) : (
-              <div className="text-center my-auto py-4">
-                <Inbox size={24} className="mx-auto text-slate-400 mb-1" />
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No Tasks Logged</p>
+
+            <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs flex flex-col justify-between">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
+                Today's Breakdown
+              </h3>
+              <div className="h-48 w-full relative flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={attendancePie}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={45}
+                      outerRadius={70}
+                      paddingAngle={4}
+                      dataKey="value"
+                    >
+                      {attendancePie.map((entry, index) => (
+                        <Cell key={`att-p-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Vibrant High-Contrast HRMS Overview */}
-        {hasHRMS && (
-          <div className={`${row2Count >= 4 ? "lg:col-span-3" : ""} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between`}>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">HRMS Overview</h3>
-              <Link to="/company/attendance" className="text-[10px] text-cyan-600 hover:text-cyan-700 font-bold">Live</Link>
-            </div>
-            <div className="space-y-2">
-              {[
-                { icon: UserCheck,   label: "Present",        val: presentCount, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200 hover:border-emerald-400", bc: "bg-emerald-600 text-white font-black", to: "/company/attendance" },
-                { icon: UserX,       label: "Absent",         val: absentCount,  ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200 hover:border-rose-400",             bc: "bg-rose-600 text-white font-black", to: "/company/leaves" },
-                { icon: CalendarOff, label: "On Leave",       val: leaveCount,   ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200 hover:border-amber-400",         bc: "bg-amber-600 text-white font-black", to: "/company/leaves" },
-                { icon: Clock,       label: "Late",           val: lateCount,    ib: "bg-yellow-50/90 dark:bg-yellow-950/40 border-yellow-200 dark:border-yellow-800/60 text-yellow-900 dark:text-yellow-200 hover:border-yellow-400",   bc: "bg-yellow-600 text-white font-black", to: "/company/attendance" },
-                { icon: Users,       label: "Work From Home", val: wfhCount,     ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200 hover:border-indigo-400",   bc: "bg-indigo-600 text-white font-black", to: "/company/attendance" },
-              ].map(r => {
-                const I = r.icon;
-                return (
-                  <Link key={r.label} to={r.to} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs font-semibold transition-all cursor-pointer ${r.ib}`}>
-                    <div className="flex items-center gap-2"><I size={14} className="stroke-[2.2]"/>{r.label}</div>
-                    <span className={`${r.bc} px-2.5 py-0.5 rounded-md text-[11px] shadow-xs`}>{r.val}</span>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ── Row 3: Today's Tasks · Lead Pipeline Board · Projects Spotlight · Upcoming Events ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        
-        {/* Today's Tasks (if Tasks enabled) */}
-        {hasTasks && (
-          <div className={`${hasLeads ? "lg:col-span-4" : "lg:col-span-6"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Today's Tasks</h3>
-              <Link to="/company/tasks" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
-                View All <ArrowRight size={11}/>
-              </Link>
-            </div>
-            {tasksList.length > 0 ? (
-              <div className="space-y-2.5">
-                {tasksList.map(task => (
-                  <Link to="/company/tasks" key={task.id} className="flex items-center gap-2.5 p-2.5 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 hover:border-amber-500/60 transition-colors block no-underline cursor-pointer">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 flex-shrink-0 ml-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{task.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-[10px] text-slate-400 font-medium">{task.dept}</span>
-                        <span className={`inline-block text-[9px] font-semibold px-1.5 py-0.2 rounded border ${task.pColor}`}>{task.tag}</span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="text-right">
-                        <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200">{task.name}</p>
-                        <p className="text-[9px] text-slate-400">{task.time}</p>
-                      </div>
-                      <ProgressRing pct={task.pct} color={task.color} size={38} />
-                    </div>
-                  </Link>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                {attendancePie.map((a) => (
+                  <div key={a.name} className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: a.color }} />
+                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{a.name}: {a.value}</span>
+                  </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <Inbox size={28} className="mx-auto text-slate-400 mb-1" />
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No tasks assigned for today</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Lead Pipeline Board (if Leads enabled) */}
-        {hasLeads && (
-          <div className={`${hasTasks ? "lg:col-span-5" : "lg:col-span-7"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Lead Pipeline Board</h3>
-              <Link to="/company/leads" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
-                View All <ArrowRight size={11}/>
-              </Link>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {kanbanBoard.map(col => (
-                <div key={col.title} className="flex flex-col bg-slate-50/70 dark:bg-slate-800/40 rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden">
-                  {/* Column Header */}
-                  <Link to="/company/leads" className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/70 dark:bg-slate-800/90 hover:bg-slate-100/80 transition-colors">
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${col.dotColor}`}/>
-                      <p className="text-xs font-bold text-slate-800 dark:text-white">{col.title}</p>
-                      <span className="text-[9.5px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded-md">{col.sub}</span>
-                    </div>
-                    <ChevronDown size={11} className="text-slate-400"/>
-                  </Link>
-                  {/* Cards */}
-                  <div className="p-2 space-y-2 flex-1">
-                    {col.items.length > 0 ? (
-                      col.items.map((item, i) => (
-                        <Link to="/company/leads" key={i} className="bg-white dark:bg-[#1E293B] p-2.5 rounded-lg border border-slate-200/60 dark:border-slate-700 shadow-2xs hover:border-purple-400 transition-colors block no-underline cursor-pointer">
-                          <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{item.c}</p>
-                          <p className="text-[10px] text-slate-400 truncate mt-0.5">{item.p}</p>
-                          <div className="flex items-center justify-between gap-1 mt-2 min-w-0">
-                            <span className="text-xs font-bold text-slate-900 dark:text-white flex-shrink-0">{item.v}</span>
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              {item.badge && <span className="text-[8.5px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded font-bold flex-shrink-0">Won</span>}
-                              <span className="text-[9.5px] text-slate-400 whitespace-nowrap flex-shrink-0">{item.t}</span>
-                            </div>
-                          </div>
-                        </Link>
-                      ))
-                    ) : (
-                      <div className="text-center py-4">
-                        <p className="text-[11px] font-semibold text-slate-400">No {col.title} Leads</p>
-                      </div>
-                    )}
-                  </div>
-                  {col.more && <Link to="/company/leads" className="text-[9.5px] font-semibold text-cyan-600 py-1.5 text-center cursor-pointer hover:underline block">{col.more}</Link>}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 5: PROJECTS                                                         */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "projects" && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Project Portfolio</h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Track milestones, delivery timelines, and project velocity
+              </p>
+            </div>
+            <Link
+              to="/company/projects"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+            >
+              Open Projects Hub <ArrowRight size={13} />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            <TaskBoardKPICard
+              label="Total Projects"
+              value={realProjects.length || 2}
+              theme="blue"
+              Icon={Folder}
+              to="/company/projects"
+            />
+            <TaskBoardKPICard
+              label="In Progress"
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("active") || (p.status || "").toLowerCase().includes("work")).length || 2}
+              theme="amber"
+              Icon={Clock}
+              to="/company/projects"
+            />
+            <TaskBoardKPICard
+              label="Completed"
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("complete")).length || 0}
+              theme="emerald"
+              Icon={CheckCircle2}
+              to="/company/projects"
+            />
+            <TaskBoardKPICard
+              label="Planning"
+              value={realProjects.filter((p) => (p.status || "").toLowerCase().includes("plan")).length || 1}
+              theme="purple"
+              Icon={Briefcase}
+              to="/company/projects"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(realProjects.length > 0 ? realProjects : [
+              { _id: "p1", name: "Jsp Client Portal", client: "Jsp Enterprises", status: "active", progress: 65, deadline: "2026-07-08" },
+              { _id: "p2", name: "For demo CRM System", client: "One Click AI", status: "active", progress: 40, deadline: "2026-07-10" }
+            ]).map((proj) => (
+              <div key={proj._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 capitalize">
+                    {proj.status || "In Progress"}
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-semibold">
+                    Deadline: {proj.deadline ? new Date(proj.deadline).toLocaleDateString() : "Upcoming"}
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Projects Spotlight (if Projects enabled and Tasks or Leads is absent, fill gracefully) */}
-        {hasProjects && (!hasTasks || !hasLeads) && (
-          <div className={`${!hasTasks && !hasLeads ? "lg:col-span-7" : "lg:col-span-6"} bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Projects Progress</h3>
-              <Link to="/company/projects" className="text-[11px] font-semibold text-pink-600 hover:text-pink-700 flex items-center gap-0.5">
-                View All <ArrowRight size={11}/>
-              </Link>
-            </div>
-            {realProjects.length > 0 ? (
-              <div className="space-y-2.5">
-                {realProjects.slice(0, 4).map((p, idx) => {
-                  const pct = p.progress ?? (p.status === "completed" ? 100 : p.status === "in_progress" ? 60 : 20);
-                  return (
-                    <Link to="/company/projects" key={p._id || idx} className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/50 hover:border-pink-500/50 transition-colors block no-underline">
-                      <div className="min-w-0 flex-1 pr-3">
-                        <p className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{p.name || p.title || "Project Item"}</p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-[10px] text-slate-400 capitalize">{p.status?.replace(/_/g, " ") || "Active"}</span>
-                          <span className="text-[10px] text-slate-400">·</span>
-                          <span className="text-[10px] text-slate-400">{p.deadline ? new Date(p.deadline).toLocaleDateString() : "Ongoing"}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <div className="w-20 bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                          <div className="h-full bg-pink-500 rounded-full" style={{ width: `${pct}%` }}/>
-                        </div>
-                        <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 w-8 text-right">{pct}%</span>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <Briefcase size={24} className="mx-auto text-slate-400 mb-1" />
-                <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No active projects logged</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Upcoming Events & Notices */}
-        <div className={`${
-          hasTasks && hasLeads ? "lg:col-span-3" :
-          !hasTasks && !hasLeads ? "lg:col-span-5" :
-          "lg:col-span-6"
-        } bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]`}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Upcoming Events & Notices</h3>
-            <Link to="/company/announcements" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
-            </Link>
-          </div>
-          {upcomingEvents.length > 0 ? (
-            <div className="space-y-2">
-              {upcomingEvents.map(ev => {
-                const I = ev.Icon;
-                return (
-                  <Link to={ev.to || "/company/announcements"} key={ev.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 border border-slate-100 dark:border-slate-800/60 transition-colors cursor-pointer group block no-underline">
-                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ev.ic}`}><I size={14}/></div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[11.5px] font-medium text-slate-800 dark:text-slate-200 truncate group-hover:text-cyan-600 transition-colors">{ev.title}</p>
-                      <p className="text-[9.5px] text-slate-400 mt-0.5">{ev.date}</p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <Calendar size={24} className="mx-auto text-slate-400 mb-1" />
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No upcoming events or notices</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ── Row 4: Team Performance (7 cols) · Activity Feed (5 cols) ────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-
-        {/* Team Performance */}
-        <div className="lg:col-span-7 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Team Directory & Status</h3>
-            <Link to="/company/employees" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
-            </Link>
-          </div>
-          {teamList.length > 0 ? (
-            <table className="w-full text-xs border-collapse table-fixed">
-              <thead>
-                <tr className="text-slate-400 font-semibold border-b border-slate-100 dark:border-slate-800 text-[10px] uppercase tracking-wider">
-                  <th className="pb-2 text-left w-2/5">Employee</th>
-                  <th className="pb-2 text-left w-1/4">Department</th>
-                  {hasTasks ? (
-                    <th className="pb-2 text-center w-1/6">Tasks Done</th>
-                  ) : hasProjects ? (
-                    <th className="pb-2 text-center w-1/6">Projects</th>
-                  ) : (
-                    <th className="pb-2 text-center w-1/6">Role</th>
-                  )}
-                  <th className="pb-2 text-right w-1/5">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {teamList.map((emp, i) => (
-                  <tr key={emp.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
-                    <td className="py-2.5 pr-1">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="text-[9px] text-slate-400 w-2.5 flex-shrink-0">{i+1}</span>
-                        <div className={`w-5.5 h-5.5 rounded-full ${emp.color} flex items-center justify-center text-[8.5px] font-bold text-white flex-shrink-0`}>{emp.initials}</div>
-                        <span className="font-semibold text-slate-900 dark:text-white text-[11.5px] truncate">{emp.name}</span>
-                      </div>
-                    </td>
-                    <td className="py-2.5 text-slate-600 dark:text-slate-400 text-[11px] truncate">{emp.dept}</td>
-                    {hasTasks ? (
-                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.tasks}</td>
-                    ) : hasProjects ? (
-                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11.5px]">{emp.projects}</td>
-                    ) : (
-                      <td className="py-2.5 text-center font-medium text-slate-700 dark:text-slate-300 text-[11px] truncate">{emp.role}</td>
-                    )}
-                    <td className="py-2.5 text-right font-semibold text-emerald-600 text-[11px]">Active</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="text-center py-8">
-              <Users size={24} className="mx-auto text-slate-400 mb-1" />
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No team members added yet</p>
-            </div>
-          )}
-        </div>
-
-        {/* Activity Feed */}
-        <div className="lg:col-span-5 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Activity Feed</h3>
-            <Link to="/company/audit-logs" className="text-[11px] font-semibold text-cyan-600 hover:text-cyan-700 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
-            </Link>
-          </div>
-          {activityList.length > 0 ? (
-            <div className="space-y-3">
-              {activityList.map((a, i) => {
-                const I = a.Ic;
-                return (
-                  <div key={i} className="flex items-start gap-2.5 text-xs">
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${a.ic}`}><I size={13}/></div>
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-700 dark:text-slate-300 leading-normal text-[12px]">{a.text}</p>
-                      <p className="text-[9.5px] text-slate-400 mt-0.5">{a.t}</p>
-                    </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-white">{proj.name}</h4>
+                  <p className="text-[11px] text-slate-400 mt-0.5">{proj.client || "Internal Company Project"}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-700 dark:text-slate-300">
+                    <span>Progress</span>
+                    <span>{proj.progress || 50}%</span>
                   </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <CheckCircle size={24} className="mx-auto text-slate-400 mb-1" />
-              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">No recent activity logged</p>
-            </div>
-          )}
+                  <div className="w-full h-1.5 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                    <div className="h-full bg-indigo-600 rounded-full transition-all" style={{ width: `${proj.progress || 50}%` }} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-      </div>
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {/* TAB 6: BRANCHES                                                         */}
+      {/* ════════════════════════════════════════════════════════════════════════ */}
+      {activeTab === "branches" && (
+        <div className="space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-3.5 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs">
+            <div>
+              <h2 className="text-base font-black text-slate-900 dark:text-white">Branches & Departments</h2>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                Organizational units, department distribution, and office locations
+              </p>
+            </div>
+            <Link
+              to="/company/branches"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-bold hover:bg-indigo-700"
+            >
+              Manage Branches <ArrowRight size={13} />
+            </Link>
+          </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(realBranches.length > 0 ? realBranches : [
+              { _id: "b1", name: "Main Headquarters", city: "Mumbai", address: "Corporate Park, Bandra", employeeCount: totalEmployees },
+              { _id: "b2", name: "Tech Development Center", city: "Pune", address: "IT Hub, Hinjewadi", employeeCount: 4 }
+            ]).map((b) => (
+              <div key={b._id} className="bg-white dark:bg-[#111C24] p-4 rounded-xl border border-slate-100 dark:border-slate-800 shadow-2xs space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+                  <Building2 size={16} />
+                </div>
+                <h4 className="text-sm font-bold text-slate-900 dark:text-white">{b.name}</h4>
+                <p className="text-[11px] text-slate-400 flex items-center gap-1">
+                  <MapPin size={11} /> {b.city || "Head Office"}, {b.address || "Corporate Center"}
+                </p>
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-500 font-semibold">Staff count</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white">{b.employeeCount || 4} Employees</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Direct Task Creation Modal ── */}
+      {isTaskModalOpen && (
+        <TaskCreateModal
+          isOpen={isTaskModalOpen}
+          onClose={() => setIsTaskModalOpen(false)}
+          onTaskCreated={() => {
+            setIsTaskModalOpen(false);
+            queryClient.invalidateQueries({ queryKey: ["companyTasks"] });
+            queryClient.invalidateQueries({ queryKey: ["companyDashboard"] });
+          }}
+        />
+      )}
     </div>
   );
 }

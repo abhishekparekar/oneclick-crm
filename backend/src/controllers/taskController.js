@@ -22,6 +22,7 @@ const { processSingleTemplate } = require("../cron/taskCron");
 const { validateTaskSchedule } = require("../utils/taskScheduleUtils");
 
 const { checkUserPermission } = require("../utils/permissionCheck");
+const { parseDateTimeIST, formatISTDateTime } = require("../utils/dateParser");
 
 // Helper: Generate next Task ID
 const generateNextTaskId = async (companyId) => {
@@ -226,7 +227,8 @@ exports.createTask = async (req, res) => {
                 priority: safePriority,
                 startDateTime: startDt,
                 endDateTime: finalEndDateTime,
-                nextFollowUpDate: nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime()) ? new Date(nextFollowUpDate) : startDt,
+                nextFollowUpDate: nextFollowUpDate ? parseDateTimeIST(nextFollowUpDate) : null,
+                followUpNotified: false,
                 status: isOverdueNow ? "overdue" : "pending",
                 reminderStage: isOverdueNow ? 3 : 0,
                 isLive: true,
@@ -361,6 +363,86 @@ exports.createTask = async (req, res) => {
     }
 };
 
+// Helper: Populate missing User assignees (e.g. CompanyAdmin users who are not in Employee collection)
+const populateMissingAssignees = async (tasks) => {
+    if (!Array.isArray(tasks) || tasks.length === 0) return tasks;
+    try {
+        const taskIds = tasks.map(t => t && t._id).filter(Boolean);
+        const rawMap = await Task.find({ _id: { $in: taskIds } }).select("_id assignedTo").lean();
+        const rawAssignedMap = new Map();
+        const allRawIds = new Set();
+        rawMap.forEach(r => {
+            const ids = (r.assignedTo || []).map(id => id ? id.toString() : "").filter(Boolean);
+            rawAssignedMap.set(r._id.toString(), ids);
+            ids.forEach(id => allRawIds.add(id));
+        });
+
+        // Also check if any task in `tasks` already has raw ObjectIds or strings in assignedTo
+        tasks.forEach(t => {
+            if (Array.isArray(t.assignedTo)) {
+                t.assignedTo.forEach(a => {
+                    if (a && typeof a === "object" && a._id) {
+                        // populated object
+                    } else if (a) {
+                        const strId = a.toString();
+                        allRawIds.add(strId);
+                        const existing = rawAssignedMap.get(t._id?.toString()) || [];
+                        if (!existing.includes(strId)) existing.push(strId);
+                        rawAssignedMap.set(t._id?.toString(), existing);
+                    }
+                });
+            }
+        });
+
+        const populatedIdsSet = new Set();
+        tasks.forEach(t => {
+            (t.assignedTo || []).forEach(a => {
+                if (a && typeof a === "object" && a._id) populatedIdsSet.add(a._id.toString());
+            });
+        });
+
+        const missingIds = Array.from(allRawIds).filter(id => !populatedIdsSet.has(id));
+        if (missingIds.length > 0) {
+            const users = await User.find({ _id: { $in: missingIds } }).select("name email role profileImage photo").lean();
+            const userMap = new Map();
+            users.forEach(u => {
+                const roleLabel = u.role === "CompanyAdmin" ? "Admin" : u.role;
+                userMap.set(u._id.toString(), {
+                    _id: u._id,
+                    fullName: `${u.name} (${roleLabel})`,
+                    firstName: u.name,
+                    lastName: `(${roleLabel})`,
+                    name: `${u.name} (${roleLabel})`,
+                    email: u.email,
+                    role: u.role,
+                    photo: u.profileImage || u.photo || ""
+                });
+            });
+
+            tasks.forEach(t => {
+                const rawIds = rawAssignedMap.get(t._id?.toString()) || [];
+                const list = Array.isArray(t.assignedTo) ? [...t.assignedTo.filter(a => a && typeof a === "object" && a._id)] : [];
+                for (const rId of rawIds) {
+                    if (userMap.has(rId) && !list.some(a => a._id?.toString() === rId)) {
+                        list.push(userMap.get(rId));
+                    }
+                }
+                t.assignedTo = list;
+                t.assignees = list;
+            });
+        } else {
+            tasks.forEach(t => {
+                t.assignedTo = (t.assignedTo || []).filter(a => a && typeof a === "object" && a._id);
+                t.assignees = t.assignedTo;
+            });
+        }
+    } catch (err) {
+        console.warn("populateMissingAssignees failed:", err.message);
+    }
+    return tasks;
+};
+exports.populateMissingAssignees = populateMissingAssignees;
+
 exports.getTasks = async (req, res) => {
     try {
         const { departmentId, assignedTo, startDate, endDate, status, projectId } = req.query;
@@ -457,6 +539,23 @@ exports.getTasks = async (req, res) => {
             query.$or = rbacOr;
         }
 
+        // Support personal / "my tasks" query across all roles (especially CompanyAdmin)
+        if (req.query.myTasks === "true" || req.query.myTasks === true) {
+            const myTargetIds = [req.user._id];
+            if (employeeId) myTargetIds.push(employeeId);
+            if (req.user?.employeeId) myTargetIds.push(req.user.employeeId);
+            const myTasksCondition = [
+                { assignedTo: { $in: myTargetIds } },
+                { assignedBy: req.user._id, assignmentType: "self" }
+            ];
+            if (query.$or && query.$or.length > 0) {
+                query.$and = [{ $or: query.$or }, { $or: myTasksCondition }];
+                delete query.$or;
+            } else {
+                query.$or = myTasksCondition;
+            }
+        }
+
         // Apply Filters
         if (departmentId) {
             if (req.user.role === "Employee" && allowedDeptIds.length > 0) {
@@ -526,6 +625,7 @@ exports.getTasks = async (req, res) => {
                 obj.assignees = obj.assignedTo || [];
                 return obj;
             });
+            await populateMissingAssignees(tasks);
         } else {
             let taskQuery = Task.find(query).sort({ createdAt: -1 })
                 .populate("assignedTo", "firstName lastName fullName name employeeCode email")
@@ -562,6 +662,7 @@ exports.getTasks = async (req, res) => {
                 }
                 return task;
             });
+            await populateMissingAssignees(tasks);
         }
 
         res.json({
@@ -631,6 +732,9 @@ exports.getTaskDetails = async (req, res) => {
                     taskObj.assignedTo = populatedEmps;
                 }
             }
+
+            // Populate any user assignees (such as CompanyAdmin)
+            await populateMissingAssignees([taskObj]);
 
             // Fallback: If assignedTo is empty in DB, resolve from department active employees or creator
             if ((!taskObj.assignedTo || taskObj.assignedTo.length === 0) && taskObj.departmentId) {
@@ -749,12 +853,16 @@ exports.updateTask = async (req, res) => {
         }
 
         // Only update nextFollowUpDate if a real valid date was provided
-        // Never overwrite existing date with null (prevents auto-null bug)
-        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
-            task.nextFollowUpDate = new Date(nextFollowUpDate);
-        } else if (nextFollowUpDate === "") {
-            // Only clear if explicitly sent as empty string
+        if (nextFollowUpDate !== undefined && nextFollowUpDate !== null && nextFollowUpDate !== "") {
+            const parsed = parseDateTimeIST(nextFollowUpDate);
+            if (parsed) {
+                task.nextFollowUpDate = parsed;
+                task.followUpNotified = false;
+            }
+        } else if (nextFollowUpDate === "" || nextFollowUpDate === null) {
+            // Only clear if explicitly sent as empty string or null
             task.nextFollowUpDate = null;
+            task.followUpNotified = false;
         }
 
         if (isTemplate) {
@@ -1945,12 +2053,16 @@ exports.submitFollowUp = async (req, res) => {
         if (!task) return res.status(404).json({ success: false, message: "Task not found" });
 
         // Only update nextFollowUpDate if a valid date was explicitly provided
-        // Do NOT overwrite existing date with null (prevents auto-null bug)
-        if (nextFollowUpDate && !isNaN(new Date(nextFollowUpDate).getTime())) {
-            task.nextFollowUpDate = new Date(nextFollowUpDate);
+        if (nextFollowUpDate && nextFollowUpDate !== "") {
+            const parsed = parseDateTimeIST(nextFollowUpDate);
+            if (parsed) {
+                task.nextFollowUpDate = parsed;
+                task.followUpNotified = false;
+            }
         } else if (nextFollowUpDate === "") {
             // Only clear if explicitly sent as empty string
             task.nextFollowUpDate = null;
+            task.followUpNotified = false;
         }
         // If null/undefined received => keep existing nextFollowUpDate intact
 
@@ -2411,5 +2523,66 @@ exports.unifiedUpdateTaskStatus = async (req, res) => {
         res.status(500).json({ success: false, message: error.message || "Server error" });
     }
 };
+
+// POST /api/tasks/:id/checklist
+exports.toggleChecklistItem = async (req, res) => {
+    try {
+        const companyId = req.user?.companyId || req.companyId;
+        const { id } = req.params;
+        const { subtaskId, completed, isCompleted, itemIndex, subtasks, checklist } = req.body;
+
+        const query = { _id: id };
+        if (companyId) query.companyId = companyId;
+
+        const task = await Task.findOne(query);
+        if (!task) {
+            return res.status(404).json({ success: false, message: "Task not found" });
+        }
+
+        if (!Array.isArray(task.checklist)) {
+            task.checklist = [];
+        }
+
+        const fullChecklist = Array.isArray(checklist) ? checklist : (Array.isArray(subtasks) ? subtasks : null);
+
+        if (fullChecklist) {
+            task.checklist = fullChecklist;
+        } else {
+            let subtask = null;
+            if (subtaskId && mongoose.Types.ObjectId.isValid(subtaskId)) {
+                try {
+                    if (typeof task.checklist.id === "function") {
+                        subtask = task.checklist.id(subtaskId);
+                    }
+                } catch (e) {}
+            }
+
+            if (!subtask && subtaskId) {
+                subtask = task.checklist.find((x) => x._id && x._id.toString() === subtaskId.toString());
+            }
+
+            if (!subtask && itemIndex !== undefined && itemIndex >= 0 && itemIndex < task.checklist.length) {
+                subtask = task.checklist[itemIndex];
+            }
+
+            if (!subtask) {
+                return res.status(404).json({ success: false, message: "Checklist item not found" });
+            }
+
+            const nextCompleted = completed !== undefined ? completed : (isCompleted !== undefined ? isCompleted : !subtask.isCompleted);
+            subtask.isCompleted = Boolean(nextCompleted);
+        }
+
+        await task.save();
+
+        return res.json({ success: true, data: task, task, message: "Checklist item updated successfully" });
+    } catch (error) {
+        console.error("toggleChecklistItem error:", error);
+        return res.status(500).json({ success: false, message: error.message || "Failed to update checklist item" });
+    }
+};
+
+exports.updateTaskChecklist = exports.toggleChecklistItem;
+
 
 

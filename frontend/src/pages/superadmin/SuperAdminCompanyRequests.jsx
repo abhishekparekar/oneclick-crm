@@ -100,9 +100,9 @@ const SuperAdminCompanyRequests = () => {
     onSuccess: (res) => {
       queryClient.invalidateQueries(["superAdminCompanyRequests"]);
       setIsConvertModalOpen(false);
-      alert(`Company Tenant Provisioned!\nLogin Email: ${res.data.adminLogin.email}\nTemporary Password: ${res.data.adminLogin.temporaryPassword}\n\nPlease securely save these credentials.`);
+      alert(`Company Created Successfully!\nLogin Email: ${res.data.adminLogin.email}\nTemporary Password: ${res.data.adminLogin.temporaryPassword}\n\nPlease securely save these credentials.`);
     },
-    onError: (err) => alert(err.response?.data?.message || "Failed to convert request to tenant")
+    onError: (err) => alert(err.response?.data?.message || "Failed to create company from request")
   });
 
   const deleteMutation = useMutation({
@@ -226,7 +226,7 @@ const SuperAdminCompanyRequests = () => {
               onClick={() => openConvertModal(row)}
               className="px-2.5 py-1 rounded-lg text-[10px] font-black text-white shadow-xs transition-all hover:opacity-90 flex items-center space-x-1"
               style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
-              title="Convert to Live Tenant"
+              title="Create Company"
             >
               <Sparkles size={11} />
               <span>Convert</span>
@@ -272,8 +272,8 @@ const SuperAdminCompanyRequests = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Tenant Inbound Requests</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Review onboarding inquiries, demo leads, and provision approved enterprises into live tenants.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Web Company Registrations</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Review website registration requests, leads, and activate approved registrations into companies.</p>
         </div>
       </div>
 
@@ -300,16 +300,16 @@ const SuperAdminCompanyRequests = () => {
         <RequestKpiCard 
           title="Approved Leads" 
           count={requests.filter(r => r.status === 'approved').length} 
-          subtitle="Ready for provision" 
+          subtitle="Ready to activate" 
           icon={CheckCircle2} 
           grad={["#059669", "#10b981"]} 
           active={statusFilter === "approved"} 
           onClick={() => setStatusFilter("approved")} 
         />
         <RequestKpiCard 
-          title="Live Provisioned" 
+          title="Activated Companies" 
           count={requests.filter(r => r.status === 'converted').length} 
-          subtitle="Active tenant orgs" 
+          subtitle="Converted companies" 
           icon={Building2} 
           grad={["#2563eb", "#3b82f6"]} 
           active={statusFilter === "converted"} 
@@ -397,7 +397,7 @@ const SuperAdminCompanyRequests = () => {
             )}
             {activeMenu.row.status !== 'converted' && activeMenu.row.status !== 'rejected' && (
               <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); openConvertModal(row); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors">
-                <ArrowRightCircle size={13} /> <span>Convert to Tenant</span>
+                <ArrowRightCircle size={13} /> <span>Create Company</span>
               </button>
             )}
             <button onClick={() => {
@@ -525,7 +525,7 @@ const SuperAdminCompanyRequests = () => {
                   style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
                 >
                   <Sparkles size={15} />
-                  <span>Convert Request to Tenant Workspace</span>
+                  <span>Create Company from Request</span>
                 </button>
               ) : selectedRequest.status !== 'converted' && selectedRequest.status !== 'rejected' ? (
                 <>
@@ -571,7 +571,7 @@ const SuperAdminCompanyRequests = () => {
             <div className="px-6 py-4 border-b border-sa-border/30 flex justify-between items-center bg-sa-bg/60">
               <div className="flex items-center space-x-2.5">
                 <span className="w-2 h-2 rounded-full bg-[#fbbf24]" />
-                <h2 className="text-base font-black text-sa-text tracking-tight">Provision Tenant from Inquiry</h2>
+                <h2 className="text-base font-black text-sa-text tracking-tight">Create Company from Request</h2>
               </div>
               <button onClick={() => setIsConvertModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
             </div>
@@ -580,21 +580,21 @@ const SuperAdminCompanyRequests = () => {
               <div className="p-3.5 rounded-xl border border-[#f59e0b]/20 bg-[#f59e0b]/5 text-xs font-semibold text-sa-text flex items-start space-x-2.5">
                 <Sparkles size={16} className="text-[#f59e0b] flex-shrink-0 mt-0.5" />
                 <span>
-                  Converting <strong>{selectedRequest.companyName}</strong> into an active enterprise workspace. This creates the primary CompanyAdmin login account instantly.
+                  Converting <strong>{selectedRequest.companyName}</strong> into an active company. This will create the Company Admin login details.
                 </span>
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Subscription Tier</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Subscription Plan</label>
                 <select required value={convertForm.planId} onChange={e => setConvertForm({...convertForm, planId: e.target.value})}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
                   <option value="" disabled>Choose assigned plan...</option>
-                  {plans.map(p => <option key={p._id} value={p._id}>{p.planName} Tier (Max {p.employeeLimit} Seats)</option>)}
+                  {plans.map(p => <option key={p._id} value={p._id}>{p.planName} Plan ({p.employeeLimit} Employee Limit)</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Employee Seat Quota Override</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Employee Limit (Optional Override)</label>
                 <input type="number" min="1" value={convertForm.employeeLimit} onChange={e => setConvertForm({...convertForm, employeeLimit: Number(e.target.value) || 1})}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
               </div>
@@ -602,7 +602,7 @@ const SuperAdminCompanyRequests = () => {
               <div className="border-t border-sa-border/30 pt-4 mt-2">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <User size={13} className="text-[#f59e0b]" />
-                  <span>Primary Administrator Credentials</span>
+                  <span>Company Admin Login Details</span>
                 </h4>
                 <div className="space-y-3">
                   <div>
@@ -634,7 +634,7 @@ const SuperAdminCompanyRequests = () => {
                   style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
                 >
                   <Sparkles size={14} />
-                  <span>{convertMutation.isPending ? "Provisioning..." : "Confirm & Provision Tenant"}</span>
+                  <span>{convertMutation.isPending ? "Creating..." : "Confirm & Create Company"}</span>
                 </button>
               </div>
             </form>

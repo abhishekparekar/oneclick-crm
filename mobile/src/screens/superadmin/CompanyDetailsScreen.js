@@ -173,13 +173,13 @@ const CompanyDetailsScreen = ({ route, navigation }) => {
 
         {/* Subscription Plan details */}
         <AppCard style={styles.card}>
-          <Text style={styles.sectionTitle}>SaaS Subscription & Module Licensing</Text>
+          <Text style={styles.sectionTitle}>Subscription & Features</Text>
           <DetailRow icon="card-outline" label="Active Plan" value={company.planName} />
-          <DetailRow icon="people-outline" label="Seat Quota" value={`${company.employeeLimit || 50} employees`} />
+          <DetailRow icon="people-outline" label="Employee Seats" value={`${company.employeeLimit || 50} employees`} />
           
           <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#f3f4f6" }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <Text style={styles.label}>Entitled Suite Modules</Text>
+              <Text style={styles.label}>Features & Modules</Text>
               <Text style={{ fontSize: 11, fontWeight: "700", color: "#f59e0b" }}>
                 {(company.subscribedModules || []).length} Active
               </Text>

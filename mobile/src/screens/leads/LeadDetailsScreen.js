@@ -553,7 +553,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
   const handleSaveStageAndFollowUp = async () => {
     if (updatingStage) return;
     if (!selectedStageId) {
-      return Alert.alert("Required", "Please select a pipeline stage.");
+      return Alert.alert("Required", "Please select a  stage.");
     }
     try {
       setUpdatingStage(true);
@@ -582,7 +582,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
       if (stageAttachedDoc) {
         try {
           await leadsService.addLeadDocument(leadId, stageAttachedDoc);
-        } catch (_) {}
+        } catch (_) { }
       }
       setStageAttachedDoc(null);
       if (updated?.status) {
@@ -604,13 +604,13 @@ function LeadDetailsScreenComponent({ route, navigation }) {
             serviceDate: followUpIso,
             priority: "High",
           });
-        } catch (_) {}
+        } catch (_) { }
       }
 
       setStatusModalVisible(false);
       Alert.alert(
         "Stage Updated 🎉",
-        `Pipeline stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`,
+        ` stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`,
         [
           {
             text: "OK",
@@ -627,7 +627,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
       );
       fetchDetails();
     } catch (err) {
-      Alert.alert("Error", "Failed to update pipeline stage. Please try again.");
+      Alert.alert("Error", "Failed to update  stage. Please try again.");
       fetchDetails();
     } finally {
       setUpdatingStage(false);
@@ -659,7 +659,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
 
         const docData = {
@@ -709,7 +709,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
         setStageAttachedDoc({
           name: file.name || "Attached Document",
@@ -874,7 +874,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
           nextFollowUpDate: dueIso,
           followUpNotified: false,
         });
-      } catch (_) {}
+      } catch (_) { }
 
       // Add note entry to timeline
       try {
@@ -884,7 +884,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
         const currentNotes = lead?.notes ? `${noteStamp}\n${lead.notes}` : noteStamp;
         await leadsService.updateLead(leadId, { notes: currentNotes });
         setLead((prev) => ({ ...prev, notes: currentNotes, nextFollowUpDate: dueIso }));
-      } catch (_) {}
+      } catch (_) { }
 
       setReminderModalVisible(false);
       setReminderTitle("");
@@ -1106,7 +1106,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
               {/* Stage & Next Follow-up Bar */}
               <View style={styles.prominentStageRow}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.stageSectionMicroLabel}>CURRENT PIPELINE STAGE</Text>
+                  <Text style={styles.stageSectionMicroLabel}>CURRENT  STAGE</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
                     <View style={[styles.prominentStageDot, { backgroundColor: statusColor }]} />
                     <Text style={styles.prominentStageTitle} numberOfLines={1}>
@@ -1289,7 +1289,7 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                 </View>
               </View>
 
-              {/* Row 3: Pipeline & Next Follow-up */}
+              {/* Row 3:  & Next Follow-up */}
               <View style={[styles.compactGridRow, { borderTopWidth: 1, borderTopColor: "#F1F5F9" }]}>
                 {/* Field 6: Acquisition Source */}
                 <View style={[styles.compactCell, { flex: 0.9 }]}>
@@ -1905,569 +1905,511 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                       </View>
                     </View>
 
-                {/* 2. Select New Stage */}
-                <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
-                <View style={{ gap: 6 }}>
-                  {statuses.map((st) => {
-                    const isSelected = (selectedStageId || lead?.statusId) === (st.id || st._id);
-                    return (
-                      <TouchableOpacity
-                        key={st.id || st._id}
-                        style={[
-                          styles.stageChoiceRow,
-                          isSelected && styles.stageChoiceRowSelected,
-                          updatingStage && { opacity: 0.6 }
-                        ]}
-                        onPress={() => setSelectedStageId(st.id || st._id)}
-                        disabled={updatingStage}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
-                        <Text style={[styles.stageChoiceText, isSelected && { color: THEME.primary, fontFamily: FONTS.displayBold }]}>
-                          {st.name}
-                        </Text>
-                        {isSelected && (
-                          <Ionicons name="checkmark-circle" size={18} color={THEME.primary} style={{ marginLeft: "auto" }} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                    {/* 2. Select New Stage */}
+                    <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
+                    <View style={{ gap: 6 }}>
+                      {statuses.map((st) => {
+                        const isSelected = (selectedStageId || lead?.statusId) === (st.id || st._id);
+                        return (
+                          <TouchableOpacity
+                            key={st.id || st._id}
+                            style={[
+                              styles.stageChoiceRow,
+                              isSelected && styles.stageChoiceRowSelected,
+                              updatingStage && { opacity: 0.6 }
+                            ]}
+                            onPress={() => setSelectedStageId(st.id || st._id)}
+                            disabled={updatingStage}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
+                            <Text style={[styles.stageChoiceText, isSelected && { color: THEME.primary, fontFamily: FONTS.displayBold }]}>
+                              {st.name}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark-circle" size={18} color={THEME.primary} style={{ marginLeft: "auto" }} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-                {/* 3. Next Follow-up Date & Time */}
-                <View style={styles.stageFollowUpSection}>
-                  <View style={styles.stageFollowUpHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
-                      <Text style={styles.stageFollowUpTitle}>NEXT FOLLOW-UP SCHEDULE</Text>
+                    {/* 3. Next Follow-up Date & Time */}
+                    <View style={styles.stageFollowUpSection}>
+                      <View style={styles.stageFollowUpHeader}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+                          <Text style={styles.stageFollowUpTitle}>NEXT FOLLOW-UP SCHEDULE</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setIncludeFollowUp(!includeFollowUp)}
+                          activeOpacity={0.7}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                        >
+                          <Ionicons
+                            name={includeFollowUp ? "checkbox" : "square-outline"}
+                            size={16}
+                            color={includeFollowUp ? "#7C3AED" : THEME.textMuted}
+                          />
+                          <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: includeFollowUp ? "#7C3AED" : THEME.textMuted }}>
+                            {includeFollowUp ? "Schedule" : "Skip"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {includeFollowUp && (
+                        <View style={{ marginTop: 8 }}>
+                          {/* Date & Time Row */}
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            <View style={{ flex: 1.2 }}>
+                              <Text style={styles.pickerSubLabel}>DATE</Text>
+                              <AppDatePicker
+                                value={stageFollowUpDate}
+                                onChangeText={setStageFollowUpDate}
+                                onChange={setStageFollowUpDate}
+                                placeholder="Select Date"
+                                disabled={updatingStage}
+                                minDate="today"
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.pickerSubLabel}>TIME</Text>
+                              <AppTimePicker
+                                value={stageFollowUpTime}
+                                onChangeText={setStageFollowUpTime}
+                                onChange={setStageFollowUpTime}
+                                placeholder="Select Time"
+                                disabled={updatingStage}
+                              />
+                            </View>
+                          </View>
+
+                          {/* Quick Preset Buttons */}
+                          <View style={styles.quickDateRow}>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => setStageFollowUpDate(getTomorrowFormatted())}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>Tomorrow</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 3);
+                                setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                              }}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>In 3 Days</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 7);
+                                setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                              }}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>Next Week</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* 4. Optional Document Attachment */}
+                    <View style={styles.stageDocSection}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
+                          <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
+                        </View>
+                        {stageAttachedDoc && (
+                          <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {stageAttachedDoc ? (
+                        <View style={styles.stageDocPreviewCard}>
+                          <View style={styles.stageDocIconBox}>
+                            <Ionicons
+                              name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
+                              size={18}
+                              color="#0284C7"
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.stageDocName} numberOfLines={1}>
+                              {stageAttachedDoc.name}
+                            </Text>
+                            <Text style={styles.stageDocSize}>
+                              {stageAttachedDoc.size || "Ready to attach"}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
+                            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.stageDocPickBtn}
+                          onPress={handlePickStageDoc}
+                          disabled={stageDocUploading || updatingStage}
+                          activeOpacity={0.7}
+                        >
+                          {stageDocUploading ? (
+                            <ActivityIndicator size="small" color="#0284C7" />
+                          ) : (
+                            <>
+                              <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
+                              <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </ScrollView>
+
+                  {/* Footer Action Buttons */}
+                  <View style={styles.modalActionRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => !updatingStage && setStatusModalVisible(false)}
+                      disabled={updatingStage}
+                    >
+                      <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, updatingStage && { opacity: 0.6 }]}
+                      onPress={handleSaveStageAndFollowUp}
+                      disabled={updatingStage}
+                      activeOpacity={0.8}
+                    >
+                      {updatingStage ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <ActivityIndicator size="small" color="#FFF" />
+                          <Text style={styles.modalSubmitBtnText}>Updating...</Text>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="checkmark-sharp" size={15} color="#FFF" />
+                          <Text style={styles.modalSubmitBtnText}>Update Stage</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+
+            {/* ── MODAL: SCHEDULE REMINDER ── */}
+            <Modal
+              visible={reminderModalVisible}
+              animationType="fade"
+              transparent
+              onRequestClose={() => !savingReminder && setReminderModalVisible(false)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.modalBackdrop}
+              >
+                <View style={[styles.modalContainer, { maxWidth: 360 }]}>
+                  <View style={styles.modalHeaderRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="alarm" size={18} color={THEME.violet} />
+                      <Text style={styles.modalHeading}>Schedule Reminder</Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => setIncludeFollowUp(!includeFollowUp)}
-                      activeOpacity={0.7}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                      onPress={() => !savingReminder && setReminderModalVisible(false)}
+                      disabled={savingReminder}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons
-                        name={includeFollowUp ? "checkbox" : "square-outline"}
-                        size={16}
-                        color={includeFollowUp ? "#7C3AED" : THEME.textMuted}
-                      />
-                      <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: includeFollowUp ? "#7C3AED" : THEME.textMuted }}>
-                        {includeFollowUp ? "Schedule" : "Skip"}
-                      </Text>
+                      <Ionicons name="close" size={20} color={THEME.textMuted} />
                     </TouchableOpacity>
                   </View>
 
-                  {includeFollowUp && (
-                    <View style={{ marginTop: 8 }}>
-                      {/* Date & Time Row */}
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        <View style={{ flex: 1.2 }}>
-                          <Text style={styles.pickerSubLabel}>DATE</Text>
-                          <AppDatePicker
-                            value={stageFollowUpDate}
-                            onChangeText={setStageFollowUpDate}
-                            onChange={setStageFollowUpDate}
-                            placeholder="Select Date"
-                            disabled={updatingStage}
-                            minDate="today"
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.pickerSubLabel}>TIME</Text>
-                          <AppTimePicker
-                            value={stageFollowUpTime}
-                            onChangeText={setStageFollowUpTime}
-                            onChange={setStageFollowUpTime}
-                            placeholder="Select Time"
-                            disabled={updatingStage}
-                          />
-                        </View>
-                      </View>
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: 6 }}
+                  >
+                    <Text style={styles.fieldLabel}>Reminder Title *</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      placeholder="e.g. Call regarding quotation"
+                      placeholderTextColor={THEME.textMuted}
+                      value={reminderTitle}
+                      onChangeText={setReminderTitle}
+                      editable={!savingReminder}
+                    />
 
-                      {/* Quick Preset Buttons */}
-                      <View style={styles.quickDateRow}>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => setStageFollowUpDate(getTomorrowFormatted())}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>Tomorrow</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + 3);
-                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
-                          }}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>In 3 Days</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + 7);
-                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
-                          }}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>Next Week</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* 4. Optional Document Attachment */}
-                <View style={styles.stageDocSection}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
-                      <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
-                    </View>
-                    {stageAttachedDoc && (
-                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {stageAttachedDoc ? (
-                    <View style={styles.stageDocPreviewCard}>
-                      <View style={styles.stageDocIconBox}>
-                        <Ionicons
-                          name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
-                          size={18}
-                          color="#0284C7"
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                      <View style={{ flex: 1 }}>
+                        <AppDatePicker
+                          label="Reminder Date *"
+                          value={reminderDate}
+                          onChangeText={setReminderDate}
+                          onChange={setReminderDate}
+                          placeholder="DD/MM/YYYY"
+                          minDate="today"
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.stageDocName} numberOfLines={1}>
-                          {stageAttachedDoc.name}
-                        </Text>
-                        <Text style={styles.stageDocSize}>
-                          {stageAttachedDoc.size || "Ready to attach"}
-                        </Text>
+                        <AppTimePicker
+                          label="Reminder Time *"
+                          value={reminderTime}
+                          onChangeText={setReminderTime}
+                          placeholder="HH:MM AM/PM"
+                        />
                       </View>
-                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
-                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                    </View>
+
+                    <Text style={styles.fieldLabel}>Notes & Instructions</Text>
+                    <TextInput
+                      style={[styles.modalFieldInput, { height: 68, textAlignVertical: "top" }]}
+                      placeholder="Discussion points or instructions..."
+                      placeholderTextColor={THEME.textMuted}
+                      multiline
+                      value={reminderNotes}
+                      onChangeText={setReminderNotes}
+                      editable={!savingReminder}
+                    />
+
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+                      <TouchableOpacity
+                        style={[styles.modalCancelBtn, savingReminder && { opacity: 0.6 }]}
+                        onPress={() => setReminderModalVisible(false)}
+                        disabled={savingReminder}
+                      >
+                        <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[
+                          styles.modalSubmitBtn,
+                          (!reminderTitle.trim() || savingReminder) && { opacity: 0.6 },
+                        ]}
+                        onPress={handleAddReminder}
+                        disabled={!reminderTitle.trim() || savingReminder}
+                      >
+                        {savingReminder ? (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                            <ActivityIndicator size="small" color="#FFF" />
+                            <Text style={styles.modalSubmitBtnText}>Scheduling...</Text>
+                          </View>
+                        ) : (
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                            <Ionicons name="checkmark-circle" size={15} color="#FFF" />
+                            <Text style={styles.modalSubmitBtnText}>Save Reminder</Text>
+                          </View>
+                        )}
                       </TouchableOpacity>
                     </View>
-                  ) : (
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+
+            {/* ── MODAL: EDIT LEAD ── */}
+            <Modal
+              visible={editModalVisible}
+              animationType="fade"
+              transparent
+              onRequestClose={() => !updating && setEditModalVisible(false)}
+            >
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : undefined}
+                style={styles.modalBackdrop}
+              >
+                <View style={styles.modalContainer}>
+                  <View style={styles.modalHeaderRow}>
+                    <Text style={styles.modalHeading}>Edit Lead Profile</Text>
                     <TouchableOpacity
-                      style={styles.stageDocPickBtn}
-                      onPress={handlePickStageDoc}
-                      disabled={stageDocUploading || updatingStage}
-                      activeOpacity={0.7}
+                      onPress={() => !updating && setEditModalVisible(false)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      {stageDocUploading ? (
-                        <ActivityIndicator size="small" color="#0284C7" />
-                      ) : (
-                        <>
-                          <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
-                          <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
-                        </>
-                      )}
+                      <Ionicons name="close" size={20} color={THEME.textMuted} />
                     </TouchableOpacity>
-                  )}
-                </View>
-              </ScrollView>
+                  </View>
 
-              {/* Footer Action Buttons */}
-              <View style={styles.modalActionRow}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => !updatingStage && setStatusModalVisible(false)}
-                  disabled={updatingStage}
-                >
-                  <Text style={styles.modalCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalSubmitBtn, updatingStage && { opacity: 0.6 }]}
-                  onPress={handleSaveStageAndFollowUp}
-                  disabled={updatingStage}
-                  activeOpacity={0.8}
-                >
-                  {updatingStage ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <ActivityIndicator size="small" color="#FFF" />
-                      <Text style={styles.modalSubmitBtnText}>Updating...</Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="checkmark-sharp" size={15} color="#FFF" />
-                      <Text style={styles.modalSubmitBtnText}>Update Stage</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* ── MODAL: SCHEDULE REMINDER ── */}
-        <Modal
-          visible={reminderModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => !savingReminder && setReminderModalVisible(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.modalBackdrop}
-          >
-            <View style={[styles.modalContainer, { maxWidth: 360 }]}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="alarm" size={18} color={THEME.violet} />
-                  <Text style={styles.modalHeading}>Schedule Reminder</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => !savingReminder && setReminderModalVisible(false)}
-                  disabled={savingReminder}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 6 }}
-              >
-                <Text style={styles.fieldLabel}>Reminder Title *</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  placeholder="e.g. Call regarding quotation"
-                  placeholderTextColor={THEME.textMuted}
-                  value={reminderTitle}
-                  onChangeText={setReminderTitle}
-                  editable={!savingReminder}
-                />
-
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-                  <View style={{ flex: 1 }}>
-                    <AppDatePicker
-                      label="Reminder Date *"
-                      value={reminderDate}
-                      onChangeText={setReminderDate}
-                      onChange={setReminderDate}
-                      placeholder="DD/MM/YYYY"
-                      minDate="today"
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    keyboardShouldPersistTaps="handled"
+                    contentContainerStyle={{ paddingBottom: 20 }}
+                  >
+                    <Text style={styles.fieldLabel}>Full Name</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      value={editForm.name}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
+                      placeholder="Enter full name"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
                     />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <AppTimePicker
-                      label="Reminder Time *"
-                      value={reminderTime}
-                      onChangeText={setReminderTime}
-                      placeholder="HH:MM AM/PM"
+
+                    <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      value={editForm.whatsappPhone}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
+                      placeholder="e.g. 9876543210"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="phone-pad"
                     />
-                  </View>
-                </View>
 
-                <Text style={styles.fieldLabel}>Notes & Instructions</Text>
-                <TextInput
-                  style={[styles.modalFieldInput, { height: 68, textAlignVertical: "top" }]}
-                  placeholder="Discussion points or instructions..."
-                  placeholderTextColor={THEME.textMuted}
-                  multiline
-                  value={reminderNotes}
-                  onChangeText={setReminderNotes}
-                  editable={!savingReminder}
-                />
+                    <Text style={styles.fieldLabel}>Email Address</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      value={editForm.email}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
+                      placeholder="e.g. name@example.com"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
 
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-                  <TouchableOpacity
-                    style={[styles.modalCancelBtn, savingReminder && { opacity: 0.6 }]}
-                    onPress={() => setReminderModalVisible(false)}
-                    disabled={savingReminder}
-                  >
-                    <Text style={styles.modalCancelBtnText}>Cancel</Text>
-                  </TouchableOpacity>
+                    <Text style={styles.fieldLabel}>Company Name</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      value={editForm.company}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
+                      placeholder="Enter company name"
+                      placeholderTextColor="#94A3B8"
+                    />
 
-                  <TouchableOpacity
-                    style={[
-                      styles.modalSubmitBtn,
-                      (!reminderTitle.trim() || savingReminder) && { opacity: 0.6 },
-                    ]}
-                    onPress={handleAddReminder}
-                    disabled={!reminderTitle.trim() || savingReminder}
-                  >
-                    {savingReminder ? (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        <ActivityIndicator size="small" color="#FFF" />
-                        <Text style={styles.modalSubmitBtnText}>Scheduling...</Text>
-                      </View>
-                    ) : (
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                        <Ionicons name="checkmark-circle" size={15} color="#FFF" />
-                        <Text style={styles.modalSubmitBtnText}>Save Reminder</Text>
-                      </View>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
-        {/* ── MODAL: EDIT LEAD ── */}
-        <Modal
-          visible={editModalVisible}
-          animationType="fade"
-          transparent
-          onRequestClose={() => !updating && setEditModalVisible(false)}
-        >
-          <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.modalBackdrop}
-          >
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalHeading}>Edit Lead Profile</Text>
-                <TouchableOpacity
-                  onPress={() => !updating && setEditModalVisible(false)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={20} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView
-                showsVerticalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                contentContainerStyle={{ paddingBottom: 20 }}
-              >
-                <Text style={styles.fieldLabel}>Full Name</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  value={editForm.name}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
-                  placeholder="Enter full name"
-                  placeholderTextColor="#94A3B8"
-                  autoCapitalize="words"
-                />
-
-                <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  value={editForm.whatsappPhone}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
-                  placeholder="e.g. 9876543210"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="phone-pad"
-                />
-
-                <Text style={styles.fieldLabel}>Email Address</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  value={editForm.email}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
-                  placeholder="e.g. name@example.com"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-
-                <Text style={styles.fieldLabel}>Company Name</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  value={editForm.company}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
-                  placeholder="Enter company name"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                {/* ── Assign To Team Members (multi-select dropdown) ── */}
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <Text style={styles.fieldLabel}>Assign To Team Members</Text>
-                  {(editForm.assignedToUsers || []).length > 0 && (
-                    <View style={{ backgroundColor: THEME.primary, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
-                      <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyBold }}>
-                        {(editForm.assignedToUsers || []).length} selected
-                      </Text>
+                    {/* ── Assign To Team Members (multi-select dropdown) ── */}
+                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                      <Text style={styles.fieldLabel}>Assign To Team Members</Text>
+                      {(editForm.assignedToUsers || []).length > 0 && (
+                        <View style={{ backgroundColor: THEME.primary, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 }}>
+                          <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyBold }}>
+                            {(editForm.assignedToUsers || []).length} selected
+                          </Text>
+                        </View>
+                      )}
                     </View>
-                  )}
-                </View>
 
-                {/* Dropdown trigger */}
-                <TouchableOpacity
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    borderWidth: 1,
-                    borderColor: assignDropdownOpen ? THEME.primary : THEME.border,
-                    borderRadius: 8,
-                    paddingHorizontal: 10,
-                    paddingVertical: 9,
-                    backgroundColor: assignDropdownOpen ? THEME.primaryBg : "#F8FAFC",
-                    marginBottom: assignDropdownOpen ? 0 : 10,
-                  }}
-                  activeOpacity={0.7}
-                  onPress={() => { setAssignDropdownOpen((v) => !v); setAssignSearch(""); }}
-                >
-                  <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
-                    <Ionicons name="people-outline" size={13} color={THEME.primary} style={{ marginRight: 4 }} />
-                    {(editForm.assignedToUsers || []).length === 0 ? (
-                      <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body }}>
-                        Tap to select team members
-                      </Text>
-                    ) : (
-                      // Show selected names as small tags
-                      (() => {
-                        const allOptions = [
-                          ...(currentUserId ? [{ _id: currentUserId, name: "Me (Self)", isSelf: true }] : []),
-                          ...employees,
-                        ];
-                        return (editForm.assignedToUsers || []).map((uid) => {
-                          const found = allOptions.find((e) => String(e._id || e.id) === String(uid));
-                          const label = found?.isSelf ? "Me" : (found?.name || uid.slice(-6));
-                          return (
-                            <View
-                              key={uid}
-                              style={{
-                                backgroundColor: THEME.primary,
-                                borderRadius: 4,
-                                paddingHorizontal: 6,
-                                paddingVertical: 2,
-                                flexDirection: "row",
-                                alignItems: "center",
-                                gap: 3,
-                              }}
-                            >
-                              <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyMedium }}>{label}</Text>
-                              <TouchableOpacity
-                                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
-                                onPress={() => toggleAssignUser(uid)}
-                              >
-                                <Ionicons name="close" size={9} color="#FFF" />
-                              </TouchableOpacity>
-                            </View>
-                          );
-                        });
-                      })()
-                    )}
-                  </View>
-                  <Ionicons
-                    name={assignDropdownOpen ? "chevron-up" : "chevron-down"}
-                    size={14}
-                    color={THEME.textMuted}
-                    style={{ marginLeft: 6 }}
-                  />
-                </TouchableOpacity>
-
-                {/* Dropdown panel */}
-                {assignDropdownOpen && (
-                  <View
-                    style={{
-                      borderWidth: 1,
-                      borderColor: THEME.primary,
-                      borderTopWidth: 0,
-                      borderBottomLeftRadius: 8,
-                      borderBottomRightRadius: 8,
-                      backgroundColor: "#FFF",
-                      marginBottom: 10,
-                      maxHeight: 220,
-                      overflow: "hidden",
-                    }}
-                  >
-                    {/* Search bar */}
-                    <View
+                    {/* Dropdown trigger */}
+                    <TouchableOpacity
                       style={{
                         flexDirection: "row",
                         alignItems: "center",
-                        borderBottomWidth: 1,
-                        borderBottomColor: THEME.borderLight,
+                        justifyContent: "space-between",
+                        borderWidth: 1,
+                        borderColor: assignDropdownOpen ? THEME.primary : THEME.border,
+                        borderRadius: 8,
                         paddingHorizontal: 10,
-                        paddingVertical: 6,
-                        gap: 6,
+                        paddingVertical: 9,
+                        backgroundColor: assignDropdownOpen ? THEME.primaryBg : "#F8FAFC",
+                        marginBottom: assignDropdownOpen ? 0 : 10,
                       }}
+                      activeOpacity={0.7}
+                      onPress={() => { setAssignDropdownOpen((v) => !v); setAssignSearch(""); }}
                     >
-                      <Ionicons name="search" size={13} color={THEME.textMuted} />
-                      <TextInput
-                        style={{
-                          flex: 1,
-                          fontSize: 12,
-                          fontFamily: FONTS.body,
-                          color: THEME.textPrimary,
-                          padding: 0,
-                        }}
-                        placeholder="Search team members..."
-                        placeholderTextColor={THEME.textMuted}
-                        value={assignSearch}
-                        onChangeText={setAssignSearch}
-                        autoCapitalize="none"
+                      <View style={{ flex: 1, flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                        <Ionicons name="people-outline" size={13} color={THEME.primary} style={{ marginRight: 4 }} />
+                        {(editForm.assignedToUsers || []).length === 0 ? (
+                          <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body }}>
+                            Tap to select team members
+                          </Text>
+                        ) : (
+                          // Show selected names as small tags
+                          (() => {
+                            const allOptions = [
+                              ...(currentUserId ? [{ _id: currentUserId, name: "Me (Self)", isSelf: true }] : []),
+                              ...employees,
+                            ];
+                            return (editForm.assignedToUsers || []).map((uid) => {
+                              const found = allOptions.find((e) => String(e._id || e.id) === String(uid));
+                              const label = found?.isSelf ? "Me" : (found?.name || uid.slice(-6));
+                              return (
+                                <View
+                                  key={uid}
+                                  style={{
+                                    backgroundColor: THEME.primary,
+                                    borderRadius: 4,
+                                    paddingHorizontal: 6,
+                                    paddingVertical: 2,
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    gap: 3,
+                                  }}
+                                >
+                                  <Text style={{ fontSize: 10, color: "#FFF", fontFamily: FONTS.bodyMedium }}>{label}</Text>
+                                  <TouchableOpacity
+                                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                                    onPress={() => toggleAssignUser(uid)}
+                                  >
+                                    <Ionicons name="close" size={9} color="#FFF" />
+                                  </TouchableOpacity>
+                                </View>
+                              );
+                            });
+                          })()
+                        )}
+                      </View>
+                      <Ionicons
+                        name={assignDropdownOpen ? "chevron-up" : "chevron-down"}
+                        size={14}
+                        color={THEME.textMuted}
+                        style={{ marginLeft: 6 }}
                       />
-                    </View>
+                    </TouchableOpacity>
 
-                    <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
-                      {/* Self option */}
-                      {currentUserId && (!assignSearch || "me (self)".includes(assignSearch.toLowerCase()) || (user?.name || "").toLowerCase().includes(assignSearch.toLowerCase())) && (
-                        <TouchableOpacity
+                    {/* Dropdown panel */}
+                    {assignDropdownOpen && (
+                      <View
+                        style={{
+                          borderWidth: 1,
+                          borderColor: THEME.primary,
+                          borderTopWidth: 0,
+                          borderBottomLeftRadius: 8,
+                          borderBottomRightRadius: 8,
+                          backgroundColor: "#FFF",
+                          marginBottom: 10,
+                          maxHeight: 220,
+                          overflow: "hidden",
+                        }}
+                      >
+                        {/* Search bar */}
+                        <View
                           style={{
                             flexDirection: "row",
                             alignItems: "center",
-                            paddingHorizontal: 12,
-                            paddingVertical: 9,
                             borderBottomWidth: 1,
                             borderBottomColor: THEME.borderLight,
-                            backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primaryBg : "#FFF",
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                            gap: 6,
                           }}
-                          onPress={() => toggleAssignUser(currentUserId)}
                         >
-                          <View
+                          <Ionicons name="search" size={13} color={THEME.textMuted} />
+                          <TextInput
                             style={{
-                              width: 16,
-                              height: 16,
-                              borderRadius: 3,
-                              borderWidth: 1.5,
-                              borderColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : THEME.border,
-                              backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : "#FFF",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              marginRight: 8,
+                              flex: 1,
+                              fontSize: 12,
+                              fontFamily: FONTS.body,
+                              color: THEME.textPrimary,
+                              padding: 0,
                             }}
-                          >
-                            {(editForm.assignedToUsers || []).includes(String(currentUserId)) && (
-                              <Ionicons name="checkmark" size={10} color="#FFF" />
-                            )}
-                          </View>
-                          <Ionicons name="person-circle-outline" size={14} color={THEME.primary} style={{ marginRight: 6 }} />
-                          <View style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }}>
-                              {user?.name ? `${user.name} (Me)` : "Me (Self)"}
-                            </Text>
-                            <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }}>
-                              {user?.role || "Current User"}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-                      )}
+                            placeholder="Search team members..."
+                            placeholderTextColor={THEME.textMuted}
+                            value={assignSearch}
+                            onChangeText={setAssignSearch}
+                            autoCapitalize="none"
+                          />
+                        </View>
 
-                      {/* All employees */}
-                      {employees
-                        .filter((emp) => {
-                          const empId = String(emp._id || emp.id || "");
-                          if (empId === String(currentUserId)) return false;
-                          if (!assignSearch) return true;
-                          const name = (emp.name || emp.label || "").toLowerCase();
-                          const dept = (emp.department || "").toLowerCase();
-                          const role = (emp.role || "").toLowerCase();
-                          const q = assignSearch.toLowerCase();
-                          return name.includes(q) || dept.includes(q) || role.includes(q);
-                        })
-                        .map((emp) => {
-                          const empId = String(emp._id || emp.id || "");
-                          const isSelected = (editForm.assignedToUsers || []).includes(empId);
-                          return (
+                        <ScrollView keyboardShouldPersistTaps="handled" nestedScrollEnabled>
+                          {/* Self option */}
+                          {currentUserId && (!assignSearch || "me (self)".includes(assignSearch.toLowerCase()) || (user?.name || "").toLowerCase().includes(assignSearch.toLowerCase())) && (
                             <TouchableOpacity
-                              key={empId}
                               style={{
                                 flexDirection: "row",
                                 alignItems: "center",
@@ -2475,9 +2417,9 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                                 paddingVertical: 9,
                                 borderBottomWidth: 1,
                                 borderBottomColor: THEME.borderLight,
-                                backgroundColor: isSelected ? THEME.primaryBg : "#FFF",
+                                backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primaryBg : "#FFF",
                               }}
-                              onPress={() => toggleAssignUser(empId)}
+                              onPress={() => toggleAssignUser(currentUserId)}
                             >
                               <View
                                 style={{
@@ -2485,74 +2427,132 @@ function LeadDetailsScreenComponent({ route, navigation }) {
                                   height: 16,
                                   borderRadius: 3,
                                   borderWidth: 1.5,
-                                  borderColor: isSelected ? THEME.primary : THEME.border,
-                                  backgroundColor: isSelected ? THEME.primary : "#FFF",
+                                  borderColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : THEME.border,
+                                  backgroundColor: (editForm.assignedToUsers || []).includes(String(currentUserId)) ? THEME.primary : "#FFF",
                                   alignItems: "center",
                                   justifyContent: "center",
                                   marginRight: 8,
                                 }}
                               >
-                                {isSelected && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                                {(editForm.assignedToUsers || []).includes(String(currentUserId)) && (
+                                  <Ionicons name="checkmark" size={10} color="#FFF" />
+                                )}
                               </View>
-                              <Ionicons name="person-outline" size={13} color={THEME.textSecondary} style={{ marginRight: 6 }} />
+                              <Ionicons name="person-circle-outline" size={14} color={THEME.primary} style={{ marginRight: 6 }} />
                               <View style={{ flex: 1 }}>
-                                <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }} numberOfLines={1}>
-                                  {emp.name || "Employee"}
+                                <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }}>
+                                  {user?.name ? `${user.name} (Me)` : "Me (Self)"}
                                 </Text>
-                                {(emp.department || emp.role) ? (
-                                  <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }} numberOfLines={1}>
-                                    {emp.department && emp.role ? `${emp.department} • ${emp.role}` : (emp.department || emp.role)}
-                                  </Text>
-                                ) : null}
+                                <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }}>
+                                  {user?.role || "Current User"}
+                                </Text>
                               </View>
                             </TouchableOpacity>
-                          );
-                        })}
+                          )}
 
-                      {/* Empty state */}
-                      {employees.filter((emp) => {
-                        const empId = String(emp._id || emp.id || "");
-                        if (empId === String(currentUserId)) return false;
-                        if (!assignSearch) return true;
-                        const name = (emp.name || emp.label || "").toLowerCase();
-                        const dept = (emp.department || "").toLowerCase();
-                        const role = (emp.role || "").toLowerCase();
-                        const q = assignSearch.toLowerCase();
-                        return name.includes(q) || dept.includes(q) || role.includes(q);
-                      }).length === 0 && (
-                        <View style={{ padding: 16, alignItems: "center" }}>
-                          <Ionicons name="people-outline" size={24} color={THEME.textMuted} />
-                          <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body, marginTop: 6 }}>
-                            {assignSearch ? "No matching team members" : "No other team members available"}
-                          </Text>
-                        </View>
+                          {/* All employees */}
+                          {employees
+                            .filter((emp) => {
+                              const empId = String(emp._id || emp.id || "");
+                              if (empId === String(currentUserId)) return false;
+                              if (!assignSearch) return true;
+                              const name = (emp.name || emp.label || "").toLowerCase();
+                              const dept = (emp.department || "").toLowerCase();
+                              const role = (emp.role || "").toLowerCase();
+                              const q = assignSearch.toLowerCase();
+                              return name.includes(q) || dept.includes(q) || role.includes(q);
+                            })
+                            .map((emp) => {
+                              const empId = String(emp._id || emp.id || "");
+                              const isSelected = (editForm.assignedToUsers || []).includes(empId);
+                              return (
+                                <TouchableOpacity
+                                  key={empId}
+                                  style={{
+                                    flexDirection: "row",
+                                    alignItems: "center",
+                                    paddingHorizontal: 12,
+                                    paddingVertical: 9,
+                                    borderBottomWidth: 1,
+                                    borderBottomColor: THEME.borderLight,
+                                    backgroundColor: isSelected ? THEME.primaryBg : "#FFF",
+                                  }}
+                                  onPress={() => toggleAssignUser(empId)}
+                                >
+                                  <View
+                                    style={{
+                                      width: 16,
+                                      height: 16,
+                                      borderRadius: 3,
+                                      borderWidth: 1.5,
+                                      borderColor: isSelected ? THEME.primary : THEME.border,
+                                      backgroundColor: isSelected ? THEME.primary : "#FFF",
+                                      alignItems: "center",
+                                      justifyContent: "center",
+                                      marginRight: 8,
+                                    }}
+                                  >
+                                    {isSelected && <Ionicons name="checkmark" size={10} color="#FFF" />}
+                                  </View>
+                                  <Ionicons name="person-outline" size={13} color={THEME.textSecondary} style={{ marginRight: 6 }} />
+                                  <View style={{ flex: 1 }}>
+                                    <Text style={{ fontSize: 12, fontFamily: FONTS.bodyBold, color: THEME.textPrimary }} numberOfLines={1}>
+                                      {emp.name || "Employee"}
+                                    </Text>
+                                    {(emp.department || emp.role) ? (
+                                      <Text style={{ fontSize: 10, fontFamily: FONTS.body, color: THEME.textMuted }} numberOfLines={1}>
+                                        {emp.department && emp.role ? `${emp.department} • ${emp.role}` : (emp.department || emp.role)}
+                                      </Text>
+                                    ) : null}
+                                  </View>
+                                </TouchableOpacity>
+                              );
+                            })}
+
+                          {/* Empty state */}
+                          {employees.filter((emp) => {
+                            const empId = String(emp._id || emp.id || "");
+                            if (empId === String(currentUserId)) return false;
+                            if (!assignSearch) return true;
+                            const name = (emp.name || emp.label || "").toLowerCase();
+                            const dept = (emp.department || "").toLowerCase();
+                            const role = (emp.role || "").toLowerCase();
+                            const q = assignSearch.toLowerCase();
+                            return name.includes(q) || dept.includes(q) || role.includes(q);
+                          }).length === 0 && (
+                              <View style={{ padding: 16, alignItems: "center" }}>
+                                <Ionicons name="people-outline" size={24} color={THEME.textMuted} />
+                                <Text style={{ fontSize: 12, color: THEME.textMuted, fontFamily: FONTS.body, marginTop: 6 }}>
+                                  {assignSearch ? "No matching team members" : "No other team members available"}
+                                </Text>
+                              </View>
+                            )}
+                        </ScrollView>
+                      </View>
+                    )}
+
+                    <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
+                    <TextInput
+                      style={styles.modalFieldInput}
+                      value={editForm.estimatedValue}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
+                      placeholder="0"
+                      placeholderTextColor="#94A3B8"
+                      keyboardType="numeric"
+                    />
+
+                    <TouchableOpacity style={styles.primarySubmitBtnMini} onPress={handleSaveEdits} disabled={updating}>
+                      {updating ? (
+                        <ActivityIndicator color="#FFF" />
+                      ) : (
+                        <Text style={styles.primarySubmitBtnTextMini}>Save Changes</Text>
                       )}
-                    </ScrollView>
-                  </View>
-                )}
-
-                <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
-                <TextInput
-                  style={styles.modalFieldInput}
-                  value={editForm.estimatedValue}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
-                  placeholder="0"
-                  placeholderTextColor="#94A3B8"
-                  keyboardType="numeric"
-                />
-
-                <TouchableOpacity style={styles.primarySubmitBtnMini} onPress={handleSaveEdits} disabled={updating}>
-                  {updating ? (
-                    <ActivityIndicator color="#FFF" />
-                  ) : (
-                    <Text style={styles.primarySubmitBtnTextMini}>Save Changes</Text>
-                  )}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-        </>
+                    </TouchableOpacity>
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+          </>
         ) : null}
       </View>
     </CompanyAdminLayout>

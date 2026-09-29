@@ -277,8 +277,8 @@ const SuperAdminCompanyAdmins = () => {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Company Administrators</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage tenant executive permissions, credentials, and access across all organizations.</p>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">All Company Admins</h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Manage company admin accounts, logins, and permissions across companies.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)} 
@@ -294,7 +294,7 @@ const SuperAdminCompanyAdmins = () => {
         <KPICard label="Total Admins"    value={admins.length}       trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Shield}     iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
         <KPICard label="Active Admins"   value={activeAdminsCount}   trend="18.2%" isUp period="last month" strokeColor="#10B981" Icon={UserCheck}  iconBg="bg-emerald-500/10" iconColor="#059669"/>
         <KPICard label="Primary Admins"  value={primaryAdminsCount}  trend="100%"  isUp period="assigned"   strokeColor="#EAB308" Icon={Star}       iconBg="bg-amber-500/10"   iconColor="#D97706"/>
-        <KPICard label="Organizations"   value={companies.length}    trend="9.3%"  isUp period="active"     strokeColor="#8B5CF6" Icon={Building2}  iconBg="bg-purple-500/10"  iconColor="#7C3AED"/>
+        <KPICard label="Companies"       value={companies.length}    trend="9.3%"  isUp period="active"     strokeColor="#8B5CF6" Icon={Building2}  iconBg="bg-purple-500/10"  iconColor="#7C3AED"/>
       </div>
 
       {/* Search & Filters Bar */}
@@ -303,7 +303,7 @@ const SuperAdminCompanyAdmins = () => {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input 
             type="text" 
-            placeholder="Search administrator name, email, or organization..." 
+            placeholder="Search admin name, email, or company..." 
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200/80 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/60 text-slate-900 dark:text-white text-xs placeholder-slate-400 focus:outline-none focus:border-amber-500 transition-all" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
@@ -314,7 +314,7 @@ const SuperAdminCompanyAdmins = () => {
             value={companyFilter}
             onChange={setCompanyFilter}
             options={[
-              { label: `All Organizations (${companies.length})`, value: "all" },
+              { label: `All Companies (${companies.length})`, value: "all" },
               ...companies.map(c => ({ label: c.companyName, value: c._id }))
             ]}
             buttonClassName="!py-2 !px-3 !rounded-lg !bg-slate-50/70 dark:!bg-slate-900/60 min-w-[190px] !text-xs !border-slate-200/80 dark:!border-slate-800"

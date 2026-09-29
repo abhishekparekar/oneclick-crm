@@ -101,13 +101,33 @@ export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = fa
         setSelectedStatusId(def.id || def._id);
       }
 
-      const safeEmps = Array.isArray(empRes?.users)
+      const rawEmps = Array.isArray(empRes?.users)
         ? empRes.users
         : Array.isArray(empRes?.data)
         ? empRes.data
         : Array.isArray(empRes)
         ? empRes
         : [];
+      const formatTitleCase = (str: string) => {
+        if (!str || typeof str !== 'string') return '';
+        return str
+          .toLowerCase()
+          .split(' ')
+          .filter(Boolean)
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+      };
+      const safeEmps = rawEmps.map((emp: any) => {
+        const rawName = emp.name || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Staff';
+        const name = formatTitleCase(rawName);
+        const dept = emp.department || emp.departmentName || emp.departmentId?.name || (emp.role === 'companyadmin' || emp.role === 'admin' ? 'Administration' : emp.role || '');
+        return {
+          ...emp,
+          name,
+          department: dept,
+          label: dept ? `${name} (${dept})` : `${name} (${emp.role || 'Staff'})`
+        };
+      }).sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
       setEmployees(safeEmps);
     } catch (_) {}
   };
@@ -450,7 +470,7 @@ export default function MapPlacesSearch({ onClose, onImportSuccess, isModal = fa
                     <option value="">Unassigned</option>
                     {employees.map((emp) => (
                       <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                        {emp.name || emp.label}
+                        {emp.label || (emp.department ? `${emp.name} (${emp.department})` : emp.name)}
                       </option>
                     ))}
                   </select>

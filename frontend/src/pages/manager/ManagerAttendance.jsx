@@ -159,16 +159,8 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
 };
 
 export default function ManagerAttendance() {
-  const location = useLocation();
-  // If URL has team-attendance, default to tab 1 (Team Roster)
-  const isTeamRoute = location.pathname.includes("team-attendance");
-  const [activeTab, setActiveTab] = useState(isTeamRoute ? 1 : 0);
-
-  useEffect(() => {
-    if (location.pathname.includes("team-attendance")) {
-      setActiveTab(1);
-    }
-  }, [location.pathname]);
+  // My Attendance view (dedicated personal monthly calendar)
+  const [activeTab, setActiveTab] = useState(0);
 
   const now = new Date();
   const [calendarMonth, setCalendarMonth] = useState(now.getMonth() + 1);
@@ -410,38 +402,18 @@ export default function ManagerAttendance() {
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Attendance Management
+                My Attendance
                 <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
                   {new Date(calendarYear, calendarMonth - 1).toLocaleDateString("en-IN", { month: "long", year: "numeric" })}
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400 font-medium">
-                {activeTab === 0 ? "Personal monthly attendance calendar and shift logs" : "Team attendance monitoring and daily punch roster"}
+                My monthly attendance calendar and shift hours
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Tab Pill Switcher (Admin-Matched) */}
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700">
-              <button
-                onClick={() => setActiveTab(0)}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 0 ? "bg-white dark:bg-[#111C24] text-amber-600 dark:text-amber-400 shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                My Calendar
-              </button>
-              <button
-                onClick={() => setActiveTab(1)}
-                className={`px-3 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                  activeTab === 1 ? "bg-white dark:bg-[#111C24] text-amber-600 dark:text-amber-400 shadow-2xs" : "text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                Team Roster
-              </button>
-            </div>
-
             <button
               onClick={() => refetch()}
               disabled={isFetching}

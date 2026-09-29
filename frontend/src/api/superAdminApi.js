@@ -31,7 +31,7 @@ export const deletePlanApi = (id) => api.delete(`/superadmin/plans/${id}`);
 export const getSubscriptionsApi = (params) => api.get("/superadmin/subscriptions", { params });
 export const assignSubscriptionApi = (data) => api.post("/superadmin/subscriptions/assign", data);
 export const updateSubscriptionApi = (id, data) => api.put(`/superadmin/subscriptions/${id}`, data);
-export const renewSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions/${id}/renew`);
+export const renewSubscriptionApi = (id, data) => api.patch(`/superadmin/subscriptions/${id}/renew`, data);
 export const cancelSubscriptionApi = (id) => api.patch(`/superadmin/subscriptions/${id}/cancel`);
 export const extendTrialApi = (id, days, toDate) => api.patch(`/superadmin/subscriptions/${id}/extend-trial`, { days, toDate });
 export const deleteSubscriptionApi = (id) => api.delete(`/superadmin/subscriptions/${id}`);

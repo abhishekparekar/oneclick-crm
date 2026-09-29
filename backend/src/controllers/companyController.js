@@ -324,7 +324,7 @@ const getDepartments = async (req, res, next) => {
     try {
         let query = { companyId: req.companyId };
 
-        if (req.user && (req.user.role || "").toLowerCase() === "employee") {
+        if (req.user && ["employee", "manager"].includes((req.user.role || "").toLowerCase())) {
             const Employee = require("../models/Employee");
             const employeeDoc = await Employee.findOne({
                 $or: [

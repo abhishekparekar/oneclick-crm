@@ -65,6 +65,17 @@ const EmployeeProfileScreen = ({ navigation }) => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout Account",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => logout() },
+      ]
+    );
+  };
+
   const fetchProfile = async (isRefresh = false) => {
     if (!isRefresh && profile) return;
 
@@ -144,7 +155,7 @@ const EmployeeProfileScreen = ({ navigation }) => {
       <SafeAreaView style={styles.centerContainer}>
         <Ionicons name="person-circle-outline" size={80} color="#CBD5E1" />
         <Text style={styles.msg}>Failed to load your profile details.</Text>
-        <AppButton title="Logout" onPress={logout} variant="outline" style={{ marginTop: 24, width: "60%" }} />
+        <AppButton title="Logout" onPress={handleLogout} variant="outline" style={{ marginTop: 24, width: "60%" }} />
       </SafeAreaView>
     );
   }
@@ -422,7 +433,7 @@ const EmployeeProfileScreen = ({ navigation }) => {
           {/* 4. Logout Action */}
           <TouchableOpacity
             style={styles.logoutBtn}
-            onPress={logout}
+            onPress={handleLogout}
             activeOpacity={0.8}
           >
             <Ionicons name="log-out-outline" size={18} color="#EF4444" style={{ marginRight: 6 }} />

@@ -119,7 +119,10 @@ const DashboardLayout = ({ children }) => {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
-            <Sidebar onItemClick={() => setSidebarOpen(false)} />
+            <Sidebar
+              onItemClick={() => setSidebarOpen(false)}
+              onToggleCollapse={() => setSidebarOpen(false)}
+            />
           </div>
         </div>
       )}
@@ -129,7 +132,10 @@ const DashboardLayout = ({ children }) => {
         className="hidden lg:block flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out print:hidden h-full"
         style={{ width: sidebarOpen ? "228px" : "68px" }}
       >
-        <Sidebar isCollapsed={!sidebarOpen} />
+        <Sidebar
+          isCollapsed={!sidebarOpen}
+          onToggleCollapse={() => setSidebarOpen((prev) => !prev)}
+        />
       </div>
 
       {/* ── Main content area ── */}

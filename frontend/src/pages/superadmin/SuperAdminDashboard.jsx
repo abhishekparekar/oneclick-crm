@@ -34,15 +34,15 @@ const FALLBACK_REVENUE_SERIES = [
 
 const FALLBACK_TIERS = [
   { name: "Enterprise", value: 4, pct: "(50%)", color: "#EAB308" },
-  { name: "Pro Plan",   value: 2, pct: "(25%)", color: "#10B981" },
-  { name: "Starter",    value: 1, pct: "(15%)", color: "#06B6D4" },
-  { name: "Trial",      value: 1, pct: "(10%)", color: "#8B5CF6" },
+  { name: "Pro Plan", value: 2, pct: "(25%)", color: "#10B981" },
+  { name: "Starter", value: 1, pct: "(15%)", color: "#06B6D4" },
+  { name: "Trial", value: 1, pct: "(10%)", color: "#8B5CF6" },
 ];
 
 const FALLBACK_TICKETS = [
-  { name: "Resolved",    value: 80, color: "#10B981" },
+  { name: "Resolved", value: 80, color: "#10B981" },
   { name: "In Progress", value: 15, color: "#EAB308" },
-  { name: "Open",        value: 5,  color: "#F43F5E" },
+  { name: "Open", value: 5, color: "#F43F5E" },
 ];
 
 /* ─── SVG Progress Ring Component ─────────────────────────────────────────── */
@@ -55,10 +55,10 @@ function ProgressRing({ pct = 0, color = "#10B981", size = 38 }) {
   return (
     <div className="relative flex-shrink-0 flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size/2} cy={size/2} r={r} stroke="#F1F5F9" strokeWidth={strokeWidth} fill="none" />
+        <circle cx={size / 2} cy={size / 2} r={r} stroke="#F1F5F9" strokeWidth={strokeWidth} fill="none" />
         <circle
-          cx={size/2}
-          cy={size/2}
+          cx={size / 2}
+          cy={size / 2}
           r={r}
           stroke={color}
           strokeWidth={strokeWidth}
@@ -92,7 +92,7 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
         <h3 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-none mb-1 group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">{value}</h3>
         <div className="flex items-center gap-1 text-[9px] sm:text-[10px]">
           <span className={`inline-flex items-center font-bold ${isUp ? "text-emerald-600" : "text-rose-500"}`}>
-            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
+            {isUp ? <ArrowUp size={9} strokeWidth={2.5} /> : <ArrowDown size={9} strokeWidth={2.5} />}
             {trend}
           </span>
           <span className="text-slate-400 text-[8.5px] sm:text-[9px] truncate hidden sm:inline">vs {period}</span>
@@ -103,11 +103,11 @@ const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg,
           <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id={`sk-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
+                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.3} />
+                <stop offset="100%" stopColor={strokeColor} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-${label.replace(/\s+/g, '')})`}/>
+            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2} fill={`url(#sk-${label.replace(/\s+/g, '')})`} />
           </AreaChart>
         </ResponsiveContainer>
       </div>
@@ -143,11 +143,18 @@ export default function SuperAdminDashboard() {
 
   const stats = data?.data || {};
 
+  const cleanCurrency = (val) => {
+    if (!val) return "₹0";
+    if (typeof val === "string") return val.replace(/â‚¹/g, "₹");
+    return `₹${Number(val).toLocaleString("en-IN")}`;
+  };
+
   const totalCompanies = stats.totalCompanies ?? 0;
   const activeCompanies = stats.activeCompanies ?? 0;
   const totalUsers = stats.totalUsers ?? 0;
   const totalEmployees = stats.totalEmployees ?? "0";
-  const monthlyRevenue = stats.monthlyRevenue || "₹0";
+  const monthlyRevenue = cleanCurrency(stats.monthlyRevenue);
+  const annualRevenue = cleanCurrency(stats.annualRevenue || stats.monthlyRevenue);
   const activeSubscriptions = stats.activeSubscriptions ?? activeCompanies ?? 0;
   const pendingRequestsCount = stats.pendingRequestsCount ?? 0;
   const openTicketsCount = stats.openTicketsCount ?? 0;
@@ -201,7 +208,7 @@ export default function SuperAdminDashboard() {
             Good Day, Super Admin <span className="inline-block">👋</span>
           </h1>
           <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Platform control active with <span className="font-bold text-amber-600 dark:text-amber-400">{pendingRequestsCount} pending tenant requests</span>.
+            Platform control active with <span className="font-bold text-amber-600 dark:text-amber-400">{pendingRequestsCount} pending company requests</span>.
           </p>
         </div>
 
@@ -235,22 +242,22 @@ export default function SuperAdminDashboard() {
               className="w-7 h-7 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 flex items-center justify-center transition-all shadow-xs cursor-pointer"
               title="Add New Company"
             >
-              <Plus size={14} strokeWidth={2.5}/>
+              <Plus size={14} strokeWidth={2.5} />
             </button>
             <Link to="/superadmin/companies" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Companies">
-              <Building2 size={13}/>
+              <Building2 size={13} />
             </Link>
             <Link to="/superadmin/subscriptions" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Subscriptions">
-              <Receipt size={13}/>
+              <Receipt size={13} />
             </Link>
             <Link to="/superadmin/plans" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Plans">
-              <CreditCard size={13}/>
+              <CreditCard size={13} />
             </Link>
             <Link to="/superadmin/reports" className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs" title="Reports">
-              <BarChart2 size={13}/>
+              <BarChart2 size={13} />
             </Link>
             <button onClick={() => refetch()} className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs cursor-pointer" title="Refresh Dashboard">
-              <RefreshCw size={12} className={isFetching ? "animate-spin text-amber-500" : ""}/>
+              <RefreshCw size={12} className={isFetching ? "animate-spin text-amber-500" : ""} />
             </button>
           </div>
         </div>
@@ -258,16 +265,16 @@ export default function SuperAdminDashboard() {
 
       {/* ── Row 1: Top 5 Compact Stat Cards (Interactive with Redirection) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3">
-        <KPICard label="Monthly Revenue"  value={monthlyRevenue} trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={Wallet}    iconBg="bg-amber-500/10"  iconColor="#D97706" to="/superadmin/payments"/>
-        <KPICard label="Total Companies"  value={totalCompanies}            trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10"   iconColor="#0891B2" to="/superadmin/companies"/>
-        <KPICard label="Active Subscriptions" value={activeSubscriptions}   trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Archive}   iconBg="bg-purple-500/10" iconColor="#7C3AED" to="/superadmin/subscriptions"/>
-        <KPICard label="Tenant Companies" value={totalCompanies}            trend="Live" isUp period="active" strokeColor="#EC4899" Icon={Building2} iconBg="bg-pink-500/10"   iconColor="#DB2777" to="/superadmin/companies"/>
-        <KPICard label="Open Support Tickets" value={openTicketsCount}      trend="Resolved" isUp={true} period="today" strokeColor="#F97316" Icon={ShieldAlert} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1" to="/superadmin/support-tickets"/>
+        <KPICard label="Monthly Revenue" value={monthlyRevenue} trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={Wallet} iconBg="bg-amber-500/10" iconColor="#D97706" to="/superadmin/payments" />
+        <KPICard label="Total Companies" value={totalCompanies} trend="12.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Building2} iconBg="bg-cyan-500/10" iconColor="#0891B2" to="/superadmin/companies" />
+        <KPICard label="Active Subs" value={activeSubscriptions} trend="15.7%" isUp period="last month" strokeColor="#8B5CF6" Icon={Archive} iconBg="bg-purple-500/10" iconColor="#7C3AED" to="/superadmin/subscriptions" />
+        <KPICard label="Active Companies" value={activeCompanies} trend="Live" isUp period="active" strokeColor="#EC4899" Icon={Building2} iconBg="bg-pink-500/10" iconColor="#DB2777" to="/superadmin/companies" />
+        <KPICard label="Open Tickets" value={openTicketsCount} trend="Resolved" isUp={true} period="today" strokeColor="#F97316" Icon={ShieldAlert} iconBg="bg-orange-500/10" iconColor="#EA580C" extraClass="col-span-2 sm:col-span-1" to="/superadmin/support-tickets" />
       </div>
 
       {/* ── Row 2: Revenue Overview · Subscriptions · Tickets · Infrastructure ─── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        
+
         {/* Revenue Overview */}
         <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
           <div>
@@ -278,9 +285,9 @@ export default function SuperAdminDashboard() {
               </span>
             </div>
             <div className="flex items-center gap-2.5 mb-2">
-              <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{stats.annualRevenue || monthlyRevenue}</span>
+              <span className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">{annualRevenue}</span>
               <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                <ArrowUp size={10}/> Growth
+                <ArrowUp size={10} /> Growth
               </span>
             </div>
           </div>
@@ -289,21 +296,21 @@ export default function SuperAdminDashboard() {
               <AreaChart data={revenueData} margin={{ top: 8, right: 8, left: -24, bottom: 0 }}>
                 <defs>
                   <linearGradient id="saRevG" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#EC4899" stopOpacity={0.3}/>
-                    <stop offset="100%" stopColor="#06B6D4" stopOpacity={0.02}/>
+                    <stop offset="0%" stopColor="#EC4899" stopOpacity={0.3} />
+                    <stop offset="100%" stopColor="#06B6D4" stopOpacity={0.02} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false}/>
-                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false}/>
-                <YAxis tickFormatter={v => v >= 100000 ? `${(v / 100000).toFixed(0)}L` : `${v}`} tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false}/>
-                <Tooltip formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 11 }}/>
-                <Area type="monotone" dataKey="val" stroke="#EC4899" strokeWidth={2.5} fill="url(#saRevG)"/>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" vertical={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <YAxis tickFormatter={v => v >= 100000 ? `${(v / 100000).toFixed(0)}L` : `${v}`} tick={{ fontSize: 9, fill: "#94A3B8" }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={v => [`₹${Number(v).toLocaleString("en-IN")}`, 'Revenue']} contentStyle={{ borderRadius: 8, fontSize: 11 }} />
+                <Area type="monotone" dataKey="val" stroke="#EC4899" strokeWidth={2.5} fill="url(#saRevG)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Subscriptions Pipeline Donut */}
+        {/* Subscriptions  Donut */}
         <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Subscription Tiers</h3>
@@ -316,7 +323,7 @@ export default function SuperAdminDashboard() {
               <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                 <PieChart>
                   <Pie data={subscriptionTiers} cx="50%" cy="50%" innerRadius={26} outerRadius={38} paddingAngle={3} dataKey="value">
-                    {subscriptionTiers.map((e,i) => <Cell key={i} fill={e.color || "#10B981"} stroke="none"/>)}
+                    {subscriptionTiers.map((e, i) => <Cell key={i} fill={e.color || "#10B981"} stroke="none" />)}
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
@@ -329,7 +336,7 @@ export default function SuperAdminDashboard() {
               {subscriptionTiers.map(item => (
                 <div key={item.name} className="flex items-center justify-between text-[11px]">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.color }}/>
+                    <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.color }} />
                     <span className="text-slate-600 dark:text-slate-300 font-medium whitespace-nowrap truncate">{item.name}</span>
                   </div>
                   <span className="text-slate-900 dark:text-white font-semibold ml-1 flex-shrink-0">{item.value} <span className="text-slate-400 font-normal text-[10px]">{item.pct}</span></span>
@@ -346,7 +353,7 @@ export default function SuperAdminDashboard() {
             <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
               <PieChart>
                 <Pie data={ticketStatus} cx="50%" cy="50%" innerRadius={24} outerRadius={36} paddingAngle={3} dataKey="value">
-                  {ticketStatus.map((e,i) => <Cell key={i} fill={e.color} stroke="none"/>)}
+                  {ticketStatus.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
                 </Pie>
               </PieChart>
             </ResponsiveContainer>
@@ -360,7 +367,7 @@ export default function SuperAdminDashboard() {
             {ticketStatus.map(t => (
               <div key={t.name} className="flex items-center justify-between font-medium">
                 <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
-                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: t.color }}/>{t.name}
+                  <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: t.color }} />{t.name}
                 </div>
                 <span className="font-semibold text-slate-900 dark:text-white">{t.value}%</span>
               </div>
@@ -370,19 +377,19 @@ export default function SuperAdminDashboard() {
 
         {/* System Health / HRMS Style Overview */}
         <div className="lg:col-span-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)] flex flex-col justify-between">
-          <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-2">System &amp; Tenant Health</h3>
+          <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100 mb-2">System &amp; Company Health</h3>
           <div className="space-y-2">
             {[
-              { icon: Building2,   label: "Active Tenants",    val: activeCompanies, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200", bc: "bg-emerald-600 text-white font-black" },
-              { icon: UserPlus,    label: "Pending Requests",  val: pendingRequestsCount, ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200",         bc: "bg-amber-600 text-white font-black" },
-              { icon: ShieldAlert, label: "Expired Subs",      val: stats.expiredSubscriptions ?? 0, ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200",             bc: "bg-rose-600 text-white font-black" },
-              { icon: Users,       label: "Total Employees",   val: totalEmployees || "0",            ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200",   bc: "bg-indigo-600 text-white font-black" },
-              { icon: Server,      label: "Uptime Status",     val: stats.serverHealth || "99.9%",   ib: "bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-800/60 text-cyan-900 dark:text-cyan-200",             bc: "bg-cyan-600 text-white font-black" },
+              { icon: Building2, label: "Active Companies", val: activeCompanies, ib: "bg-emerald-50/90 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800/60 text-emerald-900 dark:text-emerald-200", bc: "bg-emerald-600 text-white font-black" },
+              { icon: UserPlus, label: "Pending Requests", val: pendingRequestsCount, ib: "bg-amber-50/90 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800/60 text-amber-900 dark:text-amber-200", bc: "bg-amber-600 text-white font-black" },
+              { icon: ShieldAlert, label: "Expired Subs", val: stats.expiredSubscriptions ?? 0, ib: "bg-rose-50/90 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800/60 text-rose-900 dark:text-rose-200", bc: "bg-rose-600 text-white font-black" },
+              { icon: Users, label: "Total Employees", val: totalEmployees || "0", ib: "bg-indigo-50/90 dark:bg-indigo-950/40 border-indigo-200 dark:border-indigo-800/60 text-indigo-900 dark:text-indigo-200", bc: "bg-indigo-600 text-white font-black" },
+              { icon: Server, label: "Uptime Status", val: stats.serverHealth || "99.9%", ib: "bg-cyan-50/90 dark:bg-cyan-950/40 border-cyan-200 dark:border-cyan-800/60 text-cyan-900 dark:text-cyan-200", bc: "bg-cyan-600 text-white font-black" },
             ].map(r => {
               const I = r.icon;
               return (
                 <div key={r.label} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border text-xs font-semibold ${r.ib}`}>
-                  <div className="flex items-center gap-2"><I size={14} className="stroke-[2.2]"/>{r.label}</div>
+                  <div className="flex items-center gap-2"><I size={14} className="stroke-[2.2]" />{r.label}</div>
                   <span className={`${r.bc} px-2.5 py-0.5 rounded-md text-[11px] shadow-xs`}>{r.val}</span>
                 </div>
               );
@@ -393,13 +400,13 @@ export default function SuperAdminDashboard() {
 
       {/* ── Row 3: Top Corporations · Company Requests Board · Upcoming Events ── */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3.5">
-        
+
         {/* Top Corporations List */}
         <div className="lg:col-span-4 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Active Corporations ({totalCompanies})</h3>
+            <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Active Companies ({activeCompanies})</h3>
             <Link to="/superadmin/companies" className="text-[11px] font-bold text-amber-500 hover:text-amber-600 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
+              View All <ArrowRight size={11} />
             </Link>
           </div>
           <div className="space-y-2.5">
@@ -415,7 +422,7 @@ export default function SuperAdminDashboard() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <img src={company.avatar} alt={company.owner} className="w-6 h-6 rounded-full object-cover border border-white dark:border-slate-700"/>
+                    <img src={company.avatar} alt={company.owner} className="w-6 h-6 rounded-full object-cover border border-white dark:border-slate-700" />
                     <div className="text-right">
                       <p className="text-[10px] font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[70px]">{company.owner}</p>
                       <p className="text-[9px] text-slate-400">{company.emp} Emps</p>
@@ -437,7 +444,7 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Company Requests Board</h3>
             <Link to="/superadmin/company-requests" className="text-[11px] font-bold text-amber-500 hover:text-amber-600 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
+              View All <ArrowRight size={11} />
             </Link>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -446,7 +453,7 @@ export default function SuperAdminDashboard() {
                 {/* Column Header */}
                 <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200/60 dark:border-slate-700/50 bg-white/70 dark:bg-slate-800/90">
                   <div className="flex items-center gap-2">
-                    <span className={`w-2 h-2 rounded-full ${col.dotColor}`}/>
+                    <span className={`w-2 h-2 rounded-full ${col.dotColor}`} />
                     <p className="text-xs font-bold text-slate-800 dark:text-white">{col.title}</p>
                     <span className="text-[9.5px] font-semibold text-slate-400 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.2 rounded-md">{col.sub}</span>
                   </div>
@@ -486,7 +493,7 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">System Events</h3>
             <Link to="/superadmin/announcements" className="text-[11px] font-bold text-amber-500 hover:text-amber-600 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
+              View All <ArrowRight size={11} />
             </Link>
           </div>
           <div className="space-y-2">
@@ -494,7 +501,7 @@ export default function SuperAdminDashboard() {
               systemEventsList.map(ev => (
                 <div key={ev.id} className="flex items-center gap-2.5 p-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer group">
                   <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${ev.ic}`}>
-                    <Server size={13}/>
+                    <Server size={13} />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate group-hover:text-amber-500 transition-colors">{ev.title}</p>
@@ -517,7 +524,7 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Subscription Plans Performance</h3>
             <Link to="/superadmin/plans" className="text-[11px] font-bold text-amber-500 hover:text-amber-600 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
+              View All <ArrowRight size={11} />
             </Link>
           </div>
           <table className="w-full text-xs border-collapse table-fixed">
@@ -535,7 +542,7 @@ export default function SuperAdminDashboard() {
                   <tr key={plan.id} className="hover:bg-slate-50/60 dark:hover:bg-slate-800/40 transition-colors">
                     <td className="py-2.5 pr-1">
                       <div className="flex items-center gap-2 truncate">
-                        <span className="text-[9px] text-slate-400 w-2.5 flex-shrink-0">{i+1}</span>
+                        <span className="text-[9px] text-slate-400 w-2.5 flex-shrink-0">{i + 1}</span>
                         <span className="font-bold text-slate-900 dark:text-white text-xs truncate">{plan.name}</span>
                       </div>
                     </td>
@@ -544,7 +551,7 @@ export default function SuperAdminDashboard() {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 dark:text-white text-[11px]">{plan.eff}%</span>
                         <div className="w-16 bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                          <div className={`h-full ${plan.ec || "bg-amber-500"}`} style={{ width:`${plan.eff}%` }}/>
+                          <div className={`h-full ${plan.ec || "bg-amber-500"}`} style={{ width: `${plan.eff}%` }} />
                         </div>
                       </div>
                     </td>
@@ -565,7 +572,7 @@ export default function SuperAdminDashboard() {
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-xs font-bold text-slate-800 dark:text-slate-100">Global Activity Log</h3>
             <Link to="/superadmin/activity-logs" className="text-[11px] font-bold text-amber-500 hover:text-amber-600 flex items-center gap-0.5">
-              View All <ArrowRight size={11}/>
+              View All <ArrowRight size={11} />
             </Link>
           </div>
           <div className="space-y-3">
@@ -573,7 +580,7 @@ export default function SuperAdminDashboard() {
               activityFeedList.map((a, i) => (
                 <div key={a.id || i} className="flex items-start gap-2.5 text-xs">
                   <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${a.ic || "bg-emerald-500/10 text-emerald-600"}`}>
-                    <Activity size={12}/>
+                    <Activity size={12} />
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-700 dark:text-slate-300 leading-normal text-xs">{a.text}</p>

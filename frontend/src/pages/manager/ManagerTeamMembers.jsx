@@ -831,10 +831,10 @@ export default function ManagerTeamMembers() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
           <div>
             <h1 className="text-[20px] sm:text-[22px] font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              Team Directory <Users size={20} className="text-[#1268D9]" />
+              Team Members <Users size={20} className="text-[#1268D9]" />
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">
-              Directory of assigned team members, profiles, and reporting structures
+              View and manage assigned team members, profiles, and contact details
             </p>
           </div>
 

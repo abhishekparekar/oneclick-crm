@@ -74,7 +74,7 @@ export default function EmployeeLeadDetails() {
 
   const lead = leadData || {};
 
-  // Fetch pipeline statuses
+  // Fetch  statuses
   const { data: statusesData } = useQuery({
     queryKey: ["leadsEngineStatuses"],
     queryFn: async () => {
@@ -152,7 +152,7 @@ export default function EmployeeLeadDetails() {
         note: note || undefined,
         attachments: docObjs,
         attachment: docObjs[0] || undefined,
-        nextFollowUpDate: nextFollowUp || undefined,
+        nextFollowUpDate: nextFollowUp ? new Date(nextFollowUp).toISOString() : undefined,
       });
     },
     onSuccess: () => {
@@ -212,7 +212,7 @@ export default function EmployeeLeadDetails() {
       const updatedNotes = lead?.notes ? `${noteEntry}\n${lead.notes}` : noteEntry;
       return api.patch(`/leads-engine/leads/${leadId}`, {
         notes: updatedNotes,
-        nextFollowUpDate: followUp || lead.nextFollowUpDate,
+        nextFollowUpDate: followUp ? new Date(followUp).toISOString() : lead.nextFollowUpDate,
       });
     },
     onSuccess: () => {
@@ -345,12 +345,12 @@ export default function EmployeeLeadDetails() {
           text: act.description || "",
           timestamp: act.createdAt
             ? new Date(act.createdAt).toLocaleString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
             : "Recent Activity",
           attachment: act.attachment || null,
           isStatus: act.type === "STATUS_CHANGE",
@@ -369,12 +369,12 @@ export default function EmployeeLeadDetails() {
           text: `${doc.name || "File"} ${doc.size ? `(${doc.size})` : ""}`,
           timestamp: doc.uploadedAt
             ? new Date(doc.uploadedAt).toLocaleString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
+              day: "2-digit",
+              month: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              hour12: true,
+            })
             : "Uploaded",
           attachment: { name: doc.name, url: doc.url, type: doc.type, size: doc.size },
           isStatus: false,
@@ -404,7 +404,7 @@ export default function EmployeeLeadDetails() {
 
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
-      
+
       {/* ── TOP NAVIGATION BAR & ACTION TOOLBAR (CLEAN FLOATING ADMIN STYLE) ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div className="flex items-center gap-3 min-w-0">
@@ -469,10 +469,10 @@ export default function EmployeeLeadDetails() {
       {/* ── SINGLE UNIFIED CRM CARD (SPECIFICATION + TIMELINE) ──────────────── */}
       <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-hidden">
         <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-100 dark:divide-slate-800">
-          
+
           {/* ── LEFT SECTION (7 / 12 width): LEAD SPECIFICATION & CONTACT ───────── */}
           <div className="lg:col-span-7 p-4 sm:p-6 space-y-5">
-            
+
             {/* Section 1: Contact & Business Profile */}
             <div className="space-y-3">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
@@ -518,10 +518,10 @@ export default function EmployeeLeadDetails() {
               </div>
             </div>
 
-            {/* Section 2: Deal & Pipeline Metrics */}
+            {/* Section 2: Deal &  Metrics */}
             <div className="space-y-3 pt-1">
               <h2 className="font-black text-slate-900 dark:text-white text-xs uppercase tracking-wider flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-2.5">
-                <DollarSign size={15} className="text-emerald-600" /> Deal &amp; Pipeline Details
+                <DollarSign size={15} className="text-emerald-600" /> Deal &amp;  Details
               </h2>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center">
@@ -641,22 +641,20 @@ export default function EmployeeLeadDetails() {
                       <div key={item.id || idx} className="relative group">
                         {/* Dot on connector line */}
                         <div
-                          className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isStatus
+                          className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${isStatus
                               ? "bg-amber-50 dark:bg-amber-950/60 border-amber-500"
                               : isDoc
-                              ? "bg-purple-50 dark:bg-purple-950/60 border-purple-500"
-                              : "bg-blue-50 dark:bg-blue-950/60 border-blue-500"
-                          }`}
+                                ? "bg-purple-50 dark:bg-purple-950/60 border-purple-500"
+                                : "bg-blue-50 dark:bg-blue-950/60 border-blue-500"
+                            }`}
                         >
                           <div
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isStatus
+                            className={`w-1.5 h-1.5 rounded-full ${isStatus
                                 ? "bg-amber-500"
                                 : isDoc
-                                ? "bg-purple-500"
-                                : "bg-blue-500"
-                            }`}
+                                  ? "bg-purple-500"
+                                  : "bg-blue-500"
+                              }`}
                           />
                         </div>
 
@@ -664,13 +662,12 @@ export default function EmployeeLeadDetails() {
                         <div className="p-3 bg-white dark:bg-slate-900/90 hover:bg-slate-50 dark:hover:bg-slate-900 rounded-xl border border-slate-200/80 dark:border-slate-800 transition-all space-y-1.5 shadow-2xs">
                           <div className="flex items-center justify-between gap-2">
                             <span
-                              className={`text-[10px] font-black uppercase tracking-wider ${
-                                isStatus
+                              className={`text-[10px] font-black uppercase tracking-wider ${isStatus
                                   ? "text-amber-600 dark:text-amber-400"
                                   : isDoc
-                                  ? "text-purple-600 dark:text-purple-400"
-                                  : "text-slate-500 dark:text-slate-400"
-                              }`}
+                                    ? "text-purple-600 dark:text-purple-400"
+                                    : "text-slate-500 dark:text-slate-400"
+                                }`}
                             >
                               {item.title}
                             </span>
@@ -748,7 +745,7 @@ export default function EmployeeLeadDetails() {
             <div className="space-y-3">
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
-                  Select Pipeline Status
+                  Select  Status
                 </label>
                 <select
                   value={selectedStatusId}

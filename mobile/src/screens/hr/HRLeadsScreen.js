@@ -418,7 +418,7 @@ export default function HRLeadsScreen({ navigation, route }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
         setLeadDoc({
           name: file.name || "Attached Document",
@@ -547,8 +547,8 @@ export default function HRLeadsScreen({ navigation, route }) {
                 {isSelfAssigned
                   ? "Assigned to Myself (HR)"
                   : assignedName
-                  ? `${assignedName}${assignedDept ? ` (${assignedDept})` : ""}`
-                  : "Unassigned"}
+                    ? `${assignedName}${assignedDept ? ` (${assignedDept})` : ""}`
+                    : "Unassigned"}
               </Text>
             </View>
 
@@ -613,7 +613,7 @@ export default function HRLeadsScreen({ navigation, route }) {
             <Text style={styles.kpiTitle}>DEALS WON ({metrics.convRate}%)</Text>
           </View>
 
-          {/* Pipeline Value */}
+          {/*  Value */}
           <View style={styles.kpiCard}>
             <Text style={[styles.kpiNumber, { color: "#FDE047" }]}>
               ₹{metrics.totalVal >= 100000 ? `${(metrics.totalVal / 100000).toFixed(1)}L` : metrics.totalVal.toLocaleString()}
@@ -716,7 +716,7 @@ export default function HRLeadsScreen({ navigation, route }) {
         </TouchableOpacity>
       </View>
 
-      {/* ══════════ 3. PIPELINE STAGE CHIPS STRIP ══════════ */}
+      {/* ══════════ 3.  STAGE CHIPS STRIP ══════════ */}
       <View style={styles.stageFilterStrip}>
         <ScrollView
           horizontal
@@ -776,7 +776,7 @@ export default function HRLeadsScreen({ navigation, route }) {
               </View>
               <Text style={styles.emptyTitle}>No Leads Found</Text>
               <Text style={styles.emptySub}>
-                {searchQuery ? "No matching leads found for your search." : "No leads in this pipeline stage yet."}
+                {searchQuery ? "No matching leads found for your search." : "No leads in this  stage yet."}
               </Text>
             </View>
           }
@@ -843,7 +843,7 @@ export default function HRLeadsScreen({ navigation, route }) {
 
               {/* Status / Stage */}
               <View style={styles.formSectionBox}>
-                <Text style={styles.fieldLabel}>PIPELINE STAGE</Text>
+                <Text style={styles.fieldLabel}> STAGE</Text>
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
                   <TouchableOpacity
                     style={[
@@ -1227,15 +1227,15 @@ export default function HRLeadsScreen({ navigation, route }) {
                 </ScrollView>
               </View>
 
-              {/* ── Section 3: Pipeline Stage & Next Follow-Up ── */}
+              {/* ── Section 3:  Stage & Next Follow-Up ── */}
               <View style={styles.formSectionBox}>
                 <View style={styles.sectionHeaderRow}>
                   <Ionicons name="layers-outline" size={13} color="#1268D9" />
-                  <Text style={styles.sectionHeaderText}>PIPELINE STAGE & NEXT FOLLOW-UP</Text>
+                  <Text style={styles.sectionHeaderText}> STAGE & NEXT FOLLOW-UP</Text>
                 </View>
 
                 <Text style={styles.fieldLabel}>
-                  PIPELINE STAGE <Text style={{ color: "#EF4444" }}>*</Text>
+                  STAGE <Text style={{ color: "#EF4444" }}>*</Text>
                 </Text>
                 <TouchableOpacity
                   style={styles.dropdownSelectorBox}
@@ -1249,7 +1249,7 @@ export default function HRLeadsScreen({ navigation, route }) {
                     ]}
                   />
                   <Text style={styles.dropdownSelectedValText} numberOfLines={1}>
-                    {selectedStageObj ? selectedStageObj.name : "Select Pipeline Stage"}
+                    {selectedStageObj ? selectedStageObj.name : "Select  Stage"}
                   </Text>
                   <Ionicons name="chevron-down" size={18} color="#64748B" style={{ marginLeft: "auto" }} />
                 </TouchableOpacity>
@@ -1489,7 +1489,7 @@ export default function HRLeadsScreen({ navigation, route }) {
                   ) : (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <Ionicons name="sparkles" size={14} color="#FFF" />
-                      <Text style={styles.saveModalBtnText}>Save & Create Lead</Text>
+                      <Text style={styles.saveModalBtnText}>Save & Add New Lead</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1499,7 +1499,7 @@ export default function HRLeadsScreen({ navigation, route }) {
         </View>
       </Modal>
 
-      {/* ── MODAL: PIPELINE STAGE DROPDOWN PICKER ── */}
+      {/* ── MODAL:  STAGE DROPDOWN PICKER ── */}
       <Modal
         visible={stagePickerModal}
         animationType="slide"
@@ -1511,7 +1511,7 @@ export default function HRLeadsScreen({ navigation, route }) {
             <View style={styles.dragHandle} />
             <View style={styles.modalHeaderRow}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.modalHeading}>Select Pipeline Stage</Text>
+                <Text style={styles.modalHeading}>Select  Stage</Text>
                 <Text style={styles.modalSubheading}>Choose stage for this prospective client</Text>
               </View>
               <TouchableOpacity
@@ -2254,7 +2254,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     color: "#FFFFFF",
   },
-  // ── Pipeline Stage Dropdown Selector & Modal ──
+  // ──  Stage Dropdown Selector & Modal ──
   dropdownSelectorBox: {
     flexDirection: "row",
     alignItems: "center",

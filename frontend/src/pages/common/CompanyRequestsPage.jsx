@@ -234,6 +234,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     onSuccess: (res) => {
       toast.success(res?.data?.message || "Request broadcasted successfully!");
       queryClient.invalidateQueries(["internalRequests"]);
+      queryClient.invalidateQueries(["headerCompanyRequests"]);
       handleCloseCreateModal();
       setForm({
         title: "",
@@ -256,6 +257,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     onSuccess: (res) => {
       toast.success("Response submitted!");
       queryClient.invalidateQueries(["internalRequests"]);
+      queryClient.invalidateQueries(["headerCompanyRequests"]);
       setReplyMessage("");
       setReplyAttachments([]);
       setIsResolutionReply(false);
@@ -273,6 +275,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     onSuccess: (res) => {
       toast.success("Status updated!");
       queryClient.invalidateQueries(["internalRequests"]);
+      queryClient.invalidateQueries(["headerCompanyRequests"]);
       if (res?.data?.data) {
         setActiveRequest(res.data.data);
       }
@@ -287,6 +290,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     onSuccess: () => {
       toast.success("Request deleted");
       queryClient.invalidateQueries(["internalRequests"]);
+      queryClient.invalidateQueries(["headerCompanyRequests"]);
       setActiveRequest(null);
     },
     onError: (err) => {
@@ -406,7 +410,7 @@ export default function CompanyRequestsPage({ role = "hr" }) {
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Company Requests & Query Hub
+                Company Requests 
               </h1>
               <p className="text-[11px] text-slate-400 font-medium">
                 Broadcast data requirements, inquiries, and collaborate in real-time

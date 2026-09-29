@@ -290,7 +290,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
                   <ListTodo style={{ width: 18, height: 18, color: '#0E6B50' }} />
                 </div>
                 <div>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}>Pipeline stages</p>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111827' }}> stages</p>
                   <p style={{ fontSize: 13, color: '#6B7280' }}>Customize your lead journey</p>
                 </div>
               </div>

@@ -198,7 +198,7 @@ export default function TaskStatusModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fadeIn">
       <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-3xl w-full max-w-md overflow-hidden shadow-2xl p-5 sm:p-6 space-y-4 animate-scaleUp text-xs">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
           <h3 className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-2">
@@ -217,7 +217,7 @@ export default function TaskStatusModal({
           {/* Select Status */}
           <div>
             <label className="block text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
-              Select Pipeline / Task Status
+              Select  / Task Status
             </label>
             <select
               value={status}

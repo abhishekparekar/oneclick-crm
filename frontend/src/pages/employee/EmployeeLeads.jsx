@@ -426,7 +426,7 @@ export default function EmployeeLeads() {
             type: uData.fileType || file.type || "document",
             size: `${(file.size / 1024).toFixed(1)} KB`,
           };
-          await api.post(`/leads-engine/leads/${leadId}/documents`, docObj).catch(() => {});
+          await api.post(`/leads-engine/leads/${leadId}/documents`, docObj).catch(() => { });
         }
       }
 
@@ -440,7 +440,7 @@ export default function EmployeeLeads() {
 
       return api.patch(`/leads-engine/leads/${leadId}`, {
         statusId,
-        nextFollowUpDate: nextFollowUpDate || undefined,
+        nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate).toISOString() : undefined,
         notes: noteWithDoc ? `${noteWithDoc}\n${showStatusModalLead?.notes || ""}` : undefined,
       });
     },
@@ -474,18 +474,18 @@ export default function EmployeeLeads() {
       statusId: form.statusId || (statuses[0]?._id || statuses[0]?.id),
       estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : undefined,
       notes: form.notes.trim(),
-      nextFollowUpDate: form.nextFollowUpDate || undefined,
+      nextFollowUpDate: form.nextFollowUpDate ? new Date(form.nextFollowUpDate).toISOString() : undefined,
       assignedTo: canAssignLead && form.assignedTo ? form.assignedTo : (user?._id || undefined),
     });
   };
 
   return (
     <div className="space-y-4 pb-12 font-sans text-ca-text w-full max-w-[1440px] mx-auto">
-      
+
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5">
-          <span>My Leads &amp; Sales Pipeline</span>
+          <span>My Leads</span>
           {isFetching && (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 px-2.5 py-0.5 rounded-full">
               <RefreshCw size={11} className="animate-spin" /> Loading...
@@ -505,7 +505,7 @@ export default function EmployeeLeads() {
 
       {/* ── UNIFIED FILTER & SEARCH CARD CONTAINER ─────────────────────────── */}
       <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
-        
+
         {/* ── Row 1: Time Boundary Date Pill Tabs ───────────────────────────── */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
           {categoryCounts.map(tab => {
@@ -517,18 +517,16 @@ export default function EmployeeLeads() {
                   setDateTab(tab.name);
                   setStatusFilter("all");
                 }}
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  active
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${active
                     ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
                     : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-                }`}
+                  }`}
               >
                 <span>{tab.name}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                  active
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${active
                     ? "bg-white/20 text-white"
                     : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                }`}>
+                  }`}>
                   {tab.count}
                 </span>
               </button>
@@ -536,22 +534,20 @@ export default function EmployeeLeads() {
           })}
         </div>
 
-        {/* ── Row 2: Pipeline Status Filter Pills ───────────────────────────── */}
+        {/* ── Row 2:  Status Filter Pills ───────────────────────────── */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={() => setStatusFilter("all")}
-            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-              statusFilter === "all"
+            className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${statusFilter === "all"
                 ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
                 : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-            }`}
+              }`}
           >
             <span>All Leads</span>
-            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-              statusFilter === "all"
+            <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${statusFilter === "all"
                 ? "bg-white/20 text-white"
                 : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            }`}>
+              }`}>
               {baseTabLeads.length}
             </span>
           </button>
@@ -565,18 +561,16 @@ export default function EmployeeLeads() {
               <button
                 key={sId}
                 onClick={() => setStatusFilter(sId)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${
-                  active
+                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border ${active
                     ? chipCfg.pillActive
                     : chipCfg.pillInactive
-                }`}
+                  }`}
               >
                 <span>{st.name}</span>
-                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                  active
+                <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${active
                     ? chipCfg.badgeActive
                     : chipCfg.badgeInactive
-                }`}>
+                  }`}>
                   {count}
                 </span>
               </button>
@@ -586,7 +580,7 @@ export default function EmployeeLeads() {
 
         {/* ── Row 3: Search Bar & View Mode Toggle ──────────────────────────── */}
         <div className="flex items-center justify-between gap-3 pt-2 border-t border-slate-100 dark:border-slate-800 flex-wrap">
-          
+
           {/* Search Input */}
           <div className="relative w-full sm:w-72">
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -771,7 +765,7 @@ export default function EmployeeLeads() {
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Lead ID</th>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Customer / Company</th>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Contact Number</th>
-                  <th className="py-3.5 px-4 font-black whitespace-nowrap">Pipeline Status</th>
+                  <th className="py-3.5 px-4 font-black whitespace-nowrap"> Status</th>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Est. Value</th>
                   <th className="py-3.5 px-4 font-black whitespace-nowrap">Follow-Up Date</th>
                   <th className="py-3.5 px-4 font-black text-right whitespace-nowrap">Actions</th>
@@ -1065,13 +1059,13 @@ export default function EmployeeLeads() {
               <div className="p-4 bg-slate-50 dark:bg-[#111927]/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl space-y-3">
                 <p className="text-[10.5px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
                   <Layers size={13} className="text-orange-600 dark:text-orange-400" />
-                  Pipeline Stage & Next Follow-Up
+                  Stage & Next Follow-Up
                 </p>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                      Pipeline Stage
+                      Stage
                     </label>
                     <select
                       value={form.statusId}
@@ -1158,7 +1152,7 @@ export default function EmployeeLeads() {
             <div className="space-y-3">
               <div>
                 <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1">
-                  Select Pipeline Status
+                  Select  Status
                 </label>
                 <select
                   value={selectedStatusId}

@@ -345,7 +345,7 @@ const SubscriptionDetails = () => {
                     </span>
                   ))
                 ) : (
-                  ["Leads Engine", "WhatsApp Automation", "Attendance & Leaves", "Workforce Tasks", "Payroll & Reports"].map((mod) => (
+                  ["Lead", "WhatsApp Automation", "Attendance & Leaves", "Workforce Tasks", "Payroll & Reports"].map((mod) => (
                     <span key={mod} className="px-3 py-1 bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold rounded-xl">
                       {mod}
                     </span>

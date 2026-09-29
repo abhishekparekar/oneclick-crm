@@ -255,11 +255,10 @@ const Select = ({ value, onChange, options, placeholder, className = "" }) => {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className={`w-full flex items-center justify-between gap-1.5 pl-3 pr-2.5 py-1.5 border rounded-lg text-[13px] font-medium cursor-pointer transition-all shadow-sm whitespace-nowrap ${
-          open || value
+        className={`w-full flex items-center justify-between gap-1.5 pl-3 pr-2.5 py-1.5 border rounded-lg text-[13px] font-medium cursor-pointer transition-all shadow-sm whitespace-nowrap ${open || value
             ? "border-[#E65100] bg-[#E65100]/10 text-[#E65100]"
             : "border-slate-200 bg-white text-slate-600 hover:border-[#E65100]/40 hover:bg-slate-50"
-        }`}
+          }`}
       >
         <span className={`whitespace-nowrap ${value ? "font-bold text-[#E65100]" : ""}`}>
           {selected ? selected.label : placeholder}
@@ -272,9 +271,8 @@ const Select = ({ value, onChange, options, placeholder, className = "" }) => {
             <button
               type="button"
               onClick={() => { onChange(""); setOpen(false); }}
-              className={`w-full text-left px-3.5 py-2 text-[13px] transition-colors ${
-                !value ? "bg-[#E65100] text-white font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
+              className={`w-full text-left px-3.5 py-2 text-[13px] transition-colors ${!value ? "bg-[#E65100] text-white font-bold" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
             >
               {placeholder}
             </button>
@@ -283,11 +281,10 @@ const Select = ({ value, onChange, options, placeholder, className = "" }) => {
                 key={o.value}
                 type="button"
                 onClick={() => { onChange(o.value); setOpen(false); }}
-                className={`w-full text-left px-3.5 py-2 text-[13px] transition-colors ${
-                  value === o.value
+                className={`w-full text-left px-3.5 py-2 text-[13px] transition-colors ${value === o.value
                     ? "bg-[#E65100] text-white font-bold"
                     : "text-slate-700 hover:bg-slate-50 hover:text-slate-900"
-                }`}
+                  }`}
               >
                 {o.label}
               </button>
@@ -416,7 +413,7 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
           </div>
           {/* Stats Strip */}
           <div className="grid grid-cols-3 divide-x divide-slate-200/80 dark:divide-[#1C3554] border-t border-slate-200/80 dark:border-[#1C3554]">
-            {[{ label:"Present", value:employee._stats?.present??"0", color:"text-emerald-600 dark:text-emerald-400" },{ label:"Leaves", value:employee._stats?.leaves??"0", color:"text-[#1268D9] dark:text-[#2F8BFF]" },{ label:"Tasks", value:employee._stats?.tasks??"0", color:"text-indigo-600 dark:text-indigo-400" }].map(s=>(
+            {[{ label: "Present", value: employee._stats?.present ?? "0", color: "text-emerald-600 dark:text-emerald-400" }, { label: "Leaves", value: employee._stats?.leaves ?? "0", color: "text-[#1268D9] dark:text-[#2F8BFF]" }, { label: "Tasks", value: employee._stats?.tasks ?? "0", color: "text-indigo-600 dark:text-indigo-400" }].map(s => (
               <div key={s.label} className="flex flex-col items-center py-2.5">
                 <span className={`text-base font-black leading-none ${s.color}`}>{s.value}</span>
                 <span className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider mt-1">{s.label}</span>
@@ -425,8 +422,8 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
           </div>
           {/* Tab Bar */}
           <div className="flex border-t border-slate-200/80 dark:border-[#1C3554]">
-            {TABS.map(t=>(
-              <button key={t.id} onClick={()=>setDrawerTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer ${drawerTab===t.id ? "border-[#1268D9] text-[#1268D9] dark:text-[#2F8BFF] bg-[#1268D9]/10" : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"}`}>
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setDrawerTab(t.id)} className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-extrabold uppercase tracking-wide transition-all border-b-2 cursor-pointer ${drawerTab === t.id ? "border-[#1268D9] text-[#1268D9] dark:text-[#2F8BFF] bg-[#1268D9]/10" : "border-transparent text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-50/80 dark:hover:bg-white/[0.03]"}`}>
                 <t.icon size={13} strokeWidth={2.5} />{t.label}
               </button>
             ))}
@@ -436,62 +433,62 @@ const EmployeeDrawer = ({ employee, onClose, onEdit, onToggleStatus }) => {
         <div className="flex-1 overflow-y-auto p-4 space-y-3.5 custom-scrollbar">
           {isLoadingFull && (<div className="flex items-center justify-center py-8 gap-2"><RefreshCw size={16} className="text-[#1268D9] animate-spin" /><span className="text-xs text-slate-400 font-bold">Loading full profile...</span></div>)}
           {/* OVERVIEW */}
-          {drawerTab==="overview" && (<>
-            <SectionBlock title="Work Information" iconEl={<Building2 size={12} strokeWidth={2.5}/>} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
-              <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"Joined Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Department",value:drawerDepts},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Work Mode",value:empData.workMode}]}/>
+          {drawerTab === "overview" && (<>
+            <SectionBlock title="Work Information" iconEl={<Building2 size={12} strokeWidth={2.5} />} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
+              <InfoGrid items={[{ label: "Employee Code", value: empData.employeeCode, highlight: true }, { label: "Joined Date", value: joined ? new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null }, { label: "Department", value: drawerDepts }, { label: "Designation", value: empData.designationId?.name || empData.designation?.name }, { label: "Branch", value: empData.branchId?.name || empData.branch?.name || "Main Office" }, { label: "Work Mode", value: empData.workMode }]} />
             </SectionBlock>
-            <SectionBlock title="Contact Details" iconEl={<Phone size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
-              <InfoGrid items={[{label:"Official Email",value:email},{label:"Phone Number",value:phone},{label:"Emergency Contact",value:empData.emergencyContact?.name||null},{label:"Emergency Phone",value:empData.emergencyContact?.phone||null}]}/>
+            <SectionBlock title="Contact Details" iconEl={<Phone size={12} strokeWidth={2.5} />} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+              <InfoGrid items={[{ label: "Official Email", value: email }, { label: "Phone Number", value: phone }, { label: "Emergency Contact", value: empData.emergencyContact?.name || null }, { label: "Emergency Phone", value: empData.emergencyContact?.phone || null }]} />
             </SectionBlock>
             <div className="bg-slate-50/50 dark:bg-[#071A2F]/40 rounded-2xl border border-slate-200/80 dark:border-[#1C3554] p-3 shadow-2xs">
               <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#1268D9]/10 border border-[#1268D9]/20 text-[#1268D9] dark:text-[#2F8BFF] text-xs font-bold hover:bg-[#1268D9]/20 transition-all cursor-pointer">
-                <div className="flex items-center gap-2"><Calendar size={14}/><span>View Full Attendance Logs</span></div><ChevronRight size={14}/>
+                <div className="flex items-center gap-2"><Calendar size={14} /><span>View Full Attendance Logs</span></div><ChevronRight size={14} />
               </Link>
             </div>
           </>)}
           {/* JOB INFO */}
-          {drawerTab==="job" && (<>
-            <SectionBlock title="Employment Details" iconEl={<Briefcase size={12} strokeWidth={2.5}/>} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
-              <InfoGrid items={[{label:"Employee Code",value:empData.employeeCode,highlight:true},{label:"System Role",value:formattedRole},{label:"Designation",value:empData.designationId?.name||empData.designation?.name},{label:"Department",value:drawerDepts},{label:"Branch",value:empData.branchId?.name||empData.branch?.name||"Main Office"},{label:"Employment Type",value:empData.employmentType},{label:"Work Mode",value:empData.workMode},{label:"Joining Date",value:joined?new Date(joined).toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"}):null},{label:"Confirmation Date",value:empData.confirmationDate?new Date(empData.confirmationDate).toLocaleDateString("en-IN"):null},{label:"Notice Period",value:empData.noticePeriod?`${empData.noticePeriod} Days`:null}]}/>
+          {drawerTab === "job" && (<>
+            <SectionBlock title="Employment Details" iconEl={<Briefcase size={12} strokeWidth={2.5} />} iconColor="text-[#1268D9]" iconBg="bg-[#1268D9]/10">
+              <InfoGrid items={[{ label: "Employee Code", value: empData.employeeCode, highlight: true }, { label: "System Role", value: formattedRole }, { label: "Designation", value: empData.designationId?.name || empData.designation?.name }, { label: "Department", value: drawerDepts }, { label: "Branch", value: empData.branchId?.name || empData.branch?.name || "Main Office" }, { label: "Employment Type", value: empData.employmentType }, { label: "Work Mode", value: empData.workMode }, { label: "Joining Date", value: joined ? new Date(joined).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : null }, { label: "Confirmation Date", value: empData.confirmationDate ? new Date(empData.confirmationDate).toLocaleDateString("en-IN") : null }, { label: "Notice Period", value: empData.noticePeriod ? `${empData.noticePeriod} Days` : null }]} />
             </SectionBlock>
-            <SectionBlock title="Reporting & Access" iconEl={<Shield size={12} strokeWidth={2.5}/>} iconColor="text-purple-600 dark:text-purple-400" iconBg="bg-purple-500/10">
-              <InfoGrid items={[{label:"Reports To / Manager",value:empData.reportsTo?.name||empData.managerId?.name||null},{label:"Access Level",value:formattedRole},{label:"Multi-Dept Access",value:Array.isArray(empData.accessibleDepartments)&&empData.accessibleDepartments.length>1?"Yes":"No"},{label:"Portal Status",value:isActive?"Active & Enabled":"Suspended"}]}/>
+            <SectionBlock title="Reporting & Access" iconEl={<Shield size={12} strokeWidth={2.5} />} iconColor="text-purple-600 dark:text-purple-400" iconBg="bg-purple-500/10">
+              <InfoGrid items={[{ label: "Reports To / Manager", value: empData.reportsTo?.name || empData.managerId?.name || null }, { label: "Access Level", value: formattedRole }, { label: "Multi-Dept Access", value: Array.isArray(empData.accessibleDepartments) && empData.accessibleDepartments.length > 1 ? "Yes" : "No" }, { label: "Portal Status", value: isActive ? "Active & Enabled" : "Suspended" }]} />
             </SectionBlock>
           </>)}
           {/* PERSONAL */}
-          {drawerTab==="personal" && (<>
-            <SectionBlock title="Personal Information" iconEl={<User size={12} strokeWidth={2.5}/>} iconColor="text-cyan-600 dark:text-cyan-400" iconBg="bg-cyan-500/10">
-              <InfoGrid items={[{label:"Date of Birth",value:empData.dateOfBirth?new Date(empData.dateOfBirth).toLocaleDateString("en-IN"):null},{label:"Gender",value:empData.gender},{label:"Blood Group",value:empData.bloodGroup},{label:"Marital Status",value:empData.maritalStatus},{label:"Aadhaar No.",value:empData.aadhaarNumber},{label:"PAN No.",value:empData.panNumber}]}/>
+          {drawerTab === "personal" && (<>
+            <SectionBlock title="Personal Information" iconEl={<User size={12} strokeWidth={2.5} />} iconColor="text-cyan-600 dark:text-cyan-400" iconBg="bg-cyan-500/10">
+              <InfoGrid items={[{ label: "Date of Birth", value: empData.dateOfBirth ? new Date(empData.dateOfBirth).toLocaleDateString("en-IN") : null }, { label: "Gender", value: empData.gender }, { label: "Blood Group", value: empData.bloodGroup }, { label: "Marital Status", value: empData.maritalStatus }, { label: "Aadhaar No.", value: empData.aadhaarNumber }, { label: "PAN No.", value: empData.panNumber }]} />
             </SectionBlock>
-            <SectionBlock title="Address Information" iconEl={<MapPin size={12} strokeWidth={2.5}/>} iconColor="text-rose-600 dark:text-rose-400" iconBg="bg-rose-500/10">
-              <InfoRow label="Current Address" value={formatAddress(empData.currentAddress)}/>
-              <InfoRow label="Permanent Address" value={formatAddress(empData.permanentAddress)}/>
+            <SectionBlock title="Address Information" iconEl={<MapPin size={12} strokeWidth={2.5} />} iconColor="text-rose-600 dark:text-rose-400" iconBg="bg-rose-500/10">
+              <InfoRow label="Current Address" value={formatAddress(empData.currentAddress)} />
+              <InfoRow label="Permanent Address" value={formatAddress(empData.permanentAddress)} />
             </SectionBlock>
-            {docList.length>0&&(<SectionBlock title={`Uploaded Documents (${docList.length})`} iconEl={<FileText size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+            {docList.length > 0 && (<SectionBlock title={`Uploaded Documents (${docList.length})`} iconEl={<FileText size={12} strokeWidth={2.5} />} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 py-2">
-                {docList.map(doc=>(<a key={doc.key} href={doc.url.startsWith("http")?doc.url:`${(import.meta.env.VITE_API_URL||"http://localhost:5000/api").replace("/api","")}${doc.url.startsWith("/")?"":" /"}${doc.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2 rounded-xl bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] hover:border-[#1268D9] hover:bg-[#1268D9]/5 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer group"><span className="truncate">{doc.label}</span><Download size={13} className="text-[#1268D9] shrink-0 ml-1.5 group-hover:scale-110 transition-transform"/></a>))}
+                {docList.map(doc => (<a key={doc.key} href={doc.url.startsWith("http") ? doc.url : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${doc.url.startsWith("/") ? "" : " /"}${doc.url}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between px-3 py-2 rounded-xl bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] hover:border-[#1268D9] hover:bg-[#1268D9]/5 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer group"><span className="truncate">{doc.label}</span><Download size={13} className="text-[#1268D9] shrink-0 ml-1.5 group-hover:scale-110 transition-transform" /></a>))}
               </div>
             </SectionBlock>)}
           </>)}
           {/* FINANCE */}
-          {drawerTab==="finance" && (<>
-            <SectionBlock title="Salary Structure" iconEl={<DollarSign size={12} strokeWidth={2.5}/>} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
-              {empData.salaryDetails?(<>
-                {empData.salaryDetails.ctc&&(<div className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-slate-800/50 mb-0.5"><span className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider">Annual CTC</span><span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₹{Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}</span></div>)}
-                <InfoGrid items={[{label:"Basic (Monthly)",value:empData.salaryDetails?.basic?`₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}`:null},{label:"HRA",value:empData.salaryDetails?.hra?`₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}`:null},{label:"Special Allowance",value:empData.salaryDetails?.specialAllowance?`₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}`:null},{label:"PF Deduction",value:empData.salaryDetails?.pf?`₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}`:null},{label:"ESI Deduction",value:empData.salaryDetails?.esi?`₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}`:null},{label:"TDS Deduction",value:empData.salaryDetails?.tds?`₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}`:null}]}/>
-              </>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No salary data configured</div>)}
+          {drawerTab === "finance" && (<>
+            <SectionBlock title="Salary Structure" iconEl={<DollarSign size={12} strokeWidth={2.5} />} iconColor="text-emerald-600 dark:text-emerald-400" iconBg="bg-emerald-500/10">
+              {empData.salaryDetails ? (<>
+                {empData.salaryDetails.ctc && (<div className="flex items-center justify-between py-2.5 border-b border-slate-100 dark:border-slate-800/50 mb-0.5"><span className="text-[10.5px] font-black text-slate-500 uppercase tracking-wider">Annual CTC</span><span className="text-sm font-black text-emerald-600 dark:text-emerald-400">₹{Number(empData.salaryDetails.ctc).toLocaleString("en-IN")}</span></div>)}
+                <InfoGrid items={[{ label: "Basic (Monthly)", value: empData.salaryDetails?.basic ? `₹${Number(empData.salaryDetails.basic).toLocaleString("en-IN")}` : null }, { label: "HRA", value: empData.salaryDetails?.hra ? `₹${Number(empData.salaryDetails.hra).toLocaleString("en-IN")}` : null }, { label: "Special Allowance", value: empData.salaryDetails?.specialAllowance ? `₹${Number(empData.salaryDetails.specialAllowance).toLocaleString("en-IN")}` : null }, { label: "PF Deduction", value: empData.salaryDetails?.pf ? `₹${Number(empData.salaryDetails.pf).toLocaleString("en-IN")}` : null }, { label: "ESI Deduction", value: empData.salaryDetails?.esi ? `₹${Number(empData.salaryDetails.esi).toLocaleString("en-IN")}` : null }, { label: "TDS Deduction", value: empData.salaryDetails?.tds ? `₹${Number(empData.salaryDetails.tds).toLocaleString("en-IN")}` : null }]} />
+              </>) : (<div className="py-6 text-center text-xs text-slate-400 font-bold">No salary data configured</div>)}
             </SectionBlock>
-            <SectionBlock title="Bank Account Details" iconEl={<Briefcase size={12} strokeWidth={2.5}/>} iconColor="text-blue-600 dark:text-blue-400" iconBg="bg-blue-500/10">
-              {empData.bankDetails?.accountNumber?(<InfoGrid items={[{label:"Bank Name",value:empData.bankDetails?.bankName},{label:"Account Holder",value:empData.bankDetails?.accountHolderName},{label:"Account Number",value:empData.bankDetails?.accountNumber,highlight:true},{label:"IFSC Code",value:empData.bankDetails?.ifscCode},{label:"UPI ID",value:empData.bankDetails?.upiId}]}/>):(<div className="py-6 text-center text-xs text-slate-400 font-bold">No bank details on file</div>)}
+            <SectionBlock title="Bank Account Details" iconEl={<Briefcase size={12} strokeWidth={2.5} />} iconColor="text-blue-600 dark:text-blue-400" iconBg="bg-blue-500/10">
+              {empData.bankDetails?.accountNumber ? (<InfoGrid items={[{ label: "Bank Name", value: empData.bankDetails?.bankName }, { label: "Account Holder", value: empData.bankDetails?.accountHolderName }, { label: "Account Number", value: empData.bankDetails?.accountNumber, highlight: true }, { label: "IFSC Code", value: empData.bankDetails?.ifscCode }, { label: "UPI ID", value: empData.bankDetails?.upiId }]} />) : (<div className="py-6 text-center text-xs text-slate-400 font-bold">No bank details on file</div>)}
             </SectionBlock>
           </>)}
         </div>
         {/* Sticky Footer */}
         <div className="flex-shrink-0 border-t border-slate-200 dark:border-[#1C3554] bg-slate-50/80 dark:bg-[#071A2F] p-3.5 flex items-center gap-2.5 shadow-lg">
-          <Link to={`${window.location.pathname.startsWith("/hr")?"/hr":"/company"}/employees/edit/${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"><Edit2 size={13} strokeWidth={2.5}/><span>Edit Employee</span></Link>
-          <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] text-slate-700 dark:text-slate-200 rounded-xl text-xs font-extrabold transition-all cursor-pointer hover:bg-slate-100"><Calendar size={13} strokeWidth={2.5}/><span className="hidden sm:inline">Attendance</span></Link>
-          <button onClick={()=>onToggleStatus(employee)} className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${isActive?"bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-100":"bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"}`}>
-            {isActive?<PowerOff size={13} strokeWidth={2.5}/>:<Power size={13} strokeWidth={2.5}/>}<span className="hidden sm:inline">{isActive?"Deactivate":"Activate"}</span>
+          <Link to={`${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees/edit/${employee._id}`} className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-[#1268D9] hover:bg-[#0D50B8] text-white rounded-xl text-xs font-extrabold shadow-md shadow-[#1268D9]/25 transition-all cursor-pointer"><Edit2 size={13} strokeWidth={2.5} /><span>Edit Employee</span></Link>
+          <Link to={`/company/attendance?employee=${employee._id}`} className="flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white dark:bg-[#050F1F] border border-slate-200 dark:border-[#1C3554] text-slate-700 dark:text-slate-200 rounded-xl text-xs font-extrabold transition-all cursor-pointer hover:bg-slate-100"><Calendar size={13} strokeWidth={2.5} /><span className="hidden sm:inline">Attendance</span></Link>
+          <button onClick={() => onToggleStatus(employee)} className={`flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-extrabold transition-all border cursor-pointer ${isActive ? "bg-rose-50 dark:bg-rose-950/30 border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 hover:bg-rose-100" : "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100"}`}>
+            {isActive ? <PowerOff size={13} strokeWidth={2.5} /> : <Power size={13} strokeWidth={2.5} />}<span className="hidden sm:inline">{isActive ? "Deactivate" : "Activate"}</span>
           </button>
         </div>
       </div>
@@ -678,11 +675,11 @@ const Employees = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2 pt-1">
           <div>
             <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-              Employee Directory <Users size={20} className="text-amber-500" />
+              Employee Management <Users size={20} className="text-amber-500" />
             </h1>
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Manage team members, roles, profiles, and status</p>
           </div>
-          
+
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <button
               onClick={exportCSV}
@@ -767,7 +764,7 @@ const Employees = () => {
 
             {/* Single row: Search + Filters + Tabs + Count */}
             <div className="flex items-center justify-between gap-4 flex-wrap">
-              
+
               <div className="flex items-center gap-3">
                 {/* Search */}
                 <div className="relative w-72">
@@ -806,18 +803,16 @@ const Employees = () => {
                     <button
                       key={tab.value || "all"}
                       onClick={() => { setActiveTab(tab.value); resetPage(); }}
-                      className={`flex items-center px-4 py-1.5 rounded-xl text-[13px] font-bold transition-all duration-300 whitespace-nowrap ${
-                        activeTab === tab.value
+                      className={`flex items-center px-4 py-1.5 rounded-xl text-[13px] font-bold transition-all duration-300 whitespace-nowrap ${activeTab === tab.value
                           ? "bg-[#E65100] text-white shadow-md"
                           : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-bg"
-                      }`}
+                        }`}
                     >
                       {tab.label}
-                      <span className={`ml-2 px-2 py-0.5 rounded-lg text-[11px] font-black tracking-wide ${
-                        activeTab === tab.value
+                      <span className={`ml-2 px-2 py-0.5 rounded-lg text-[11px] font-black tracking-wide ${activeTab === tab.value
                           ? "bg-white/20 text-white"
                           : "bg-ca-bg text-ca-text-secondary shadow-sm border border-ca-border"
-                      }`}>
+                        }`}>
                         {tab.count}
                       </span>
                     </button>

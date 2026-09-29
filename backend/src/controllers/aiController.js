@@ -601,7 +601,7 @@ const generateStructuredFallback = (type, rawData = {}) => {
     case "ceo_report":
       return {
         date: new Date().toLocaleDateString("en-IN"),
-        executiveSummary: "Daily executive overview: Business operational indicators are stable. Active pipeline and team execution being monitored.",
+        executiveSummary: "Daily executive overview: Business operational indicators are stable. Active  and team execution being monitored.",
         businessHealthScore: 80,
         todayTopPriorities: [
           { priority: 1, action: "Review high-priority leads and overdue tasks", reason: "Maintain high customer conversion velocity" },
@@ -619,7 +619,7 @@ const generateStructuredFallback = (type, rawData = {}) => {
       };
     case "lead_analysis":
       return {
-        summary: "Lead pipeline diagnostic completed. Overall conversion flow is active.",
+        summary: "Lead  diagnostic completed. Overall conversion flow is active.",
         totalLeads: 0,
         conversionRate: "0",
         leakageAlerts: [],

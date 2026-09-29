@@ -969,7 +969,7 @@ const Projects = () => {
                         <div className="flex items-center gap-2">
                           <Folder size={14} className="text-amber-500" />
                           <span className="text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                            PROJECTS PIPELINE LOG
+                            PROJECTS  LOG
                           </span>
                         </div>
                         <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-full border border-slate-200/60 dark:border-slate-700">

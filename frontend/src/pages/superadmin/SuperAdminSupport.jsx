@@ -267,13 +267,13 @@ const SuperAdminSupport = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sa-border">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Customer Support & Incident Desk</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Investigate bug reports, resolve customer support queries, and coordinate multi-tenant communications.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Support Tickets &amp; Help Desk</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Manage support tickets, answer inquiries, and resolve issues for companies.</p>
         </div>
         <div className="flex items-center space-x-2">
           <span className="px-3 py-1.5 rounded-xl bg-sa-surface border border-sa-border text-xs font-extrabold text-sa-text flex items-center gap-1.5">
             <HelpCircle size={13} className="text-[#f59e0b]" />
-            <span>SaaS Incident Feed</span>
+            <span>Support Helpdesk</span>
           </span>
         </div>
       </div>
@@ -290,9 +290,9 @@ const SuperAdminSupport = () => {
           onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); }} 
         />
         <SupportKpiCard 
-          title="Open Incidents" 
+          title="Open Tickets" 
           count={openCount} 
-          subtitle="Awaiting dispatch" 
+          subtitle="Needs response" 
           icon={AlertCircle} 
           grad={["#f59e0b", "#f59e0b"]} 
           active={statusFilter === "open"} 
@@ -301,7 +301,7 @@ const SuperAdminSupport = () => {
         <SupportKpiCard 
           title="In Progress" 
           count={inProgressCount} 
-          subtitle="Under investigation" 
+          subtitle="In progress" 
           icon={Clock} 
           grad={["#f59e0b", "#06B6D4"]} 
           active={statusFilter === "inProgress"} 
@@ -310,16 +310,16 @@ const SuperAdminSupport = () => {
         <SupportKpiCard 
           title="Resolved Tickets" 
           count={resolvedCount} 
-          subtitle="Fix deployed" 
+          subtitle="Resolved" 
           icon={CheckCircle} 
           grad={["#d97706", "#fbbf24"]} 
           active={statusFilter === "resolved"} 
           onClick={() => setStatusFilter("resolved")} 
         />
         <SupportKpiCard 
-          title="Closed Archives" 
+          title="Closed Tickets" 
           count={closedCount} 
-          subtitle="Archived history" 
+          subtitle="Completed" 
           icon={FileText} 
           grad={["#b45309", "#06B6D4"]} 
           active={statusFilter === "closed"} 
@@ -333,7 +333,7 @@ const SuperAdminSupport = () => {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
           <input 
             type="text" 
-            placeholder="Search ticket subject, ID, tenant company, or reporter..." 
+            placeholder="Search ticket subject, ID, company name, or person..." 
             className="w-full bg-sa-bg/60 border border-sa-border rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all" 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
@@ -554,7 +554,7 @@ const SuperAdminSupport = () => {
                       <div className="flex justify-between items-center">
                         <span className="text-[11px] font-semibold text-sa-text-secondary flex items-center gap-1">
                           <CheckCircle2 size={13} className="text-[#fbbf24]" />
-                          <span>Visible to customer contact & tenant workspace admins.</span>
+                          <span>Visible to company admin and requester.</span>
                         </span>
                         <button 
                           type="submit" 

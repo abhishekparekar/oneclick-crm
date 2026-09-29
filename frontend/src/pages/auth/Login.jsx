@@ -23,10 +23,10 @@ import {
   Check,
 } from "lucide-react";
 import OneClickLogo from "../../components/common/OneClickLogo";
-import { 
-  sendResetOtpApi, 
-  verifyResetOtpApi, 
-  resetPasswordWithOtpApi 
+import {
+  sendResetOtpApi,
+  verifyResetOtpApi,
+  resetPasswordWithOtpApi
 } from "../../api/authApi";
 
 const Login = () => {
@@ -271,7 +271,7 @@ const Login = () => {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 font-sans flex flex-col justify-between p-4 sm:p-8 lg:p-12 relative overflow-hidden selection:bg-blue-600 selection:text-white">
-      
+
       {/* ── Soft Ambient Background Blurs (Clean White & Soft Blue) ── */}
       <div className="fixed -top-36 -left-36 w-[550px] h-[550px] bg-blue-100/60 rounded-full blur-3xl pointer-events-none" />
       <div className="fixed top-1/4 -right-36 w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-3xl pointer-events-none" />
@@ -287,7 +287,7 @@ const Login = () => {
             LEFT COLUMN: Corporate Brand & Platform Capabilities
         ════════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-6 flex flex-col justify-between space-y-7">
-          
+
           {/* Top Logo */}
           <div className="flex items-center gap-3">
             <OneClickLogo variant="landscape" />
@@ -336,7 +336,7 @@ const Login = () => {
                 <Zap size={18} strokeWidth={2.4} />
               </div>
               <div>
-                <h4 className="text-sm font-black text-slate-900">Lead Pipeline &amp; Follow-Up Reminders</h4>
+                <h4 className="text-sm font-black text-slate-900">Lead  &amp; Follow-Up Reminders</h4>
                 <p className="text-xs text-slate-500 font-medium mt-0.5 leading-relaxed">
                   Real-time inquiry capture, WhatsApp campaigns, and automated follow-up notifications.
                 </p>
@@ -363,9 +363,9 @@ const Login = () => {
             RIGHT COLUMN: Executive Pure White Login Card
         ════════════════════════════════════════════════════════════════ */}
         <div className="lg:col-span-6 w-full max-w-md mx-auto">
-          
+
           <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50 relative overflow-hidden">
-            
+
             {/* Top Blue Gradient Accent Bar */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600" />
 
@@ -389,7 +389,7 @@ const Login = () => {
 
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="w-full space-y-4">
-              
+
               {/* EMAIL ADDRESS */}
               <div className="space-y-1.5">
                 <label className="block text-[11px] font-black uppercase tracking-wider text-slate-700">
@@ -555,7 +555,7 @@ const Login = () => {
       {showForgotModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-xs animate-in fade-in duration-200">
           <div className="w-full max-w-md bg-white rounded-3xl border border-slate-200/90 shadow-2xl p-6 sm:p-7 relative">
-            
+
             {/* Close button */}
             <button
               type="button"
@@ -861,7 +861,7 @@ const Login = () => {
                 <div className="w-16 h-16 bg-emerald-50 border-2 border-emerald-200 rounded-full flex items-center justify-center mx-auto text-emerald-600 shadow-xs">
                   <CheckCircle size={36} strokeWidth={2.5} />
                 </div>
-                
+
                 <div className="space-y-1.5">
                   <h3 className="text-xl font-black text-slate-900">
                     Password Reset Complete!

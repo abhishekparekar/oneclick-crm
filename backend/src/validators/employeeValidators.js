@@ -70,6 +70,7 @@ const employeeCreateRules = [
   body("documents").optional({ nullable: true, checkFalsy: true }),
   body("assignedModules").optional({ nullable: true, checkFalsy: true }),
   body("accessibleDepartments").optional({ nullable: true, checkFalsy: true }),
+  body("departmentIds").optional({ nullable: true, checkFalsy: true }),
   body("reportingManagerId").optional({ nullable: true, checkFalsy: true }),
   body("noticePeriod").optional({ nullable: true, checkFalsy: true }).trim(),
   body("maritalStatus").optional({ nullable: true, checkFalsy: true }).trim(),

@@ -34,6 +34,7 @@ const notificationSchema = new mongoose.Schema(
                 "task",
                 "task_update",
                 "task_template",
+                "task_follow_up",
                 "announcement",
                 "project",
                 "system",

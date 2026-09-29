@@ -149,10 +149,10 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
       const leadList = Array.isArray(leadsData)
         ? leadsData
         : Array.isArray(leadsData?.data)
-        ? leadsData.data
-        : Array.isArray(leadsData?.leads)
-        ? leadsData.leads
-        : [];
+          ? leadsData.data
+          : Array.isArray(leadsData?.leads)
+            ? leadsData.leads
+            : [];
       setLeads(leadList);
 
       if (Array.isArray(statusesData) && statusesData.length > 0) {
@@ -193,7 +193,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
             setSelectedLead(found);
             setDetailsModalVisible(true);
           }
-        }).catch(() => {});
+        }).catch(() => { });
         navigation.setParams({ leadId: undefined, id: undefined });
       }
     }, [loadData, route?.params?.openAddModal, route?.params?.leadId, route?.params?.id, route?.params?.timestamp])
@@ -394,7 +394,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
         setLeadDoc({
           name: file.name || "Attached Document",
@@ -810,7 +810,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
                 <Ionicons name="magnet-outline" size={54} color="#CBD5E1" />
                 <Text style={styles.emptyTitle}>No Leads Found</Text>
                 <Text style={styles.emptySub}>
-                  {searchQuery ? "No leads matching your search criteria." : "No leads in this status pipeline yet."}
+                  {searchQuery ? "No leads matching your search criteria." : "No leads in this status  yet."}
                 </Text>
                 {canCreate && !searchQuery && (
                   <TouchableOpacity
@@ -1007,14 +1007,14 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
                   </ScrollView>
                 </View>
 
-                {/* ── Section 3: Pipeline Stage & Next Follow-Up ── */}
+                {/* ── Section 3:  Stage & Next Follow-Up ── */}
                 <View style={styles.formSectionBox}>
                   <View style={styles.sectionHeaderRow}>
                     <Ionicons name="layers-outline" size={13} color="#1268D9" />
-                    <Text style={styles.sectionHeaderText}>PIPELINE STAGE & NEXT FOLLOW-UP</Text>
+                    <Text style={styles.sectionHeaderText}> STAGE & NEXT FOLLOW-UP</Text>
                   </View>
 
-                  <Text style={styles.fieldLabel}>PIPELINE STAGE</Text>
+                  <Text style={styles.fieldLabel}> STAGE</Text>
                   <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 2, marginBottom: 10 }} keyboardShouldPersistTaps="handled">
                     {statuses.map((st) => {
                       const stId = st.id || st._id;
@@ -1234,7 +1234,7 @@ export default function EmployeeLeadsScreen({ navigation, route }) {
                     ) : (
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                         <Ionicons name="sparkles" size={14} color="#FFF" />
-                        <Text style={styles.saveModalBtnText}>Save & Create Lead</Text>
+                        <Text style={styles.saveModalBtnText}>Save & Add New Lead</Text>
                       </View>
                     )}
                   </TouchableOpacity>

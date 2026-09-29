@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -191,7 +192,7 @@ const buildManagerSections = (hasPermission) => {
 
 const ManagerDrawerContent = (props) => {
   const { state, navigation } = props;
-  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile, isLoggingOut } = useAuth();
   const insets = useSafeAreaInsets();
 
   React.useEffect(() => {
@@ -370,11 +371,22 @@ const ManagerDrawerContent = (props) => {
 
         <View style={styles.divider} />
 
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn} activeOpacity={0.7}>
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={[styles.logoutBtn, isLoggingOut && { opacity: 0.6 }]}
+          activeOpacity={0.7}
+          disabled={isLoggingOut}
+        >
           <View style={styles.logoutIconBox}>
-            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            {isLoggingOut ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            )}
           </View>
-          <Text style={styles.logoutLabel}>Sign Out</Text>
+          <Text style={styles.logoutLabel}>
+            {isLoggingOut ? "Signing Out..." : "Sign Out"}
+          </Text>
         </TouchableOpacity>
 
         <View style={styles.footer}>

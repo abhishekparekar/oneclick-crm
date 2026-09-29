@@ -227,14 +227,14 @@ const CompanyDashboard = ({ navigation }) => {
           user?.isLocationTrackingEnabled ??
           false;
         if (trackingEnabled) {
-          locationTrackingService.startLocationTracking().catch(() => {});
+          locationTrackingService.startLocationTracking().catch(() => { });
         }
         Alert.alert(
           "Success",
           "Clocked-In successfully!" + (trackingEnabled ? "\n\n📍 Live Route Tracking Active" : "")
         );
       } else {
-        locationTrackingService.stopLocationTracking().catch(() => {});
+        locationTrackingService.stopLocationTracking().catch(() => { });
         await punchOutApi({ punchOutLocation: coords });
         Alert.alert("Success", "Clocked-Out successfully!");
       }
@@ -308,7 +308,7 @@ const CompanyDashboard = ({ navigation }) => {
               <View style={styles.heroLeft}>
                 <Text style={styles.heroSubtitle}>{user?.companyName || "Company Overview"}</Text>
                 <Text style={styles.heroTitle}>Welcome, {user?.name?.split(" ")[0] || "Admin"}! 👋</Text>
-                
+
                 <View style={styles.heroBadgeRow}>
                   <View style={styles.heroBadge}>
                     <Text style={styles.heroBadgeText}>{totalEmp} Active Employees</Text>
@@ -319,8 +319,8 @@ const CompanyDashboard = ({ navigation }) => {
                 </View>
               </View>
 
-              <TouchableOpacity 
-                style={styles.heroAddBtn} 
+              <TouchableOpacity
+                style={styles.heroAddBtn}
                 onPress={() => navigation.navigate("DashboardStack", { screen: "AddEmployee" })}
                 activeOpacity={0.85}
               >
@@ -550,13 +550,13 @@ const CompanyDashboard = ({ navigation }) => {
               </View>
             )}
 
-            {/* Lead CRM Pipeline & Recent Inquiries Card */}
+            {/* Lead CRM  & Recent Inquiries Card */}
             {canAccessLeads && (
               <View style={styles.cardContainer}>
                 <View style={styles.cardHeaderRow}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="magnet-outline" size={18} color="#1268D9" style={{ marginRight: 6 }} />
-                    <Text style={styles.cardHeaderTitle}>Lead Pipeline Summary</Text>
+                    <Text style={styles.cardHeaderTitle}>Lead  Summary</Text>
                   </View>
                   <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}>
                     <Text style={styles.cardHeaderLink}>View CRM →</Text>

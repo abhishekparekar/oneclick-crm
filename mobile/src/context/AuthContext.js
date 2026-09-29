@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, View, Text, StyleSheet, Modal, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { setAuthToken, setOnSessionInvalidated } from "../api/api";
 import { isEmployeeRole } from "../utils/roleHelpers";
@@ -14,6 +14,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
     setOnSessionInvalidated(() => {
@@ -177,43 +178,61 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     console.log("[AuthContext] Logging out user:", user?.email);
+    setIsLoggingOut(true);
     try {
       if (isEmployeeRole(user?.role) && hasPermission("tasks")) {
-        const api = require("../api/api").default;
-        const res = await api.get("/auth/logout-check");
-        if (res.data && res.data.canLogout === false) {
-          const { Alert } = require("react-native");
-          Alert.alert(
-            "Action Required",
-            res.data.message || "You have pending tasks for today. You cannot logout.",
-            [{ text: "OK" }]
-          );
-          return { success: false, message: "Pending tasks exist." };
+        try {
+          const api = require("../api/api").default;
+          const res = await Promise.race([
+            api.get("/auth/logout-check"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3500)),
+          ]);
+          if (res?.data && res.data.canLogout === false) {
+            setIsLoggingOut(false);
+            Alert.alert(
+              "Action Required",
+              res.data.message || "You have pending tasks for today. You cannot logout.",
+              [{ text: "OK" }]
+            );
+            return { success: false, message: "Pending tasks exist." };
+          }
+        } catch (checkErr) {
+          console.warn("[AuthContext] Logout check skipped or timed out:", checkErr?.message);
         }
       }
-    } catch (err) {
-      console.warn("[AuthContext] Logout check failed, proceeding to logout anyway", err);
-    }
 
-    try {
-      const locationTrackingService = require("../services/locationTrackingService").default;
-      if (locationTrackingService) {
-        locationTrackingService.stopLocationTracking().catch(() => {});
+      try {
+        const locationTrackingService = require("../services/locationTrackingService").default;
+        if (locationTrackingService) {
+          await locationTrackingService.stopLocationTracking().catch(() => {});
+        }
+      } catch (_) {}
+
+      // Call server to clear mobile session slot with timeout so user is not stuck indefinitely
+      try {
+        await Promise.race([
+          logoutApi(),
+          new Promise((resolve) => setTimeout(resolve, 3500)),
+        ]);
+      } catch (err) {
+        console.warn("[AuthContext] Server logout call failed, proceeding locally", err?.message);
       }
-    } catch (_) {}
 
-    // Call server to clear mobile session slot
-    try {
-      await logoutApi();
+      await clearAuthStorage();
+      setToken(null);
+      setUser(null);
+      console.log("[AuthContext] User logged out successfully");
+      return { success: true };
     } catch (err) {
-      console.warn("[AuthContext] Server logout call failed, proceeding locally", err?.message);
+      console.error("[AuthContext] Error during logout:", err);
+      // Guarantee local auth is cleared even if unexpected failure occurs
+      await clearAuthStorage().catch(() => {});
+      setToken(null);
+      setUser(null);
+      return { success: true };
+    } finally {
+      setIsLoggingOut(false);
     }
-
-    await clearAuthStorage();
-    setToken(null);
-    setUser(null);
-    console.log("[AuthContext] User logged out successfully");
-    return { success: true };
   };
 
   const updateUser = async (updatedUser) => {
@@ -402,6 +421,7 @@ export const AuthProvider = ({ children }) => {
     user,
     token,
     isLoading,
+    isLoggingOut,
     isAuthenticated: !!token && !!user,
     login,
     logout,
@@ -437,8 +457,77 @@ export const AuthProvider = ({ children }) => {
     };
   }, [token, user]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <Modal
+        visible={isLoggingOut}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={() => {}}
+      >
+        <View style={styles.logoutBackdrop}>
+          <View style={styles.logoutModalCard}>
+            <View style={styles.logoutIconWrapper}>
+              <ActivityIndicator size="large" color="#EF4444" />
+            </View>
+            <Text style={styles.logoutModalTitle}>Signing Out...</Text>
+            <Text style={styles.logoutModalSubtitle}>
+              Please wait while your session is securely closed.
+            </Text>
+          </View>
+        </View>
+      </Modal>
+    </AuthContext.Provider>
+  );
 };
+
+const styles = StyleSheet.create({
+  logoutBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  logoutModalCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    paddingVertical: 28,
+    paddingHorizontal: 24,
+    alignItems: "center",
+    width: "100%",
+    maxWidth: 320,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  logoutIconWrapper: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  logoutModalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 6,
+    textAlign: "center",
+  },
+  logoutModalSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 18,
+  },
+});
 
 export const useAuth = () => {
   const context = useContext(AuthContext);

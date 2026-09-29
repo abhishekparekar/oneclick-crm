@@ -92,7 +92,7 @@ export default function LeadSettingsScreen({ navigation }) {
     timezone: "Asia/Kolkata",
   });
 
-  // Pipeline Data States
+  //  Data States
   const [statuses, setStatuses] = useState([]);
   const [sources, setSources] = useState([]);
   const [tags, setTags] = useState([]);
@@ -337,14 +337,14 @@ export default function LeadSettingsScreen({ navigation }) {
         url: url,
         title: "Lead Capture Form",
       });
-    } catch (_) {}
+    } catch (_) { }
   };
 
   return (
     <CompanyAdminLayout
       navigation={navigation}
       title="Lead Engine & WhatsApp"
-      subtitle="CRM pipeline & WhatsApp API integration"
+      subtitle="CRM  & WhatsApp API integration"
       activeTab="Lead Settings"
     >
       <View style={styles.container}>
@@ -716,11 +716,11 @@ export default function LeadSettingsScreen({ navigation }) {
               </View>
             )}
 
-            {/* ══════════ 3. PIPELINE STAGES TAB ══════════ */}
+            {/* ══════════ 3.  STAGES TAB ══════════ */}
             {activeTab === "statuses" && (
               <View style={styles.compactCard}>
                 <View style={styles.cardHeaderStrip}>
-                  <Text style={styles.cardHeaderTitle}>Pipeline Stages ({statuses.length})</Text>
+                  <Text style={styles.cardHeaderTitle}> Stages ({statuses.length})</Text>
                   <TouchableOpacity
                     style={styles.addBtnMini}
                     onPress={() => {

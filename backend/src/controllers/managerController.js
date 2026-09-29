@@ -22,6 +22,7 @@ const User = require("../models/User");
 const mongoose = require("mongoose");
 const { sendNotificationToEmployees, notifyUser, notifyTaskSupervisors } = require("../utils/notificationHelper");
 const { calculateLeaveAccrualMetrics } = require("../utils/leaveAccrualHelper");
+const { parseDateTimeIST } = require("../utils/dateParser");
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -1560,7 +1561,13 @@ const getMyTasks = async (req, res, next) => {
     const companyId = req.companyId;
     const isTemplate = req.query.isTemplate === 'true' || req.query.isTemplate === true;
     const manager = await resolveManagerEmployee(req);
-    if (!manager) return res.status(404).json({ success: false, message: "Manager not found" });
+    const targetAssigneeIds = [req.user._id];
+    if (manager?._id) targetAssigneeIds.push(manager._id);
+    if (req.user?.employeeId) targetAssigneeIds.push(req.user.employeeId);
+
+    if (!manager && !["CompanyAdmin", "SuperAdmin", "HR"].includes(req.user.role)) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
 
     let tasks;
     if (isTemplate) {
@@ -1568,7 +1575,7 @@ const getMyTasks = async (req, res, next) => {
       tasks = await TaskTemplate.find({
         companyId,
         $or: [
-          { assignedTo: { $in: [manager._id, req.user._id] } },
+          { assignedTo: { $in: targetAssigneeIds } },
           { assignedBy: req.user._id, assignmentType: "self" }
         ]
       })
@@ -1589,7 +1596,7 @@ const getMyTasks = async (req, res, next) => {
       tasks = await Task.find({
         companyId,
         $or: [
-          { assignedTo: { $in: [manager._id, req.user._id] } },
+          { assignedTo: { $in: targetAssigneeIds } },
           { assignedBy: req.user._id, assignmentType: "self" }
         ],
         status: { $ne: "cancelled" }
@@ -1603,6 +1610,11 @@ const getMyTasks = async (req, res, next) => {
         .sort({ createdAt: -1 })
         .lean();
       tasks.forEach(t => t.assignees = t.assignedTo || []);
+    }
+
+    const { populateMissingAssignees } = require("./taskController");
+    if (typeof populateMissingAssignees === "function") {
+      await populateMissingAssignees(tasks);
     }
 
     return res.json({ success: true, data: tasks });
@@ -1998,7 +2010,8 @@ const createTask = async (req, res, next) => {
       priority: priority || "medium",
       startDateTime: startDt,
       endDateTime: endDt,
-      nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : startDt,
+      nextFollowUpDate: nextFollowUpDate ? parseDateTimeIST(nextFollowUpDate) : null,
+      followUpNotified: false,
       status: isOverdueNow ? "overdue" : "pending",
       reminderStage: isOverdueNow ? 3 : 0,
       isLive: true,

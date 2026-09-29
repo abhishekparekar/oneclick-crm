@@ -15,7 +15,7 @@ const ALL_SYSTEM_MODULES = [
 
 const DISPLAY_MODULES = [
   { key: "tasks", label: "Tasks" },
-  { key: "leads", label: "Leads Engine" },
+  { key: "leads", label: "Lead" },
   { key: "map_leads", label: "Map Leads", subtext: "Live Google Maps Scraping" },
   { key: "attendance", label: "Attendance" },
   { key: "location_tracking", label: "Location Tracking", subtext: "Live GPS Tracking" },
@@ -27,7 +27,7 @@ const DISPLAY_MODULES = [
 
 const MODULE_CAP_ITEMS = [
   { key: "tasks",             label: "Tasks Module",                color: "#f59e0b" },
-  { key: "leads",             label: "Leads Engine & CRM",          color: "#f59e0b" },
+  { key: "leads",             label: "Lead",                        color: "#f59e0b" },
   { key: "attendance",        label: "Attendance",                  color: "#10b981" },
   { key: "location_tracking", label: "Field GPS Location Tracking", color: "#ec4899" },
   { key: "projects",          label: "Projects Workspace",          color: "#06B6D4" },
@@ -406,47 +406,79 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                 </div>
 
                 <div>
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Industry Classification</label>
-                  <div className="relative">
-                    <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary pointer-events-none" />
-                    <select
-                      name="industryType"
-                      value={isCustomIndustry ? "Other" : formData.industryType}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "Other") {
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">
+                      Industry / Business Type
+                    </label>
+                    {!isCustomIndustry ? (
+                      <button
+                        type="button"
+                        onClick={() => {
                           setIsCustomIndustry(true);
                           setFormData(prev => ({ ...prev, industryType: customIndustryText || "" }));
-                        } else {
+                        }}
+                        className="text-xs font-bold text-[#1268D9] dark:text-[#3B82F6] hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+                      >
+                        + Add Custom Industry
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
                           setIsCustomIndustry(false);
-                          setFormData(prev => ({ ...prev, industryType: val }));
-                        }
-                      }}
-                      className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
-                    >
-                      <option value="Technology">Technology & Software</option>
-                      <option value="Finance">Banking & Finance</option>
-                      <option value="Healthcare">Healthcare & Life Sciences</option>
-                      <option value="Retail">Retail & E-Commerce</option>
-                      <option value="Manufacturing">Manufacturing & Logistics</option>
-                      <option value="Education">Education & EdTech</option>
-                      <option value="Real Estate">Real Estate & Construction</option>
-                      <option value="Hospitality">Hospitality & Tourism</option>
-                      <option value="Consulting">Consulting & Professional Services</option>
-                      <option value="Other">+ Custom Industry Classification</option>
-                    </select>
+                          setFormData(prev => ({ ...prev, industryType: "Technology" }));
+                        }}
+                        className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+                      >
+                        ← Select from list
+                      </button>
+                    )}
                   </div>
-                  {isCustomIndustry && (
-                    <input
-                      type="text"
-                      value={customIndustryText}
-                      onChange={(e) => {
-                        setCustomIndustryText(e.target.value);
-                        setFormData(prev => ({ ...prev, industryType: e.target.value }));
-                      }}
-                      placeholder="Enter custom industry"
-                      className="w-full mt-2 bg-sa-bg border border-[#f59e0b] rounded-xl px-3.5 py-2 text-xs font-bold text-sa-text"
-                    />
+
+                  {!isCustomIndustry ? (
+                    <div className="relative">
+                      <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary pointer-events-none" />
+                      <select
+                        name="industryType"
+                        value={formData.industryType}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "Other") {
+                            setIsCustomIndustry(true);
+                            setFormData(prev => ({ ...prev, industryType: customIndustryText || "" }));
+                          } else {
+                            setFormData(prev => ({ ...prev, industryType: val }));
+                          }
+                        }}
+                        className="w-full bg-sa-bg border border-sa-border/40 dark:border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer"
+                      >
+                        <option value="Technology">Technology & Software</option>
+                        <option value="Finance">Banking & Finance</option>
+                        <option value="Healthcare">Healthcare & Life Sciences</option>
+                        <option value="Retail">Retail & E-Commerce</option>
+                        <option value="Manufacturing">Manufacturing & Logistics</option>
+                        <option value="Education">Education & EdTech</option>
+                        <option value="Real Estate">Real Estate & Construction</option>
+                        <option value="Hospitality">Hospitality & Tourism</option>
+                        <option value="Consulting">Consulting & Professional Services</option>
+                        <option value="Other">+ Add Custom Industry</option>
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="relative animate-fadeIn">
+                      <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-primary" />
+                      <input
+                        type="text"
+                        value={customIndustryText}
+                        onChange={(e) => {
+                          setCustomIndustryText(e.target.value);
+                          setFormData(prev => ({ ...prev, industryType: e.target.value }));
+                        }}
+                        placeholder="Enter custom industry"
+                        className="w-full bg-sa-bg border border-sa-primary/50 dark:border-sa-primary/60 rounded-xl pl-9 pr-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-sa-primary"
+                        autoFocus
+                      />
+                    </div>
                   )}
                 </div>
 
@@ -636,16 +668,16 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                 </div>
               </div>
 
-              {/* Entitled Suite Modules & Feature Licenses */}
+              {/* Features & Modules */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between border-b border-sa-border/40 dark:border-white/10 pb-2">
                   <div>
                     <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
                       <Cpu size={14} className="text-[#f59e0b]" />
-                      <span>Entitled Suite Modules &amp; Feature Licenses</span>
+                      <span>Features &amp; Modules</span>
                     </h4>
                     <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
-                      Select enabled modules.
+                      Select features to enable for this company.
                     </p>
                   </div>
                   <span className="text-xs font-mono font-bold text-[#f59e0b]">{DISPLAY_MODULES.filter(m => formData.subscribedModules.includes(m.key)).length} / {DISPLAY_MODULES.length} Selected</span>
@@ -686,7 +718,7 @@ const SuperAdminEditCompanyModal = ({ isOpen, onClose, company, onUpdated }) => 
                   <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                     <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                       <Users size={13} className="text-[#f59e0b]" />
-                      <span>Per-Module Employee Seat Caps (Optional Sub-Quota — Leave Blank for All Seats)</span>
+                      <span>Module Employee Limits (Optional — Leave blank for all employees)</span>
                     </p>
                     <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
                       Set how many employees can access each module. Leave blank to allow all company seats.

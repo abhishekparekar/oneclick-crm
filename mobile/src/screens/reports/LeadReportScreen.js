@@ -87,7 +87,7 @@ const LeadReportScreen = () => {
         ["Total Inquiries", kpis.totalLeads],
         ["Converted Deals", kpis.convertedLeads],
         ["Conversion Rate", `${kpis.conversionRate}%`],
-        ["Total Pipeline Value (INR)", `Rs. ${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}`],
+        ["Total  Value (INR)", `Rs. ${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}`],
         ["Won Value (INR)", `Rs. ${Number(kpis.wonValue || 0).toLocaleString("en-IN")}`],
         ["Active Pipeline", kpis.pipelineLeads],
       ];
@@ -144,7 +144,7 @@ const LeadReportScreen = () => {
           <div style="display: flex; gap: 8px; margin: 12px 0;">
             <div style="background: #EFF6FF; border: 1px solid #BFDBFE; padding: 8px; border-radius: 6px; flex: 1;">Total Leads: <b>${kpis.totalLeads}</b></div>
             <div style="background: #ECFDF5; border: 1px solid #A7F3D0; padding: 8px; border-radius: 6px; flex: 1; color: #059669;">Won: <b>${kpis.convertedLeads} (${kpis.conversionRate}%)</b></div>
-            <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 8px; border-radius: 6px; flex: 1; color: #D97706;">Pipeline Value: <b>₹${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}</b></div>
+            <div style="background: #FFFBEB; border: 1px solid #FDE68A; padding: 8px; border-radius: 6px; flex: 1; color: #D97706;"> Value: <b>₹${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}</b></div>
           </div>
           <table style="width: 100%; border-collapse: collapse; font-size: 11px;">
             <thead>
@@ -179,7 +179,7 @@ const LeadReportScreen = () => {
           year={year}
           setMonth={setMonth}
           setYear={setYear}
-          onDownload={() => {}}
+          onDownload={() => { }}
         />
         <Loader />
       </View>
@@ -222,7 +222,7 @@ const LeadReportScreen = () => {
           </View>
 
           <View style={[styles.kpiCard, { borderLeftColor: "#7C3AED" }]}>
-            <Text style={styles.kpiLabel}>PIPELINE VAL</Text>
+            <Text style={styles.kpiLabel}> VAL</Text>
             <Text style={[styles.kpiVal, { color: "#7C3AED", fontSize: 13 }]}>₹{Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}</Text>
           </View>
         </View>

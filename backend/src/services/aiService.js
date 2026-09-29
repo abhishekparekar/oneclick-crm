@@ -254,10 +254,10 @@ async function aggregateTaskData(companyId, days = 30) {
   const completionRate =
     recentTasks.length > 0
       ? (
-          ((statusCounts.complete + statusCounts.late_complete) /
-            recentTasks.length) *
-          100
-        ).toFixed(1)
+        ((statusCounts.complete + statusCounts.late_complete) /
+          recentTasks.length) *
+        100
+      ).toFixed(1)
       : "0";
 
   const overdueRate =
@@ -328,7 +328,7 @@ async function aggregateProjectData(companyId, days = 60) {
 
   projects.forEach((p) => {
     if (statusCounts[p.status] !== undefined) statusCounts[p.status]++;
-    
+
     const isOverdue = p.endDate && new Date(p.endDate) < now && p.status !== "completed";
     if (isOverdue) overdueProjects.push(p);
 
@@ -1269,7 +1269,7 @@ Return ONLY valid JSON:
   "warmLeadsCount": 0,
   "coldLeadsCount": 0,
   "revenueAtRisk": "Estimated value of overdue/stalled leads",
-  "summary": "Overall pipeline health and conversion velocity summary",
+  "summary": "Overall  health and conversion velocity summary",
   "scoredLeads": [
     {
       "leadId": "id string",

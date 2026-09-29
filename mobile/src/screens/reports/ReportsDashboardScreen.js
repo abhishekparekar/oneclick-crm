@@ -41,7 +41,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
   const canAccessLeads = isSuperAdmin || hasPermission("leads", "view") || hasPermission("leads");
   const canAccessWorkforce = isSuperAdmin || isCompanyAdmin || isHR || hasPermission("teamMembers") || hasPermission("employees");
   const canAccessPerformance = isSuperAdmin || hasPermission("performance", "view") || hasPermission("performance");
-  
+
   // Payroll: STRICTLY permitted only when explicit payroll permission exists
   const canAccessPayroll =
     isSuperAdmin ||
@@ -165,7 +165,7 @@ const ReportsDashboardScreen = ({ navigation }) => {
       list.push({
         id: "leads",
         title: "CRM & Leads Report",
-        subtitle: "Pipeline stages, conversion rates & sales rep ledger",
+        subtitle: " stages, conversion rates & sales rep ledger",
         icon: "call",
         color: "#0284C7",
         badge: "Sales",
@@ -340,8 +340,8 @@ const ReportsDashboardScreen = ({ navigation }) => {
                   {kpis.attendanceRate?.current !== undefined
                     ? `${kpis.attendanceRate.current}%`
                     : summary?.attendance?.presentToday !== undefined
-                    ? `${summary.attendance.presentToday} Present`
-                    : "—"}
+                      ? `${summary.attendance.presentToday} Present`
+                      : "—"}
                 </Text>
               </View>
 
@@ -351,8 +351,8 @@ const ReportsDashboardScreen = ({ navigation }) => {
                   {kpis.taskCompletionRate?.current !== undefined
                     ? `${kpis.taskCompletionRate.current}%`
                     : summary?.tasks?.completedTasks !== undefined
-                    ? `${summary.tasks.completedTasks} Done`
-                    : "—"}
+                      ? `${summary.tasks.completedTasks} Done`
+                      : "—"}
                 </Text>
               </View>
 

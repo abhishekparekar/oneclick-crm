@@ -547,7 +547,7 @@ export default function Dashboard() {
         >
           <div style={{ marginBottom: 12 }}>
             <p className="text-[13px] font-semibold text-[#0F172A]">Leads by Status</p>
-            <p className="text-[12px] text-[#64748B] mt-0.5 font-normal font-sans">Pipeline distribution</p>
+            <p className="text-[12px] text-[#64748B] mt-0.5 font-normal font-sans"> distribution</p>
           </div>
 
           {pieData.length === 0 ? (

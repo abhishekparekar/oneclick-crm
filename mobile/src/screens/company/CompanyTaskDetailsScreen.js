@@ -85,6 +85,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
 
   const [task, setTask] = useState(initialTask || null);
   const [refreshing, setRefreshing] = useState(false);
+  const [updatingChecklistId, setUpdatingChecklistId] = useState(null);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [attachedFile, setAttachedFile] = useState(null);
@@ -571,12 +572,14 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
   const handleToggleChecklist = async (checkItem, idx) => {
     if (!task) return;
     const newStatus = !checkItem.isCompleted;
+    const itemKey = checkItem._id ? String(checkItem._id) : `idx_${idx}`;
+    setUpdatingChecklistId(itemKey);
 
     // Optimistic UI update
     setTask((prevTask) => {
       if (!prevTask) return prevTask;
       const updatedChecklist = (prevTask.checklist || []).map((item, i) =>
-        (item._id && checkItem._id && item._id === checkItem._id) || i === idx
+        (item._id && checkItem._id && String(item._id) === String(checkItem._id)) || i === idx
           ? { ...item, isCompleted: newStatus }
           : item
       );
@@ -590,11 +593,16 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         isCompleted: newStatus,
         completed: newStatus,
       };
-      await updateTaskChecklistApi(taskId || task._id, payload);
+      const res = await updateTaskChecklistApi(taskId || task._id, payload);
+      if (res?.data?.task?.checklist) {
+        setTask((prev) => (prev ? { ...prev, checklist: res.data.task.checklist } : prev));
+      }
     } catch (err) {
       console.error("Failed to toggle checklist item", err);
       fetchTask(true);
       Alert.alert("Error", err.response?.data?.message || "Failed to update checklist item");
+    } finally {
+      setUpdatingChecklistId(null);
     }
   };
 
@@ -853,23 +861,39 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
                     {task.checklist.filter(c => c.isCompleted).length}/{task.checklist.length} Done
                   </Text>
                 </View>
-                {task.checklist.map((item, idx) => (
-                  <TouchableOpacity
-                    key={item._id || idx}
-                    style={styles.nativeChecklistItem}
-                    onPress={() => handleToggleChecklist(item, idx)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={item.isCompleted ? "checkbox" : "square-outline"}
-                      size={18}
-                      color={item.isCompleted ? "#16A34A" : "#94A3B8"}
-                    />
-                    <Text style={[styles.nativeChecklistTitle, item.isCompleted && styles.nativeChecklistTitleDone]}>
-                      {item.title}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+                {task.checklist.map((item, idx) => {
+                  const itemKey = item._id ? String(item._id) : `idx_${idx}`;
+                  const isItemUpdating = updatingChecklistId === itemKey;
+                  return (
+                    <TouchableOpacity
+                      key={itemKey}
+                      style={[
+                        styles.nativeChecklistItem,
+                        item.isCompleted && styles.nativeChecklistItemDone,
+                        isItemUpdating && { opacity: 0.65 }
+                      ]}
+                      onPress={() => handleToggleChecklist(item, idx)}
+                      disabled={isItemUpdating}
+                      activeOpacity={0.6}
+                    >
+                      <View style={[styles.checkboxBox, item.isCompleted && styles.checkboxBoxChecked]}>
+                        {isItemUpdating ? (
+                          <ActivityIndicator size="small" color={item.isCompleted ? "#FFFFFF" : "#16A34A"} />
+                        ) : item.isCompleted ? (
+                          <Ionicons name="checkmark" size={14} color="#FFFFFF" />
+                        ) : null}
+                      </View>
+                      <Text style={[styles.nativeChecklistTitle, item.isCompleted && styles.nativeChecklistTitleDone]}>
+                        {item.title}
+                      </Text>
+                      {item.isCompleted && (
+                        <View style={styles.doneBadge}>
+                          <Text style={styles.doneBadgeText}>Done</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1769,14 +1793,45 @@ const styles = StyleSheet.create({
   nativeChecklistItem: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FFFFFF",
     borderWidth: 1,
-    borderColor: "#CBD5E1",
-    borderRadius: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-    marginBottom: 5,
-    gap: 6,
+    borderColor: "#E2E8F0",
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 10,
+    marginBottom: 6,
+    gap: 8,
+  },
+  nativeChecklistItemDone: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  checkboxBox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: "#94A3B8",
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkboxBoxChecked: {
+    backgroundColor: "#16A34A",
+    borderColor: "#16A34A",
+  },
+  doneBadge: {
+    backgroundColor: "#DCFCE7",
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#86EFAC",
+  },
+  doneBadgeText: {
+    fontSize: 10.5,
+    fontWeight: "700",
+    color: "#15803D",
   },
   nativeChecklistTitle: {
     fontSize: 13,

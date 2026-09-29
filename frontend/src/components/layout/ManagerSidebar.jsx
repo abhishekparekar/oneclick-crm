@@ -25,6 +25,9 @@ import {
   Navigation,
   Wallet,
   FileUp,
+  FileSpreadsheet,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -32,16 +35,16 @@ import {
 // ─────────────────────────────────────────────────────────────────────────────
 const MANAGER_SECTIONS = [
   {
-    title: "DAILY WORKSPACE",
+    title: "WORKSPACE",
     items: [
       { label: "Dashboard", path: "/manager/dashboard", icon: LayoutDashboard },
-      { label: "Leads Pipeline", path: "/manager/leads", icon: Magnet, module: "leads" },
+      { label: "Leads", path: "/manager/leads", icon: Magnet, module: "leads" },
       { label: "My Tasks", path: "/manager/my-tasks", icon: ListTodo, module: "tasks" },
       { label: "Team Tasks", path: "/manager/team-tasks", icon: CheckSquare, module: "tasks" },
-      { label: "Attendance Overview", path: "/manager/attendance", icon: CalendarCheck, module: "attendance" },
-      { label: "My Leaves", path: "/manager/my-leave", icon: FileText, module: "leave" },
+      { label: "Team Attendance", path: "/manager/attendance", icon: CalendarCheck, module: "attendance" },
       { label: "Company Requests", path: "/manager/requests", icon: MessageSquare },
-      { label: "My Payslips", path: "/manager/payslips", icon: Receipt, module: "payroll" },
+      { label: "My Leaves", path: "/manager/my-leave", icon: FileText, module: "leave" },
+      { label: "Payslips", path: "/manager/payslips", icon: Receipt, module: "payroll" },
     ],
   },
   {
@@ -49,8 +52,8 @@ const MANAGER_SECTIONS = [
     items: [
       { label: "Team Members", path: "/manager/team", icon: Users },
       { label: "Upload Documents", path: "/manager/upload-document", icon: FileUp, permission: ["teamMembers", "uploadDocs"] },
-      { label: "Team Attendance ", path: "/manager/team-attendance", icon: CalendarCheck, module: "attendance" },
-      { label: "Live Employee Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
+      { label: "My Attendance", path: "/manager/my-attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Live Tracking", path: "/manager/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       // { label: "Tracking Allowance", path: "/manager/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Team Leaves", path: "/manager/team-leaves", icon: CalendarDays, module: "leave" },
       { label: "Generate Payroll", path: "/manager/payroll/generate", icon: Receipt, module: "payroll", permission: ["payroll", "generate"] },
@@ -58,24 +61,24 @@ const MANAGER_SECTIONS = [
     ],
   },
   {
-    title: "LEAD CRM & PROJECTS",
+    title: "CRM & PROJECTS",
     items: [
-      { label: "WhatsApp Campaigns", path: "/manager/leads/campaigns", icon: Megaphone, module: "leads" },
-      { label: "Service Reminders", path: "/manager/leads/reminders", icon: Clock, module: "leads" },
+      { label: "Campaigns", path: "/manager/leads/campaigns", icon: Megaphone, module: "leads" },
+      { label: "Reminders", path: "/manager/leads/reminders", icon: Clock, module: "leads" },
       { label: "Projects", path: "/manager/projects", icon: FolderKanban, module: "projects" },
     ],
   },
   {
-    title: "INSIGHTS & SETTINGS",
+    title: "REPORTS & UPDATES",
     items: [
-      { label: "Reports Hub", path: "/manager/reports", icon: BarChart2, module: "reports" },
+      { label: "Reports", path: "/manager/reports", icon: BarChart2, module: "reports" },
+      { label: "Attendance Report", path: "/manager/attendance-report", icon: FileSpreadsheet, modules: ["attendance", "reports"] },
       { label: "Announcements", path: "/manager/announcements", icon: Megaphone },
-      { label: "Lead Settings", path: "/manager/leads/settings", icon: Settings, module: "leads" },
     ],
   },
 ];
 
-const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
+const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false, onToggleCollapse }) => {
   const location = useLocation();
   const { user, hasPermission } = useAuth();
 
@@ -205,68 +208,27 @@ const ManagerSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         })}
       </nav>
 
-      {/* Footer / User Profile */}
-      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "p-2.5 space-y-1.5 bg-[#061225]"}`}>
+      {/* ── Sidebar Collapse / Close Button ── */}
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center" : "p-2.5 bg-[#061225]"}`}>
         {!isCollapsed ? (
-          <>
-            {/* Company Selector Pill */}
-            <div className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-white/[0.03] border border-white/[0.04] text-xs font-bold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
-              <div className="flex items-center gap-2 truncate min-w-0">
-                <Hexagon size={14} strokeWidth={2} className="text-[#1268D9] flex-shrink-0" />
-                <span className="truncate text-[11.5px]">{companyName}</span>
-              </div>
-              <ChevronDown size={12} strokeWidth={2} className="text-slate-500 flex-shrink-0" />
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 hover:text-white transition-all cursor-pointer group"
+            title="Collapse Sidebar"
+          >
+            <span className="text-xs font-bold tracking-wide text-slate-400 group-hover:text-slate-200">Collapse Sidebar</span>
+            <div className="w-6 h-6 rounded-lg bg-white/[0.04] group-hover:bg-amber-500/20 group-hover:text-amber-400 flex items-center justify-center transition-colors">
+              <ChevronLeft size={15} strokeWidth={2.5} className="group-hover:-translate-x-0.5 transition-transform" />
             </div>
-
-            {/* User row + Logout */}
-            <div className="flex items-center justify-between px-2 py-1.5 rounded-xl hover:bg-white/[0.04] transition-all group">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="relative flex-shrink-0">
-                  {(() => {
-                    const mgr = profileData?.manager || profileData?.employee || {};
-                    const rawAvatar = user?.profileImage || mgr.photo || mgr.profileImage;
-                    const avatarUrl = rawAvatar ? (rawAvatar.startsWith("http") || rawAvatar.startsWith("data:") ? rawAvatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawAvatar.startsWith("/") ? "" : "/"}${rawAvatar}`) : null;
-
-                    return avatarUrl ? (
-                      <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[10.5px]">
-                        {userName.slice(0, 2).toUpperCase()}
-                      </div>
-                    );
-                  })()}
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#070C14]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] font-bold text-slate-200 truncate leading-tight">{userName}</p>
-                  <p className="text-[10px] text-slate-500 leading-tight">Manager</p>
-                </div>
-              </div>
-              <button
-                onClick={logout}
-                title="Log Out"
-                className="text-slate-500 hover:text-rose-400 transition-colors p-1 cursor-pointer"
-              >
-                <LogOut size={13} strokeWidth={2} />
-              </button>
-            </div>
-          </>
+          </button>
         ) : (
-          <>
-            <div
-              title={userName}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[10.5px] shadow-xs cursor-pointer"
-            >
-              {userName.slice(0, 2).toUpperCase()}
-            </div>
-            <button
-              onClick={logout}
-              title="Log Out"
-              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            >
-              <LogOut size={16} strokeWidth={2} />
-            </button>
-          </>
+          <button
+            onClick={onToggleCollapse}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-amber-400 border border-white/[0.06] transition-all cursor-pointer shadow-2xs"
+            title="Expand Sidebar"
+          >
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </button>
         )}
       </div>
     </div>

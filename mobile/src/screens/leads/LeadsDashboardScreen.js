@@ -205,7 +205,7 @@ export default function LeadsDashboardScreen({ navigation }) {
                 <View>
                   <View style={styles.heroBadge}>
                     <Ionicons name="trending-up" size={12} color="#60A5FA" />
-                    <Text style={styles.heroPreTitle}>PIPELINE VALUATION</Text>
+                    <Text style={styles.heroPreTitle}> VALUATION</Text>
                   </View>
                   <Text style={styles.heroValuationText}>
                     ₹{summary.totalPipelineValue.toLocaleString()}
@@ -341,12 +341,12 @@ export default function LeadsDashboardScreen({ navigation }) {
               </TouchableOpacity>
             </View>
 
-            {/* ── 3. Pipeline Distribution ── */}
+            {/* ── 3.  Distribution ── */}
             <View style={styles.cardContainer}>
               <View style={styles.cardHeaderRow}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                   <Ionicons name="funnel-outline" size={15} color="#1268D9" />
-                  <Text style={styles.cardHeading}>Pipeline Funnel</Text>
+                  <Text style={styles.cardHeading}> Funnel</Text>
                 </View>
                 <TouchableOpacity onPress={() => navigation.navigate("LeadsList")}>
                   <Text style={styles.linkText}>View Board →</Text>

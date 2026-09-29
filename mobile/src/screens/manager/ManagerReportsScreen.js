@@ -51,7 +51,7 @@ const ManagerReportsScreen = () => {
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState(null);
-  
+
   const [selectedMonth, setSelectedMonth] = useState(String(new Date().getMonth() + 1));
   const [selectedYear, setSelectedYear] = useState(String(new Date().getFullYear()));
   const [showFilters, setShowFilters] = useState(false);
@@ -528,7 +528,7 @@ const styles = StyleSheet.create({
   emptyText: { marginTop: 10, fontSize: 14, fontFamily: FONTS.bodySemiBold, color: "#64748b" },
   retryButton: { marginTop: 16, backgroundColor: TEAL, paddingHorizontal: 20, paddingVertical: 8, borderRadius: 6 },
   retryButtonText: { color: "#fff", fontSize: 12, fontFamily: FONTS.bodyBold },
-  
+
   filterBar: {
     backgroundColor: "#ffffff",
     borderBottomWidth: 1,

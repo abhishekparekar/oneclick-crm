@@ -31,6 +31,17 @@ const SettingsScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
 
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout Account",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Logout", style: "destructive", onPress: () => logout() },
+      ]
+    );
+  };
+
   // Profile Edit Form State
   const [formModalVisible, setFormModalVisible] = useState(false);
   const [fullName, setFullName] = useState("");
@@ -263,7 +274,7 @@ const SettingsScreen = ({ navigation }) => {
               <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.optionRow, { borderBottomWidth: 0 }]} onPress={logout} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.optionRow, { borderBottomWidth: 0 }]} onPress={handleLogout} activeOpacity={0.8}>
               <View style={styles.optionRowLeft}>
                 <View style={[styles.optionIconBg, { backgroundColor: "#FEF2F2" }]}>
                   <Ionicons name="log-out-outline" size={18} color="#EF4444" />

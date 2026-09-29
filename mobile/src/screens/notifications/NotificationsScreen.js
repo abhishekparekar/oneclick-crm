@@ -150,6 +150,7 @@ const NotificationsScreen = ({ navigation }) => {
             case "task":
             case "task_update":
             case "task_template":
+            case "task_follow_up":
                 return { icon: "clipboard-outline", color: "#d97706", bg: "#fffbeb" };
             case "project":
                 return { icon: "folder-open-outline", color: "#06b6d4", bg: "#ecfeff" };

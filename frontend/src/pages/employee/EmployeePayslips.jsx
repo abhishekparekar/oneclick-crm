@@ -221,14 +221,14 @@ const EmployeePayslips = () => {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">
-                My Payslips &amp; Financial Ledger
+                My Payslips
               </h1>
               <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase tracking-wider">
                 {currentPeriodText}
               </span>
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Access authenticated monthly salary slips, itemized earnings, statutory deductions, and PDF downloads.
+              View and download your monthly salary slips and payment details.
             </p>
           </div>
         </div>
@@ -331,24 +331,24 @@ const EmployeePayslips = () => {
 
       {/* ── 5 Top KPI Stat Cards ──────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5 sm:gap-3">
-        {/* Card 1: Proper Base / CTC Salary */}
+        {/* Card 1: Base Salary */}
         <MetricCard
-          label="Proper Base Salary"
+          label="Base Salary"
           value={fmt(properBaseSalary)}
-          subtext={salaryStructure?.monthlyCTC ? "Fixed Monthly CTC" : "Agreed Base Gross"}
+          subtext="Monthly fixed salary"
           Icon={Landmark}
           iconBg="bg-indigo-50 dark:bg-indigo-950/40"
           iconColor="#6366F1"
           accentBorder="bg-indigo-500"
-          trend="Base CTC"
+          trend="Base"
           isPositive={true}
         />
 
         {/* Card 2: Gross Earned */}
         <MetricCard
-          label="Gross Earned"
+          label="Gross Salary"
           value={fmt(totalGrossSalary)}
-          subtext="Prorated to attendance"
+          subtext="Earned for working days"
           Icon={DollarSign}
           iconBg="bg-emerald-50 dark:bg-emerald-950/40"
           iconColor="#059669"
@@ -359,14 +359,14 @@ const EmployeePayslips = () => {
 
         {/* Card 3: Loss of Pay (LOP) */}
         <MetricCard
-          label="Loss of Pay (LOP)"
+          label="Leave Deductions (LOP)"
           value={fmt(totalLopDeduction)}
-          subtext={`${fmtDay(totalLopDays)} Unworked / LOP Days`}
+          subtext={`${fmtDay(totalLopDays)} Unpaid Days`}
           Icon={CalendarX}
           iconBg="bg-amber-50 dark:bg-amber-950/40"
           iconColor="#D97706"
           accentBorder="bg-amber-500"
-          trend={totalLopDays > 0 ? `${fmtDay(totalLopDays)}d LOP` : "0d LOP"}
+          trend={totalLopDays > 0 ? `${fmtDay(totalLopDays)}d unpaid` : "0d"}
           isPositive={false}
         />
 
@@ -374,7 +374,7 @@ const EmployeePayslips = () => {
         <MetricCard
           label="Total Deductions"
           value={fmt(totalDeductions)}
-          subtext="PF, PT, TDS & Advances"
+          subtext="PF, PT & Advances"
           Icon={MinusCircle}
           iconBg="bg-rose-50 dark:bg-rose-950/40"
           iconColor="#DB2777"
@@ -385,9 +385,9 @@ const EmployeePayslips = () => {
 
         {/* Card 5: Net In-Hand Pay */}
         <MetricCard
-          label="Net In-Hand Pay"
+          label="Net Salary"
           value={fmt(totalNetSalary)}
-          subtext={selectedMonthName ? `Disbursed (${selectedMonthName})` : "Take-Home Disbursal"}
+          subtext={selectedMonthName ? `Paid for ${selectedMonthName}` : "Take-home pay"}
           Icon={Wallet}
           iconBg="bg-blue-50 dark:bg-blue-950/40"
           iconColor="#0284C7"
@@ -406,12 +406,12 @@ const EmployeePayslips = () => {
             <Receipt size={15} className="text-amber-500" />
             <h3 className="font-black text-slate-900 dark:text-white text-xs tracking-wider uppercase">
               {selectedMonthName
-                ? `Salary Statement (${selectedMonthName} ${yearFilter === "all" ? "" : yearFilter})`
-                : `Monthly Disbursal Statements (${yearFilter === "all" ? "All Years" : yearFilter})`}
+                ? `Salary Slip (${selectedMonthName} ${yearFilter === "all" ? "" : yearFilter})`
+                : `Monthly Salary Slips (${yearFilter === "all" ? "All Years" : yearFilter})`}
             </h3>
           </div>
           <span className="text-[10px] font-black text-slate-600 dark:text-slate-300 bg-white dark:bg-[#111C24] px-2.5 py-0.5 rounded-full border border-slate-200 dark:border-slate-800 shadow-2xs">
-            {payslips.length} Statement{payslips.length === 1 ? "" : "s"}
+            {payslips.length} Payslip{payslips.length === 1 ? "" : "s"}
           </span>
         </div>
 
@@ -528,7 +528,7 @@ const EmployeePayslips = () => {
                         <span className="font-bold text-rose-600 dark:text-rose-400 font-mono text-xs">{fmt(deductions)}</span>
                       </div>
                       <div className="pl-2 border-l border-slate-200 dark:border-slate-800">
-                        <span className="text-[10px] font-black text-[#1268D9] dark:text-blue-400 uppercase tracking-wider block">Take-Home</span>
+                        <span className="text-[10px] font-black text-[#1268D9] dark:text-blue-400 uppercase tracking-wider block">Net Pay</span>
                         <span className="font-black text-[#1268D9] dark:text-blue-400 font-mono text-sm sm:text-base">{fmt(net)}</span>
                       </div>
                     </div>
@@ -717,10 +717,10 @@ const EmployeePayslips = () => {
 
         {/* Footer info */}
         <div className="flex justify-between items-center text-xs text-slate-400 font-medium px-4 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-900/30">
-          <span>Showing {payslips.length} salary statement{payslips.length === 1 ? "" : "s"} for {currentPeriodText}</span>
+          <span>Showing {payslips.length} salary slip{payslips.length === 1 ? "" : "s"} for {currentPeriodText}</span>
           <span className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
             <ShieldCheck size={12} />
-            HRMS Authenticated Ledger
+            Verified Records
           </span>
         </div>
       </div>

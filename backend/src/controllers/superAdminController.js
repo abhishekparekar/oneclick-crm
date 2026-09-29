@@ -80,8 +80,8 @@ const createCompany = async (req, res, next) => {
       let finalModules = (Array.isArray(subscribedModules) && subscribedModules.length > 0)
         ? subscribedModules
         : ((selectedPlan?.modules && selectedPlan.modules.length > 0)
-            ? selectedPlan.modules
-            : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "location_tracking"]);
+          ? selectedPlan.modules
+          : ["attendance", "leave", "payroll", "tasks", "projects", "reports", "leads", "location_tracking"]);
 
       // Always include standard default modules: reports, performance, recruitment
       finalModules = Array.from(new Set([...finalModules, "reports", "performance", "recruitment"]));
@@ -165,6 +165,17 @@ const createCompany = async (req, res, next) => {
         isPrimaryAdmin: true,
         isPasswordResetRequired: true,
       });
+
+      try {
+        await AuditLog.create({
+          action: `Created company ${company.companyName} (${company.planName})`,
+          module: "Companies",
+          performedBy: req.user._id,
+          companyId: company._id,
+        });
+      } catch (logErr) {
+        console.warn("AuditLog warning on company create:", logErr.message);
+      }
 
       res.status(201).json({
         company,
@@ -254,7 +265,7 @@ const getCompanyById = async (req, res, next) => {
     const defaultEmployeeLimit = company.employeeLimit || 50;
 
     const ALL_MODULE_KEYS = [
-      "tasks", "leads", "attendance", "location_tracking", "projects", 
+      "tasks", "leads", "attendance", "location_tracking", "projects",
       "leave", "payroll", "reports", "whatsapp", "mobileApp", "webAdmin"
     ];
 
@@ -417,6 +428,17 @@ const updateCompany = async (req, res, next) => {
       }
     }
 
+    try {
+      await AuditLog.create({
+        action: `Updated company details for ${company.companyName}`,
+        module: "Companies",
+        performedBy: req.user._id,
+        companyId: company._id,
+      });
+    } catch (logErr) {
+      console.warn("AuditLog warning on company update:", logErr.message);
+    }
+
     res.json({ company });
   } catch (error) {
     next(error);
@@ -444,6 +466,17 @@ const updateCompanyStatus = async (req, res, next) => {
       { isActive: status === "active" }
     );
 
+    try {
+      await AuditLog.create({
+        action: `Changed status for ${company.companyName} to ${status.toUpperCase()}`,
+        module: "Companies",
+        performedBy: req.user._id,
+        companyId: company._id,
+      });
+    } catch (logErr) {
+      console.warn("AuditLog warning on status change:", logErr.message);
+    }
+
     res.json({ company });
   } catch (error) {
     next(error);
@@ -461,8 +494,8 @@ const deleteCompany = async (req, res, next) => {
     const reason = String(rawReason).trim();
 
     if (!reason) {
-      return res.status(400).json({ 
-        message: "A valid reason for deletion is required for confirmation." 
+      return res.status(400).json({
+        message: "A valid reason for deletion is required for confirmation."
       });
     }
 
@@ -583,14 +616,14 @@ const getDashboardStats = async (req, res, next) => {
         status: "active",
         endDate: { $gte: now, $lte: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000) },
       }),
-      CompanyRequest.countDocuments({ status: "pending" }),
+      CompanyRequest.countDocuments({ status: { $in: ["new", "contacted", "demo_scheduled", "pending"] } }),
       CompanyRequest.countDocuments({ status: { $in: ["approved", "converted"] } }),
       Payment.find({ status: "completed", createdAt: { $gte: firstDayThisMonth } }),
       Payment.find({ status: "completed", createdAt: { $gte: firstDayThisYear } }),
       SupportTicket.find(),
       Company.find().sort({ createdAt: -1 }).limit(6).lean(),
       Plan.find({ isActive: true }).lean(),
-      CompanyRequest.find({ status: "pending" }).sort({ createdAt: -1 }).limit(4).lean(),
+      CompanyRequest.find({ status: { $in: ["new", "contacted", "demo_scheduled", "pending"] } }).sort({ createdAt: -1 }).limit(4).lean(),
       CompanyRequest.find({ status: { $in: ["approved", "converted"] } }).sort({ createdAt: -1 }).limit(4).lean(),
       Announcement.find({ isActive: true }).sort({ createdAt: -1 }).limit(5).lean(),
       AuditLog.find().populate("performedBy", "name email role").populate("companyId", "companyName").sort({ createdAt: -1 }).limit(5).lean()
@@ -629,9 +662,9 @@ const getDashboardStats = async (req, res, next) => {
 
     // Subscription Tiers Breakdown
     const tierColors = ["#EAB308", "#10B981", "#06B6D4", "#8B5CF6", "#EC4899"];
-    let subscriptionPipeline = [];
+    let subscription = [];
     if (plansList.length > 0) {
-      subscriptionPipeline = await Promise.all(
+      subscription = await Promise.all(
         plansList.map(async (p, idx) => {
           const count = await Subscription.countDocuments({ planId: p._id, status: "active" });
           const pct = activeSubscriptions > 0 ? Math.round((count / activeSubscriptions) * 100) : 0;
@@ -644,7 +677,7 @@ const getDashboardStats = async (req, res, next) => {
         })
       );
     } else {
-      subscriptionPipeline = [
+      subscription = [
         { name: "Active Plan", value: activeSubscriptions || activeCompanies || 1, pct: "(100%)", color: "#10B981" }
       ];
     }
@@ -686,7 +719,7 @@ const getDashboardStats = async (req, res, next) => {
           name: c.companyName || "Unnamed Company",
           tier: c.planName || "Enterprise Tier",
           tag: c.status === "active" ? "Active" : c.status || "Pending",
-          pColor: c.status === "active" 
+          pColor: c.status === "active"
             ? "text-emerald-700 bg-emerald-500/10 border-emerald-200/80 dark:border-emerald-900/40"
             : "text-amber-700 bg-amber-500/10 border-amber-200/80 dark:border-amber-900/40",
           avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(c.companyName || "C")}&background=random`,
@@ -755,7 +788,7 @@ const getDashboardStats = async (req, res, next) => {
           id: p._id,
           name: p.name || p.planName,
           subs: subsCount,
-          revenue: planRev >= 100000 ? `â‚¹${(planRev / 100000).toFixed(2)}L` : `â‚¹${planRev.toLocaleString("en-IN")}`,
+          revenue: planRev >= 100000 ? `₹${(planRev / 100000).toFixed(2)}L` : `₹${planRev.toLocaleString("en-IN")}`,
           eff: eff > 0 ? eff : 20,
           ec: colors[idx % colors.length]
         };
@@ -787,8 +820,8 @@ const getDashboardStats = async (req, res, next) => {
       totalCompanyAdmins,
       totalUsers,
       totalEmployees: totalEmployeesCount.toLocaleString("en-IN"),
-      monthlyRevenue: `â‚¹${monthlyRevenueVal.toLocaleString("en-IN")}`,
-      annualRevenue: `â‚¹${annualRevenueVal.toLocaleString("en-IN")}`,
+      monthlyRevenue: `₹${monthlyRevenueVal.toLocaleString("en-IN")}`,
+      annualRevenue: `₹${annualRevenueVal.toLocaleString("en-IN")}`,
       activeSubscriptions: activeSubscriptions || activeCompanies,
       expiredSubscriptions,
       trialSubscriptions,
@@ -970,8 +1003,8 @@ const getSubscriptions = async (req, res, next) => {
       }
     });
 
-    res.json({ 
-      subscriptions, 
+    res.json({
+      subscriptions,
       count: subscriptions.length,
       expiryStats: {
         expiring7Days: expiring7DaysCount,
@@ -1127,22 +1160,40 @@ const assignSubscription = async (req, res, next) => {
 
 const renewSubscription = async (req, res, next) => {
   try {
+    const { toDate, days } = req.body || {};
     const subscription = await Subscription.findById(req.params.id);
     if (!subscription) return res.status(404).json({ message: "Subscription not found" });
 
-    const endDate = new Date(subscription.endDate);
-    if (subscription.billingCycle === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
-    if (subscription.billingCycle === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
+    let endDate;
+    if (toDate) {
+      endDate = new Date(toDate);
+    } else if (days) {
+      const base = (subscription.endDate && new Date(subscription.endDate) > new Date())
+        ? new Date(subscription.endDate)
+        : new Date();
+      endDate = new Date(base);
+      endDate.setDate(endDate.getDate() + Number(days));
+    } else {
+      const base = (subscription.endDate && new Date(subscription.endDate) > new Date())
+        ? new Date(subscription.endDate)
+        : new Date();
+      endDate = new Date(base);
+      if (subscription.billingCycle === 'monthly') endDate.setMonth(endDate.getMonth() + 1);
+      else if (subscription.billingCycle === 'yearly') endDate.setFullYear(endDate.getFullYear() + 1);
+      else endDate.setMonth(endDate.getMonth() + 1);
+    }
+    endDate.setHours(23, 59, 59, 999);
 
     subscription.endDate = endDate;
     subscription.status = 'active';
     await subscription.save();
 
     await Company.findByIdAndUpdate(subscription.companyId, {
-      subscriptionEndDate: endDate
+      subscriptionEndDate: endDate,
+      subscriptionStatus: 'active'
     });
 
-    await AuditLog.create({ action: `Renewed subscription ${subscription._id}`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
+    await AuditLog.create({ action: `Renewed subscription ${subscription._id} to ${endDate.toISOString().split('T')[0]}`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
     bustSubscriptionCache(subscription.companyId);
     res.json({ subscription });
   } catch (error) {
@@ -1173,15 +1224,29 @@ const extendTrial = async (req, res, next) => {
     if (toDate) {
       endDate = new Date(toDate);
     } else {
-      endDate = new Date(subscription.endDate);
+      const base = (subscription.endDate && new Date(subscription.endDate) > new Date())
+        ? new Date(subscription.endDate)
+        : new Date();
+      endDate = new Date(base);
       endDate.setDate(endDate.getDate() + (Number(days) || 7));
     }
+    endDate.setHours(23, 59, 59, 999);
     subscription.endDate = endDate;
-    subscription.trialEndsAt = endDate;
+
+    if (subscription.billingCycle === 'trial') {
+      subscription.trialEndsAt = endDate;
+    }
+
+    if (endDate > new Date()) {
+      if (subscription.status === 'expired' || subscription.status === 'cancelled') {
+        subscription.status = subscription.billingCycle === 'trial' ? 'trial' : 'active';
+      }
+    }
     await subscription.save();
 
     await Company.findByIdAndUpdate(subscription.companyId, {
-      subscriptionEndDate: endDate
+      subscriptionEndDate: endDate,
+      subscriptionStatus: subscription.status
     });
 
     await AuditLog.create({ action: `Extended subscription to ${endDate.toISOString().split('T')[0]}`, module: 'Subscriptions', performedBy: req.user._id, companyId: subscription.companyId });
@@ -1204,24 +1269,24 @@ const deleteSubscription = async (req, res, next) => {
     const nextSub = await Subscription.findOne({ companyId }).sort({ createdAt: -1 });
     if (nextSub) {
       const plan = await Plan.findById(nextSub.planId);
-      await Company.findByIdAndUpdate(companyId, { 
-        planId: nextSub.planId, 
-        planName: nextSub.planName, 
-        employeeLimit: plan ? plan.employeeLimit : 50 
+      await Company.findByIdAndUpdate(companyId, {
+        planId: nextSub.planId,
+        planName: nextSub.planName,
+        employeeLimit: plan ? plan.employeeLimit : 50
       });
     } else {
-      await Company.findByIdAndUpdate(companyId, { 
-        planId: null, 
-        planName: null, 
-        employeeLimit: 50 
+      await Company.findByIdAndUpdate(companyId, {
+        planId: null,
+        planName: null,
+        employeeLimit: 50
       });
     }
 
-    await AuditLog.create({ 
-      action: `Deleted subscription ${req.params.id}`, 
-      module: 'Subscriptions', 
-      performedBy: req.user._id, 
-      companyId 
+    await AuditLog.create({
+      action: `Deleted subscription ${req.params.id}`,
+      module: 'Subscriptions',
+      performedBy: req.user._id,
+      companyId
     });
 
     bustSubscriptionCache(companyId);
@@ -1373,19 +1438,19 @@ const resetUserPassword = async (req, res, next) => {
     // Dispatch email with reset link and temporary credentials
     await sendPasswordResetEmail(user.email, user.name, resetUrl, temporaryPassword);
 
-    await AuditLog.create({ 
-      action: `Sent password reset email and link for user ${user.email}`, 
-      module: 'Users', 
-      performedBy: req.user._id, 
-      companyId: user.companyId 
+    await AuditLog.create({
+      action: `Sent password reset email and link for user ${user.email}`,
+      module: 'Users',
+      performedBy: req.user._id,
+      companyId: user.companyId
     });
 
-    res.json({ 
+    res.json({
       success: true,
-      message: `Password reset link sent to ${user.email}`, 
-      temporaryPassword, 
+      message: `Password reset link sent to ${user.email}`,
+      temporaryPassword,
       resetUrl,
-      email: user.email 
+      email: user.email
     });
   } catch (error) {
     next(error);
@@ -1573,10 +1638,13 @@ const deleteAnnouncement = async (req, res, next) => {
 
 const getAuditLogs = async (req, res, next) => {
   try {
+    const { limit = 1000 } = req.query;
     const logs = await AuditLog.find()
-      .populate("performedBy", "name")
-      .populate("companyId", "companyName")
-      .sort({ createdAt: -1 });
+      .populate("performedBy", "name email role profileImage")
+      .populate("companyId", "companyName logo email status")
+      .sort({ createdAt: -1 })
+      .limit(Number(limit) || 1000)
+      .lean();
     res.json({ logs, count: logs.length });
   } catch (error) {
     next(error);
@@ -1908,7 +1976,7 @@ const getReportsAnalytics = async (req, res, next) => {
     res.json({
       mrrData,
       onboardingData,
-      totalRevenue: `â‚¹${totalRevenueVal.toLocaleString("en-IN")}`,
+      totalRevenue: `₹${totalRevenueVal.toLocaleString("en-IN")}`,
       totalCompaniesCount,
       totalEmployeesCount,
     });
@@ -2013,9 +2081,9 @@ const updateSubSuperAdminStatus = async (req, res, next) => {
     subAdmin.isActive = Boolean(isActive);
     await subAdmin.save();
 
-    res.json({ 
-      message: `Sub-SuperAdmin ${subAdmin.isActive ? "activated" : "suspended"} successfully`, 
-      subAdmin: formatUser(subAdmin) 
+    res.json({
+      message: `Sub-SuperAdmin ${subAdmin.isActive ? "activated" : "suspended"} successfully`,
+      subAdmin: formatUser(subAdmin)
     });
   } catch (error) {
     next(error);

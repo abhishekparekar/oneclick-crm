@@ -100,13 +100,34 @@ export default function LeadDrawer({
   });
 
   useEffect(() => {
+    const formatAndSort = (list: any[]) => {
+      const formatted = list.map(emp => {
+        const rawName = emp.name || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Staff';
+        const formattedName = rawName
+          .toLowerCase()
+          .split(' ')
+          .filter(Boolean)
+          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        const dept = emp.department || emp.departmentName || emp.departmentId?.name || (emp.role === 'companyadmin' || emp.role === 'admin' ? 'Administration' : emp.role || 'Staff');
+        return {
+          ...emp,
+          name: formattedName,
+          department: dept,
+          role: emp.role || 'Staff',
+          label: `${formattedName} (${dept})`
+        };
+      });
+      return formatted.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+    };
+
     if (employees && employees.length > 0) {
-      setStaffList(employees);
+      setStaffList(formatAndSort(employees));
     } else {
       api.get('/api/assignable-users').then((res) => {
         const list = Array.isArray(res?.data) ? res.data : Array.isArray(res?.users) ? res.users : Array.isArray(res) ? res : [];
-        if (list.length > 0) setStaffList(list);
-      }).catch(() => {});
+        if (list.length > 0) setStaffList(formatAndSort(list));
+      }).catch(() => { });
     }
   }, [employees]);
 
@@ -124,10 +145,10 @@ export default function LeadDrawer({
         const assignedUserIds: string[] = Array.isArray(res.assignedToUserIds) && res.assignedToUserIds.length > 0
           ? res.assignedToUserIds.map((id: any) => String(id))
           : Array.isArray(res.assignedToUsers) && res.assignedToUsers.length > 0
-          ? res.assignedToUsers.map((u: any) => String(typeof u === 'object' ? u._id || u.id : u)).filter(Boolean)
-          : (res.assignedToId || res.assignedTo?._id || res.assignedTo?.id || (typeof res.assignedTo === 'string' ? res.assignedTo : ''))
-          ? [String(res.assignedToId || res.assignedTo?._id || res.assignedTo?.id || res.assignedTo)]
-          : [];
+            ? res.assignedToUsers.map((u: any) => String(typeof u === 'object' ? u._id || u.id : u)).filter(Boolean)
+            : (res.assignedToId || res.assignedTo?._id || res.assignedTo?.id || (typeof res.assignedTo === 'string' ? res.assignedTo : ''))
+              ? [String(res.assignedToId || res.assignedTo?._id || res.assignedTo?.id || res.assignedTo)]
+              : [];
 
         setFormData({
           name: res.name || '',
@@ -162,10 +183,10 @@ export default function LeadDrawer({
       const list = Array.isArray(res?.tags)
         ? res.tags
         : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
       setAvailableTags(list);
     } catch (_) {
       setAvailableTags([]);
@@ -178,10 +199,10 @@ export default function LeadDrawer({
       const list = Array.isArray(res?.activities)
         ? res.activities
         : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
       setActivities(list);
     } catch (_) {
       setActivities([]);
@@ -194,10 +215,10 @@ export default function LeadDrawer({
       const list = Array.isArray(res?.messages)
         ? res.messages
         : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
       setMessages(list);
     } catch (_) {
       setMessages([]);
@@ -210,10 +231,10 @@ export default function LeadDrawer({
       const list = Array.isArray(res?.templates)
         ? res.templates
         : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.data
+          : Array.isArray(res)
+            ? res
+            : [];
       setTemplates(list);
     } catch (_) {
       setTemplates([]);
@@ -456,14 +477,14 @@ export default function LeadDrawer({
             title: text.toLowerCase().includes('status changed')
               ? 'Stage Transition'
               : text.toLowerCase().includes('document attached')
-              ? 'Document Attached'
-              : 'Note / Follow-Up',
+                ? 'Document Attached'
+                : 'Note / Follow-Up',
             description: text,
             type: text.toLowerCase().includes('status changed')
               ? 'STATUS_CHANGE'
               : docObj
-              ? 'DOCUMENT'
-              : 'NOTE',
+                ? 'DOCUMENT'
+                : 'NOTE',
             attachment: docObj,
             timestampStr: timestampStr,
             date: parsedDate,
@@ -541,19 +562,19 @@ export default function LeadDrawer({
   const safeTemplates = Array.isArray(templates)
     ? templates
     : Array.isArray((templates as any)?.templates)
-    ? (templates as any).templates
-    : [];
+      ? (templates as any).templates
+      : [];
   const safeTags = Array.isArray(availableTags)
     ? availableTags
     : Array.isArray((availableTags as any)?.tags)
-    ? (availableTags as any).tags
-    : [];
+      ? (availableTags as any).tags
+      : [];
   const safeNotes = Array.isArray(notes) ? notes : [];
   const safeMessages = Array.isArray(messages)
     ? messages
     : Array.isArray((messages as any)?.messages)
-    ? (messages as any).messages
-    : [];
+      ? (messages as any).messages
+      : [];
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/65 backdrop-blur-xs animate-fadeIn font-sans">
@@ -635,18 +656,17 @@ export default function LeadDrawer({
               tab.id === 'notes_files'
                 ? safeNotes.length + allDocumentsList.length
                 : tab.id === 'timeline'
-                ? unifiedTimeline.length
-                : null;
+                  ? unifiedTimeline.length
+                  : null;
             return (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 min-w-[75px] flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-                  isActive
+                className={`flex-1 min-w-[75px] flex items-center justify-center gap-1.5 py-3 text-xs font-bold transition-all cursor-pointer border-b-2 whitespace-nowrap ${isActive
                     ? 'text-amber-600 dark:text-amber-400 border-amber-600 dark:border-amber-500 bg-white dark:bg-[#0A0F18]'
                     : 'text-slate-500 dark:text-slate-400 border-transparent hover:text-slate-800 dark:hover:text-slate-200'
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5 shrink-0" />
                 <span>{tab.label}</span>
@@ -662,11 +682,11 @@ export default function LeadDrawer({
 
         {/* Body Container */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5 bg-slate-50/60 dark:bg-[#070B11] text-slate-800 dark:text-slate-200 custom-scrollbar">
-          
+
           {/* TAB 1: DETAILS */}
           {activeTab === 'details' && (
             <form onSubmit={handleUpdateLead} className="space-y-4">
-              
+
               {/* Card 1: Contact Information */}
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3">
                 <h4 className="font-extrabold text-[11px] uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2">
@@ -739,15 +759,15 @@ export default function LeadDrawer({
                 </div>
               </div>
 
-              {/* Card 2: Deal & Pipeline Setup */}
+              {/* Card 2: Deal &  Setup */}
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 shadow-2xs space-y-3">
                 <h4 className="font-extrabold text-[11px] uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-100 dark:border-slate-800/80 pb-2">
-                  <DollarSign size={13} className="text-emerald-500" /> Pipeline &amp; Follow-up
+                  <DollarSign size={13} className="text-emerald-500" />  &amp; Follow-up
                 </h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Pipeline Stage *</label>
+                    <label className="block text-[10.5px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1"> Stage *</label>
                     <select
                       className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-white focus:outline-none focus:border-amber-500 cursor-pointer"
                       value={formData.statusId}
@@ -883,7 +903,7 @@ export default function LeadDrawer({
                             .map((emp: any) => {
                               const empId = String(emp.userId?._id || emp.userId || emp._id || emp.id);
                               const empName = emp.name || emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || 'Staff';
-                              const role = emp.role || emp.department || '';
+                              const role = emp.department || emp.role || '';
                               const isSelected = formData.assignedToUserIds.includes(empId);
 
                               return (
@@ -891,18 +911,16 @@ export default function LeadDrawer({
                                   key={empId}
                                   type="button"
                                   onClick={() => handleToggleStaff(empId)}
-                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                                    isSelected
+                                  className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${isSelected
                                       ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
                                       : 'hover:bg-slate-100 dark:hover:bg-slate-800/70 text-slate-700 dark:text-slate-300 font-medium'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex items-center gap-2 truncate">
-                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${
-                                      isSelected
+                                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black shrink-0 ${isSelected
                                         ? 'bg-amber-500 text-white'
                                         : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                    }`}>
+                                      }`}>
                                       {empName.charAt(0).toUpperCase()}
                                     </div>
                                     <span className="truncate">{empName}</span>
@@ -911,11 +929,10 @@ export default function LeadDrawer({
                                     )}
                                   </div>
 
-                                  <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${
-                                    isSelected
+                                  <div className={`w-4 h-4 rounded flex items-center justify-center border shrink-0 ${isSelected
                                       ? 'bg-amber-500 border-amber-500 text-white'
                                       : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
-                                  }`}>
+                                    }`}>
                                     {isSelected && <Check size={11} strokeWidth={3} />}
                                   </div>
                                 </button>
@@ -1061,11 +1078,10 @@ export default function LeadDrawer({
                                 : [...formData.tagIds, tId];
                               setFormData({ ...formData, tagIds: newTagIds });
                             }}
-                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                              isSelected
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${isSelected
                                 ? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/40 shadow-xs'
                                 : 'bg-slate-100 dark:bg-slate-900 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-800 hover:border-slate-300'
-                            }`}
+                              }`}
                           >
                             <span
                               className="w-2 h-2 rounded-full"
@@ -1139,26 +1155,24 @@ export default function LeadDrawer({
                       <div key={item.id || idx} className="relative group">
                         {/* Dot indicator */}
                         <div
-                          className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                            isStatus
+                          className={`absolute -left-6 top-1.5 w-5 h-5 rounded-full border-2 flex items-center justify-center ${isStatus
                               ? 'bg-amber-50 dark:bg-amber-950/60 border-amber-500'
                               : isDoc
-                              ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-500'
-                              : isMsg
-                              ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500'
-                              : 'bg-blue-50 dark:bg-blue-950/60 border-blue-500'
-                          }`}
+                                ? 'bg-purple-50 dark:bg-purple-950/60 border-purple-500'
+                                : isMsg
+                                  ? 'bg-emerald-50 dark:bg-emerald-950/60 border-emerald-500'
+                                  : 'bg-blue-50 dark:bg-blue-950/60 border-blue-500'
+                            }`}
                         >
                           <div
-                            className={`w-1.5 h-1.5 rounded-full ${
-                              isStatus
+                            className={`w-1.5 h-1.5 rounded-full ${isStatus
                                 ? 'bg-amber-500'
                                 : isDoc
-                                ? 'bg-purple-500'
-                                : isMsg
-                                ? 'bg-emerald-500'
-                                : 'bg-blue-500'
-                            }`}
+                                  ? 'bg-purple-500'
+                                  : isMsg
+                                    ? 'bg-emerald-500'
+                                    : 'bg-blue-500'
+                              }`}
                           />
                         </div>
 
@@ -1166,15 +1180,14 @@ export default function LeadDrawer({
                         <div className="p-3 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-1.5 hover:border-slate-300 dark:hover:border-slate-700 transition-all">
                           <div className="flex items-center justify-between gap-2">
                             <span
-                              className={`font-black text-[11px] uppercase tracking-wider ${
-                                isStatus
+                              className={`font-black text-[11px] uppercase tracking-wider ${isStatus
                                   ? 'text-amber-600 dark:text-amber-400'
                                   : isDoc
-                                  ? 'text-purple-600 dark:text-purple-400'
-                                  : isMsg
-                                  ? 'text-emerald-600 dark:text-emerald-400'
-                                  : 'text-slate-800 dark:text-slate-200'
-                              }`}
+                                    ? 'text-purple-600 dark:text-purple-400'
+                                    : isMsg
+                                      ? 'text-emerald-600 dark:text-emerald-400'
+                                      : 'text-slate-800 dark:text-slate-200'
+                                }`}
                             >
                               {item.title}
                             </span>
@@ -1183,14 +1196,14 @@ export default function LeadDrawer({
                               {item.timestampStr
                                 ? item.timestampStr
                                 : item.date instanceof Date && !isNaN(item.date.getTime())
-                                ? item.date.toLocaleString('en-IN', {
+                                  ? item.date.toLocaleString('en-IN', {
                                     day: '2-digit',
                                     month: 'short',
                                     hour: '2-digit',
                                     minute: '2-digit',
                                     hour12: true,
                                   })
-                                : 'Recent'}
+                                  : 'Recent'}
                             </span>
                           </div>
 
@@ -1346,33 +1359,30 @@ export default function LeadDrawer({
                   <button
                     type="button"
                     onClick={() => setNotesFilesFilter('all')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                      notesFilesFilter === 'all'
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${notesFilesFilter === 'all'
                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
+                      }`}
                   >
                     All ({safeNotes.length + allDocumentsList.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setNotesFilesFilter('files')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                      notesFilesFilter === 'files'
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${notesFilesFilter === 'files'
                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
+                      }`}
                   >
                     Files ({allDocumentsList.length})
                   </button>
                   <button
                     type="button"
                     onClick={() => setNotesFilesFilter('notes')}
-                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${
-                      notesFilesFilter === 'notes'
+                    className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all cursor-pointer ${notesFilesFilter === 'notes'
                         ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs'
                         : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-                    }`}
+                      }`}
                   >
                     Notes ({safeNotes.length})
                   </button>
@@ -1651,17 +1661,16 @@ export default function LeadDrawer({
                     typeof msg.messageContent === 'string'
                       ? msg.messageContent
                       : typeof msg.messageContent === 'object'
-                      ? JSON.stringify(msg.messageContent)
-                      : String(msg.messageContent || '');
+                        ? JSON.stringify(msg.messageContent)
+                        : String(msg.messageContent || '');
 
                   return (
                     <div
                       key={msg.id || msg._id || `msg-${idx}`}
-                      className={`max-w-[85%] p-3 rounded-2xl border shadow-2xs space-y-1.5 ${
-                        isInbound
+                      className={`max-w-[85%] p-3 rounded-2xl border shadow-2xs space-y-1.5 ${isInbound
                           ? 'bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-800 mr-auto'
                           : 'bg-emerald-500/10 dark:bg-emerald-950/30 border-emerald-500/30 ml-auto'
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-3 text-[10px] text-slate-400 font-mono">
                         <span className="font-bold text-slate-500 uppercase">{msg.source || 'WHATSAPP'}</span>

@@ -48,9 +48,18 @@ function Avatar({ name, size = "md" }) {
 export default function ManagerDepartmentReport({ deptPerformanceList = [] }) {
   const [activeDept, setActiveDept] = useState("__all__");
 
-  // Dept tab list: "All" + each assigned dept
+  // Dept tab list: "All" + each assigned dept (deduplicated)
   const deptTabs = useMemo(() => {
-    return [{ id: "__all__", name: "All Departments" }, ...deptPerformanceList.map(d => ({ id: d.name, name: d.name }))];
+    const unique = [];
+    const seen = new Set();
+    (deptPerformanceList || []).forEach(d => {
+      const name = (d.name || d.id || "").trim();
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        unique.push({ id: name, name });
+      }
+    });
+    return [{ id: "__all__", name: "All Departments" }, ...unique];
   }, [deptPerformanceList]);
 
   // Currently visible dept data

@@ -161,7 +161,7 @@ const SuperAdminSettings = () => {
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 font-medium">
             {isEditing
               ? "You are in edit mode. Make your changes and click Save Settings when done."
-              : "Global configuration, security enforcement, and mail relay policies."
+              : "Manage platform settings, email configuration, and security preferences."
             }
           </p>
         </div>

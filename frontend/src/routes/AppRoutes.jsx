@@ -103,6 +103,7 @@ import AttendanceReport from "../pages/companyadmin/AttendanceReport";
 
 // Company Admin — Work
 import TaskBoard from "../pages/companyadmin/TaskBoard";
+import CompanyMyTasks from "../pages/companyadmin/CompanyMyTasks";
 import TaskDetailsPage from "../pages/companyadmin/TaskDetailsPage";
 import TaskStatuses from "../pages/companyadmin/TaskStatuses";
 import Projects from "../pages/companyadmin/Projects";
@@ -129,6 +130,18 @@ import Flows from "../pages/leads/Flows";
 import Campaigns from "../pages/leads/Campaigns";
 import Reminders from "../pages/leads/Reminders";
 import LeadSettings from "../pages/leads/LeadSettings";
+import { useAuth } from "../context/AuthContext";
+
+function ComprehensiveDashboardRedirect() {
+  const { user } = useAuth();
+  const role = user?.role;
+  if (role === "SuperAdmin" || role === "SubSuperAdmin") return <Navigate to="/superadmin/dashboard" replace />;
+  if (role === "CompanyAdmin") return <Navigate to="/company/dashboard" replace />;
+  if (role === "HR") return <Navigate to="/hr/dashboard" replace />;
+  if (role === "Manager") return <Navigate to="/manager/dashboard" replace />;
+  if (role === "Employee") return <Navigate to="/employee/dashboard" replace />;
+  return <Navigate to="/login" replace />;
+}
 
 const AppRoutes = () => {
   return (
@@ -140,6 +153,7 @@ const AppRoutes = () => {
       <Route path="/manager/login" element={<Navigate to="/login" replace />} />
       <Route path="/features" element={<FeaturesPage />} />
       <Route path="/" element={<LandingPage />} />
+      <Route path="/comprehensivedashboard" element={<ComprehensiveDashboardRedirect />} />
 
       {/* Protected Routes */}
       <Route element={<ProtectedRoute />}>
@@ -252,6 +266,7 @@ const AppRoutes = () => {
 
             {/* Work & Tasks Module */}
             <Route element={<ModuleRoute module="tasks" />}>
+              <Route path="my-tasks" element={<CompanyMyTasks />} />
               <Route path="tasks" element={<TaskBoard />} />
               <Route path="tasks/:id" element={<TaskDetailsPage />} />
               <Route path="tasks/statuses" element={<TaskStatuses />} />
@@ -377,7 +392,9 @@ const AppRoutes = () => {
             <Route path="upload-document" element={<UploadDocument />} />
             <Route path="attendance" element={<ManagerAttendanceOverview />} />
             <Route path="attendance-overview" element={<ManagerAttendanceOverview />} />
-            <Route path="team-attendance" element={<ManagerAttendance />} />
+            <Route path="team-attendance" element={<ManagerAttendanceOverview />} />
+            <Route path="my-attendance" element={<ManagerAttendance />} />
+            <Route path="attendance-report" element={<AttendanceReport />} />
             <Route path="location-tracking" element={<EmployeeLocationTracking />} />
             <Route path="tracking-allowance" element={<TrackingAllowance />} />
             <Route path="team-leaves" element={<ManagerTeamLeaves />} />

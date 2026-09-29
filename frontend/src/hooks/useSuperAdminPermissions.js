@@ -2,18 +2,18 @@ import { useAuth } from "../context/AuthContext";
 import { useCallback } from "react";
 
 export const SUPERADMIN_MODULES = [
-  { key: "companies", label: "Companies", desc: "Manage client companies, branches, & specifications" },
-  { key: "companyRequests", label: "Company Requests", desc: "Leads & onboarding company registration inquiries" },
-  { key: "companyAdmins", label: "Company Admins", desc: "Assigned enterprise administrators & account owners" },
-  { key: "subscriptions", label: "Subscriptions", desc: "Client subscriptions, renewals, trial extensions" },
-  { key: "plans", label: "Plans & Packages", desc: "Subscription pricing tiers & feature quotas" },
-  { key: "payments", label: "Payments", desc: "Payment records, manual invoices, and transactions" },
-  { key: "users", label: "Global Users", desc: "Platform-wide user directory, status & security resets" },
-  { key: "announcements", label: "Announcements", desc: "System-wide broadcasts and notices" },
-  { key: "supportTickets", label: "Support Tickets", desc: "Customer service inquiries & internal notes" },
-  { key: "reports", label: "Reports & Analytics", desc: "Executive business intelligence & telemetry" },
-  { key: "activityLogs", label: "Activity Logs", desc: "Security audit trail & authentication history" },
-  { key: "settings", label: "System Settings", desc: "Platform settings, integrations & database backups" },
+  { key: "companies", label: "All Companies", desc: "Manage registered companies, branches, & profiles" },
+  { key: "companyRequests", label: "Web Company Registrations", desc: "Review website registration requests & lead inquiries" },
+  { key: "companyAdmins", label: "All Admins Details", desc: "Manage company primary administrators & account owners" },
+  { key: "subscriptions", label: "Subscriptions", desc: "Client subscriptions, renewals, & trial extensions" },
+  { key: "plans", label: "Subscription Plans", desc: "Subscription pricing tiers, packages, & feature quotas" },
+  { key: "payments", label: "Payment Records", desc: "Payment records, manual invoices, and transactions" },
+  { key: "users", label: "All Users", desc: "Platform-wide user directory, status & account management" },
+  { key: "announcements", label: "Announcements", desc: "System-wide broadcasts, notices & alerts" },
+  { key: "supportTickets", label: "Support Tickets", desc: "Customer service inquiries, complaints & internal notes" },
+  { key: "reports", label: "Reports & Analytics", desc: "System performance, telemetry & business intelligence" },
+  { key: "activityLogs", label: "Activity Logs", desc: "Security audit trail, authentication history & logs" },
+  { key: "settings", label: "Settings", desc: "Platform settings, configurations & system preferences" },
 ];
 
 export const useSuperAdminPermissions = () => {

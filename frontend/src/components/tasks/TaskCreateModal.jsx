@@ -162,13 +162,13 @@ export default function TaskCreateModal({
 
   const defaultSelfId = useMemo(() => {
     const directId = authUser?.employeeId?._id || authUser?.employeeId || authUser?._id || authUser?.id;
-    if (directId) return directId;
+    if (directId) return String(directId);
     if (Array.isArray(employees) && authUser?._id) {
       const match = employees.find(e => {
         const uId = e.userId?._id || e.userId || e._id;
         return uId && String(uId) === String(authUser._id);
       });
-      if (match) return match._id || match.id;
+      if (match) return String(match._id || match.id);
     }
     return "";
   }, [authUser, employees]);
@@ -177,7 +177,9 @@ export default function TaskCreateModal({
     title: "",
     description: "",
     departmentId: "",
-    assignedTo: canAssignOthers ? [] : (defaultSelfId ? [defaultSelfId] : []),
+    assignedTo: canAssignOthers
+      ? (typeof window !== "undefined" && window.location.pathname.includes("my-tasks") && defaultSelfId ? [defaultSelfId] : [])
+      : (defaultSelfId ? [defaultSelfId] : []),
     priority: "medium",
     repeatEnabled: false,
     repeatType: "daily",
@@ -202,6 +204,7 @@ export default function TaskCreateModal({
     if (isOpen) {
       const nowStr = getNowDateTimeString();
       const endStr = getDefaultEndDateTimeString();
+      const isMyTasksPage = typeof window !== "undefined" && window.location.pathname.includes("my-tasks");
       if (!canAssignOthers) {
         const selfDeptId = authUser?.departmentId?._id || authUser?.departmentId || "";
         setForm(prev => ({
@@ -220,6 +223,7 @@ export default function TaskCreateModal({
           nextFollowUpDate: nowStr,
           endDate: prev.endDate || endStr,
           finishDate: prev.finishDate || endStr,
+          assignedTo: isMyTasksPage && defaultSelfId && prev.assignedTo.length === 0 ? [defaultSelfId] : prev.assignedTo,
           // Keep the current departmentId selection (defaults to "" which is "All Departments")
           departmentId: prev.departmentId !== undefined ? prev.departmentId : ""
         }));
@@ -227,22 +231,65 @@ export default function TaskCreateModal({
     }
   }, [isOpen, canAssignOthers, defaultSelfId]);
 
-  // Only employees with Task Module access are eligible for task assignment
+  // Only employees with Task Module access are eligible for task assignment (including logged-in Admin as self)
   const taskEligibleEmployees = useMemo(() => {
-    if (!Array.isArray(employees)) return [];
-    return employees.filter(hasTaskModuleAccess);
-  }, [employees]);
+    let list = Array.isArray(employees) ? employees.filter(hasTaskModuleAccess) : [];
+    if (authUser) {
+      const selfId = defaultSelfId || String(authUser._id);
+      const exists = list.some(e => {
+        const eid = String(e._id || e.id || e.userId?._id || e.userId || "");
+        return eid === selfId || eid === String(authUser._id);
+      });
+      if (!exists) {
+        const roleLabel = authUser.role === "CompanyAdmin" ? "Admin" : authUser.role;
+        const selfMember = {
+          _id: selfId,
+          id: selfId,
+          userId: authUser._id,
+          firstName: authUser.name || "Admin",
+          lastName: "(Myself)",
+          fullName: `${authUser.name || "Admin"} (Myself)`,
+          name: `${authUser.name || "Admin"} (Myself)`,
+          role: authUser.role || "CompanyAdmin",
+          isSelf: true,
+          email: authUser.email || "",
+          departmentId: authUser.departmentId?._id || authUser.departmentId || null,
+        };
+        list = [selfMember, ...list];
+      }
+    }
+    return list;
+  }, [employees, authUser, defaultSelfId]);
 
   // Filter Employees based on the Selected Department with robust name and ID matching
   const departmentFilteredEmployees = useMemo(() => {
     if (taskEligibleEmployees.length === 0) return [];
-    if (!form.departmentId || form.departmentId === "all") return taskEligibleEmployees;
+
+    // Always identify self item so it can stay visible even when department is filtered
+    const selfId = defaultSelfId || String(authUser?._id || "");
+    const selfItem = taskEligibleEmployees.find(e => {
+      const eid = String(e._id || e.id || e.userId?._id || e.userId || "");
+      return eid === selfId || eid === String(authUser?._id || "");
+    });
+
+    if (!form.departmentId || form.departmentId === "all") {
+      return [...taskEligibleEmployees].sort((a, b) => {
+        if (a.isSelf || String(a._id) === selfId) return -1;
+        if (b.isSelf || String(b._id) === selfId) return 1;
+        const nameA = (a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`).trim();
+        const nameB = (b.fullName || b.name || `${b.firstName || ""} ${b.lastName || ""}`).trim();
+        return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+      });
+    }
 
     const targetDeptId = form.departmentId.toString();
     const deptObj = departments.find(d => (d._id || d.id || "").toString() === targetDeptId);
     const targetDeptName = (deptObj?.name || deptObj?.departmentName || "").trim().toLowerCase();
 
     const filtered = taskEligibleEmployees.filter(e => {
+      // Keep self in list so user can always self-assign
+      if (selfItem && (String(e._id) === String(selfItem._id) || String(e.id) === String(selfItem.id))) return true;
+
       // 1. Direct departmentId matching
       const d1 = (e.departmentId?._id || e.departmentId || e.department?._id || e.department || "").toString();
       if (d1 && d1 === targetDeptId) return true;
@@ -264,8 +311,14 @@ export default function TaskCreateModal({
       return false;
     });
 
-    return filtered;
-  }, [taskEligibleEmployees, departments, form.departmentId]);
+    return filtered.sort((a, b) => {
+      if (a.isSelf || String(a._id) === selfId) return -1;
+      if (b.isSelf || String(b._id) === selfId) return 1;
+      const nameA = (a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`).trim();
+      const nameB = (b.fullName || b.name || `${b.firstName || ""} ${b.lastName || ""}`).trim();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+  }, [taskEligibleEmployees, departments, form.departmentId, defaultSelfId, authUser]);
 
   const handleAddChecklistItem = () => {
     if (!newChecklistItem.trim()) return;
@@ -531,10 +584,12 @@ export default function TaskCreateModal({
               {/* Assignee Picker (Visible when user has assignment permission, otherwise locked to Self) */}
               {canAssignOthers ? (
                 <div className="relative">
-                  <label className="block text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    Assign Staff ({isEmpsLoading ? "..." : departmentFilteredEmployees.length})
-                    {isEmpsLoading && <Loader2 size={10} className="animate-spin text-amber-500" />}
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                      Assign Staff ({isEmpsLoading ? "..." : departmentFilteredEmployees.length})
+                      {isEmpsLoading && <Loader2 size={10} className="animate-spin text-amber-500" />}
+                    </label>
+                  </div>
                   <div
                     className={`w-full px-2.5 py-1.5 bg-slate-50 dark:bg-[#0E1522] border border-slate-200 dark:border-slate-700/80 rounded-xl text-xs font-semibold text-slate-900 dark:text-white flex items-center justify-between shadow-2xs ${isEmpsLoading ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
                     onClick={() => !isEmpsLoading && setIsDropdownOpen(!isDropdownOpen)}
@@ -591,9 +646,16 @@ export default function TaskCreateModal({
                             .map(e => {
                               const empId = e._id || e.id || e.userId?._id;
                               const isChecked = form.assignedTo.includes(empId);
-                              const name = e.fullName || `${e.firstName || ''} ${e.lastName || ''}` || e.name || 'Staff';
+                              const isSelf = e.isSelf || String(empId) === defaultSelfId;
+                              const rawName = (e.fullName || `${e.firstName || ''} ${e.lastName || ''}` || e.name || 'Staff').replace(/\s*\(Myself\)/gi, "").trim();
+                              const deptName = e.departmentId?.name || e.department?.name || (typeof e.department === "string" ? e.department : "") || "";
+                              const displayName = isSelf ? `${rawName} (Myself)` : rawName;
                               return (
-                                <label key={empId} className="flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors">
+                                <label key={empId} className={`flex items-center justify-between cursor-pointer p-1.5 rounded-lg transition-colors ${
+                                  isSelf 
+                                    ? "bg-amber-50/80 dark:bg-amber-950/30 hover:bg-amber-100/90 dark:hover:bg-amber-900/40 border border-amber-200 dark:border-amber-800/60 mb-1" 
+                                    : "hover:bg-slate-100 dark:hover:bg-slate-800/60"
+                                }`}>
                                   <div className="flex items-center gap-1.5 truncate">
                                     <input 
                                       type="checkbox" 
@@ -607,9 +669,21 @@ export default function TaskCreateModal({
                                         }
                                       }}
                                     />
-                                    <span className="text-slate-800 dark:text-slate-200 truncate">{name}</span>
+                                    <span className={`text-slate-800 dark:text-slate-200 truncate ${isSelf ? "font-bold text-amber-800 dark:text-amber-300" : ""}`}>
+                                      {displayName}
+                                      {deptName && !isSelf && (
+                                        <span className="text-[10px] text-slate-400 font-normal ml-1">({deptName})</span>
+                                      )}
+                                    </span>
                                   </div>
-                                  {isChecked && <Check size={11} className="text-amber-500 stroke-[3]" />}
+                                  <div className="flex items-center gap-1.5 shrink-0 ml-1">
+                                    {isSelf && (
+                                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                        Myself
+                                      </span>
+                                    )}
+                                    {isChecked && <Check size={11} className="text-amber-500 stroke-[3]" />}
+                                  </div>
                                 </label>
                               );
                             })}

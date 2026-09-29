@@ -48,7 +48,8 @@ export default function Landing() {
   return (
     <div className="bg-[#FAF9F6] text-[#0F172A] min-h-screen font-sans antialiased selection:bg-[#0E6B50] selection:text-white relative overflow-hidden">
       {/* Premium custom styles & background grid overrides */}
-      <style dangerouslySetInnerHTML={{ __html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* Ultra-fine dotted grid pattern representing modern professional design */
         .dotted-grid {
           background-image: radial-gradient(#E2E8F0 1.5px, transparent 1.5px);
@@ -139,7 +140,7 @@ export default function Landing() {
           <div className="flex items-center group cursor-pointer">
             <img src="/easyconnect.png" alt="Easy Connect" className="h-10 w-auto transition-transform group-hover:scale-105 object-contain" />
           </div>
-          
+
           {/* Links */}
           <div className="hidden md:flex items-center gap-1.5">
             <a className="text-[#475569] font-semibold hover:text-[#0E6B50] transition-colors text-[13px] px-3.5 py-2 rounded-lg hover:bg-slate-100/50" href="#features">Features</a>
@@ -163,10 +164,10 @@ export default function Landing() {
       <main className="pt-28 md:pt-36 relative z-10">
         <section className="max-w-7xl mx-auto px-6 pb-20">
           <div className="grid lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-            
+
             {/* Left Copy block */}
             <div className="lg:col-span-6 flex flex-col gap-6 text-left">
-              
+
               {/* API Connection Banner */}
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#E2E8F0] shadow-sm w-fit">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] active-dot-glow"></span>
@@ -209,7 +210,7 @@ export default function Landing() {
             {/* Right Mockup Panel: High-fidelity Interface Mockup */}
             <div className="lg:col-span-6 relative">
               <div className="bg-white rounded-2xl border border-slate-100 p-1 shadow-[0_24px_70px_rgba(15,23,42,0.06)] overflow-hidden">
-                
+
                 {/* Mock Application Window Header */}
                 <div className="bg-slate-50/80 border-b border-slate-100 px-4 py-3 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -222,7 +223,7 @@ export default function Landing() {
                 </div>
 
                 <div className="p-4 sm:p-6 grid sm:grid-cols-12 gap-5 bg-white">
-                  
+
                   {/* Left Column: CRM Leads list */}
                   <div className="sm:col-span-5 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
@@ -338,7 +339,7 @@ export default function Landing() {
 
           <div className="grid md:grid-cols-4 gap-6">
             {/* Step 1 */}
-            <div 
+            <div
               className={`p-6 rounded-2xl border transition-all duration-300 ${activeStep === 0 ? 'bg-white border-[#0E6B50] shadow-md scale-105' : 'bg-white/50 border-slate-100 opacity-70'}`}
               onClick={() => setActiveStep(0)}
             >
@@ -346,12 +347,12 @@ export default function Landing() {
                 <span className="material-symbols-outlined">bolt</span>
               </div>
               <span className="text-[9px] font-bold text-[#0E6B50] uppercase tracking-wider font-mono">Phase 01</span>
-              <h4 className="font-bold text-[#0F172A] mt-1 text-sm">Pipeline Trigger</h4>
+              <h4 className="font-bold text-[#0F172A] mt-1 text-sm"> Trigger</h4>
               <p className="text-[12px] text-[#64748B] mt-2 leading-relaxed">Moving a lead's status automatically triggers the sequence builder enrollment.</p>
             </div>
 
             {/* Step 2 */}
-            <div 
+            <div
               className={`p-6 rounded-2xl border transition-all duration-300 ${activeStep === 1 ? 'bg-white border-[#10B981] shadow-md scale-105' : 'bg-white/50 border-slate-100 opacity-70'}`}
               onClick={() => setActiveStep(1)}
             >
@@ -364,7 +365,7 @@ export default function Landing() {
             </div>
 
             {/* Step 3 */}
-            <div 
+            <div
               className={`p-6 rounded-2xl border transition-all duration-300 ${activeStep === 2 ? 'bg-white border-[#0E6B50] shadow-md scale-105' : 'bg-white/50 border-slate-100 opacity-70'}`}
               onClick={() => setActiveStep(2)}
             >
@@ -377,7 +378,7 @@ export default function Landing() {
             </div>
 
             {/* Step 4 */}
-            <div 
+            <div
               className={`p-6 rounded-2xl border transition-all duration-300 ${activeStep === 3 ? 'bg-white border-red-500 shadow-md scale-105' : 'bg-white/50 border-slate-100 opacity-70'}`}
               onClick={() => setActiveStep(3)}
             >
@@ -399,15 +400,15 @@ export default function Landing() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            
-            {/* Bento 1: CRM pipeline mockup */}
+
+            {/* Bento 1: CRM  mockup */}
             <div className="lg:col-span-7 bg-white border border-slate-100 rounded-3xl p-8 flex flex-col justify-between min-h-[360px] premium-shadow-md">
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-10 h-10 rounded-xl bg-[#0E6B50]/10 flex items-center justify-center text-[#0E6B50]">
                     <span className="material-symbols-outlined">dashboard</span>
                   </div>
-                  <h3 className="text-xl font-bold text-[#0F172A]">Visual Pipeline Tracker</h3>
+                  <h3 className="text-xl font-bold text-[#0F172A]">Visual  Tracker</h3>
                 </div>
                 <p className="text-sm text-[#475569] max-w-md leading-relaxed">
                   Track, search, and drag leads into status lanes. Keep absolute log trails with lead notes and chronological audit records.
@@ -519,10 +520,10 @@ export default function Landing() {
                       <span>Monthly Lead Volume</span>
                       <span className="text-[#0E6B50]">{calcLeads} Leads</span>
                     </div>
-                    <input 
-                      type="range" 
-                      min="10" 
-                      max="1000" 
+                    <input
+                      type="range"
+                      min="10"
+                      max="1000"
                       step="10"
                       value={calcLeads}
                       onChange={(e) => setCalcLeads(Number(e.target.value))}
@@ -535,10 +536,10 @@ export default function Landing() {
                       <span>Current Closing Rate</span>
                       <span className="text-[#0E6B50]">{calcConversion}%</span>
                     </div>
-                    <input 
-                      type="range" 
-                      min="2" 
-                      max="50" 
+                    <input
+                      type="range"
+                      min="2"
+                      max="50"
                       step="1"
                       value={calcConversion}
                       onChange={(e) => setCalcConversion(Number(e.target.value))}
@@ -596,7 +597,7 @@ export default function Landing() {
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#10B981] text-md font-bold">check_circle</span>
-                  <span className="text-xs text-[#475569]">Dynamic drag-and-order pipeline CRUD</span>
+                  <span className="text-xs text-[#475569]">Dynamic drag-and-order  CRUD</span>
                 </li>
                 <li className="flex items-center gap-3">
                   <span className="material-symbols-outlined text-[#10B981] text-md font-bold">check_circle</span>
@@ -623,16 +624,16 @@ export default function Landing() {
         <section className="max-w-7xl mx-auto px-6 mb-20 animate-on-scroll">
           <div className="rounded-3xl bg-slate-900 p-12 md:p-16 text-center relative overflow-hidden border border-slate-800 shadow-xl">
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_rgba(99,102,241,0.12)_0%,_transparent_75%)] pointer-events-none"></div>
-            
+
             <h2 className="text-3xl font-extrabold mb-3 text-white">Automate Customer Follow-Ups</h2>
             <p className="text-slate-400 max-w-md mx-auto mb-8 text-xs leading-relaxed">
               Launch message sequences in under 15 minutes. Protect sender score with automated opt-out keywords compliance.
             </p>
-            
+
             <div className="max-w-md mx-auto flex flex-col md:flex-row gap-3 relative z-10">
-              <input 
-                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-2 focus:ring-[#0E6B50] focus:border-transparent outline-none transition-all placeholder:text-slate-600 text-xs" 
-                placeholder="Enter work email" 
+              <input
+                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-2 focus:ring-[#0E6B50] focus:border-transparent outline-none transition-all placeholder:text-slate-600 text-xs"
+                placeholder="Enter work email"
                 type="email"
               />
               <Link to="/signup" className="bg-[#10B981] hover:bg-[#059669] text-white font-bold px-8 py-4 rounded-xl text-xs uppercase tracking-wider shadow-lg">
@@ -650,15 +651,15 @@ export default function Landing() {
             <div className="flex items-center">
               <img src="/easyconnect.png" alt="Easy Connect" className="h-8 w-auto object-contain" />
             </div>
-            
+
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-50 border border-slate-100">
               <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] glow-dot"></span>
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider font-mono">Meta Cloud Connection: Operational</span>
             </div>
-            
+
             <p className="text-[11px] text-[#64748B]">© 2026 LeadFlow CRM. All rights reserved. Multi-tenant secure workspace.</p>
           </div>
-          
+
           <div className="flex flex-wrap justify-center gap-6 text-[10px] font-bold uppercase tracking-wider font-mono text-slate-400">
             <a className="hover:text-[#0E6B50] transition-all hover:underline" href="#">Privacy Policy</a>
             <a className="hover:text-[#0E6B50] transition-all hover:underline" href="#">Terms of Service</a>

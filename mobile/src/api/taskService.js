@@ -115,7 +115,11 @@ export const uploadMediaFileApi = async (formData) => {
 };
 
 export const updateTaskChecklistApi = (id, checklistPayload) =>
-  api.post(`/tasks/${id}/checklist`, checklistPayload);
+  api.post(`/tasks/${id}/checklist`, checklistPayload).catch(() =>
+    api.post(`/employee/tasks/${id}/checklist`, checklistPayload).catch(() =>
+      api.post(`/manager/tasks/${id}/checklist`, checklistPayload)
+    )
+  );
 
 export const startTaskTimerApi = (id) =>
   api.post(`/tasks/${id}/time/start`);

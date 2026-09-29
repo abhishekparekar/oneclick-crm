@@ -178,8 +178,8 @@ const exportToCSV = (subsToExport, filenamePrefix = "subscriptions") => {
   }
 
   const headers = [
-    "Tenant Workspace",
-    "Tenant ID",
+    "Company",
+    "Company ID",
     "Plan Name",
     "Billing Cycle",
     "Price / Amount",
@@ -219,7 +219,7 @@ const exportToCSV = (subsToExport, filenamePrefix = "subscriptions") => {
       : `${info.daysLeft ?? "N/A"} days`;
 
     return [
-      escapeCSV(comp.companyName || "Unknown Tenant"),
+      escapeCSV(comp.companyName || "Unknown Company"),
       escapeCSV(comp._id || comp || "N/A"),
       escapeCSV(planName),
       escapeCSV(sub.billingCycle || "monthly"),
@@ -378,8 +378,12 @@ const SuperAdminSubscriptions = () => {
 
   const extendTrialMutation = useMutation({
     mutationFn: ({ id, days, toDate }) => extendTrialApi(id, days, toDate),
-    onSuccess: () => { queryClient.invalidateQueries(["superAdminSubscriptions"]); setIsExtendModalOpen(false); },
-    onError: (err) => alert(err.response?.data?.message || "Failed to extend trial")
+    onSuccess: () => { 
+      queryClient.invalidateQueries(["superAdminSubscriptions"]); 
+      setIsExtendModalOpen(false); 
+      toast.success("Subscription validity extended successfully!");
+    },
+    onError: (err) => toast.error(err.response?.data?.message || "Failed to extend subscription")
   });
 
   const deleteMutation = useMutation({
@@ -433,24 +437,32 @@ const SuperAdminSubscriptions = () => {
     });
   };
 
+  const getSubBaseDateStr = (sub) => {
+    const today = getTodayStr();
+    if (!sub?.endDate) return today;
+    const endStr = new Date(sub.endDate).toISOString().split("T")[0];
+    return endStr > today ? endStr : today;
+  };
+
   const handleOpenExtend = (sub) => {
     setSelectedSub(sub);
-    setExtendDays(7);
-    const base = sub?.endDate ? new Date(sub.endDate).toISOString().split("T")[0] : getTodayStr();
-    setExtendToDate(getFutureDateStr(7, base));
+    const base = getSubBaseDateStr(sub);
+    const defaultDays = sub?.billingCycle === "trial" ? 7 : 30;
+    setExtendDays(defaultDays);
+    setExtendToDate(getFutureDateStr(defaultDays, base));
     setIsExtendModalOpen(true);
   };
 
   const handleExtendDaysChange = (val) => {
     const days = Math.max(1, parseInt(val, 10) || 1);
     setExtendDays(days);
-    const base = selectedSub?.endDate ? new Date(selectedSub.endDate).toISOString().split("T")[0] : getTodayStr();
+    const base = getSubBaseDateStr(selectedSub);
     setExtendToDate(getFutureDateStr(days, base));
   };
 
   const handleExtendToDateChange = (toVal) => {
     setExtendToDate(toVal);
-    const base = selectedSub?.endDate ? new Date(selectedSub.endDate).toISOString().split("T")[0] : getTodayStr();
+    const base = getSubBaseDateStr(selectedSub);
     const diff = calculateDaysDiff(base, toVal);
     setExtendDays(diff);
   };
@@ -462,13 +474,17 @@ const SuperAdminSubscriptions = () => {
 
   const handleExtendSubmit = (e) => {
     e.preventDefault();
+    if (!extendToDate) {
+      toast.error("Please select a valid expiry date");
+      return;
+    }
     extendTrialMutation.mutate({ id: selectedSub._id, days: extendDays, toDate: extendToDate });
   };
 
   /* ─── Table Column Definition ────────────────────────────────────────── */
   const columns = [
     {
-      header: "Tenant Workspace",
+      header: "Company",
       accessor: "company",
       render: (row) => (
         <div className="flex items-center space-x-3 py-1">
@@ -481,7 +497,7 @@ const SuperAdminSubscriptions = () => {
               onClick={() => navigate(`/superadmin/companies/${row.companyId?._id || row.companyId}`)}
               className="text-xs font-black text-sa-text hover:text-[#f59e0b] transition-colors cursor-pointer flex items-center gap-1 block leading-tight"
             >
-              <span>{row.companyId?.companyName || "Unknown Tenant"}</span>
+              <span>{row.companyId?.companyName || "Unknown Company"}</span>
               <ExternalLink size={11} className="text-[#f59e0b] opacity-70" />
             </span>
             <span className="text-[10px] font-extrabold text-sa-text-secondary mt-0.5 block">
@@ -492,7 +508,7 @@ const SuperAdminSubscriptions = () => {
       )
     },
     {
-      header: "Assigned Tier & Pricing",
+      header: "Plan & Pricing",
       accessor: "plan",
       render: (row) => (
         <div className="py-1">
@@ -568,22 +584,20 @@ const SuperAdminSubscriptions = () => {
             type="button"
             onClick={() => navigate(`/superadmin/companies/${row.companyId?._id || row.companyId}`)}
             className="p-1.5 rounded-lg bg-sa-bg hover:bg-[#f59e0b]/10 text-sa-text-secondary hover:text-[#f59e0b] transition-all border border-transparent hover:border-[#f59e0b]/30"
-            title="View Tenant Workspace"
+            title="View Company Details"
           >
             <ExternalLink size={14} />
           </button>
 
-          {row.status === 'trial' && (
-            <button
-              type="button"
-              onClick={() => handleOpenExtend(row)}
-              className="px-2.5 py-1 rounded-lg text-[10px] font-black text-[#f59e0b] bg-[#f59e0b]/10 hover:bg-[#f59e0b]/20 border border-[#f59e0b]/30 transition-all flex items-center space-x-1"
-              title="Extend Free Trial Period"
-            >
-              <Calendar size={11} />
-              <span>Extend</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleOpenExtend(row)}
+            className="px-2.5 py-1 rounded-lg text-[10px] font-black text-[#f59e0b] bg-[#f59e0b]/10 hover:bg-[#f59e0b]/20 border border-[#f59e0b]/30 transition-all flex items-center space-x-1"
+            title="Extend / Select New Expiry Date"
+          >
+            <Calendar size={11} />
+            <span>Extend</span>
+          </button>
 
           <div className="relative">
             <button
@@ -624,8 +638,8 @@ const SuperAdminSubscriptions = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Enterprise Subscriptions & Licensing</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Monitor active tenant tiers, free trials, recurring renewals, and incoming company upgrade requests.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Company Subscriptions</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Monitor company plans, active trials, renewal dates, and subscription status.</p>
         </div>
         <div className="flex items-center gap-2.5 flex-wrap">
           {/* Export Dropdown */}
@@ -742,7 +756,7 @@ const SuperAdminSubscriptions = () => {
               )}
             </div>
             <p className="text-xs text-sa-text-secondary font-medium pl-9">
-              Track tenants approaching plan deadlines to prevent service downtime and trigger timely renewal outreach.
+              Track companies whose subscriptions are ending soon to ensure smooth renewals.
             </p>
           </div>
 
@@ -819,32 +833,32 @@ const SuperAdminSubscriptions = () => {
         <SubscriptionKpiCard 
           title="Total Subscriptions" 
           count={subscriptions.length} 
-          subtitle="All recorded tiers" 
+          subtitle="All subscriptions" 
           icon={Briefcase} 
           grad={["#d97706", "#f59e0b"]} 
           active={statusFilter === "all"} 
           onClick={() => setStatusFilter("all")} 
         />
         <SubscriptionKpiCard 
-          title="Active Workspaces" 
+          title="Active Companies" 
           count={subscriptions.filter(s => s.status === 'active').length} 
-          subtitle="Fully provisioned" 
+          subtitle="Currently active" 
           icon={CheckCircle} 
           grad={["#f59e0b", "#f59e0b"]} 
           active={statusFilter === "active"} 
           onClick={() => setStatusFilter("active")} 
         />
         <SubscriptionKpiCard 
-          title="Trial Evaluation" 
+          title="Free Trial Plans" 
           count={subscriptions.filter(s => s.status === 'trial').length} 
-          subtitle="On trial access" 
+          subtitle="Trial active" 
           icon={Clock} 
           grad={["#b45309", "#06B6D4"]} 
           active={statusFilter === "trial"} 
           onClick={() => setStatusFilter("trial")} 
         />
         <SubscriptionKpiCard 
-          title="Active MRR Volume" 
+          title="Monthly Revenue" 
           count={`$${totalMrr.toLocaleString()}`} 
           subtitle="Monthly active value" 
           icon={DollarSign} 
@@ -860,7 +874,7 @@ const SuperAdminSubscriptions = () => {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
           <input
             type="text"
-            placeholder="Search by tenant workspace name or assigned subscription plan..."
+            placeholder="Search by company name or subscription plan..."
             className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -925,24 +939,18 @@ const SuperAdminSubscriptions = () => {
         >
           <div className="py-1">
             <button onClick={() => { const id = activeMenu.row.companyId?._id || activeMenu.row.companyId; setActiveMenu(null); navigate(`/superadmin/companies/${id}`); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-sa-text hover:bg-sa-bg transition-colors">
-              <ExternalLink size={13} className="text-[#f59e0b]" /> <span>View Tenant Workspace</span>
+              <ExternalLink size={13} className="text-[#f59e0b]" /> <span>View Company Details</span>
             </button>
           </div>
           <div className="py-1 border-t border-sa-border">
+            <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); handleOpenExtend(row); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors">
+              <Calendar size={13} /> <span>Extend / Renew (Select Date)</span>
+            </button>
             {activeMenu.row.status === 'active' ? (
               <button onClick={() => { const id = activeMenu.row._id; setActiveMenu(null); handleCancel(id); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-sa-text-secondary hover:bg-sa-bg transition-colors">
                 <XCircle size={13} className="text-rose-500" /> <span>Cancel Subscription</span>
               </button>
-            ) : (
-              <button onClick={() => { const id = activeMenu.row._id; setActiveMenu(null); handleRenew(id); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#f59e0b] hover:bg-[#f59e0b]/10 transition-colors">
-                <CheckCircle size={13} /> <span>Activate / Renew Tier</span>
-              </button>
-            )}
-            {activeMenu.row.status === 'trial' && (
-              <button onClick={() => { const row = activeMenu.row; setActiveMenu(null); handleOpenExtend(row); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-[#06B6D4] hover:bg-[#06B6D4]/10 transition-colors">
-                <Calendar size={13} /> <span>Extend Free Trial</span>
-              </button>
-            )}
+            ) : null}
             <button onClick={() => { const id = activeMenu.row._id; setActiveMenu(null); handleDelete(id); }} className="w-full flex items-center space-x-2 px-3.5 py-2 text-xs font-bold text-rose-600 hover:bg-rose-500/10 transition-colors border-t border-sa-border/60">
               <Trash2 size={13} className="text-rose-500" /> <span>Delete Subscription</span>
             </button>
@@ -965,19 +973,19 @@ const SuperAdminSubscriptions = () => {
             
             <form onSubmit={handleAssignSubmit} className="p-6 space-y-4">
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Target Tenant</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Company</label>
                 <select required value={assignData.companyId} onChange={e => setAssignData({...assignData, companyId: e.target.value})}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
-                  <option value="">-- Choose Tenant Company --</option>
+                  <option value="">-- Choose Company --</option>
                   {companies.map(c => <option key={c._id} value={c._id}>{c.companyName}</option>)}
                 </select>
               </div>
 
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Plan Tier</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Plan</label>
                 <select required value={assignData.planId} onChange={e => setAssignData({...assignData, planId: e.target.value})}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
-                  <option value="">-- Choose Subscription Tier --</option>
+                  <option value="">-- Choose Plan --</option>
                   {plans.map(p => <option key={p._id} value={p._id}>{p.planName} (${p.priceMonthly}/mo)</option>)}
                 </select>
               </div>
@@ -988,7 +996,7 @@ const SuperAdminSubscriptions = () => {
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
                   <option value="monthly">Monthly Cycle (30 Days)</option>
                   <option value="yearly">Annual / Yearly Cycle (365 Days)</option>
-                  <option value="trial">Evaluation Free Trial</option>
+                  <option value="trial">Free Trial</option>
                 </select>
               </div>
 
@@ -1082,7 +1090,7 @@ const SuperAdminSubscriptions = () => {
               <div className="flex items-start space-x-2.5 bg-[#f59e0b]/5 p-3.5 rounded-xl border border-[#f59e0b]/20 mt-4 text-xs">
                 <AlertCircle size={15} className="text-[#f59e0b] flex-shrink-0 mt-0.5" />
                 <p className="font-semibold text-sa-text leading-relaxed">
-                  Assigning a new subscription tier will immediately override any active plan or trial for this workspace.
+                  Assigning a new plan will immediately update the active subscription for this company.
                 </p>
               </div>
 
@@ -1097,7 +1105,7 @@ const SuperAdminSubscriptions = () => {
                   style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
                 >
                   <Check size={14} />
-                  <span>{assignMutation.isPending ? 'Assigning...' : 'Confirm Plan Assignment'}</span>
+                  <span>{assignMutation.isPending ? 'Assigning...' : 'Assign Plan'}</span>
                 </button>
               </div>
             </form>
@@ -1106,51 +1114,80 @@ const SuperAdminSubscriptions = () => {
       )}
 
       {/* ─── Extend Trial Glassmorphic Modal ─────────────────────────────── */}
+      {/* ─── Extend Subscription / Plan Modal ─────────────────────────────── */}
       {isExtendModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
           <div className="bg-sa-surface rounded-2xl shadow-2xl border border-sa-border w-full max-w-sm overflow-hidden flex flex-col">
             
             <div className="px-6 py-4 border-b border-sa-border/30 flex justify-between items-center bg-sa-bg/60">
               <div className="flex items-center space-x-2.5">
-                <span className="w-2 h-2 rounded-full bg-[#06B6D4]" />
-                <h2 className="text-base font-black text-sa-text tracking-tight">Extend Subscription / Trial</h2>
+                <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b]" />
+                <h2 className="text-base font-black text-sa-text tracking-tight">Extend Subscription Plan</h2>
               </div>
               <button onClick={() => setIsExtendModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
             </div>
             
             <form onSubmit={handleExtendSubmit} className="p-6 space-y-4">
-              <div className="p-3.5 rounded-xl border border-[#06B6D4]/30 bg-[#06B6D4]/10 text-xs font-bold text-sa-text">
-                Extending subscription for <span className="text-[#f59e0b]">{selectedSub?.companyId?.companyName}</span>.
-                <div className="text-[10.5px] text-sa-text-secondary mt-1 font-semibold">
+              <div className="p-3.5 rounded-xl border border-[#f59e0b]/30 bg-[#f59e0b]/10 text-xs font-bold text-sa-text">
+                Extending subscription for <span className="text-[#f59e0b] font-black">{selectedSub?.companyId?.companyName}</span>.
+                <div className="text-[11px] text-sa-text-secondary mt-1 font-semibold">
                   Current Expiry: <span className="text-sa-text font-bold">{selectedSub?.endDate ? new Date(selectedSub.endDate).toLocaleDateString("en-IN", { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A'}</span>
                 </div>
               </div>
 
               <div>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">New Expiry (Select Date)</label>
+                <input 
+                  type="date" 
+                  required 
+                  min={getTodayStr()}
+                  value={extendToDate} 
+                  onChange={e => handleExtendToDateChange(e.target.value)}
+                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer" 
+                />
+              </div>
+
+              <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Extension Subscription Days</label>
-                  <span className="text-[10px] font-bold text-[#06B6D4]">+{extendDays} Days</span>
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider">Days to Add / Duration</label>
+                  <span className="text-[10px] font-bold text-[#f59e0b]">+{extendDays} Days</span>
                 </div>
                 <input 
                   type="number" 
                   required 
                   min="1" 
-                  max="365" 
+                  max="3650" 
                   value={extendDays} 
                   onChange={e => handleExtendDaysChange(e.target.value)}
                   className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" 
                 />
               </div>
 
-              <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">New Expiry (To Date)</label>
-                <input 
-                  type="date" 
-                  required 
-                  value={extendToDate} 
-                  onChange={e => handleExtendToDateChange(e.target.value)}
-                  className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-black text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer" 
-                />
+              {/* Quick Presets */}
+              <div className="pt-1">
+                <span className="text-[10px] text-sa-text-secondary font-bold mb-1.5 block uppercase tracking-wider">Quick Extensions</span>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {[
+                    { label: "+7d", days: 7 },
+                    { label: "+15d", days: 15 },
+                    { label: "+1 Mo", days: 30 },
+                    { label: "+3 Mo", days: 90 },
+                    { label: "+1 Yr", days: 365 },
+                  ].map((preset) => (
+                    <button
+                      key={preset.days}
+                      type="button"
+                      onClick={() => handleExtendDaysChange(preset.days)}
+                      className={`py-1.5 px-1 rounded-lg text-[10px] font-black border transition-all text-center ${
+                        extendDays === preset.days
+                          ? "bg-[#f59e0b] text-white border-[#f59e0b] shadow-xs"
+                          : "bg-sa-bg border-sa-border/40 text-sa-text-secondary hover:text-sa-text hover:border-sa-border"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="flex justify-end space-x-3 pt-4 border-t border-sa-border mt-4">

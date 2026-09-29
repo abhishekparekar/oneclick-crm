@@ -24,7 +24,7 @@ import {
 
 const ALL_MODULES = [
   { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
-  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+  { key: "leads", label: "Lead", desc: "Manage leads & WhatsApp campaigns" },
   { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
   { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
 ];
@@ -308,12 +308,17 @@ export default function EditEmployee() {
     const rawList = [
       managerProfile.departmentId?._id || managerProfile.departmentId || user?.departmentId?._id || user?.departmentId,
       ...(managerProfile.departmentIds || []),
-      ...(managerProfile.accessibleDepartments || user?.accessibleDepartments || []),
+      ...(user?.departmentIds || []),
+      ...(managerProfile.accessibleDepartments || []),
+      ...(user?.accessibleDepartments || []),
     ].filter(Boolean);
 
     return Array.from(
       new Set(
-        rawList.map((d) => (typeof d === "object" ? d._id : d)).filter(Boolean).map(String)
+        rawList
+          .map((d) => (typeof d === "object" ? (d._id || d.id || d) : d))
+          .filter(Boolean)
+          .map(String)
       )
     );
   }, [isManager, managerProfile, user]);
@@ -691,8 +696,15 @@ export default function EditEmployee() {
       permanentAddress: formData.permanentAddress,
       emergencyContact: formData.emergencyContact,
 
-      departmentId: formData.accessibleDepartments?.[0] || undefined,
-      accessibleDepartments: formData.accessibleDepartments || [],
+      departmentId: (formData.accessibleDepartments?.[0] || (typeof formData.departmentId === "object" ? formData.departmentId?._id : formData.departmentId)) || undefined,
+      departmentIds: Array.from(new Set([
+        typeof formData.departmentId === "object" ? formData.departmentId?._id : formData.departmentId,
+        ...(Array.isArray(formData.accessibleDepartments) ? formData.accessibleDepartments.map(d => typeof d === "object" ? d._id : d) : []),
+      ].filter(Boolean))),
+      accessibleDepartments: Array.from(new Set([
+        typeof formData.departmentId === "object" ? formData.departmentId?._id : formData.departmentId,
+        ...(Array.isArray(formData.accessibleDepartments) ? formData.accessibleDepartments.map(d => typeof d === "object" ? d._id : d) : []),
+      ].filter(Boolean))),
       designationId: typeof formData.designationId === "object" ? formData.designationId?._id : formData.designationId,
       branchId: typeof formData.branchId === "object" ? formData.branchId?._id : formData.branchId,
       branchIds: Array.isArray(formData.branchIds) && formData.branchIds.length > 0
@@ -757,7 +769,7 @@ export default function EditEmployee() {
         <p className="text-sm font-extrabold text-slate-900 dark:text-white">Failed to load employee</p>
         <p className="text-xs text-slate-400">{error?.response?.data?.message || "Please check your network and try again."}</p>
         <Link to={window.location.pathname.startsWith("/manager") ? "/manager/team" : `${window.location.pathname.startsWith("/hr") ? "/hr" : "/company"}/employees`} className="mt-2 px-4 py-2 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-xs font-bold">
-          Return to Employee Directory
+          Return to Employee management
         </Link>
       </div>
     );

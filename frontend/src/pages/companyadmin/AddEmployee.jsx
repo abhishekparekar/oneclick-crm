@@ -22,7 +22,7 @@ import {
 
 const ALL_MODULES = [
   { key: "tasks", label: "Tasks Management", desc: "Create, execute and review tasks" },
-  { key: "leads", label: "Lead Engine & CRM", desc: "Manage leads & WhatsApp campaigns" },
+  { key: "leads", label: "Lead", desc: "Manage leads & WhatsApp campaigns" },
   { key: "attendance", label: "Attendance & Bio-Punch", desc: "Punches, shifts & regularization" },
   { key: "projects", label: "Project Workspace", desc: "Milestones, sprints & task boards" },
 ];
@@ -56,7 +56,7 @@ const STEPS = [
   { id: 4, label: "Salary & Compensation", icon: DollarSign, desc: "CTC, allowances & tax" },
   { id: 5, label: "Bank & Identity", icon: CreditCard, desc: "Banking & PAN/Aadhaar" },
   { id: 6, label: "Document Vault", icon: FileText, desc: "Upload files & proofs" },
-  { id: 7, label: "Review & Create", icon: CheckCheck, desc: "Final verification" },
+  { id: 7, label: "Review & Confirm", icon: CheckCheck, desc: "Verify candidate details" },
 ];
 
 // ── Shared Field Components (Crystal Clear Contrast & High Density) ────────
@@ -101,34 +101,40 @@ const Input = ({ label, type = "text", value, onChange, onBlur, placeholder, dis
   </Field>
 );
 
-const Select = ({ label, value, onChange, options, disabled = false, required = false, placeholder = "Select...", action, hint, className = "", error, onClearError }) => (
+const Select = ({ label, value, onChange, options = [], disabled = false, loading = false, required = false, placeholder = "Select...", action, hint, className = "", error, onClearError }) => (
   <Field label={label} required={required} action={action} hint={hint} className={className} error={error}>
     <div className="relative">
       <select
         value={value ?? ""}
         onChange={(e) => { if (onClearError) onClearError(); onChange(e.target.value); }}
-        disabled={disabled}
+        disabled={disabled || loading}
         className={`w-full appearance-none pl-3.5 pr-9 py-2.5 bg-slate-50 dark:bg-[#0B101B] border rounded-xl text-xs font-bold text-slate-900 dark:text-white focus:outline-none transition-all cursor-pointer ${
           error
             ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/30 dark:bg-rose-900/10"
             : "border-slate-300 dark:border-slate-700/90 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20"
         } ${
-          disabled ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
+          disabled || loading ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
         }`}
       >
-        <option value="" disabled className="bg-white dark:bg-[#111C24] text-slate-400">{placeholder}</option>
+        <option value="" disabled className="bg-white dark:bg-[#111C24] text-slate-400">
+          {loading ? "Loading options..." : placeholder}
+        </option>
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} className="bg-white dark:bg-[#111C24] text-slate-900 dark:text-white font-semibold">
             {opt.label}
           </option>
         ))}
       </select>
-      <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
+      {loading ? (
+        <Loader2 size={13} className="absolute right-3 top-3 text-amber-500 animate-spin pointer-events-none" />
+      ) : (
+        <ChevronDown size={14} className="absolute right-3 top-3 text-slate-400 pointer-events-none" />
+      )}
     </div>
   </Field>
 );
 
-const MultiSelect = ({ label, selected = [], onChange, options, disabled = false, required = false, placeholder = "Select departments...", action, error, hint }) => {
+const MultiSelect = ({ label, selected = [], onChange, options = [], disabled = false, loading = false, required = false, placeholder = "Select...", action, error, hint, onClearError }) => {
   const [open, setOpen] = useState(false);
   const containerRef = useRef(null);
 
@@ -141,11 +147,13 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
   }, []);
 
   const toggle = (val) => {
+    if (onClearError) onClearError();
     if (selected.includes(val)) onChange(selected.filter((v) => v !== val));
     else onChange([...selected, val]);
   };
 
-  const selectedLabels = options.filter((o) => selected.includes(o.value)).map((o) => o.label).join(", ");
+  const selectedOptions = options.filter((o) => selected.includes(o.value));
+  const selectedLabels = selectedOptions.map((o) => o.label).join(", ");
 
   return (
     <Field label={label} required={required} action={action} error={error} hint={hint}>
@@ -156,20 +164,50 @@ const MultiSelect = ({ label, selected = [], onChange, options, disabled = false
               ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20 bg-rose-50/30 dark:bg-rose-900/10"
               : "border-slate-300 dark:border-slate-700/90 focus:border-amber-500"
           } ${
-            disabled ? "opacity-60 cursor-not-allowed" : ""
+            disabled || loading ? "opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-900" : ""
           }`}
-          onClick={() => !disabled && setOpen(!open)}
+          onClick={() => !disabled && !loading && setOpen(!open)}
         >
           <span className="truncate">
-            {selected.length ? selectedLabels : <span className="text-slate-400 font-normal">{placeholder}</span>}
+            {loading ? (
+              <span className="text-amber-500/80 font-medium flex items-center gap-1.5">
+                <Loader2 size={12} className="animate-spin" /> Loading data...
+              </span>
+            ) : selected.length ? (
+              <span className="flex items-center gap-1.5 flex-wrap">
+                {selectedOptions.length <= 2 ? (
+                  selectedLabels
+                ) : (
+                  <span>
+                    {selectedOptions.slice(0, 2).map((o) => o.label).join(", ")}
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-black">
+                      +{selectedOptions.length - 2} more
+                    </span>
+                  </span>
+                )}
+              </span>
+            ) : (
+              <span className="text-slate-400 font-normal">{placeholder}</span>
+            )}
           </span>
-          <ChevronDown size={14} className="text-slate-400 shrink-0 ml-2" />
+          <div className="flex items-center gap-1.5 shrink-0 ml-2">
+            {!loading && selected.length > 0 && (
+              <span className="w-5 h-5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] flex items-center justify-center">
+                {selected.length}
+              </span>
+            )}
+            {loading ? (
+              <Loader2 size={13} className="text-amber-500 animate-spin" />
+            ) : (
+              <ChevronDown size={14} className="text-slate-400" />
+            )}
+          </div>
         </div>
 
         {open && (
           <div className="absolute z-50 w-full mt-1.5 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700 rounded-2xl shadow-xl max-h-56 overflow-y-auto p-1.5 space-y-1 animate-fadeIn">
             {options.length === 0 ? (
-              <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400">No departments available</div>
+              <div className="p-3 text-center text-xs text-slate-500 dark:text-slate-400">No options available</div>
             ) : (
               options.map((opt) => {
                 const isSelected = selected.includes(opt.value);
@@ -348,11 +386,7 @@ export default function AddEmployee() {
 
   // Salary Configuration States
   const [salaryViewMode, setSalaryViewMode] = useState("monthly"); // "monthly" | "annual"
-  const [autoCalcEarnings, setAutoCalcEarnings] = useState(false); // User requested toggle for Earnings
-  const [autoCalcDeductions, setAutoCalcDeductions] = useState(false); // User requested toggle for Deductions (OFF by default)
-  const [includePf, setIncludePf] = useState(true);
-  const [includePt, setIncludePt] = useState(true);
-  const [includeEsi, setIncludeEsi] = useState(false);
+
 
   // Queries
   const { data: deptRes, isLoading: deptLoading } = useQuery({
@@ -373,13 +407,13 @@ export default function AddEmployee() {
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const { data: empRes } = useQuery({
+  const { data: empRes, isLoading: empLoading } = useQuery({
     queryKey: ["allEmployees"],
     queryFn: () => getEmployeesApi({ limit: 1000 }),
     staleTime: 0,
     refetchOnMount: "always",
   });
-  const { data: moduleUsageRes } = useQuery({
+  const { data: moduleUsageRes, isLoading: moduleUsageLoading } = useQuery({
     queryKey: ["companyModuleUsage"],
     queryFn: () => getModuleUsageApi().then((r) => r.data),
   });
@@ -432,12 +466,17 @@ export default function AddEmployee() {
     const rawList = [
       managerProfile.departmentId?._id || managerProfile.departmentId || user?.departmentId?._id || user?.departmentId,
       ...(managerProfile.departmentIds || []),
-      ...(managerProfile.accessibleDepartments || user?.accessibleDepartments || []),
+      ...(user?.departmentIds || []),
+      ...(managerProfile.accessibleDepartments || []),
+      ...(user?.accessibleDepartments || []),
     ].filter(Boolean);
 
     return Array.from(
       new Set(
-        rawList.map((d) => (typeof d === "object" ? d._id : d)).filter(Boolean).map(String)
+        rawList
+          .map((d) => (typeof d === "object" ? (d._id || d.id || d) : d))
+          .filter(Boolean)
+          .map(String)
       )
     );
   }, [isManager, managerProfile, user]);
@@ -504,10 +543,21 @@ export default function AddEmployee() {
   }, [departments, isManager, managerAllowedDeptIds]);
 
   const desigOptions = useMemo(() => {
-    const list = formData.departmentId
+    const selectedDeptIds = Array.from(
+      new Set(
+        [
+          formData.departmentId,
+          ...(Array.isArray(formData.accessibleDepartments) ? formData.accessibleDepartments : []),
+        ]
+          .filter(Boolean)
+          .map(String)
+      )
+    );
+
+    const list = selectedDeptIds.length > 0
       ? designations.filter((d) => {
           const deptId = d.departmentId?._id || d.departmentId;
-          return !deptId || String(deptId) === String(formData.departmentId);
+          return !deptId || selectedDeptIds.includes(String(deptId));
         })
       : designations;
 
@@ -515,7 +565,7 @@ export default function AddEmployee() {
       value: d._id,
       label: `${d.name} (${d.departmentId?.name || "General"})`,
     }));
-  }, [designations, formData.departmentId]);
+  }, [designations, formData.departmentId, formData.accessibleDepartments]);
 
   const branchOptions = useMemo(() => {
     return branches.map((b) => ({
@@ -544,7 +594,9 @@ export default function AddEmployee() {
         setFormData((prev) => ({
           ...prev,
           departmentId: deptOptions[0].value,
-          accessibleDepartments: [deptOptions[0].value],
+          accessibleDepartments: Array.isArray(prev.accessibleDepartments) && prev.accessibleDepartments.length > 0
+            ? prev.accessibleDepartments
+            : [deptOptions[0].value],
         }));
         clearError("departmentId");
       }
@@ -563,207 +615,34 @@ export default function AddEmployee() {
     }
   }, [isManager, managerProfile._id, user?.employeeId, user?._id, formData.reportingManagerId]);
 
-  // Helper to calculate statutory Indian Salary breakup
-  const computeSalarySplit = (annualCtc, opts = {}) => {
+  const handleCtcChange = (annualCtc) => {
     const ctc = Math.max(0, Number(annualCtc) || 0);
-    const withPf = opts.includePf !== undefined ? opts.includePf : includePf;
-    const withPt = opts.includePt !== undefined ? opts.includePt : (includePt && ctc > 0);
-    const withEsi = opts.includeEsi !== undefined ? opts.includeEsi : includeEsi;
-    const calcDeductions = opts.calculateDeductions !== undefined ? opts.calculateDeductions : autoCalcDeductions;
-    const customTds = opts.tds !== undefined ? Number(opts.tds) || 0 : (Number(formData.salaryDetails?.tds) || 0);
-
-    if (ctc <= 0) {
+    setFormData((prev) => {
+      const cur = prev.salaryDetails || {};
       return {
-        ctc: 0,
-        monthlyCtc: 0,
-        basic: 0,
-        basicSalary: 0,
-        hra: 0,
-        annualHra: 0,
-        conveyance: 0,
-        medicalAllowance: 0,
-        specialAllowance: 0,
-        annualSpecialAllowance: 0,
-        otherAllowance: 0,
-        grossSalary: 0,
-        annualGross: 0,
-        pf: 0,
-        pfEmployee: 0,
-        pfEmployer: 0,
-        annualPfEmployee: 0,
-        annualPfEmployer: 0,
-        esi: 0,
-        esiEmployee: 0,
-        esiEmployer: 0,
-        professionalTax: 0,
-        annualProfessionalTax: 0,
-        tds: 0,
-        totalDeductions: 0,
-        netSalary: 0,
-        inHandSalary: 0,
-        annualNetSalary: 0,
-      };
-    }
-
-    const monthlyCtc = Math.round(ctc / 12);
-    // Basic is 50% of CTC
-    const monthlyBasic = Math.round(monthlyCtc * 0.5);
-    // HRA is 40% of Basic
-    const monthlyHra = Math.round(monthlyBasic * 0.4);
-    // Standard allowances
-    const monthlyConveyance = Math.min(1600, Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra)));
-    const monthlyMedical = Math.min(1250, Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra + monthlyConveyance)));
-
-    // Employer PF (for CTC breakdown)
-    const monthlyPfEmplr = (calcDeductions && withPf)
-      ? Math.round(monthlyBasic * 0.12)
-      : (Number(formData.salaryDetails?.pfEmployer) || 0);
-
-    // Special allowance balances CTC
-    const monthlySpecial = Math.max(0, monthlyCtc - (monthlyBasic + monthlyHra + monthlyConveyance + monthlyMedical + monthlyPfEmplr));
-
-    // Gross salary
-    const monthlyGross = monthlyBasic + monthlyHra + monthlyConveyance + monthlyMedical + monthlySpecial;
-
-    // Deductions: only auto-compute if calcDeductions is ON
-    let monthlyPfEmp = 0;
-    let monthlyPt = 0;
-    let monthlyEsiEmp = 0;
-    let monthlyEsiEmplr = 0;
-
-    if (calcDeductions) {
-      monthlyPfEmp = withPf ? Math.round(monthlyBasic * 0.12) : 0;
-      monthlyPt = withPt ? 200 : 0;
-      monthlyEsiEmp = (withEsi && monthlyGross <= 21000) ? Math.round(monthlyGross * 0.0075) : 0;
-      monthlyEsiEmplr = (withEsi && monthlyGross <= 21000) ? Math.round(monthlyGross * 0.0325) : 0;
-    } else {
-      // Preserve existing deduction inputs
-      monthlyPfEmp = opts.pf !== undefined ? Number(opts.pf) || 0 : (Number(formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf) || 0);
-      monthlyPt = opts.professionalTax !== undefined ? Number(opts.professionalTax) || 0 : (Number(formData.salaryDetails?.professionalTax) || 0);
-      monthlyEsiEmp = opts.esi !== undefined ? Number(opts.esi) || 0 : (Number(formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi) || 0);
-      monthlyEsiEmplr = Number(formData.salaryDetails?.esiEmployer) || 0;
-    }
-
-    const monthlyDeductions = monthlyPfEmp + monthlyPt + monthlyEsiEmp + customTds;
-    const monthlyNet = Math.max(0, monthlyGross - monthlyDeductions);
-
-    return {
-      ctc,
-      monthlyCtc,
-      basic: monthlyBasic,
-      basicSalary: monthlyBasic * 12,
-      hra: monthlyHra,
-      annualHra: monthlyHra * 12,
-      conveyance: monthlyConveyance,
-      medicalAllowance: monthlyMedical,
-      specialAllowance: monthlySpecial,
-      annualSpecialAllowance: monthlySpecial * 12,
-      otherAllowance: Number(formData.salaryDetails?.otherAllowance) || 0,
-      overtimeHourlyRate: Number(formData.salaryDetails?.overtimeHourlyRate) || 0,
-      grossSalary: monthlyGross,
-      annualGross: monthlyGross * 12,
-      pf: monthlyPfEmp,
-      pfEmployee: monthlyPfEmp,
-      pfEmployer: monthlyPfEmplr,
-      annualPfEmployee: monthlyPfEmp * 12,
-      annualPfEmployer: monthlyPfEmplr * 12,
-      esi: monthlyEsiEmp,
-      esiEmployee: monthlyEsiEmp,
-      esiEmployer: monthlyEsiEmplr,
-      professionalTax: monthlyPt,
-      annualProfessionalTax: monthlyPt * 12,
-      tds: customTds,
-      totalDeductions: monthlyDeductions,
-      netSalary: monthlyNet,
-      inHandSalary: monthlyNet,
-      annualNetSalary: monthlyNet * 12,
-    };
-  };
-
-  const handleCtcChange = (annualCtc, forceAutoSplit = false) => {
-    const ctc = Math.max(0, Number(annualCtc) || 0);
-    const shouldSplit = forceAutoSplit || autoCalcEarnings;
-
-    if (shouldSplit) {
-      const split = computeSalarySplit(ctc, { calculateDeductions: autoCalcDeductions });
-      setFormData((prev) => ({
         ...prev,
-        salaryDetails: split,
-      }));
-    } else {
-      // Manual earnings mode: update CTC and monthlyCtc, leave earnings & deductions untouched
-      setFormData((prev) => {
-        const cur = prev.salaryDetails || {};
-        return {
-          ...prev,
-          salaryDetails: {
-            ...cur,
-            ctc,
-            monthlyCtc: Math.round(ctc / 12),
-          },
-        };
-      });
-    }
+        salaryDetails: {
+          ...cur,
+          ctc,
+          monthlyCtc: Math.round(ctc / 12),
+        },
+      };
+    });
   };
 
   const handleMonthlySalaryChange = (monthlyAmount) => {
     const m = Math.max(0, Number(monthlyAmount) || 0);
-    const annual = m * 12;
-    handleCtcChange(annual);
-  };
-
-  const handleToggleAutoCalcEarnings = (enabled) => {
-    setAutoCalcEarnings(enabled);
-    if (enabled) {
-      const curCtc = Number(formData.salaryDetails?.ctc) || ((Number(formData.salaryDetails?.grossSalary) || 0) * 12);
-      if (curCtc > 0) {
-        handleCtcChange(curCtc, true);
-      }
-    }
-  };
-
-  const handleToggleAutoCalcDeductions = (enabled) => {
-    setAutoCalcDeductions(enabled);
-    if (enabled) {
-      setFormData((prev) => {
-        const cur = prev.salaryDetails || {};
-        const basic = Number(cur.basic) || 0;
-        const gross = Number(cur.grossSalary) || 0;
-        const withPf = includePf;
-        const withPt = includePt && gross > 0;
-        const withEsi = includeEsi;
-
-        const newPf = withPf ? Math.round(basic * 0.12) : 0;
-        const newPt = withPt ? 200 : 0;
-        const newEsi = (withEsi && gross <= 21000) ? Math.round(gross * 0.0075) : 0;
-        const newEsiEmplr = (withEsi && gross <= 21000) ? Math.round(gross * 0.0325) : 0;
-        const tds = Number(cur.tds) || 0;
-
-        const ded = newPf + newPt + newEsi + tds;
-        const net = Math.max(0, gross - ded);
-
-        return {
-          ...prev,
-          salaryDetails: {
-            ...cur,
-            pf: newPf,
-            pfEmployee: newPf,
-            pfEmployer: newPf,
-            annualPfEmployee: newPf * 12,
-            annualPfEmployer: newPf * 12,
-            professionalTax: newPt,
-            annualProfessionalTax: newPt * 12,
-            esi: newEsi,
-            esiEmployee: newEsi,
-            esiEmployer: newEsiEmplr,
-            totalDeductions: ded,
-            netSalary: net,
-            inHandSalary: net,
-            annualNetSalary: net * 12,
-          },
-        };
-      });
-    }
+    setFormData((prev) => {
+      const cur = prev.salaryDetails || {};
+      return {
+        ...prev,
+        salaryDetails: {
+          ...cur,
+          monthlyCtc: m,
+          ctc: m * 12,
+        },
+      };
+    });
   };
 
   const handleCustomSalaryChange = (field, rawVal, isAnnualField = false) => {
@@ -777,15 +656,6 @@ export default function AddEmployee() {
       if (field === "basic" || field === "basicSalary") {
         updated.basic = monthlyVal;
         updated.basicSalary = monthlyVal * 12;
-        // Only auto-recalculate PF if autoCalcDeductions is ON
-        if (autoCalcDeductions && includePf) {
-          const newPf = Math.round(monthlyVal * 0.12);
-          updated.pf = newPf;
-          updated.pfEmployee = newPf;
-          updated.pfEmployer = newPf;
-          updated.annualPfEmployee = newPf * 12;
-          updated.annualPfEmployer = newPf * 12;
-        }
       } else if (field === "hra") {
         updated.hra = monthlyVal;
         updated.annualHra = monthlyVal * 12;
@@ -808,6 +678,9 @@ export default function AddEmployee() {
           updated.pfEmployer = monthlyVal;
           updated.annualPfEmployer = monthlyVal * 12;
         }
+      } else if (field === "pfEmployer") {
+        updated.pfEmployer = monthlyVal;
+        updated.annualPfEmployer = monthlyVal * 12;
       } else if (field === "professionalTax") {
         updated.professionalTax = monthlyVal;
         updated.annualProfessionalTax = monthlyVal * 12;
@@ -818,7 +691,7 @@ export default function AddEmployee() {
         updated.esiEmployee = monthlyVal;
       }
 
-      // Dynamic calculation of Gross
+      // Live Sum of Gross components
       const b = Number(updated.basic) || 0;
       const h = Number(updated.hra) || 0;
       const sp = Number(updated.specialAllowance) || 0;
@@ -826,81 +699,36 @@ export default function AddEmployee() {
       const med = Number(updated.medicalAllowance) || 0;
       const oth = Number(updated.otherAllowance) || 0;
       const gross = b + h + sp + c + med + oth;
+      updated.grossSalary = gross;
+      updated.annualGross = gross * 12;
 
-      // Deductions
-      let pfe = Number(updated.pfEmployee !== undefined ? updated.pfEmployee : updated.pf) || 0;
-      let pfem = updated.pfEmployer !== undefined ? Number(updated.pfEmployer) : pfe;
-      let pt = Number(updated.professionalTax) || 0;
-      let esie = Number(updated.esiEmployee !== undefined ? updated.esiEmployee : updated.esi) || 0;
-      let esiem = updated.esiEmployer !== undefined ? Number(updated.esiEmployer) : Math.round(esie * 4.33);
-
-      if (autoCalcDeductions) {
-        if (includePt && gross > 0 && !pt) {
-          pt = 200;
-          updated.professionalTax = 200;
-          updated.annualProfessionalTax = 2400;
-        }
-        if (includeEsi && gross <= 21000 && !esie) {
-          esie = Math.round(gross * 0.0075);
-          esiem = Math.round(gross * 0.0325);
-          updated.esi = esie;
-          updated.esiEmployee = esie;
-          updated.esiEmployer = esiem;
-        }
-      }
-
+      // Live Sum of Deductions
+      const pfe = Number(updated.pfEmployee !== undefined ? updated.pfEmployee : updated.pf) || 0;
+      const pt = Number(updated.professionalTax) || 0;
+      const esie = Number(updated.esiEmployee !== undefined ? updated.esiEmployee : updated.esi) || 0;
       const tax = Number(updated.tds) || 0;
       const ded = pfe + pt + esie + tax;
-      const net = Math.max(0, gross - ded);
+      updated.totalDeductions = ded;
 
-      // CTC calculation
-      const annualCtc = (Number(updated.ctc) > 0 && autoCalcEarnings)
-        ? Number(updated.ctc)
-        : Math.round((gross + pfem + esiem) * 12);
+      const net = Math.max(0, gross - ded);
+      updated.netSalary = net;
+      updated.inHandSalary = net;
+      updated.annualNetSalary = net * 12;
+
+      // If CTC is 0 or empty, sync with gross
+      if (!updated.ctc || updated.ctc === 0) {
+        const pfem = updated.pfEmployer ? Number(updated.pfEmployer) : pfe;
+        updated.ctc = (gross + pfem) * 12;
+        updated.monthlyCtc = Math.round(updated.ctc / 12);
+      }
 
       return {
         ...prev,
-        salaryDetails: {
-          ...updated,
-          grossSalary: gross,
-          annualGross: gross * 12,
-          totalDeductions: ded,
-          netSalary: net,
-          inHandSalary: net,
-          annualNetSalary: net * 12,
-          ctc: annualCtc,
-          monthlyCtc: Math.round(annualCtc / 12),
-        },
+        salaryDetails: updated,
       };
     });
   };
 
-  const handleTogglePf = (checked) => {
-    setIncludePf(checked);
-    if (autoCalcDeductions) {
-      const ctc = formData.salaryDetails?.ctc || 0;
-      const split = computeSalarySplit(ctc, { includePf: checked, calculateDeductions: true });
-      setFormData((prev) => ({ ...prev, salaryDetails: split }));
-    }
-  };
-
-  const handleTogglePt = (checked) => {
-    setIncludePt(checked);
-    if (autoCalcDeductions) {
-      const ctc = formData.salaryDetails?.ctc || 0;
-      const split = computeSalarySplit(ctc, { includePt: checked, calculateDeductions: true });
-      setFormData((prev) => ({ ...prev, salaryDetails: split }));
-    }
-  };
-
-  const handleToggleEsi = (checked) => {
-    setIncludeEsi(checked);
-    if (autoCalcDeductions) {
-      const ctc = formData.salaryDetails?.ctc || 0;
-      const split = computeSalarySplit(ctc, { includeEsi: checked, calculateDeductions: true });
-      setFormData((prev) => ({ ...prev, salaryDetails: split }));
-    }
-  };
 
   const handleAvatarUpload = (e) => {
     const file = e.target.files?.[0];
@@ -946,7 +774,11 @@ export default function AddEmployee() {
         queryClient.invalidateQueries({ queryKey: ["branches"] });
         const newBranchId = res.data?.branch?._id;
         if (newBranchId) {
-          setFormData((prev) => ({ ...prev, branchId: newBranchId }));
+          setFormData((prev) => ({
+            ...prev,
+            branchIds: [...new Set([...(prev.branchIds || []), newBranchId])],
+            branchId: prev.branchId || newBranchId,
+          }));
           clearError("branchId");
         }
         toast.success("Branch created!");
@@ -1006,7 +838,8 @@ export default function AddEmployee() {
       const hasDept = Array.isArray(val) ? (val.length > 0 && Boolean(val[0])) : Boolean(val && String(val).trim());
       if (!hasDept) err = "Department is required";
     } else if (field === "branchId") {
-      if (!v.trim()) err = "Branch office is required";
+      const hasBranch = Array.isArray(val) ? (val.length > 0 && Boolean(val[0])) : Boolean(val && String(val).trim());
+      if (!hasBranch) err = "Branch office is required";
     } else if (field === "emergencyPhone") {
       const digits = v.replace(/\D/g, "");
       if (digits && digits.length !== 10) err = `Emergency phone must be 10 digits (${digits.length}/10)`;
@@ -1055,7 +888,10 @@ export default function AddEmployee() {
     }
     if (step === 2) {
       const rl = validateField("role", formData.role);
-      const br = validateField("branchId", formData.branchId);
+      const br = validateField(
+        "branchId",
+        formData.branchIds?.length ? formData.branchIds : formData.branchId
+      );
       const dp = validateField(
         "departmentId",
         formData.accessibleDepartments?.length ? formData.accessibleDepartments : formData.departmentId
@@ -1144,6 +980,15 @@ export default function AddEmployee() {
       return v.toLowerCase().replace(/_/g, "-");
     };
 
+    const allSelectedDepts = Array.from(
+      new Set(
+        [
+          formData.departmentId,
+          ...(Array.isArray(formData.accessibleDepartments) ? formData.accessibleDepartments : []),
+        ].filter(Boolean)
+      )
+    );
+
     const payload = {
       firstName: formData.firstName.trim(),
       middleName: formData.middleName?.trim() || undefined,
@@ -1156,14 +1001,15 @@ export default function AddEmployee() {
       dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : undefined,
       maritalStatus: formData.maritalStatus || undefined,
 
-      departmentId: formData.accessibleDepartments?.[0] || formData.departmentId || undefined,
-      accessibleDepartments: formData.accessibleDepartments || [],
+      departmentId: allSelectedDepts[0] || formData.departmentId || undefined,
+      departmentIds: allSelectedDepts,
+      accessibleDepartments: allSelectedDepts,
       designationId: formData.designationId || undefined,
       branchId: formData.branchId || undefined,
       branchIds: Array.isArray(formData.branchIds) && formData.branchIds.length > 0
         ? (formData.branchId && !formData.branchIds.includes(formData.branchId) ? [formData.branchId, ...formData.branchIds] : formData.branchIds)
         : (formData.branchId ? [formData.branchId] : []),
-      reportingManagerId: formData.reportingManagerId || undefined,
+      reportingManagerId: formData.reportingManagerId || (isManager ? (managerProfile._id || user?.employeeId || user?._id) : undefined),
       role: formData.role || "Employee",
       loginRole: formData.role || "Employee",
       managerAccessLevel: formData.role === "Manager" || formData.role === "HR" ? formData.managerAccessLevel : undefined,
@@ -1193,10 +1039,15 @@ export default function AddEmployee() {
   };
 
   const displayName = `${formData.firstName || "New"} ${formData.lastName || "Employee"}`.trim();
-  const selectedDeptName = departments.find((d) => 
-    (formData.departmentId && String(d._id) === String(formData.departmentId)) || 
-    formData.accessibleDepartments?.some((aId) => String(aId) === String(d._id))
-  )?.name || "General";
+  const selectedDeptName = useMemo(() => {
+    const ids = formData.accessibleDepartments?.length
+      ? formData.accessibleDepartments
+      : formData.departmentId
+      ? [formData.departmentId]
+      : [];
+    const matched = departments.filter((d) => ids.some((id) => String(id) === String(d._id))).map((d) => d.name);
+    return matched.length ? matched.join(", ") : "General";
+  }, [departments, formData.accessibleDepartments, formData.departmentId]);
   const selectedDesigName = designations.find((d) => d._id === formData.designationId)?.name || "Staff";
 
   return (
@@ -1495,14 +1346,25 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <Input
-                label="Custom Initial Password"
-                type="text"
-                placeholder="Enter initial password (optional)"
-                value={formData.password}
-                onChange={(v) => setFormData((p) => ({ ...p, password: v }))}
-                hint="Default is employee's phone number or secure random string"
-              />
+              <div className="p-3.5 rounded-2xl bg-amber-500/10 dark:bg-amber-950/20 border-2 border-amber-400/80 dark:border-amber-500/50 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-1.5">
+                    <Lock size={14} className="text-amber-600 dark:text-amber-400" />
+                    Custom Initial Password <span className="text-[10.5px] text-slate-500 font-semibold normal-case">(Optional)</span>
+                  </label>
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black bg-amber-500 text-slate-950 uppercase tracking-wider shadow-xs">
+                    <Phone size={11} strokeWidth={2.5} /> By Default: Mobile No. is Password
+                  </span>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Enter initial password (optional)"
+                  value={formData.password}
+                  onChange={(e) => setFormData((p) => ({ ...p, password: e.target.value }))}
+                  className="w-full px-3.5 py-2.5 bg-white dark:bg-[#0B101B] border border-amber-300 dark:border-amber-700/80 rounded-xl text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                />
+              </div>
             </div>
           )}
 
@@ -1520,69 +1382,41 @@ export default function AddEmployee() {
                 <Select
                   label="System Role"
                   required
-                  value={isManager ? "Employee" : formData.role}
+                  value={formData.role || "Employee"}
                   error={formErrors.role}
-                  disabled={isManager}
                   onClearError={() => clearError("role")}
                   onChange={(v) => setFormData((p) => ({ ...p, role: v }))}
-                  options={
-                    isManager
-                      ? [{ value: "Employee", label: "Employee (Team Member)" }]
-                      : [
-                          { value: "Employee", label: "Employee (Standard Staff)" },
-                          { value: "Manager", label: "Manager (Team & Task Leader)" },
-                          { value: "HR", label: "HR (Human Resources Manager)" },
-                        ]
-                  }
+                  options={[
+                    { value: "Employee", label: "Employee (Standard Staff / Team Member)" },
+                    { value: "Manager", label: "Manager (Team & Task Leader)" },
+                    { value: "HR", label: "HR (Human Resources Manager)" },
+                    ...(isManager ? [] : [{ value: "CompanyAdmin", label: "Company Admin (Co-Administrator)" }]),
+                  ]}
                 />
-                <Select
-                  label="Primary Branch Office"
+                <MultiSelect
+                  label="Branch Office"
                   required
-                  value={formData.branchId}
+                  loading={branchLoading}
+                  selected={
+                    Array.isArray(formData.branchIds) && formData.branchIds.length > 0
+                      ? formData.branchIds
+                      : formData.branchId
+                      ? [formData.branchId]
+                      : []
+                  }
                   error={formErrors.branchId}
                   onClearError={() => clearError("branchId")}
-                  onChange={(v) => {
-                    setFormData((p) => {
-                      const others = (p.branchIds || []).filter((id) => id !== v && id !== p.branchId);
-                      return {
-                        ...p,
-                        branchId: v,
-                        branchIds: v ? [v, ...others] : others,
-                      };
-                    });
-                    if (v) clearError("branchId");
-                  }}
-                  options={branchOptions}
-                  placeholder="Select Primary Branch..."
-                  action={
-                    !isManager ? (
-                      <button
-                        type="button"
-                        onClick={() => { setQuickModal("branch"); setQuickForm({ name: "", city: "" }); }}
-                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                      >
-                        + New Branch
-                      </button>
-                    ) : null
-                  }
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-2.5">
-                <MultiSelect
-                  label="Additional Work Branches (Optional)"
-                  selected={(formData.branchIds || []).filter((id) => id !== formData.branchId)}
-                  onChange={(v) => {
-                    const primary = formData.branchId;
-                    const finalBranches = primary && !v.includes(primary) ? [primary, ...v] : v;
+                  onChange={(selectedArr) => {
+                    const primary = selectedArr[0] || "";
                     setFormData((p) => ({
                       ...p,
-                      branchIds: finalBranches,
+                      branchId: primary,
+                      branchIds: selectedArr,
                     }));
+                    if (selectedArr.length > 0) clearError("branchId");
                   }}
-                  options={branchOptions.filter((b) => b.value !== formData.branchId)}
-                  placeholder="Select additional work branches..."
-                  hint="For employees working across multiple branches (e.g. morning Branch 1, afternoon Branch 2)."
+                  options={branchOptions}
+                  placeholder={branchLoading ? "Loading branches..." : "Select Branch Office(s)..."}
                   action={
                     !isManager ? (
                       <button
@@ -1598,25 +1432,30 @@ export default function AddEmployee() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                <Select
+                <MultiSelect
                   label="Department"
                   required
-                  value={formData.departmentId || formData.accessibleDepartments?.[0] || ""}
+                  loading={deptLoading}
+                  selected={
+                    Array.isArray(formData.accessibleDepartments) && formData.accessibleDepartments.length > 0
+                      ? formData.accessibleDepartments
+                      : formData.departmentId
+                      ? [formData.departmentId]
+                      : []
+                  }
                   error={formErrors.departmentId}
                   onClearError={() => clearError("departmentId")}
-                  onChange={(v) => {
-                    setFormData((p) => {
-                      const others = (p.accessibleDepartments || []).filter((id) => id !== v && id !== p.departmentId);
-                      return {
-                        ...p,
-                        departmentId: v,
-                        accessibleDepartments: v ? [v, ...others] : others,
-                      };
-                    });
-                    if (v) clearError("departmentId");
+                  onChange={(selectedArr) => {
+                    const primary = selectedArr[0] || "";
+                    setFormData((p) => ({
+                      ...p,
+                      departmentId: primary,
+                      accessibleDepartments: selectedArr,
+                    }));
+                    if (selectedArr.length > 0) clearError("departmentId");
                   }}
                   options={deptOptions}
-                  placeholder={deptLoading ? "Loading departments..." : "Select Department..."}
+                  placeholder={deptLoading ? "Loading departments..." : "Select Department(s)..."}
                   action={
                     !isManager ? (
                       <button
@@ -1632,6 +1471,7 @@ export default function AddEmployee() {
 
                 <Select
                   label="Job Designation"
+                  loading={desigLoading}
                   value={formData.designationId}
                   onChange={(v) => setFormData((p) => ({ ...p, designationId: v }))}
                   options={desigOptions}
@@ -1650,47 +1490,17 @@ export default function AddEmployee() {
                 />
               </div>
 
-              <div className={`grid grid-cols-1 ${isManager ? "" : "sm:grid-cols-2"} gap-2.5`}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Select
                   label="Reporting Manager"
+                  loading={empLoading}
                   value={formData.reportingManagerId}
                   disabled={isManager}
                   onChange={(v) => setFormData((p) => ({ ...p, reportingManagerId: v }))}
                   options={managerOptions}
-                  placeholder="Select Reporting Manager..."
+                  placeholder={empLoading ? "Loading managers..." : "Select Reporting Manager..."}
                 />
-                {!isManager && (
-                  <MultiSelect
-                    label="Additional Accessible Departments (Optional)"
-                    selected={formData.accessibleDepartments || []}
-                    error={formErrors.departmentId}
-                    onChange={(v) => {
-                      const primary = formData.departmentId;
-                      const finalDepts = primary && !v.includes(primary) ? [primary, ...v] : v;
-                      setFormData((p) => ({
-                        ...p,
-                        accessibleDepartments: finalDepts,
-                        departmentId: primary || finalDepts[0] || "",
-                      }));
-                      if (finalDepts.length > 0) clearError("departmentId");
-                    }}
-                    options={deptOptions}
-                    placeholder="Select additional departments..."
-                    hint="Grants cross-department visibility for tasks, teams, and projects."
-                    action={
-                      <button
-                        type="button"
-                        onClick={() => { setQuickModal("dept"); setQuickForm({ name: "", code: "" }); }}
-                        className="text-[10.5px] text-amber-600 dark:text-amber-400 font-black hover:underline"
-                      >
-                        + New Department
-                      </button>
-                    }
-                  />
-                )}
-              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <Select
                   label="Employment Type"
                   value={formData.employmentType}
@@ -1702,6 +1512,9 @@ export default function AddEmployee() {
                     { value: "internship", label: "Internship" },
                   ]}
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <Select
                   label="Work Mode"
                   value={formData.workMode}
@@ -1737,7 +1550,12 @@ export default function AddEmployee() {
                   </span>
                 </div>
 
-                {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).length === 0 ? (
+                {moduleUsageLoading ? (
+                  <div className="p-8 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 text-center flex flex-col items-center justify-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+                    <Loader2 size={18} className="animate-spin text-amber-500" />
+                    <span>Loading module license limits &amp; usage statistics...</span>
+                  </div>
+                ) : ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).length === 0 ? (
                   <div className="p-4 rounded-xl bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 text-center text-xs text-slate-500 dark:text-slate-400">
                     No suite modules subscribed in current company plan.
                   </div>
@@ -1745,20 +1563,24 @@ export default function AddEmployee() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
                     {ALL_MODULES.filter((m) => subscribedModules.includes(m.key)).map((m) => {
                       const usageInfo = moduleUsage[m.key];
-                      const isFull = usageInfo && !usageInfo.isUnlimited && usageInfo.remaining <= 0;
+                      const used = usageInfo?.used ?? 0;
+                      const limit = usageInfo?.limit || moduleUsageRes?.companyLimit || 0;
+                      const isUnlimited = usageInfo?.isUnlimited || (limit >= 999999 || limit <= 0);
+                      const remaining = isUnlimited ? 9999 : Math.max(0, limit - used);
+                      const isFull = !isUnlimited && limit > 0 && remaining <= 0;
                       const isChecked = (formData.assignedModules || []).includes(m.key);
+                      const percentage = limit > 0 && !isUnlimited ? Math.min(100, Math.round((used / limit) * 100)) : 0;
 
                       return (
                         <div
                           key={m.key}
                           onClick={() => {
                             if (isFull && !isChecked) {
-                              // Show upgrade plan popup
                               setUpgradePlanModal({
                                 moduleName: m.key,
                                 label: m.label,
-                                used: usageInfo?.used || 0,
-                                limit: usageInfo?.limit || 0,
+                                used,
+                                limit,
                               });
                               return;
                             }
@@ -1799,17 +1621,37 @@ export default function AddEmployee() {
                             )}
                           </div>
 
-                          <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[10px] font-bold">
-                            {usageInfo?.isUnlimited ? (
-                              <span className="text-emerald-600 dark:text-emerald-400">Full plan seats ({usageInfo.used} used)</span>
-                            ) : isFull && !isChecked ? (
-                              <span className="text-rose-500 flex items-center gap-1">
-                                <Zap size={9} /> Limit full — Upgrade Plan
-                              </span>
-                            ) : (
-                              <span className="text-amber-600 dark:text-amber-400">
-                                {usageInfo?.used || 0}/{usageInfo?.limit || 0} seats used {usageInfo?.remaining > 0 ? `(${usageInfo.remaining} left)` : "(Full)"}
-                              </span>
+                          <div className="mt-2.5 pt-2 border-t border-slate-100 dark:border-slate-800/80 space-y-1.5">
+                            <div className="flex items-center justify-between text-[10.5px] font-bold">
+                              {isUnlimited ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                                  {used} Active (Unlimited Seats)
+                                </span>
+                              ) : isFull && !isChecked ? (
+                                <span className="text-rose-500 font-extrabold flex items-center gap-1">
+                                  <Zap size={11} className="shrink-0" /> Limit Full ({used}/{limit})
+                                </span>
+                              ) : (
+                                <span className="text-amber-700 dark:text-amber-300 font-black">
+                                  {used} / {limit} Seats Used {remaining > 0 ? `(${remaining} left)` : "(0 left)"}
+                                </span>
+                              )}
+                              {!isUnlimited && limit > 0 && (
+                                <span className="text-[10px] font-mono text-slate-400 font-extrabold">
+                                  {percentage}%
+                                </span>
+                              )}
+                            </div>
+                            {!isUnlimited && limit > 0 && (
+                              <div className="w-full bg-slate-200 dark:bg-slate-700/60 h-1.5 rounded-full overflow-hidden">
+                                <div
+                                  className={`h-full rounded-full transition-all duration-300 ${
+                                    isFull ? "bg-rose-500" : percentage >= 80 ? "bg-amber-500" : "bg-emerald-500"
+                                  }`}
+                                  style={{ width: `${percentage}%` }}
+                                />
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1971,12 +1813,12 @@ export default function AddEmployee() {
                 </div>
               </div>
 
-              {/* ── Main CTC & Monthly Input Card with Quick Presets ── */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-blue-500/10 border border-amber-500/30 space-y-3.5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 items-end">
+              {/* ── Main CTC & Monthly Input Card ── */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/10 via-amber-500/5 to-blue-500/10 border border-amber-500/30">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Annual CTC Input */}
-                  <div className="lg:col-span-4">
-                    <label className="text-[10.5px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider block mb-1">
+                  <div>
+                    <label className="text-[11px] font-black uppercase text-amber-900 dark:text-amber-300 tracking-wider block mb-1.5">
                       Annual Cost to Company (CTC)
                     </label>
                     <div className="relative">
@@ -1986,14 +1828,14 @@ export default function AddEmployee() {
                         placeholder="e.g. 360000"
                         value={formData.salaryDetails?.ctc ?? ""}
                         onChange={(e) => handleCtcChange(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
+                        className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-amber-500"
                       />
                     </div>
                   </div>
 
                   {/* Monthly CTC / Gross Input */}
-                  <div className="lg:col-span-4">
-                    <label className="text-[10.5px] font-black uppercase text-blue-900 dark:text-blue-300 tracking-wider block mb-1">
+                  <div>
+                    <label className="text-[11px] font-black uppercase text-blue-900 dark:text-blue-300 tracking-wider block mb-1.5">
                       Monthly CTC / Gross Salary
                     </label>
                     <div className="relative">
@@ -2003,82 +1845,9 @@ export default function AddEmployee() {
                         placeholder="e.g. 30000"
                         value={formData.salaryDetails?.monthlyCtc || Math.round((Number(formData.salaryDetails?.ctc) || 0) / 12) || ""}
                         onChange={(e) => handleMonthlySalaryChange(e.target.value)}
-                        className="w-full pl-7 pr-3 py-2 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-[#0B101B] border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-black text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
-                  </div>
-
-                  {/* Auto-Split Button */}
-                  <div className="lg:col-span-4 flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleCtcChange(formData.salaryDetails?.ctc || 0, true)}
-                      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 rounded-xl text-xs font-extrabold transition-all shadow-xs cursor-pointer"
-                    >
-                      <Sparkles size={13} /> Auto-Split Standard (50/40)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Quick Presets & Statutory Options */}
-                <div className="pt-2 border-t border-amber-500/20 flex flex-wrap items-center justify-between gap-2.5">
-                  {/* Preset Pills */}
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mr-1">Presets:</span>
-                    {[
-                      { label: "₹15K/mo", val: 180000 },
-                      { label: "₹25K/mo", val: 300000 },
-                      { label: "₹35K/mo", val: 420000 },
-                      { label: "₹50K/mo", val: 600000 },
-                      { label: "₹75K/mo", val: 900000 },
-                      { label: "₹1L/mo", val: 1200000 },
-                    ].map((p) => (
-                      <button
-                        key={p.val}
-                        type="button"
-                        onClick={() => handleCtcChange(p.val, true)}
-                        className={`px-2 py-0.5 rounded-lg text-[10.5px] font-bold border transition-all cursor-pointer ${
-                          Number(formData.salaryDetails?.ctc) === p.val
-                            ? "bg-amber-500 text-slate-950 border-amber-500 shadow-2xs"
-                            : "bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800"
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Statutory Toggles */}
-                  <div className="flex items-center gap-3">
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={includePf}
-                        onChange={(e) => handleTogglePf(e.target.checked)}
-                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
-                      />
-                      <span>PF (12%)</span>
-                    </label>
-
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={includePt}
-                        onChange={(e) => handleTogglePt(e.target.checked)}
-                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
-                      />
-                      <span>PT (₹200/mo)</span>
-                    </label>
-
-                    <label className="flex items-center gap-1.5 cursor-pointer text-[11px] font-bold text-slate-700 dark:text-slate-300">
-                      <input
-                        type="checkbox"
-                        checked={includeEsi}
-                        onChange={(e) => handleToggleEsi(e.target.checked)}
-                        className="rounded text-amber-500 focus:ring-amber-500 w-3.5 h-3.5"
-                      />
-                      <span>ESI (0.75%)</span>
-                    </label>
                   </div>
                 </div>
               </div>
@@ -2132,41 +1901,18 @@ export default function AddEmployee() {
               </div>
 
               {/* ── SECTION 1: EARNINGS BREAKDOWN ── */}
-              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800/80 space-y-3">
-                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2 gap-2">
+              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-800/80 space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2.5 gap-2">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <Coins size={14} className="text-amber-500" /> 1. Monthly Earnings (Gross Components)
                   </span>
 
-                  <div className="flex items-center gap-2.5">
-                    {/* Auto-Calculate Toggle for Earnings */}
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                      <span className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Auto-Calculate</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAutoCalcEarnings(!autoCalcEarnings)}
-                        className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          autoCalcEarnings ? "bg-amber-500" : "bg-slate-300 dark:bg-slate-600"
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            autoCalcEarnings ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                      <span className={`text-[10px] font-black tracking-wider ${autoCalcEarnings ? "text-amber-600 dark:text-amber-400" : "text-slate-400 dark:text-slate-500"}`}>
-                        {autoCalcEarnings ? "ON" : "OFF"}
-                      </span>
-                    </div>
-
-                    <span className="text-xs font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                      Gross: ₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")} / mo
-                    </span>
-                  </div>
+                  <span className="text-xs font-black text-slate-900 dark:text-white font-mono bg-white dark:bg-slate-800 px-3 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
+                    Gross: ₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")} / mo
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <Input
                     label={salaryViewMode === "monthly" ? "Basic Salary (Monthly)" : "Basic Salary (Annual)"}
                     type="number"
@@ -2178,7 +1924,6 @@ export default function AddEmployee() {
                         : formData.salaryDetails?.basicSalary
                     }
                     onChange={(v) => handleCustomSalaryChange("basic", v, salaryViewMode === "annual")}
-                    hint="Standard 50% of CTC"
                   />
 
                   <Input
@@ -2192,7 +1937,6 @@ export default function AddEmployee() {
                         : (Number(formData.salaryDetails?.hra) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("hra", v, salaryViewMode === "annual")}
-                    hint="Standard 40% of Basic"
                   />
 
                   <Input
@@ -2206,11 +1950,10 @@ export default function AddEmployee() {
                         : (Number(formData.salaryDetails?.specialAllowance) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("specialAllowance", v, salaryViewMode === "annual")}
-                    hint="Balancing component"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                   <Input
                     label={salaryViewMode === "monthly" ? "Conveyance Allowance" : "Conveyance (Annual)"}
                     type="number"
@@ -2222,7 +1965,6 @@ export default function AddEmployee() {
                         : (Number(formData.salaryDetails?.conveyance) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("conveyance", v, salaryViewMode === "annual")}
-                    hint="Standard ₹1,600/mo"
                   />
 
                   <Input
@@ -2236,21 +1978,19 @@ export default function AddEmployee() {
                         : (Number(formData.salaryDetails?.medicalAllowance) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("medicalAllowance", v, salaryViewMode === "annual")}
-                    hint="Standard ₹1,250/mo"
                   />
 
                   <Input
                     label={salaryViewMode === "monthly" ? "Other Allowance" : "Other Allowance (Annual)"}
                     type="number"
                     allowZero={true}
-                    placeholder="Performance / Other"
+                    placeholder="Other allowance"
                     value={
                       salaryViewMode === "monthly"
                         ? formData.salaryDetails?.otherAllowance
                         : (Number(formData.salaryDetails?.otherAllowance) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("otherAllowance", v, salaryViewMode === "annual")}
-                    hint="Optional extra allowance"
                   />
                 </div>
               </div>
@@ -2265,14 +2005,14 @@ export default function AddEmployee() {
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-black uppercase tracking-wider text-slate-900 dark:text-white">
-                          Overtime Hourly Rate (ओव्हरटाईम पेमेंट दर)
+                          Overtime Hourly Rate
                         </span>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-slate-950 uppercase tracking-wider shadow-2xs">
                           Beyond {shiftFullDayHours}h Shift
                         </span>
                       </div>
                       <p className="text-[11px] text-slate-600 dark:text-slate-400 font-medium mt-0.5">
-                        कंपनी शिफ्ट वेळ: <strong className="text-slate-800 dark:text-slate-200">{formatTime12h(shiftStartTime)} ते {formatTime12h(shiftEndTime)} ({shiftFullDayHours} तास पूर्ण दिवस)</strong>. या {shiftFullDayHours} तासांपेक्षा जास्त काम केल्यास प्रति तास किती द्यायचे ते येथे टाका.
+                        Company shift schedule: <strong className="text-slate-800 dark:text-slate-200">{formatTime12h(shiftStartTime)} to {formatTime12h(shiftEndTime)} ({shiftFullDayHours}h Full Day)</strong>. Specify the hourly payout rate for work completed beyond standard shift hours.
                       </p>
                     </div>
                   </div>
@@ -2290,112 +2030,90 @@ export default function AddEmployee() {
                     placeholder="e.g. 150"
                     value={formData.salaryDetails?.overtimeHourlyRate}
                     onChange={(v) => handleCustomSalaryChange("overtimeHourlyRate", v)}
-                    hint={`दिवसाच्या ${shiftFullDayHours} तासांच्या वरील प्रत्येक तासाला मिळणारा निश्चित दर`}
                   />
                 </div>
               </div>
 
               {/* ── SECTION 2: DEDUCTIONS & COMPLIANCE ── */}
-              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-3.5 border border-slate-200/70 dark:border-slate-800/80 space-y-3">
-                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2 gap-2">
+              <div className="bg-slate-50/60 dark:bg-slate-900/40 rounded-2xl p-4 border border-slate-200/70 dark:border-slate-800/80 space-y-3.5">
+                <div className="flex flex-wrap items-center justify-between border-b border-slate-200/60 dark:border-slate-800 pb-2.5 gap-2">
                   <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <ShieldCheck size={14} className="text-rose-500" /> 2. Monthly Deductions &amp; Statutory Taxes
                   </span>
 
-                  <div className="flex items-center gap-2.5">
-                    {/* Auto-Calculate Toggle for Deductions */}
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-2xs">
-                      <span className="text-[10px] font-extrabold uppercase text-slate-500 dark:text-slate-400">Auto-Calculate</span>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleAutoCalcDeductions(!autoCalcDeductions)}
-                        className={`relative inline-flex h-4 w-8 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                          autoCalcDeductions ? "bg-rose-500" : "bg-slate-300 dark:bg-slate-600"
-                        }`}
-                      >
-                        <span
-                          className={`pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            autoCalcDeductions ? "translate-x-4" : "translate-x-0"
-                          }`}
-                        />
-                      </button>
-                      <span className={`text-[10px] font-black tracking-wider ${autoCalcDeductions ? "text-rose-600 dark:text-rose-400" : "text-slate-400 dark:text-slate-500"}`}>
-                        {autoCalcDeductions ? "ON" : "OFF"}
-                      </span>
-                    </div>
-
-                    <span className="text-xs font-black text-rose-600 dark:text-rose-400 font-mono bg-white dark:bg-slate-800 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-700">
-                      Deductions: -₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")} / mo
-                    </span>
-                  </div>
+                  <span className="text-xs font-black text-rose-600 dark:text-rose-400 font-mono bg-white dark:bg-slate-800 px-3 py-1 rounded-xl border border-rose-200 dark:border-rose-900/40 shadow-2xs">
+                    Deductions: -₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")} / mo
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <Input
-                    label={salaryViewMode === "monthly" ? "Provident Fund (Employee PF)" : "PF Employee (Annual)"}
+                    label={salaryViewMode === "monthly" ? "Provident Fund (PF)" : "PF Employee (Annual)"}
                     type="number"
                     allowZero={true}
-                    placeholder="PF employee deduction"
+                    placeholder="0"
                     value={
                       salaryViewMode === "monthly"
                         ? (formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf)
                         : (Number(formData.salaryDetails?.pfEmployee ?? formData.salaryDetails?.pf) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("pfEmployee", v, salaryViewMode === "annual")}
-                    hint="12% of basic salary"
                   />
 
                   <Input
                     label={salaryViewMode === "monthly" ? "Professional Tax (PT)" : "Professional Tax (Annual)"}
                     type="number"
                     allowZero={true}
-                    placeholder="Professional tax"
+                    placeholder="0"
                     value={
                       salaryViewMode === "monthly"
                         ? formData.salaryDetails?.professionalTax
                         : (formData.salaryDetails?.annualProfessionalTax || (Number(formData.salaryDetails?.professionalTax) || 0) * 12)
                     }
                     onChange={(v) => handleCustomSalaryChange("professionalTax", v, salaryViewMode === "annual")}
-                    hint="Standard ₹200/mo (₹2,400/yr)"
                   />
 
                   <Input
                     label={salaryViewMode === "monthly" ? "Employee State Insurance (ESI)" : "ESI Employee (Annual)"}
                     type="number"
                     allowZero={true}
-                    placeholder="ESI deduction"
+                    placeholder="0"
                     value={
                       salaryViewMode === "monthly"
                         ? (formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi)
                         : (Number(formData.salaryDetails?.esiEmployee ?? formData.salaryDetails?.esi) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("esiEmployee", v, salaryViewMode === "annual")}
-                    hint="0.75% (Gross <= ₹21,000)"
                   />
 
                   <Input
                     label={salaryViewMode === "monthly" ? "TDS / Income Tax" : "TDS / Tax (Annual)"}
                     type="number"
                     allowZero={true}
-                    placeholder="Enter TDS deduction"
+                    placeholder="0"
                     value={
                       salaryViewMode === "monthly"
                         ? formData.salaryDetails?.tds
                         : (Number(formData.salaryDetails?.tds) || 0) * 12
                     }
                     onChange={(v) => handleCustomSalaryChange("tds", v, salaryViewMode === "annual")}
-                    hint="Monthly tax withholding"
                   />
                 </div>
 
-                {/* Section 3 Note: Employer Contributions in CTC */}
-                <div className="mt-2 pt-2 border-t border-slate-200/60 dark:border-slate-800 flex flex-wrap items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 font-medium">
-                  <span>
-                    Employer PF (12% of Basic): <strong className="text-slate-800 dark:text-slate-200">₹{(Number(formData.salaryDetails?.pfEmployer) || Number(formData.salaryDetails?.pfEmployee) || 0).toLocaleString("en-IN")}/mo</strong> (Included in Annual CTC, not deducted from employee)
-                  </span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                    Net Take-Home = Gross (₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}) - Deductions (₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")}) = ₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}/mo
-                  </span>
+                {/* Section 3 Note: Employer Contributions & Net Take-Home (Properly Aligned Grid) */}
+                <div className="pt-2.5 border-t border-slate-200/70 dark:border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 rounded-xl bg-white/80 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 flex items-center justify-between">
+                    <span className="font-semibold text-slate-600 dark:text-slate-300">Employer PF Contribution:</span>
+                    <span className="font-black font-mono text-slate-900 dark:text-white">
+                      ₹{(Number(formData.salaryDetails?.pfEmployer) || Number(formData.salaryDetails?.pfEmployee) || 0).toLocaleString("en-IN")} / mo
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 dark:bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between">
+                    <span className="font-semibold text-emerald-800 dark:text-emerald-300">Monthly Net In-Hand:</span>
+                    <span className="font-black font-mono text-emerald-700 dark:text-emerald-400">
+                      ₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")} / mo
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2584,66 +2302,279 @@ export default function AddEmployee() {
             <div className="space-y-3 animate-fadeIn">
               <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
                 <h3 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
-                  <CheckCheck size={16} className="text-amber-500" /> Final Review &amp; Onboarding Confirmation
+                  <CheckCheck size={16} className="text-amber-500" /> Final Review &amp; Confirm
                 </h3>
-                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Verify all candidate details before database registration</p>
+                <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">Verify all candidate details before registration</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2.5 text-xs">
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Candidate</span>
-                  <p className="font-black text-slate-900 dark:text-white text-sm">{displayName}</p>
-                  <p className="text-slate-600 dark:text-slate-300 font-semibold">{formData.email}</p>
-                  <p className="text-slate-500 dark:text-slate-400 font-mono">{formData.phone}</p>
+              {/* ── Section 1: Basic Info ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  <User size={13} className="text-amber-500" />
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Basic Information</span>
+                  <button type="button" onClick={() => setActiveStep(1)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
                 </div>
-
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-1.5">
-                  <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Designation &amp; Role</span>
-                  <p className="font-black text-slate-900 dark:text-white text-sm">{selectedDesigName}</p>
-                  <p className="text-slate-600 dark:text-slate-300 font-semibold">{selectedDeptName} Department</p>
-                  <p className="text-amber-600 dark:text-amber-400 font-black uppercase">{formData.role}</p>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Full Name</p>
+                    <p className="font-black text-slate-900 dark:text-white">{displayName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Email</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200 break-all">{formData.email || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Mobile</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">{formData.phone || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Gender</p>
+                    <p className="font-semibold capitalize text-slate-700 dark:text-slate-200">{formData.gender || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Date of Birth</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{formData.dateOfBirth ? new Date(formData.dateOfBirth).toLocaleDateString("en-IN") : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Marital Status</p>
+                    <p className="font-semibold capitalize text-slate-700 dark:text-slate-200">{formData.maritalStatus || "—"}</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-800 space-y-2 text-xs">
-                <span className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider flex items-center gap-1.5">
+              {/* ── Section 2: Job Details ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  <Briefcase size={13} className="text-amber-500" />
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Job & Role Details</span>
+                  <button type="button" onClick={() => setActiveStep(2)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">System Role</p>
+                    <span className="px-2 py-0.5 rounded-lg text-[10.5px] font-black bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20 uppercase">{formData.role || "Employee"}</span>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Department(s)</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedDeptName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Designation</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{selectedDesigName}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Branch Office(s)</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">
+                      {(Array.isArray(formData.branchIds) && formData.branchIds.length > 0
+                        ? formData.branchIds
+                        : formData.branchId ? [formData.branchId] : []
+                      ).map(id => {
+                        const b = branches.find(x => x._id === id);
+                        return b ? (b.branchName || b.name) : id;
+                      }).join(", ") || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Employment Type</p>
+                    <p className="font-semibold capitalize text-slate-700 dark:text-slate-200">{(formData.employmentType || "").replace(/_/g, " ")}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Work Mode</p>
+                    <p className="font-semibold capitalize text-slate-700 dark:text-slate-200">{formData.workMode || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Joining Date</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{formData.joiningDate ? new Date(formData.joiningDate).toLocaleDateString("en-IN") : "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Reporting Manager</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">
+                      {formData.reportingManagerId
+                        ? (managerOptions.find(m => m.value === formData.reportingManagerId)?.label || "—")
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Remote Punch</p>
+                    <span className={`px-2 py-0.5 rounded-lg text-[10.5px] font-black border ${formData.allowRemotePunch ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20" : "bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700"}`}>
+                      {formData.allowRemotePunch ? "Enabled" : "Disabled"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section 3: Address & Emergency ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  <MapPin size={13} className="text-amber-500" />
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Address & Emergency Contact</span>
+                  <button type="button" onClick={() => setActiveStep(3)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
+                  <div className="col-span-2 sm:col-span-3">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Current Address</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">
+                      {[formData.address?.street, formData.address?.city, formData.address?.state, formData.address?.pincode, formData.address?.country].filter(Boolean).join(", ") || "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Emergency Contact</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{formData.emergencyContact?.name || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Relationship</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{formData.emergencyContact?.relationship || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Emergency Phone</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">{formData.emergencyContact?.phone || "—"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section 4: Salary Summary ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  <DollarSign size={13} className="text-amber-500" />
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Salary & Compensation</span>
+                  <button type="button" onClick={() => setActiveStep(4)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Annual CTC</p>
+                    <p className="font-black font-mono text-slate-900 dark:text-white">₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-blue-500/5 border border-blue-200 dark:border-blue-900/40">
+                    <p className="text-[10px] font-black uppercase text-blue-500 mb-0.5">Monthly Gross</p>
+                    <p className="font-black font-mono text-blue-700 dark:text-blue-400">₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-rose-500/5 border border-rose-200 dark:border-rose-900/40">
+                    <p className="text-[10px] font-black uppercase text-rose-500 mb-0.5">Deductions</p>
+                    <p className="font-black font-mono text-rose-600 dark:text-rose-400">-₹{(Number(formData.salaryDetails?.totalDeductions) || 0).toLocaleString("en-IN")}</p>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                    <p className="text-[10px] font-black uppercase text-emerald-700 dark:text-emerald-400 mb-0.5">Net In-Hand</p>
+                    <p className="font-black font-mono text-emerald-700 dark:text-emerald-400">₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}</p>
+                  </div>
+                </div>
+                <div className="px-4 pb-4 grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { label: "Basic", val: formData.salaryDetails?.basic },
+                    { label: "HRA", val: formData.salaryDetails?.hra },
+                    { label: "Special", val: formData.salaryDetails?.specialAllowance },
+                    { label: "Conveyance", val: formData.salaryDetails?.conveyance },
+                    { label: "Medical", val: formData.salaryDetails?.medicalAllowance },
+                    { label: "Other", val: formData.salaryDetails?.otherAllowance },
+                  ].map(({ label, val }) => (
+                    <div key={label} className="text-center p-2 rounded-xl bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-800">
+                      <p className="text-[9.5px] font-black uppercase text-slate-400">{label}</p>
+                      <p className="font-black font-mono text-slate-800 dark:text-slate-200 text-xs">₹{(Number(val) || 0).toLocaleString("en-IN")}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Section 5: Bank & Identity ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                  <CreditCard size={13} className="text-amber-500" />
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Bank & Identity</span>
+                  <button type="button" onClick={() => setActiveStep(5)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="p-4 grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2.5 text-xs">
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Bank Name</p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-200">{formData.bankDetails?.bankName || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Account Number</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">
+                      {formData.bankDetails?.accountNumber
+                        ? `${"•".repeat(Math.max(0, formData.bankDetails.accountNumber.length - 4))}${formData.bankDetails.accountNumber.slice(-4)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">IFSC Code</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">{formData.bankDetails?.ifscCode || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Account Type</p>
+                    <p className="font-semibold capitalize text-slate-700 dark:text-slate-200">{formData.bankDetails?.accountType || "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">Aadhaar</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">
+                      {formData.aadhaarNumber
+                        ? `XXXX-XXXX-${formData.aadhaarNumber.slice(-4)}`
+                        : "—"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black uppercase text-slate-400 mb-0.5">PAN Number</p>
+                    <p className="font-semibold font-mono text-slate-700 dark:text-slate-200">{formData.panNumber || "—"}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Section 6: Module Licenses ── */}
+              <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
                   <Cpu size={13} className="text-amber-500" />
-                  Assigned Module Licenses ({(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length})
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {(formData.assignedModules || [])
-                    .filter((m) => subscribedModules.includes(m))
-                    .map((mKey) => {
+                  <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+                    Module Licenses ({(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length} Assigned)
+                  </span>
+                  <button type="button" onClick={() => setActiveStep(2)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                </div>
+                <div className="p-4 flex flex-wrap gap-2">
+                  {(formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).length === 0 ? (
+                    <span className="text-[11px] text-slate-400 italic">No modules assigned</span>
+                  ) : (
+                    (formData.assignedModules || []).filter((m) => subscribedModules.includes(m)).map((mKey) => {
                       const mod = ALL_MODULES.find((x) => x.key === mKey);
                       return (
-                        <span
-                          key={mKey}
-                          className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20"
-                        >
-                          {mod?.label || mKey}
+                        <span key={mKey} className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20 flex items-center gap-1">
+                          <CheckCircle2 size={11} /> {mod?.label || mKey}
                         </span>
                       );
-                    })}
-                  {(!formData.assignedModules || formData.assignedModules.filter((m) => subscribedModules.includes(m)).length === 0) && (
-                    <span className="text-[11px] text-slate-400 italic">No modules assigned</span>
+                    })
                   )}
                 </div>
               </div>
 
-              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              {/* ── Documents (conditional) ── */}
+              {Array.isArray(formData.documents) && formData.documents.length > 0 && (
+                <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+                  <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800">
+                    <FileText size={13} className="text-amber-500" />
+                    <span className="text-[10.5px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">Documents ({formData.documents.length})</span>
+                    <button type="button" onClick={() => setActiveStep(6)} className="ml-auto text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline cursor-pointer">Edit</button>
+                  </div>
+                  <div className="p-4 flex flex-wrap gap-2">
+                    {formData.documents.map((doc, idx) => (
+                      <span key={idx} className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 flex items-center gap-1.5">
+                        <FileText size={11} className="text-amber-500" /> {doc.title}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── CTA Banner ── */}
+              <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className="text-[10.5px] font-black text-emerald-800 dark:text-emerald-300 uppercase">Annual CTC Compensation</span>
                   <h4 className="text-lg font-black text-emerald-600 dark:text-emerald-400 font-mono">
                     ₹{(Number(formData.salaryDetails?.ctc) || 0).toLocaleString("en-IN")} / year
                   </h4>
-                  <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-3 mt-1">
-                    <span>Monthly Gross: <strong>₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}</strong></span>
+                  <div className="text-[11px] font-bold text-slate-600 dark:text-slate-300 flex items-center gap-3 mt-0.5">
+                    <span>Gross: <strong>₹{(Number(formData.salaryDetails?.grossSalary) || 0).toLocaleString("en-IN")}/mo</strong></span>
                     <span>•</span>
                     <span>Net Take-Home: <strong className="text-emerald-600 dark:text-emerald-400">₹{(Number(formData.salaryDetails?.netSalary) || 0).toLocaleString("en-IN")}/mo</strong></span>
                   </div>
                 </div>
-                <span className="px-3.5 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-2xs self-start sm:self-auto">
-                  Ready to Register
+                <span className="px-3.5 py-1.5 bg-emerald-500 text-slate-950 font-black rounded-xl text-xs shadow-2xs self-start sm:self-auto flex items-center gap-1.5">
+                  <CheckCircle2 size={13} /> Ready to Register
                 </span>
               </div>
             </div>

@@ -237,7 +237,7 @@ const Settings = () => {
       {/* ── Top 4 Compact KPI Stat Cards ── */}
       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5">
         <KPICard label="Shift Schedule" value={`${formData.shiftStartTime} - ${formData.shiftEndTime}`} trend="Regular" isUp period="daily" strokeColor="#06B6D4" Icon={Clock} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label="Grace Period" value={`${formData.graceMinutes} mins`} trend="Buffer" isUp period="arrival" strokeColor="#10B981" Icon={ShieldCheck} iconBg="bg-emerald-500/10" iconColor="#059669" />
+        <KPICard label="Late Grace Period" value={`${formData.graceMinutes} mins`} trend="Buffer" isUp period="arrival" strokeColor="#10B981" Icon={ShieldCheck} iconBg="bg-emerald-500/10" iconColor="#059669" />
         <KPICard label="Working Days" value={`${formData.workingDays.length} Days/wk`} trend="Standard" isUp period="week" strokeColor="#8B5CF6" Icon={Calendar} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
         <KPICard label="Default Timezone" value={formData.timezone.split('/')[1] || "Kolkata"} trend="IST" isUp period="region" strokeColor="#EAB308" Icon={Globe} iconBg="bg-amber-500/10" iconColor="#D97706" />
       </div>
@@ -299,7 +299,7 @@ const Settings = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Grace Period (Mins)</label>
+                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">Late Grace Period (Mins)</label>
                   <input
                     type="number"
                     name="graceMinutes"

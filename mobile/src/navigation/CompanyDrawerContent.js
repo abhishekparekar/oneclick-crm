@@ -8,6 +8,7 @@ import {
   Alert,
   Image,
   StatusBar,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -216,7 +217,7 @@ const NATIVE_SECTIONS = [
 
 const CompanyDrawerContent = (props) => {
   const { navigation } = props;
-  const { user, logout, hasPermission, refreshUserProfile } = useAuth();
+  const { user, logout, hasPermission, refreshUserProfile, isLoggingOut } = useAuth();
   const layout = useLayout();
   const insets = useSafeAreaInsets();
 
@@ -389,13 +390,20 @@ const CompanyDrawerContent = (props) => {
         {/* ── LOGOUT ──────────────────────────────────────────────── */}
         <TouchableOpacity
           onPress={handleLogout}
-          style={styles.logoutBtn}
+          style={[styles.logoutBtn, isLoggingOut && { opacity: 0.6 }]}
           activeOpacity={0.7}
+          disabled={isLoggingOut}
         >
           <View style={styles.logoutIconBox}>
-            <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            {isLoggingOut ? (
+              <ActivityIndicator size="small" color="#DC2626" />
+            ) : (
+              <Ionicons name="log-out-outline" size={18} color="#DC2626" />
+            )}
           </View>
-          <Text style={styles.logoutLabel}>Sign Out</Text>
+          <Text style={styles.logoutLabel}>
+            {isLoggingOut ? "Signing Out..." : "Sign Out"}
+          </Text>
         </TouchableOpacity>
 
         {/* ── APP FOOTER ──────────────────────────────────────────── */}

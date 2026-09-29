@@ -242,11 +242,11 @@ const getEmployeeDashboardSummary = async (req, res, next) => {
       CompanyLeaveSettings.findOne({ companyId }).lean(),
     ]);
 
-    // 2. Profile completion calculation
     const profileCompResult = calculateProfileCompletion(employee);
+    const finalPercentage = employee.profileCompletionPercentage || profileCompResult.percentage || 0;
     const profileCompletion = {
-      isCompleted: employee.isProfileCompleted || profileCompResult.isCompleted,
-      percentage: employee.profileCompletionPercentage || profileCompResult.percentage,
+      isCompleted: employee.isProfileCompleted || profileCompResult.isCompleted || (finalPercentage >= 100),
+      percentage: finalPercentage,
     };
 
     // 3. Attendance Today structure

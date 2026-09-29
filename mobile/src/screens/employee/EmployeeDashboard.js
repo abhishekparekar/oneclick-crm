@@ -108,13 +108,24 @@ export default function EmployeeDashboard({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const [leadsList, setLeadsList] = useState([]);
+  const [startingProfile, setStartingProfile] = useState(false);
+
+  const handleStartProfileCompletion = () => {
+    if (startingProfile) return;
+    setStartingProfile(true);
+    try {
+      navigation.navigate("CompleteProfile");
+    } catch (_) {
+      navigation.navigate("EmployeeStack", { screen: "CompleteProfile" });
+    }
+  };
 
   const loadData = async (force = false, currentDeptId = "") => {
     try {
       const params = currentDeptId ? { departmentId: currentDeptId } : {};
       if (force) {
         setRefreshing(true);
-        if (refreshUserProfile) await refreshUserProfile().catch(() => {});
+        if (refreshUserProfile) await refreshUserProfile().catch(() => { });
         await refreshEmployeeDashboard(params);
       } else {
         await getEmployeeDashboardCached(false, params);
@@ -135,12 +146,13 @@ export default function EmployeeDashboard({ navigation }) {
 
   useFocusEffect(
     useCallback(() => {
+      setStartingProfile(false);
       const params = selectedDeptId ? { departmentId: selectedDeptId } : {};
-      if (refreshUserProfile) refreshUserProfile().catch(() => {});
+      if (refreshUserProfile) refreshUserProfile().catch(() => { });
       if (refreshEmployeeDashboard) {
-        refreshEmployeeDashboard(params).catch(() => {});
+        refreshEmployeeDashboard(params).catch(() => { });
       } else {
-        getEmployeeDashboardCached(true, params).catch(() => {});
+        getEmployeeDashboardCached(true, params).catch(() => { });
       }
       if (canAccessLeads) {
         leadsService.getLeads().then((res) => {
@@ -149,7 +161,7 @@ export default function EmployeeDashboard({ navigation }) {
         }).catch(() => { });
       }
       // Auto-resume background location tracking if active and duty is on
-      locationTrackingService.autoResumeTrackingIfActive().catch(() => {});
+      locationTrackingService.autoResumeTrackingIfActive().catch(() => { });
     }, [selectedDeptId, canAccessLeads, refreshUserProfile, refreshEmployeeDashboard, getEmployeeDashboardCached])
   );
 
@@ -420,26 +432,41 @@ export default function EmployeeDashboard({ navigation }) {
         )}
 
         {/* Profile incomplete stepper banner */}
-        {!profileCompletion.isCompleted && (
-          <LinearGradient
-            colors={["#EFF6FF", "#DBEAFE"]}
-            style={styles.incompleteBanner}
+        {!profileCompletion.isCompleted && (profileCompletion.percentage || 0) < 100 && (
+          <TouchableOpacity
+            style={styles.incompleteBannerWrapper}
+            activeOpacity={0.7}
+            onPress={handleStartProfileCompletion}
           >
-            <View style={styles.bannerRow}>
-              <Ionicons name="alert-circle" size={18} color="#1268D9" />
-              <View style={styles.bannerTextContainer}>
-                <Text style={styles.bannerTitle}>Complete Your Profile</Text>
-                <Text style={styles.bannerDesc}>{profileCompletion.percentage}% finished</Text>
+            <LinearGradient
+              colors={["#EFF6FF", "#DBEAFE"]}
+              style={styles.incompleteBanner}
+            >
+              <View style={styles.bannerRow}>
+                <Ionicons name="alert-circle" size={20} color="#1268D9" />
+                <View style={styles.bannerTextContainer}>
+                  <Text style={styles.bannerTitle}>Complete Your Profile</Text>
+                  <Text style={styles.bannerDesc}>{profileCompletion.percentage || 0}% finished</Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.bannerBtn, startingProfile && { opacity: 0.75 }]}
+                  onPress={handleStartProfileCompletion}
+                  activeOpacity={0.6}
+                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  disabled={startingProfile}
+                >
+                  {startingProfile ? (
+                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  ) : (
+                    <View style={{ flexDirection: "row", alignItems: "center" }}>
+                      <Text style={styles.bannerBtnText}>Start</Text>
+                      <Ionicons name="arrow-forward" size={12} color="#FFFFFF" style={{ marginLeft: 3 }} />
+                    </View>
+                  )}
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.bannerBtn}
-                onPress={() => navigation.navigate("EmployeeStack", { screen: "CompleteProfile" })}
-                activeOpacity={0.8}
-              >
-                <Text style={styles.bannerBtnText}>Start</Text>
-              </TouchableOpacity>
-            </View>
-          </LinearGradient>
+            </LinearGradient>
+          </TouchableOpacity>
         )}
 
         {/* ── Royal Blue Hero Active Shift & Productivity Card ───── */}
@@ -859,7 +886,7 @@ export default function EmployeeDashboard({ navigation }) {
               activeOpacity={0.8}
             >
               <Ionicons name="magnet-outline" size={15} color="#FFFFFF" style={{ marginRight: 6 }} />
-              <Text style={styles.openLeadsPipelineText}>Open Leads Pipeline & CRM</Text>
+              <Text style={styles.openLeadsPipelineText}>Open Leads  & CRM</Text>
               <Ionicons name="arrow-forward" size={13} color="#FFFFFF" style={{ marginLeft: 4 }} />
             </TouchableOpacity>
           </View>
@@ -1044,48 +1071,63 @@ const styles = StyleSheet.create({
   },
 
   // Profile incomplete banner (Compact)
-  incompleteBanner: {
-    borderRadius: 12,
-    padding: 10,
+  incompleteBannerWrapper: {
     marginHorizontal: 12,
     marginTop: 10,
+  },
+  incompleteBanner: {
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: "#ffedd5",
-    shadowColor: "#ea580c",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-    elevation: 1,
+    borderColor: "#BFDBFE",
+    shadowColor: "#1268D9",
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   bannerRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
   },
   bannerTextContainer: {
     flex: 1,
-    marginLeft: 8,
+    marginLeft: 10,
+    marginRight: 8,
   },
   bannerTitle: {
     fontFamily: FONTS.bodyBold,
-    fontSize: 12,
+    fontSize: 13,
     color: "#9a3412",
   },
   bannerDesc: {
     fontFamily: FONTS.bodySemiBold,
-    fontSize: 10.5,
+    fontSize: 11,
     color: "#c2410c",
     marginTop: 1,
   },
   bannerBtn: {
     backgroundColor: "#ea580c",
-    borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+    minWidth: 62,
+    minHeight: 32,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    shadowColor: "#ea580c",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3,
+    elevation: 2,
   },
   bannerBtnText: {
     fontFamily: FONTS.bodyBold,
     color: "#ffffff",
-    fontSize: 11,
+    fontSize: 12,
   },
 
   // Premium Punch Card (Compact)

@@ -225,13 +225,13 @@ const EmployeeDashboard = () => {
     dataUpdatedAt: summaryUpdatedAt,
   } = useQuery({
     queryKey: ["employeeDashboardSummary"],
-    queryFn:  () => getEmployeeDashboardSummaryApi().then((r) => r.data),
-    staleTime:            0,          // always stale → always re-fetches
-    gcTime:               5 * 60_000, // keep in cache 5 min
-    refetchInterval:      30_000,     // background poll every 30 s
-    refetchOnMount:       "always",   // v5: "always" forces refetch on mount
+    queryFn: () => getEmployeeDashboardSummaryApi().then((r) => r.data),
+    staleTime: 0,          // always stale → always re-fetches
+    gcTime: 5 * 60_000, // keep in cache 5 min
+    refetchInterval: 30_000,     // background poll every 30 s
+    refetchOnMount: "always",   // v5: "always" forces refetch on mount
     refetchOnWindowFocus: true,
-    retry:                1,
+    retry: 1,
   });
 
   // Today’s attendance — polls every 15 s (punch state changes often)
@@ -241,13 +241,13 @@ const EmployeeDashboard = () => {
     isFetching: todayFetching,
   } = useQuery({
     queryKey: ["employeeTodayAttendance"],
-    queryFn:  () => getMyTodayAttendanceApi().then((r) => r.data),
-    staleTime:            0,
-    gcTime:               5 * 60_000,
-    refetchInterval:      15_000,     // background poll every 15 s
-    refetchOnMount:       "always",
+    queryFn: () => getMyTodayAttendanceApi().then((r) => r.data),
+    staleTime: 0,
+    gcTime: 5 * 60_000,
+    refetchInterval: 15_000,     // background poll every 15 s
+    refetchOnMount: "always",
     refetchOnWindowFocus: true,
-    retry:                1,
+    retry: 1,
   });
 
   const punchInMutation = useMutation({
@@ -386,7 +386,7 @@ const EmployeeDashboard = () => {
 
   // Combined fetching indicator
   const isRefreshing = (summaryFetching && !summaryLoading) || (todayFetching && !todayLoading);
-  const lastUpdated  = summaryUpdatedAt ? new Date(summaryUpdatedAt) : null;
+  const lastUpdated = summaryUpdatedAt ? new Date(summaryUpdatedAt) : null;
 
   // ── Derived State ────────────────────────────────────────────────────
   // /attendance/my-today returns { success, attendance }
@@ -397,12 +397,12 @@ const EmployeeDashboard = () => {
     null;
 
   // Attendance uses punchInTime / punchOutTime (confirmed from controller)
-  const punchInTimeRaw  = todayAtt?.punchInTime;
+  const punchInTimeRaw = todayAtt?.punchInTime;
   const punchOutTimeRaw = todayAtt?.punchOutTime;
   const totalHoursToday = todayAtt?.totalHours || 0;
-  const todayStatus     = todayAtt?.status || null;
+  const todayStatus = todayAtt?.status || null;
 
-  const isPunchedIn  = !!punchInTimeRaw && !punchOutTimeRaw;
+  const isPunchedIn = !!punchInTimeRaw && !punchOutTimeRaw;
   const isPunchedOut = !!punchInTimeRaw && !!punchOutTimeRaw;
 
   const formatTime = (ts) =>
@@ -411,13 +411,13 @@ const EmployeeDashboard = () => {
   const formatRelativeTime = (ts) => {
     if (!ts) return "";
     const now = new Date();
-    const d   = new Date(ts);
+    const d = new Date(ts);
     const diffMs = now - d;
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1)  return "Just now";
+    if (diffMins < 1) return "Just now";
     if (diffMins < 60) return `${diffMins}m ago`;
     const diffHrs = Math.floor(diffMins / 60);
-    if (diffHrs < 24)  return `${diffHrs}h ago`;
+    if (diffHrs < 24) return `${diffHrs}h ago`;
     return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
 
@@ -426,40 +426,40 @@ const EmployeeDashboard = () => {
   //            attendanceSummary, taskSummary, projectSummary, leaveSummary,
   //            payslipSummary, notifications, unreadNotificationsCount,
   //            announcements, upcomingHolidays, recentActivities }
-  const attSummary     = summaryRes?.attendanceSummary  || { present: 0, absent: 0, paidLeave: 0, unpaidLeave: 0, halfDay: 0, totalLogs: 0 };
-  const taskSummary    = summaryRes?.taskSummary         || { assignedTasks: 0, pending: 0, inProgress: 0, completed: 0, dueToday: 0, overdue: 0 };
-  const projectSummary = summaryRes?.projectSummary      || { activeProjects: 0, completedProjects: 0, projectProgress: 0 };
-  const leaveSummary   = summaryRes?.leaveSummary        || {};
+  const attSummary = summaryRes?.attendanceSummary || { present: 0, absent: 0, paidLeave: 0, unpaidLeave: 0, halfDay: 0, totalLogs: 0 };
+  const taskSummary = summaryRes?.taskSummary || { assignedTasks: 0, pending: 0, inProgress: 0, completed: 0, dueToday: 0, overdue: 0 };
+  const projectSummary = summaryRes?.projectSummary || { activeProjects: 0, completedProjects: 0, projectProgress: 0 };
+  const leaveSummary = summaryRes?.leaveSummary || {};
 
   // LeaveBalance doc has fields: casual, sick, annual, lop  (from LeaveBalance model)
   const leaveBalance = leaveSummary?.leaveBalance || {};
   // leaveLimits from CompanyLeaveSettings defaults
-  const leaveLimits  = leaveSummary?.leaveLimits  || { casual: 12, sick: 10, annual: 15 };
-  const pendingLeaveRequests  = leaveSummary?.pendingRequests  || 0;
-  const approvedLeaveCount    = leaveSummary?.approvedLeaves   || 0;
+  const leaveLimits = leaveSummary?.leaveLimits || { casual: 12, sick: 10, annual: 15 };
+  const pendingLeaveRequests = leaveSummary?.pendingRequests || 0;
+  const approvedLeaveCount = leaveSummary?.approvedLeaves || 0;
 
   // Announcements: { title, message, type, status, isRead, createdAt }
-  const announcements     = summaryRes?.announcements    || [];
+  const announcements = summaryRes?.announcements || [];
   // AuditLog: { action, module, createdAt }
-  const recentActivities  = summaryRes?.recentActivities || [];
+  const recentActivities = summaryRes?.recentActivities || [];
   // Notifications: { title, body, type, isRead, createdAt }
-  const notifications     = summaryRes?.notifications    || [];
-  const unreadCount       = summaryRes?.unreadNotificationsCount || 0;
+  const notifications = summaryRes?.notifications || [];
+  const unreadCount = summaryRes?.unreadNotificationsCount || 0;
   // Holidays: { name, date }
-  const upcomingHolidays  = summaryRes?.upcomingHolidays || [];
+  const upcomingHolidays = summaryRes?.upcomingHolidays || [];
   // Payslip: { latestPayslipMonth, netSalary, status }
-  const payslipSummary    = summaryRes?.payslipSummary   || null;
+  const payslipSummary = summaryRes?.payslipSummary || null;
   // Profile: { percentage, isCompleted }
   const profileCompletion = summaryRes?.profileCompletion || { percentage: 0, isCompleted: false };
   // Employee info
-  const employeeInfo      = summaryRes?.employee || null;
+  const employeeInfo = summaryRes?.employee || null;
 
   // ── Productivity Score ───────────────────────────────────────────────
   // Based on: attendance rate (60%) + task completion rate (40%)
-  const totalAttDays  = attSummary.present + attSummary.absent + attSummary.paidLeave + attSummary.halfDay;
-  const attRate       = totalAttDays > 0 ? (attSummary.present / totalAttDays) * 100 : 0;
-  const totalTasks    = taskSummary.pending + taskSummary.inProgress + taskSummary.completed;
-  const taskRate      = totalTasks > 0 ? (taskSummary.completed / totalTasks) * 100 : 0;
+  const totalAttDays = attSummary.present + attSummary.absent + attSummary.paidLeave + attSummary.halfDay;
+  const attRate = totalAttDays > 0 ? (attSummary.present / totalAttDays) * 100 : 0;
+  const totalTasks = taskSummary.pending + taskSummary.inProgress + taskSummary.completed;
+  const taskRate = totalTasks > 0 ? (taskSummary.completed / totalTasks) * 100 : 0;
   const productivityScore = Math.round(attRate * 0.6 + taskRate * 0.4);
 
   // Weekly trend: use attendance present days spread over week approximation
@@ -493,35 +493,35 @@ const EmployeeDashboard = () => {
   // ── Leave balance bars — only real types from LeaveBalance model ──────
   // Model fields: casual, sick, annual, lop
   const leaveTypes = [
-    { label: "Casual Leave",  key: "casual",  color: "#f59e0b", limit: leaveLimits.casual  || 12 },
-    { label: "Medical Leave", key: "sick",    color: "#10b981", limit: leaveLimits.sick    || 10 },
-    { label: "Earned Leave",  key: "annual",  color: "#0f172a", limit: leaveLimits.annual  || 15 },
+    { label: "Casual Leave", key: "casual", color: "#f59e0b", limit: leaveLimits.casual || 12 },
+    { label: "Medical Leave", key: "sick", color: "#10b981", limit: leaveLimits.sick || 10 },
+    { label: "Earned Leave", key: "annual", color: "#0f172a", limit: leaveLimits.annual || 15 },
   ];
 
   // ── Score label & colour ──────────────────────────────────────────────
   const scoreLabel =
     productivityScore >= 80 ? "Excellent" :
-    productivityScore >= 60 ? "Good" :
-    productivityScore >= 40 ? "Average" :
-    "Needs Focus";
+      productivityScore >= 60 ? "Good" :
+        productivityScore >= 40 ? "Average" :
+          "Needs Focus";
 
   const scoreColor =
     productivityScore >= 80 ? "#10b981" :
-    productivityScore >= 60 ? "#f59e0b" :
-    productivityScore >= 40 ? "#64748b" :
-    "#e11d48";
+      productivityScore >= 60 ? "#f59e0b" :
+        productivityScore >= 40 ? "#64748b" :
+          "#e11d48";
 
   // Leaves remaining (leaveBalance already represents the remaining available leaves)
   const leavesRemaining = Math.max(0,
     (leaveBalance.casual || 0) +
-    (leaveBalance.sick   || 0) +
+    (leaveBalance.sick || 0) +
     (leaveBalance.annual || 0)
   );
 
   // ─────────────────────────────────────────────────────────────────────
   return (
     <div className="animate-fadeIn space-y-3.5 max-w-[1440px] mx-auto pb-16 font-sans text-slate-900 dark:text-slate-100">
-      
+
       {/* ── Top Header & Greeting Bar ──────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <div>
@@ -720,10 +720,10 @@ const EmployeeDashboard = () => {
 
       {/* ── Main Two-Column Grid ────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-        
+
         {/* ───────── LEFT WORKSPACE (2 COLS) ───────── */}
         <div className="lg:col-span-2 space-y-3.5">
-          
+
           {/* ── Lead Management CRM (Clean Professional Card) ── */}
           {canAccessLeads && (
             <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
@@ -861,7 +861,7 @@ const EmployeeDashboard = () => {
 
           {/* ── Tasks Progress & Quick Actions Bar (Dual Grid) ───────────────── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            
+
             {/* Col 1: Tasks Summary */}
             {canAccessTasks && (
               <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
@@ -990,7 +990,7 @@ const EmployeeDashboard = () => {
 
         {/* ───────── RIGHT SIDEBAR (1 COL) ───────── */}
         <div className="space-y-3.5">
-          
+
           {/* Time Off Balance */}
           {canAccessLeaves && (
             <div className="bg-white dark:bg-[#111C24] rounded-2xl p-4 sm:p-5 shadow-2xs border border-slate-200/80 dark:border-slate-800">
@@ -1230,7 +1230,7 @@ const EmployeeDashboard = () => {
 
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-200 mb-1">
-                  Pipeline Status
+                  Status
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                   {cleanStatuses.map((st) => {
@@ -1241,11 +1241,10 @@ const EmployeeDashboard = () => {
                         type="button"
                         key={stId}
                         onClick={() => setNewLeadForm((p) => ({ ...p, statusId: stId }))}
-                        className={`px-2 py-0.5 text-[10.5px] font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${
-                          isSelected
+                        className={`px-2 py-0.5 text-[10.5px] font-bold rounded-lg border transition-all flex items-center gap-1 cursor-pointer ${isSelected
                             ? "bg-[#f97316] text-white border-[#f97316]"
                             : "bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-slate-300"
-                        }`}
+                          }`}
                       >
                         <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: st.color || "#f97316" }} />
                         {st.name}

@@ -115,7 +115,7 @@ function TaskActionModal({ isOpen, onClose, actionType, task, onActionSuccess })
       }
 
       let targetStatus = task.status || "pending";
-      let payloadFollowUp = nextFollowUpDate || null;
+      let payloadFollowUp = nextFollowUpDate ? new Date(nextFollowUpDate).toISOString() : null;
 
       const due = task.dueDate || task.endDateTime ? new Date(task.dueDate || task.endDateTime) : null;
       const isPastDue = due && due < new Date();

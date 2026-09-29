@@ -348,9 +348,9 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       const [leadData, statusList, assignableUsers, remList] = await Promise.all([
         leadId
           ? leadsService.getLeadById(leadId).catch((err) => {
-              console.warn("[EmployeeLeadDetails] getLeadById error:", err?.message || err);
-              return null;
-            })
+            console.warn("[EmployeeLeadDetails] getLeadById error:", err?.message || err);
+            return null;
+          })
           : Promise.resolve(null),
         leadsService.getStatuses().catch(() => []),
         leadsService.getAssignableUsers().catch(() => []),
@@ -438,7 +438,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
   const handleSaveStageAndFollowUp = async () => {
     if (updatingStage) return;
     if (!selectedStageId) {
-      return Alert.alert("Required", "Please select a pipeline stage.");
+      return Alert.alert("Required", "Please select a  stage.");
     }
     try {
       setUpdatingStage(true);
@@ -467,7 +467,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       if (stageAttachedDoc) {
         try {
           await leadsService.addLeadDocument(leadId, stageAttachedDoc);
-        } catch (_) {}
+        } catch (_) { }
       }
       setStageAttachedDoc(null);
       if (updated?.status) {
@@ -496,13 +496,13 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
             serviceDate: followUpIso,
             priority: "High",
           });
-        } catch (_) {}
+        } catch (_) { }
       }
 
       setStatusModalVisible(false);
       Alert.alert(
         "Stage Updated 🎉",
-        `Pipeline stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`,
+        ` stage updated to "${newStatusObj?.name || "Updated"}"${followUpIso ? ` with next follow-up on ${stageFollowUpDate} at ${stageFollowUpTime}.` : "!"}`,
         [
           {
             text: "OK",
@@ -548,7 +548,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
         setStageAttachedDoc({
           name: file.name || "Attached Document",
@@ -650,7 +650,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           followUpNotified: false,
         });
         setLead((prev) => ({ ...prev, nextFollowUpDate: dueIso }));
-      } catch (_) {}
+      } catch (_) { }
 
       // Add a note in the timeline about the scheduled reminder
       try {
@@ -660,7 +660,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
         const currentNotes = lead?.notes ? `${noteStamp}\n${lead.notes}` : noteStamp;
         await leadsService.updateLead(leadId, { notes: currentNotes });
         setLead((prev) => ({ ...prev, notes: currentNotes, nextFollowUpDate: dueIso }));
-      } catch (_) {}
+      } catch (_) { }
 
       setReminderModalVisible(false);
       setReminderTitle("");
@@ -727,7 +727,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
 
         const docData = {
@@ -878,7 +878,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
               {/* Stage Selector & Action Row */}
               <View style={styles.heroActionRow}>
                 <View style={{ flex: 1, marginRight: 8 }}>
-                  <Text style={styles.stageSectionMicroLabel}>CURRENT PIPELINE STAGE</Text>
+                  <Text style={styles.stageSectionMicroLabel}>CURRENT  STAGE</Text>
                   <View style={{ flexDirection: "row", alignItems: "center", marginTop: 2 }}>
                     <View style={[styles.stageDot, { backgroundColor: statusColor }]} />
                     <Text style={styles.prominentStageTitle} numberOfLines={1}>
@@ -1078,147 +1078,147 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
             {/* ═════════ TAB 1: TIMELINE & NOTES ═════════ */}
             {activeTab === "notes" && (
               <View style={styles.tabContentBlock}>
-              {/* Note & Document Composer */}
-              <View style={styles.noteComposerCard}>
-                <Text style={styles.composerHeader}>LOG DISCUSSION / ACTIVITY & DOCUMENTS</Text>
-                <TextInput
-                  style={styles.composerInput}
-                  placeholder="Type note, call summary, or customer requirement..."
-                  placeholderTextColor={THEME.textMuted}
-                  multiline
-                  value={inlineNote}
-                  onChangeText={setInlineNote}
-                />
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <TouchableOpacity
-                    style={styles.attachDocButton}
-                    onPress={handleAttachDocument}
-                    disabled={uploadingDoc}
-                    activeOpacity={0.75}
-                  >
-                    {uploadingDoc ? (
-                      <ActivityIndicator size="small" color="#4F46E5" />
-                    ) : (
-                      <>
-                        <Ionicons name="attach" size={16} color="#4F46E5" />
-                        <Text style={styles.attachDocButtonText}>Attach Document</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
+                {/* Note & Document Composer */}
+                <View style={styles.noteComposerCard}>
+                  <Text style={styles.composerHeader}>LOG DISCUSSION / ACTIVITY & DOCUMENTS</Text>
+                  <TextInput
+                    style={styles.composerInput}
+                    placeholder="Type note, call summary, or customer requirement..."
+                    placeholderTextColor={THEME.textMuted}
+                    multiline
+                    value={inlineNote}
+                    onChangeText={setInlineNote}
+                  />
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <TouchableOpacity
+                      style={styles.attachDocButton}
+                      onPress={handleAttachDocument}
+                      disabled={uploadingDoc}
+                      activeOpacity={0.75}
+                    >
+                      {uploadingDoc ? (
+                        <ActivityIndicator size="small" color="#4F46E5" />
+                      ) : (
+                        <>
+                          <Ionicons name="attach" size={16} color="#4F46E5" />
+                          <Text style={styles.attachDocButtonText}>Attach Document</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
 
-                  <TouchableOpacity
-                    style={[styles.postNoteButton, !inlineNote.trim() && { opacity: 0.6 }]}
-                    onPress={handleAddInlineNote}
-                    disabled={addingNote || !inlineNote.trim()}
-                  >
-                    {addingNote ? (
-                      <ActivityIndicator size="small" color="#FFF" />
-                    ) : (
-                      <>
-                        <Ionicons name="send" size={13} color="#FFF" style={{ marginRight: 5 }} />
-                        <Text style={styles.postNoteText}>Post Note</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {/* ── ATTACHED DOCUMENTS CARD ── */}
-              <View style={styles.timelineCard}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <Text style={styles.sectionHeaderTitle}>
-                    ATTACHED DOCUMENTS ({lead?.documents?.length || 0})
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.miniAttachLink}
-                    onPress={handleAttachDocument}
-                    disabled={uploadingDoc}
-                  >
-                    <Ionicons name="add-circle" size={15} color={THEME.primary} />
-                    <Text style={styles.miniAttachLinkText}>Add File</Text>
-                  </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.postNoteButton, !inlineNote.trim() && { opacity: 0.6 }]}
+                      onPress={handleAddInlineNote}
+                      disabled={addingNote || !inlineNote.trim()}
+                    >
+                      {addingNote ? (
+                        <ActivityIndicator size="small" color="#FFF" />
+                      ) : (
+                        <>
+                          <Ionicons name="send" size={13} color="#FFF" style={{ marginRight: 5 }} />
+                          <Text style={styles.postNoteText}>Post Note</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
                 </View>
 
-                {(!Array.isArray(lead?.documents) || lead.documents.length === 0) ? (
-                  <View style={styles.emptyDocWrap}>
-                    <Ionicons name="document-text-outline" size={28} color="#CBD5E1" />
-                    <Text style={styles.emptyNoteText}>No documents or proposals attached yet.</Text>
+                {/* ── ATTACHED DOCUMENTS CARD ── */}
+                <View style={styles.timelineCard}>
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <Text style={styles.sectionHeaderTitle}>
+                      ATTACHED DOCUMENTS ({lead?.documents?.length || 0})
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.miniAttachLink}
+                      onPress={handleAttachDocument}
+                      disabled={uploadingDoc}
+                    >
+                      <Ionicons name="add-circle" size={15} color={THEME.primary} />
+                      <Text style={styles.miniAttachLinkText}>Add File</Text>
+                    </TouchableOpacity>
                   </View>
-                ) : (
-                  lead.documents.map((doc, idx) => {
-                    const docId = doc._id || doc.id || String(idx);
-                    const meta = getFileIconMeta(doc.name, doc.type);
-                    return (
-                      <View key={docId} style={styles.docItemRow}>
-                        <View style={[styles.docIconWrap, { backgroundColor: meta.bg }]}>
-                          <Ionicons
-                            name={meta.icon}
-                            size={18}
-                            color={meta.color}
-                          />
-                        </View>
 
-                        <TouchableOpacity
-                          style={styles.docInfoCol}
-                          onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
-                          activeOpacity={0.7}
-                        >
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                            <Text style={styles.docNameText} numberOfLines={1}>
-                              {doc.name || "Attached File"}
-                            </Text>
-                            <View style={[styles.docTypeBadge, { backgroundColor: meta.bg }]}>
-                              <Text style={[styles.docTypeBadgeText, { color: meta.color }]}>{meta.label}</Text>
-                            </View>
-                          </View>
-                          <Text style={styles.docSubText}>
-                            {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
-                          </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.docOpenBtn}
-                          onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="eye-outline" size={15} color="#4F46E5" />
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                          style={styles.docDeleteBtn}
-                          onPress={() => handleDeleteDocument(docId, doc.name)}
-                          activeOpacity={0.7}
-                        >
-                          <Ionicons name="trash-outline" size={15} color="#EF4444" />
-                        </TouchableOpacity>
-                      </View>
-                    );
-                  })
-                )}
-              </View>
-
-              {/* Timeline Notes List */}
-              <View style={styles.timelineCard}>
-                <Text style={styles.sectionHeaderTitle}>COMMUNICATION HISTORY ({parsedNotes.length})</Text>
-                {parsedNotes.length === 0 ? (
-                  <View style={styles.emptyWrap}>
-                    <Ionicons name="chatbubbles-outline" size={32} color={THEME.border} />
-                    <Text style={styles.emptyNoteText}>No interaction logs recorded yet.</Text>
-                  </View>
-                ) : (
-                  parsedNotes.map((noteItem, idx) => (
-                    <View key={idx} style={styles.timelineItem}>
-                      <View style={styles.timelineBulletWrap}>
-                        <View style={styles.timelineBullet} />
-                        {idx !== parsedNotes.length - 1 && <View style={styles.timelineLine} />}
-                      </View>
-                      <View style={styles.timelineTextBubble}>
-                        <Text style={styles.timelineNoteText}>{noteItem}</Text>
-                      </View>
+                  {(!Array.isArray(lead?.documents) || lead.documents.length === 0) ? (
+                    <View style={styles.emptyDocWrap}>
+                      <Ionicons name="document-text-outline" size={28} color="#CBD5E1" />
+                      <Text style={styles.emptyNoteText}>No documents or proposals attached yet.</Text>
                     </View>
-                  ))
-                )}
-              </View>
+                  ) : (
+                    lead.documents.map((doc, idx) => {
+                      const docId = doc._id || doc.id || String(idx);
+                      const meta = getFileIconMeta(doc.name, doc.type);
+                      return (
+                        <View key={docId} style={styles.docItemRow}>
+                          <View style={[styles.docIconWrap, { backgroundColor: meta.bg }]}>
+                            <Ionicons
+                              name={meta.icon}
+                              size={18}
+                              color={meta.color}
+                            />
+                          </View>
+
+                          <TouchableOpacity
+                            style={styles.docInfoCol}
+                            onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
+                            activeOpacity={0.7}
+                          >
+                            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                              <Text style={styles.docNameText} numberOfLines={1}>
+                                {doc.name || "Attached File"}
+                              </Text>
+                              <View style={[styles.docTypeBadge, { backgroundColor: meta.bg }]}>
+                                <Text style={[styles.docTypeBadgeText, { color: meta.color }]}>{meta.label}</Text>
+                              </View>
+                            </View>
+                            <Text style={styles.docSubText}>
+                              {doc.size ? `${doc.size} • ` : ""}{formatSafeDateTime(doc.uploadedAt, false) || "Attached"}
+                            </Text>
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.docOpenBtn}
+                            onPress={() => handleOpenDocument(doc.url, doc.name, doc.type)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="eye-outline" size={15} color="#4F46E5" />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            style={styles.docDeleteBtn}
+                            onPress={() => handleDeleteDocument(docId, doc.name)}
+                            activeOpacity={0.7}
+                          >
+                            <Ionicons name="trash-outline" size={15} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+
+                {/* Timeline Notes List */}
+                <View style={styles.timelineCard}>
+                  <Text style={styles.sectionHeaderTitle}>COMMUNICATION HISTORY ({parsedNotes.length})</Text>
+                  {parsedNotes.length === 0 ? (
+                    <View style={styles.emptyWrap}>
+                      <Ionicons name="chatbubbles-outline" size={32} color={THEME.border} />
+                      <Text style={styles.emptyNoteText}>No interaction logs recorded yet.</Text>
+                    </View>
+                  ) : (
+                    parsedNotes.map((noteItem, idx) => (
+                      <View key={idx} style={styles.timelineItem}>
+                        <View style={styles.timelineBulletWrap}>
+                          <View style={styles.timelineBullet} />
+                          {idx !== parsedNotes.length - 1 && <View style={styles.timelineLine} />}
+                        </View>
+                        <View style={styles.timelineTextBubble}>
+                          <Text style={styles.timelineNoteText}>{noteItem}</Text>
+                        </View>
+                      </View>
+                    ))
+                  )}
+                </View>
               </View>
             )}
 
@@ -1397,385 +1397,385 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
                       </View>
                     </View>
 
-                {/* 2. Select New Stage */}
-                <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
-                <View style={{ gap: 6 }}>
-                  {statuses.map((st) => {
-                    const stId = String(st.id || st._id || "");
-                    const currentStId = String(
-                      selectedStageId ||
-                      (typeof lead?.statusId === "object" ? (lead?.statusId?._id || lead?.statusId?.id) : lead?.statusId) ||
-                      lead?.status?._id ||
-                      lead?.status?.id ||
-                      ""
-                    );
-                    const isSelected = Boolean(stId && currentStId && stId === currentStId);
-                    return (
-                      <TouchableOpacity
-                        key={st.id || st._id || st.name}
-                        style={[
-                          styles.stageChoiceRow,
-                          isSelected && styles.stageChoiceRowSelected,
-                          updatingStage && { opacity: 0.6 }
-                        ]}
-                        onPress={() => setSelectedStageId(st.id || st._id)}
-                        disabled={updatingStage}
-                        activeOpacity={0.7}
-                      >
-                        <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
-                        <Text style={[styles.stageChoiceText, isSelected && { color: THEME.primary, fontFamily: FONTS.displayBold }]}>
-                          {st.name}
-                        </Text>
-                        {isSelected && (
-                          <Ionicons name="checkmark-circle" size={18} color={THEME.primary} style={{ marginLeft: "auto" }} />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
+                    {/* 2. Select New Stage */}
+                    <Text style={[styles.stageFieldMiniLabel, { marginTop: 10, marginBottom: 6 }]}>SELECT NEW STAGE</Text>
+                    <View style={{ gap: 6 }}>
+                      {statuses.map((st) => {
+                        const stId = String(st.id || st._id || "");
+                        const currentStId = String(
+                          selectedStageId ||
+                          (typeof lead?.statusId === "object" ? (lead?.statusId?._id || lead?.statusId?.id) : lead?.statusId) ||
+                          lead?.status?._id ||
+                          lead?.status?.id ||
+                          ""
+                        );
+                        const isSelected = Boolean(stId && currentStId && stId === currentStId);
+                        return (
+                          <TouchableOpacity
+                            key={st.id || st._id || st.name}
+                            style={[
+                              styles.stageChoiceRow,
+                              isSelected && styles.stageChoiceRowSelected,
+                              updatingStage && { opacity: 0.6 }
+                            ]}
+                            onPress={() => setSelectedStageId(st.id || st._id)}
+                            disabled={updatingStage}
+                            activeOpacity={0.7}
+                          >
+                            <View style={[styles.stageDot, { backgroundColor: st.color || THEME.primary }]} />
+                            <Text style={[styles.stageChoiceText, isSelected && { color: THEME.primary, fontFamily: FONTS.displayBold }]}>
+                              {st.name}
+                            </Text>
+                            {isSelected && (
+                              <Ionicons name="checkmark-circle" size={18} color={THEME.primary} style={{ marginLeft: "auto" }} />
+                            )}
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
 
-                {/* 3. Next Follow-up Date & Time */}
-                <View style={styles.stageFollowUpSection}>
-                  <View style={styles.stageFollowUpHeader}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
-                      <Text style={styles.stageFollowUpTitle}>NEXT FOLLOW-UP SCHEDULE</Text>
+                    {/* 3. Next Follow-up Date & Time */}
+                    <View style={styles.stageFollowUpSection}>
+                      <View style={styles.stageFollowUpHeader}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="calendar-outline" size={14} color="#7C3AED" />
+                          <Text style={styles.stageFollowUpTitle}>NEXT FOLLOW-UP SCHEDULE</Text>
+                        </View>
+                        <TouchableOpacity
+                          onPress={() => setIncludeFollowUp(!includeFollowUp)}
+                          activeOpacity={0.7}
+                          style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                        >
+                          <Ionicons
+                            name={includeFollowUp ? "checkbox" : "square-outline"}
+                            size={16}
+                            color={includeFollowUp ? "#7C3AED" : THEME.textMuted}
+                          />
+                          <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: includeFollowUp ? "#7C3AED" : THEME.textMuted }}>
+                            {includeFollowUp ? "Schedule" : "Skip"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+
+                      {includeFollowUp && (
+                        <View style={{ marginTop: 8 }}>
+                          {/* Date & Time Row */}
+                          <View style={{ flexDirection: "row", gap: 8 }}>
+                            <View style={{ flex: 1.2 }}>
+                              <Text style={styles.pickerSubLabel}>DATE</Text>
+                              <AppDatePicker
+                                value={stageFollowUpDate}
+                                onChangeText={setStageFollowUpDate}
+                                onChange={setStageFollowUpDate}
+                                placeholder="Select Date"
+                                disabled={updatingStage}
+                                minDate="today"
+                              />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <Text style={styles.pickerSubLabel}>TIME</Text>
+                              <AppTimePicker
+                                value={stageFollowUpTime}
+                                onChangeText={setStageFollowUpTime}
+                                onChange={setStageFollowUpTime}
+                                placeholder="Select Time"
+                                disabled={updatingStage}
+                              />
+                            </View>
+                          </View>
+
+                          {/* Quick Preset Buttons */}
+                          <View style={styles.quickDateRow}>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => setStageFollowUpDate(getTomorrowFormatted())}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>Tomorrow</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 3);
+                                setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                              }}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>In 3 Days</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.quickDateChip}
+                              onPress={() => {
+                                const d = new Date();
+                                d.setDate(d.getDate() + 7);
+                                setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
+                              }}
+                              disabled={updatingStage}
+                            >
+                              <Text style={styles.quickDateChipText}>Next Week</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      )}
+                    </View>
+
+                    {/* 4. Optional Document Attachment */}
+                    <View style={styles.stageDocSection}>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
+                          <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
+                        </View>
+                        {stageAttachedDoc && (
+                          <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                            <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
+
+                      {stageAttachedDoc ? (
+                        <View style={styles.stageDocPreviewCard}>
+                          <View style={styles.stageDocIconBox}>
+                            <Ionicons
+                              name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
+                              size={18}
+                              color="#0284C7"
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.stageDocName} numberOfLines={1}>
+                              {stageAttachedDoc.name}
+                            </Text>
+                            <Text style={styles.stageDocSize}>
+                              {stageAttachedDoc.size || "Ready to attach"}
+                            </Text>
+                          </View>
+                          <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
+                            <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          style={styles.stageDocPickBtn}
+                          onPress={handlePickStageDoc}
+                          disabled={stageDocUploading || updatingStage}
+                          activeOpacity={0.7}
+                        >
+                          {stageDocUploading ? (
+                            <ActivityIndicator size="small" color="#0284C7" />
+                          ) : (
+                            <>
+                              <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
+                              <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
+                            </>
+                          )}
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  </ScrollView>
+
+                  {/* Footer Action Buttons */}
+                  <View style={styles.modalActionRow}>
+                    <TouchableOpacity
+                      style={styles.modalCancelBtn}
+                      onPress={() => !updatingStage && setStatusModalVisible(false)}
+                      disabled={updatingStage}
+                    >
+                      <Text style={styles.modalCancelBtnText}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalSubmitBtn, updatingStage && { opacity: 0.6 }]}
+                      onPress={handleSaveStageAndFollowUp}
+                      disabled={updatingStage}
+                      activeOpacity={0.8}
+                    >
+                      {updatingStage ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                          <ActivityIndicator size="small" color="#FFF" />
+                          <Text style={styles.modalSubmitBtnText}>Updating...</Text>
+                        </View>
+                      ) : (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                          <Ionicons name="checkmark-sharp" size={15} color="#FFF" />
+                          <Text style={styles.modalSubmitBtnText}>Update Stage</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </Modal>
+
+            {/* ── MODAL: SCHEDULE REMINDER ── */}
+            <Modal
+              visible={reminderModalVisible}
+              animationType="slide"
+              transparent
+              onRequestClose={() => !savingReminder && setReminderModalVisible(false)}
+            >
+              <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                <View style={[styles.modalContainer, { maxWidth: 360 }]}>
+                  <View style={styles.modalHeaderRow}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                      <Ionicons name="alarm" size={18} color={THEME.violet} />
+                      <Text style={styles.modalHeading}>Schedule Reminder</Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => setIncludeFollowUp(!includeFollowUp)}
-                      activeOpacity={0.7}
-                      style={{ flexDirection: "row", alignItems: "center", gap: 4 }}
+                      onPress={() => !savingReminder && setReminderModalVisible(false)}
+                      disabled={savingReminder}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                      <Ionicons
-                        name={includeFollowUp ? "checkbox" : "square-outline"}
-                        size={16}
-                        color={includeFollowUp ? "#7C3AED" : THEME.textMuted}
-                      />
-                      <Text style={{ fontSize: 11, fontFamily: FONTS.bodyBold, color: includeFollowUp ? "#7C3AED" : THEME.textMuted }}>
-                        {includeFollowUp ? "Schedule" : "Skip"}
-                      </Text>
+                      <Ionicons name="close" size={22} color={THEME.textMuted} />
                     </TouchableOpacity>
                   </View>
 
-                  {includeFollowUp && (
-                    <View style={{ marginTop: 8 }}>
-                      {/* Date & Time Row */}
-                      <View style={{ flexDirection: "row", gap: 8 }}>
-                        <View style={{ flex: 1.2 }}>
-                          <Text style={styles.pickerSubLabel}>DATE</Text>
-                          <AppDatePicker
-                            value={stageFollowUpDate}
-                            onChangeText={setStageFollowUpDate}
-                            onChange={setStageFollowUpDate}
-                            placeholder="Select Date"
-                            disabled={updatingStage}
-                            minDate="today"
-                          />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.pickerSubLabel}>TIME</Text>
-                          <AppTimePicker
-                            value={stageFollowUpTime}
-                            onChangeText={setStageFollowUpTime}
-                            onChange={setStageFollowUpTime}
-                            placeholder="Select Time"
-                            disabled={updatingStage}
-                          />
-                        </View>
-                      </View>
+                  <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.fieldLabel}>Reminder Title *</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      placeholder="e.g. Call client regarding proposal"
+                      value={reminderTitle}
+                      onChangeText={setReminderTitle}
+                      editable={!savingReminder}
+                    />
 
-                      {/* Quick Preset Buttons */}
-                      <View style={styles.quickDateRow}>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => setStageFollowUpDate(getTomorrowFormatted())}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>Tomorrow</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + 3);
-                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
-                          }}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>In 3 Days</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={styles.quickDateChip}
-                          onPress={() => {
-                            const d = new Date();
-                            d.setDate(d.getDate() + 7);
-                            setStageFollowUpDate(`${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`);
-                          }}
-                          disabled={updatingStage}
-                        >
-                          <Text style={styles.quickDateChipText}>Next Week</Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  )}
-                </View>
-
-                {/* 4. Optional Document Attachment */}
-                <View style={styles.stageDocSection}>
-                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="document-attach-outline" size={14} color="#0284C7" />
-                      <Text style={styles.stageDocTitle}>ATTACH DOCUMENT / PROPOSAL</Text>
-                    </View>
-                    {stageAttachedDoc && (
-                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Text style={{ fontSize: 10, color: "#EF4444", fontWeight: "700" }}>Remove</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  {stageAttachedDoc ? (
-                    <View style={styles.stageDocPreviewCard}>
-                      <View style={styles.stageDocIconBox}>
-                        <Ionicons
-                          name={(stageAttachedDoc.name || "").toLowerCase().endsWith(".pdf") ? "document-text" : "image"}
-                          size={18}
-                          color="#0284C7"
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
+                      <View style={{ flex: 1 }}>
+                        <AppDatePicker
+                          label="Reminder Date *"
+                          value={reminderDate}
+                          onChangeText={setReminderDate}
+                          onChange={setReminderDate}
+                          placeholder="DD/MM/YYYY"
+                          minDate="today"
                         />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={styles.stageDocName} numberOfLines={1}>
-                          {stageAttachedDoc.name}
-                        </Text>
-                        <Text style={styles.stageDocSize}>
-                          {stageAttachedDoc.size || "Ready to attach"}
-                        </Text>
+                        <AppTimePicker
+                          label="Reminder Time *"
+                          value={reminderTime}
+                          onChangeText={setReminderTime}
+                          placeholder="HH:MM AM/PM"
+                        />
                       </View>
-                      <TouchableOpacity onPress={() => setStageAttachedDoc(null)}>
-                        <Ionicons name="close-circle" size={18} color="#94A3B8" />
+                    </View>
+
+                    <Text style={styles.fieldLabel}>Notes / Agenda</Text>
+                    <TextInput
+                      style={[styles.fieldInput, { height: 65, textAlignVertical: "top" }]}
+                      placeholder="Any details for this follow-up..."
+                      multiline
+                      value={reminderNotes}
+                      onChangeText={setReminderNotes}
+                      editable={!savingReminder}
+                    />
+
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
+                      <TouchableOpacity
+                        style={[styles.cancelBtn, savingReminder && { opacity: 0.6 }, { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9", borderWidth: 1, borderColor: THEME.border }]}
+                        onPress={() => setReminderModalVisible(false)}
+                        disabled={savingReminder}
+                      >
+                        <Text style={{ fontSize: 13, fontFamily: FONTS.bodyBold, color: THEME.textSecondary }}>Cancel</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={[styles.primarySubmitBtn, { flex: 1.6, marginTop: 0 }, (!reminderTitle.trim() || savingReminder) && { opacity: 0.6 }]}
+                        onPress={handleAddReminder}
+                        disabled={!reminderTitle.trim() || savingReminder}
+                      >
+                        {savingReminder ? (
+                          <ActivityIndicator color="#FFF" />
+                        ) : (
+                          <Text style={styles.primarySubmitBtnText}>Save Reminder</Text>
+                        )}
                       </TouchableOpacity>
                     </View>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.stageDocPickBtn}
-                      onPress={handlePickStageDoc}
-                      disabled={stageDocUploading || updatingStage}
-                      activeOpacity={0.7}
-                    >
-                      {stageDocUploading ? (
-                        <ActivityIndicator size="small" color="#0284C7" />
-                      ) : (
-                        <>
-                          <Ionicons name="cloud-upload-outline" size={16} color="#0284C7" />
-                          <Text style={styles.stageDocPickBtnText}>Attach Document or Photo</Text>
-                        </>
-                      )}
+                  </ScrollView>
+                </View>
+              </KeyboardAvoidingView>
+            </Modal>
+
+            {/* ── MODAL: EDIT LEAD ── */}
+            <Modal visible={editModalVisible} animationType="slide" transparent>
+              <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+                <View style={styles.modalContainer}>
+                  <View style={styles.modalHeaderRow}>
+                    <Text style={styles.modalHeading}>Edit Lead Profile</Text>
+                    <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                      <Ionicons name="close" size={22} color={THEME.textMuted} />
                     </TouchableOpacity>
-                  )}
-                </View>
-              </ScrollView>
-
-              {/* Footer Action Buttons */}
-              <View style={styles.modalActionRow}>
-                <TouchableOpacity
-                  style={styles.modalCancelBtn}
-                  onPress={() => !updatingStage && setStatusModalVisible(false)}
-                  disabled={updatingStage}
-                >
-                  <Text style={styles.modalCancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalSubmitBtn, updatingStage && { opacity: 0.6 }]}
-                  onPress={handleSaveStageAndFollowUp}
-                  disabled={updatingStage}
-                  activeOpacity={0.8}
-                >
-                  {updatingStage ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                      <ActivityIndicator size="small" color="#FFF" />
-                      <Text style={styles.modalSubmitBtnText}>Updating...</Text>
-                    </View>
-                  ) : (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                      <Ionicons name="checkmark-sharp" size={15} color="#FFF" />
-                      <Text style={styles.modalSubmitBtnText}>Update Stage</Text>
-                    </View>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </Modal>
-
-        {/* ── MODAL: SCHEDULE REMINDER ── */}
-        <Modal
-          visible={reminderModalVisible}
-          animationType="slide"
-          transparent
-          onRequestClose={() => !savingReminder && setReminderModalVisible(false)}
-        >
-          <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <View style={[styles.modalContainer, { maxWidth: 360 }]}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                  <Ionicons name="alarm" size={18} color={THEME.violet} />
-                  <Text style={styles.modalHeading}>Schedule Reminder</Text>
-                </View>
-                <TouchableOpacity
-                  onPress={() => !savingReminder && setReminderModalVisible(false)}
-                  disabled={savingReminder}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="close" size={22} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <Text style={styles.fieldLabel}>Reminder Title *</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  placeholder="e.g. Call client regarding proposal"
-                  value={reminderTitle}
-                  onChangeText={setReminderTitle}
-                  editable={!savingReminder}
-                />
-
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 4 }}>
-                  <View style={{ flex: 1 }}>
-                    <AppDatePicker
-                      label="Reminder Date *"
-                      value={reminderDate}
-                      onChangeText={setReminderDate}
-                      onChange={setReminderDate}
-                      placeholder="DD/MM/YYYY"
-                      minDate="today"
-                    />
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <AppTimePicker
-                      label="Reminder Time *"
-                      value={reminderTime}
-                      onChangeText={setReminderTime}
-                      placeholder="HH:MM AM/PM"
+
+                  <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                    <Text style={styles.fieldLabel}>Full Name</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editForm.name}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
+                      placeholder="Enter full name"
+                      placeholderTextColor="#94A3B8"
+                      autoCapitalize="words"
                     />
-                  </View>
+
+                    <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editForm.whatsappPhone}
+                      keyboardType="phone-pad"
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
+                      placeholder="e.g. 9876543210"
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Text style={styles.fieldLabel}>Email Address</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editForm.email}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
+                      placeholder="e.g. name@example.com"
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Text style={styles.fieldLabel}>Company Name</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editForm.company}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
+                      placeholder="Company Name"
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Text style={styles.fieldLabel}>Requirement / Interest</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      value={editForm.productService}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, productService: v }))}
+                      placeholder="Requirement / Interest"
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
+                    <TextInput
+                      style={styles.fieldInput}
+                      keyboardType="numeric"
+                      value={editForm.estimatedValue}
+                      onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
+                      placeholder="0"
+                      placeholderTextColor="#94A3B8"
+                    />
+
+                    <TouchableOpacity style={styles.primarySubmitBtn} onPress={handleSaveEdits} disabled={updating}>
+                      {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primarySubmitBtnText}>Save Changes</Text>}
+                    </TouchableOpacity>
+                  </ScrollView>
                 </View>
-
-                <Text style={styles.fieldLabel}>Notes / Agenda</Text>
-                <TextInput
-                  style={[styles.fieldInput, { height: 65, textAlignVertical: "top" }]}
-                  placeholder="Any details for this follow-up..."
-                  multiline
-                  value={reminderNotes}
-                  onChangeText={setReminderNotes}
-                  editable={!savingReminder}
-                />
-
-                <View style={{ flexDirection: "row", gap: 8, marginTop: 14 }}>
-                  <TouchableOpacity
-                    style={[styles.cancelBtn, savingReminder && { opacity: 0.6 }, { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: "center", justifyContent: "center", backgroundColor: "#F1F5F9", borderWidth: 1, borderColor: THEME.border }]}
-                    onPress={() => setReminderModalVisible(false)}
-                    disabled={savingReminder}
-                  >
-                    <Text style={{ fontSize: 13, fontFamily: FONTS.bodyBold, color: THEME.textSecondary }}>Cancel</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.primarySubmitBtn, { flex: 1.6, marginTop: 0 }, (!reminderTitle.trim() || savingReminder) && { opacity: 0.6 }]}
-                    onPress={handleAddReminder}
-                    disabled={!reminderTitle.trim() || savingReminder}
-                  >
-                    {savingReminder ? (
-                      <ActivityIndicator color="#FFF" />
-                    ) : (
-                      <Text style={styles.primarySubmitBtnText}>Save Reminder</Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
-
-        {/* ── MODAL: EDIT LEAD ── */}
-        <Modal visible={editModalVisible} animationType="slide" transparent>
-          <KeyboardAvoidingView style={styles.modalBackdrop} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-            <View style={styles.modalContainer}>
-              <View style={styles.modalHeaderRow}>
-                <Text style={styles.modalHeading}>Edit Lead Profile</Text>
-                <TouchableOpacity onPress={() => setEditModalVisible(false)}>
-                  <Ionicons name="close" size={22} color={THEME.textMuted} />
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-                <Text style={styles.fieldLabel}>Full Name</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editForm.name}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, name: v }))}
-                  placeholder="Enter full name"
-                  placeholderTextColor="#94A3B8"
-                  autoCapitalize="words"
-                />
-
-                <Text style={styles.fieldLabel}>WhatsApp Phone</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editForm.whatsappPhone}
-                  keyboardType="phone-pad"
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, whatsappPhone: v }))}
-                  placeholder="e.g. 9876543210"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={styles.fieldLabel}>Email Address</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editForm.email}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, email: v }))}
-                  placeholder="e.g. name@example.com"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={styles.fieldLabel}>Company Name</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editForm.company}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, company: v }))}
-                  placeholder="Company Name"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={styles.fieldLabel}>Requirement / Interest</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  value={editForm.productService}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, productService: v }))}
-                  placeholder="Requirement / Interest"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <Text style={styles.fieldLabel}>Estimated Deal Value (₹)</Text>
-                <TextInput
-                  style={styles.fieldInput}
-                  keyboardType="numeric"
-                  value={editForm.estimatedValue}
-                  onChangeText={(v) => setEditForm((p) => ({ ...p, estimatedValue: v }))}
-                  placeholder="0"
-                  placeholderTextColor="#94A3B8"
-                />
-
-                <TouchableOpacity style={styles.primarySubmitBtn} onPress={handleSaveEdits} disabled={updating}>
-                  {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.primarySubmitBtnText}>Save Changes</Text>}
-                </TouchableOpacity>
-              </ScrollView>
-            </View>
-          </KeyboardAvoidingView>
-        </Modal>
+              </KeyboardAvoidingView>
+            </Modal>
           </>
         ) : null}
       </View>

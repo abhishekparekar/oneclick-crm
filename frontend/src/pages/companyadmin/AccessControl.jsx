@@ -122,7 +122,7 @@ const PERMISSION_CATEGORIES = [
   },
   {
     key: "leads",
-    title: "Lead Engine & CRM",
+    title: "Lead",
     icon: Magnet,
     iconColor: "text-emerald-600 dark:text-emerald-400",
     iconBg: "bg-emerald-500/10",

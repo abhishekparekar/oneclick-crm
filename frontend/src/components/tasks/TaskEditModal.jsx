@@ -210,7 +210,11 @@ export default function TaskEditModal({ isOpen, onClose, task, departments: prop
       return false;
     });
 
-    return filtered;
+    return filtered.sort((a, b) => {
+      const nameA = (a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`).trim();
+      const nameB = (b.fullName || b.name || `${b.firstName || ""} ${b.lastName || ""}`).trim();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
   }, [taskEligibleEmployees, departments, form.departmentId]);
 
   const handleAddChecklistItem = () => {
@@ -501,7 +505,8 @@ export default function TaskEditModal({ isOpen, onClose, task, departments: prop
                           .map(e => {
                             const empId = e._id || e.id || e.userId?._id;
                             const isChecked = form.assignedTo.includes(empId);
-                            const name = e.fullName || `${e.firstName || ''} ${e.lastName || ''}` || e.name || 'Staff';
+                            const rawName = e.fullName || `${e.firstName || ''} ${e.lastName || ''}` || e.name || 'Staff';
+                            const deptName = e.departmentId?.name || e.department?.name || (typeof e.department === "string" ? e.department : "") || "";
                             return (
                               <label key={empId} className="flex items-center justify-between cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800/60 p-1.5 rounded-lg transition-colors">
                                 <div className="flex items-center gap-1.5 truncate">
@@ -517,7 +522,12 @@ export default function TaskEditModal({ isOpen, onClose, task, departments: prop
                                       }
                                     }}
                                   />
-                                  <span className="text-slate-800 dark:text-slate-200 truncate">{name}</span>
+                                  <span className="text-slate-800 dark:text-slate-200 truncate">
+                                    {rawName}
+                                    {deptName && (
+                                      <span className="text-[10px] text-slate-400 font-normal ml-1">({deptName})</span>
+                                    )}
+                                  </span>
                                 </div>
                                 {isChecked && <Check size={11} className="text-amber-500 stroke-[3]" />}
                               </label>

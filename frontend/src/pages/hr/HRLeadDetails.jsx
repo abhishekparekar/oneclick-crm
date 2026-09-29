@@ -74,7 +74,7 @@ export default function HRLeadDetails() {
 
   const lead = leadData || {};
 
-  // Fetch pipeline statuses
+  // Fetch  statuses
   const { data: statusesData } = useQuery({
     queryKey: ["leadsEngineStatuses"],
     queryFn: async () => {
@@ -154,9 +154,10 @@ export default function HRLeadDetails() {
         docObjs = res.filter(Boolean);
       }
 
+      const targetFollowUp = followUpDate || nextFollowUpDate;
       return api.put(`/leads-engine/leads/${leadId}`, {
         statusId: statusId || selectedStatusId,
-        nextFollowUpDate: followUpDate || nextFollowUpDate || null,
+        nextFollowUpDate: targetFollowUp ? new Date(targetFollowUp).toISOString() : null,
         remark: remark || null,
         attachments: docObjs,
         attachment: docObjs[0] || null,
@@ -419,7 +420,7 @@ export default function HRLeadDetails() {
 
   return (
     <div className="w-full font-sans pb-12 space-y-4 text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto text-xs">
-      
+
       {/* ── Top Breadcrumbs & Back Bar ────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs">
         <div className="flex items-center gap-3">
@@ -428,8 +429,8 @@ export default function HRLeadDetails() {
               const returnPath = window.location.pathname.startsWith("/company")
                 ? "/company/leads"
                 : window.location.pathname.startsWith("/manager")
-                ? "/manager/leads"
-                : "/hr/leads";
+                  ? "/manager/leads"
+                  : "/hr/leads";
               navigate(returnPath);
             }}
             className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 flex items-center justify-center transition-colors cursor-pointer shrink-0 border border-slate-200 dark:border-slate-700"
@@ -489,7 +490,7 @@ export default function HRLeadDetails() {
             const statusName = (currentStatusObj?.name || "").toLowerCase();
             const isWon = statusName.includes("won") || statusName.includes("converted") || statusName.includes("selected") || statusName.includes("hired");
             const isLost = statusName.includes("lost") || statusName.includes("dropped") || statusName.includes("rejected") || statusName.includes("closed");
-            
+
             if (isWon) {
               return (
                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-xl font-black text-xs shadow-2xs">
@@ -522,10 +523,10 @@ export default function HRLeadDetails() {
 
       {/* ── Main 2-Column Grid Layout ────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        
+
         {/* LEFT COLUMN (1/3): Client Profile & Assignment Card */}
         <div className="space-y-4">
-          
+
           {/* Card 1: Contact & Company Profile */}
           <div className="bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3.5">
             <h3 className="font-extrabold text-slate-900 dark:text-white uppercase tracking-wider text-[11px] flex items-center gap-2">
@@ -688,7 +689,7 @@ export default function HRLeadDetails() {
 
         {/* RIGHT COLUMN (2/3): WhatsApp Messenger & Interaction Timeline */}
         <div className="lg:col-span-2 space-y-4">
-          
+
           {/* Card 4: Interactive WhatsApp Outreach Engine */}
           <div className="bg-white dark:bg-[#111C24] p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-2xs space-y-3">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-2.5">
@@ -704,22 +705,20 @@ export default function HRLeadDetails() {
                 <button
                   type="button"
                   onClick={() => setActiveMessengerTab("templates")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    activeMessengerTab === "templates"
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeMessengerTab === "templates"
                       ? "bg-white dark:bg-[#111C24] text-slate-900 dark:text-white shadow-2xs"
                       : "text-slate-500 hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   Meta Templates
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveMessengerTab("direct")}
-                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    activeMessengerTab === "direct"
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${activeMessengerTab === "direct"
                       ? "bg-white dark:bg-[#111C24] text-slate-900 dark:text-white shadow-2xs"
                       : "text-slate-500 hover:text-slate-900"
-                  }`}
+                    }`}
                 >
                   Direct Message
                 </button>
@@ -891,12 +890,12 @@ export default function HRLeadDetails() {
                           {typeof log.timestamp === "string" && log.timestamp.length > 5 && !log.timestamp.includes("T")
                             ? log.timestamp
                             : new Date(log.createdAt || log.timestamp || Date.now()).toLocaleString("en-IN", {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: true,
-                              })}
+                              day: "2-digit",
+                              month: "short",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true,
+                            })}
                         </span>
                       </div>
                       {log.remark && (
@@ -976,10 +975,10 @@ export default function HRLeadDetails() {
 
             {/* Modal Form */}
             <form onSubmit={handleStatusSubmit} className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-              
+
               <div>
                 <label className="block text-[10.5px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1">
-                  Pipeline Stage / Status <span className="text-rose-500">*</span>
+                  Stage / Status <span className="text-rose-500">*</span>
                 </label>
                 <select
                   required

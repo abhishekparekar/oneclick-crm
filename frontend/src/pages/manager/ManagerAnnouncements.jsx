@@ -109,13 +109,13 @@ export default function ManagerAnnouncements() {
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Company Announcements
+                Announcements
                 <span className="text-[10px] font-bold font-mono px-1.5 py-0.2 rounded bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
-                  {filteredAnnouncements.length} Bulletins
+                  {filteredAnnouncements.length} Notices
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400 font-medium">
-                Official notices, corporate events, and policy broadcasts
+                Company notices, updates, and news
               </p>
             </div>
           </div>
@@ -125,7 +125,7 @@ export default function ManagerAnnouncements() {
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search bulletin..."
+                placeholder="Search announcements..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-7 pr-3 py-1.5 bg-slate-50 dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold"
@@ -136,7 +136,7 @@ export default function ManagerAnnouncements() {
               onClick={() => refetch()}
               disabled={isFetching}
               className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Refresh Bulletins"
+              title="Refresh Announcements"
             >
               <RefreshCw size={13} className={isFetching ? "animate-spin text-amber-500" : ""} />
             </button>
@@ -148,7 +148,7 @@ export default function ManagerAnnouncements() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <div className="bg-white dark:bg-[#111C24] p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Bulletins</p>
+            <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">Total Announcements</p>
             <p className="text-xl font-black text-slate-900 dark:text-white font-mono mt-0.5">{stats.total}</p>
           </div>
           <div className="w-8 h-8 rounded-lg bg-teal-500/10 text-teal-600 flex items-center justify-center">

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getPlansApi, createPlanApi, updatePlanApi,
@@ -230,6 +231,14 @@ const SuperAdminPlans = () => {
     setIsModalOpen(true);
   };
 
+  const location = useLocation();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("create") === "true") {
+      handleOpenModal();
+    }
+  }, [location.search]);
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     if (name === "modules") {
@@ -275,7 +284,7 @@ const SuperAdminPlans = () => {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to permanently delete this pricing tier? It cannot be deleted if active enterprise tenants are assigned to it.")) {
+    if (window.confirm("Are you sure you want to permanently delete this plan? It cannot be deleted if active companies are using it.")) {
       deleteMutation.mutate(id);
     }
   };
@@ -286,8 +295,8 @@ const SuperAdminPlans = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sa-border">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">SaaS Subscription Plans</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Architect pricing tiers, resource quotas, module entitlements, and evaluation trials for enterprise tenants.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Subscription Plans</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Create and manage subscription plans, employee limits, features, and trial periods for companies.</p>
         </div>
         <button 
           onClick={() => handleOpenModal()} 
@@ -295,43 +304,43 @@ const SuperAdminPlans = () => {
           style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
         >
           <Plus size={15} />
-          <span>Add New Plan Tier</span>
+          <span>+ Add New Plan</span>
         </button>
       </div>
 
       {/* Analytics KPI Row (4 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <PlanKpiCard 
-          title="Total Pricing Tiers" 
+          title="Total Plans" 
           count={plans.length} 
-          subtitle="All configured packages" 
+          subtitle="All created plans" 
           icon={Layers} 
           grad={["#d97706", "#f59e0b"]} 
           active={statusFilter === "all"} 
           onClick={() => setStatusFilter("all")} 
         />
         <PlanKpiCard 
-          title="Active Published Plans" 
+          title="Active Plans" 
           count={plans.filter(p => p.status === 'active').length} 
-          subtitle="Available for enrollment" 
+          subtitle="Available for companies" 
           icon={CheckCircle2} 
           grad={["#f59e0b", "#f59e0b"]} 
           active={statusFilter === "active"} 
           onClick={() => setStatusFilter("active")} 
         />
         <PlanKpiCard 
-          title="Max Seat Capacity" 
+          title="Max Employee Limit" 
           count={`${maxSeats} Emp`} 
-          subtitle="Highest tier allowance" 
+          subtitle="Highest plan limit" 
           icon={Users} 
           grad={["#b45309", "#06B6D4"]} 
           active={false} 
           onClick={() => {}} 
         />
         <PlanKpiCard 
-          title="Core SaaS Modules" 
+          title="Available Features" 
           count={MODULES.length} 
-          subtitle="Enterprise system suites" 
+          subtitle="System modules" 
           icon={Cpu} 
           grad={["#d97706", "#fbbf24"]} 
           active={false} 
@@ -438,7 +447,7 @@ const SuperAdminPlans = () => {
                     <div className="bg-sa-bg p-2.5 rounded-xl border border-sa-border">
                       <Users size={14} className="text-[#f59e0b] mx-auto mb-1 opacity-80" />
                       <span className="block text-xs font-black text-sa-text">{plan.employeeLimit || 0}</span>
-                      <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Seats</span>
+                      <span className="block text-[9px] font-extrabold text-sa-text-secondary uppercase">Employee Limit</span>
                     </div>
                     <div className="bg-sa-bg p-2.5 rounded-xl border border-sa-border">
                       <Clock size={14} className="text-[#fbbf24] mx-auto mb-1 opacity-80" />
@@ -450,7 +459,7 @@ const SuperAdminPlans = () => {
                   {/* Key Features List */}
                   {plan.features && plan.features.length > 0 && (
                     <div className="pt-2 border-t border-sa-border/60">
-                      <h4 className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-2">Key Value Features</h4>
+                      <h4 className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-2">Features Included</h4>
                       <ul className="space-y-1.5 text-xs font-semibold text-sa-text">
                         {(Array.isArray(plan.features) ? plan.features : plan.features.split("\n")).slice(0, 5).map((feat, idx) => (
                           <li key={idx} className="flex items-start space-x-2">
@@ -472,7 +481,7 @@ const SuperAdminPlans = () => {
                       className="px-3 py-1.5 rounded-xl bg-sa-surface border border-sa-border text-xs font-black text-sa-text hover:border-[#f59e0b] hover:text-[#f59e0b] transition-all flex items-center space-x-1 cursor-pointer"
                     >
                       <Edit size={13} />
-                      <span>Configure</span>
+                      <span>Edit Plan</span>
                     </button>
                     <button 
                       type="button" 
@@ -491,7 +500,7 @@ const SuperAdminPlans = () => {
                     type="button" 
                     onClick={() => handleDelete(plan._id)} 
                     className="p-1.5 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/30 hover:bg-rose-500/20 transition-all cursor-pointer"
-                    title="Delete Tier"
+                    title="Delete Plan"
                   >
                     <Trash2 size={13} />
                   </button>
@@ -515,10 +524,10 @@ const SuperAdminPlans = () => {
                 </div>
                 <div>
                   <h3 className="text-base font-black text-sa-text tracking-tight">
-                    {editingPlan ? `Configure Tier: ${editingPlan.planName}` : "Create New Subscription Plan"}
+                    {editingPlan ? `Edit Plan: ${editingPlan.planName}` : "Create New Subscription Plan"}
                   </h3>
                   <p className="text-xs text-sa-text-secondary mt-0.5">
-                    Define subscription pricing, employee seat capacity, and marketing points
+                    Set plan pricing, employee limits, subscription duration, and features
                   </p>
                 </div>
               </div>
@@ -533,11 +542,11 @@ const SuperAdminPlans = () => {
 
             {/* Modal Form Scrollable Body */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-6">
-              {/* Section 1: Tier Identity */}
+              {/* Section 1: Plan Details */}
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border pb-2 flex items-center gap-1.5">
                   <Sparkles size={14} className="text-[#f59e0b]" />
-                  <span>Core Tier Identity &amp; Lifecycle</span>
+                  <span>Plan Details &amp; Status</span>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -547,7 +556,7 @@ const SuperAdminPlans = () => {
                       placeholder="e.g. Growth Accelerator" />
                   </div>
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Tier Code Tag</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Plan Code</label>
                     <input type="text" name="planCode" value={formData.planCode} onChange={handleChange}
                       className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-[#f59e0b] focus:outline-none focus:border-[#f59e0b] transition-all uppercase"
                       placeholder="e.g. GROW-100" />
@@ -567,7 +576,7 @@ const SuperAdminPlans = () => {
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border pb-2 flex items-center gap-1.5">
                   <DollarSign size={14} className="text-[#06B6D4]" />
-                  <span>Subscription Pricing Models</span>
+                  <span>Pricing Details</span>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-sa-bg/50 p-4 rounded-xl border border-sa-border">
                   <div>
@@ -583,18 +592,18 @@ const SuperAdminPlans = () => {
                 </div>
               </div>
 
-              {/* Section 3: Quota & Resource Ceilings */}
+              {/* Section 3: Limits & Duration */}
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border pb-2 flex items-center gap-1.5">
                   <Users size={14} className="text-[#fbbf24]" />
-                  <span>Total Company Capacity &amp; Evaluation Trial</span>
+                  <span>Employee Limit &amp; Duration</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Total Company Employee Seats</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Employee Limit (Max Users)</label>
                     <input type="number" name="employeeLimit" required min="1" value={formData.employeeLimit} onChange={handleChange}
                       className="w-full bg-sa-bg border border-sa-border rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all" />
-                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Default seats allocated.</p>
+                    <p className="text-[9.5px] text-sa-text-secondary mt-1 font-medium">Maximum employees allowed on this plan.</p>
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">

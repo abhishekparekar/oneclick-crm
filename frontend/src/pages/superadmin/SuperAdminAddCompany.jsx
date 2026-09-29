@@ -15,7 +15,7 @@ const ALL_SYSTEM_MODULES = [
 
 const DISPLAY_MODULES = [
   { key: "tasks", label: "Tasks" },
-  { key: "leads", label: "Leads Engine" },
+  { key: "leads", label: "Lead" },
   { key: "map_leads", label: "Map Leads", subtext: "Live Google Maps Scraping" },
   { key: "attendance", label: "Attendance" },
   { key: "location_tracking", label: "Location Tracking", subtext: "Live GPS Tracking" },
@@ -27,7 +27,7 @@ const DISPLAY_MODULES = [
 
 const MODULE_CAP_ITEMS = [
   { key: "tasks",             label: "Tasks Module",                color: "#f59e0b" },
-  { key: "leads",             label: "Leads Engine & CRM",          color: "#f59e0b" },
+  { key: "leads",             label: "Lead",                        color: "#f59e0b" },
   { key: "attendance",        label: "Attendance",                  color: "#10b981" },
   { key: "location_tracking", label: "Field GPS Location Tracking", color: "#ec4899" },
   { key: "projects",          label: "Projects Workspace",          color: "#06B6D4" },
@@ -279,10 +279,15 @@ const SuperAdminAddCompany = () => {
     mutationFn: createCompanyApi,
     onSuccess: (data) => {
       queryClient.invalidateQueries(["superAdminCompanies"]);
-      setSuccessData(data.data.adminLogin);
+      setSuccessData({
+        ...data.data.adminLogin,
+        companyName: data.data.company?.companyName || formData.companyName,
+        planName: data.data.company?.planName || formData.planName,
+        adminName: data.data.companyAdmin?.name || formData.adminName || formData.ownerName,
+      });
     },
     onError: (error) => {
-      alert(error.response?.data?.message || "Failed to create company tenant.");
+      alert(error.response?.data?.message || "Failed to create company.");
     }
   });
 
@@ -311,26 +316,40 @@ const SuperAdminAddCompany = () => {
     setTimeout(() => setCopiedField(null), 2000);
   };
 
-  /* ─── Success Provisioning Screen ─────────────────────────────────────── */
+  /* ─── Success Screen ─────────────────────────────────────────────────── */
   if (successData) {
     return (
       <div className="w-full py-4">
-        <div className="bg-sa-surface rounded-2xl p-8 border border-sa-border/30 dark:border-white/10 shadow-md text-center">
+        <div className="bg-sa-surface rounded-2xl p-8 border border-sa-border/30 dark:border-white/10 shadow-md text-center max-w-2xl mx-auto">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm bg-gradient-to-br from-sa-primary-hover to-sa-primary">
             <CheckCircle2 size={32} className="text-white" />
           </div>
-          <h2 className="text-2xl font-black text-sa-text tracking-tight mb-2">Tenant Provisioned Successfully!</h2>
-          <p className="text-xs text-sa-text-secondary leading-relaxed max-w-md mx-auto mb-4">
-            The enterprise tenant space and primary administrator credentials have been securely provisioned. Share these temporary credentials with the tenant admin.
+          <h2 className="text-2xl font-black text-sa-text tracking-tight mb-2">Company Created Successfully!</h2>
+          <p className="text-xs text-sa-text-secondary leading-relaxed max-w-md mx-auto mb-5">
+            The company account is ready. Share these login details with the company admin to access the dashboard.
           </p>
+
+          {/* Company Brief Tag */}
+          {successData.companyName && (
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="px-3 py-1 rounded-lg bg-sa-primary/10 border border-sa-primary/20 text-sa-primary text-xs font-black">
+                {successData.companyName}
+              </span>
+              {successData.planName && (
+                <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-xs font-bold">
+                  {successData.planName} Plan
+                </span>
+              )}
+            </div>
+          )}
           
-          <div className="bg-sa-bg/60 rounded-xl p-5 border border-sa-border/30 dark:border-white/5 text-left space-y-4 mb-4">
+          <div className="bg-sa-bg/60 rounded-xl p-5 border border-sa-border/30 dark:border-white/5 text-left space-y-4 mb-5">
             <div>
-              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Portal Login URL</p>
+              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Company Login Link</p>
               <div className="flex items-center justify-between bg-sa-surface px-3.5 py-2.5 border border-sa-border/30 dark:border-white/10 rounded-xl shadow-xs">
                 <span className="text-xs font-bold text-sa-text truncate pr-2">{window.location.origin}/login</span>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => copyToClipboard(`${window.location.origin}/login`, "url")}
                   className="flex items-center space-x-1.5 px-3 py-1 rounded-lg font-bold text-[11px] transition-all bg-sa-primary/10 text-sa-primary hover:bg-sa-primary/20 flex-shrink-0 cursor-pointer"
                 >
@@ -341,11 +360,11 @@ const SuperAdminAddCompany = () => {
             </div>
 
             <div>
-              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Admin Email Address</p>
+              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Admin Email (Login ID)</p>
               <div className="flex items-center justify-between bg-sa-surface px-3.5 py-2.5 border border-sa-border/30 dark:border-white/10 rounded-xl shadow-xs">
                 <span className="text-xs font-bold text-sa-text truncate pr-2">{successData.email}</span>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => copyToClipboard(successData.email, "email")}
                   className="flex items-center space-x-1.5 px-3 py-1 rounded-lg font-bold text-[11px] transition-all bg-sa-primary/10 text-sa-primary hover:bg-sa-primary/20 flex-shrink-0 cursor-pointer"
                 >
@@ -356,11 +375,11 @@ const SuperAdminAddCompany = () => {
             </div>
 
             <div>
-              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Temporary Password</p>
+              <p className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1.5">Password</p>
               <div className="flex items-center justify-between bg-sa-surface px-3.5 py-2.5 border border-sa-border/30 dark:border-white/10 rounded-xl shadow-xs">
                 <span className="text-xs font-mono font-bold text-sa-text truncate pr-2">{successData.temporaryPassword}</span>
                 <button 
-                  type="button"
+                  type="button" 
                   onClick={() => copyToClipboard(successData.temporaryPassword, "pwd")}
                   className="flex items-center space-x-1.5 px-3 py-1 rounded-lg font-bold text-[11px] transition-all bg-sa-primary/10 text-sa-primary hover:bg-sa-primary/20 flex-shrink-0 cursor-pointer"
                 >
@@ -380,14 +399,14 @@ const SuperAdminAddCompany = () => {
               }}
               className="px-5 py-2.5 rounded-xl border border-sa-border/30 dark:border-white/10 bg-sa-bg text-xs font-extrabold text-sa-text hover:bg-sa-border/40 transition-all cursor-pointer"
             >
-              Onboard Another Tenant
+              + Add Another Company
             </button>
             <button
               type="button"
               onClick={() => navigate("/superadmin/companies")}
               className="px-6 py-2.5 rounded-xl text-xs font-extrabold text-white shadow-sm transition-all hover:opacity-90 bg-gradient-to-br from-sa-primary-hover to-sa-primary cursor-pointer"
             >
-              Return to Companies Directory
+              Back to Companies List
             </button>
           </div>
         </div>
@@ -409,8 +428,8 @@ const SuperAdminAddCompany = () => {
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h1 className="text-2xl font-black text-sa-text tracking-tight">Add New Tenant Company</h1>
-            <p className="text-xs text-sa-text-secondary mt-0.5">Onboard a new enterprise tenant, configure subscription limits, and provision primary admin credentials.</p>
+            <h1 className="text-2xl font-black text-sa-text tracking-tight">Add New Company</h1>
+            <p className="text-xs text-sa-text-secondary mt-0.5">Enter company details, select a subscription plan, and configure admin credentials.</p>
           </div>
         </div>
         <div className="flex items-center space-x-2.5">
@@ -424,18 +443,18 @@ const SuperAdminAddCompany = () => {
             className="flex items-center space-x-2 px-5 py-2 rounded-xl text-xs font-extrabold text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-50 bg-gradient-to-br from-sa-primary-hover to-sa-primary cursor-pointer"
           >
             <Save size={14} />
-            <span>{mutation.isPending ? "Provisioning..." : "Create Tenant Company"}</span>
+            <span>{mutation.isPending ? "Creating..." : "Create Company"}</span>
           </button>
         </div>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-3.5 items-start">
-        {/* Left Column: Tenant Details, Owner Contact & Admin Setup (8 Cols) */}
+        {/* Left Column: Company Details, Owner Contact & Admin Setup (8 Cols) */}
         <div className="lg:col-span-8 space-y-3 sm:space-y-3.5">
           
           {/* Card 1: Company Profile */}
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm">
-            <SectionHeader title="Tenant Profile & Organization Details" subtitle="Basic organizational profile and official business headquarters" icon={Building2} grad={["var(--color-sa-primary-hover)", "var(--color-sa-primary)"]} />
+            <SectionHeader title="Company Profile & Details" subtitle="Basic company information and office address" icon={Building2} grad={["var(--color-sa-primary-hover)", "var(--color-sa-primary)"]} />
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -470,33 +489,46 @@ const SuperAdminAddCompany = () => {
 
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Industry Classification *</label>
-                  {isCustomIndustry && (
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">
+                    Industry / Business Type <span className="text-rose-500">*</span>
+                  </label>
+                  {!isCustomIndustry ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsCustomIndustry(true);
+                        setFormData(prev => ({ ...prev, industryType: customIndustryText || "" }));
+                      }}
+                      className="text-xs font-bold text-[#1268D9] dark:text-[#3B82F6] hover:underline cursor-pointer flex items-center gap-1 transition-colors"
+                    >
+                      + Add Custom Industry
+                    </button>
+                  ) : (
                     <button
                       type="button"
                       onClick={() => {
                         setIsCustomIndustry(false);
                         setFormData(prev => ({ ...prev, industryType: "Technology" }));
                       }}
-                      className="text-[10.5px] font-bold text-sa-primary hover:underline cursor-pointer"
+                      className="text-xs font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 hover:underline cursor-pointer flex items-center gap-1 transition-colors"
                     >
-                      Choose from presets
+                      ← Select from list
                     </button>
                   )}
                 </div>
-                <div className="space-y-2">
+
+                {!isCustomIndustry ? (
                   <div className="relative">
                     <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary pointer-events-none" />
                     <select
                       name="industryType"
-                      value={isCustomIndustry ? "Other" : formData.industryType}
+                      value={formData.industryType}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val === "Other") {
                           setIsCustomIndustry(true);
                           setFormData(prev => ({ ...prev, industryType: customIndustryText || "" }));
                         } else {
-                          setIsCustomIndustry(false);
                           setFormData(prev => ({ ...prev, industryType: val }));
                         }
                       }}
@@ -511,35 +543,31 @@ const SuperAdminAddCompany = () => {
                       <option value="Real Estate">Real Estate & Construction</option>
                       <option value="Hospitality">Hospitality & Tourism</option>
                       <option value="Consulting">Consulting & Professional Services</option>
-                      <option value="Other">+ Add Custom Industry Classification</option>
+                      <option value="Other">+ Add Custom Industry</option>
                     </select>
                   </div>
-
-                  {isCustomIndustry && (
-                    <div className="space-y-1 animate-fadeIn">
-                      <input
-                        type="text"
-                        required
-                        value={customIndustryText}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          setCustomIndustryText(val);
-                          setFormData(prev => ({ ...prev, industryType: val }));
-                        }}
-                        placeholder="Enter custom Industry (e.g., Solar & Renewable Energy)"
-                        className="w-full bg-sa-bg/80 border-2 border-sa-primary/50 dark:border-sa-primary/60 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/30 transition-all shadow-2xs"
-                        autoFocus
-                      />
-                      <p className="text-[10px] text-sa-primary font-bold">
-                        ✨ Custom classification will be saved directly for this company.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                ) : (
+                  <div className="relative animate-fadeIn">
+                    <Briefcase size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-primary" />
+                    <input
+                      type="text"
+                      required
+                      value={customIndustryText}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setCustomIndustryText(val);
+                        setFormData(prev => ({ ...prev, industryType: val }));
+                      }}
+                      placeholder="Type custom industry (e.g., Solar & Renewable Energy)..."
+                      className="w-full bg-sa-bg/80 border-2 border-sa-primary/50 dark:border-sa-primary/60 rounded-xl pl-9 pr-3.5 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/30 transition-all shadow-2xs"
+                      autoFocus
+                    />
+                  </div>
+                )}
               </div>
 
               <div className="md:col-span-2 pt-1">
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Headquarters Street Address</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Office Address</label>
                 <div className="relative">
                   <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
                   <input type="text" name="address" value={formData.address} onChange={handleChange}
@@ -556,13 +584,13 @@ const SuperAdminAddCompany = () => {
                     placeholder="New York" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">State / Region</label>
+                  <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">State</label>
                   <input type="text" name="state" value={formData.state} onChange={handleChange}
                     className="w-full bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all"
                     placeholder="NY" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">Pincode / ZIP</label>
+                  <label className="text-[10px] font-extrabold text-sa-text-secondary uppercase tracking-widest mb-1 block">Pincode</label>
                   <input type="text" name="pincode" value={formData.pincode} onChange={handleChange}
                     className="w-full bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all"
                     placeholder="10001" />
@@ -573,7 +601,7 @@ const SuperAdminAddCompany = () => {
 
           {/* Card 2: Primary Owner Details */}
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm">
-            <SectionHeader title="Primary Tenant Owner Contact" subtitle="Authorized executive signing and ownership authority for the account" icon={User} grad={["var(--color-sa-primary)", "var(--color-sa-accent)"]} />
+            <SectionHeader title="Company Owner Details" subtitle="Contact details of company owner or primary contact person" icon={User} grad={["var(--color-sa-primary)", "var(--color-sa-accent)"]} />
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
@@ -597,15 +625,15 @@ const SuperAdminAddCompany = () => {
             </div>
           </div>
 
-          {/* Card 3: Company Admin Provisioning */}
+          {/* Card 3: Company Admin Login */}
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm">
-            <SectionHeader title="Initial Company Administrator Access" subtitle="Configure initial admin credentials to manage HR & employee operations" icon={Shield} grad={["var(--color-sa-secondary)", "var(--color-sa-primary)"]} />
+            <SectionHeader title="Company Admin Login" subtitle="Admin login credentials to manage the company portal" icon={Shield} grad={["var(--color-sa-secondary)", "var(--color-sa-primary)"]} />
             
             <div className="p-3.5 rounded-xl border border-sa-primary/20 dark:border-sa-primary/30 bg-sa-primary/5 flex items-center space-x-3 mb-5">
               <Sparkles size={16} className="text-sa-primary flex-shrink-0" />
               <p className="text-[11px] font-semibold text-sa-text">
-                <span className="font-extrabold text-sa-primary">Smart Default: </span> 
-                Leave these fields blank to automatically use the Owner details above as the initial Company Admin account.
+                <span className="font-extrabold text-sa-primary">Note: </span> 
+                Leave these fields blank to automatically use the Owner details above as the Company Admin account.
               </p>
             </div>
 
@@ -617,7 +645,7 @@ const SuperAdminAddCompany = () => {
                   placeholder="Leave blank to use Owner Name" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Admin Login Email</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Admin Email</label>
                 <input type="email" name="adminEmail" value={formData.adminEmail} onChange={handleChange}
                   className="w-full bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all"
                   placeholder="Leave blank to use Owner Email" />
@@ -629,7 +657,7 @@ const SuperAdminAddCompany = () => {
                   placeholder="Leave blank to use Owner Phone" />
               </div>
               <div>
-                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Initial Password</label>
+                <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1.5 block">Password</label>
                 <div className="flex space-x-2">
                   <input type="text" name="adminPassword" value={formData.adminPassword} onChange={handleChange}
                     className="flex-1 bg-sa-bg/60 border border-sa-border/30 dark:border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-mono font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-sa-primary focus:ring-1 focus:ring-sa-primary/20 transition-all"
@@ -650,20 +678,20 @@ const SuperAdminAddCompany = () => {
                   <div>
                     <span className="text-xs font-bold text-sa-text flex items-center gap-1.5">
                       <Mail size={14} className="text-sa-primary" />
-                      <span>Send Automated Welcome Email with Access Credentials</span>
+                      <span>Send Welcome Email with Login Credentials</span>
                     </span>
-                    <p className="text-[10px] text-sa-text-secondary mt-0.5">Will immediately dispatch temporary portal login details to the administrator's email upon creation.</p>
+                    <p className="text-[10px] text-sa-text-secondary mt-0.5">Will send portal login details to the administrator's email upon creation.</p>
                   </div>
                 </label>
               </div>
             </div>
           </div>
 
-          {/* Card 4: Subscription Plan, Entitled Modules & Granular Seat Allocation */}
+          {/* Card 4: Subscription Plan & Features */}
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm space-y-6">
             <SectionHeader 
-              title="Subscription Tier & Suite Module Licensing" 
-              subtitle="Configure enterprise feature entitlements and per-module employee seat caps" 
+              title="Subscription Plan & Features" 
+              subtitle="Select plan, set duration, and choose features for this company" 
               icon={CreditCard} 
               grad={["#d97706", "#f59e0b"]} 
             />
@@ -672,7 +700,7 @@ const SuperAdminAddCompany = () => {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Assign Subscription Plan Preset</label>
+                  <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider block">Select Subscription Plan</label>
                   <Link to="/superadmin/plans" className="text-[10px] font-bold text-[#f59e0b] hover:underline">
                     Manage Tier Presets →
                   </Link>
@@ -814,16 +842,16 @@ const SuperAdminAddCompany = () => {
               </div>
             </div>
 
-            {/* Section: Entitled Suite Modules & Feature Licenses */}
+            {/* Section: Features & Modules */}
             <div className="space-y-3 pt-2">
               <div className="flex items-center justify-between border-b border-sa-border/30 dark:border-white/10 pb-2">
                 <div>
                   <h4 className="text-xs font-black text-sa-text uppercase tracking-wider flex items-center gap-1.5">
                     <Cpu size={14} className="text-[#f59e0b]" />
-                    <span>Entitled Suite Modules &amp; Feature Licenses</span>
+                    <span>Features &amp; Modules</span>
                   </h4>
                   <p className="text-[10px] text-sa-text-secondary font-medium mt-0.5">
-                    Select enabled modules.
+                    Select features to enable for this company.
                   </p>
                 </div>
                 <span className="text-xs font-mono font-bold text-[#f59e0b]">
@@ -866,7 +894,7 @@ const SuperAdminAddCompany = () => {
                 <div className="bg-sa-bg/40 border border-sa-border/40 dark:border-white/10 rounded-xl p-3.5 space-y-2.5 mt-3">
                   <p className="text-[11px] font-black text-sa-text flex items-center gap-1.5 uppercase tracking-wider">
                     <Users size={13} className="text-[#f59e0b]" />
-                    <span>Per-Module Employee Seat Caps (Optional Sub-Quota — Leave Blank for All Seats)</span>
+                    <span>Module Employee Limits (Optional — Leave blank for all employees)</span>
                   </p>
                   <p className="text-[10px] text-sa-text-secondary font-medium -mt-1">
                     Set how many employees can access each module. Leave blank to allow all company seats.
@@ -910,42 +938,42 @@ const SuperAdminAddCompany = () => {
           </div>
         </div>
 
-        {/* Right Sidebar: Sticky Provisioning Summary (4 Cols) */}
+        {/* Right Sidebar: Sticky Company Summary (4 Cols) */}
         <div className="lg:col-span-4 space-y-3 sm:space-y-3.5">
           <div className="bg-sa-surface rounded-2xl border border-sa-border/30 dark:border-white/10 p-6 shadow-sm sticky top-6">
             <h4 className="text-xs font-black text-sa-text uppercase tracking-wider mb-3.5 flex items-center justify-between">
-              <span>Provisioning Summary</span>
+              <span>Company Summary</span>
               <span className="w-2 h-2 rounded-full bg-sa-accent animate-pulse" />
             </h4>
 
             <div className="space-y-3 pt-1 border-t border-sa-border/30 dark:border-white/10 text-xs">
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Tenant Name:</span>
+                <span className="text-sa-text-secondary font-semibold">Company Name:</span>
                 <span className="font-extrabold text-sa-text truncate max-w-[170px]">{formData.companyName || "Not entered"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Primary Contact:</span>
+                <span className="text-sa-text-secondary font-semibold">Contact Email:</span>
                 <span className="font-extrabold text-sa-text truncate max-w-[170px]">{formData.ownerEmail || "Not entered"}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Assigned Tier:</span>
+                <span className="text-sa-text-secondary font-semibold">Selected Plan:</span>
                 <span className="font-extrabold px-2 py-0.5 rounded-md bg-[#f59e0b]/15 text-[#f59e0b] text-[10px]">{formData.planName}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Seat Quota:</span>
+                <span className="text-sa-text-secondary font-semibold">Employee Seats:</span>
                 <span className="font-black text-sa-text">{formData.employeeLimit || 0} Seats</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Subscription Days:</span>
+                <span className="text-sa-text-secondary font-semibold">Duration:</span>
                 <span className="font-black text-sa-text">{formData.trialDays || 0} Days</span>
               </div>
               <div className="flex justify-between py-1 border-b border-sa-border/60 dark:border-white/5">
-                <span className="text-sa-text-secondary font-semibold">Valid Period:</span>
+                <span className="text-sa-text-secondary font-semibold">Validity:</span>
                 <span className="font-bold text-[10.5px] text-[#f59e0b]">{formData.startDate} → {formData.endDate}</span>
               </div>
               <div className="py-1">
                 <div className="flex justify-between mb-1.5">
-                  <span className="text-sa-text-secondary font-semibold">Enabled Modules:</span>
+                  <span className="text-sa-text-secondary font-semibold">Active Features:</span>
                   <span className="font-bold text-[#f59e0b]">
                     {(DISPLAY_MODULES || []).filter(m => (formData.subscribedModules || []).includes(m.key)).length} Active
                   </span>
@@ -970,14 +998,14 @@ const SuperAdminAddCompany = () => {
                 style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
               >
                 <Save size={15} />
-                <span>{mutation.isPending ? "Provisioning Tenant..." : "Create & Provision Tenant"}</span>
+                <span>{mutation.isPending ? "Creating Company..." : "Create Company"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => navigate(-1)}
                 className="w-full py-2.5 rounded-xl border border-sa-border/30 dark:border-white/10 bg-sa-bg text-xs font-extrabold text-sa-text-secondary hover:text-sa-text hover:bg-sa-border/40 transition-all text-center block cursor-pointer"
               >
-                Cancel & Return
+                Cancel
               </button>
             </div>
           </div>

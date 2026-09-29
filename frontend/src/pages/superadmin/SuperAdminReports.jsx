@@ -124,11 +124,11 @@ const SuperAdminReports = () => {
             mrrVal > 0 ? "Positive Growth" : "Baseline"
           ]);
         });
-      } else if (type === "Tenant Usage") {
-        rows.push(["One Click  - Tenant Usage & Resource Allocation Report"]);
+      } else if (type === "Tenant Usage" || type === "Company Usage") {
+        rows.push(["One Click - Company Usage & Resource Report"]);
         rows.push([`Generated On: ${new Date().toLocaleString()}`]);
         rows.push([]);
-        rows.push(["Cohort / Period", "New Companies Onboarded", "API Calls Volume", "Avg Employees / Tenant"]);
+        rows.push(["Cohort / Period", "New Companies Onboarded", "API Calls Volume", "Avg Employees / Company"]);
         onboardingData.forEach((item) => {
           const count = item.count || 0;
           rows.push([
@@ -182,8 +182,8 @@ const SuperAdminReports = () => {
 
   const REPORT_CARDS = [
     { title: "Financial Summary", description: "Monthly recurring revenue, GST breakdowns, transaction charges, and projected ARR.", icon: TrendingUp, size: "1.2 MB" },
-    { title: "Tenant Usage", description: "Resource utilization metrics: seat quotas, API throughput, and employee counts per tenant.", icon: BarChart2, size: "850 KB" },
-    { title: "Company Directory", description: "Complete directory export of active, trial, suspended, and pending company tenants.", icon: Building2, size: "2.1 MB" },
+    { title: "Company Usage", description: "Resource usage metrics: employee count, storage, and activity per company.", icon: BarChart2, size: "850 KB" },
+    { title: "Company Directory", description: "Complete directory export of active, trial, suspended, and pending companies.", icon: Building2, size: "2.1 MB" },
     { title: "Global Users", description: "Platform user roster across all tiers, last login timestamps, and 2FA security status.", icon: Users, size: "3.4 MB" },
   ];
 
@@ -194,7 +194,7 @@ const SuperAdminReports = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
         <div>
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Reports &amp; Analytics</h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Platform-wide financial, tenant usage, and resource performance intelligence.</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Platform-wide financial, company usage, and performance analytics.</p>
         </div>
 
         <div className="flex items-center space-x-2.5">
@@ -227,7 +227,7 @@ const SuperAdminReports = () => {
       {/* ── Row 1: KPI Stat Cards ────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
         <KPICard label="Total MRR Revenue"  value="₹18.75L" trend="18.2%" isUp period="last month" strokeColor="#EAB308" Icon={TrendingUp}   iconBg="bg-amber-500/10"  iconColor="#D97706"/>
-        <KPICard label="Active Tenants"     value="186"     trend="12.4%" isUp period="last month" strokeColor="#10B981" Icon={Building2}    iconBg="bg-emerald-500/10" iconColor="#059669"/>
+        <KPICard label="Active Companies"   value="186"     trend="12.4%" isUp period="last month" strokeColor="#10B981" Icon={Building2}    iconBg="bg-emerald-500/10" iconColor="#059669"/>
         <KPICard label="Total Platform Users" value="24.5K" trend="16.4%" isUp period="last month" strokeColor="#06B6D4" Icon={Users}        iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
         <KPICard label="API Calls Volume"   value="1.82M"   trend="14.5%" isUp period="last month" strokeColor="#8B5CF6" Icon={BarChart2}     iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
       </div>
@@ -312,7 +312,7 @@ const SuperAdminReports = () => {
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-base font-bold text-slate-900 dark:text-white leading-none">186</span>
-                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Tenants</span>
+                <span className="text-[7.5px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Companies</span>
               </div>
             </div>
             <div className="space-y-1.5 flex-1 min-w-0">
@@ -332,7 +332,7 @@ const SuperAdminReports = () => {
         {/* Pre-Built Data Export Section */}
         <div className="lg:col-span-8 bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 p-4.5 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Export Intelligence Reports</h3>
+            <h3 className="text-[13px] font-semibold text-slate-800 dark:text-slate-100">Export Reports</h3>
             <span className="text-[10px] font-semibold text-slate-400">CSV / Spreadsheet Format</span>
           </div>
 

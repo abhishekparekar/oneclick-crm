@@ -26,6 +26,8 @@ import {
   Magnet,
   MessageSquare,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Hexagon,
   Navigation,
   Wallet,
@@ -40,15 +42,15 @@ const HR_NAV_SECTIONS = [
     title: "DAILY WORKSPACE",
     items: [
       { label: "Dashboard", path: "/hr/dashboard", icon: LayoutDashboard },
-      { label: "Leads Pipeline", path: "/hr/leads", icon: Magnet, module: "leads" },
+      { label: "Lead", path: "/hr/leads", icon: Magnet, module: "leads" },
       { label: "Task Overview", path: "/hr/tasks", icon: CheckSquare, module: "tasks" },
       { label: "Daily Attendance", path: "/hr/attendance", icon: CalendarCheck, module: "attendance" },
+      { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
       { label: "Attendance Report", path: "/hr/attendance-report", icon: FileSpreadsheet, module: "attendance" },
       { label: "Live Employee Tracking", path: "/hr/location-tracking", icon: Navigation, module: "attendance", modules: ["attendance", "location_tracking"] },
       // { label: "Tracking Allowance", path: "/hr/tracking-allowance", icon: Wallet, module: "attendance", modules: ["attendance", "location_tracking"] },
       { label: "Leave Requests", path: "/hr/leaves", icon: FileText, module: "leave" },
       { label: "Regularization", path: "/hr/regularization", icon: UserCheck, module: "attendance" },
-      { label: "Company Requests", path: "/hr/requests", icon: MessageSquare },
       { label: "Employee Roster", path: "/hr/employees", icon: Users },
     ],
   },
@@ -80,14 +82,14 @@ const HR_NAV_SECTIONS = [
       { label: "Announcements", path: "/hr/announcements", icon: Megaphone },
     ],
   },
-  {
-    title: "LEAD CRM & AUTOMATION",
-    items: [
-      { label: "WhatsApp Campaigns", path: "/hr/leads/campaigns", icon: Megaphone, module: "leads" },
-      { label: "Service Reminders", path: "/hr/leads/reminders", icon: Clock, module: "leads" },
-      { label: "Lead Settings", path: "/hr/leads/settings", icon: Settings, module: "leads" },
-    ],
-  },
+  // {
+  //   title: "LEAD CRM & AUTOMATION",
+  //   items: [
+  //     { label: "WhatsApp Campaigns", path: "/hr/leads/campaigns", icon: Megaphone, module: "leads" },
+  //     { label: "Service Reminders", path: "/hr/leads/reminders", icon: Clock, module: "leads" },
+  //     { label: "Lead Settings", path: "/hr/leads/settings", icon: Settings, module: "leads" },
+  //   ],
+  // },
   {
     title: "ACCOUNT & SETTINGS",
     items: [
@@ -97,7 +99,7 @@ const HR_NAV_SECTIONS = [
   },
 ];
 
-export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) {
+export default function HRSidebar({ logout, onItemClick, isCollapsed = false, onToggleCollapse }) {
   const location = useLocation();
   const { user, hasPermission } = useAuth();
 
@@ -128,9 +130,8 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
 
   return (
     <div
-      className={`ca-sidebar ${
-        isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
-      } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
+      className={`ca-sidebar ${isCollapsed ? "w-[68px]" : "w-full lg:w-[228px]"
+        } bg-[#050F1F] text-slate-300 border-r border-[#1C3554]/60 h-full flex flex-col flex-shrink-0 transition-all duration-300 select-none`}
     >
       {/* Brand Logo Header */}
       <div className={`px-2.5 py-3 flex items-center justify-center border-b border-white/[0.06] mb-1 ${isCollapsed ? "h-[60px]" : ""}`}>
@@ -187,97 +188,64 @@ export default function HRSidebar({ logout, onItemClick, isCollapsed = false }) 
               )}
               <div className="space-y-0.5">
                 {visibleItems.map((item) => {
-                const Icon = item.icon;
-                const active = isActive(item.path);
-                return (
-                  <Link
-                    key={item.path}
-                    to={item.path}
-                    onClick={onItemClick}
-                    title={item.label}
-                    className={`${
-                      isCollapsed
-                        ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${
-                            active
-                              ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
-                              : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
+                  const Icon = item.icon;
+                  const active = isActive(item.path);
+                  return (
+                    <Link
+                      key={item.path}
+                      to={item.path}
+                      onClick={onItemClick}
+                      title={item.label}
+                      className={`${isCollapsed
+                          ? `flex items-center justify-center w-10 h-10 mx-auto rounded-xl transition-all ${active
+                            ? "bg-[#1268D9] text-white shadow-md shadow-[#1268D9]/30"
+                            : "text-slate-400 hover:text-white hover:bg-white/[0.06]"
                           }`
-                        : `oc-nav-item ${active ? "active" : ""}`
-                    }`}
-                  >
-                    {isCollapsed ? (
-                      <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
-                    ) : (
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <Icon
-                          size={15}
-                          strokeWidth={active ? 2 : 1.75}
-                          className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`}
-                        />
-                        <span className="truncate text-[13px]">{item.label}</span>
-                      </div>
-                    )}
-                  </Link>
-                );
-              })}
+                          : `oc-nav-item ${active ? "active" : ""}`
+                        }`}
+                    >
+                      {isCollapsed ? (
+                        <Icon size={17} strokeWidth={active ? 2.2 : 1.8} className={active ? "text-white" : "text-slate-400"} />
+                      ) : (
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <Icon
+                            size={15}
+                            strokeWidth={active ? 2 : 1.75}
+                            className={`flex-shrink-0 ${active ? "text-white" : "text-slate-400"}`}
+                          />
+                          <span className="truncate text-[13px]">{item.label}</span>
+                        </div>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );
         })}
       </nav>
 
-      {/* ── Footer ── */}
-      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "px-3 pb-3 pt-2 space-y-1.5"}`}>
+      {/* ── Sidebar Collapse / Close Button ── */}
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center" : "p-2.5 bg-[#061225]"}`}>
         {!isCollapsed ? (
-          <>
-            {/* Company pill */}
-            <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-[#061225] text-[12px] font-semibold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
-              <div className="flex items-center gap-2 truncate min-w-0">
-                <Hexagon size={13} strokeWidth={1.75} className="text-[#1268D9] flex-shrink-0" />
-                <span className="truncate">{companyName}</span>
-              </div>
-              <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 hover:text-white transition-all cursor-pointer group"
+            title="Collapse Sidebar"
+          >
+            <span className="text-xs font-bold tracking-wide text-slate-400 group-hover:text-slate-200">Collapse Sidebar</span>
+            <div className="w-6 h-6 rounded-lg bg-white/[0.04] group-hover:bg-[#1268D9]/20 group-hover:text-[#1268D9] flex items-center justify-center transition-colors">
+              <ChevronLeft size={15} strokeWidth={2.5} className="group-hover:-translate-x-0.5 transition-transform" />
             </div>
-
-            {/* User row + Logout */}
-            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all cursor-pointer group">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="relative flex-shrink-0">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs">
-                    {userName.slice(0, 2).toUpperCase()}
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">{userName}</p>
-                  <p className="text-[10px] text-slate-500 leading-tight">HR Manager</p>
-                </div>
-              </div>
-              <button
-                onClick={logout}
-                title="Log Out"
-                className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer"
-              >
-                <LogOut size={13} strokeWidth={1.75} />
-              </button>
-            </div>
-          </>
+          </button>
         ) : (
-          <>
-            <div
-              title={userName}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs cursor-pointer"
-            >
-              {userName.slice(0, 2).toUpperCase()}
-            </div>
-            <button
-              onClick={logout}
-              title="Log Out"
-              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            >
-              <LogOut size={16} strokeWidth={1.75} />
-            </button>
-          </>
+          <button
+            onClick={onToggleCollapse}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-[#1268D9] border border-white/[0.06] transition-all cursor-pointer shadow-2xs"
+            title="Expand Sidebar"
+          >
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </button>
         )}
       </div>
     </div>

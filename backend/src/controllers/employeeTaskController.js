@@ -7,6 +7,7 @@ const User = require("../models/User");
 const TaskTemplate = require("../models/TaskTemplate");
 const TaskStatus = require("../models/TaskStatus");
 const { sendNotificationToEmployees, notifyUser } = require("../utils/notificationHelper");
+const { parseDateTimeIST } = require("../utils/dateParser");
 
 // Resolve employee profile
 const getEmployeeProfile = async (req) => {
@@ -405,13 +406,17 @@ const updateOwnTaskStatus = async (req, res, next) => {
     }
 
     if (nextFollowUpDate !== undefined && nextFollowUpDate !== null && nextFollowUpDate !== "") {
-      if (!isNaN(new Date(nextFollowUpDate).getTime())) {
-        task.nextFollowUpDate = new Date(nextFollowUpDate);
+      const parsed = parseDateTimeIST(nextFollowUpDate);
+      if (parsed) {
+        task.nextFollowUpDate = parsed;
+        task.followUpNotified = false;
       }
     } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
       task.nextFollowUpDate = null;
+      task.followUpNotified = false;
     } else if (COMPLETED_KEYS.includes(String(statusDoc.statusKey || "").toLowerCase()) && !isLate) {
       task.nextFollowUpDate = null;
+      task.followUpNotified = false;
     }
 
     const formattedAttachments = [];

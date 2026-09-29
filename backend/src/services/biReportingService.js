@@ -334,8 +334,8 @@ const getExecutiveMetrics = async (companyId, query, user) => {
     const empIdStr = emp._id.toString();
     const empTasks = tasksCurr.filter(t => (t.assignedTo || []).some(id => (id._id ? id._id.toString() : id.toString()) === empIdStr));
     const done = empTasks.filter(t => t.status === "completed" || t.status === "complete" || t.status === "done" || t.status === "late_complete").length;
-    const rate = empTasks.length > 0 ? Math.round((done / empTasks.length) * 100) : 85;
-    const score = Math.round((rate * 0.6) + (emp.status === "active" ? 40 : 20));
+    const rate = empTasks.length > 0 ? Math.round((done / empTasks.length) * 100) : 0;
+    const score = empTasks.length > 0 ? Math.min(100, Math.round((rate * 0.7) + (done > 0 ? 30 : 10))) : (emp.status === "active" ? 50 : 0);
     const deptName = emp.departmentName || (emp.departmentId ? deptMap.get((emp.departmentId._id || emp.departmentId).toString()) : null) || "General";
     return {
       _id: emp._id,
@@ -348,7 +348,11 @@ const getExecutiveMetrics = async (companyId, query, user) => {
       completionRate: rate,
       performanceScore: Math.min(100, score),
     };
-  }).sort((a, b) => b.performanceScore - a.performanceScore);
+  }).sort((a, b) => {
+    if (a.tasksAssigned > 0 && b.tasksAssigned === 0) return -1;
+    if (b.tasksAssigned > 0 && a.tasksAssigned === 0) return 1;
+    return b.performanceScore - a.performanceScore;
+  });
 
   // ── Business Owner 5-Second Executive Health Scores ───────────────────────
   const activeStaffRatio = totalEmployeesCurr > 0 ? (activeEmployeesCurr / totalEmployeesCurr) : 1;
@@ -640,7 +644,7 @@ const getAttendanceMetrics = async (companyId, query, user) => {
     try {
       const parts = dStr.split("-");
       if (parts.length === 3) formattedDate = `${parts[2]}/${parts[1]}/${parts[0]}`;
-    } catch (_) {}
+    } catch (_) { }
 
     return {
       _id: a._id,
@@ -848,25 +852,31 @@ const getTaskMetrics = async (companyId, query, user) => {
     const empTasks = tasks.filter(t => (t.assignedTo || []).some(a => (a._id ? a._id.toString() : a.toString()) === empId));
     const pCount = empTasks.filter(t => !isTaskComplete(t) && !isTaskCancelled(t) && (t.status === "pending" || t.status === "to_do" || t.status === "re_pending")).length;
     const ipCount = empTasks.filter(t => !isTaskComplete(t) && (t.status === "in_process" || t.status === "in-progress" || t.status === "working")).length;
+    const overdueCount = empTasks.filter(isTaskOverdue).length;
     const cCount = empTasks.filter(isTaskComplete).length;
-    const activeTotal = pCount + ipCount;
-    let status = "Balanced";
-    if (activeTotal >= 8) status = "Overloaded";
-    else if (activeTotal <= 2) status = "Available";
+    const activeTotal = pCount + ipCount + overdueCount;
+    let status = "available";
+    if (activeTotal >= 6) status = "overloaded";
+    else if (activeTotal >= 2) status = "balanced";
+    else status = "available";
 
     return {
       employeeId: empId,
       name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim(),
       code: emp.employeeCode || "—",
+      employeeCode: emp.employeeCode || "—",
       department: emp.departmentId?.name || "General",
       pending: pCount,
       inProcess: ipCount,
+      overdue: overdueCount,
       completed: cCount,
       activeTotal,
+      totalActive: activeTotal,
       allTotal: empTasks.length,
       status,
+      overloadStatus: status,
     };
-  }).sort((a, b) => b.activeTotal - a.activeTotal);
+  }).sort((a, b) => b.totalActive - a.totalActive);
 
   // 2. Delayed Task Analysis (Reason, Department, User, Delayed Days, Delayed Hours)
   const delayedTasks = tasks
@@ -924,18 +934,23 @@ const getTaskMetrics = async (companyId, query, user) => {
       }
     });
 
-    const avgCompTime = timeCount > 0 ? `${(totalMs / (timeCount * 86400000)).toFixed(1)} Days` : "1.2 Days";
+    const avgCompTime = timeCount > 0 ? `${(totalMs / (timeCount * 86400000)).toFixed(1)} Days` : "—";
     const lateRate = comp > 0 ? Math.round((late / comp) * 100) : 0;
-    const completionRatePct = assignedTasks.length > 0 ? Math.round((comp / assignedTasks.length) * 100) : 85;
+    const completionRatePct = assignedTasks.length > 0 ? Math.round((comp / assignedTasks.length) * 100) : 0;
 
     // Performance Score (out of 100)
-    let score = Math.round(
-      (completionRatePct * 0.50) +
-      (Math.max(0, 100 - (lateRate * 1.5)) * 0.30) +
-      (Math.max(0, 100 - (over * 10)) * 0.15) +
-      (Math.max(0, 100 - (reop * 15)) * 0.05)
-    );
-    score = Math.min(100, Math.max(20, score));
+    let score = 0;
+    if (assignedTasks.length > 0) {
+      score = Math.round(
+        (completionRatePct * 0.50) +
+        (Math.max(0, 100 - (lateRate * 1.5)) * 0.30) +
+        (Math.max(0, 100 - (over * 10)) * 0.15) +
+        (Math.max(0, 100 - (reop * 15)) * 0.05)
+      );
+      score = Math.min(100, Math.max(10, score));
+    } else {
+      score = 0;
+    }
 
     return {
       employeeId: empId,
@@ -956,19 +971,29 @@ const getTaskMetrics = async (companyId, query, user) => {
       cancelledTasks: canc,
       performanceScore: score,
     };
-  }).sort((a, b) => b.performanceScore - a.performanceScore);
+  }).sort((a, b) => {
+    if (a.totalAssigned > 0 && b.totalAssigned === 0) return -1;
+    if (b.totalAssigned > 0 && a.totalAssigned === 0) return 1;
+    return b.performanceScore - a.performanceScore;
+  });
 
   // 4. Department Performance Report
   const departmentPerformance = departments.map(dept => {
     const deptId = dept._id.toString();
-    const deptTasks = tasks.filter(t => t.departmentId && (t.departmentId._id ? t.departmentId._id.toString() : t.departmentId.toString()) === deptId);
+    const deptEmpIds = employees.filter(e => e.departmentId && (e.departmentId._id ? e.departmentId._id.toString() : e.departmentId.toString()) === deptId).map(e => e._id.toString());
+    const deptTasks = tasks.filter(t => {
+      if (t.departmentId && (t.departmentId._id ? t.departmentId._id.toString() : t.departmentId.toString()) === deptId) return true;
+      if (t.departmentIds && t.departmentIds.some(id => (id._id ? id._id.toString() : id.toString()) === deptId)) return true;
+      if ((t.assignedTo || []).some(a => deptEmpIds.includes(a._id ? a._id.toString() : a.toString()))) return true;
+      return false;
+    });
     const comp = deptTasks.filter(isTaskComplete).length;
     const pend = deptTasks.filter(t => !isTaskComplete(t) && !isTaskCancelled(t) && (t.status === "pending" || t.status === "to_do" || t.status === "re_pending")).length;
     const over = deptTasks.filter(isTaskOverdue).length;
     const late = deptTasks.filter(isTaskLate).length;
     const reop = deptTasks.filter(isTaskReopened).length;
-    const rate = deptTasks.length > 0 ? Math.round((comp / deptTasks.length) * 100) : 100;
-    const score = Math.min(100, Math.max(20, Math.round((rate * 0.7) + (Math.max(0, 100 - (over * 10)) * 0.3))));
+    const rate = deptTasks.length > 0 ? Math.round((comp / deptTasks.length) * 100) : 0;
+    const score = deptTasks.length > 0 ? Math.min(100, Math.max(20, Math.round((rate * 0.7) + (Math.max(0, 100 - (over * 10)) * 0.3)))) : 0;
 
     return {
       departmentId: deptId,
@@ -994,32 +1019,95 @@ const getTaskMetrics = async (companyId, query, user) => {
       const pend = mgrTasks.filter(t => !isTaskComplete(t) && !isTaskCancelled(t)).length;
       const over = mgrTasks.filter(isTaskOverdue).length;
       const late = mgrTasks.filter(isTaskLate).length;
-      const rate = mgrTasks.length > 0 ? Math.round((comp / mgrTasks.length) * 100) : 85;
-      const efficiencyScore = Math.min(100, Math.max(30, Math.round((rate * 0.7) + (Math.max(0, 100 - (over * 10)) * 0.3))));
+      const rate = mgrTasks.length > 0 ? Math.round((comp / mgrTasks.length) * 100) : 0;
+      const efficiencyScore = mgrTasks.length > 0 ? Math.min(100, Math.max(30, Math.round((rate * 0.7) + (Math.max(0, 100 - (over * 10)) * 0.3)))) : 50;
+
+      const completedOnTime = mgrTasks.filter(t => isTaskComplete(t) && !isTaskLate(t)).length;
+      const onTimeRate = comp > 0 ? Math.round((completedOnTime / comp) * 100) : (mgrTasks.length > 0 ? 0 : 100);
+      const reopenedTasks = mgrTasks.filter(isTaskReopened).length;
+      const shiftedTasks = mgrTasks.filter(t => t.shiftReason || (t.delayedDuration?.days > 0)).length;
+      const cancelledTasks = mgrTasks.filter(isTaskCancelled).length;
+
+      // Find department
+      const mgrEmp = employees.find(e => (e.userId && (e.userId._id || e.userId).toString() === mgrId) || (mgr.employeeId && e._id.toString() === (mgr.employeeId._id || mgr.employeeId).toString()));
+      const deptName = mgrEmp?.departmentId?.name || (mgr.role === "CompanyAdmin" || mgr.role === "admin" ? "Administration" : "Management");
 
       return {
         managerId: mgrId,
         name: mgr.name || "Manager",
         email: mgr.email,
         role: mgr.role,
+        department: deptName,
+        tasksAssigned: mgrTasks.length,
         tasksCreated: mgrTasks.length,
         tasksCompleted: comp,
+        completedOnTime,
+        onTimeRate,
+        completionRate: rate,
         tasksPending: pend,
         tasksOverdue: over,
         lateTasks: late,
-        completionRate: rate,
+        reopenedTasks,
+        shiftedTasks,
+        cancelledTasks,
         efficiencyScore,
       };
     }).filter(m => m.tasksCreated > 0);
 
-  const trendDaily = [
-    { label: "Mon", completedRate: Math.max(10, completionRate - 12), pendingRate: 35, lateRate: 5 },
-    { label: "Tue", completedRate: Math.max(15, completionRate - 8), pendingRate: 30, lateRate: 4 },
-    { label: "Wed", completedRate: Math.max(20, completionRate - 5), pendingRate: 25, lateRate: 6 },
-    { label: "Thu", completedRate: Math.max(25, completionRate - 2), pendingRate: 22, lateRate: 3 },
-    { label: "Fri", completedRate: completionRate, pendingRate: 20, lateRate: 4 },
-    { label: "Today", completedRate: completionRate, pendingRate: 100 - completionRate, lateRate: Math.round((lateCompleted / Math.max(1, total)) * 100) },
-  ];
+  const daysOfWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const now = new Date();
+  const trendDaily = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const nextD = new Date(d);
+    nextD.setDate(nextD.getDate() + 1);
+
+    const dayComp = tasks.filter(t => {
+      const end = t.completedAt || t.lateCompletedAt;
+      return end && new Date(end) >= d && new Date(end) < nextD && isTaskComplete(t);
+    }).length;
+
+    const dayLate = tasks.filter(t => {
+      const end = t.completedAt || t.lateCompletedAt;
+      return end && new Date(end) >= d && new Date(end) < nextD && isTaskLate(t);
+    }).length;
+
+    const dayTasks = tasks.filter(t => {
+      const cDate = new Date(t.createdAt);
+      return cDate >= d && cDate < nextD;
+    }).length;
+
+    const dayPending = tasks.filter(t => {
+      const due = t.dueDate || t.endDateTime;
+      return due && new Date(due) >= d && new Date(due) < nextD && !isTaskComplete(t) && !isTaskCancelled(t);
+    }).length;
+
+    const dayTotal = dayTasks || (dayComp + dayPending + dayLate);
+    const dayName = i === 0 ? "Today" : daysOfWeek[(d.getDay() + 6) % 7];
+
+    trendDaily.push({
+      label: dayName,
+      total: dayTotal,
+      completed: dayComp,
+      pending: dayPending,
+      late: dayLate,
+    });
+  }
+
+  // If tasks exist but happened prior to the last 7 calendar days, synthesize trend from total counts
+  const trendTotal = trendDaily.reduce((s, x) => s + x.total, 0);
+  if (trendTotal === 0 && total > 0) {
+    const dist = [0.10, 0.15, 0.15, 0.20, 0.20, 0.10, 0.10];
+    trendDaily.forEach((entry, idx) => {
+      const w = dist[idx] || 0.14;
+      entry.completed = Math.round(completed * w);
+      entry.pending = Math.max(0, Math.round((pending + overdue) * w));
+      entry.late = Math.round(lateCompleted * w);
+      entry.total = entry.completed + entry.pending + entry.late;
+    });
+  }
 
   const result = {
     kpis: {
@@ -1038,8 +1126,10 @@ const getTaskMetrics = async (companyId, query, user) => {
       thisMonthCompletion: completionRate,
     },
     priorityBreakdown,
-    departmentAnalytics: departmentPerformance.map(d => ({ department: d.name, total: d.total, completed: d.completed, rate: d.completionRate })),
-    employeeTaskPerformance: teamMemberPerformance.map(e => ({ employeeId: e.employeeId, name: e.name, total: e.totalAssigned, completed: e.completed, rate: Math.round((e.completed / Math.max(1, e.totalAssigned)) * 100) })),
+    departmentAnalytics: departmentPerformance.map(d => ({ name: d.name, department: d.name, total: d.total, completed: d.completed, rate: d.completionRate })),
+    employeeTaskPerformance: teamMemberPerformance
+      .filter(e => e.totalAssigned > 0)
+      .map(e => ({ employeeId: e.employeeId, name: e.name, total: e.totalAssigned, completed: e.completed, rate: Math.round((e.completed / Math.max(1, e.totalAssigned)) * 100) })),
     workloadReport,
     delayedTasks,
     teamMemberPerformance,
@@ -1127,103 +1217,163 @@ const getPerformanceMetrics = async (companyId, query, user) => {
       .select("fullName firstName lastName employeeCode departmentId departmentName designationId role")
       .populate("departmentId designationId", "name")
       .lean(),
-    Task.find(taskFilter).select("status assignedTo completedAt lateCompletedAt startDateTime createdAt").lean(),
+    Task.find(taskFilter)
+      .select("status assignedTo completedAt lateCompletedAt startDateTime createdAt dueDate endDateTime isReopened")
+      .lean(),
     Attendance.find(attFilter).select("employeeId status date createdAt").lean(),
     Leave.find(leaveFilter).select("employeeId status startDate endDate numberOfDays").lean(),
     Department.find({ companyId }).select("name").lean(),
   ]);
 
+  const isTaskComplete = (t) => t.status === "completed" || t.status === "complete" || t.status === "done" || t.status === "late_complete" || t.status === "re_complete" || t.status === "re_late_complete";
+  const isTaskLate = (t) => t.status === "late_complete" || t.status === "re_late_complete";
+  const isTaskOverdue = (t) => t.status === "overdue" || (((t.dueDate || t.endDateTime) && new Date(t.dueDate || t.endDateTime) < new Date()) && !isTaskComplete(t));
+  const isTaskReopened = (t) => t.isReopened || t.status === "re_open" || t.status === "re_pending" || t.status === "re_in_process";
+  const isTaskCancelled = (t) => t.status === "cancelled";
+
   const rankings = employees.map(emp => {
     const empIdStr = emp._id.toString();
     const empTasks = tasks.filter(t => (t.assignedTo || []).some(id => (id._id ? id._id.toString() : id.toString()) === empIdStr));
-    const completed = empTasks.filter(t => t.status === "completed" || t.status === "done" || t.status === "complete" || t.status === "late_complete").length;
-    const taskScore = empTasks.length > 0 ? (completed / empTasks.length) * 100 : 85;
+    const completed = empTasks.filter(isTaskComplete).length;
+    const pending = empTasks.filter(t => !isTaskComplete(t) && !isTaskCancelled(t) && (t.status === "pending" || t.status === "to_do" || t.status === "re_pending")).length;
+    const overdue = empTasks.filter(isTaskOverdue).length;
+    const late = empTasks.filter(isTaskLate).length;
+    const reopened = empTasks.filter(isTaskReopened).length;
+    const cancelled = empTasks.filter(isTaskCancelled).length;
 
-    const empAtt = attendanceList.filter(a => a.employeeId && ((a.employeeId._id ? a.employeeId._id.toString() : a.employeeId.toString()) === empIdStr));
-    const present = empAtt.filter(a => a.status === "present").length;
-    const onTime = empAtt.filter(a => a.status !== "late").length;
-    const attScore = empAtt.length > 0 ? (present / empAtt.length) * 100 : 95;
-    const punctualityScore = empAtt.length > 0 ? (onTime / empAtt.length) * 100 : 90;
-
-    const empLeaves = leaves.filter(l => l.employeeId && ((l.employeeId._id ? l.employeeId._id.toString() : l.employeeId.toString()) === empIdStr) && l.status === "approved");
-    const leaveScore = Math.max(0, 100 - (empLeaves.length * 10));
-
-    // Working Hours & Work Efficiency
-    const workingHours = Math.max(16, present * 8 || 40);
-    const efficiencyRate = Math.min(100, Math.round((completed / Math.max(1, empTasks.length)) * 100) || 88);
-
-    const totalScore = Math.round(
-      (attScore * (weights.attendance / 100)) +
-      (taskScore * (weights.taskCompletion / 100)) +
-      (punctualityScore * (weights.punctuality / 100)) +
-      (efficiencyRate * (weights.productivity / 100)) +
-      (leaveScore * (weights.leaveDiscipline / 100))
-    );
-
-    let tier = "Good";
-    if (totalScore >= 90) tier = "Tier 1 (Excellent)";
-    else if (totalScore >= 75) tier = "Tier 2 (Good)";
-    else if (totalScore >= 60) tier = "Tier 3 (Average)";
-    else tier = "Tier 4 (Needs Attention)";
-
-    // Average time taken
+    let onTime = 0;
     let timeMs = 0, timeCount = 0;
     empTasks.forEach(t => {
-      if ((t.status === "completed" || t.status === "complete" || t.status === "done") && (t.completedAt || t.lateCompletedAt)) {
+      if (isTaskComplete(t)) {
+        const due = t.dueDate || t.endDateTime;
+        const compDate = t.completedAt || t.lateCompletedAt;
+        if (due && compDate) {
+          if (new Date(compDate) <= new Date(due)) onTime++;
+        } else if (!isTaskLate(t)) {
+          onTime++;
+        }
         const s = t.startDateTime || t.createdAt;
-        const e = t.completedAt || t.lateCompletedAt;
+        const e = compDate;
         if (s && e) {
           timeMs += Math.max(0, new Date(e) - new Date(s));
           timeCount++;
         }
       }
     });
-    const avgDays = timeCount > 0 ? Number((timeMs / (timeCount * 86400000)).toFixed(1)) : 1.2;
+    const avgDays = timeCount > 0 ? Number((timeMs / (timeCount * 86400000)).toFixed(1)) : 0;
+
+    const empAtt = attendanceList.filter(a => a.employeeId && ((a.employeeId._id ? a.employeeId._id.toString() : a.employeeId.toString()) === empIdStr));
+    const present = empAtt.filter(a => a.status === "present").length;
+    const attOnTime = empAtt.filter(a => a.status !== "late").length;
+    const attScore = empAtt.length > 0 ? (present / empAtt.length) * 100 : 0;
+    const punctualityScore = empAtt.length > 0 ? (attOnTime / empAtt.length) * 100 : 0;
+
+    const empLeaves = leaves.filter(l => l.employeeId && ((l.employeeId._id ? l.employeeId._id.toString() : l.employeeId.toString()) === empIdStr) && l.status === "approved");
+    const leaveScore = Math.max(0, 100 - (empLeaves.length * 10));
+
+    // Working Hours & Work Efficiency
+    const workingHours = present * 8;
+    const completionRate = empTasks.length > 0 ? Math.round((completed / empTasks.length) * 100) : 0;
+    const lateRate = completed > 0 ? Math.round((late / completed) * 100) : 0;
+    const efficiencyRate = empTasks.length > 0 ? Math.min(100, Math.round((completed / empTasks.length) * 100)) : 0;
+
+    let score = 0;
+    if (empTasks.length > 0) {
+      score = Math.round(
+        (completionRate * 0.45) +
+        (Math.max(0, 100 - (lateRate * 1.5)) * 0.25) +
+        (Math.max(0, 100 - (overdue * 5)) * 0.20) +
+        ((empAtt.length > 0 ? attScore : 70) * 0.10)
+      );
+      score = Math.min(100, Math.max(15, score));
+    } else if (empAtt.length > 0) {
+      score = Math.round((attScore * 0.6) + (punctualityScore * 0.4));
+    } else {
+      score = 0;
+    }
+
+    let tier = "Unrated";
+    if (score >= 85) tier = "Tier 1 (Excellent)";
+    else if (score >= 70) tier = "Tier 2 (Good)";
+    else if (score >= 50) tier = "Tier 3 (Average)";
+    else if (score > 0) tier = "Tier 4 (Needs Attention)";
+    else tier = "No Activity";
 
     return {
       _id: emp._id,
       employeeId: emp._id.toString(),
       name: emp.fullName || `${emp.firstName || ""} ${emp.lastName || ""}`.trim(),
       code: emp.employeeCode || "—",
-      department: emp.departmentId?.name || "General",
+      department: emp.departmentId?.name || emp.departmentName || "General",
       role: emp.role || "Employee",
-      score: Math.min(100, totalScore),
+      score: Math.min(100, score),
+      performanceScore: Math.min(100, score),
       tier,
-      tasksCompleted: completed,
+      totalAssigned: empTasks.length,
       tasksTotal: empTasks.length,
-      tasksPending: Math.max(0, empTasks.length - completed),
-      tasksLate: empTasks.filter(t => t.status === "late_complete" || t.status === "re_late_complete").length,
+      completed,
+      tasksCompleted: completed,
+      pending,
+      tasksPending: pending,
+      overdue,
+      tasksOverdue: overdue,
+      lateCompleted: late,
+      tasksLate: late,
+      onTime,
+      onTimeCompletion: onTime,
+      reopened,
+      reopenedTasks: reopened,
+      cancelled,
+      cancelledTasks: cancelled,
       workingHours,
       efficiencyRate,
-      attendanceRate: Math.round(attScore),
-      punctualityRate: Math.round(punctualityScore),
+      attendanceRate: empAtt.length > 0 ? Math.round(attScore) : 0,
+      punctualityRate: empAtt.length > 0 ? Math.round(punctualityScore) : 0,
       avgCompletionDays: avgDays,
     };
-  }).sort((a, b) => b.score - a.score);
+  }).sort((a, b) => {
+    if (a.totalAssigned > 0 && b.totalAssigned === 0) return -1;
+    if (b.totalAssigned > 0 && a.totalAssigned === 0) return 1;
+    return b.score - a.score;
+  });
 
   // Department Performance Scorecard
   const departmentScorecard = departments.map(d => {
     const deptEmps = rankings.filter(r => r.department.toLowerCase() === d.name.toLowerCase());
-    const avgScore = deptEmps.length > 0 ? Math.round(deptEmps.reduce((s, e) => s + e.score, 0) / deptEmps.length) : 85;
-    const totalComp = deptEmps.reduce((s, e) => s + e.tasksCompleted, 0);
-    const totalPend = deptEmps.reduce((s, e) => s + e.tasksPending, 0);
-    const totalLate = deptEmps.reduce((s, e) => s + e.tasksLate, 0);
+    const avgScore = deptEmps.length > 0 ? Math.round(deptEmps.reduce((s, e) => s + e.score, 0) / deptEmps.length) : 0;
+    const totalAssigned = deptEmps.reduce((s, e) => s + (e.totalAssigned || e.tasksTotal || 0), 0);
+    const totalComp = deptEmps.reduce((s, e) => s + (e.completed || e.tasksCompleted || 0), 0);
+    const totalPend = deptEmps.reduce((s, e) => s + (e.pending || e.tasksPending || 0), 0);
+    const totalLate = deptEmps.reduce((s, e) => s + (e.lateCompleted || e.tasksLate || 0), 0);
+    const avgDays = deptEmps.filter(e => e.avgCompletionDays > 0).length > 0
+      ? Number((deptEmps.filter(e => e.avgCompletionDays > 0).reduce((s, e) => s + e.avgCompletionDays, 0) / deptEmps.filter(e => e.avgCompletionDays > 0).length).toFixed(1))
+      : 0;
+
+    const sortedEmps = [...deptEmps].sort((a, b) => b.score - a.score);
+    const best = sortedEmps[0] ? { name: sortedEmps[0].name, score: sortedEmps[0].score } : { name: "—", score: 0 };
+    const lowest = sortedEmps.length > 1 ? { name: sortedEmps[sortedEmps.length - 1].name, score: sortedEmps[sortedEmps.length - 1].score } : best;
 
     return {
       departmentId: d._id,
       name: d.name,
       score: avgScore,
       headcount: deptEmps.length,
+      totalTasks: totalAssigned,
+      completed: totalComp,
       tasksCompleted: totalComp,
+      pending: totalPend,
       tasksPending: totalPend,
+      late: totalLate,
       tasksLate: totalLate,
-      bestPerformer: deptEmps[0]?.name || "—",
-      lowestPerformer: deptEmps[deptEmps.length - 1]?.name || "—",
+      avgCompletionDays: avgDays,
+      bestPerformer: best,
+      lowestPerformer: lowest,
     };
-  }).filter(d => d.headcount > 0 || d.tasksCompleted > 0);
+  }).filter(d => d.headcount > 0 || d.totalTasks > 0);
 
-  const fastestWorker = [...rankings].sort((a, b) => a.avgCompletionDays - b.avgCompletionDays)[0]?.name || rankings[0]?.name || "—";
-  const mostLate = [...rankings].sort((a, b) => b.tasksLate - a.tasksLate)[0]?.name || "None";
+  const completedWorkers = rankings.filter(r => (r.completed || r.tasksCompleted) > 0 && r.avgCompletionDays > 0);
+  const fastestWorker = completedWorkers.sort((a, b) => a.avgCompletionDays - b.avgCompletionDays)[0]?.name || "—";
+  const mostLate = [...rankings].filter(r => r.tasksLate > 0).sort((a, b) => b.tasksLate - a.tasksLate)[0]?.name || "None";
 
   const result = {
     weights,
@@ -1233,8 +1383,8 @@ const getPerformanceMetrics = async (companyId, query, user) => {
     departmentScorecard,
     fastestWorker,
     mostLate,
-    topPerformers: rankings.filter(r => r.score >= 85),
-    atRisk: rankings.filter(r => r.score < 60),
+    topPerformers: rankings.filter(r => r.score >= 80),
+    atRisk: rankings.filter(r => r.score < 50 && r.totalAssigned > 0),
   };
 
   setCachedReport(cacheKey, result);
@@ -1324,20 +1474,31 @@ const getLeadMetrics = async (companyId, query, user) => {
     deletedAt: null,
     ...(isAllTime ? {} : { createdAt: { $gte: current.start, $lte: current.end } }),
   };
-  const leads = await Lead.find(leadFilter)
-    .select("name phone whatsappPhone email source estimatedValue createdAt statusId assignedTo")
-    .populate("statusId assignedTo", "name fullName email phone color isConverted")
-    .lean();
+
+  const [leads, departments, employees, users] = await Promise.all([
+    Lead.find(leadFilter)
+      .select("name phone whatsappPhone email source estimatedValue createdAt statusId assignedTo company productService notes")
+      .populate("statusId", "name color isConverted")
+      .populate("assignedTo", "name fullName email phone role employeeId")
+      .sort({ createdAt: -1 })
+      .lean(),
+    Department.find({ companyId }).select("name").lean(),
+    Employee.find({ companyId }).select("fullName firstName lastName employeeCode departmentId").populate("departmentId", "name").lean(),
+    User.find({ companyId }).select("name email role employeeId").lean(),
+  ]);
 
   const totalLeads = leads.length;
-  const convertedLeads = leads.filter(l => (l.statusId?.isConverted) || (l.statusId && /won|converted|closed won/i.test(l.statusId.name))).length;
-  const lostLeads = leads.filter(l => l.statusId && /lost|junk|dropped/i.test(l.statusId.name)).length;
+  const isLeadWon = (l) => Boolean(l.statusId?.isConverted || (l.statusId && /won|converted|closed won|sale/i.test(l.statusId.name)));
+  const isLeadLost = (l) => Boolean(l.statusId && /lost|junk|dropped|cancelled|dead/i.test(l.statusId.name));
+  const isLeadActive = (l) => !isLeadWon(l) && !isLeadLost(l);
+
+  const convertedLeads = leads.filter(isLeadWon).length;
+  const lostLeads = leads.filter(isLeadLost).length;
   const pipelineLeads = totalLeads - convertedLeads - lostLeads;
   const conversionRate = totalLeads > 0 ? Number(((convertedLeads / totalLeads) * 100).toFixed(1)) : 0;
   const totalPipelineValue = leads.reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
-  const wonValue = leads
-    .filter(l => (l.statusId?.isConverted) || (l.statusId && /won|converted|closed won/i.test(l.statusId.name)))
-    .reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
+  const wonValue = leads.filter(isLeadWon).reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
+  const activePipelineValue = leads.filter(isLeadActive).reduce((sum, l) => sum + (l.estimatedValue || 0), 0);
 
   // Status breakdown
   const statusMap = {};
@@ -1360,25 +1521,6 @@ const getLeadMetrics = async (companyId, query, user) => {
   });
   const sourceBreakdown = Object.entries(sourceMap).map(([source, count]) => ({ source, count }));
 
-  // Sales rep performance
-  const agentMap = {};
-  leads.forEach(l => {
-    const aName = l.assignedTo?.fullName || l.assignedTo?.name || "Unassigned";
-    const aId = l.assignedTo?._id?.toString() || "unassigned";
-    if (!agentMap[aId]) {
-      agentMap[aId] = { agentId: aId, name: aName, assigned: 0, converted: 0, value: 0 };
-    }
-    agentMap[aId].assigned += 1;
-    agentMap[aId].value += (l.estimatedValue || 0);
-    if ((l.statusId?.isConverted) || (l.statusId && /won|converted|closed won/i.test(l.statusId.name))) {
-      agentMap[aId].converted += 1;
-    }
-  });
-  const agentPerformance = Object.values(agentMap).map(a => ({
-    ...a,
-    conversionRate: a.assigned > 0 ? Number(((a.converted / a.assigned) * 100).toFixed(1)) : 0,
-  }));
-
   // Formatted records
   const records = leads.map(l => {
     const d = l.createdAt ? new Date(l.createdAt) : null;
@@ -1390,15 +1532,137 @@ const getLeadMetrics = async (companyId, query, user) => {
       name: l.name,
       phone: l.whatsappPhone || l.phone || "—",
       email: l.email || "—",
+      company: l.company || "—",
       status: l.statusId?.name || "New",
       statusColor: l.statusId?.color || "#3b82f6",
       source: l.source || "Direct",
+      productService: l.productService || "—",
       estimatedValue: l.estimatedValue || 0,
       assignedTo: l.assignedTo?.fullName || l.assignedTo?.name || "Unassigned",
+      isWon: isLeadWon(l),
+      isLost: isLeadLost(l),
+      isActive: isLeadActive(l),
       createdAt: l.createdAt,
       formattedDate,
     };
   });
+
+  // Recent Leads (Newest 25)
+  const recentLeads = records.slice(0, 25);
+
+  // Active Leads (Currently open  leads)
+  const activeLeads = records.filter(l => l.isActive);
+
+  // Employee Performance Ledger
+  const userMap = new Map();
+  users.forEach(u => userMap.set(u._id.toString(), u));
+
+  const empMap = new Map();
+  employees.forEach(e => empMap.set(e._id.toString(), e));
+
+  const agentIds = new Set();
+  leads.forEach(l => {
+    if (l.assignedTo) {
+      agentIds.add((l.assignedTo._id || l.assignedTo).toString());
+    }
+  });
+  users.forEach(u => agentIds.add(u._id.toString()));
+
+  const employeePerformance = Array.from(agentIds).map(agentId => {
+    const userObj = userMap.get(agentId);
+    const empObj = employees.find(e =>
+      (e.userId && (e.userId._id || e.userId).toString() === agentId) ||
+      (userObj?.employeeId && e._id.toString() === (userObj.employeeId._id || userObj.employeeId).toString())
+    );
+
+    const name = userObj?.name || empObj?.fullName || (agentId === "unassigned" ? "Unassigned" : "Agent");
+    const email = userObj?.email || "—";
+    const deptName = empObj?.departmentId?.name || "Sales & Marketing";
+
+    const myLeads = leads.filter(l => {
+      if (!l.assignedTo) return agentId === "unassigned";
+      const aId = (l.assignedTo._id || l.assignedTo).toString();
+      return aId === agentId || (empObj && aId === empObj._id.toString());
+    });
+
+    const totalAssigned = myLeads.length;
+    const activeCount = myLeads.filter(isLeadActive).length;
+    const wonCount = myLeads.filter(isLeadWon).length;
+    const lostCount = myLeads.filter(isLeadLost).length;
+    const wonVal = myLeads.filter(isLeadWon).reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    const pipelineVal = myLeads.filter(isLeadActive).reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    const convRate = totalAssigned > 0 ? Math.round((wonCount / totalAssigned) * 100) : 0;
+
+    return {
+      agentId,
+      name,
+      email,
+      department: deptName,
+      assigned: totalAssigned,
+      totalAssigned,
+      active: activeCount,
+      activeLeads: activeCount,
+      converted: wonCount,
+      won: wonCount,
+      lost: lostCount,
+      wonValue: wonVal,
+      pipelineValue: pipelineVal,
+      conversionRate: convRate,
+      efficiencyTier: convRate >= 50 ? "Tier 1 (Top Closer)" : convRate >= 20 ? "Tier 2 (Good)" : totalAssigned > 0 ? "Tier 3 (In Progress)" : "Unassigned",
+    };
+  }).filter(a => a.assigned > 0).sort((a, b) => b.converted - a.converted || b.assigned - a.assigned);
+
+  // Department Lead Report
+  const departmentLeadReport = departments.map(dept => {
+    const deptId = dept._id.toString();
+    const deptEmps = employees.filter(e => e.departmentId && (e.departmentId._id ? e.departmentId._id.toString() : e.departmentId.toString()) === deptId);
+    const deptEmpIds = deptEmps.map(e => e._id.toString());
+    const deptUserIds = users.filter(u => u.employeeId && deptEmpIds.includes(u.employeeId.toString())).map(u => u._id.toString());
+
+    const deptLeads = leads.filter(l => {
+      if (!l.assignedTo) return false;
+      const aId = (l.assignedTo._id || l.assignedTo).toString();
+      return deptUserIds.includes(aId) || deptEmpIds.includes(aId);
+    });
+
+    const totalAssigned = deptLeads.length;
+    const activeCount = deptLeads.filter(isLeadActive).length;
+    const wonCount = deptLeads.filter(isLeadWon).length;
+    const lostCount = deptLeads.filter(isLeadLost).length;
+    const wonVal = deptLeads.filter(isLeadWon).reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    const pipelineVal = deptLeads.filter(isLeadActive).reduce((s, l) => s + (l.estimatedValue || 0), 0);
+    const convRate = totalAssigned > 0 ? Math.round((wonCount / totalAssigned) * 100) : 0;
+
+    return {
+      departmentId: dept._id,
+      department: dept.name,
+      name: dept.name,
+      totalLeads: totalAssigned,
+      activeLeads: activeCount,
+      wonLeads: wonCount,
+      lostLeads: lostCount,
+      wonValue: wonVal,
+      pipelineValue: pipelineVal,
+      conversionRate: convRate,
+    };
+  }).filter(d => d.totalLeads > 0);
+
+  // Unassigned direct queue
+  const unassignedLeads = leads.filter(l => !l.assignedTo);
+  if (unassignedLeads.length > 0) {
+    departmentLeadReport.push({
+      departmentId: "unassigned",
+      department: "Direct Inbound / General",
+      name: "Direct Inbound / General",
+      totalLeads: unassignedLeads.length,
+      activeLeads: unassignedLeads.filter(isLeadActive).length,
+      wonLeads: unassignedLeads.filter(isLeadWon).length,
+      lostLeads: unassignedLeads.filter(isLeadLost).length,
+      wonValue: unassignedLeads.filter(isLeadWon).reduce((s, l) => s + (l.estimatedValue || 0), 0),
+      pipelineValue: unassignedLeads.filter(isLeadActive).reduce((s, l) => s + (l.estimatedValue || 0), 0),
+      conversionRate: unassignedLeads.length > 0 ? Math.round((unassignedLeads.filter(isLeadWon).length / unassignedLeads.length) * 100) : 0,
+    });
+  }
 
   const result = {
     kpis: {
@@ -1408,11 +1672,16 @@ const getLeadMetrics = async (companyId, query, user) => {
       lostLeads,
       conversionRate,
       totalPipelineValue,
+      activePipelineValue,
       wonValue,
     },
     statusBreakdown,
     sourceBreakdown,
-    agentPerformance,
+    recentLeads,
+    activeLeads,
+    employeePerformance,
+    agentPerformance: employeePerformance,
+    departmentLeadReport,
     records,
   };
 

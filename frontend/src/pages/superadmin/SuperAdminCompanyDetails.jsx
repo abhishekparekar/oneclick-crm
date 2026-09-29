@@ -281,15 +281,15 @@ const SuperAdminCompanyDetails = () => {
               {/* Resource Utilization & Stats Card */}
               <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm overflow-hidden p-6">
                 <h3 className="font-bold text-sa-text text-base pb-3 border-b border-sa-border mb-5 flex items-center justify-between">
-                  <span>Resource Utilization</span>
-                  <span className="text-xs font-extrabold text-sa-primary bg-sa-primary/10 px-2.5 py-1 rounded-lg">Live Quota</span>
+                  <span>Usage &amp; Limits</span>
+                  <span className="text-xs font-extrabold text-sa-primary bg-sa-primary/10 px-2.5 py-1 rounded-lg">Live Status</span>
                 </h3>
                 
                 <div className="space-y-5">
                   <div>
                     <div className="flex justify-between items-baseline text-sm mb-2">
                       <span className="font-bold text-sa-text flex items-center">
-                        <Users size={15} className="mr-2 text-sa-primary" /> Employee Licenses
+                        <Users size={15} className="mr-2 text-sa-primary" /> Employee Seats
                       </span>
                       <span className="font-extrabold text-sa-text text-base">
                         {activeEmployeesCount} <span className="text-sa-text-secondary text-sm font-semibold">/ {employeeLimit}</span>
@@ -306,13 +306,13 @@ const SuperAdminCompanyDetails = () => {
                     <div className="flex justify-between text-xs font-bold text-sa-text-secondary mt-1.5">
                       <span>{employeePercent}% Allocated</span>
                       <span className={isOverLimit ? "text-rose-500 font-extrabold" : ""}>
-                        {isOverLimit ? `${activeEmployeesCount - employeeLimit} Over Quota` : `${seatsAvailable} Seats Available`}
+                        {isOverLimit ? `${activeEmployeesCount - employeeLimit} Over Limit` : `${seatsAvailable} Seats Available`}
                       </span>
                     </div>
                   </div>
 
                   <div className="pt-3 border-t border-sa-border/60 flex items-center justify-between text-xs text-sa-text-secondary">
-                    <span>Total Employees Roster:</span>
+                    <span>Total Employees:</span>
                     <span className="font-bold text-sa-text">{totalEmployees} Registered ({activeEmployeesCount} Active)</span>
                   </div>
                 </div>
@@ -323,7 +323,7 @@ const SuperAdminCompanyDetails = () => {
                 {(() => {
                   const allSystemModules = [
                     { key: "tasks", label: "Task Management" },
-                    { key: "leads", label: "Leads Engine & CRM" },
+                    { key: "leads", label: "Lead" },
                     { key: "map_leads", label: "Map Leads Finder & Scraping" },
                     { key: "attendance", label: "Time & Attendance" },
                     { key: "location_tracking", label: "Live GPS Location Tracking" },
@@ -457,8 +457,8 @@ const SuperAdminCompanyDetails = () => {
           <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm p-6 space-y-4">
             <div className="border-b border-sa-border pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h3 className="text-lg font-bold text-sa-text">Subscription Plan & Billing Status</h3>
-                <p className="text-sm text-sa-text-secondary mt-0.5">Tier quotas, renewal periods, and account entitlements.</p>
+                <h3 className="text-lg font-bold text-sa-text">Subscription Plan &amp; Billing Status</h3>
+                <p className="text-sm text-sa-text-secondary mt-0.5">Plan limits, renewal dates, and enabled features.</p>
               </div>
               <button 
                 onClick={() => setIsEditModalOpen(true)} 
@@ -493,10 +493,10 @@ const SuperAdminCompanyDetails = () => {
               </div>
 
               <div className="space-y-3.5 md:col-span-2">
-                <p className="text-xs font-extrabold text-sa-text-secondary uppercase tracking-wider">Plan Entitlements & Limits</p>
+                <p className="text-xs font-extrabold text-sa-text-secondary uppercase tracking-wider">Plan Limits &amp; Features</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div className="p-3.5 rounded-xl bg-sa-surface border border-sa-border flex justify-between items-center shadow-sm">
-                    <span className="text-sm font-bold text-sa-text-secondary">Employee License Limit</span>
+                    <span className="text-sm font-bold text-sa-text-secondary">Employee Limit</span>
                     <span className="font-black text-sa-text text-base">{company.employeeLimit || 50} Seats</span>
                   </div>
                   <div className="p-3.5 rounded-xl bg-sa-surface border border-sa-border flex justify-between items-center shadow-sm">
@@ -513,8 +513,8 @@ const SuperAdminCompanyDetails = () => {
           <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm p-6 space-y-4">
             <div className="flex items-center justify-between border-b border-sa-border pb-4">
               <div>
-                <h3 className="text-lg font-bold text-sa-text">Payment & Transaction Records</h3>
-                <p className="text-sm text-sa-text-secondary mt-0.5">Verified financial invoices and payment history for {company.companyName}.</p>
+                <h3 className="text-lg font-bold text-sa-text">Payments &amp; Billing History</h3>
+                <p className="text-sm text-sa-text-secondary mt-0.5">Invoices and payment records for {company.companyName}.</p>
               </div>
               <span className="text-xs font-extrabold px-3 py-1 rounded-lg bg-sa-primary/10 text-sa-primary">
                 {payments.length} Records

@@ -135,7 +135,7 @@ const ManagerProjects = () => {
 
   return (
     <div className="space-y-5 max-w-[1400px] mx-auto pb-8 font-sans">
-      <PageHeader title="Projects Management" icon={FolderKanban}>
+      <PageHeader title="Projects" icon={FolderKanban}>
         <div className="flex items-center gap-2">
           <button
             onClick={() => refetch()}
@@ -158,8 +158,8 @@ const ManagerProjects = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3.5 sm:gap-4">
         {[
           { label: "Total Projects", value: stats.total, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-500/10", border: "border-blue-500/20", icon: FolderKanban },
-          { label: "Active & Working", value: stats.active, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: Clock },
-          { label: "In Planning", value: stats.planning, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", icon: Briefcase },
+          { label: "In Progress", value: stats.active, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/20", icon: Clock },
+          { label: "Planning", value: stats.planning, color: "text-violet-600 dark:text-violet-400", bg: "bg-violet-500/10", border: "border-violet-500/20", icon: Briefcase },
           { label: "Completed", value: stats.completed, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", icon: CheckCircle2 },
         ].map((s) => {
           const Icon = s.icon;

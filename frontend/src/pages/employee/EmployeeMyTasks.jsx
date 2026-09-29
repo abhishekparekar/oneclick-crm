@@ -36,6 +36,14 @@ const formatDateDDMMYYYY = (val) => {
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
 };
 
+const toDateTimeLocal = (dateVal) => {
+  if (!dateVal) return "";
+  const d = new Date(dateVal);
+  if (isNaN(d.getTime())) return "";
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 const getCardDueDate = (t) => {
   const d = t.dueDate || t.endDate || t.endDateTime || t.finishDate || t.startDate;
   if (!d) return "No Due Date";
@@ -615,8 +623,9 @@ export default function EmployeeMyTasks() {
   // Submit Progress Report & Next Follow-Up Date Mutation
   const submitReportMut = useMutation({
     mutationFn: async ({ taskId, status, nextFollowUpDate, comment }) => {
-      await updateTaskStatusApi(taskId, { status, nextFollowUpDate }).catch(() => { });
-      return await submitTaskProgressApi(taskId, { comment, nextFollowUpDate });
+      const followUpIso = nextFollowUpDate ? new Date(nextFollowUpDate).toISOString() : null;
+      await updateTaskStatusApi(taskId, { status, nextFollowUpDate: followUpIso }).catch(() => { });
+      return await submitTaskProgressApi(taskId, { comment, nextFollowUpDate: followUpIso });
     },
     onSuccess: () => {
       alert("Work progress report & next follow-up date updated!");
@@ -635,7 +644,7 @@ export default function EmployeeMyTasks() {
   const handleOpenReportModal = (task) => {
     setSelectedTaskForReport(task);
     setReportStatus(task.status || "in_progress");
-    setNextFollowUpDate(task.nextFollowUpDate ? new Date(task.nextFollowUpDate).toISOString().split("T")[0] : "");
+    setNextFollowUpDate(task.nextFollowUpDate ? toDateTimeLocal(task.nextFollowUpDate) : "");
     setReportComment("");
   };
 
@@ -645,7 +654,7 @@ export default function EmployeeMyTasks() {
       {/* ── Page Header (Clean Admin Style) ─────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
         <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2.5">
-          <span>My Work Tasks &amp; Deliverables</span>
+          <span>All Tasks</span>
           {isFetching && (
             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-950/40 border border-orange-200 dark:border-orange-800/60 px-2.5 py-0.5 rounded-full">
               <RefreshCw size={11} className="animate-spin" /> Loading...
@@ -1247,13 +1256,13 @@ export default function EmployeeMyTasks() {
 
                 <div>
                   <label className="block text-[11px] font-black uppercase tracking-wider text-ca-text-secondary mb-1.5">
-                    Next Follow-Up Date
+                    Next Follow-Up Date &amp; Time
                   </label>
                   <input
-                    type="date"
+                    type="datetime-local"
                     value={nextFollowUpDate}
                     onChange={(e) => setNextFollowUpDate(e.target.value)}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-black focus:outline-hidden focus:border-orange-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-ca-bg border border-ca-border text-xs text-ca-text font-black focus:outline-hidden focus:border-orange-500 font-mono"
                   />
                 </div>
               </div>

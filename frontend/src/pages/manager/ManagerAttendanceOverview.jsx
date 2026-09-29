@@ -7,7 +7,9 @@ import {
   getManagerRegularizationApi,
   approveManagerRegularizationApi,
   rejectManagerRegularizationApi,
+  getManagerProfileApi,
 } from "../../api/managerApi";
+import { useAuth } from "../../context/AuthContext";
 import { AreaChart, Area, ResponsiveContainer } from "recharts";
 import {
   Search, CalendarCheck, RefreshCw, Download, Clock, MapPin, MapPinOff,
@@ -192,17 +194,45 @@ export default function ManagerAttendanceOverview() {
     queryFn: () => getManagerRegularizationApi().then(r => r.data),
   });
 
+  const { user } = useAuth();
+  const { data: profileRes } = useQuery({
+    queryKey: ["managerProfile"],
+    queryFn: () => getManagerProfileApi().then((r) => r.data),
+    staleTime: 60 * 1000,
+  });
+
+  const myEmpId = String(profileRes?.employee?._id || user?.employeeId?._id || user?.employeeId || user?._id || "");
+  const myUserId = String(profileRes?.user?._id || user?._id || user?.id || "");
+  const myCode = String(profileRes?.employee?.employeeCode || user?.employeeCode || "").toLowerCase().trim();
+  const myName = String(profileRes?.employee?.fullName || profileRes?.manager?.fullName || user?.fullName || user?.name || "").toLowerCase().trim();
+
   // ── Normalize team data: backend returns [{ employee, attendance }] ────────
   const fullAttendanceData = useMemo(() => {
     const raw = attendanceRes?.data;
     if (!Array.isArray(raw)) return [];
-    return raw.map(item => {
-      const emp = item.employee || {};
-      // attendance can be single object (daily) or array (monthly) — for daily it's one record or null
-      const att = Array.isArray(item.attendance) ? item.attendance[0] : item.attendance;
-      return {
-        _id: att?._id || `no-record-${emp._id}`,
-        employeeId: {
+    return raw
+      .filter((item) => {
+        const emp = item.employee || {};
+        const empId = String(emp._id || "");
+        const empUserId = String(emp.userId?._id || emp.userId || "");
+        const empCode = String(emp.employeeCode || "").toLowerCase().trim();
+        const empName = String(emp.fullName || emp.name || "").toLowerCase().trim();
+
+        // Exclude manager's own record from team attendance list
+        if (myEmpId && empId && empId === myEmpId) return false;
+        if (myUserId && empUserId && empUserId === myUserId) return false;
+        if (myCode && empCode && empCode === myCode) return false;
+        if (myName && empName && empName === myName) return false;
+
+        return true;
+      })
+      .map((item) => {
+        const emp = item.employee || {};
+        // attendance can be single object (daily) or array (monthly) — for daily it's one record or null
+        const att = Array.isArray(item.attendance) ? item.attendance[0] : item.attendance;
+        return {
+          _id: att?._id || `no-record-${emp._id}`,
+          employeeId: {
           _id: emp._id,
           firstName: emp.fullName?.split(" ")[0] || emp.firstName || "",
           lastName: emp.fullName?.split(" ").slice(1).join(" ") || emp.lastName || "",
@@ -224,7 +254,7 @@ export default function ManagerAttendanceOverview() {
         hasRecord: !!att,
       };
     });
-  }, [attendanceRes, date]);
+  }, [attendanceRes, date, myEmpId, myUserId, myCode, myName]);
 
   // ── Filters ───────────────────────────────────────────────────────────────
   const filteredData = useMemo(() => {
@@ -666,8 +696,8 @@ export default function ManagerAttendanceOverview() {
       {/* Page Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-1">
         <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">Attendance Overview</h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Team attendance logs, GPS fencing, and monthly reports</p>
+          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">Team Attendance</h1>
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">Daily attendance status, punch records, and hours</p>
         </div>
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 relative z-30 w-full sm:w-auto">
           <input type="date" value={date} onChange={e => setDate(e.target.value)}

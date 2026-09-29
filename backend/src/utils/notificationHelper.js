@@ -16,7 +16,9 @@ const resolveToUserIds = async (ids, companyId = null) => {
   const targetUserIds = new Set();
 
   // 1. Check if any are direct User _ids
-  const directUsers = await User.find({ _id: { $in: cleanIds } }).select("_id").lean();
+  const userQuery = { _id: { $in: cleanIds } };
+  if (companyId) userQuery.companyId = companyId;
+  const directUsers = await User.find(userQuery).select("_id").lean();
   directUsers.forEach(u => targetUserIds.add(u._id.toString()));
 
   // 2. Check if any are Employee records by _id or userId

@@ -99,6 +99,11 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    followUpNotified: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     status: {
       type: String,
       enum: [

@@ -84,7 +84,7 @@ export default function MapLeadFinderScreen() {
         const def = list.find((s) => s.isDefault) || list[0];
         setSelectedStatusId(def.id || def._id);
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const handleSearch = async (overrideKeyword, overrideCity, overrideLimit) => {
@@ -194,7 +194,7 @@ export default function MapLeadFinderScreen() {
   const openDialer = (phone) => {
     if (!phone) return;
     const clean = phone.replace(/\D/g, "");
-    Linking.openURL(`tel:${clean}`).catch(() => {});
+    Linking.openURL(`tel:${clean}`).catch(() => { });
   };
 
   const selectedStage = statuses.find((s) => (s.id || s._id) === selectedStatusId);
@@ -486,16 +486,16 @@ export default function MapLeadFinderScreen() {
                         item.isAlreadyLead
                           ? "checkmark-circle"
                           : isSelected
-                          ? "checkbox"
-                          : "square-outline"
+                            ? "checkbox"
+                            : "square-outline"
                       }
                       size={20}
                       color={
                         item.isAlreadyLead
                           ? "#94A3B8"
                           : isSelected
-                          ? "#1268D9"
-                          : "#94A3B8"
+                            ? "#1268D9"
+                            : "#94A3B8"
                       }
                     />
                   </TouchableOpacity>
@@ -628,7 +628,7 @@ export default function MapLeadFinderScreen() {
         <View style={styles.modalBackdrop}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalHeading}>Select Lead Pipeline Stage</Text>
+              <Text style={styles.modalHeading}>Select Lead  Stage</Text>
               <TouchableOpacity onPress={() => setStagePickerVisible(false)}>
                 <Ionicons name="close" size={20} color="#475569" />
               </TouchableOpacity>

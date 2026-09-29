@@ -43,14 +43,27 @@ class ErrorBoundary extends React.Component {
             </div>
 
             {this.state.error && (
-              <div className="bg-black/50 border border-white/10 rounded-xl p-3.5 text-left overflow-hidden">
-                <p className="text-xs font-mono font-bold text-rose-400 break-words">
-                  {this.state.error.toString()}
-                </p>
+              <div className="bg-black/50 border border-white/10 rounded-xl p-3.5 text-left overflow-hidden space-y-2">
+                <div className="bg-rose-500/20 border border-rose-500/40 rounded-lg p-3">
+                  <p className="text-xs font-mono font-black text-rose-300 break-words select-all">
+                    {this.state.error?.toString()}
+                  </p>
+                </div>
+                {this.state.error?.stack && (
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Call Stack:</p>
+                    <pre className="text-[10px] font-mono text-amber-300 bg-slate-950/80 p-2.5 rounded border border-slate-800 max-h-48 overflow-y-auto whitespace-pre-wrap select-all">
+                      {this.state.error.stack}
+                    </pre>
+                  </div>
+                )}
                 {this.state.errorInfo?.componentStack && (
-                  <pre className="text-[10px] font-mono text-slate-400 mt-2 max-h-40 overflow-y-auto whitespace-pre-wrap">
-                    {this.state.errorInfo.componentStack}
-                  </pre>
+                  <div>
+                    <p className="text-[10px] uppercase font-bold text-slate-400 mb-1">Component Stack:</p>
+                    <pre className="text-[10px] font-mono text-slate-400 bg-slate-950/80 p-2.5 rounded border border-slate-800 max-h-36 overflow-y-auto whitespace-pre-wrap select-all">
+                      {this.state.errorInfo.componentStack}
+                    </pre>
+                  </div>
                 )}
               </div>
             )}

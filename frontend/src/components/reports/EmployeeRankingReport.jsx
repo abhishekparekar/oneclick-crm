@@ -67,7 +67,7 @@ const EmployeeRankingReport = ({ fallbackEmployees = [], fallbackTasks = [], dep
   const bottom10Employees = useMemo(() => [
     { rank: 1, name: "Siddharth Rao", role: "Junior QA Tester", dept: "Development", manager: "Rahul Sharma", score: "62/100", performance: 62, productivity: 60, taskCompletion: "74.2%", efficiency: 64, status: "Needs Improvement", reason: "High Pending Tasks & QA Reopens", action: "Immediate 1-on-1 Workload Check & Mentorship" },
     { rank: 2, name: "Amit Patil", role: "Graphic Designer", dept: "Design", manager: "Amit Deshmukh", score: "65/100", performance: 65, productivity: 63, taskCompletion: "76.5%", efficiency: 67, status: "Needs Improvement", reason: "Frequent SLA Banner Delays", action: "SLA Deadline Refresher & Priority Balance" },
-    { rank: 3, name: "Kiran More", role: "Sales Executive", dept: "Sales", manager: "Rohit Verma", score: "68/100", performance: 68, productivity: 67, taskCompletion: "80.1%", efficiency: 69, status: "Below Expectation", reason: "Delayed Client Quote Submissions", action: "Pipeline Management Refresher Training" },
+    { rank: 3, name: "Kiran More", role: "Sales Executive", dept: "Sales", manager: "Rohit Verma", score: "68/100", performance: 68, productivity: 67, taskCompletion: "80.1%", efficiency: 69, status: "Below Expectation", reason: "Delayed Client Quote Submissions", action: " Management Refresher Training" },
     { rank: 4, name: "Ramesh Shinde", role: "IT Support Specialist", dept: "IT Support", manager: "Sanjay Gupta", score: "69/100", performance: 69, productivity: 68, taskCompletion: "81.0%", efficiency: 70, status: "Below Expectation", reason: "Incomplete Ticket Closures", action: "Support Protocol Audit & Guidance" },
     { rank: 5, name: "Divya Sawant", role: "Marketing Associate", dept: "Marketing", manager: "Meera Menon", score: "71/100", performance: 71, productivity: 70, taskCompletion: "82.5%", efficiency: 71, status: "Below Expectation", reason: "Low Campaign Output Velocity", action: "Task Priority Realignment Check" },
   ], []);
@@ -125,11 +125,10 @@ const EmployeeRankingReport = ({ fallbackEmployees = [], fallbackTasks = [], dep
               <button
                 key={cat.id}
                 onClick={() => setActiveCategory(cat.id)}
-                className={`p-2.5 rounded-xl text-left font-black transition-all cursor-pointer flex flex-col justify-between ${
-                  active
+                className={`p-2.5 rounded-xl text-left font-black transition-all cursor-pointer flex flex-col justify-between ${active
                     ? "bg-ca-primary text-white shadow-sm ring-1 ring-ca-primary"
                     : "bg-ca-bg text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface border border-ca-border shadow-2xs"
-                }`}
+                  }`}
               >
                 <span className="text-xs font-black block truncate">{cat.label}</span>
                 <span className={`text-[10px] font-semibold block mt-0.5 truncate ${active ? "text-white/85" : "text-ca-text-secondary"}`}>
@@ -165,7 +164,7 @@ const EmployeeRankingReport = ({ fallbackEmployees = [], fallbackTasks = [], dep
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <div 
+            <div
               className="relative flex items-center gap-1.5 bg-ca-bg px-3 py-1.5 rounded-xl border border-ca-border outline-none hover:border-ca-primary/50 transition-colors"
               tabIndex={0}
               onBlur={(e) => {
@@ -189,9 +188,8 @@ const EmployeeRankingReport = ({ fallbackEmployees = [], fallbackTasks = [], dep
                   {["ALL", "Development", "Design", "Sales"].map((d, i) => (
                     <li key={i}>
                       <button
-                        className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${
-                          departmentFilter === d ? "bg-ca-primary/10 text-ca-primary" : "text-ca-text hover:bg-ca-primary/10 hover:text-ca-primary"
-                        }`}
+                        className={`w-full text-left px-3 py-2 text-xs font-bold transition-colors cursor-pointer ${departmentFilter === d ? "bg-ca-primary/10 text-ca-primary" : "text-ca-text hover:bg-ca-primary/10 hover:text-ca-primary"
+                          }`}
                         onClick={() => {
                           setDepartmentFilter(d);
                           setIsDeptDropdownOpen(false);

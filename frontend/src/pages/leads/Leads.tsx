@@ -95,7 +95,7 @@ const CustomSelect = ({ value, onChange, options, defaultLabel }: {
   const [isOpen, setIsOpen] = useState(false);
   const selectedOption = options.find(o => o.value === value);
   const label = selectedOption ? selectedOption.label : defaultLabel;
-  
+
   return (
     <div className="relative shrink-0 flex-1 sm:flex-initial min-w-0">
       <button
@@ -108,8 +108,8 @@ const CustomSelect = ({ value, onChange, options, defaultLabel }: {
       </button>
       {isOpen && (
         <>
-          <div 
-            className="fixed inset-0 z-40" 
+          <div
+            className="fixed inset-0 z-40"
             onClick={() => setIsOpen(false)}
           />
           <div className="absolute top-full left-0 mt-1 min-w-[160px] max-h-56 overflow-y-auto bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl py-1 z-50 animate-fadeIn hide-scrollbar">
@@ -147,16 +147,15 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
   const cleanPhone = displayPhone.replace(/[^0-9]/g, "");
 
   return (
-    <div 
+    <div
       onClick={onClick}
-      className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl border p-2.5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden isolate ${
-        isSelected
-          ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-500/5 dark:bg-amber-500/5"
-          : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
-      }`}
+      className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl border p-2.5 shadow-2xs hover:shadow-md transition-all duration-200 cursor-pointer overflow-hidden isolate ${isSelected
+        ? "border-amber-500 ring-2 ring-amber-500/20 bg-amber-500/5 dark:bg-amber-500/5"
+        : "border-slate-200/90 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+        }`}
     >
       {/* Left Colored Accent Strip */}
-      <div 
+      <div
         className="absolute top-0 left-0 bottom-0 w-[3px] group-hover:w-[4px] transition-all duration-200 z-20"
         style={{ backgroundColor: statusColor }}
       />
@@ -165,23 +164,23 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
       <div className="flex items-center justify-between gap-1.5 mb-1.5 relative z-10">
         <div className="flex items-center gap-2 min-w-0 flex-1">
           {onToggleSelect && (
-            <input 
-              type="checkbox" 
-              checked={!!isSelected} 
+            <input
+              type="checkbox"
+              checked={!!isSelected}
               onChange={(e) => {
                 e.stopPropagation();
                 onToggleSelect();
               }}
               onClick={(e) => e.stopPropagation()}
-              className="rounded accent-amber-500 cursor-pointer w-3.5 h-3.5 shrink-0" 
+              className="rounded accent-amber-500 cursor-pointer w-3.5 h-3.5 shrink-0"
             />
           )}
-          <div 
+          <div
             className="w-7 h-7 rounded-lg flex items-center justify-center font-black text-[11px] shrink-0 border shadow-2xs"
-            style={{ 
-              backgroundColor: `${statusColor}14`, 
-              borderColor: `${statusColor}30`, 
-              color: statusColor 
+            style={{
+              backgroundColor: `${statusColor}14`,
+              borderColor: `${statusColor}30`,
+              color: statusColor
             }}
           >
             {(lead.name || "LD").slice(0, 2).toUpperCase()}
@@ -236,8 +235,8 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
           const assignees: any[] = Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
             ? lead.assignedToUsers
             : lead.assignedTo
-            ? [lead.assignedTo]
-            : [];
+              ? [lead.assignedTo]
+              : [];
           if (assignees.length === 0) {
             return (
               <span className="inline-flex items-center gap-1 text-[9.5px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-800 shrink-0">
@@ -270,8 +269,8 @@ const ContactCard = ({ lead, onClick, onDelete, onStatusChange, isSelected, onTo
       {lead.tags && lead.tags.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-1.5 z-10 relative">
           {lead.tags.slice(0, 3).map((tag: any) => (
-            <span 
-              key={tag.id || tag.name} 
+            <span
+              key={tag.id || tag.name}
               className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded text-[8.5px] font-bold border"
               style={{
                 backgroundColor: `${tag.color || '#D97706'}15`,
@@ -379,13 +378,12 @@ function StatusPopover({
     <div ref={ref} className="fixed z-[9999] bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl py-1.5 min-w-[180px] animate-fadeIn" style={{ top, left: anchorRect.left }}>
       <>
         <p className="text-[10px] font-black text-slate-400 px-3 py-1.5 uppercase tracking-wider border-b border-slate-100 dark:border-slate-800 mb-1">
-          Change Pipeline Status
+          Change  Status
         </p>
         {statuses.map(s => (
           <button key={s.id} onClick={() => handleSelect(s.id)}
-            className={`flex items-center gap-2 w-full px-3 py-2 text-xs text-left font-bold transition-colors cursor-pointer ${
-              s.id === lead.statusId ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
-            }`}
+            className={`flex items-center gap-2 w-full px-3 py-2 text-xs text-left font-bold transition-colors cursor-pointer ${s.id === lead.statusId ? "bg-amber-500/10 text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800"
+              }`}
           >
             <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: s.color || '#EAB308' }} />
             <span className="flex-1 truncate">{s.name}</span>
@@ -530,21 +528,49 @@ export default function Leads() {
   const [loadingToken, setLoadingToken] = useState(false);
   const [copiedToken, setCopiedToken] = useState(false);
 
+  const formatTitleCase = (str: string) => {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .toLowerCase()
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  };
+
   const fetchEmployees = async () => {
+    const processList = (raw: any[]) => {
+      const formatted = raw.map((e: any) => {
+        const rawName = e.name || e.fullName || `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.userId?.name || 'Employee';
+        const name = formatTitleCase(rawName);
+        const dept = e.department || e.departmentName || e.departmentId?.name || (e.role === 'companyadmin' || e.role === 'admin' ? 'Administration' : e.role || '');
+        return {
+          ...e,
+          id: e.id || e._id || e.userId?._id,
+          _id: e._id || e.id || e.userId?._id,
+          name,
+          department: dept,
+          role: e.role || 'Staff',
+          label: dept ? `${name} (${dept})` : `${name} (${e.role || 'Staff'})`,
+        };
+      });
+      return formatted.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+    };
+
     try {
       const res = await api.get('/api/assignable-users');
       const list = Array.isArray(res?.data)
         ? res.data
         : Array.isArray(res?.users)
-        ? res.users
-        : Array.isArray(res)
-        ? res
-        : [];
+          ? res.users
+          : Array.isArray(res)
+            ? res
+            : [];
       if (list.length > 0) {
-        setEmployees(list);
+        setEmployees(processList(list));
         return;
       }
-    } catch (_) {}
+    } catch (_) { }
 
     try {
       const res = await api.get('/api/company/employees?limit=1000&module=leads');
@@ -570,8 +596,9 @@ export default function Leads() {
           return true;
         })
         .map((e: any) => {
-          const deptName = e.departmentId?.name || '';
-          const name = e.fullName || `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.userId?.name || 'Employee';
+          const deptName = e.departmentId?.name || e.departmentName || '';
+          const rawName = e.fullName || `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.userId?.name || 'Employee';
+          const name = formatTitleCase(rawName);
           return {
             id: e.userId?._id || e._id,
             _id: e.userId?._id || e._id,
@@ -581,8 +608,8 @@ export default function Leads() {
             label: deptName ? `${name} (${deptName})` : `${name} (${e.role || 'Staff'})`,
           };
         });
-      setEmployees(mapped);
-    } catch (_) {}
+      setEmployees(processList(mapped));
+    } catch (_) { }
   };
 
   const fetchPublicToken = async () => {
@@ -648,7 +675,7 @@ export default function Leads() {
           statusCounts: res.statusCounts || {},
         });
       }
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const fetchStatuses = async () => {
@@ -864,12 +891,12 @@ export default function Leads() {
       const safeLeads = Array.isArray(res)
         ? res
         : Array.isArray(res?.data)
-        ? res.data
-        : Array.isArray(res?.leads)
-        ? res.leads
-        : Array.isArray(res?.data?.leads)
-        ? res.data.leads
-        : [];
+          ? res.data
+          : Array.isArray(res?.leads)
+            ? res.leads
+            : Array.isArray(res?.data?.leads)
+              ? res.data.leads
+              : [];
 
       setLeads(safeLeads);
       setPagination(res?.pagination || res?.data?.pagination || { page, limit: 20, total: safeLeads.length, totalPages: 1 });
@@ -1024,7 +1051,7 @@ export default function Leads() {
         nextFollowUpDate: '', estimatedValue: '',
         assignedTo: '', assignedToUserIds: [], tagIds: []
       });
-      
+
       // Auto-reset active search & filters so newly created lead is immediately displayed!
       setSearch('');
       setSelectedStatusId('');
@@ -1217,12 +1244,12 @@ export default function Leads() {
 
   return (
     <div className="animate-fadeIn space-y-2.5 max-w-[1440px] mx-auto pt-0 pb-8 font-sans text-slate-900 dark:text-slate-100">
-      
+
       {/* ── Page Header (Ultra-Compact SaaS Header) ────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-0.5">
         <div>
           <h1 className="text-lg sm:text-xl font-extrabold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            Contacts & Leads Pipeline
+            All Leads
           </h1>
           <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
             Manage customer profiles, lead stages, tags, and automated workflows
@@ -1231,26 +1258,26 @@ export default function Leads() {
 
         <div className="flex flex-wrap items-center gap-1.5 relative z-30">
           {canAccessMapLeads && (
-            <button 
+            <button
               type="button"
-              onClick={() => setShowMapPlacesModal(true)} 
+              onClick={() => setShowMapPlacesModal(true)}
               className="flex items-center gap-1 px-2.5 h-7.5 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/80 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
             >
               <MapPin size={12} className="text-blue-600 dark:text-blue-400" /> Map Leads
             </button>
           )}
 
-          <button 
+          <button
             type="button"
-            onClick={() => setShowManageProductsModal(true)} 
+            onClick={() => setShowManageProductsModal(true)}
             className="flex items-center gap-1 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
             <Package size={12} className="text-amber-500" /> Products & Services ({products.length})
           </button>
 
-          <button 
+          <button
             type="button"
-            onClick={() => { setImportStep(1); setShowImportModal(true); }} 
+            onClick={() => { setImportStep(1); setShowImportModal(true); }}
             className="flex items-center gap-1 px-2.5 h-7.5 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-bold transition-all shadow-2xs cursor-pointer shrink-0"
           >
             <Upload size={12} className="text-slate-400" /> Import Leads
@@ -1263,10 +1290,10 @@ export default function Leads() {
           >
             <Share2 size={12} className="text-amber-500" /> Share Form Link
           </button>
-          
-          <button 
+
+          <button
             type="button"
-            onClick={() => setShowAddModal(true)} 
+            onClick={() => setShowAddModal(true)}
             className="flex items-center gap-1.5 px-3 h-7.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all shrink-0 cursor-pointer"
           >
             <UserPlus size={13} strokeWidth={2.5} /> Add New Lead
@@ -1279,13 +1306,13 @@ export default function Leads() {
         <KPICard label="Total Contacts" value={leadStats.totalContacts || pagination.total || leads.length} trend="Live" isUp period="database" strokeColor="#EAB308" Icon={Users} iconBg="bg-amber-500/10" iconColor="#D97706" />
         <KPICard label="WhatsApp Leads" value={leadStats.optedInCount} trend="Verified" isUp period="database" strokeColor="#10B981" Icon={CheckCircle} iconBg="bg-emerald-500/10" iconColor="#059669" />
         <KPICard label="New Inquiries" value={leadStats.newLeadsCount} trend="Recent" isUp period="database" strokeColor="#06B6D4" Icon={UserPlus} iconBg="bg-cyan-500/10" iconColor="#0891B2" />
-        <KPICard label="Pipeline Stages" value={leadStats.pipelineStagesCount || (Array.isArray(statuses) ? statuses.length : 5)} trend="Active" isUp period="configured" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
+        <KPICard label=" Stages" value={leadStats.pipelineStagesCount || (Array.isArray(statuses) ? statuses.length : 5)} trend="Active" isUp period="configured" strokeColor="#8B5CF6" Icon={Sparkles} iconBg="bg-purple-500/10" iconColor="#7C3AED" />
         <KPICard label="Active Tags" value={leadStats.activeTagsCount || (Array.isArray(tags) ? tags.length : 0)} trend="Labels" isUp period="registry" strokeColor="#F43F5E" Icon={Tag} iconBg="bg-rose-500/10" iconColor="#E11D48" />
       </div>
 
       {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER (Compact) ──────────────── */}
       <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl p-2 sm:p-2.5 space-y-2 shadow-2xs">
-        
+
         {/* ── Row 1: Time Boundary Date Pill Tabs + View Switcher ───────────── */}
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
           <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar flex-1 min-w-0">
@@ -1298,11 +1325,10 @@ export default function Leads() {
                     setActiveTab(tabName);
                     setSelectedStatusId("");
                   }}
-                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
-                    isActive
-                      ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                      : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-                  }`}
+                  className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${isActive
+                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+                    }`}
                 >
                   <span>{tabName}</span>
                 </button>
@@ -1315,55 +1341,50 @@ export default function Leads() {
             <button
               onClick={() => setViewMode("cards")}
               title="Grid Cards View"
-              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === "cards"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
             >
               <LayoutGrid size={12} /> <span>Cards</span>
             </button>
             <button
               onClick={() => setViewMode("kanban")}
               title="Kanban Board View"
-              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === "kanban"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "kanban"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
             >
               <Kanban size={12} /> <span>Kanban</span>
             </button>
             <button
               onClick={() => setViewMode("list")}
               title="Table List View"
-              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                viewMode === "list"
-                  ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
-                  : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-              }`}
+              className={`flex items-center justify-center gap-1 px-2 h-6 rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "list"
+                ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                }`}
             >
               <List size={12} /> <span>List</span>
             </button>
           </div>
         </div>
 
-        {/* ── Row 2: Pipeline Status Filter Pills ───────────────────────────── */}
+        {/* ── Row 2:  Status Filter Pills ───────────────────────────── */}
         <div className="flex items-center gap-1 overflow-x-auto hide-scrollbar pt-1.5 border-t border-slate-100 dark:border-slate-800">
           <button
             onClick={() => setSelectedStatusId("")}
-            className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
-              !selectedStatusId
-                ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-            }`}
+            className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${!selectedStatusId
+              ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
+              : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
+              }`}
           >
             <span>All Contacts</span>
-            <span className={`px-1 py-0.1 rounded text-[9px] font-black ${
-              !selectedStatusId
-                ? "bg-white/20 text-white"
-                : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-            }`}>
+            <span className={`px-1 py-0.1 rounded text-[9px] font-black ${!selectedStatusId
+              ? "bg-white/20 text-white"
+              : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+              }`}>
               {totalLeadsCount}
             </span>
           </button>
@@ -1379,18 +1400,16 @@ export default function Leads() {
               <button
                 key={st.id}
                 onClick={() => setSelectedStatusId(prev => prev === st.id ? "" : st.id)}
-                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
-                  isSelected
-                    ? chipCfg.pillActive
-                    : chipCfg.pillInactive
-                }`}
+                className={`px-2 py-0.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${isSelected
+                  ? chipCfg.pillActive
+                  : chipCfg.pillInactive
+                  }`}
               >
                 <span>{st.name}</span>
-                <span className={`px-1 py-0.1 rounded text-[9px] font-black ${
-                  isSelected
-                    ? chipCfg.badgeActive
-                    : chipCfg.badgeInactive
-                }`}>
+                <span className={`px-1 py-0.1 rounded text-[9px] font-black ${isSelected
+                  ? chipCfg.badgeActive
+                  : chipCfg.badgeInactive
+                  }`}>
                   {count}
                 </span>
               </button>
@@ -1400,8 +1419,8 @@ export default function Leads() {
       </div>
 
       {/* ── MAIN WORKSPACE CONTAINER (UNIFIED SAAS CARD FOR TOOLBAR & CONTENT) ── */}
-      <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col overflow-hidden">
-        
+      <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs flex flex-col overflow-visible min-h-[420px]">
+
         {/* Table/Cards Integrated Toolbar Row */}
         <div className="bg-slate-50/70 dark:bg-[#0D1321]/60 border-b border-slate-200/80 dark:border-slate-800 p-2 sm:p-2.5 flex flex-wrap xl:flex-nowrap items-center gap-2">
           <div className="relative flex-1 min-w-[160px] group">
@@ -1431,7 +1450,10 @@ export default function Leads() {
                 onChange={setSelectedAssignee}
                 options={[
                   { value: 'unassigned', label: 'Unassigned Pool' },
-                  ...employees.map(e => ({ value: e.id || e._id, label: e.name }))
+                  ...employees.map(e => ({
+                    value: e.id || e._id,
+                    label: e.label || (e.department ? `${e.name} (${e.department})` : `${e.name} (${e.role || 'Staff'})`)
+                  }))
                 ]}
                 defaultLabel="All Staff"
               />
@@ -1537,11 +1559,10 @@ export default function Leads() {
                         setBulkAssignEmpIds([]);
                         setBulkAssignMenuOpen(false);
                       }}
-                      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${
-                        bulkAssignEmpId === 'unassigned'
-                          ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600'
-                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
-                      }`}
+                      className={`w-full flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-bold transition-colors cursor-pointer ${bulkAssignEmpId === 'unassigned'
+                        ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-600'
+                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'
+                        }`}
                     >
                       <span>-- Unassign Leads --</span>
                     </button>
@@ -1580,11 +1601,10 @@ export default function Leads() {
                                   : [...bulkAssignEmpIds, empId];
                                 setBulkAssignEmpIds(next);
                               }}
-                              className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${
-                                isChecked
-                                  ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
-                                  : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
-                              }`}
+                              className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-xs cursor-pointer transition-colors ${isChecked
+                                ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
+                                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
+                                }`}
                             >
                               <div className="flex items-center gap-1.5 truncate">
                                 <span className="truncate">{emp.name}</span>
@@ -1592,9 +1612,8 @@ export default function Leads() {
                                   <span className="text-[10px] text-slate-400 truncate">({emp.department || emp.role})</span>
                                 )}
                               </div>
-                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
-                                isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
-                              }`}>
+                              <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                }`}>
                                 {isChecked && <Check size={10} strokeWidth={3} />}
                               </div>
                             </button>
@@ -1715,9 +1734,9 @@ export default function Leads() {
             /* ── GRID CARDS VIEW ── */
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2.5 p-2.5">
               {leads.map(lead => (
-                <ContactCard 
-                  key={lead.id} 
-                  lead={lead} 
+                <ContactCard
+                  key={lead.id}
+                  lead={lead}
                   isSelected={checkedIds.has(lead.id)}
                   onToggleSelect={() => toggleOne(lead.id)}
                   onClick={() => setSelectedLeadId(lead.id)}
@@ -1730,10 +1749,10 @@ export default function Leads() {
               ))}
             </div>
           ) : viewMode === "kanban" ? (
-            /* ── KANBAN PIPELINE BOARD VIEW ── */
+            /* ── KANBAN  BOARD VIEW ── */
             <div className="flex overflow-x-auto gap-3 p-3 custom-scrollbar snap-x">
               {(Array.isArray(statuses) ? statuses : []).map(status => {
-                const stageLeads = (Array.isArray(leads) ? leads : []).filter(l => 
+                const stageLeads = (Array.isArray(leads) ? leads : []).filter(l =>
                   (l.statusId && (String(l.statusId) === String(status.id) || String(l.statusId) === String(status._id))) ||
                   (l.status?.id && String(l.status.id) === String(status.id)) ||
                   (l.status?._id && String(l.status._id) === String(status.id)) ||
@@ -1757,9 +1776,9 @@ export default function Leads() {
                         </div>
                       ) : (
                         stageLeads.map(lead => (
-                          <ContactCard 
-                            key={lead.id} 
-                            lead={lead} 
+                          <ContactCard
+                            key={lead.id}
+                            lead={lead}
                             isSelected={checkedIds.has(lead.id)}
                             onToggleSelect={() => toggleOne(lead.id)}
                             onClick={() => setSelectedLeadId(lead.id)}
@@ -1778,7 +1797,7 @@ export default function Leads() {
             </div>
           ) : (
             /* ── ENTERPRISE COMPACT TABLE LIST VIEW ── */
-            <div className="overflow-x-auto custom-scrollbar">
+            <div className="overflow-x-auto custom-scrollbar min-h-[300px]">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50/90 dark:bg-slate-900/80 border-b border-slate-200/80 dark:border-slate-800 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 dark:text-slate-500 select-none">
@@ -1788,7 +1807,7 @@ export default function Leads() {
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">Contact Name</th>
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">WhatsApp Number</th>
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">Assigned Rep</th>
-                    <th className="px-2.5 py-2 font-bold whitespace-nowrap">Pipeline Stage</th>
+                    <th className="px-2.5 py-2 font-bold whitespace-nowrap"> Stage</th>
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">Product Interest</th>
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">Source</th>
                     <th className="px-2.5 py-2 font-bold whitespace-nowrap">Date Added</th>
@@ -1797,18 +1816,17 @@ export default function Leads() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
                   {leads.map(lead => (
-                    <tr 
-                      key={lead.id} 
-                      onClick={() => setSelectedLeadId(lead.id)} 
-                      className={`hover:bg-amber-500/[0.03] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/60 ${
-                        checkedIds.has(lead.id) ? "bg-amber-500/5 dark:bg-amber-500/10" : ""
-                      }`}
+                    <tr
+                      key={lead.id}
+                      onClick={() => setSelectedLeadId(lead.id)}
+                      className={`hover:bg-amber-500/[0.03] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group border-b border-slate-100 dark:border-slate-800/60 ${checkedIds.has(lead.id) ? "bg-amber-500/5 dark:bg-amber-500/10" : ""
+                        }`}
                     >
                       <td className="px-2.5 py-1.5" onClick={e => e.stopPropagation()}>
-                        <input 
-                          type="checkbox" 
-                          checked={checkedIds.has(lead.id)} 
-                          onChange={() => toggleOne(lead.id)} 
+                        <input
+                          type="checkbox"
+                          checked={checkedIds.has(lead.id)}
+                          onChange={() => toggleOne(lead.id)}
                           className="rounded accent-amber-500 cursor-pointer"
                         />
                       </td>
@@ -1824,8 +1842,8 @@ export default function Leads() {
                             {lead.tags && lead.tags.length > 0 && (
                               <div className="flex flex-wrap gap-0.5 mt-0.5">
                                 {lead.tags.map((tag: any) => (
-                                  <span 
-                                    key={tag.id} 
+                                  <span
+                                    key={tag.id}
                                     className="inline-flex items-center gap-0.5 px-1 py-0 rounded text-[8.5px] font-bold border"
                                     style={{
                                       backgroundColor: `${tag.color || '#D97706'}15`,
@@ -1852,8 +1870,8 @@ export default function Leads() {
                           const assignees: any[] = Array.isArray(lead.assignedToUsers) && lead.assignedToUsers.length > 0
                             ? lead.assignedToUsers
                             : lead.assignedTo
-                            ? [lead.assignedTo]
-                            : [];
+                              ? [lead.assignedTo]
+                              : [];
                           if (assignees.length === 0) {
                             return (
                               <span className="inline-flex items-center gap-1 text-[10px] font-medium text-slate-400 bg-slate-50 dark:bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-200/60 dark:border-slate-800">
@@ -1934,8 +1952,8 @@ export default function Leads() {
 
                       <td className="px-3 py-1.5 text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1">
-                          <button 
-                            onClick={() => setSelectedLeadId(lead.id)} 
+                          <button
+                            onClick={() => setSelectedLeadId(lead.id)}
                             className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-slate-700 dark:text-slate-300 rounded text-[11px] font-bold transition-all shadow-2xs cursor-pointer inline-flex items-center gap-1"
                           >
                             <Eye size={11} /> Open
@@ -1962,19 +1980,19 @@ export default function Leads() {
         {pagination.totalPages > 1 && (
           <div className="bg-slate-50/70 dark:bg-[#0D1321]/60 px-3 py-2 border-t border-slate-200/80 dark:border-slate-800 flex justify-between items-center text-xs text-slate-500 dark:text-slate-400 font-medium">
             <span>Showing <span className="font-bold text-slate-900 dark:text-white">{leads.length}</span> of <span className="font-bold text-slate-900 dark:text-white">{pagination.total}</span> contacts</span>
-            
+
             <div className="flex items-center gap-1.5">
-              <button 
-                disabled={pagination.page === 1} 
-                onClick={() => fetchLeads(pagination.page - 1)} 
+              <button
+                disabled={pagination.page === 1}
+                onClick={() => fetchLeads(pagination.page - 1)}
                 className="p-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
               >
                 <ChevronLeft size={13} />
               </button>
               <span className="font-bold text-slate-700 dark:text-slate-300 text-[11px]">{pagination.page} / {pagination.totalPages}</span>
-              <button 
-                disabled={pagination.page === pagination.totalPages} 
-                onClick={() => fetchLeads(pagination.page + 1)} 
+              <button
+                disabled={pagination.page === pagination.totalPages}
+                onClick={() => fetchLeads(pagination.page + 1)}
                 className="p-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#111C24] disabled:opacity-40 cursor-pointer"
               >
                 <ChevronRight size={13} />
@@ -2009,9 +2027,9 @@ export default function Leads() {
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 type="button"
-                onClick={handleCloseAddModal} 
+                onClick={handleCloseAddModal}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
                 <X size={16} />
@@ -2207,17 +2225,17 @@ export default function Leads() {
                 {/* Divider */}
                 <div className="border-t border-dashed border-slate-200 dark:border-slate-800/80 mx-4" />
 
-                {/* ── Section 3: Pipeline & Assignment ──────────────────── */}
+                {/* ── Section 3:  & Assignment ──────────────────── */}
                 <div className="px-4 pt-3 pb-3">
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500 flex items-center gap-1.5 mb-3">
                     <Layers size={12} strokeWidth={2.5} />
-                    Pipeline Stage & Assignment
+                    Stage & Assignment
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <label className="text-[10.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wider">
-                          Pipeline Status
+                          Status
                         </label>
                         <button
                           type="button"
@@ -2345,16 +2363,14 @@ export default function Leads() {
                                           assignedTo: updated[0] || '',
                                         }));
                                       }}
-                                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${
-                                        isChecked
-                                          ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
-                                          : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
-                                      }`}
+                                      className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition-colors cursor-pointer ${isChecked
+                                        ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-900 dark:text-amber-200 font-bold'
+                                        : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-medium'
+                                        }`}
                                     >
                                       <div className="flex items-center gap-2 truncate">
-                                        <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${
-                                          isChecked ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                        }`}>
+                                        <div className={`w-4.5 h-4.5 rounded-full flex items-center justify-center text-[9px] font-black shrink-0 ${isChecked ? 'bg-amber-500 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                          }`}>
                                           {(emp.name || 'S').charAt(0).toUpperCase()}
                                         </div>
                                         <span className="truncate">{emp.name}</span>
@@ -2362,9 +2378,8 @@ export default function Leads() {
                                           <span className="text-[9.5px] text-slate-400 truncate">({emp.department || emp.role})</span>
                                         )}
                                       </div>
-                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
-                                        isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
-                                      }`}>
+                                      <div className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${isChecked ? 'bg-amber-500 border-amber-500 text-white' : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                        }`}>
                                         {isChecked && <Check size={10} strokeWidth={3} />}
                                       </div>
                                     </button>
@@ -2460,16 +2475,16 @@ export default function Leads() {
 
               {/* Action Buttons */}
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={handleCloseAddModal} 
+                <button
+                  type="button"
+                  onClick={handleCloseAddModal}
                   className="px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/80 font-extrabold text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
-                <button 
-                  type="submit" 
-                  disabled={savingLead} 
+                <button
+                  type="submit"
+                  disabled={savingLead}
                   className="px-6 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-extrabold shadow-lg shadow-amber-600/20 flex items-center justify-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
                 >
                   {savingLead ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
@@ -2492,7 +2507,7 @@ export default function Leads() {
               </h3>
               <button onClick={() => setShowShareModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer"><X size={16} /></button>
             </div>
-            
+
             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
               Anyone with this link can submit new leads directly into your database.
             </p>
@@ -2599,7 +2614,7 @@ export default function Leads() {
           <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl w-full max-w-sm overflow-hidden animate-slideUp">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 dark:border-slate-800">
               <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
-                <Zap size={16} className="text-amber-500" /> Add Pipeline Status
+                <Zap size={16} className="text-amber-500" /> Add  Status
               </h3>
               <button onClick={() => setShowQuickAddStatus(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer">
                 <X size={16} />
@@ -2785,9 +2800,9 @@ export default function Leads() {
                   </p>
                 </div>
               </div>
-              <button 
+              <button
                 type="button"
-                onClick={() => setShowManageProductsModal(false)} 
+                onClick={() => setShowManageProductsModal(false)}
                 className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
               >
                 <X size={16} />

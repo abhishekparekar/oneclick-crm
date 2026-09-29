@@ -32,7 +32,7 @@ const ALL_MODULES = [
   { key: "payroll",     label: "Payroll & Salary",       icon: "cash-outline",         color: "#8B5CF6" },
   { key: "tasks",       label: "Task Management",        icon: "checkbox-outline",     color: "#F59E0B" },
   { key: "projects",    label: "Project Workspace",      icon: "folder-open-outline",  color: "#3B82F6" },
-  { key: "leads",       label: "Leads Engine & CRM",     icon: "magnet-outline",       color: "#EC4899" },
+  { key: "leads",       label: "Lead",                   icon: "magnet-outline",       color: "#EC4899" },
   { key: "map_leads",   label: "Map Leads Finder",       icon: "map-outline",          color: "#0284C7" },
   { key: "reports",     label: "Analytics & Reports",    icon: "stats-chart-outline",  color: "#6366F1" },
   { key: "whatsapp",    label: "WhatsApp Automation",    icon: "logo-whatsapp",        color: "#25D366" },
@@ -44,7 +44,7 @@ const ALL_MODULES = [
 
 const MODULE_CAPS = [
   { key: "tasks",      label: "Tasks Seat Cap",      color: "#F59E0B" },
-  { key: "leads",      label: "Leads Seat Cap",      color: "#EC4899" },
+  { key: "leads",      label: "Lead Seat Cap",       color: "#EC4899" },
   { key: "map_leads",  label: "Map Leads Seat Cap",  color: "#0284C7" },
   { key: "attendance", label: "Attendance Seat Cap", color: "#10B981" },
   { key: "leave",      label: "Leaves Seat Cap",     color: "#06B6D4" },
@@ -439,7 +439,7 @@ const SubscriptionPlansScreen = ({ navigation }) => {
 
         {/* Entitled Modules Chips */}
         <View style={styles.modulesSection}>
-          <Text style={styles.sectionMiniTitle}>ENTITLED SUITE MODULES ({planMods.length})</Text>
+          <Text style={styles.sectionMiniTitle}>FEATURES & MODULES ({planMods.length})</Text>
           <View style={styles.modulesWrap}>
             {planMods.map((modKey) => {
               const found = ALL_MODULES.find((m) => m.key === modKey);
@@ -761,10 +761,10 @@ const SubscriptionPlansScreen = ({ navigation }) => {
                   numberOfLines={3}
                 />
 
-                {/* Section 4: 12 Entitled Suite Modules */}
+                {/* Section 4: Features & Modules */}
                 <View style={styles.moduleSectionHeader}>
                   <Text style={styles.formSectionTitle}>
-                    4. ENTITLED SUITE MODULES ({form.modules?.length || 0}/12)
+                    4. FEATURES & MODULES ({form.modules?.length || 0}/12)
                   </Text>
                   <View style={styles.moduleQuickBtns}>
                     <TouchableOpacity onPress={handleSelectAllModules}>

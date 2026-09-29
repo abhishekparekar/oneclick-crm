@@ -85,7 +85,7 @@ const SuperAdminSupportTickets = () => {
     <div className="space-y-3 w-full pb-10">
       <div>
         <h1 className="text-3xl font-bold text-sa-text">Support Tickets</h1>
-        <p className="text-base text-sa-text-secondary mt-1">Manage global support requests from tenant admins.</p>
+        <p className="text-base text-sa-text-secondary mt-1">Manage support requests from company admins.</p>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

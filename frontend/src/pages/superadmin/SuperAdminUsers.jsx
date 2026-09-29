@@ -273,7 +273,7 @@ const SuperAdminUsers = () => {
       )
     },
     {
-      header: "Tenant Workspace",
+      header: "Company",
       accessor: "company",
       render: (row) => (
         <div className="py-1">
@@ -282,7 +282,7 @@ const SuperAdminUsers = () => {
               onClick={() => navigate(`/superadmin/companies/${row.companyId?._id || row.companyId}`)}
               className="text-xs font-black text-sa-text hover:text-[#f59e0b] transition-colors cursor-pointer inline-flex items-center gap-1 leading-tight"
             >
-              <span>{row.companyId?.companyName || "Assigned Workspace"}</span>
+              <span>{row.companyId?.companyName || "Assigned Company"}</span>
               <ExternalLink size={11} className="text-[#f59e0b] opacity-70" />
             </span>
           ) : (
@@ -370,13 +370,13 @@ const SuperAdminUsers = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Global Identity & Access Management</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Audit user accounts, enforce security policies, manage tenant credentials, and control session lifecycles.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Users Management</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">View all registered users across companies, manage login status, and update accounts.</p>
         </div>
         <div className="flex items-center space-x-2">
           <span className="px-3 py-1.5 rounded-xl bg-sa-surface border border-sa-border/30 text-xs font-extrabold text-sa-text flex items-center gap-1.5">
             <Lock size={13} className="text-[#f59e0b]" />
-            <span>Multi-Tenant Auth Grid</span>
+            <span>Global User Accounts</span>
           </span>
         </div>
       </div>
@@ -384,9 +384,9 @@ const SuperAdminUsers = () => {
       {/* Identity & Access KPI Row (5 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <UserKpiCard 
-          title="Total Platform Users" 
+          title="Total Users" 
           count={totalUsers} 
-          subtitle="All identity records" 
+          subtitle="All registered accounts" 
           icon={Users} 
           grad={["#d97706", "#f59e0b"]} 
           active={statusFilter === "all" && roleFilter === "all"} 
@@ -404,25 +404,25 @@ const SuperAdminUsers = () => {
         <UserKpiCard 
           title="Suspended / Locked" 
           count={suspendedUsers} 
-          subtitle="Access revoked" 
+          subtitle="Account locked / suspended" 
           icon={Ban} 
           grad={["#b45309", "#06B6D4"]} 
           active={statusFilter === "inactive"} 
           onClick={() => setStatusFilter("inactive")} 
         />
         <UserKpiCard 
-          title="Tenant Company Admins" 
+          title="Company Admins" 
           count={companyAdmins} 
-          subtitle="Supervisors & owners" 
+          subtitle="Company administrators" 
           icon={Shield} 
           grad={["#d97706", "#fbbf24"]} 
           active={roleFilter === "CompanyAdmin"} 
           onClick={() => setRoleFilter("CompanyAdmin")} 
         />
         <UserKpiCard 
-          title="Standard Employee / HR" 
+          title="Employees &amp; HR" 
           count={standardUsers} 
-          subtitle="Regular workforce" 
+          subtitle="Staff members" 
           icon={User} 
           grad={["#f59e0b", "#06B6D4"]} 
           active={roleFilter === "standard"} 
@@ -447,7 +447,7 @@ const SuperAdminUsers = () => {
             value={companyFilter}
             onChange={setCompanyFilter}
             options={[
-              { label: "All Tenant Companies", value: "all" },
+              { label: "All Companies", value: "all" },
               ...companies.map(c => ({ label: c.companyName, value: c._id }))
             ]}
             buttonClassName="!py-2 !px-3.5 !rounded-xl !bg-sa-bg/60 !w-full"
@@ -517,11 +517,11 @@ const SuperAdminUsers = () => {
             {/* Modal Content */}
             <div className="p-4 sm:p-5 space-y-3.5 sm:space-y-4 overflow-y-auto max-h-[80vh] hide-scrollbar">
               
-              {/* Section 1: Tenant Workspace Identity */}
+              {/* Section 1: Company Details */}
               <div className="space-y-3">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border/30 pb-2 flex items-center gap-1.5">
                   <Building2 size={14} className="text-[#f59e0b]" />
-                  <span>Assigned Tenant & Contact Details</span>
+                  <span>Company &amp; Contact Details</span>
                 </h4>
                 <div className="grid grid-cols-2 gap-3 bg-sa-bg/60 p-4 rounded-xl border border-sa-border/30">
                   <div>
@@ -543,11 +543,11 @@ const SuperAdminUsers = () => {
                 </div>
               </div>
 
-              {/* Section 2: Security & Session Control Action Grid */}
+              {/* Section 2: Security & Password Action Grid */}
               <div className="space-y-3">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border/30 pb-2 flex items-center gap-1.5">
                   <Lock size={14} className="text-[#06B6D4]" />
-                  <span>Security Enforcement & Session Control</span>
+                  <span>Account Security &amp; Password Actions</span>
                 </h4>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button 

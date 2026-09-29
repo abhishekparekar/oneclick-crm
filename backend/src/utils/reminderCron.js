@@ -3,7 +3,8 @@ const Employee = require("../models/Employee");
 const Attendance = require("../models/Attendance");
 const Task = require("../models/Task");
 const Company = require("../models/Company");
-const { notifyUser, notifyRole } = require("./notificationHelper");
+const { notifyUser, notifyRole, notifyManyUsers, notifyTaskAll, resolveToUserIds } = require("./notificationHelper");
+const { formatISTDateTime } = require("./dateParser");
 const calculateProfileCompletion = require("./calculateProfileCompletion");
 
 // Helper to determine string format for date (YYYY-MM-DD)
@@ -157,9 +158,9 @@ const initCronJobs = () => {
     try {
       const now = new Date();
       const Lead = require("../models/Lead");
-      const Employee = require("../models/Employee");
-      // Find leads whose scheduled nextFollowUpDate is <= now and has not been notified yet
+      // Find leads whose scheduled nextFollowUpDate is <= now and has not been notified yet (strict companyId isolation)
       const dueLeads = await Lead.find({
+        companyId: { $ne: null },
         nextFollowUpDate: { $lte: now, $ne: null },
         followUpNotified: { $ne: true },
         deletedAt: null,
@@ -167,42 +168,86 @@ const initCronJobs = () => {
 
       for (const lead of dueLeads) {
         const contact = lead.phone || lead.whatsappPhone || "No phone";
-        const timeStr = new Date(lead.nextFollowUpDate).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Kolkata" });
-        const dateStr = new Date(lead.nextFollowUpDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", timeZone: "Asia/Kolkata" });
+        const { timeStr, dateStr } = formatISTDateTime(lead.nextFollowUpDate);
 
         const title = `⏰ Lead Follow-up Reminder: ${lead.name}`;
         const message = `Follow-up scheduled at ${timeStr}, ${dateStr} with client ${lead.name} (${contact}).`;
 
-        // Resolve user ID (handling case where assignedTo might be an Employee or User ID)
-        let rawTargetId = lead.assignedTo?._id || lead.assignedTo || lead.createdBy;
-        let targetUserId = rawTargetId;
-        let companyId = lead.companyId;
+        const companyId = lead.companyId?._id || lead.companyId;
+        const candidateIds = [
+          lead.assignedTo,
+          ...(Array.isArray(lead.assignedToUsers) ? lead.assignedToUsers : []),
+          lead.createdBy,
+        ].filter(Boolean);
 
-        if (rawTargetId) {
-          const emp = await Employee.findById(rawTargetId).select("userId companyId");
-          if (emp && emp.userId) {
-            targetUserId = emp.userId;
-            if (!companyId) companyId = emp.companyId;
-          }
-        }
+        const targetUserIds = await resolveToUserIds(candidateIds, companyId);
 
-        if (targetUserId && companyId) {
-          await notifyUser(
-            targetUserId,
+        if (targetUserIds.length > 0 && companyId) {
+          const timeEpoch = new Date(lead.nextFollowUpDate).getTime();
+          await notifyManyUsers(
+            targetUserIds,
             companyId,
             title,
             message,
             "lead_follow_up",
-            { leadId: lead._id.toString(), leadName: lead.name }
+            { leadId: lead._id.toString(), leadName: lead.name },
+            `lead_followup_${lead._id.toString()}_${timeEpoch}`
           ).catch((e) => console.error("[Lead follow-up notify error]:", e));
         }
 
-        // Mark as notified so notification isn't resent every minute
-        lead.followUpNotified = true;
-        await lead.save().catch(() => {});
+        // Mark as notified so notification isn't resent
+        await Lead.findByIdAndUpdate(lead._id, { $set: { followUpNotified: true } }).catch(() => {});
       }
     } catch (err) {
       console.error("Cron Error (Lead follow-up reminder):", err);
+    }
+  }, { timezone: "Asia/Kolkata" });
+
+  // 7. Task Scheduled Follow-up Reminder (Runs every minute)
+  cron.schedule("* * * * *", async () => {
+    try {
+      const now = new Date();
+      const Task = require("../models/Task");
+      // Find tasks whose scheduled nextFollowUpDate is <= now and has not been notified yet (strict companyId isolation)
+      const dueTasks = await Task.find({
+        companyId: { $ne: null },
+        nextFollowUpDate: { $lte: now, $ne: null },
+        followUpNotified: { $ne: true },
+        status: { $nin: ["complete", "completed", "done", "late_complete", "re_complete", "cancelled"] },
+      }).populate("assignedTo", "firstName lastName name email");
+
+      for (const task of dueTasks) {
+        const { timeStr, dateStr } = formatISTDateTime(task.nextFollowUpDate);
+
+        const title = `⏰ Task Follow-up Reminder: ${task.title}`;
+        const message = `Follow-up scheduled at ${timeStr}, ${dateStr} for task "${task.title}".`;
+
+        const companyId = task.companyId?._id || task.companyId;
+        if (companyId) {
+          const timeEpoch = new Date(task.nextFollowUpDate).getTime();
+          await notifyTaskAll(
+            companyId,
+            task.assignedTo || [],
+            task.departmentId || null,
+            title,
+            message,
+            "task_follow_up",
+            { taskId: task._id.toString(), taskTitle: task.title },
+            {
+              assigneeTitle: title,
+              assigneeBody: message,
+              supervisorTitle: `⏰ Team Follow-up Alert: ${task.title}`,
+              supervisorBody: `Scheduled task follow-up at ${timeStr}, ${dateStr} for "${task.title}".`,
+              customKeyPrefix: `task_followup_${task._id.toString()}_${timeEpoch}`
+            }
+          ).catch((e) => console.error("[Task follow-up notify error]:", e));
+        }
+
+        // Mark as notified
+        await Task.findByIdAndUpdate(task._id, { $set: { followUpNotified: true } }).catch(() => {});
+      }
+    } catch (err) {
+      console.error("Cron Error (Task follow-up reminder):", err);
     }
   }, { timezone: "Asia/Kolkata" });
 };

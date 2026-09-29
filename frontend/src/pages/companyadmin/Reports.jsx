@@ -37,7 +37,8 @@ import {
   PhoneCall, FolderKanban, DollarSign, Layers,
   Lock, HelpCircle, ExternalLink, RotateCcw,
   Zap, Scale, Timer, CheckCheck,
-  Briefcase, ThumbsUp, ThumbsDown, Flame, UserCheck, UserX
+  Briefcase, ThumbsUp, ThumbsDown, Flame, UserCheck, UserX,
+  Trophy
 } from "lucide-react";
 
 // ── Design Tokens ─────────────────────────────────────────────────────────────
@@ -56,10 +57,18 @@ const CHART_COLORS = ["#f59e0b", "#3b82f6", "#10b981", "#8b5cf6", "#06b6d4", "#f
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const fmtNumber = (v) => {
   if (v === null || v === undefined) return "0";
+  if (typeof v === "object") {
+    if (v.current !== undefined) return fmtNumber(v.current);
+    if (v.value !== undefined) return fmtNumber(v.value);
+    if (v.total !== undefined) return fmtNumber(v.total);
+    if (v.count !== undefined) return fmtNumber(v.count);
+    return "0";
+  }
   if (typeof v === "string") {
     if (v.startsWith("₹") || v.includes(",") || isNaN(Number(v))) return v;
     v = Number(v);
   }
+  if (isNaN(v)) return "0";
   return new Intl.NumberFormat("en-IN").format(v || 0);
 };
 
@@ -111,19 +120,30 @@ const CustomTooltip = ({ active, payload, label }) => {
 
 // ── Executive KPI Card with Modern Premium Aesthetics ────────────────────────
 const KPICard = ({ label, metric, sub, icon: Icon, color = THEME.amber, isPercentage = false, isCurrency = false, isUp }) => {
-  const current = metric?.current ?? metric ?? 0;
-  const previous = metric?.previous;
-  const pctChange = metric?.percentageChange ?? 0;
-  const trendIsUp = isUp !== undefined ? isUp : (metric?.isUp ?? true);
+  let current = 0;
+  let previous;
+  let pctChange = 0;
+  let trendIsUp = isUp !== undefined ? isUp : true;
+
+  if (metric !== null && metric !== undefined) {
+    if (typeof metric === "object") {
+      current = metric.current ?? metric.value ?? metric.total ?? metric.count ?? 0;
+      previous = metric.previous;
+      pctChange = metric.percentageChange ?? 0;
+      if (metric.isUp !== undefined) trendIsUp = metric.isUp;
+    } else {
+      current = metric;
+    }
+  }
+  if (typeof current === "object") current = 0;
 
   let displayValue;
   if (isPercentage) {
-    displayValue = typeof current === "number" ? `${Math.round(current)}%` : `${current}`;
-    if (!displayValue.endsWith("%")) displayValue += "%";
+    const num = Number(current);
+    displayValue = !isNaN(num) ? `${Math.round(num)}%` : `${current}`;
+    if (!String(displayValue).endsWith("%")) displayValue += "%";
   } else if (isCurrency) {
-    if (typeof current === "number") {
-      displayValue = `₹${fmtNumber(current)}`;
-    } else if (typeof current === "string" && current.startsWith("₹")) {
+    if (typeof current === "string" && current.startsWith("₹")) {
       displayValue = current;
     } else {
       displayValue = `₹${fmtNumber(current)}`;
@@ -160,7 +180,7 @@ const KPICard = ({ label, metric, sub, icon: Icon, color = THEME.amber, isPercen
         className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 shadow-2xs group-hover:scale-105 transition-transform"
         style={{ backgroundColor: `${color}15`, color }}
       >
-        <Icon size={16} strokeWidth={2.2} />
+        {Icon ? <Icon size={16} strokeWidth={2.2} /> : null}
       </div>
     </div>
   );
@@ -221,6 +241,9 @@ export default function Reports() {
   // Tasks Sub-view State
   const [taskSubView, setTaskSubView] = useState("overview"); // "overview" | "workload" | "delayed" | "trends" | "manager"
 
+  // Leads Sub-view State
+  const [leadSubView, setLeadSubView] = useState("overview"); // "overview" | "recent" | "active" | "employee" | "department"
+
   // Performance Sub-view State
   const [perfSubView, setPerfSubView] = useState("members"); // "members" | "departments" | "efficiency" | "rankings"
 
@@ -258,25 +281,36 @@ export default function Reports() {
   const roleLower = (user?.role || "").toLowerCase();
   const isSuperAdmin = roleLower === "superadmin";
   const isCompanyAdmin = roleLower === "companyadmin" || roleLower === "admin";
+  const isHR = roleLower === "hr";
+  const isManager = roleLower === "manager";
 
-  const canAccessLeads = isSuperAdmin || isCompanyAdmin || hasPermission("leads");
-  const canAccessProjects = isSuperAdmin || isCompanyAdmin || hasPermission("projects");
-  const canAccessTasks = isSuperAdmin || isCompanyAdmin || hasPermission("tasks");
-  const canAccessAttendance = isSuperAdmin || hasPermission("attendance");
-  const canAccessLeaves = isSuperAdmin || hasPermission("leave");
-  const canAccessWorkforce = isSuperAdmin || isCompanyAdmin || roleLower === "hr" || roleLower === "manager" || hasPermission("teamMembers") || hasPermission("employees");
-  const canAccessPerformance = isSuperAdmin || isCompanyAdmin || roleLower === "hr" || roleLower === "manager" || hasPermission("performance");
+  const checkPerm = (mod) => {
+    if (isSuperAdmin || isCompanyAdmin || isHR || isManager) return true;
+    try {
+      return typeof hasPermission === "function" ? Boolean(hasPermission(mod)) : true;
+    } catch {
+      return true;
+    }
+  };
+
+  const canAccessLeads = checkPerm("leads");
+  const canAccessProjects = checkPerm("projects");
+  const canAccessTasks = checkPerm("tasks");
+  const canAccessAttendance = checkPerm("attendance");
+  const canAccessLeaves = checkPerm("leave");
+  const canAccessWorkforce = checkPerm("teamMembers") || checkPerm("employees");
+  const canAccessPerformance = checkPerm("performance");
   const canAccessAudit = isSuperAdmin || isCompanyAdmin;
 
-  // Available Tabs list based on permissions (Attendance, Leaves, and Audit Ledger are hidden from this screen)
+  // Available Tabs list based on permissions - Clean, simple, and properly ordered
   const availableTabs = useMemo(() => {
     const list = [
-      { id: "executive", label: "Executive BI", icon: Sparkles, accessible: true },
-      { id: "leads", label: "CRM & Leads", icon: PhoneCall, accessible: canAccessLeads },
-      { id: "projects", label: "Projects", icon: FolderKanban, accessible: canAccessProjects },
-      { id: "tasks", label: "Tasks & Ops", icon: CheckSquare, accessible: canAccessTasks },
-      { id: "workforce", label: "Workforce", icon: Users, accessible: canAccessWorkforce },
-      { id: "performance", label: "Performance", icon: Award, accessible: canAccessPerformance },
+      { id: "executive", label: "Overview", icon: Sparkles, accessible: true },
+      { id: "tasks", label: "Task Report", icon: CheckSquare, accessible: canAccessTasks },
+      { id: "leads", label: "Lead Report", icon: PhoneCall, accessible: canAccessLeads },
+      { id: "projects", label: "Project Report", icon: FolderKanban, accessible: canAccessProjects },
+      { id: "workforce", label: "Team Report", icon: Users, accessible: canAccessWorkforce },
+      { id: "performance", label: "Performance Report", icon: Award, accessible: canAccessPerformance },
     ];
     return list.filter(t => t.accessible);
   }, [canAccessLeads, canAccessProjects, canAccessTasks, canAccessWorkforce, canAccessPerformance]);
@@ -290,13 +324,13 @@ export default function Reports() {
 
   // Master Queries
   const { data: deptRes } = useQuery({ queryKey: ["departments"], queryFn: getDepartmentsApi });
-  const departments = deptRes?.data?.departments || deptRes?.data || [];
+  const departments = Array.isArray(deptRes?.data?.departments) ? deptRes.data.departments : Array.isArray(deptRes?.data) ? deptRes.data : [];
 
   const { data: branchRes } = useQuery({ queryKey: ["branches"], queryFn: getBranchesApi });
-  const branches = branchRes?.data?.branches || branchRes?.data || [];
+  const branches = Array.isArray(branchRes?.data?.branches) ? branchRes.data.branches : Array.isArray(branchRes?.data) ? branchRes.data : [];
 
   const { data: empRes } = useQuery({ queryKey: ["employeesList"], queryFn: () => getEmployeesApi({ limit: 1000 }) });
-  const employees = empRes?.data?.employees || [];
+  const employees = Array.isArray(empRes?.data?.employees) ? empRes.data.employees : Array.isArray(empRes?.data) ? empRes.data : [];
 
   // Tab Reports Queries
   const { data: execRes, isLoading: execLoading, refetch: refetchExec } = useQuery({
@@ -466,15 +500,56 @@ export default function Reports() {
           rows.push([t.title, t.assigneeName, t.priority, t.department, fmtDate(t.dueDate), t.status]);
         });
       } else if (activeTab === "leads" && leadRes) {
-        sheetName = "CRM Leads";
-        rows.push(["CRM & LEADS BUSINESS REPORT"]);
-        rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
-        rows.push([`Total Leads: ${leadRes.kpis?.totalLeads || 0}`, `Converted: ${leadRes.kpis?.convertedLeads || 0}`, `Conversion Rate: ${leadRes.kpis?.conversionRate || 0}%`, `Total Pipeline Value: INR ${(leadRes.kpis?.totalPipelineValue || 0).toLocaleString("en-IN")}`]);
-        rows.push([]);
-        rows.push(["Lead Name", "Phone", "Email", "Status", "Source", "Estimated Value (INR)", "Assigned Agent", "Created Date"]);
-        (leadRes.records || []).forEach(l => {
-          rows.push([l.name, l.phone, l.email, l.status, l.source, l.estimatedValue || 0, l.assignedTo, l.formattedDate]);
-        });
+        if (leadSubView === "recent") {
+          sheetName = "Recent Leads";
+          rows.push(["RECENT INBOUND LEADS REPORT"]);
+          rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+          rows.push([`Total Recent Stream: ${(leadRes.recentLeads || []).length}`]);
+          rows.push([]);
+          rows.push(["Lead Name", "Company", "Phone", "Email", "Source", "Assigned To", "Department", "Value (INR)", "Status", "Inbound Date"]);
+          (leadRes.recentLeads || []).forEach(l => {
+            rows.push([l.name, l.company || "—", l.phone, l.email, l.source, l.assignedTo, l.department || "—", l.estimatedValue || 0, l.status, l.formattedDate]);
+          });
+        } else if (leadSubView === "active") {
+          sheetName = "Active Leads";
+          rows.push(["ACTIVE  DEALS REPORT"]);
+          rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+          rows.push([`Active In-Flight Deals: ${(leadRes.activeLeads || []).length}`, `Active  Value: INR ${(leadRes.kpis?.activePipelineValue || 0).toLocaleString("en-IN")}`]);
+          rows.push([]);
+          rows.push(["Deal / Lead Name", "Company", "Phone", "Email", " Stage", "Assigned Owner", "Department", "Estimated Value (INR)", "Created Date"]);
+          (leadRes.activeLeads || []).forEach(l => {
+            rows.push([l.name, l.company || "—", l.phone, l.email, l.status, l.assignedTo, l.department || "—", l.estimatedValue || 0, l.formattedDate]);
+          });
+        } else if (leadSubView === "employee") {
+          sheetName = "Employee Lead Performance";
+          rows.push(["SALES REPRESENTATIVE & EMPLOYEE PERFORMANCE REPORT"]);
+          rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+          rows.push([`Total Sales Reps: ${(leadRes.employeePerformance || []).length}`, `Overall Conversion: ${leadRes.kpis?.conversionRate || 0}%`, `Total Won Revenue: INR ${(leadRes.kpis?.wonValue || 0).toLocaleString("en-IN")}`]);
+          rows.push([]);
+          rows.push(["Representative Name", "Email", "Department", "Leads Assigned", "Active Deals", "Deals Won", "Deals Lost", "Won Revenue (INR)", " Value (INR)", "Conversion %", "Performance Tier"]);
+          (leadRes.employeePerformance || []).forEach(e => {
+            rows.push([e.name, e.email || "—", e.department, e.assigned, e.active, e.converted, e.lost, e.wonValue || 0, e.pipelineValue || 0, `${e.conversionRate}%`, e.efficiencyTier]);
+          });
+        } else if (leadSubView === "department") {
+          sheetName = "Department Leads";
+          rows.push(["DEPARTMENT-WISE LEAD CONVERSION REPORT"]);
+          rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+          rows.push([]);
+          rows.push(["Department Name", "Total Leads", "Active Deals", "Deals Won", "Deals Lost", "Won Revenue (INR)", " Value (INR)", "Conversion %"]);
+          (leadRes.departmentLeadReport || []).forEach(d => {
+            rows.push([d.department, d.totalLeads, d.activeLeads, d.wonLeads, d.lostLeads, d.wonValue || 0, d.pipelineValue || 0, `${d.conversionRate}%`]);
+          });
+        } else {
+          sheetName = "CRM Leads Overview";
+          rows.push(["CRM & LEADS BUSINESS REPORT"]);
+          rows.push([`Generated Date: ${fmtDate(new Date())}`, `Period: ${dateRange}`]);
+          rows.push([`Total Leads: ${leadRes.kpis?.totalLeads || 0}`, `Converted: ${leadRes.kpis?.convertedLeads || 0}`, `Conversion Rate: ${leadRes.kpis?.conversionRate || 0}%`, `Total  Value: INR ${(leadRes.kpis?.totalPipelineValue || 0).toLocaleString("en-IN")}`]);
+          rows.push([]);
+          rows.push(["Lead Name", "Phone", "Email", "Status", "Source", "Estimated Value (INR)", "Assigned Agent", "Created Date"]);
+          (leadRes.records || []).forEach(l => {
+            rows.push([l.name, l.phone, l.email, l.status, l.source, l.estimatedValue || 0, l.assignedTo, l.formattedDate]);
+          });
+        }
       } else if (activeTab === "projects" && projRes) {
         sheetName = "Projects";
         rows.push(["PROJECT OPERATIONS REPORT"]);
@@ -566,10 +641,10 @@ export default function Reports() {
             </div>
             <div>
               <h1 className="text-sm font-black text-slate-900 dark:text-white tracking-tight flex items-center gap-2">
-                Business Intelligence &amp; Analytics
+                Reports &amp; Analytics
               </h1>
               <p className="text-[11px] text-slate-400 font-medium">
-                Workforce performance, operational analytics, attendance audit &amp; governance
+                Performance, tasks, sales leads, projects, and team reports
               </p>
             </div>
           </div>
@@ -589,11 +664,10 @@ export default function Reports() {
                 <button
                   key={p.id}
                   onClick={() => setDateRange(p.id)}
-                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${
-                    dateRange === p.id
-                      ? "bg-amber-500 text-slate-950 shadow-2xs font-extrabold"
-                      : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-                  }`}
+                  className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer whitespace-nowrap ${dateRange === p.id
+                    ? "bg-amber-500 text-slate-950 shadow-2xs font-extrabold"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+                    }`}
                 >
                   {p.label}
                 </button>
@@ -689,11 +763,10 @@ export default function Reports() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap ${
-                  isActive
-                    ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
-                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
-                }`}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg text-[10.5px] font-extrabold uppercase tracking-wide transition-all cursor-pointer whitespace-nowrap ${isActive
+                  ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                  : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                  }`}
               >
                 <Icon size={12} strokeWidth={2.5} />
                 <span>{tab.label}</span>
@@ -712,227 +785,169 @@ export default function Reports() {
             <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Executive BI...</div>
           ) : execRes ? (
             <>
-              {/* 🟢 5-SECOND BUSINESS HEALTH INTELLIGENCE BANNER */}
-              {execRes.healthIntelligence && (
-                <div className="bg-gradient-to-r from-slate-900 via-[#0B1522] to-slate-900 border border-slate-700/70 rounded-xl p-3 sm:p-3.5 shadow-md text-white">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2.5 border-b border-slate-700/60">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-lg bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
-                        <Sparkles size={18} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h2 className="text-xs font-black uppercase tracking-wider text-slate-100">5-Second Business Intelligence</h2>
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            Live Health
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-medium">Holistic company performance, team execution score &amp; operational velocity</p>
-                      </div>
-                    </div>
-
-                    {/* Health Score Pill */}
-                    <div className="flex items-center gap-2.5 self-start md:self-auto bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700">
-                      <div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest text-right">Business Health</p>
-                        <p className="text-base font-black font-mono text-emerald-400 leading-none text-right">
-                          {execRes.healthIntelligence.businessHealthScore || 0}<span className="text-xs text-slate-400 font-sans font-bold">/100</span>
-                        </p>
-                      </div>
-                      <div className="h-6 w-px bg-slate-700"></div>
-                      <span className={`text-[10px] font-black uppercase px-1.5 py-0.5 rounded ${
-                        (execRes.healthIntelligence.businessHealthScore || 0) >= 80
-                          ? "bg-emerald-500/20 text-emerald-300"
-                          : (execRes.healthIntelligence.businessHealthScore || 0) >= 60
-                          ? "bg-amber-500/20 text-amber-300"
-                          : "bg-rose-500/20 text-rose-300"
-                      }`}>
-                        {(execRes.healthIntelligence.businessHealthScore || 0) >= 80 ? "Optimal" : (execRes.healthIntelligence.businessHealthScore || 0) >= 60 ? "Moderate" : "Attention"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* 5 Instant Metrics */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 pt-2.5">
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Team Performance</p>
-                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.teamPerformanceScore || 0}%</p>
-                      <p className="text-[9px] text-emerald-400 font-semibold">Composite output</p>
-                    </div>
-
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Productivity Score</p>
-                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.productivityScore || 0}%</p>
-                      <p className="text-[9px] text-blue-400 font-semibold">Task/Hours balance</p>
-                    </div>
-
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Avg Completion Time</p>
-                      <p className="text-sm sm:text-base font-black font-mono text-white mt-0.5">{execRes.healthIntelligence.avgTaskCompletionTime || "—"}</p>
-                      <p className="text-[9px] text-slate-400 font-semibold">Turnaround velocity</p>
-                    </div>
-
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">Critical Pending</p>
-                      <p className={`text-sm sm:text-base font-black font-mono mt-0.5 ${(execRes.healthIntelligence.criticalPendingTasks || 0) > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                        {execRes.healthIntelligence.criticalPendingTasks || 0} Tasks
-                      </p>
-                      <p className="text-[9px] text-rose-300 font-semibold">High / urgent</p>
-                    </div>
-
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">⭐ Top Department</p>
-                      <p className="text-xs sm:text-sm font-black text-amber-300 truncate mt-0.5">
-                        {typeof execRes.healthIntelligence.bestDepartment === "object" ? execRes.healthIntelligence.bestDepartment?.name : (execRes.healthIntelligence.bestDepartment || "—")}
-                      </p>
-                      <p className="text-[9px] text-slate-400 font-semibold font-mono">
-                        Top fulfillment
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50">
-                      <p className="text-[9.5px] font-bold text-slate-400 uppercase tracking-wider">⚠️ Needs Attention</p>
-                      <p className="text-xs sm:text-sm font-black text-rose-300 truncate mt-0.5">
-                        {typeof execRes.healthIntelligence.needsAttentionDepartment === "object" ? execRes.healthIntelligence.needsAttentionDepartment?.name : (execRes.healthIntelligence.needsAttentionDepartment || "All On Track")}
-                      </p>
-                      <p className="text-[9px] text-slate-400 font-semibold font-mono">
-                        Review queue
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 🕒 TODAY'S OPERATIONAL PULSE BAR (Owner Daily Health) */}
-              {execRes.todayStats && (
-                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-2.5 sm:p-3 shadow-2xs">
-                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
-                    <div className="flex items-center gap-2">
-                      <Clock size={13} className="text-amber-500" />
-                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
-                        Today's Operational Pulse &amp; Progress
-                      </h3>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400 font-mono">
-                      {fmtDate(new Date())}
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2">
-                    <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15">
-                      <p className="text-[9.5px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wide">Present Today</p>
-                      <p className="text-base font-black font-mono text-emerald-700 dark:text-emerald-300 mt-0.5">{execRes.todayStats.presentToday || 0}</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-rose-500/5 border border-rose-500/15">
-                      <p className="text-[9.5px] font-bold text-rose-700 dark:text-rose-400 uppercase tracking-wide">On Leave</p>
-                      <p className="text-base font-black font-mono text-rose-700 dark:text-rose-300 mt-0.5">{execRes.todayStats.onLeaveToday || 0}</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-blue-500/5 border border-blue-500/15">
-                      <p className="text-[9.5px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wide">Due Today</p>
-                      <p className="text-base font-black font-mono text-blue-700 dark:text-blue-300 mt-0.5">{execRes.todayStats.tasksDueToday || 0}</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-amber-500/5 border border-amber-500/15">
-                      <p className="text-[9.5px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide">Completed Today</p>
-                      <p className="text-base font-black font-mono text-amber-700 dark:text-amber-300 mt-0.5">{execRes.todayStats.completedToday || 0}</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">Today Work %</p>
-                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.todayWorkCompletion || 0}%</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">This Week %</p>
-                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.thisWeekCompletion || 0}%</p>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-slate-100/70 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
-                      <p className="text-[9.5px] font-bold text-slate-600 dark:text-slate-400 uppercase tracking-wide">This Month %</p>
-                      <p className="text-base font-black font-mono text-slate-900 dark:text-white mt-0.5">{execRes.todayStats.thisMonthCompletion || 0}%</p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* 1. Core Executive Pillars (Headline Highlights) */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                <KPICard label="Active Workforce" metric={execRes.kpis?.activeEmployees} icon={Users} color={THEME.emerald} sub={`${execRes.kpis?.totalEmployees?.current ?? execRes.kpis?.totalEmployees ?? 0} Total Staff`} />
-                <KPICard label="Task Delivery Rate" metric={execRes.kpis?.taskCompletionRate} icon={Target} color={THEME.emerald} isPercentage sub={`${execRes.kpis?.completedTasks?.current ?? 0} Completed`} />
+              {/* Top Headline Summary Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <KPICard
+                  label="Total Staff"
+                  metric={execRes.kpis?.totalEmployees}
+                  icon={Users}
+                  color={THEME.emerald}
+                  sub={`${execRes.kpis?.activeEmployees?.current ?? execRes.kpis?.totalEmployees?.current ?? 0} Active Members`}
+                />
+                <KPICard
+                  label="Task Delivery Rate"
+                  metric={execRes.kpis?.taskCompletionRate}
+                  icon={Target}
+                  color={THEME.emerald}
+                  isPercentage
+                  sub={`${execRes.kpis?.completedTasks?.current ?? 0} Completed Tasks`}
+                />
                 {canAccessLeads ? (
-                  <KPICard label="CRM Deal Pipeline" metric={execRes.kpis?.pipelineValue} icon={DollarSign} color={THEME.purple} isCurrency sub={`${execRes.kpis?.totalLeads?.current ?? 0} Active Leads`} />
+                  <KPICard
+                    label="Lead Conversion"
+                    metric={execRes.kpis?.leadConversionRate}
+                    icon={PhoneCall}
+                    color={THEME.blue}
+                    isPercentage
+                    sub={`${execRes.kpis?.totalLeads?.current ?? 0} Total Leads`}
+                  />
                 ) : (
-                  <KPICard label="Attendance Health" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
+                  <KPICard
+                    label="Attendance Rate"
+                    metric={execRes.kpis?.attendanceRate}
+                    icon={CalendarCheck}
+                    color={THEME.cyan}
+                    isPercentage
+                  />
                 )}
                 {canAccessProjects ? (
-                  <KPICard label="Project Delivery" metric={execRes.kpis?.projectDeliveryRate} icon={CheckCircle2} color={THEME.blue} isPercentage sub={`${execRes.kpis?.totalProjects?.current ?? 0} Total Projects`} />
+                  <KPICard
+                    label="Active Projects"
+                    metric={execRes.kpis?.activeProjects}
+                    icon={FolderKanban}
+                    color={THEME.purple}
+                    sub={`${execRes.kpis?.totalProjects?.current ?? 0} Total Projects`}
+                  />
                 ) : (
-                  <KPICard label="Pending Tasks" metric={execRes.kpis?.pendingTasks} icon={Clock} color={THEME.amber} />
+                  <KPICard
+                    label="Pending Tasks"
+                    metric={execRes.kpis?.pendingTasks}
+                    icon={Clock}
+                    color={THEME.amber}
+                  />
                 )}
               </div>
 
-              {/* 2. Section: Operations & Tasks Velocity */}
+              {/* Operational Health & Performance Summary */}
+              {execRes.healthIntelligence && (
+                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                  <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100 dark:border-slate-800">
+                    <div className="flex items-center gap-2">
+                      <Sparkles size={14} className="text-amber-500" />
+                      <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 dark:text-slate-200">
+                        Operational Health &amp; Performance
+                      </h3>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400 font-mono">
+                      Live Overview
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-2">
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Business Health</p>
+                      <p className="text-base font-black font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {execRes.healthIntelligence.businessHealthScore || 0}%
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Team Performance</p>
+                      <p className="text-base font-black font-mono text-blue-600 dark:text-blue-400 mt-0.5">
+                        {execRes.healthIntelligence.teamPerformanceScore || 0}%
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Productivity Score</p>
+                      <p className="text-base font-black font-mono text-purple-600 dark:text-purple-400 mt-0.5">
+                        {execRes.healthIntelligence.productivityScore || 0}%
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Avg Turnaround</p>
+                      <p className="text-base font-black font-mono text-slate-800 dark:text-slate-200 mt-0.5">
+                        {execRes.healthIntelligence.avgTaskCompletionTime || "—"}
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/40 border border-slate-200/60 dark:border-slate-700/60">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Critical Delayed</p>
+                      <p className={`text-base font-black font-mono mt-0.5 ${(execRes.healthIntelligence.criticalPendingTasks || 0) > 0 ? "text-rose-500" : "text-emerald-500"}`}>
+                        {execRes.healthIntelligence.criticalPendingTasks || 0} Tasks
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tasks Overview Section */}
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between px-0.5">
                   <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                     <CheckSquare size={13} className="text-amber-500" />
-                    Operations &amp; Tasks Velocity
+                    Task Overview
                   </h2>
                   <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalTasks?.current ?? execRes.kpis?.totalTasks ?? 0} Total Tasks</span>
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
                   <KPICard label="Total Tasks" metric={execRes.kpis?.totalTasks} icon={CheckSquare} color={THEME.amber} />
                   <KPICard label="Completed Tasks" metric={execRes.kpis?.completedTasks} icon={CheckCircle2} color={THEME.emerald} />
-                  <KPICard label="Pending Queue" metric={execRes.kpis?.pendingTasks} icon={Clock} color={THEME.blue} />
-                  <KPICard label="Overdue Alerts" metric={execRes.kpis?.overdueTasks} icon={AlertCircle} color={THEME.rose} isUp={false} />
+                  <KPICard label="In Progress / Pending" metric={execRes.kpis?.pendingTasks} icon={Clock} color={THEME.blue} />
+                  <KPICard label="Overdue Tasks" metric={execRes.kpis?.overdueTasks} icon={AlertCircle} color={THEME.rose} isUp={false} sub="Past Deadline" />
                 </div>
               </div>
 
-              {/* 3. Section: Commercial & Leads Funnel */}
+              {/* Leads Overview Section */}
               {canAccessLeads && (
                 <div className="space-y-1.5 pt-1">
                   <div className="flex items-center justify-between px-0.5">
                     <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                       <PhoneCall size={13} className="text-blue-500" />
-                      Commercial &amp; CRM Pipeline
+                      Lead Overview
                     </h2>
-                    <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalLeads?.current ?? execRes.kpis?.totalLeads ?? 0} Leads Logged</span>
+                    <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalLeads?.current ?? execRes.kpis?.totalLeads ?? 0} Total Leads</span>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                    <KPICard label="Total CRM Leads" metric={execRes.kpis?.totalLeads} icon={PhoneCall} color={THEME.blue} />
+                    <KPICard label="Total Leads" metric={execRes.kpis?.totalLeads} icon={PhoneCall} color={THEME.blue} />
                     <KPICard label="Converted Deals" metric={execRes.kpis?.convertedLeads} icon={CheckCircle2} color={THEME.emerald} />
-                    <KPICard label="Lead Conversion" metric={execRes.kpis?.leadConversionRate} icon={TrendingUp} color={THEME.emerald} isPercentage />
-                    <KPICard label="Pipeline Value" metric={execRes.kpis?.pipelineValue} icon={DollarSign} color={THEME.purple} isCurrency />
+                    <KPICard label="Conversion Rate" metric={execRes.kpis?.leadConversionRate} icon={TrendingUp} color={THEME.emerald} isPercentage />
+                    <KPICard label=" Value" metric={execRes.kpis?.pipelineValue} icon={DollarSign} color={THEME.purple} isCurrency />
                   </div>
                 </div>
               )}
 
-              {/* 4. Section: Projects Delivery & Attendance */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex items-center justify-between px-0.5">
-                  <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                    <FolderKanban size={13} className="text-purple-500" />
-                    Projects &amp; Attendance Health
-                  </h2>
-                  <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalProjects?.current ?? execRes.kpis?.totalProjects ?? 0} Projects</span>
+              {/* Projects Overview Section */}
+              {canAccessProjects && (
+                <div className="space-y-1.5 pt-1">
+                  <div className="flex items-center justify-between px-0.5">
+                    <h2 className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <FolderKanban size={13} className="text-purple-500" />
+                      Project Overview
+                    </h2>
+                    <span className="text-[10px] text-slate-400 font-bold">{execRes.kpis?.totalProjects?.current ?? execRes.kpis?.totalProjects ?? 0} Total Projects</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+                    <KPICard label="Total Projects" metric={execRes.kpis?.totalProjects} icon={FolderKanban} color={THEME.purple} />
+                    <KPICard label="Active Projects" metric={execRes.kpis?.activeProjects} icon={Activity} color={THEME.cyan} />
+                    <KPICard label="Completed Projects" metric={execRes.kpis?.completedProjects} icon={CheckCircle2} color={THEME.emerald} />
+                    <KPICard label="Delivery Rate" metric={execRes.kpis?.projectDeliveryRate} icon={Target} color={THEME.blue} isPercentage />
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
-                  <KPICard label="Total Projects" metric={execRes.kpis?.totalProjects} icon={FolderKanban} color={THEME.purple} />
-                  <KPICard label="Active Deliverables" metric={execRes.kpis?.activeProjects} icon={Activity} color={THEME.cyan} />
-                  <KPICard label="Attendance Health" metric={execRes.kpis?.attendanceRate} icon={CalendarCheck} color={THEME.cyan} isPercentage />
-                  <KPICard label="Project Delivery" metric={execRes.kpis?.projectDeliveryRate} icon={Target} color={THEME.blue} isPercentage />
-                </div>
-              </div>
+              )}
 
               {/* Department Performance Bar & Workforce Share */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
                 <div className="lg:col-span-7">
                   <ChartCard title="Department Operations & Completion" subtitle="Live task volume and delivery rate by team">
                     <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={execRes.departmentAnalytics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <BarChart data={execRes?.departmentAnalytics || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
                         <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
                         <YAxis tick={{ fontSize: 10, fill: "#888" }} />
@@ -949,7 +964,7 @@ export default function Reports() {
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
-                          data={execRes.departmentAnalytics}
+                          data={execRes?.departmentAnalytics || []}
                           dataKey="headcount"
                           nameKey="name"
                           cx="50%"
@@ -1032,14 +1047,14 @@ export default function Reports() {
                       </button>
                     </div>
                     <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {execRes.recentLeads.map(l => (
+                      {(execRes?.recentLeads || []).map(l => (
                         <div key={l._id} className="p-2.5 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40">
                           <div>
                             <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{l.name}</p>
                             <p className="text-[10px] text-slate-400">{l.phone} · {l.source}</p>
                           </div>
                           <div className="text-right">
-                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor}15`, color: l.statusColor }}>
+                            <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor || "#f59e0b"}15`, color: l.statusColor || "#f59e0b" }}>
                               {l.status}
                             </span>
                             {l.value > 0 && <p className="text-[10px] font-mono font-bold text-slate-500 mt-0.5">₹{fmtNumber(l.value)}</p>}
@@ -1050,7 +1065,7 @@ export default function Reports() {
                   </div>
                 )}
 
-                {canAccessProjects && (execRes.recentProjects || []).length > 0 && (
+                {canAccessProjects && (execRes?.recentProjects || []).length > 0 && (
                   <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
                       <div className="flex items-center gap-1.5">
@@ -1062,7 +1077,7 @@ export default function Reports() {
                       </button>
                     </div>
                     <div className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {execRes.recentProjects.map(p => (
+                      {(execRes?.recentProjects || []).map(p => (
                         <div key={p._id} className="p-2.5 px-4 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-800/40">
                           <div>
                             <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{p.name}</p>
@@ -1097,150 +1112,746 @@ export default function Reports() {
                 <KPICard label="Converted Won" metric={leadRes.kpis?.convertedLeads} icon={CheckCircle2} color={THEME.emerald} />
                 <KPICard label="Active Pipeline" metric={leadRes.kpis?.pipelineLeads} icon={Clock} color={THEME.amber} />
                 <KPICard label="Conversion Rate" metric={leadRes.kpis?.conversionRate} icon={TrendingUp} color={THEME.emerald} isPercentage />
-                <KPICard label="Pipeline Value" metric={leadRes.kpis?.totalPipelineValue || 0} icon={DollarSign} color={THEME.purple} sub="Total Estimated Deals" isCurrency />
+                <KPICard label=" Value" metric={leadRes.kpis?.totalPipelineValue || 0} icon={DollarSign} color={THEME.purple} sub="Total Estimated Deals" isCurrency />
                 <KPICard label="Won Revenue" metric={leadRes.kpis?.wonValue || 0} icon={DollarSign} color={THEME.emerald} sub="Closed Converted Deals" isCurrency />
                 <KPICard label="Lost Leads" metric={leadRes.kpis?.lostLeads || 0} icon={AlertCircle} color={THEME.rose} sub="Dropped Opportunities" isUp={false} />
                 <KPICard label="Avg Value/Lead" metric={leadRes.kpis?.totalLeads > 0 ? Math.round((leadRes.kpis?.totalPipelineValue || 0) / leadRes.kpis.totalLeads) : 0} icon={Target} color={THEME.cyan} sub="Deal Size Average" isCurrency />
               </div>
 
-              {/* Status & Source Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                <div className="lg:col-span-7">
-                  <ChartCard title="Leads by Pipeline Stage" subtitle="Distribution of opportunities by sales status">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={leadRes.statusBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
-                        <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
-                        <YAxis tick={{ fontSize: 10, fill: "#888" }} />
-                        <Tooltip content={<CustomTooltip />} />
-                        <Bar dataKey="count" name="Total Leads" fill="#3b82f6" radius={[4, 4, 0, 0]}>
-                          {(leadRes.statusBreakdown || []).map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
+              {/* Leads Sub-Views Navigation Pill Strip */}
+              <div className="flex items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto scrollbar-none">
+                <div className="flex items-center gap-1 min-w-[620px]">
+                  {[
+                    { id: "overview", label: "Complete Overview", icon: Sparkles },
+                    { id: "recent", label: "Recent Leads ⏱️", icon: Clock },
+                    { id: "active", label: "Active Deals 🔥", icon: Flame },
+                    { id: "employee", label: "Employee Performance 👤", icon: UserCheck },
+                    { id: "department", label: "Department Report 🏢", icon: Building2 },
+                  ].map((sub) => {
+                    const SubIcon = sub.icon;
+                    const isSubActive = leadSubView === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => setLeadSubView(sub.id)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${isSubActive
+                          ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                          }`}
+                      >
+                        <SubIcon size={13} strokeWidth={2.2} />
+                        <span>{sub.label}</span>
+                      </button>
+                    );
+                  })}
                 </div>
-
-                <div className="lg:col-span-5">
-                  <ChartCard title="Acquisition Source Share" subtitle="Inbound customer origin channels">
-                    <ResponsiveContainer width="100%" height={220}>
-                      <PieChart>
-                        <Pie
-                          data={leadRes.sourceBreakdown}
-                          dataKey="count"
-                          nameKey="source"
-                          cx="50%"
-                          cy="50%"
-                          outerRadius={75}
-                          innerRadius={45}
-                          paddingAngle={3}
-                        >
-                          {(leadRes.sourceBreakdown || []).map((_, index) => (
-                            <Cell key={`cell-src-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip content={<CustomTooltip />} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                </div>
+                <span className="text-[10px] text-slate-400 font-bold px-2 whitespace-nowrap hidden sm:inline">
+                  {leadSubView === "recent" && `${(leadRes.recentLeads || []).length} Inbound Records`}
+                  {leadSubView === "active" && `${(leadRes.activeLeads || []).length} Active Opportunities`}
+                  {leadSubView === "employee" && `${(leadRes.employeePerformance || []).length} Sales Reps`}
+                  {leadSubView === "department" && `${(leadRes.departmentLeadReport || []).length} Departments`}
+                  {leadSubView === "overview" && `${(leadRes.records || []).length} Total Leads`}
+                </span>
               </div>
 
-              {/* Sales Rep / Agent Performance Table */}
-              {(leadRes.agentPerformance || []).length > 0 && (
-                <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
-                  <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Sales Representative Conversion Breakdown</h3>
-                    <span className="text-[10px] text-slate-400 font-bold">{leadRes.agentPerformance.length} agents</span>
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* SUB-VIEW 1: COMPLETE OVERVIEW                                  */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {leadSubView === "overview" && (
+                <div className="space-y-3.5">
+                  {/* Status & Source Charts */}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                    <div className="lg:col-span-7">
+                      <ChartCard title="Leads by  Stage" subtitle="Distribution of opportunities by sales status">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <BarChart data={leadRes?.statusBreakdown || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                            <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                            <Tooltip content={<CustomTooltip />} />
+                            <Bar dataKey="count" name="Total Leads" fill="#3b82f6" radius={[4, 4, 0, 0]}>
+                              {(leadRes?.statusBreakdown || []).map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={entry.color || CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Bar>
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
+
+                    <div className="lg:col-span-5">
+                      <ChartCard title="Acquisition Source Share" subtitle="Inbound customer origin channels">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={leadRes?.sourceBreakdown || []}
+                              dataKey="count"
+                              nameKey="source"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={75}
+                              innerRadius={45}
+                              paddingAngle={3}
+                            >
+                              {(leadRes.sourceBreakdown || []).map((_, index) => (
+                                <Cell key={`cell-src-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
                   </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                        <tr>
-                          <th className="px-4 py-2">Representative Name</th>
-                          <th className="px-4 py-2 text-center">Leads Assigned</th>
-                          <th className="px-4 py-2 text-center">Deals Won</th>
-                          <th className="px-4 py-2 text-center">Conversion %</th>
-                          <th className="px-4 py-2 text-right">Pipeline Value</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                        {leadRes.agentPerformance.map(a => (
-                          <tr key={a.agentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{a.name}</td>
-                            <td className="px-4 py-2 text-center font-mono font-bold">{a.assigned}</td>
-                            <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{a.converted}</td>
-                            <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600">{a.conversionRate}%</td>
-                            <td className="px-4 py-2 text-right font-mono font-bold">₹{fmtNumber(a.value)}</td>
+
+                  {/* Highlights Banner Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Top Deal Closer</p>
+                        <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                          {(leadRes.employeePerformance || [])[0]?.name || "N/A"}
+                        </p>
+                        <p className="text-[11px] text-emerald-600 font-extrabold mt-0.5">
+                          ₹{fmtNumber((leadRes.employeePerformance || [])[0]?.wonValue || 0)} Closed Won
+                        </p>
+                      </div>
+                      <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center">
+                        <Trophy size={18} />
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Top Revenue Department</p>
+                        <p className="text-sm font-black text-slate-900 dark:text-white mt-0.5">
+                          {(leadRes.departmentLeadReport || [])[0]?.department || "N/A"}
+                        </p>
+                        <p className="text-[11px] text-blue-600 font-extrabold mt-0.5">
+                          {(leadRes.departmentLeadReport || [])[0]?.totalLeads || 0} Total Inbound Deals
+                        </p>
+                      </div>
+                      <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center">
+                        <Building2 size={18} />
+                      </div>
+                    </div>
+
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3.5 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">In-Flight  Value</p>
+                        <p className="text-sm font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                          ₹{fmtNumber(leadRes.kpis?.activePipelineValue || 0)}
+                        </p>
+                        <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          {leadRes.kpis?.pipelineLeads || 0} Deals in negotiation
+                        </p>
+                      </div>
+                      <div className="w-9 h-9 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center">
+                        <Flame size={18} />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Full Detailed Leads Ledger */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">All Leads Report</h3>
+                        <p className="text-[10px] text-slate-400 font-medium">All customer leads and inquiries</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search lead name, phone..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[500px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Lead Name</th>
+                            <th className="px-4 py-2">Contact</th>
+                            <th className="px-4 py-2">Source</th>
+                            <th className="px-4 py-2">Assigned To</th>
+                            <th className="px-4 py-2 text-right">Value</th>
+                            <th className="px-4 py-2 text-center">Status</th>
+                            <th className="px-4 py-2">Created Date</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(leadRes.records || [])
+                            .filter(l => !searchTableQuery || `${l.name} ${l.phone} ${l.email} ${l.status} ${l.source}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map(l => (
+                              <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{l.name}</td>
+                                <td className="px-4 py-2">
+                                  <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">{l.phone}</p>
+                                  {l.email !== "—" && <p className="text-[10px] text-slate-400">{l.email}</p>}
+                                </td>
+                                <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{l.source}</td>
+                                <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">{l.assignedTo}</td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-900 dark:text-white">
+                                  {l.estimatedValue > 0 ? `₹${fmtNumber(l.estimatedValue)}` : "—"}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor}15`, color: l.statusColor }}>
+                                    {l.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{l.formattedDate}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Full Detailed Leads Ledger */}
-              <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
-                  <div>
-                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Comprehensive Leads Ledger</h3>
-                    <p className="text-[10px] text-slate-400 font-medium">All customer inquiries &amp; deal tracking records</p>
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* SUB-VIEW 2: RECENT LEADS STREAM ⏱️                             */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {leadSubView === "recent" && (
+                <div className="space-y-3.5">
+                  {/* Headline Stats Banner */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Recent Stream Count</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5">{(leadRes.recentLeads || []).length}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Latest chronological inbound</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Stream Deal Value</p>
+                      <p className="text-xl font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                        ₹{fmtNumber((leadRes.recentLeads || []).reduce((s, l) => s + (l.estimatedValue || 0), 0))}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Total value in stream</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active In-Flight</p>
+                      <p className="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">
+                        {(leadRes.recentLeads || []).filter(l => l.stageType === "Active").length}
+                      </p>
+                      <p className="text-[10px] text-amber-600 font-bold mt-0.5">Open &amp; ongoing deals</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Won Inquiries</p>
+                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {(leadRes.recentLeads || []).filter(l => l.stageType === "Won").length}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Successfully closed</p>
+                    </div>
                   </div>
-                  <div className="relative w-full sm:w-56">
-                    <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input
-                      type="text"
-                      placeholder="Search lead name, phone..."
-                      value={searchTableQuery}
-                      onChange={(e) => setSearchTableQuery(e.target.value)}
-                      className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
 
-                <div className="overflow-x-auto max-h-[500px]">
-                  <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-2">Lead Name</th>
-                        <th className="px-4 py-2">Contact</th>
-                        <th className="px-4 py-2">Source</th>
-                        <th className="px-4 py-2">Assigned To</th>
-                        <th className="px-4 py-2 text-right">Value</th>
-                        <th className="px-4 py-2 text-center">Status</th>
-                        <th className="px-4 py-2">Created Date</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                      {(leadRes.records || [])
-                        .filter(l => !searchTableQuery || `${l.name} ${l.phone} ${l.email} ${l.status} ${l.source}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
-                        .map(l => (
-                          <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                            <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{l.name}</td>
-                            <td className="px-4 py-2">
-                              <p className="font-mono text-[11px] text-slate-700 dark:text-slate-300">{l.phone}</p>
-                              {l.email !== "—" && <p className="text-[10px] text-slate-400">{l.email}</p>}
-                            </td>
-                            <td className="px-4 py-2 text-slate-600 dark:text-slate-400">{l.source}</td>
-                            <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">{l.assignedTo}</td>
-                            <td className="px-4 py-2 text-right font-mono font-bold text-slate-900 dark:text-white">
-                              {l.estimatedValue > 0 ? `₹${fmtNumber(l.estimatedValue)}` : "—"}
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase" style={{ backgroundColor: `${l.statusColor}15`, color: l.statusColor }}>
-                                {l.status}
-                              </span>
-                            </td>
-                            <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{l.formattedDate}</td>
+                  {/* Recent Leads Table */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Clock size={13} className="text-amber-500" />
+                          <span>Recent Inbound Leads Stream</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Real-time incoming customer inquiries sorted by arrival date</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search recent leads..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[500px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Lead &amp; Contact</th>
+                            <th className="px-4 py-2">Company</th>
+                            <th className="px-4 py-2">Source</th>
+                            <th className="px-4 py-2">Assigned Rep</th>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-right">Deal Value</th>
+                            <th className="px-4 py-2 text-center">Status</th>
+                            <th className="px-4 py-2 text-center">Stage</th>
+                            <th className="px-4 py-2">Inbound Date</th>
                           </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(leadRes.recentLeads || [])
+                            .filter(l => !searchTableQuery || `${l.name} ${l.phone} ${l.email} ${l.company} ${l.assignedTo} ${l.status} ${l.source}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map((l) => (
+                              <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2">
+                                  <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{l.name}</p>
+                                  <p className="font-mono text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">{l.phone}</p>
+                                  {l.email && l.email !== "—" && <p className="text-[10px] text-slate-400">{l.email}</p>}
+                                </td>
+                                <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">
+                                  {l.company || "—"}
+                                </td>
+                                <td className="px-4 py-2">
+                                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                                    {l.source}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-bold text-slate-800 dark:text-slate-200">
+                                  {l.assignedTo}
+                                </td>
+                                <td className="px-4 py-2 text-slate-500 font-medium">
+                                  {l.department || "—"}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-black text-slate-900 dark:text-white">
+                                  {l.estimatedValue > 0 ? `₹${fmtNumber(l.estimatedValue)}` : "—"}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span
+                                    className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase"
+                                    style={{ backgroundColor: `${l.statusColor}18`, color: l.statusColor }}
+                                  >
+                                    {l.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`inline-flex px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase tracking-wider ${l.stageType === "Won"
+                                    ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                    : l.stageType === "Lost"
+                                      ? "bg-rose-500/10 text-rose-600 border border-rose-500/20"
+                                      : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                    }`}>
+                                    {l.stageType}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                  {l.formattedDate}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* SUB-VIEW 3: ACTIVE  DEALS 🔥                           */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {leadSubView === "active" && (
+                <div className="space-y-3.5">
+                  {/* Active Deals KPI Banner */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active Deals In-Flight</p>
+                      <p className="text-xl font-black text-amber-600 dark:text-amber-400 mt-0.5">{(leadRes.activeLeads || []).length}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Excludes closed &amp; dropped</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active  Capital</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
+                        ₹{fmtNumber(leadRes.kpis?.activePipelineValue || 0)}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Potential revenue</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Avg Active Deal Size</p>
+                      <p className="text-xl font-black text-cyan-600 dark:text-cyan-400 mt-0.5">
+                        ₹{fmtNumber((leadRes.activeLeads?.length || 0) > 0 ? Math.round((leadRes.kpis?.activePipelineValue || 0) / (leadRes.activeLeads?.length || 1)) : 0)}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Average ticket size</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active Sales Owners</p>
+                      <p className="text-xl font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                        {new Set((leadRes.activeLeads || []).map(l => l.assignedTo).filter(n => n !== "Unassigned")).size}
+                      </p>
+                      <p className="text-[10px] text-purple-600 font-bold mt-0.5">Agents pursuing leads</p>
+                    </div>
+                  </div>
+
+                  {/* Active Deals Table */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Flame size={13} className="text-amber-500" />
+                          <span>Active  Opportunities</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Currently engaged prospects in active qualification &amp; negotiation</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search active deals..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto max-h-[500px]">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Opportunity / Prospect</th>
+                            <th className="px-4 py-2">Company</th>
+                            <th className="px-4 py-2">Deal Owner</th>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-right">Potential Capital</th>
+                            <th className="px-4 py-2 text-center"> Stage</th>
+                            <th className="px-4 py-2 text-center">Status</th>
+                            <th className="px-4 py-2">Created Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(leadRes.activeLeads || [])
+                            .filter(l => !searchTableQuery || `${l.name} ${l.phone} ${l.email} ${l.company} ${l.assignedTo} ${l.status}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map((l) => (
+                              <tr key={l._id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2">
+                                  <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{l.name}</p>
+                                  <p className="font-mono text-[11px] text-slate-600 dark:text-slate-300 mt-0.5">{l.phone}</p>
+                                  {l.email && l.email !== "—" && <p className="text-[10px] text-slate-400">{l.email}</p>}
+                                </td>
+                                <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">
+                                  {l.company || "—"}
+                                </td>
+                                <td className="px-4 py-2 font-bold text-slate-800 dark:text-slate-200">
+                                  {l.assignedTo}
+                                </td>
+                                <td className="px-4 py-2 text-slate-500 font-medium">
+                                  {l.department || "—"}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-black text-amber-600 dark:text-amber-400">
+                                  {l.estimatedValue > 0 ? `₹${fmtNumber(l.estimatedValue)}` : "—"}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span
+                                    className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase"
+                                    style={{ backgroundColor: `${l.statusColor}18`, color: l.statusColor }}
+                                  >
+                                    {l.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className="inline-flex px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                    ● In Pipeline
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-mono text-[11px] text-slate-500 whitespace-nowrap">
+                                  {l.formattedDate}
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* SUB-VIEW 4: EMPLOYEE PERFORMANCE 👤                            */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {leadSubView === "employee" && (
+                <div className="space-y-3.5">
+                  {/* Employee Sales KPIs Banner */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Top Representative</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
+                        {(leadRes.employeePerformance || [])[0]?.name || "N/A"}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-extrabold mt-0.5">
+                        {(leadRes.employeePerformance || [])[0]?.converted || 0} Deals Converted Won
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Org Conversion Rate</p>
+                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {leadRes.kpis?.conversionRate || 0}%
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Team average closure rate</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total Won Revenue</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
+                        ₹{fmtNumber(leadRes.kpis?.wonValue || 0)}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Realized sales income</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active Sales Reps</p>
+                      <p className="text-xl font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                        {(leadRes.employeePerformance || []).length}
+                      </p>
+                      <p className="text-[10px] text-purple-600 font-bold mt-0.5">Assigned staff members</p>
+                    </div>
+                  </div>
+
+                  {/* Representative Performance Comparison Chart */}
+                  {(leadRes.employeePerformance || []).length > 0 && (
+                    <ChartCard title="Representative Conversion &amp;  Capital" subtitle="Won revenue vs active in-flight deal value by sales rep">
+                      <ResponsiveContainer width="100%" height={230}>
+                        <BarChart data={leadRes.employeePerformance || []} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                          <XAxis dataKey="name" tick={{ fontSize: 10, fill: "#888" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "#888" }} tickFormatter={(v) => `₹${fmtNumber(v)}`} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Bar dataKey="wonValue" name="Won Revenue (₹)" fill="#10b981" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="pipelineValue" name="Active  (₹)" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  )}
+
+                  {/* Employee Performance Detailed Ledger */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <UserCheck size={13} className="text-emerald-500" />
+                          <span>Employee Lead Performance</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Conversion rates, won leads, and performance</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search representative..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Representative</th>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-center">Assigned</th>
+                            <th className="px-4 py-2 text-center">Active Deals</th>
+                            <th className="px-4 py-2 text-center text-emerald-400">Won</th>
+                            <th className="px-4 py-2 text-center text-rose-400">Lost</th>
+                            <th className="px-4 py-2 text-right">Won Revenue</th>
+                            <th className="px-4 py-2 text-right"> Value</th>
+                            <th className="px-4 py-2 text-center">Conversion %</th>
+                            <th className="px-4 py-2 text-center">Performance Tier</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(leadRes.employeePerformance || [])
+                            .filter(e => !searchTableQuery || `${e.name} ${e.email} ${e.department} ${e.efficiencyTier}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map((e) => (
+                              <tr key={e.agentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2">
+                                  <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{e.name}</p>
+                                  {e.email && <p className="text-[10px] text-slate-400 font-mono">{e.email}</p>}
+                                </td>
+                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium">
+                                  {e.department}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-slate-900 dark:text-white">
+                                  {e.assigned}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-amber-600">
+                                  {e.active}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">
+                                  {e.converted}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-rose-500">
+                                  {e.lost}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                  ₹{fmtNumber(e.wonValue || 0)}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                  ₹{fmtNumber(e.pipelineValue || 0)}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
+                                      <div
+                                        className="h-full bg-emerald-500 rounded-full"
+                                        style={{ width: `${Math.min(100, e.conversionRate)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-mono font-black text-emerald-600">{e.conversionRate}%</span>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${e.efficiencyTier === "Top Closer"
+                                    ? "bg-amber-500/15 text-amber-600 border border-amber-500/30"
+                                    : e.efficiencyTier === "High Performer"
+                                      ? "bg-emerald-500/15 text-emerald-600 border border-emerald-500/30"
+                                      : "bg-blue-500/10 text-blue-600 border border-blue-500/20"
+                                    }`}>
+                                    {e.efficiencyTier}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ───────────────────────────────────────────────────────────── */}
+              {/* SUB-VIEW 5: DEPARTMENT LEAD REPORT 🏢                          */}
+              {/* ───────────────────────────────────────────────────────────── */}
+              {leadSubView === "department" && (
+                <div className="space-y-3.5">
+                  {/* Department Leads KPIs Banner */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Active Lead Departments</p>
+                      <p className="text-xl font-black text-slate-900 dark:text-white mt-0.5">
+                        {(leadRes.departmentLeadReport || []).length}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Units receiving opportunities</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Top Revenue Unit</p>
+                      <p className="text-sm font-black text-slate-900 dark:text-white mt-1 truncate">
+                        {(leadRes.departmentLeadReport || [])[0]?.department || "N/A"}
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-extrabold mt-0.5">
+                        ₹{fmtNumber((leadRes.departmentLeadReport || [])[0]?.wonValue || 0)} Won Deals
+                      </p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Total  Capital</p>
+                      <p className="text-xl font-black text-purple-600 dark:text-purple-400 mt-0.5">
+                        ₹{fmtNumber(leadRes.kpis?.totalPipelineValue || 0)}
+                      </p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">Across all units</p>
+                    </div>
+                    <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl p-3 shadow-2xs">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Overall Org Win Rate</p>
+                      <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5">
+                        {leadRes.kpis?.conversionRate || 0}%
+                      </p>
+                      <p className="text-[10px] text-emerald-600 font-bold mt-0.5">Aggregate performance</p>
+                    </div>
+                  </div>
+
+                  {/* Department Comparison Bar Chart */}
+                  {(leadRes.departmentLeadReport || []).length > 0 && (
+                    <ChartCard title="Department Lead Distribution &amp; Conversions" subtitle="Total inquiries received vs successfully converted deals">
+                      <ResponsiveContainer width="100%" height={230}>
+                        <BarChart data={leadRes.departmentLeadReport || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
+                          <XAxis dataKey="department" tick={{ fontSize: 10, fill: "#888" }} />
+                          <YAxis tick={{ fontSize: 10, fill: "#888" }} />
+                          <Tooltip content={<CustomTooltip />} />
+                          <Bar dataKey="totalLeads" name="Total Inbound Leads" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="activeLeads" name="Active Deals" fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="wonLeads" name="Won Deals" fill="#10b981" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  )}
+
+                  {/* Department Detailed Report Table */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
+                          <Building2 size={13} className="text-blue-500" />
+                          <span>Department Lead Report</span>
+                        </h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Deals, revenue, and win rates by department</p>
+                      </div>
+                      <div className="relative w-full sm:w-56">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          placeholder="Search department..."
+                          value={searchTableQuery}
+                          onChange={(e) => setSearchTableQuery(e.target.value)}
+                          className="w-full pl-7 pr-3 py-1 bg-white dark:bg-[#0B101B] border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                          <tr>
+                            <th className="px-4 py-2">Department Name</th>
+                            <th className="px-4 py-2 text-center">Total Inbound</th>
+                            <th className="px-4 py-2 text-center text-amber-400">Active Deals</th>
+                            <th className="px-4 py-2 text-center text-emerald-400">Won Deals</th>
+                            <th className="px-4 py-2 text-center text-rose-400">Lost Leads</th>
+                            <th className="px-4 py-2 text-right">Closed Won Revenue</th>
+                            <th className="px-4 py-2 text-right"> Capital</th>
+                            <th className="px-4 py-2 text-center">Win Rate %</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(leadRes.departmentLeadReport || [])
+                            .filter(d => !searchTableQuery || `${d.department}`.toLowerCase().includes(searchTableQuery.toLowerCase()))
+                            .map((d) => (
+                              <tr key={d.departmentId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                                  <Building2 size={13} className="text-slate-400" />
+                                  <span>{d.department}</span>
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-slate-900 dark:text-white">
+                                  {d.totalLeads}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-amber-600">
+                                  {d.activeLeads}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">
+                                  {d.wonLeads}
+                                </td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-rose-500">
+                                  {d.lostLeads}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-black text-emerald-600 dark:text-emerald-400">
+                                  ₹{fmtNumber(d.wonValue || 0)}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono font-bold text-slate-700 dark:text-slate-300">
+                                  ₹{fmtNumber(d.pipelineValue || 0)}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-1.5">
+                                    <div className="w-14 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden hidden sm:block">
+                                      <div
+                                        className="h-full bg-emerald-500 rounded-full"
+                                        style={{ width: `${Math.min(100, d.conversionRate)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-mono font-black text-emerald-600">{d.conversionRate}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           ) : <EmptyState message="No lead data available for the chosen date range." onReset={() => setDateRange("all")} />}
         </div>
@@ -1270,9 +1881,9 @@ export default function Reports() {
               {/* Status & Priority Charts */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
                 <div className="lg:col-span-7">
-                  <ChartCard title="Projects by Delivery Status" subtitle="Active pipeline and stage execution breakdown">
+                  <ChartCard title="Projects by Delivery Status" subtitle="Active  and stage execution breakdown">
                     <ResponsiveContainer width="100%" height={220}>
-                      <BarChart data={projRes.statusBreakdown} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                      <BarChart data={projRes?.statusBreakdown || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
                         <XAxis dataKey="status" tick={{ fontSize: 10, fill: "#888" }} />
                         <YAxis tick={{ fontSize: 10, fill: "#888" }} />
@@ -1288,7 +1899,7 @@ export default function Reports() {
                     <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
-                          data={projRes.priorityBreakdown}
+                          data={projRes?.priorityBreakdown || []}
                           dataKey="count"
                           nameKey="priority"
                           cx="50%"
@@ -1312,7 +1923,7 @@ export default function Reports() {
               <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                 <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
                   <div>
-                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Project Operations Ledger</h3>
+                    <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">All Projects Report</h3>
                     <p className="text-[10px] text-slate-400 font-medium">Delivery schedule, managers, and milestone progress</p>
                   </div>
                   <div className="relative w-full sm:w-56">
@@ -1351,11 +1962,10 @@ export default function Reports() {
                             <td className="px-4 py-2 text-slate-700 dark:text-slate-300 font-medium">{p.projectManager}</td>
                             <td className="px-4 py-2 text-slate-500">{p.department}</td>
                             <td className="px-4 py-2 text-center">
-                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${
-                                p.priority === "high" ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20" :
+                              <span className={`inline-flex px-1.5 py-0.5 rounded text-[10px] font-black uppercase ${p.priority === "high" ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20" :
                                 p.priority === "medium" ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" :
-                                "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                              }`}>
+                                  "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                                }`}>
                                 {p.priority}
                               </span>
                             </td>
@@ -1368,11 +1978,10 @@ export default function Reports() {
                               </div>
                             </td>
                             <td className="px-4 py-2 text-center">
-                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                p.status === "completed" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" :
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${p.status === "completed" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" :
                                 p.status === "active" || p.status === "working" ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20" :
-                                "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
-                              }`}>
+                                  "bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400"
+                                }`}>
                                 {p.status}
                               </span>
                             </td>
@@ -1490,11 +2099,10 @@ export default function Reports() {
                           <td className="px-4 py-2 text-slate-500">{emp.branch}</td>
                           <td className="px-4 py-2 font-mono text-slate-500">{fmtDate(emp.joiningDate)}</td>
                           <td className="px-4 py-2 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              emp.status === "active"
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                            }`}>
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${emp.status === "active"
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                              : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                              }`}>
                               {emp.status}
                             </span>
                           </td>
@@ -1531,21 +2139,19 @@ export default function Reports() {
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setAttSubView("monthly")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                      attSubView === "monthly"
-                        ? "bg-amber-500 text-slate-950 shadow-2xs"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${attSubView === "monthly"
+                      ? "bg-amber-500 text-slate-950 shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
                   >
                     Monthly Employee Summary
                   </button>
                   <button
                     onClick={() => setAttSubView("daily")}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
-                      attSubView === "daily"
-                        ? "bg-amber-500 text-slate-950 shadow-2xs"
-                        : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-                    }`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${attSubView === "daily"
+                      ? "bg-amber-500 text-slate-950 shadow-2xs"
+                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      }`}
                   >
                     Daily Punch Logs
                   </button>
@@ -1596,13 +2202,12 @@ export default function Reports() {
                               {m.totalOvertime > 0 ? `+${m.totalOvertime}h` : "0h"}
                             </td>
                             <td className="px-2 py-2 text-center">
-                              <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-mono font-black ${
-                                m.attendancePercentage >= 85
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                  : m.attendancePercentage >= 70
+                              <span className={`inline-flex px-2 py-0.5 rounded text-[10.5px] font-mono font-black ${m.attendancePercentage >= 85
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : m.attendancePercentage >= 70
                                   ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
                                   : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                              }`}>
+                                }`}>
                                 {m.attendancePercentage}%
                               </span>
                             </td>
@@ -1640,15 +2245,14 @@ export default function Reports() {
                             <td className="px-4 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">{a.punchIn || "—"}</td>
                             <td className="px-4 py-2 font-mono text-[11px] text-slate-600 dark:text-slate-300">{a.punchOut || "—"}</td>
                             <td className="px-4 py-2 text-center">
-                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                                a.status === "present"
-                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                  : a.status === "late"
+                              <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${a.status === "present"
+                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                : a.status === "late"
                                   ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
                                   : a.status === "half-day"
-                                  ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20"
-                                  : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                              }`}>
+                                    ? "bg-purple-500/10 text-purple-700 dark:text-purple-400 border border-purple-500/20"
+                                    : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                }`}>
                                 {a.status}
                               </span>
                             </td>
@@ -1736,13 +2340,12 @@ export default function Reports() {
                           <td className="px-4 py-2 text-center font-mono font-bold">{l.days}</td>
                           <td className="px-4 py-2 text-slate-400 truncate max-w-xs">{l.reason || "Personal"}</td>
                           <td className="px-4 py-2 text-center">
-                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${
-                              l.status === "approved"
-                                ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                : l.status === "rejected"
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase ${l.status === "approved"
+                              ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                              : l.status === "rejected"
                                 ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
                                 : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
-                            }`}>
+                              }`}>
                               {l.status}
                             </span>
                           </td>
@@ -1766,23 +2369,35 @@ export default function Reports() {
             <div className="py-20 text-center text-slate-400"><RefreshCw className="animate-spin mx-auto mb-2 text-amber-500" size={24} />Loading Task Analytics...</div>
           ) : taskRes ? (
             <>
-              {/* 8 Tasks & Ops KPI Strip */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+              {/* 5 Core Task KPI Cards + Performance Metrics */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
                 <KPICard label="Total Tasks" metric={taskRes.kpis?.totalTasks} icon={CheckSquare} color={THEME.amber} />
-                <KPICard label="Completed" metric={taskRes.kpis?.completed} icon={CheckCircle2} color={THEME.emerald} />
+                <KPICard label="Pending Tasks" metric={taskRes.kpis?.pending} icon={Layers} color={THEME.purple} />
                 <KPICard label="In Progress" metric={taskRes.kpis?.inProgress} icon={Clock} color={THEME.blue} />
-                <KPICard label="Pending" metric={taskRes.kpis?.pending} icon={Layers} color={THEME.purple} />
-                <KPICard label="Overdue" metric={taskRes.kpis?.overdue} icon={AlertCircle} color={THEME.rose} isUp={false} sub="Past Deadline" />
-                <KPICard label="Late Completed" metric={taskRes.kpis?.lateCompleted || 0} icon={Timer} color={THEME.rose} sub="Resolved after due date" />
-                <KPICard label="Completion Rate" metric={taskRes.kpis?.completionRate} icon={Target} color={THEME.emerald} isPercentage />
-                <KPICard label="High / Urgent" metric={taskRes.priorityBreakdown?.high || 0} icon={AlertTriangle} color={THEME.rose} sub="Critical Attention" />
+                <KPICard
+                  label="Completed"
+                  metric={taskRes.kpis?.completed}
+                  icon={CheckCircle2}
+                  color={THEME.emerald}
+                  sub={`${taskRes.kpis?.completionRate || 0}% Delivery Rate`}
+                />
+                <KPICard
+                  label="Overdue Tasks"
+                  metric={taskRes.kpis?.overdue}
+                  icon={AlertCircle}
+                  color={THEME.rose}
+                  isUp={false}
+                  sub="Requires Attention"
+                />
               </div>
+
+
 
               {/* Tasks Sub-Views Navigation Pill Strip */}
               <div className="flex items-center justify-between gap-2 bg-white dark:bg-[#111C24] p-1.5 rounded-xl border border-slate-200/80 dark:border-slate-800 shadow-2xs overflow-x-auto scrollbar-none">
                 <div className="flex items-center gap-1 min-w-[620px]">
                   {[
-                    { id: "overview", label: "Overview & Ledger", icon: CheckSquare },
+                    { id: "overview", label: "Complete Report View", icon: CheckSquare },
                     { id: "workload", label: "Workload Balance ⚖️", icon: Scale },
                     { id: "delayed", label: "Delayed Task Analysis 🚨", icon: AlertCircle },
                     { id: "manager", label: "Manager Performance 👔", icon: Briefcase },
@@ -1794,11 +2409,10 @@ export default function Reports() {
                       <button
                         key={sub.id}
                         onClick={() => setTaskSubView(sub.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-                          isSubActive
-                            ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${isSubActive
+                          ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                          }`}
                       >
                         <SubIcon size={13} strokeWidth={2.2} />
                         <span>{sub.label}</span>
@@ -1815,13 +2429,13 @@ export default function Reports() {
                 </span>
               </div>
 
-              {/* SUB-VIEW 1: OVERVIEW & LEDGER */}
+              {/* SUB-VIEW 1: COMPLETE TASK REPORT (Overview, Graphs, Top Performers, Overdue, Recent, Department) */}
               {taskSubView === "overview" && (
-                <div className="space-y-3">
-                  {/* Department Operations & Priority Distribution Charts */}
+                <div className="space-y-3.5">
+                  {/* Graphs Row: Department Fulfillment + Status Donut + Priority Donut */}
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                    <div className="lg:col-span-7">
-                      <ChartCard title="Department Task Fulfillment" subtitle="Volume of assigned vs completed tasks across units">
+                    <div className="lg:col-span-6">
+                      <ChartCard title="Department Task Fulfillment" subtitle="Assigned vs Completed tasks across units">
                         <ResponsiveContainer width="100%" height={220}>
                           <BarChart data={taskRes.departmentAnalytics || []} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#88888820" />
@@ -1835,8 +2449,42 @@ export default function Reports() {
                       </ChartCard>
                     </div>
 
-                    <div className="lg:col-span-5">
-                      <ChartCard title="Task Priority Distribution" subtitle="Operational load segmentation by urgency level">
+                    <div className="lg:col-span-3">
+                      <ChartCard title="Status Breakdown" subtitle="Distribution by status">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={[
+                                { name: "Completed", value: taskRes.kpis?.completed || 0, color: THEME.emerald },
+                                { name: "In Progress", value: taskRes.kpis?.inProgress || 0, color: THEME.blue },
+                                { name: "Pending", value: taskRes.kpis?.pending || 0, color: THEME.purple },
+                                { name: "Overdue", value: taskRes.kpis?.overdue || 0, color: THEME.rose },
+                              ].filter(d => d.value > 0)}
+                              dataKey="value"
+                              nameKey="name"
+                              cx="50%"
+                              cy="50%"
+                              outerRadius={75}
+                              innerRadius={45}
+                              paddingAngle={4}
+                            >
+                              {[
+                                { name: "Completed", value: taskRes.kpis?.completed || 0, color: THEME.emerald },
+                                { name: "In Progress", value: taskRes.kpis?.inProgress || 0, color: THEME.blue },
+                                { name: "Pending", value: taskRes.kpis?.pending || 0, color: THEME.purple },
+                                { name: "Overdue", value: taskRes.kpis?.overdue || 0, color: THEME.rose },
+                              ].filter(d => d.value > 0).map((entry, index) => (
+                                <Cell key={`cell-st-${index}`} fill={entry.color} />
+                              ))}
+                            </Pie>
+                            <Tooltip content={<CustomTooltip />} />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </ChartCard>
+                    </div>
+
+                    <div className="lg:col-span-3">
+                      <ChartCard title="Priority Distribution" subtitle="Urgency level split">
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
                             <Pie
@@ -1868,30 +2516,44 @@ export default function Reports() {
                     </div>
                   </div>
 
-                  {/* Top Task Assignees Leaderboard */}
+                  {/* Top Task Contributors / Performers */}
                   {(taskRes.employeeTaskPerformance || []).length > 0 && (
                     <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                       <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
-                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Team Task Contributors</h3>
-                        <span className="text-[10px] text-slate-400 font-bold">{taskRes.employeeTaskPerformance.length} contributors</span>
+                        <div className="flex items-center gap-2">
+                          <Trophy size={14} className="text-amber-500" />
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Top Team Task Performers</h3>
+                        </div>
+                        <span className="text-[10px] text-slate-400 font-bold">{taskRes.employeeTaskPerformance.length} contributors evaluated</span>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                           <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
                             <tr>
+                              <th className="px-4 py-2 text-center w-12">Rank</th>
                               <th className="px-4 py-2">Assignee</th>
                               <th className="px-4 py-2 text-center">Total Assigned</th>
-                              <th className="px-4 py-2 text-center">Completed</th>
+                              <th className="px-4 py-2 text-center text-emerald-400">Completed</th>
                               <th className="px-4 py-2 text-center">Completion Rate</th>
+                              <th className="px-4 py-2 text-center">Performance Status</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                            {taskRes.employeeTaskPerformance.slice(0, 5).map(e => (
-                              <tr key={e.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                            {taskRes.employeeTaskPerformance.slice(0, 6).map((e, idx) => (
+                              <tr key={e.employeeId || idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 text-center font-mono font-black text-amber-500">#{idx + 1}</td>
                                 <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{e.name}</td>
                                 <td className="px-4 py-2 text-center font-mono font-bold">{e.total}</td>
-                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{e.completed}</td>
-                                <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600">{e.rate}%</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">{e.completed}</td>
+                                <td className="px-4 py-2 text-center font-mono font-extrabold text-emerald-600 dark:text-emerald-400">{e.rate}%</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${e.rate >= 80 ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20" :
+                                      e.rate >= 60 ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20" :
+                                        "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                    }`}>
+                                    {e.rate >= 80 ? "High Performer" : e.rate >= 60 ? "Good" : "Needs Support"}
+                                  </span>
+                                </td>
                               </tr>
                             ))}
                           </tbody>
@@ -1900,12 +2562,127 @@ export default function Reports() {
                     </div>
                   )}
 
-                  {/* Detailed Operational Tasks Ledger */}
+                  {/* Overdue / Delayed Tasks Section */}
+                  <div className="bg-white dark:bg-[#111C24] border border-rose-200/80 dark:border-rose-900/40 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-rose-100 dark:border-rose-900/30 flex items-center justify-between bg-rose-50/50 dark:bg-rose-950/20">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle size={15} className="text-rose-500" />
+                        <div>
+                          <h3 className="text-xs font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider">Overdue &amp; Delayed Tasks</h3>
+                          <p className="text-[10px] text-slate-400 font-medium">Tasks that exceeded their scheduled deadline requiring immediate attention</p>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-rose-600 dark:text-rose-400 font-black bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 font-mono">
+                        {(taskRes.delayedTasks || []).length} Overdue Tasks
+                      </span>
+                    </div>
+                    {(taskRes.delayedTasks || []).length === 0 ? (
+                      <div className="py-6 text-center text-slate-400">
+                        <CheckCircle2 size={24} className="mx-auto text-emerald-500 mb-1" />
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">All tasks are on track within their deadlines!</p>
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto max-h-[300px]">
+                        <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest sticky top-0 z-10">
+                            <tr>
+                              <th className="px-4 py-2">Task Title</th>
+                              <th className="px-4 py-2">Assignee</th>
+                              <th className="px-4 py-2">Department</th>
+                              <th className="px-4 py-2 text-center">Priority</th>
+                              <th className="px-4 py-2">Due Date</th>
+                              <th className="px-4 py-2 text-center text-rose-400">Delay Time</th>
+                              <th className="px-4 py-2 text-center">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                            {taskRes.delayedTasks.slice(0, 10).map((t) => (
+                              <tr key={t._id} className="hover:bg-rose-50/30 dark:hover:bg-rose-950/10">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{t.title}</td>
+                                <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium">{t.assigneeName}</td>
+                                <td className="px-4 py-2 text-slate-500">{t.department}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className="inline-flex px-1.5 py-0.5 rounded text-[9.5px] font-black uppercase bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                    {t.priority}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
+                                <td className="px-4 py-2 text-center font-mono font-black text-rose-600 dark:text-rose-400">
+                                  {t.delayDays ? `${t.delayDays}d overdue` : "Overdue"}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className="inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
+                                    {t.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Department-Wise Task Performance Breakdown Table */}
+                  <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
+                    <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/30">
+                      <div>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Department-Wise Task Breakdown</h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Task assignments and delivery rates across company departments</p>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-bold font-mono">{(taskRes.departmentAnalytics || []).length} Departments</span>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead className="bg-slate-900 text-[10px] font-black text-slate-300 uppercase tracking-widest">
+                          <tr>
+                            <th className="px-4 py-2">Department</th>
+                            <th className="px-4 py-2 text-center">Total Assigned</th>
+                            <th className="px-4 py-2 text-center text-emerald-400">Completed</th>
+                            <th className="px-4 py-2 text-center text-amber-400">Pending / In-Progress</th>
+                            <th className="px-4 py-2 text-center text-rose-400">Overdue</th>
+                            <th className="px-4 py-2 text-center">Completion Rate</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                          {(taskRes.departmentAnalytics || []).map((d) => {
+                            const total = d.total || d.tasksAssigned || 0;
+                            const comp = d.completed || d.tasksCompleted || 0;
+                            const pend = d.pending || Math.max(0, total - comp);
+                            const over = d.overdue || 0;
+                            const rate = total > 0 ? Math.round((comp / total) * 100) : 100;
+                            return (
+                              <tr key={d.name} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-extrabold text-slate-900 dark:text-white">{d.name}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold">{total}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">{comp}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-amber-600 dark:text-amber-400">{pend}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-rose-600 dark:text-rose-400">{over}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <div className="flex items-center justify-center gap-2">
+                                    <div className="w-20 bg-slate-100 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                      <div
+                                        className={`h-full rounded-full ${rate >= 80 ? "bg-emerald-500" : rate >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
+                                        style={{ width: `${Math.min(100, rate)}%` }}
+                                      />
+                                    </div>
+                                    <span className="font-mono font-extrabold text-[11px] text-slate-700 dark:text-slate-300">{rate}%</span>
+                                  </div>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* Recent Tasks Ledger Table */}
                   <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl shadow-2xs overflow-hidden">
                     <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-slate-50/50 dark:bg-slate-900/30">
                       <div>
-                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Operational Tasks Ledger</h3>
-                        <p className="text-[10px] text-slate-400 font-medium">Detailed tracking of individual team assignments and deadlines</p>
+                        <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Recent Tasks List</h3>
+                        <p className="text-[10px] text-slate-400 font-medium">Individual task assignments, priority, and progress status</p>
                       </div>
                       <div className="relative w-full sm:w-56">
                         <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -1940,25 +2717,23 @@ export default function Reports() {
                                 <td className="px-4 py-2 text-slate-600 dark:text-slate-300 font-medium">{t.assigneeName}</td>
                                 <td className="px-4 py-2 text-slate-500">{t.department}</td>
                                 <td className="px-4 py-2 text-center">
-                                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                    t.priority === "high" || t.priority === "urgent"
-                                      ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
-                                      : t.priority === "medium"
+                                  <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${t.priority === "high" || t.priority === "urgent"
+                                    ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20"
+                                    : t.priority === "medium"
                                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
                                       : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                  }`}>
+                                    }`}>
                                     {t.priority}
                                   </span>
                                 </td>
                                 <td className="px-4 py-2 font-mono text-[11px] text-slate-500">{fmtDate(t.dueDate)}</td>
                                 <td className="px-4 py-2 text-center">
-                                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${
-                                    t.status === "completed" || t.status === "done"
-                                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                      : t.status === "in_process" || t.status === "in-progress"
+                                  <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-black uppercase ${t.status === "completed" || t.status === "done"
+                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                    : t.status === "in_process" || t.status === "in-progress"
                                       ? "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
                                       : "bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20"
-                                  }`}>
+                                    }`}>
                                     {t.status}
                                   </span>
                                 </td>
@@ -2002,32 +2777,36 @@ export default function Reports() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                          {(taskRes.workloadReport || []).map((m) => (
-                            <tr key={m.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                              <td className="px-4 py-2.5">
-                                <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
-                                <p className="text-[10px] text-slate-400 font-mono">{m.employeeCode}</p>
-                              </td>
-                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600 dark:text-amber-400">{m.pending}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600 dark:text-blue-400">{m.inProcess}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-black text-slate-900 dark:text-white text-sm">
-                                {m.totalActive}
-                              </td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">{m.completed}</td>
-                              <td className="px-4 py-2.5 text-center">
-                                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border ${
-                                  m.overloadStatus === "overloaded"
+                          {(taskRes.workloadReport || []).map((m) => {
+                            const activeVal = m.totalActive ?? m.activeTotal ?? ((m.pending || 0) + (m.inProcess || 0) + (m.overdue || 0));
+                            const isOverloaded = m.overloadStatus === "overloaded" || m.status?.toLowerCase() === "overloaded" || activeVal >= 6;
+                            const isBalanced = m.overloadStatus === "balanced" || m.status?.toLowerCase() === "balanced" || activeVal >= 2;
+                            return (
+                              <tr key={m.employeeId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2.5">
+                                  <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
+                                  <p className="text-[10px] text-slate-400 font-mono">{m.employeeCode || m.code || "—"}</p>
+                                </td>
+                                <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
+                                <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600 dark:text-amber-400">{m.pending ?? 0}</td>
+                                <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600 dark:text-blue-400">{m.inProcess ?? 0}</td>
+                                <td className="px-4 py-2.5 text-center font-mono font-black text-slate-900 dark:text-white text-sm">
+                                  {activeVal}
+                                </td>
+                                <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600 dark:text-emerald-400">{m.completed ?? 0}</td>
+                                <td className="px-4 py-2.5 text-center">
+                                  <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wide border ${isOverloaded
                                     ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
-                                    : m.overloadStatus === "balanced"
-                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20"
-                                }`}>
-                                  {m.overloadStatus === "overloaded" ? "🚨 Overloaded" : m.overloadStatus === "balanced" ? "✔ Balanced" : "🟢 Available"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
+                                    : isBalanced
+                                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                      : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20"
+                                    }`}>
+                                    {isOverloaded ? "🚨 Overloaded" : isBalanced ? "✔ Balanced" : "🟢 Available"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -2144,15 +2923,15 @@ export default function Reports() {
                                 <p className="font-extrabold text-slate-900 dark:text-white leading-tight">{m.name}</p>
                                 <p className="text-[10px] text-slate-400 font-mono">{m.email}</p>
                               </td>
-                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.tasksAssigned}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completedOnTime}</td>
+                              <td className="px-4 py-2.5 text-slate-600 dark:text-slate-300 font-medium">{m.department || "Management"}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.tasksAssigned ?? m.tasksCreated ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completedOnTime ?? m.tasksCompleted ?? 0}</td>
                               <td className="px-4 py-2.5 text-center font-mono font-black text-emerald-600">
-                                {m.onTimeRate}%
+                                {m.onTimeRate ?? m.completionRate ?? 0}%
                               </td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-purple-600">{m.reopenedTasks}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600">{m.shiftedTasks}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{m.cancelledTasks}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-purple-600">{m.reopenedTasks ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-blue-600">{m.shiftedTasks ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{m.cancelledTasks ?? 0}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -2197,18 +2976,25 @@ export default function Reports() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
-                          {(taskRes.trendDaily || []).map((t, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                              <td className="px-4 py-2 font-mono font-bold text-slate-700 dark:text-slate-300">{t.label}</td>
-                              <td className="px-4 py-2 text-center font-mono font-bold">{t.total}</td>
-                              <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{t.completed}</td>
-                              <td className="px-4 py-2 text-center font-mono font-bold text-amber-600">{t.pending}</td>
-                              <td className="px-4 py-2 text-center font-mono font-bold text-rose-600">{t.late}</td>
-                              <td className="px-4 py-2 text-center font-mono font-black text-slate-900 dark:text-white">
-                                {t.total > 0 ? Math.round((t.completed / t.total) * 100) : 0}%
-                              </td>
-                            </tr>
-                          ))}
+                          {(taskRes.trendDaily || []).map((t, idx) => {
+                            const totalVol = t.total ?? ((t.completed || 0) + (t.pending || 0) + (t.late || 0));
+                            const comp = t.completed ?? 0;
+                            const pend = t.pending ?? 0;
+                            const late = t.late ?? 0;
+                            const pct = totalVol > 0 ? Math.round((comp / totalVol) * 100) : 0;
+                            return (
+                              <tr key={idx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                                <td className="px-4 py-2 font-mono font-bold text-slate-700 dark:text-slate-300">{t.label}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold">{totalVol}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-emerald-600">{comp}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-amber-600">{pend}</td>
+                                <td className="px-4 py-2 text-center font-mono font-bold text-rose-600">{late}</td>
+                                <td className="px-4 py-2 text-center font-mono font-black text-slate-900 dark:text-white">
+                                  {pct}%
+                                </td>
+                              </tr>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -2244,11 +3030,10 @@ export default function Reports() {
                       <button
                         key={sub.id}
                         onClick={() => setPerfSubView(sub.id)}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${
-                          isSubActive
-                            ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
-                            : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
-                        }`}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all cursor-pointer whitespace-nowrap ${isSubActive
+                          ? "bg-amber-500 text-slate-950 shadow-2xs font-black"
+                          : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/80"
+                          }`}
                       >
                         <SubIcon size={13} strokeWidth={2.2} />
                         <span>{sub.label}</span>
@@ -2273,12 +3058,12 @@ export default function Reports() {
                       <div>
                         <div className="flex items-center gap-2">
                           <Award size={15} className="text-amber-500" />
-                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Individual Team Member Performance Ledger</h3>
+                          <h3 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">Team Member Performance Table</h3>
                         </div>
-                        <p className="text-[10px] text-slate-400 font-medium">Complete breakdown: Total Assigned, Completed, Pending, Overdue, Late, On-Time, Reopened, and Performance Score (100 पैकी)</p>
+                        <p className="text-[10px] text-slate-400 font-medium">Complete breakdown: Total Assigned, Completed, Pending, Overdue, Late, On-Time, Reopened, and Score</p>
                       </div>
                       <span className="text-[10px] text-slate-400 font-mono font-bold">
-                        {perfRes.rankings?.length || 0} Evaluated Members
+                        {perfRes.rankings?.length || 0} Team Members
                       </span>
                     </div>
 
@@ -2309,31 +3094,32 @@ export default function Reports() {
                               </td>
                               <td className="px-2 py-2.5">
                                 <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-[10px] font-mono font-bold whitespace-nowrap">
-                                  <span className="text-emerald-600 dark:text-emerald-400">✔ {m.completed ?? m.tasksCompleted}</span>
+                                  <span className="text-emerald-600 dark:text-emerald-400">✔ {m.completed ?? m.tasksCompleted ?? 0}</span>
                                   <span className="text-slate-300 dark:text-slate-600">|</span>
                                   <span className="text-rose-600 dark:text-rose-400">⏰ {m.lateCompleted ?? m.tasksLate ?? 0}</span>
                                   <span className="text-slate-300 dark:text-slate-600">|</span>
-                                  <span className="text-amber-600 dark:text-amber-400">🔴 {m.pending ?? 0}</span>
+                                  <span className="text-amber-600 dark:text-amber-400">🔴 {m.pending ?? m.tasksPending ?? 0}</span>
                                 </div>
                               </td>
-                              <td className="px-2 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.totalAssigned ?? m.tasksTotal}</td>
-                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completed ?? m.tasksCompleted}</td>
-                              <td className="px-2 py-2.5 text-center font-mono font-bold text-amber-600">{m.pending ?? 0}</td>
-                              <td className="px-2 py-2.5 text-center font-mono font-bold text-rose-600">{m.overdue ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{m.totalAssigned ?? m.tasksTotal ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.completed ?? m.tasksCompleted ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-amber-600">{m.pending ?? m.tasksPending ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-rose-600">{m.overdue ?? m.tasksOverdue ?? 0}</td>
                               <td className="px-2 py-2.5 text-center font-mono font-bold text-rose-500">{m.lateCompleted ?? m.tasksLate ?? 0}</td>
-                              <td className="px-2 py-2.5 text-center font-mono text-slate-500">{m.avgCompletionDays || 0}d</td>
-                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.onTime ?? 0}</td>
-                              <td className="px-2 py-2.5 text-center font-mono text-purple-600">{m.reopened ?? 0}</td>
-                              <td className="px-2 py-2.5 text-center font-mono text-slate-400">{m.cancelled ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-slate-500">{m.avgCompletionDays > 0 ? `${m.avgCompletionDays}d` : "—"}</td>
+                              <td className="px-2 py-2.5 text-center font-mono font-bold text-emerald-600">{m.onTime ?? m.onTimeCompletion ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-purple-600">{m.reopened ?? m.reopenedTasks ?? 0}</td>
+                              <td className="px-2 py-2.5 text-center font-mono text-slate-400">{m.cancelled ?? m.cancelledTasks ?? 0}</td>
                               <td className="px-2 py-2.5 text-center">
-                                <span className={`inline-flex px-2 py-0.5 rounded font-mono font-black text-xs border ${
-                                  (m.performanceScore || m.score) >= 80
-                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
-                                    : (m.performanceScore || m.score) >= 60
+                                <span className={`inline-flex px-2 py-0.5 rounded font-mono font-black text-xs border ${(m.performanceScore || m.score) >= 80
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/20"
+                                  : (m.performanceScore || m.score) >= 60
                                     ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/20"
-                                    : "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
-                                }`}>
-                                  {m.performanceScore || m.score}%
+                                    : (m.performanceScore || m.score) > 0
+                                      ? "bg-rose-500/10 text-rose-700 dark:text-rose-400 border-rose-500/20"
+                                      : "bg-slate-500/10 text-slate-500 border-slate-500/20"
+                                  }`}>
+                                  {m.performanceScore || m.score || 0}%
                                 </span>
                               </td>
                             </tr>
@@ -2381,18 +3167,26 @@ export default function Reports() {
                                 <Building2 size={13} className="text-slate-400" />
                                 <span>{d.name}</span>
                               </td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{d.totalTasks}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{d.completed}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600">{d.pending}</td>
-                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{d.late}</td>
-                              <td className="px-4 py-2.5 text-center font-mono text-slate-500">{d.avgCompletionDays || 0}d</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-slate-900 dark:text-white">{d.totalTasks ?? d.total ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-emerald-600">{d.completed ?? d.tasksCompleted ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-amber-600">{d.pending ?? d.tasksPending ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono font-bold text-rose-600">{d.late ?? d.tasksLate ?? 0}</td>
+                              <td className="px-4 py-2.5 text-center font-mono text-slate-500">{d.avgCompletionDays > 0 ? `${d.avgCompletionDays}d` : "—"}</td>
                               <td className="px-4 py-2.5">
-                                <p className="font-extrabold text-amber-600 dark:text-amber-400">{d.bestPerformer?.name || "—"}</p>
-                                <p className="text-[10px] text-slate-400 font-mono">Score: {d.bestPerformer?.score || 0}%</p>
+                                <p className="font-extrabold text-amber-600 dark:text-amber-400">
+                                  {typeof d.bestPerformer === "object" ? (d.bestPerformer?.name || "—") : (d.bestPerformer || "—")}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                  Score: {typeof d.bestPerformer === "object" ? (d.bestPerformer?.score || 0) : 0}%
+                                </p>
                               </td>
                               <td className="px-4 py-2.5">
-                                <p className="font-bold text-slate-600 dark:text-slate-400">{d.lowestPerformer?.name || "—"}</p>
-                                <p className="text-[10px] text-slate-400 font-mono">Score: {d.lowestPerformer?.score || 0}%</p>
+                                <p className="font-bold text-slate-600 dark:text-slate-400">
+                                  {typeof d.lowestPerformer === "object" ? (d.lowestPerformer?.name || "—") : (d.lowestPerformer || "—")}
+                                </p>
+                                <p className="text-[10px] text-slate-400 font-mono">
+                                  Score: {typeof d.lowestPerformer === "object" ? (d.lowestPerformer?.score || 0) : 0}%
+                                </p>
                               </td>
                               <td className="px-4 py-2.5 text-center">
                                 <span className="inline-flex px-2 py-0.5 rounded font-mono font-black text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/20">
@@ -2458,11 +3252,10 @@ export default function Reports() {
                                 </span>
                               </td>
                               <td className="px-4 py-2.5 text-center">
-                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                                  m.tier?.includes("Tier 1") || m.tier?.includes("A")
-                                    ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
-                                    : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
-                                }`}>
+                                <span className={`inline-flex px-2 py-0.5 rounded text-[10px] font-black uppercase ${m.tier?.includes("Tier 1") || m.tier?.includes("A")
+                                  ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/20"
+                                  : "bg-blue-500/10 text-blue-700 dark:text-blue-400 border border-blue-500/20"
+                                  }`}>
                                   {m.tier || "Standard Tier"}
                                 </span>
                               </td>

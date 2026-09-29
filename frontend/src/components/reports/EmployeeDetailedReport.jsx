@@ -352,8 +352,8 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
   const filteredProductivityEmployees = useMemo(() => {
     return enrichedProductivityList.filter((item) => {
       const matchSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.department.toLowerCase().includes(searchTerm.toLowerCase());
+        item.designation.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.department.toLowerCase().includes(searchTerm.toLowerCase());
       const matchDept = departmentFilter === "all" || departmentFilter === "ALL" || item.department.toLowerCase().includes(departmentFilter.toLowerCase());
       return matchSearch && matchDept;
     });
@@ -419,21 +419,19 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
           <div className="flex items-center gap-1.5 bg-ca-bg p-1 rounded-xl border border-ca-border shrink-0 self-start lg:self-auto">
             <button
               onClick={() => setActiveSubView("roster")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubView === "roster" ? "bg-ca-primary text-white shadow-sm" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
-              }`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${activeSubView === "roster" ? "bg-ca-primary text-white shadow-sm" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
+                }`}
             >
               <Users size={14} />
               <span>Master Roster ({analytics.total})</span>
             </button>
             <button
               onClick={() => setActiveSubView("productivity")}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
-                activeSubView === "productivity" ? "bg-ca-primary text-white shadow-sm" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
-              }`}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${activeSubView === "productivity" ? "bg-ca-primary text-white shadow-sm" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
+                }`}
             >
               <Zap size={14} />
-              <span>Productivity Pipeline ({enrichedProductivityList.length})</span>
+              <span>Productivity  ({enrichedProductivityList.length})</span>
             </button>
           </div>
         </div>
@@ -448,9 +446,8 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
                   <button
                     key={tItem}
                     onClick={() => setTimeFilter(tItem)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      active ? "bg-ca-primary text-white shadow-xs" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
-                    }`}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${active ? "bg-ca-primary text-white shadow-xs" : "text-ca-text-secondary hover:text-ca-text hover:bg-ca-surface"
+                      }`}
                   >
                     {tItem}
                   </button>
@@ -722,11 +719,10 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
                         <td className="p-2.5 text-center font-extrabold text-ca-text">{emp.totalTasks || 0}</td>
                         <td className="p-2.5 text-center font-extrabold text-ca-secondary dark:text-emerald-400">{emp.completedTasks || 0}</td>
                         <td className="p-2.5 text-center font-black">
-                          <span className={`px-2 py-0.5 rounded-md text-[11px] ${
-                            (emp.taskCompletionRate || 0) >= 80 ? "bg-ca-bg text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
-                            (emp.taskCompletionRate || 0) >= 50 ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300" :
-                            "bg-ca-bg text-ca-text-secondary dark:bg-slate-800 dark:text-slate-300"
-                          }`}>
+                          <span className={`px-2 py-0.5 rounded-md text-[11px] ${(emp.taskCompletionRate || 0) >= 80 ? "bg-ca-bg text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300" :
+                              (emp.taskCompletionRate || 0) >= 50 ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300" :
+                                "bg-ca-bg text-ca-text-secondary dark:bg-slate-800 dark:text-slate-300"
+                            }`}>
                             {emp.taskCompletionRate || 0}%
                           </span>
                         </td>
@@ -748,7 +744,7 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
         </div>
       )}
 
-      {/* ── SUB-VIEW 2: PRODUCTIVITY & EFFICIENCY PIPELINE ────────────────────── */}
+      {/* ── SUB-VIEW 2: PRODUCTIVITY & EFFICIENCY  ────────────────────── */}
       {activeSubView === "productivity" && (
         <div className="space-y-4 animate-in fade-in-50 duration-200">
           {/* Productivity Multi-Filters Bar */}
@@ -872,8 +868,8 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
                     <AreaChart data={productivityChartData} margin={{ top: 15, right: 30, left: -10, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorPerHour" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#558D7C" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#558D7C" stopOpacity={0.05}/>
+                          <stop offset="5%" stopColor="#558D7C" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#558D7C" stopOpacity={0.05} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#8EB69B" opacity={0.25} />
@@ -920,11 +916,10 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
                     onMouseEnter={() => setHoveredEmpId(emp._id)}
                     onMouseLeave={() => setHoveredEmpId(null)}
                     onClick={() => setExpandedEmpId(expandedEmpId === emp._id ? null : emp._id)}
-                    className={`bg-ca-surface rounded-2xl border transition-all duration-300 overflow-hidden cursor-pointer shadow-2xs hover:shadow-xl ${
-                      isExpanded
+                    className={`bg-ca-surface rounded-2xl border transition-all duration-300 overflow-hidden cursor-pointer shadow-2xs hover:shadow-xl ${isExpanded
                         ? "border-ca-primary/60 ring-2 ring-ca-primary/10 scale-[1.006]"
                         : "border-ca-border hover:border-ca-primary/40"
-                    }`}
+                      }`}
                   >
                     {/* Bento Tile Header (Always Visible & Hover-Responsive) */}
                     <div className="p-4 sm:p-5 bg-gradient-to-r from-ca-surface via-ca-surface to-ca-bg/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
@@ -963,11 +958,10 @@ const EmployeeDetailedReport = ({ fallbackEmployees = [], fallbackLeaves = [], f
                         </div>
 
                         {/* Interactive Hover / Lock Indicator Badge */}
-                        <div className={`px-3 py-2 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all duration-200 shrink-0 ${
-                          isExpanded
+                        <div className={`px-3 py-2 rounded-xl border text-xs font-black flex items-center gap-1.5 transition-all duration-200 shrink-0 ${isExpanded
                             ? "bg-ca-primary text-white border-ca-primary shadow-xs"
                             : "bg-ca-primary/10 text-ca-primary border-ca-primary/20 hover:bg-ca-primary hover:text-white"
-                        }`}>
+                          }`}>
                           <span>{isExpanded ? (expandedEmpId === emp._id ? "🔒 Locked Open" : "✨ Expanded View") : "✨ Hover to Inspect"}</span>
                           {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                         </div>

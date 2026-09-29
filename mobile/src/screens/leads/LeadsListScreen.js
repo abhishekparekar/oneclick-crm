@@ -174,7 +174,7 @@ export default function LeadsListScreen({ navigation, route }) {
       setDepartments(Array.isArray(depts) ? depts : []);
       setTags(Array.isArray(tagsRes) ? tagsRes : (tagsRes?.tags || []));
       metadataLoadedRef.current = true;
-    } catch (_) {}
+    } catch (_) { }
   };
 
   const fetchData = async (forceMetadata = false) => {
@@ -229,10 +229,10 @@ export default function LeadsListScreen({ navigation, route }) {
       let data = Array.isArray(leadsRes?.data)
         ? leadsRes.data
         : Array.isArray(leadsRes)
-        ? leadsRes
-        : Array.isArray(leadsRes?.leads)
-        ? leadsRes.leads
-        : [];
+          ? leadsRes
+          : Array.isArray(leadsRes?.leads)
+            ? leadsRes.leads
+            : [];
       setLeads(data);
     } catch (err) {
       console.warn("[LeadsList] Fetch note:", err?.message || err);
@@ -400,7 +400,7 @@ export default function LeadsListScreen({ navigation, route }) {
           try {
             const upRes = await leadsService.uploadLeadDocument(file);
             if (upRes?.url) finalUrl = upRes.url;
-          } catch (_) {}
+          } catch (_) { }
         }
         setLeadDoc({
           name: file.name || "Attached Document",
@@ -482,7 +482,7 @@ export default function LeadsListScreen({ navigation, route }) {
     let cleanPhone = phone.replace(/[^0-9]/g, "");
     if (cleanPhone.length === 10) cleanPhone = `91${cleanPhone}`;
     const msg = `Hello ${name || ""}, thank you for connecting with OneClick HRMS!`;
-    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => {});
+    Linking.openURL(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`).catch(() => { });
   };
 
   const handleCall = (phone) => {
@@ -601,8 +601,8 @@ export default function LeadsListScreen({ navigation, route }) {
   };
 
   const Layout = isEmployee ? EmployeeLayout : CompanyAdminLayout;
-  const layoutProps = isEmployee 
-    ? { navigation, title: "Lead CRM Directory" } 
+  const layoutProps = isEmployee
+    ? { navigation, title: "Lead CRM Directory" }
     : { navigation, activeTab: "Leads", headerTitle: "Lead CRM Directory", showSearch: false };
 
   return (
@@ -946,15 +946,15 @@ export default function LeadsListScreen({ navigation, route }) {
                   </ScrollView>
                 </View>
 
-                {/* ── Section 3: Pipeline Stage & Next Follow-Up ── */}
+                {/* ── Section 3:  Stage & Next Follow-Up ── */}
                 <View style={styles.formSectionBox}>
                   <View style={styles.sectionHeaderRow}>
                     <Ionicons name="layers-outline" size={13} color="#1268D9" />
-                    <Text style={styles.sectionHeaderText}>PIPELINE STAGE & NEXT FOLLOW-UP</Text>
+                    <Text style={styles.sectionHeaderText}> STAGE & NEXT FOLLOW-UP</Text>
                   </View>
 
                   <Text style={styles.fieldLabel}>
-                    PIPELINE STAGE <Text style={{ color: "#EF4444" }}>*</Text>
+                    STAGE <Text style={{ color: "#EF4444" }}>*</Text>
                   </Text>
                   <TouchableOpacity
                     style={styles.dropdownSelectorBox}
@@ -968,7 +968,7 @@ export default function LeadsListScreen({ navigation, route }) {
                       ]}
                     />
                     <Text style={styles.dropdownSelectedValText} numberOfLines={1}>
-                      {selectedStageObj ? selectedStageObj.name : "Select Pipeline Stage"}
+                      {selectedStageObj ? selectedStageObj.name : "Select  Stage"}
                     </Text>
                     <Ionicons name="chevron-down" size={18} color="#64748B" style={{ marginLeft: "auto" }} />
                   </TouchableOpacity>
@@ -1209,7 +1209,7 @@ export default function LeadsListScreen({ navigation, route }) {
                   ) : (
                     <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                       <Ionicons name="sparkles" size={14} color="#FFF" />
-                      <Text style={styles.saveModalBtnText}>Save & Create Lead</Text>
+                      <Text style={styles.saveModalBtnText}>Save & Add New Lead</Text>
                     </View>
                   )}
                 </TouchableOpacity>
@@ -1218,7 +1218,7 @@ export default function LeadsListScreen({ navigation, route }) {
           </View>
         </Modal>
 
-        {/* ── MODAL: PIPELINE STAGE DROPDOWN PICKER ── */}
+        {/* ── MODAL:  STAGE DROPDOWN PICKER ── */}
         <Modal
           visible={stagePickerModal}
           animationType="slide"
@@ -1230,7 +1230,7 @@ export default function LeadsListScreen({ navigation, route }) {
               <View style={styles.dragHandle} />
               <View style={styles.modalHeaderRow}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.modalHeading}>Select Pipeline Stage</Text>
+                  <Text style={styles.modalHeading}>Select  Stage</Text>
                   <Text style={styles.modalSubheading}>Choose stage for this prospective client</Text>
                 </View>
                 <TouchableOpacity
@@ -1641,7 +1641,7 @@ export default function LeadsListScreen({ navigation, route }) {
                 <View style={{ flex: 1, marginLeft: 10 }}>
                   <Text style={styles.filterModalHeadingText}>FILTER LEADS</Text>
                   <Text style={styles.filterModalSubheadingText}>
-                    Refine lead pipeline by stage, source & assigned staff
+                    Refine lead  by stage, source & assigned staff
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1685,11 +1685,11 @@ export default function LeadsListScreen({ navigation, route }) {
                   </View>
                 </View>
 
-                {/* ── Section 2: Lead Pipeline Stage ── */}
+                {/* ── Section 2: Lead  Stage ── */}
                 <View style={styles.filterSectionBox}>
                   <View style={styles.filterSectionHeaderRow}>
                     <Ionicons name="git-commit-outline" size={14} color="#1268D9" />
-                    <Text style={styles.filterSectionHeaderText}>PIPELINE STAGE / STATUS</Text>
+                    <Text style={styles.filterSectionHeaderText}> STAGE / STATUS</Text>
                   </View>
                   <View style={styles.filterChipsWrap}>
                     <TouchableOpacity
@@ -2523,7 +2523,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: THEME.textPrimary,
   },
-  // ── Pipeline Stage Dropdown Selector & Modal ──
+  // ──  Stage Dropdown Selector & Modal ──
   dropdownSelectorBox: {
     flexDirection: "row",
     alignItems: "center",

@@ -91,11 +91,20 @@ const syncUserFromEmployeeStatus = async (employee) => {
 };
 
 const validateRefsForCompany = async (body, companyId) => {
-  if (body.departmentId) {
-    const dept = await validateDepartmentBelongsToCompany(
-      body.departmentId,
-      companyId
-    );
+  const deptList = Array.from(
+    new Set(
+      [
+        body.departmentId,
+        ...(Array.isArray(body.departmentIds) ? body.departmentIds : []),
+        ...(Array.isArray(body.accessibleDepartments) ? body.accessibleDepartments : []),
+      ]
+        .filter(Boolean)
+        .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+    )
+  );
+
+  for (const deptId of deptList) {
+    const dept = await validateDepartmentBelongsToCompany(deptId, companyId);
     if (!dept) return "Invalid department for this company";
   }
 
@@ -106,15 +115,27 @@ const validateRefsForCompany = async (body, companyId) => {
       companyId
     );
     if (!des) return "Invalid designation for this company";
-    if (body.departmentId) {
-      if (des.departmentId.toString() !== body.departmentId.toString()) {
-        return "Designation does not belong to the selected department";
+    if (des.departmentId) {
+      const desDeptStr = (des.departmentId._id || des.departmentId).toString();
+      if (deptList.length > 0 && !deptList.includes(desDeptStr)) {
+        return "Designation does not belong to any of the selected departments";
       }
     }
   }
 
-  if (body.branchId) {
-    const branch = await findCompanyResource(Branch, body.branchId, companyId);
+  const branchList = Array.from(
+    new Set(
+      [
+        body.branchId,
+        ...(Array.isArray(body.branchIds) ? body.branchIds : []),
+      ]
+        .filter(Boolean)
+        .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+    )
+  );
+
+  for (const bId of branchList) {
+    const branch = await findCompanyResource(Branch, bId, companyId);
     if (!branch) return "Invalid branch for this company";
   }
 
@@ -261,9 +282,8 @@ const getModuleUsage = async (req, res, next) => {
         limit,
         used,
         remaining,
-        percentage,
-        isUnlimited: !hasCustomLimit && limit >= companyPlanLimit,
-        isFull: remaining <= 0,
+        isUnlimited: !hasCustomLimit && (companyPlanLimit >= 999999 || companyPlanLimit <= 0),
+        isFull: remaining <= 0 && limit > 0 && limit < 999999,
       };
 
       detailedBreakdown.push({
@@ -527,16 +547,34 @@ const createEmployee = async (req, res, next) => {
       password: reqPassword,
     } = req.body;
 
-    // Support multi-department: use first departmentId from array if departmentId not set
-    const resolvedDeptId = departmentId ||
-      (Array.isArray(departmentIds) && departmentIds.length > 0 ? departmentIds[0] : null) ||
-      (Array.isArray(accessibleDepartments) && accessibleDepartments.length > 0 ? accessibleDepartments[0] : null);
+    // Support multi-department: extract all provided departments
+    const allRequestedDeptIds = Array.from(
+      new Set(
+        [
+          departmentId,
+          ...(Array.isArray(departmentIds) ? departmentIds : []),
+          ...(Array.isArray(accessibleDepartments) ? accessibleDepartments : []),
+        ]
+          .filter(Boolean)
+          .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+      )
+    );
+    let effectiveDeptId = allRequestedDeptIds[0] || null;
 
-    const resolvedBranchId = branchId ||
-      (Array.isArray(branchIds) && branchIds.length > 0 ? branchIds[0] : null);
+    const allRequestedBranchIds = Array.from(
+      new Set(
+        [
+          branchId,
+          ...(Array.isArray(branchIds) ? branchIds : []),
+          ...(Array.isArray(req.body.branchIds) ? req.body.branchIds : []),
+        ]
+          .filter(Boolean)
+          .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+      )
+    );
+    const resolvedBranchId = allRequestedBranchIds[0] || null;
 
     const emailLower = email.toLowerCase();
-    let effectiveDeptId = resolvedDeptId;
     let effectiveDesigId = designationId;
 
     if (effectiveDesigId && !effectiveDeptId) {
@@ -545,12 +583,16 @@ const createEmployee = async (req, res, next) => {
         effectiveDesigId,
         companyId
       );
-      if (des) {
-        effectiveDeptId = des.departmentId;
+      if (des && des.departmentId) {
+        const dId = des.departmentId.toString();
+        effectiveDeptId = dId;
+        if (!allRequestedDeptIds.includes(dId)) {
+          allRequestedDeptIds.push(dId);
+        }
       }
     }
 
-    if (!effectiveDeptId) {
+    if (!effectiveDeptId || allRequestedDeptIds.length === 0) {
       return res.status(400).json({ message: "Department is required" });
     }
 
@@ -561,8 +603,11 @@ const createEmployee = async (req, res, next) => {
     const refErr = await validateRefsForCompany(
       {
         departmentId: effectiveDeptId,
+        departmentIds: allRequestedDeptIds,
+        accessibleDepartments: allRequestedDeptIds,
         designationId: effectiveDesigId,
         branchId: resolvedBranchId,
+        branchIds: allRequestedBranchIds,
       },
       companyId
     );
@@ -571,27 +616,42 @@ const createEmployee = async (req, res, next) => {
     }
 
     // Manager Department check
+    let managerEmp = null;
     if (req.user && req.user.role === "Manager") {
-      // Manager can only create Employee (Team Member)
       const requestedRole = loginRole || "Employee";
-      if (requestedRole !== "Employee") {
-        return res.status(403).json({ message: "Forbidden: Managers can only create Team Members" });
+      if (!["Employee", "Manager", "HR"].includes(requestedRole)) {
+        return res.status(403).json({ message: "Forbidden: Managers can only assign Employee, Manager, or HR roles" });
       }
 
-      const managerEmp = await Employee.findOne({ userId: req.user._id, companyId }).lean();
-      if (managerEmp) {
-        const primaryDeptId = managerEmp.departmentId;
-        const allowedDeptIds = (managerEmp.accessibleDepartments || []).map(id => id.toString());
-        
-        const managerDeptIds = [];
-        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
-        allowedDeptIds.forEach(id => {
-          if (id) managerDeptIds.push(id);
-        });
+      managerEmp = await Employee.findOne({
+        $or: [
+          { userId: req.user._id },
+          ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+          ...(req.user.email ? [{ email: new RegExp(`^${req.user.email}$`, "i") }] : []),
+        ],
+        companyId,
+      }).lean();
 
-        const resolvedDeptStr = effectiveDeptId ? effectiveDeptId.toString() : null;
-        if (!resolvedDeptStr || !managerDeptIds.includes(resolvedDeptStr)) {
-          return res.status(403).json({ message: "Forbidden: You can only add employees to your own department(s)" });
+      if (managerEmp) {
+        const managerDeptIds = Array.from(
+          new Set(
+            [
+              managerEmp.departmentId,
+              ...(Array.isArray(managerEmp.departmentIds) ? managerEmp.departmentIds : []),
+              ...(Array.isArray(managerEmp.accessibleDepartments) ? managerEmp.accessibleDepartments : []),
+            ]
+              .filter(Boolean)
+              .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+          )
+        );
+
+        if (managerDeptIds.length > 0) {
+          const unauthorizedDept = allRequestedDeptIds.find((id) => !managerDeptIds.includes(id));
+          if (unauthorizedDept) {
+            return res.status(403).json({
+              message: "Forbidden: You can only assign employees to department(s) you manage",
+            });
+          }
         }
       }
     }
@@ -768,14 +828,10 @@ const createEmployee = async (req, res, next) => {
         joiningDate: joiningDate || null,
         confirmationDate: confirmationDate || null,
         departmentId: effectiveDeptId || null,
-        departmentIds: Array.isArray(departmentIds) && departmentIds.length > 0
-          ? departmentIds
-          : (effectiveDeptId ? [effectiveDeptId] : []),
+        departmentIds: allRequestedDeptIds,
         designationId: effectiveDesigId || null,
         branchId: resolvedBranchId || null,
-        branchIds: Array.isArray(req.body.branchIds) && req.body.branchIds.length > 0
-          ? (resolvedBranchId && !req.body.branchIds.map(String).includes(String(resolvedBranchId)) ? [resolvedBranchId, ...req.body.branchIds] : req.body.branchIds)
-          : (resolvedBranchId ? [resolvedBranchId] : []),
+        branchIds: allRequestedBranchIds,
         employmentType,
         workMode,
         allowRemotePunch: allowRemotePunch === true,
@@ -819,8 +875,8 @@ const createEmployee = async (req, res, next) => {
         documents: (documents && !Array.isArray(documents) && typeof documents === "object") ? documents : {},
         status: "active",
         managerAccessLevel: managerAccessLevel || "team",
-        accessibleDepartments: accessibleDepartments || [],
-        reportingManagerId: reportingManagerId || null,
+        accessibleDepartments: allRequestedDeptIds,
+        reportingManagerId: reportingManagerId || (req.user?.role === "Manager" ? (managerEmp?._id || req.user.employeeId) : null) || null,
         permissions: finalPermissions || {},
         createdBy: req.user._id,
       });
@@ -920,30 +976,64 @@ const updateEmployee = async (req, res, next) => {
         return res.status(403).json({ message: "Forbidden: You do not have permission to manage this role" });
       }
 
-      // Manager cannot change someone's role to Manager/HR
-      if (req.body.loginRole && req.body.loginRole !== "Employee") {
-        return res.status(403).json({ message: "Forbidden: Managers can only assign the Team Member role" });
+      // Manager can assign Employee, Manager, or HR roles within their managed departments
+      if (req.body.loginRole && !["Employee", "Manager", "HR"].includes(req.body.loginRole)) {
+        return res.status(403).json({ message: "Forbidden: Managers can only assign Employee, Manager, or HR roles" });
       }
 
-      const managerEmp = await Employee.findOne({ userId: req.user._id, companyId: req.companyId }).lean();
+      const managerEmp = await Employee.findOne({
+        $or: [
+          { userId: req.user._id },
+          ...(req.user.employeeId ? [{ _id: req.user.employeeId }] : []),
+          ...(req.user.email ? [{ email: new RegExp(`^${req.user.email}$`, "i") }] : []),
+        ],
+        companyId: req.companyId,
+      }).lean();
+
       if (managerEmp) {
-        const primaryDeptId = managerEmp.departmentId;
-        const allowedDeptIds = (managerEmp.accessibleDepartments || []).map(id => id.toString());
-        
-        const managerDeptIds = [];
-        if (primaryDeptId) managerDeptIds.push(primaryDeptId.toString());
-        allowedDeptIds.forEach(id => {
-          if (id) managerDeptIds.push(id);
-        });
+        const managerDeptIds = Array.from(
+          new Set(
+            [
+              managerEmp.departmentId,
+              ...(Array.isArray(managerEmp.departmentIds) ? managerEmp.departmentIds : []),
+              ...(Array.isArray(managerEmp.accessibleDepartments) ? managerEmp.accessibleDepartments : []),
+            ]
+              .filter(Boolean)
+              .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+          )
+        );
 
         // 1. Check if the employee currently belongs to the manager's authorized departments
-        const targetEmpDeptId = employee.departmentId ? employee.departmentId.toString() : null;
-        if (!targetEmpDeptId || !managerDeptIds.includes(targetEmpDeptId)) {
+        const targetEmpDeptIds = Array.from(
+          new Set(
+            [
+              employee.departmentId,
+              ...(Array.isArray(employee.departmentIds) ? employee.departmentIds : []),
+              ...(Array.isArray(employee.accessibleDepartments) ? employee.accessibleDepartments : []),
+            ]
+              .filter(Boolean)
+              .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+          )
+        );
+        const hasMatchingDept = targetEmpDeptIds.some((id) => managerDeptIds.includes(id));
+        if (!hasMatchingDept) {
           return res.status(403).json({ message: "Forbidden: You can only manage employees belonging to your own department(s)" });
         }
 
         // 2. Check if the manager is trying to change the employee's department to an unauthorized one
-        if (req.body.departmentId && !managerDeptIds.includes(req.body.departmentId.toString())) {
+        const newDeptsToCheck = Array.from(
+          new Set(
+            [
+              req.body.departmentId,
+              ...(Array.isArray(req.body.departmentIds) ? req.body.departmentIds : []),
+              ...(Array.isArray(req.body.accessibleDepartments) ? req.body.accessibleDepartments : []),
+            ]
+              .filter(Boolean)
+              .map((id) => (typeof id === "object" ? (id._id || id.id || id) : id).toString())
+          )
+        );
+        const unauthorizedNewDept = newDeptsToCheck.find((id) => !managerDeptIds.includes(id));
+        if (unauthorizedNewDept) {
           return res.status(403).json({ message: "Forbidden: You can only assign employees to your own department(s)" });
         }
       }
@@ -968,7 +1058,7 @@ const updateEmployee = async (req, res, next) => {
     // Standard scalar fields
     const fieldsToCheck = [
       "firstName", "lastName", "middleName", "phone", "alternateMobile", "photo", "gender", 
-      "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "designationId", 
+      "dateOfBirth", "joiningDate", "confirmationDate", "noticePeriod", "departmentId", "departmentIds", "designationId", 
       "branchId", "branchIds", "employmentType", "workMode", "allowRemotePunch", "isLocationTrackingEnabled", "status", "skills", "certifications", 
       "reportingManagerId", "managerAccessLevel", "accessibleDepartments", "permissions",
       "bloodGroup", "maritalStatus", "aadhaarNumber", "panNumber", "personalEmail"
@@ -1240,12 +1330,20 @@ const updateEmployee = async (req, res, next) => {
     }
 
     const refsToValidate = {};
-    if (newData.departmentId !== undefined || newData.designationId !== undefined) {
+    if (
+      newData.departmentId !== undefined ||
+      newData.departmentIds !== undefined ||
+      newData.accessibleDepartments !== undefined ||
+      newData.designationId !== undefined
+    ) {
       refsToValidate.departmentId = deptForValidation;
+      refsToValidate.departmentIds = employee.departmentIds;
+      refsToValidate.accessibleDepartments = employee.accessibleDepartments;
       refsToValidate.designationId = desigForValidation;
     }
-    if (newData.branchId !== undefined) {
+    if (newData.branchId !== undefined || newData.branchIds !== undefined) {
       refsToValidate.branchId = employee.branchId;
+      refsToValidate.branchIds = employee.branchIds;
     }
 
     const refErr = Object.keys(refsToValidate).length > 0 ? await validateRefsForCompany(

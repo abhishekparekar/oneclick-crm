@@ -995,6 +995,19 @@ const companyAttendance = async (req, res, next) => {
       ];
     }
 
+    if (req.user && (req.user.role || "").toLowerCase() === "manager") {
+      const { resolveManagerEmployee, getManagerTeamEmployeeIds } = require("./managerController");
+      const manager = await resolveManagerEmployee(req);
+      if (manager) {
+        const teamIds = await getManagerTeamEmployeeIds(manager, req.companyId);
+        // Exclude manager's own record, restrict strictly to manager's assigned department team
+        const teamOnlyIds = teamIds.filter(id => id.toString() !== manager._id.toString());
+        employeesFilter._id = { $in: teamOnlyIds };
+      } else {
+        employeesFilter._id = { $in: [] };
+      }
+    }
+
     const matchedEmployees = await Employee.find(employeesFilter).select("_id");
     const empIds = matchedEmployees.map((e) => e._id);
     filter.employeeId = { $in: empIds };
@@ -1039,6 +1052,19 @@ const employeeAttendance = async (req, res, next) => {
     const employee = await Employee.findOne({ _id: employeeId, companyId: req.companyId });
     if (!employee) {
       return res.status(404).json({ message: "Employee not found" });
+    }
+
+    if (req.user && (req.user.role || "").toLowerCase() === "manager") {
+      const { resolveManagerEmployee, getManagerTeamEmployeeIds } = require("./managerController");
+      const manager = await resolveManagerEmployee(req);
+      if (manager) {
+        const teamIds = await getManagerTeamEmployeeIds(manager, req.companyId);
+        if (!teamIds.map(id => id.toString()).includes(employeeId.toString())) {
+          return res.status(403).json({ success: false, message: "Access denied: employee not in assigned department or team" });
+        }
+      } else {
+        return res.status(403).json({ success: false, message: "Access denied" });
+      }
     }
 
     const records = await Attendance.find({

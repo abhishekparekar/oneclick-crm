@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "../../context/AuthContext";
 import { Navigate } from "react-router-dom";
@@ -240,7 +240,7 @@ const SuperAdminSubAdmins = () => {
           <div className="w-12 h-12 rounded-2xl bg-sa-primary/15 text-sa-primary flex items-center justify-center shadow-sm"><ShieldCheck size={24} /></div>
           <div>
             <h1 className="text-xl font-black text-sa-text">Sub-SuperAdmin Management</h1>
-            <p className="text-sm text-sa-text-secondary mt-0.5">Create and manage restricted admin accounts with granular module permissions.</p>
+            <p className="text-sm text-sa-text-secondary mt-0.5">Create and manage team admin accounts with specific access permissions.</p>
           </div>
         </div>
         <button onClick={() => setModalAdmin({})} className="btn-primary px-5 py-2.5 rounded-xl font-bold text-sm flex items-center space-x-2 cursor-pointer self-start sm:self-center shadow-md"><UserPlus size={16} /><span>Create Sub-Admin</span></button>
@@ -248,7 +248,7 @@ const SuperAdminSubAdmins = () => {
 
       <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex items-start space-x-3">
         <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-        <p className="text-sm text-amber-800 dark:text-amber-300"><span className="font-black">SuperAdmin is the Source of Truth.</span> Sub-SuperAdmins share the SuperAdmin dashboard but only see modules you explicitly grant. They cannot create other Sub-SuperAdmins.</p>
+        <p className="text-sm text-amber-800 dark:text-amber-300"><span className="font-black">Master SuperAdmin Account:</span> Sub-Admins have access only to the specific sections and permissions you grant below. They cannot create other Sub-SuperAdmins.</p>
       </div>
 
       {isLoading ? (
@@ -257,7 +257,7 @@ const SuperAdminSubAdmins = () => {
         <div className="py-24 text-center bg-sa-surface rounded-2xl border border-dashed border-sa-border">
           <div className="w-16 h-16 rounded-2xl bg-sa-primary/10 text-sa-primary flex items-center justify-center mx-auto mb-4"><ShieldCheck size={32} /></div>
           <p className="text-sa-text font-black text-lg">No Sub-SuperAdmins Yet</p>
-          <p className="text-sa-text-secondary text-sm mt-1 mb-5">Create your first restricted admin account to delegate access.</p>
+          <p className="text-sa-text-secondary text-sm mt-1 mb-5">Create your first sub-admin to share management tasks.</p>
           <button onClick={() => setModalAdmin({})} className="btn-primary px-6 py-2.5 rounded-xl font-bold text-sm cursor-pointer">Create Sub-Admin</button>
         </div>
       ) : (

@@ -74,7 +74,7 @@ flowchart TD
 | :--- | :--- |
 | `mobile/src/screens/company/CompanyReportsDashboardScreen.js` | Company admin executive overview with business health score, 6-month trends, dynamically filtered KPI metrics, and report navigation (zero payroll). |
 | `mobile/src/screens/reports/ReportsDashboardScreen.js` | Central mobile report hub navigation for Leads, Attendance, Leaves, Tasks, Projects, Workforce, and Performance. |
-| `mobile/src/screens/reports/LeadReportScreen.js` | Mobile CRM & Leads report with KPI cards, pipeline stages, status filters, search, and Excel/PDF export. |
+| `mobile/src/screens/reports/LeadReportScreen.js` | Mobile CRM & Leads report with KPI cards,  stages, status filters, search, and Excel/PDF export. |
 | `mobile/src/screens/reports/ProjectReportScreen.js` | Mobile project progress and schedules report with Excel/PDF export. |
 | `mobile/src/screens/reports/AttendanceReportScreen.js` | Mobile employee monthly summary & daily punch logs with Excel export. |
 | `mobile/src/screens/reports/LeaveReportScreen.js` | Mobile leave balances, applications, and status metrics. |
@@ -109,8 +109,8 @@ The reporting module implements strict multi-layer access control:
 - **Top Performing Employees Leaderboard**: Ranked by composite productivity scores.
 
 ### 2. CRM & Leads Report (`getLeadMetrics`)
-- **Summary KPIs**: Total Leads, Converted Deals, Active Pipeline, Lost Leads, Conversion Rate (%), Total Pipeline Value (₹), Closed Revenue Won (₹), and Average Deal Size.
-- **Pipeline Stage Breakdown**: Volume distribution across New, Contacted, Qualified, Proposal, Won, and Lost.
+- **Summary KPIs**: Total Leads, Converted Deals, Active Pipeline, Lost Leads, Conversion Rate (%), Total  Value (₹), Closed Revenue Won (₹), and Average Deal Size.
+- ** Stage Breakdown**: Volume distribution across New, Contacted, Qualified, Proposal, Won, and Lost.
 - **Acquisition Source Share**: Pie chart distribution (Website, Referral, Inbound Call, Social, Direct).
 - **Sales Representative Matrix**: Rep performance table with assigned leads, deals won, conversion %, and revenue closed.
 - **Detailed Leads Ledger**: Searchable customer inquiry list with contact numbers, sources, assigned agents, estimated values, and creation dates (`DD/MM/YYYY`).

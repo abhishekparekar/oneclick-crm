@@ -72,16 +72,59 @@ export default function HRLeads() {
   const { data: employeesData } = useQuery({
     queryKey: ["hrEmployeesList", "leads"],
     queryFn: async () => {
+      const formatTitleCase = (str) => {
+        if (!str || typeof str !== "string") return "";
+        return str
+          .toLowerCase()
+          .split(" ")
+          .filter(Boolean)
+          .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(" ");
+      };
+
+      try {
+        const assignableRes = await api.get("/api/assignable-users");
+        const aList = Array.isArray(assignableRes?.data?.data)
+          ? assignableRes.data.data
+          : Array.isArray(assignableRes?.data?.users)
+          ? assignableRes.data.users
+          : Array.isArray(assignableRes?.data)
+          ? assignableRes.data
+          : [];
+        if (aList.length > 0) {
+          return aList.map((e) => {
+            const rawName = e.name || e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || "Employee";
+            const name = formatTitleCase(rawName);
+            const dept = e.department || e.departmentName || e.departmentId?.name || (e.role === "companyadmin" || e.role === "admin" ? "Administration" : e.role || "");
+            return {
+              id: e.id || e._id,
+              _id: e._id || e.id,
+              name,
+              role: e.role || "Employee",
+              department: dept,
+              label: dept ? `${name} (${dept})` : `${name} (${e.role || "Staff"})`,
+            };
+          }).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
+        }
+      } catch (_) {}
+
       try {
         const res = await api.get("/company/employees?limit=1000&module=leads");
         const rawList = Array.isArray(res?.data?.employees) ? res.data.employees : Array.isArray(res?.data) ? res.data : [];
-        return rawList.map((e) => ({
-          id: e.userId?._id || e._id,
-          _id: e.userId?._id || e._id,
-          name: e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.userId?.name || "Employee",
-          role: e.role || "Employee",
-          department: e.departmentId?.name || ""
-        }));
+        const mapped = rawList.map((e) => {
+          const rawName = e.fullName || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.userId?.name || "Employee";
+          const name = formatTitleCase(rawName);
+          const dept = e.departmentId?.name || e.departmentName || (typeof e.department === "string" ? e.department : "") || "";
+          return {
+            id: e.userId?._id || e._id,
+            _id: e.userId?._id || e._id,
+            name,
+            role: e.role || "Employee",
+            department: dept,
+            label: dept ? `${name} (${dept})` : `${name} (${e.role || "Staff"})`,
+          };
+        });
+        return mapped.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }));
       } catch (_) {
         return [];
       }
@@ -283,7 +326,7 @@ export default function HRLeads() {
         statusId: activeStatusId,
         estimatedValue: form.estimatedValue ? Number(form.estimatedValue) : null,
         assignedTo: form.assignedTo || null,
-        nextFollowUpDate: form.nextFollowUpDate || null,
+        nextFollowUpDate: form.nextFollowUpDate ? new Date(form.nextFollowUpDate).toISOString() : null,
         notes: form.notes.trim() || null,
       };
 
@@ -460,7 +503,7 @@ export default function HRLeads() {
                 <option value="unassigned">-- Unassigned --</option>
                 {employees.map((emp) => (
                   <option key={emp.id || emp._id} value={emp.id || emp._id}>
-                    {emp.name}
+                    {emp.label || (emp.department ? `${emp.name} (${emp.department})` : `${emp.name} (${emp.role || "Staff"})`)}
                   </option>
                 ))}
               </select>

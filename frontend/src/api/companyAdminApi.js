@@ -76,6 +76,8 @@ export const updateProjectChangeRequestStatusApi = (id, status) => api.patch(`/m
 
 // ── Tasks ─────────────────────────────────────────────────────────────────
 export const getTasksApi = (params = {}) => api.get("/tasks", { params });
+export const getAdminMyTasksApi = (params = {}) => api.get("/tasks", { params: { ...params, myTasks: true } });
+export const toggleTaskChecklistApi = (id, data) => api.post(`/tasks/${id}/checklist`, data);
 export const createTaskApi = (data) => api.post("/tasks", data);
 export const getTaskByIdApi = (id) => api.get(`/tasks/${id}`);
 export const getDashboardSummaryApi = (params = {}) => api.get("/tasks/dashboard-summary", { params });
@@ -96,6 +98,7 @@ export const updateTaskStatusApi = (id, statusOrData, extraData = {}) => {
   return api.patch(`/tasks/${id}/status`, payload);
 };
 export const deleteTaskApi = (id) => api.delete(`/company/tasks/${id}`);
+export const bulkShiftTasksApi = (data) => api.patch("/tasks/bulk-shift", data);
 export const addTaskCommentApi = (id, comment) => api.post(`/tasks/${id}/comments`, { comment });
 export const uploadTaskAttachmentApi = (id, file) => {
   const formData = new FormData();

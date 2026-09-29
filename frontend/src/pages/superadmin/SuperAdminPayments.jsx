@@ -207,7 +207,7 @@ const SuperAdminPayments = () => {
       )
     },
     {
-      header: "Tenant Workspace & Plan",
+      header: "Company & Plan",
       accessor: "company",
       render: (row) => (
         <div className="flex items-center space-x-3 py-1">
@@ -220,7 +220,7 @@ const SuperAdminPayments = () => {
               onClick={() => navigate(`/superadmin/companies/${row.companyId?._id || row.companyId}`)}
               className="text-xs font-black text-sa-text hover:text-[#f59e0b] transition-colors cursor-pointer flex items-center gap-1 block leading-tight"
             >
-              <span>{row.companyId?.companyName || "Unknown Tenant Workspace"}</span>
+              <span>{row.companyId?.companyName || "Unknown Company"}</span>
               <ExternalLink size={11} className="text-[#f59e0b] opacity-70" />
             </span>
             <span className="text-[10px] font-extrabold text-sa-text-secondary mt-0.5 inline-block px-1.5 py-0.5 rounded bg-sa-bg border border-sa-border/30 uppercase tracking-wider">
@@ -316,7 +316,7 @@ const SuperAdminPayments = () => {
       {/* Header & Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2.5 border-b border-sa-border/30">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">Payments & Billing Ledger</h1>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Payment Records</h1>
           <p className="text-xs text-sa-text-secondary mt-0.5">Monitor platform recurring revenue, transaction history, invoices, and manual payment entries.</p>
         </div>
         <button 
@@ -384,7 +384,7 @@ const SuperAdminPayments = () => {
           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sa-text-secondary" />
           <input
             type="text"
-            placeholder="Search invoice number, transaction reference ID, or tenant workspace name..."
+            placeholder="Search invoice number, transaction ID, or company name..."
             className="w-full bg-sa-bg/60 border border-sa-border/30 rounded-xl pl-9 pr-4 py-2 text-xs font-bold text-sa-text placeholder:text-sa-text-secondary/50 focus:outline-none focus:border-[#f59e0b] transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -420,7 +420,7 @@ const SuperAdminPayments = () => {
       {isLoading ? (
         <div className="py-20 text-center bg-sa-surface rounded-2xl border border-sa-border p-8">
           <div className="animate-spin w-8 h-8 border-4 border-[#f59e0b] border-t-transparent rounded-full mx-auto mb-4" />
-          <p className="text-xs font-extrabold text-sa-text-secondary">Loading financial transaction ledger...</p>
+          <p className="text-xs font-extrabold text-sa-text-secondary">Loading payment transactions...</p>
         </div>
       ) : (
         <div className="bg-sa-surface rounded-2xl border border-sa-border shadow-sm overflow-hidden">
@@ -438,7 +438,7 @@ const SuperAdminPayments = () => {
                 <span className="w-2 h-2 rounded-full bg-[#f59e0b]" />
                 <div>
                   <h2 className="text-base font-black text-sa-text tracking-tight">Record Manual Payment</h2>
-                  <p className="text-[10px] font-bold text-sa-text-secondary">Log offline wire transfers, netbanking clearances, or custom ledger adjustments.</p>
+                  <p className="text-[10px] font-bold text-sa-text-secondary">Log offline payments, bank transfers, or manual adjustments.</p>
                 </div>
               </div>
               <button onClick={() => setIsModalOpen(false)} className="w-8 h-8 rounded-xl flex items-center justify-center bg-sa-surface border border-sa-border/30 text-sa-text-secondary hover:text-sa-text transition-all font-bold text-lg">&times;</button>
@@ -449,19 +449,19 @@ const SuperAdminPayments = () => {
               <div className="space-y-4">
                 <h4 className="text-xs font-black text-sa-text uppercase tracking-wider border-b border-sa-border/30 pb-2 flex items-center gap-1.5">
                   <Building2 size={14} className="text-[#f59e0b]" />
-                  <span>Tenant & Subscription Plan</span>
+                  <span>Company &amp; Subscription Plan</span>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="md:col-span-2">
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Target Tenant Workspace</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Select Company</label>
                     <select required value={formData.companyId} onChange={e => setFormData({...formData, companyId: e.target.value})}
                       className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
-                      <option value="">-- Choose Company Workspace --</option>
+                      <option value="">-- Choose Company --</option>
                       {companies.map(c => <option key={c._id} value={c._id}>{c.companyName}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Assigned Plan Tier</label>
+                    <label className="text-[11px] font-extrabold text-sa-text-secondary uppercase tracking-wider mb-1 block">Subscription Plan</label>
                     <select required value={formData.planId} onChange={e => setFormData({...formData, planId: e.target.value})}
                       className="w-full bg-sa-bg border border-sa-border/30 rounded-xl px-3.5 py-2.5 text-xs font-bold text-sa-text focus:outline-none focus:border-[#f59e0b] transition-all cursor-pointer">
                       <option value="">-- Choose Subscription Plan --</option>

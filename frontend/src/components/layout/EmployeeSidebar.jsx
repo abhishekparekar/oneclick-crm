@@ -16,6 +16,8 @@ import {
   Bell,
   Settings,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Hexagon,
   Magnet,
   MessageSquare,
@@ -23,7 +25,7 @@ import {
 } from "lucide-react";
 
 // ─── Employee Sidebar ────────────────────────────────────────────────────────
-const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
+const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false, onToggleCollapse }) => {
   const location = useLocation();
   const { user, hasPermission } = useAuth();
 
@@ -50,15 +52,16 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
       ],
     },
     {
-      title: "LEAD ENGINE",
+      title: "LEAD",
       items: [
-        { label: "Leads Pipeline", path: "/employee/leads", icon: Magnet, module: "leads" },
+        { label: "Lead", path: "/employee/leads", icon: Magnet, module: "leads" },
       ],
     },
     {
       title: "HRMS",
       items: [
         { label: "My Attendance", path: "/employee/attendance", icon: CalendarCheck, module: "attendance" },
+        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
         { label: "Live Location Tracking", path: "/employee/location-tracking", icon: Navigation, module: "location_tracking" },
         { label: "Leaves", path: "/employee/leaves", icon: File, module: "leave" },
         { label: "Payslips", path: "/employee/payslips", icon: Receipt, module: "payroll" },
@@ -77,12 +80,6 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
       items: [
         { label: "My Profile", path: "/employee/profile", icon: User },
         { label: "Settings", path: "/employee/settings", icon: Settings },
-      ],
-    },
-    {
-      title: "OTHER",
-      items: [
-        { label: "Company Requests", path: "/employee/requests", icon: MessageSquare },
       ],
     },
   ];
@@ -197,68 +194,27 @@ const EmployeeSidebar = ({ logout, onItemClick, isCollapsed = false }) => {
         })}
       </nav>
 
-      {/* ── Footer ── */}
-      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center gap-2" : "px-3 pb-3 pt-2 space-y-1.5"}`}>
+      {/* ── Sidebar Collapse / Close Button ── */}
+      <div className={`border-t border-white/[0.06] ${isCollapsed ? "p-2 flex flex-col items-center" : "p-2.5 bg-[#061225]"}`}>
         {!isCollapsed ? (
-          <>
-            {/* Company pill */}
-            <div className="flex items-center justify-between px-2.5 py-2 rounded-[8px] bg-[#061225] text-[12px] font-semibold text-slate-300 cursor-default hover:bg-white/[0.06] transition-all">
-              <div className="flex items-center gap-2 truncate min-w-0">
-                <Hexagon size={13} strokeWidth={1.75} className="text-[#1268D9] flex-shrink-0" />
-                <span className="truncate">{companyName}</span>
-              </div>
-              <ChevronDown size={12} strokeWidth={1.75} className="text-slate-500 flex-shrink-0" />
+          <button
+            onClick={onToggleCollapse}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-xl bg-white/[0.03] hover:bg-white/[0.08] border border-white/[0.06] text-slate-300 hover:text-white transition-all cursor-pointer group"
+            title="Collapse Sidebar"
+          >
+            <span className="text-xs font-bold tracking-wide text-slate-400 group-hover:text-slate-200">Collapse Sidebar</span>
+            <div className="w-6 h-6 rounded-lg bg-white/[0.04] group-hover:bg-[#1268D9]/20 group-hover:text-[#1268D9] flex items-center justify-center transition-colors">
+              <ChevronLeft size={15} strokeWidth={2.5} className="group-hover:-translate-x-0.5 transition-transform" />
             </div>
-
-            {/* User row + Logout */}
-            <div className="flex items-center justify-between px-2.5 py-1.5 rounded-[8px] hover:bg-white/[0.04] transition-all cursor-pointer group">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="relative flex-shrink-0">
-                  {(() => {
-                    const emp = profileData?.employee || {};
-                    const rawAvatar = user?.profileImage || emp.photo || emp.profileImage;
-                    const avatarUrl = rawAvatar ? (rawAvatar.startsWith("http") || rawAvatar.startsWith("data:") ? rawAvatar : `${(import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace("/api", "")}${rawAvatar.startsWith("/") ? "" : "/"}${rawAvatar}`) : null;
-
-                    return avatarUrl ? (
-                      <img src={avatarUrl} alt={userName} className="w-7 h-7 rounded-full object-cover shadow-xs border border-slate-700" />
-                    ) : (
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px]">
-                        {userName.slice(0, 2).toUpperCase()}
-                      </div>
-                    );
-                  })()}
-                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-500 border-[1.5px] border-[#090D16]" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12px] font-semibold text-slate-200 truncate leading-tight group-hover:text-[#1268D9] transition-colors">{userName}</p>
-                  <p className="text-[10px] text-slate-500 leading-tight">Employee</p>
-                </div>
-              </div>
-              <button
-                onClick={logout}
-                title="Log Out"
-                className="text-slate-600 hover:text-rose-400 transition-colors p-1 cursor-pointer"
-              >
-                <LogOut size={13} strokeWidth={1.75} />
-              </button>
-            </div>
-          </>
+          </button>
         ) : (
-          <>
-            <div
-              title={userName}
-              className="w-9 h-9 rounded-full bg-gradient-to-tr from-[#1268D9] to-[#082B52] flex items-center justify-center text-white font-bold text-[11px] shadow-xs cursor-pointer"
-            >
-              {userName.slice(0, 2).toUpperCase()}
-            </div>
-            <button
-              onClick={logout}
-              title="Log Out"
-              className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-500 hover:text-rose-400 hover:bg-white/[0.06] transition-colors cursor-pointer"
-            >
-              <LogOut size={16} strokeWidth={1.75} />
-            </button>
-          </>
+          <button
+            onClick={onToggleCollapse}
+            className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-slate-400 hover:text-[#1268D9] border border-white/[0.06] transition-all cursor-pointer shadow-2xs"
+            title="Expand Sidebar"
+          >
+            <ChevronRight size={16} strokeWidth={2.5} />
+          </button>
         )}
       </div>
     </div>

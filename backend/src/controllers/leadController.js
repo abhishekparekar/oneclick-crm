@@ -23,6 +23,7 @@ const {
 } = require("../services/whatsappService");
 const { resolveToUserIds } = require("../utils/notificationHelper");
 const { checkUserPermission } = require("../utils/permissionCheck");
+const { parseDateTimeIST, formatISTDateTime } = require("../utils/dateParser");
 
 const getCompanyId = (req) => {
   return req.user?.companyId || req.user?._id || null;
@@ -875,7 +876,7 @@ const createLead = async (req, res) => {
       productService: productService || null,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       anniversaryDate: anniversaryDate ? new Date(anniversaryDate) : null,
-      nextFollowUpDate: nextFollowUpDate ? new Date(nextFollowUpDate) : null,
+      nextFollowUpDate: nextFollowUpDate ? parseDateTimeIST(nextFollowUpDate) : null,
       followUpNotified: false,
       address: address || null,
       city: city || null,
@@ -1176,8 +1177,8 @@ const updateLead = async (req, res) => {
       }
     }
 
-    if (updateData.nextFollowUpDate) {
-      updateData.nextFollowUpDate = new Date(updateData.nextFollowUpDate);
+    if (updateData.nextFollowUpDate !== undefined) {
+      updateData.nextFollowUpDate = parseDateTimeIST(updateData.nextFollowUpDate);
       updateData.followUpNotified = false;
     }
 
@@ -1230,19 +1231,10 @@ const updateLead = async (req, res) => {
       let followUpDateStr = "";
       let followUpTimeStr = "";
       if (updated.nextFollowUpDate) {
-        const d = new Date(updated.nextFollowUpDate);
-        if (!isNaN(d.getTime())) {
-          const day = String(d.getDate()).padStart(2, "0");
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const year = d.getFullYear();
-          followUpDateStr = `${day}/${month}/${year}`;
-          let hours = d.getHours();
-          const minutes = String(d.getMinutes()).padStart(2, "0");
-          const ampm = hours >= 12 ? "PM" : "AM";
-          hours = hours % 12 || 12;
-          followUpTimeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
-          followUpFormatted = `${followUpDateStr} at ${followUpTimeStr}`;
-        }
+        const ist = formatISTDateTime(updated.nextFollowUpDate);
+        followUpDateStr = ist.dateStr;
+        followUpTimeStr = ist.timeStr;
+        followUpFormatted = ist.fullStr;
       }
 
       const isWon =
@@ -1450,8 +1442,11 @@ const updateLeadStatus = async (req, res) => {
     if (!prevLead) return res.status(404).json({ message: "Lead not found" });
 
     const updateFields = { statusId };
-    if (nextFollowUpDate) {
-      updateFields.nextFollowUpDate = new Date(nextFollowUpDate);
+    if (nextFollowUpDate !== undefined && nextFollowUpDate !== null && nextFollowUpDate !== "") {
+      updateFields.nextFollowUpDate = parseDateTimeIST(nextFollowUpDate);
+      updateFields.followUpNotified = false;
+    } else if (nextFollowUpDate === null || nextFollowUpDate === "") {
+      updateFields.nextFollowUpDate = null;
       updateFields.followUpNotified = false;
     }
 
@@ -1504,19 +1499,10 @@ const updateLeadStatus = async (req, res) => {
     let followUpDateStr = "";
     let followUpTimeStr = "";
     if (updated.nextFollowUpDate) {
-      const d = new Date(updated.nextFollowUpDate);
-      if (!isNaN(d.getTime())) {
-        const day = String(d.getDate()).padStart(2, "0");
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const year = d.getFullYear();
-        followUpDateStr = `${day}/${month}/${year}`;
-        let hours = d.getHours();
-        const minutes = String(d.getMinutes()).padStart(2, "0");
-        const ampm = hours >= 12 ? "PM" : "AM";
-        hours = hours % 12 || 12;
-        followUpTimeStr = `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
-        followUpFormatted = `${followUpDateStr} at ${followUpTimeStr}`;
-      }
+      const ist = formatISTDateTime(updated.nextFollowUpDate);
+      followUpDateStr = ist.dateStr;
+      followUpTimeStr = ist.timeStr;
+      followUpFormatted = ist.fullStr;
     }
 
     const remarkText = (req.body.remark || req.body.note || "").trim();
@@ -1611,8 +1597,37 @@ const getAssignableUsers = async (req, res) => {
     const User = require("../models/User");
     const Department = require("../models/Department");
 
+    const formatTitleCase = (str) => {
+      if (!str || typeof str !== "string") return "";
+      return str
+        .toLowerCase()
+        .split(" ")
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(" ");
+    };
+
     const result = [];
     const addedUserIds = new Set();
+
+    // Fetch all active employees for department mapping
+    const employees = await Employee.find({
+      ...(companyId ? { companyId } : {}),
+      status: { $ne: "inactive" },
+    })
+      .select("fullName firstName lastName email role assignedModules permissions userId departmentId departmentName departmentIds")
+      .populate("departmentId", "name")
+      .populate("departmentIds", "name")
+      .populate("userId", "name email role assignedModules permissions")
+      .lean();
+
+    const empByUserId = new Map();
+    for (const emp of employees) {
+      if (emp.userId?._id) {
+        empByUserId.set(emp.userId._id.toString(), emp);
+      }
+      empByUserId.set(emp._id.toString(), emp);
+    }
 
     // 1. Company Admins & Admins (always have full lead access by default)
     if (companyId) {
@@ -1626,14 +1641,19 @@ const getAssignableUsers = async (req, res) => {
         const uId = admin._id.toString();
         if (!addedUserIds.has(uId)) {
           addedUserIds.add(uId);
+          const emp = empByUserId.get(uId);
+          const deptName = emp?.departmentId?.name || emp?.departmentName || "Administration";
+          const formattedName = formatTitleCase(admin.name || emp?.fullName || "Admin");
+          const roleLabel = admin.role || "Admin";
+
           result.push({
             id: uId,
             _id: uId,
-            name: admin.name || "Admin",
+            name: formattedName,
             email: admin.email || "",
-            department: "Administration",
-            role: admin.role || "Admin",
-            label: `${admin.name || "Admin"} (${admin.role || "Admin"})`,
+            department: deptName,
+            role: roleLabel,
+            label: `${formattedName} (${deptName})`,
             isAdmin: true,
           });
         }
@@ -1641,15 +1661,6 @@ const getAssignableUsers = async (req, res) => {
     }
 
     // 2. Active Employees with Lead Access
-    const employees = await Employee.find({
-      ...(companyId ? { companyId } : {}),
-      status: { $ne: "inactive" },
-    })
-      .select("fullName firstName lastName email role assignedModules permissions userId departmentId")
-      .populate("departmentId", "name")
-      .populate("userId", "name email role assignedModules permissions")
-      .lean();
-
     for (const emp of employees) {
       const uRole = (emp.userId?.role || emp.role || "employee").toLowerCase().trim();
       const isAdmin = ["superadmin", "companyadmin", "admin"].includes(uRole);
@@ -1684,23 +1695,33 @@ const getAssignableUsers = async (req, res) => {
       }
 
       const uId = emp.userId?._id ? emp.userId._id.toString() : emp._id.toString();
-      const deptName = emp.departmentId?.name || "";
-      const empName =
-        emp.fullName ||
-        `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
-        emp.userId?.name ||
-        "Employee";
-
       if (!addedUserIds.has(uId)) {
         addedUserIds.add(uId);
+
+        let deptName = emp.departmentId?.name || emp.departmentName || "";
+        if (!deptName && Array.isArray(emp.departmentIds) && emp.departmentIds.length > 0) {
+          deptName = emp.departmentIds[0]?.name || "";
+        }
+        if (!deptName) {
+          deptName = formatTitleCase(emp.role || emp.userId?.role || "General");
+        }
+
+        const rawName =
+          emp.fullName ||
+          `${emp.firstName || ""} ${emp.lastName || ""}`.trim() ||
+          emp.userId?.name ||
+          "Employee";
+        const formattedName = formatTitleCase(rawName);
+        const role = emp.role || emp.userId?.role || "Employee";
+
         result.push({
           id: uId,
           _id: uId,
-          name: empName,
+          name: formattedName,
           email: emp.email || emp.userId?.email || "",
           department: deptName,
-          role: emp.role || emp.userId?.role || "Employee",
-          label: deptName ? `${empName} (${deptName})` : `${empName} (${emp.role || "Employee"})`,
+          role,
+          label: `${formattedName} (${deptName})`,
           isAdmin,
         });
       }
@@ -1741,18 +1762,28 @@ const getAssignableUsers = async (req, res) => {
       const uId = u._id.toString();
       if (!addedUserIds.has(uId)) {
         addedUserIds.add(uId);
+        const emp = empByUserId.get(uId);
+        const deptName =
+          emp?.departmentId?.name ||
+          emp?.departmentName ||
+          (isAdmin ? "Administration" : formatTitleCase(u.role || "Staff"));
+        const formattedName = formatTitleCase(u.name || "User");
+
         result.push({
           id: uId,
           _id: uId,
-          name: u.name,
+          name: formattedName,
           email: u.email || "",
-          department: "",
+          department: deptName,
           role: u.role || "Employee",
-          label: `${u.name} (${u.role || "Staff"})`,
+          label: `${formattedName} (${deptName})`,
           isAdmin,
         });
       }
     }
+
+    // Sort Alphabetically A-Z by name
+    result.sort((a, b) => (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" }));
 
     return res.json({ success: true, data: result, users: result });
   } catch (err) {
@@ -3587,8 +3618,8 @@ const addLeadDocument = async (req, res) => {
     if (req.body.statusId) {
       lead.statusId = req.body.statusId;
     }
-    if (req.body.nextFollowUpDate) {
-      lead.nextFollowUpDate = new Date(req.body.nextFollowUpDate);
+    if (req.body.nextFollowUpDate !== undefined) {
+      lead.nextFollowUpDate = parseDateTimeIST(req.body.nextFollowUpDate);
       lead.followUpNotified = false;
     }
 

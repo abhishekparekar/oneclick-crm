@@ -30,7 +30,7 @@ const MODULES = [
 
 const MODULE_CAP_ITEMS = [
   { key: "tasks",             label: "Tasks Module",               color: "#f59e0b" },
-  { key: "leads",             label: "Leads Engine & CRM",         color: "#f59e0b" },
+  { key: "leads",             label: "Lead",                       color: "#f59e0b" },
   { key: "map_leads",         label: "Map Leads Finder",           color: "#3B82F6" },
   { key: "attendance",        label: "Attendance & Bio-Punch",     color: "#10b981" },
   { key: "location_tracking", label: "Field GPS Location Tracking",color: "#ec4899" },
@@ -434,12 +434,12 @@ const AddCompanyScreen = ({ route, navigation }) => {
           </View>
         </AppCard>
 
-        {/* Section 4: Entitled Suite Modules & Feature Licenses (12 Modules) */}
+        {/* Section 4: Features & Modules */}
         <AppCard style={styles.card}>
           <View style={[styles.sectionHeader, { justifyContent: "space-between" }]}>
             <View style={{ flexDirection: "row", alignItems: "center" }}>
               <Ionicons name="hardware-chip-outline" size={16} color="#f59e0b" />
-              <Text style={styles.sectionTitle}>Entitled Suite Modules</Text>
+              <Text style={styles.sectionTitle}>Features & Modules</Text>
             </View>
             <View style={styles.counterBadge}>
               <Text style={styles.counterBadgeText}>
@@ -449,7 +449,7 @@ const AddCompanyScreen = ({ route, navigation }) => {
           </View>
 
           <Text style={styles.helpText}>
-            Tap modules to enable or disable access for this company tenant.
+            Tap modules to enable or disable features for this company.
           </Text>
 
           <View style={styles.modulesGrid}>

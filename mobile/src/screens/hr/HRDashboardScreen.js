@@ -203,7 +203,7 @@ const HRDashboardScreen = ({ navigation }) => {
     try {
       if (isRefresh) {
         setRefreshing(true);
-        if (refreshUserProfile) await refreshUserProfile().catch(() => {});
+        if (refreshUserProfile) await refreshUserProfile().catch(() => { });
       } else if (!data) {
         setLoading(true);
       }
@@ -367,18 +367,18 @@ const HRDashboardScreen = ({ navigation }) => {
           end={{ x: 1, y: 1 }}
           style={styles.checkInCard}
         >
-          <Ionicons 
-            name="time-outline" 
-            size={130} 
-            color="rgba(255, 255, 255, 0.05)" 
-            style={styles.leafWatermark} 
+          <Ionicons
+            name="time-outline"
+            size={130}
+            color="rgba(255, 255, 255, 0.05)"
+            style={styles.leafWatermark}
           />
 
           <View style={styles.checkInLeft}>
             <Text style={styles.checkInLabel}>
               {isCurrentlyPunchedIn ? "Clocked In" : "Clocked Out"}
             </Text>
-            
+
             <Text style={styles.checkInTime}>
               {todayRecord && isCurrentlyPunchedIn && todayRecord.punchLog?.length > 0
                 ? new Date(todayRecord.punchLog[todayRecord.punchLog.length - 1].punchInTime).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
@@ -399,17 +399,17 @@ const HRDashboardScreen = ({ navigation }) => {
           </View>
 
           {canAccessAttendance && (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
                 styles.checkInBtn,
                 isCurrentlyPunchedIn && { backgroundColor: "#EF4444", borderColor: "#EF4444" },
-              ]} 
+              ]}
               onPress={() =>
                 navigation.navigate("CheckInCheckOut", {
                   initialAction: isCurrentlyPunchedIn ? "out" : "in",
                   todayRecord: todayRecord,
                 })
-              } 
+              }
               activeOpacity={0.9}
             >
               {isCurrentlyPunchedIn ? (
@@ -475,7 +475,7 @@ const HRDashboardScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* ── 3. Lead CRM & Pipeline Widget ───────────────── */}
+        {/* ── 3. Lead CRM &  Widget ───────────────── */}
         {canAccessLeads && (
           <>
             <View style={styles.sectionHeaderRow}>
@@ -566,7 +566,7 @@ const HRDashboardScreen = ({ navigation }) => {
             </View>
 
             <View style={[styles.card, styles.attendanceOverviewCard]}>
-              <DonutChart 
+              <DonutChart
                 total={stats?.activeEmployees || stats?.totalEmployees || 0}
                 present={stats?.presentToday || 0}
                 absent={stats?.absentToday || 0}
@@ -953,7 +953,7 @@ const HRDashboardScreen = ({ navigation }) => {
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.formLabel}>Pipeline Status</Text>
+                <Text style={styles.formLabel}> Status</Text>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: "row" }}>
                   {leadStatuses.map((st) => {
                     const stId = st.id || st._id;

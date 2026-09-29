@@ -149,7 +149,7 @@ const SuperAdminAnnouncements = () => {
       )
     },
     {
-      header: "Target Scope & Routing",
+      header: "Audience & Channels",
       accessor: "target",
       render: (row) => (
         <div className="py-1 space-y-1.5">
@@ -171,7 +171,7 @@ const SuperAdminAnnouncements = () => {
       )
     },
     {
-      header: "Dispatch Schedule",
+      header: "Schedule",
       accessor: "schedule",
       render: (row) => (
         <div className="py-1">
@@ -196,17 +196,17 @@ const SuperAdminAnnouncements = () => {
       render: (row) => <AnnouncementStatusBadge status={row.status} />
     },
     {
-      header: "Broadcast Actions",
+      header: "Actions",
       accessor: "actions",
       render: (row) => (
         <div className="flex items-center justify-end space-x-1.5 py-1">
           {row.status === 'draft' && (
             <button 
-              type="button"
+              type="button" 
               onClick={() => { if(window.confirm(`Publish and broadcast "${row.title}" across selected channels right now?`)) publishMutation.mutate(row._id) }} 
               className="px-2.5 py-1 rounded-lg text-xs font-extrabold text-white flex items-center space-x-1 shadow-xs transition-all hover:opacity-90"
               style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
-              title="Publish & Dispatch Now"
+              title="Publish Now"
             >
               <Send size={12} />
               <span>Publish Now</span>
@@ -214,10 +214,10 @@ const SuperAdminAnnouncements = () => {
           )}
           {(row.status === 'published' || row.status === 'scheduled') && (
             <button 
-              type="button"
+              type="button" 
               onClick={() => { if(window.confirm('Revoke and cancel this active announcement broadcast?')) cancelMutation.mutate(row._id) }} 
               className="px-2 py-1 bg-amber-500/10 border border-amber-300 text-amber-600 rounded-lg text-xs font-bold hover:bg-amber-500/20 transition-all flex items-center space-x-1" 
-              title="Revoke / Cancel Broadcast"
+              title="Cancel Announcement"
             >
               <Ban size={12} />
               <span>Cancel</span>
@@ -242,8 +242,8 @@ const SuperAdminAnnouncements = () => {
       {/* Header & New Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-sa-border">
         <div>
-          <h1 className="text-2xl font-black text-sa-text tracking-tight">System Broadcast & Announcements</h1>
-          <p className="text-xs text-sa-text-secondary mt-0.5">Dispatch high-priority notifications across all tenant workspaces, target specific roles, or schedule timed alerts.</p>
+          <h1 className="text-2xl font-black text-sa-text tracking-tight">Announcements &amp; Notices</h1>
+          <p className="text-xs text-sa-text-secondary mt-0.5">Send notifications and announcements across companies or specific roles.</p>
         </div>
         <button 
           onClick={() => setIsModalOpen(true)} 
@@ -251,14 +251,14 @@ const SuperAdminAnnouncements = () => {
           style={{ background: "linear-gradient(135deg, #d97706, #f59e0b)" }}
         >
           <Plus size={16} />
-          <span>New Broadcast Dispatch</span>
+          <span>+ New Announcement</span>
         </button>
       </div>
 
       {/* Broadcast KPI Summary Row (4 Cards) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <BroadcastKpiCard 
-          title="Total Broadcasts" 
+          title="Total Announcements" 
           count={totalBroadcasts} 
           subtitle="All recorded items" 
           icon={Megaphone} 
@@ -267,7 +267,7 @@ const SuperAdminAnnouncements = () => {
           onClick={() => setStatusFilter("all")} 
         />
         <BroadcastKpiCard 
-          title="Published & Active" 
+          title="Published &amp; Active" 
           count={publishedCount} 
           subtitle="Live notifications" 
           icon={CheckCircle} 
@@ -276,7 +276,7 @@ const SuperAdminAnnouncements = () => {
           onClick={() => setStatusFilter("published")} 
         />
         <BroadcastKpiCard 
-          title="Draft Broadcasts" 
+          title="Drafts" 
           count={draftCount} 
           subtitle="Pending review" 
           icon={Edit2} 
@@ -285,7 +285,7 @@ const SuperAdminAnnouncements = () => {
           onClick={() => setStatusFilter("draft")} 
         />
         <BroadcastKpiCard 
-          title="Scheduled & Queued" 
+          title="Scheduled" 
           count={scheduledCount} 
           subtitle="Future timed release" 
           icon={Clock} 
@@ -409,9 +409,9 @@ const SuperAdminAnnouncements = () => {
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
-                    { id: "all_companies", label: "All Companies", desc: "Global broadcast across all tenant workspaces", icon: Globe },
-                    { id: "selected_companies", label: "Selected Companies", desc: "Pick specific tenant organizations to notify", icon: Building2 },
-                    { id: "selected_roles", label: "Specific Roles", desc: "Filter target recipients by user permission role", icon: Users }
+                    { id: "all_companies", label: "All Companies", desc: "Send announcement to all registered companies", icon: Globe },
+                    { id: "selected_companies", label: "Selected Companies", desc: "Pick specific companies to notify", icon: Building2 },
+                    { id: "selected_roles", label: "Specific Roles", desc: "Send announcement to specific user roles", icon: Users }
                   ].map((scope) => (
                     <div
                       key={scope.id}

@@ -354,8 +354,8 @@ const {
     updateSettings,
 } = require("../controllers/attendanceController");
 
-router.get("/attendance", ...adminHr, companyAttendance);
-router.get("/attendance/:employeeId/monthly", ...adminHr, employeeAttendance);
+router.get("/attendance", ...adminHrManager, companyAttendance);
+router.get("/attendance/:employeeId/monthly", ...adminHrManager, employeeAttendance);
 router.patch("/attendance/:id/manual-update", ...adminHr, manualUpdateAttendance);
 router.post("/attendance/manual-update", ...adminHr, manualUpdateAttendance);
 router.delete("/attendance/:id", ...adminHr, deleteAttendance);

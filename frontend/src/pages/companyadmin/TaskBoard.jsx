@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
@@ -16,9 +16,11 @@ import {
   CalendarClock, Repeat, LayoutGrid, List, ChevronDown, ChevronUp, Kanban,
   ArrowUp, ArrowDown, CheckSquare, Sparkles, AlertTriangle, Layers,
   Calendar, RotateCcw, SlidersHorizontal, RefreshCw, Layers3, Flame,
-  Eye, Building2, Paperclip
+  Eye, Building2, Paperclip, ArrowRightLeft
 } from "lucide-react";
 import TaskCreateModal from "../../components/tasks/TaskCreateModal";
+import TaskBulkActionBar from "../../components/tasks/TaskBulkActionBar";
+import MemberSearchSelect from "../../components/tasks/MemberSearchSelect";
 
 const formatDateDDMMYYYY = (val) => {
   if (!val) return "—";
@@ -98,52 +100,103 @@ const PriorityBadge = ({ priority }) => {
   );
 };
 
-// ── Top KPI Stat Card (Matching Dashboard Header Cards) ──────────────────────
-const KPICard = ({ label, value, trend, isUp, period, strokeColor, Icon, iconBg, iconColor, extraClass = "" }) => {
-  const sparkData = useMemo(() => [
-    { v: 12 }, { v: 18 }, { v: 14 }, { v: 22 }, { v: 19 }, { v: 28 }, { v: 24 }, { v: 34 },
-  ], []);
+// ── Top KPI Stat Card ────────────────────────────────────────────────────────
+const CARD_THEMES = {
+  blue: {
+    baseClass: "bg-blue-50/80 dark:bg-blue-950/35 border-blue-200/90 dark:border-blue-800/80 shadow-2xs hover:shadow-md hover:border-blue-400 dark:hover:border-blue-600",
+    activeClass: "bg-blue-100/90 dark:bg-blue-950/70 border-2 border-blue-600 ring-2 ring-blue-500/30 shadow-md",
+    activeBadge: "bg-blue-600 text-white",
+    iconBg: "bg-blue-600 text-white shadow-xs",
+    labelText: "text-blue-950 dark:text-blue-200 font-extrabold",
+    valueText: "text-blue-700 dark:text-blue-300",
+    topBar: "bg-blue-600",
+  },
+  sky: {
+    baseClass: "bg-sky-50/80 dark:bg-sky-950/35 border-sky-200/90 dark:border-sky-800/80 shadow-2xs hover:shadow-md hover:border-sky-400 dark:hover:border-sky-600",
+    activeClass: "bg-sky-100/90 dark:bg-sky-950/70 border-2 border-sky-600 ring-2 ring-sky-500/30 shadow-md",
+    activeBadge: "bg-sky-600 text-white",
+    iconBg: "bg-sky-500 text-white shadow-xs",
+    labelText: "text-sky-950 dark:text-sky-200 font-extrabold",
+    valueText: "text-sky-700 dark:text-sky-300",
+    topBar: "bg-sky-500",
+  },
+  amber: {
+    baseClass: "bg-amber-50/80 dark:bg-amber-950/35 border-amber-200/90 dark:border-amber-800/80 shadow-2xs hover:shadow-md hover:border-amber-400 dark:hover:border-amber-600",
+    activeClass: "bg-amber-100/90 dark:bg-amber-950/70 border-2 border-amber-600 ring-2 ring-amber-500/30 shadow-md",
+    activeBadge: "bg-amber-600 text-white",
+    iconBg: "bg-amber-500 text-white shadow-xs",
+    labelText: "text-amber-950 dark:text-amber-200 font-extrabold",
+    valueText: "text-amber-700 dark:text-amber-300",
+    topBar: "bg-amber-500",
+  },
+  emerald: {
+    baseClass: "bg-emerald-50/80 dark:bg-emerald-950/35 border-emerald-200/90 dark:border-emerald-800/80 shadow-2xs hover:shadow-md hover:border-emerald-400 dark:hover:border-emerald-600",
+    activeClass: "bg-emerald-100/90 dark:bg-emerald-950/70 border-2 border-emerald-600 ring-2 ring-emerald-500/30 shadow-md",
+    activeBadge: "bg-emerald-600 text-white",
+    iconBg: "bg-emerald-600 text-white shadow-xs",
+    labelText: "text-emerald-950 dark:text-emerald-200 font-extrabold",
+    valueText: "text-emerald-700 dark:text-emerald-300",
+    topBar: "bg-emerald-500",
+  },
+  rose: {
+    baseClass: "bg-rose-50/80 dark:bg-rose-950/35 border-rose-200/90 dark:border-rose-800/80 shadow-2xs hover:shadow-md hover:border-rose-400 dark:hover:border-rose-600",
+    activeClass: "bg-rose-100/90 dark:bg-rose-950/70 border-2 border-rose-600 ring-2 ring-rose-500/30 shadow-md",
+    activeBadge: "bg-rose-600 text-white",
+    iconBg: "bg-rose-600 text-white shadow-xs",
+    labelText: "text-rose-950 dark:text-rose-200 font-extrabold",
+    valueText: "text-rose-700 dark:text-rose-300",
+    topBar: "bg-rose-500",
+  },
+  purple: {
+    baseClass: "bg-purple-50/80 dark:bg-purple-950/35 border-purple-200/90 dark:border-purple-800/80 shadow-2xs hover:shadow-md hover:border-purple-400 dark:hover:border-purple-600",
+    activeClass: "bg-purple-100/90 dark:bg-purple-950/70 border-2 border-purple-600 ring-2 ring-purple-500/30 shadow-md",
+    activeBadge: "bg-purple-600 text-white",
+    iconBg: "bg-purple-600 text-white shadow-xs",
+    labelText: "text-purple-950 dark:text-purple-200 font-extrabold",
+    valueText: "text-purple-700 dark:text-purple-300",
+    topBar: "bg-purple-500",
+  },
+};
 
+const KPICard = ({ label, value, theme = "blue", onClick, isActive = false }) => {
+  const cfg = CARD_THEMES[theme] || CARD_THEMES.blue;
   return (
-    <div className={`bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 p-2.5 sm:px-4 sm:py-3.5 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] transition-all duration-300 group ${extraClass}`}>
-      <div className="flex-1 min-w-0 pr-1 sm:pr-2">
-        <div className="flex items-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
-          <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-lg flex items-center justify-center ${iconBg} flex-shrink-0 shadow-xs`}>
-            <Icon size={12} style={{ color: iconColor }} strokeWidth={2.4} />
-          </div>
-          <span className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">{label}</span>
-        </div>
-        <h3 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none mb-1 sm:mb-1.5">{value}</h3>
-        <div className="flex items-center gap-1 text-[9px] sm:text-[10.5px]">
-          <span className={`inline-flex items-center font-extrabold ${isUp ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"}`}>
-            {isUp ? <ArrowUp size={9} strokeWidth={2.5}/> : <ArrowDown size={9} strokeWidth={2.5}/>}
-            {trend}
+    <div
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-xl border transition-all duration-200 select-none p-2.5 sm:p-3 flex flex-col justify-between min-h-[76px] ${onClick ? "cursor-pointer active:scale-[0.98]" : ""
+        } ${isActive ? cfg.activeClass : cfg.baseClass
+        }`}
+    >
+      {/* Top Accent Strip with theme color */}
+      <div className={`absolute top-0 left-0 right-0 h-[3.5px] ${cfg.topBar}`} />
+
+      {/* Header Row: Label & Active Badge */}
+      <div className="flex items-center justify-between gap-1 mb-1 pt-0.5">
+        <span className={`text-[10px] sm:text-[10.5px] uppercase tracking-wider truncate font-extrabold ${cfg.labelText}`}>
+          {label}
+        </span>
+        {isActive && (
+          <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${cfg.activeBadge} shadow-2xs`}>
+            Active
           </span>
-          <span className="text-slate-400 text-[8.5px] sm:text-[9.5px] truncate hidden sm:inline">vs {period}</span>
-        </div>
+        )}
       </div>
-      <div className="h-8 sm:h-10 w-12 sm:w-16 opacity-70 group-hover:opacity-100 transition-opacity pointer-events-none flex-shrink-0 hidden md:block">
-        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-          <AreaChart data={sparkData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-            <defs>
-              <linearGradient id={`sk-tb-${label.replace(/\s+/g, '')}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={strokeColor} stopOpacity={0.35}/>
-                <stop offset="100%" stopColor={strokeColor} stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <Area type="monotone" dataKey="v" stroke={strokeColor} strokeWidth={2.2} fill={`url(#sk-tb-${label.replace(/\s+/g, '')})`}/>
-          </AreaChart>
-        </ResponsiveContainer>
+
+      {/* Value Row: Bold Colored Count */}
+      <div>
+        <h3 className={`text-xl sm:text-2xl font-black font-mono tracking-tight leading-none ${cfg.valueText}`}>
+          {value}
+        </h3>
       </div>
     </div>
   );
 };
 
 // ── Task Card ─────────────────────────────────────────────────────────────────
-const TaskCard = ({ task, onClick, activeTab }) => {
+const TaskCard = ({ task, onClick, activeTab, isSelected, onToggleSelect }) => {
   const status = task.status || "pending";
-  const statusCfg = task.isTemplate 
-    ? { hex: "#8b5cf6", bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-500" } 
+  const statusCfg = task.isTemplate
+    ? { hex: "#8b5cf6", bg: "bg-violet-50", text: "text-violet-700", border: "border-violet-200", dot: "bg-violet-500" }
     : (STATUS_CONFIG[status] || STATUS_CONFIG.pending);
 
   const assignedNames = (task.assignedTo || []).filter(a => a && (a.firstName || a.name));
@@ -161,15 +214,30 @@ const TaskCard = ({ task, onClick, activeTab }) => {
   return (
     <div
       onClick={onClick}
-      className="group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden p-3 sm:p-4 min-h-[110px] sm:min-h-[140px] isolate"
+      className={`group relative flex flex-col bg-white dark:bg-[#111C24] rounded-xl sm:rounded-2xl border shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-0.5 transition-all duration-300 cursor-pointer overflow-hidden p-3 sm:p-4 min-h-[110px] sm:min-h-[140px] isolate ${isSelected
+          ? "border-blue-500 ring-2 ring-blue-500/20 bg-blue-50/20 dark:bg-blue-950/20"
+          : "border-slate-200/80 dark:border-slate-800"
+        }`}
     >
-      <div 
+      <div
         className="absolute top-0 left-0 bottom-0 w-[3.5px] group-hover:w-[4.5px] transition-all duration-300 z-20"
         style={{ backgroundColor: statusCfg.hex }}
       />
 
       <div className="flex items-center justify-between mb-1.5 sm:mb-2 z-10 relative">
         <div className="flex items-center gap-1.5">
+          {onToggleSelect && (
+            <input
+              type="checkbox"
+              checked={!!isSelected}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleSelect(task._id);
+              }}
+              className="w-3.5 h-3.5 rounded text-blue-600 border-slate-300 dark:border-slate-600 focus:ring-blue-500 cursor-pointer shrink-0"
+            />
+          )}
           <span className="text-[9.5px] sm:text-[10px] font-mono font-black tracking-widest uppercase text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded-md border border-slate-200/60 dark:border-slate-700">
             {task.taskId || (task.isTemplate ? "TMPL" : "—")}
           </span>
@@ -205,14 +273,14 @@ const TaskCard = ({ task, onClick, activeTab }) => {
               {isOverdue && <span className="text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-rose-600 bg-rose-50 px-1 py-0.2 rounded border border-rose-200">Overdue</span>}
             </div>
           )}
-          
+
           <div className="flex flex-wrap items-center gap-1">
             {(task.isRecurring || task.isGeneratedFromTemplate || task.parentTemplateId) && !task.isTemplate && (
               <div className="flex items-center gap-1 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-md border border-amber-200 dark:border-amber-800/60">
                 <Repeat size={9} strokeWidth={2.5} /> Recurring
               </div>
             )}
-            
+
             {task.departmentId?.name && (
               <div className="flex items-center gap-1 text-[8.5px] sm:text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 px-1.5 py-0.5 rounded-md border border-slate-200/80 dark:border-slate-700">
                 <Tag size={9} strokeWidth={2.5} /> {task.departmentId.name}
@@ -245,7 +313,7 @@ const TaskCard = ({ task, onClick, activeTab }) => {
 };
 
 // ── Table Row Component ───────────────────────────────────────────────────────
-const TableRow = ({ task, onClick, activeTab }) => {
+const TableRow = ({ task, onClick, activeTab, isSelected, onToggleSelect }) => {
   const status = task.status || "pending";
   const assignedNames = (task.assignedTo || []).filter(a => a && (a.firstName || a.name));
   const rawDate = task.dueDate || task.endDate || task.endDateTime || task.finishDate || task.startDate;
@@ -254,7 +322,24 @@ const TableRow = ({ task, onClick, activeTab }) => {
   const deptName = task.departmentId?.name || (typeof task.department === "string" ? task.department : "") || task.departmentName;
 
   return (
-    <tr onClick={onClick} className="border-b border-slate-100 dark:border-slate-800/80 hover:bg-amber-500/[0.04] dark:hover:bg-amber-500/[0.04] transition-colors cursor-pointer group">
+    <tr
+      onClick={onClick}
+      className={`border-b border-slate-100 dark:border-slate-800/80 transition-colors cursor-pointer group ${isSelected ? "bg-blue-50/70 dark:bg-blue-950/30" : "hover:bg-slate-50/80 dark:hover:bg-slate-800/40"
+        }`}
+    >
+      <td className="px-3 py-3 w-10 text-center" onClick={(e) => e.stopPropagation()}>
+        {onToggleSelect && (
+          <input
+            type="checkbox"
+            checked={!!isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onToggleSelect(task._id);
+            }}
+            className="w-4 h-4 rounded text-blue-600 border-slate-300 dark:border-slate-600 focus:ring-blue-500 cursor-pointer"
+          />
+        )}
+      </td>
       <td className="px-4 py-3 whitespace-nowrap">
         <span className="font-mono font-black text-amber-600 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-md text-[11px]">
           {task.taskId || "TSK"}
@@ -358,7 +443,7 @@ export default function TaskBoard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  
+
   const isHR = location.pathname.startsWith("/hr") || user?.role === "HR";
   const getTaskDetailsUrl = (taskId) => isHR ? `/hr/tasks/${taskId}` : `/company/tasks/${taskId}`;
 
@@ -368,6 +453,13 @@ export default function TaskBoard() {
   const [viewMode, setViewMode] = useState(() => sessionStorage.getItem("tb_viewMode") || "list");
   const [showStatusCards, setShowStatusCards] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState([]);
+
+  const handleToggleSelectTask = (taskId) => {
+    setSelectedTaskIds(prev =>
+      prev.includes(taskId) ? prev.filter(id => id !== taskId) : [...prev, taskId]
+    );
+  };
 
   const [filters, setFilters] = useState(() => {
     try {
@@ -408,29 +500,30 @@ export default function TaskBoard() {
     }
   });
   const [tempFilters, setTempFilters] = useState(filters);
+  const [tempTab, setTempTab] = useState(activeTab);
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false);
+  const filterDropdownRef = useRef(null);
 
   const handleOpenFilters = () => {
-    setTempFilters({ ...filters });
-    setShowFiltersDropdown(true);
+    setTempFilters({ ...filters, status: filters.status || statusFilter });
+    setTempTab(activeTab);
+    setShowFiltersDropdown(prev => !prev);
   };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (filterDropdownRef.current && !filterDropdownRef.current.contains(e.target)) {
+        setShowFiltersDropdown(false);
+      }
+    };
+    if (showFiltersDropdown) document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showFiltersDropdown]);
 
   const handleApplyFilters = () => {
     setFilters({ ...tempFilters });
-    if (!tempFilters.startDate && !tempFilters.endDate) {
-      setActiveTab("All Time");
-    } else {
-      const tabs = ["Today", "Yesterday", "This Week", "Last Month", "This Month", "Next Month"];
-      const matched = tabs.find(t => {
-        const d = getDates(t);
-        return d.start === tempFilters.startDate && d.end === tempFilters.endDate;
-      });
-      if (matched) {
-        setActiveTab(matched);
-      } else {
-        setActiveTab("");
-      }
-    }
+    setStatusFilter(tempFilters.status || "");
+    setActiveTab(tempTab || "All Time");
     setShowFiltersDropdown(false);
   };
 
@@ -440,6 +533,7 @@ export default function TaskBoard() {
     setFilters(empty);
     setStatusFilter("");
     setActiveTab("All Time");
+    setTempTab("All Time");
     setShowFiltersDropdown(false);
   };
 
@@ -503,7 +597,14 @@ export default function TaskBoard() {
 
   const departments = deptRes?.data?.departments || deptRes?.data || [];
   const rawEmployees = empRes?.data?.employees || empRes?.data || [];
-  const employees = Array.isArray(rawEmployees) ? rawEmployees : [];
+  const employees = useMemo(() => {
+    const list = Array.isArray(rawEmployees) ? [...rawEmployees] : [];
+    return list.sort((a, b) => {
+      const nameA = (a.fullName || a.name || `${a.firstName || ""} ${a.lastName || ""}`).trim();
+      const nameB = (b.fullName || b.name || `${b.firstName || ""} ${b.lastName || ""}`).trim();
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+  }, [rawEmployees]);
   const allTasks = useMemo(() => {
     const raw = tasksRes?.tasks || [];
     const now = Date.now();
@@ -573,11 +674,6 @@ export default function TaskBoard() {
       });
     }
 
-    let passesStatus = true;
-    if (filters.status) {
-      const allowed = filters.status.split(",").map(s => s.trim().toLowerCase());
-      passesStatus = allowed.includes((task.status || "").toLowerCase());
-    }
 
     let passesPriority = true;
     if (filters.priority) {
@@ -621,8 +717,8 @@ export default function TaskBoard() {
       passesOverdue = !done && due && !isNaN(due.getTime()) && Date.now() >= due.getTime();
     }
 
-    return passesDate && passesDept && passesAssigned && passesStatus && passesPriority && passesDeadline && passesOverdue;
-  }), [allTasks, activeTab, filters]);
+    return passesDate && passesDept && passesAssigned && passesPriority && passesDeadline && passesOverdue;
+  }), [allTasks, activeTab, filters.startDate, filters.endDate, filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.overdue]);
 
   // Compute status counts for status chips
   const statusCounts = useMemo(() => {
@@ -647,9 +743,37 @@ export default function TaskBoard() {
 
   // Final filtered tasks
   const filteredTasks = useMemo(() => tabFilteredTasks.filter(task => {
-    if (statusFilter) {
+    const activeStatus = statusFilter || filters.status;
+    if (activeStatus) {
       const taskSt = (task.status || "pending").toLowerCase();
-      if (taskSt !== statusFilter.toLowerCase()) return false;
+      if (activeStatus === "pending") {
+        if (!["pending", "re_pending"].includes(taskSt)) return false;
+      } else if (activeStatus === "in_process") {
+        if (!["in_process", "re_in_process", "in progress"].includes(taskSt)) return false;
+      } else if (activeStatus === "re_pending") {
+        if (taskSt !== "re_pending") return false;
+      } else if (activeStatus === "re_in_process") {
+        if (taskSt !== "re_in_process") return false;
+      } else if (activeStatus === "complete") {
+        if (!["complete", "completed", "done", "late_complete", "re_complete", "re_late_complete"].includes(taskSt)) return false;
+      } else if (activeStatus === "re_complete") {
+        if (!["re_complete", "re_late_complete"].includes(taskSt)) return false;
+      } else if (activeStatus === "late_complete") {
+        if (!["late_complete", "re_late_complete"].includes(taskSt)) return false;
+      } else if (activeStatus === "re_late_complete") {
+        if (taskSt !== "re_late_complete") return false;
+      } else if (activeStatus === "overdue") {
+        if (taskSt !== "overdue") return false;
+      } else if (activeStatus === "re_open") {
+        if (!["re_pending", "re_in_process", "re_complete", "re_late_complete", "re_open"].includes(taskSt)) return false;
+      } else if (activeStatus === "cancelled") {
+        if (taskSt !== "cancelled") return false;
+      } else if (activeStatus.includes(",")) {
+        const allowed = activeStatus.split(",").map(s => s.trim().toLowerCase());
+        if (!allowed.includes(taskSt)) return false;
+      } else {
+        if (taskSt !== activeStatus.toLowerCase()) return false;
+      }
     }
     if (searchQ) {
       const q = searchQ.toLowerCase();
@@ -661,7 +785,7 @@ export default function TaskBoard() {
       if (!title.includes(q) && !id.includes(q) && !dept.includes(q) && !assigneeNames.includes(q)) return false;
     }
     return true;
-  }), [tabFilteredTasks, statusFilter, searchQ]);
+  }), [tabFilteredTasks, statusFilter, filters.status, searchQ]);
 
   // KPI Metrics Calculation
   const totalCount = tabFilteredTasks.length;
@@ -675,10 +799,12 @@ export default function TaskBoard() {
     const due = t.endDateTime ? new Date(t.endDateTime) : null;
     return !done && due && due < new Date();
   }).length;
+  const reopenCount = tabFilteredTasks.filter(t => !t.isTemplate && ["re_pending", "re_in_process", "re_complete", "re_late_complete"].includes(t.status)).length;
+  const recurringCount = tabFilteredTasks.filter(t => t.isTemplate || t.isRecurring || t.isGeneratedFromTemplate || t.parentTemplateId).length;
 
   // STRICT UNIQUE DATE CATEGORIES
   const dateCategories = ["All Time", "Today", "Yesterday", "This Week", "This Month", "Last Month", "Next Month", "Re Open", "Recurring"];
-  
+
   const categoryCounts = dateCategories.map(cat => {
     let count = 0;
     if (cat === "Re Open") {
@@ -694,13 +820,24 @@ export default function TaskBoard() {
     return { name: cat, count };
   });
 
-  // Calculate ONLY custom dropdown filters count (ignoring date tab filters)
+  // Calculate custom dropdown filters count (including active status and date tab filters)
   const activeCustomFiltersCount = useMemo(() => {
-    return [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue].filter(Boolean).length;
-  }, [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue]);
+    const hasTimeframe = activeTab && activeTab !== "All Time" ? 1 : 0;
+    return [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue, statusFilter || filters.status, hasTimeframe].filter(Boolean).length;
+  }, [filters.departmentId, filters.assignedTo, filters.priority, filters.deadlineFilter, filters.startDate, filters.endDate, filters.overdue, statusFilter, filters.status, activeTab]);
 
-  const STATUS_CHIPS = Object.entries(STATUS_CONFIG)
-    .map(([key, cfg]) => ({ key, ...cfg, count: statusCounts[key] || 0 }));
+  const STATUS_FILTER_OPTIONS = [
+    { id: "pending", label: "Pending", count: statusCounts.pending || 0, pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs", pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30" },
+    { id: "in_process", label: "In Process", count: statusCounts.in_process || 0, pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs", pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30" },
+    { id: "re_pending", label: "Re-Pending", count: statusCounts.re_pending || 0, pillInactive: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 hover:bg-indigo-100/80 shadow-2xs", pillActive: "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/30" },
+    { id: "re_in_process", label: "Re-In Process", count: statusCounts.re_in_process || 0, pillInactive: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800 hover:bg-cyan-100/80 shadow-2xs", pillActive: "bg-cyan-600 text-white border-cyan-600 shadow-xs ring-2 ring-cyan-500/30" },
+    { id: "complete", label: "Completed", count: statusCounts.complete || 0, pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs", pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30" },
+    { id: "re_complete", label: "Re-Completed", count: statusCounts.re_complete || 0, pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs", pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30" },
+    { id: "late_complete", label: "Late Completed", count: statusCounts.late_complete || 0, pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs", pillActive: "bg-teal-700 text-white border-teal-700 shadow-xs ring-2 ring-teal-600/30" },
+    { id: "re_late_complete", label: "Re-Late Completed", count: statusCounts.re_late_complete || 0, pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs", pillActive: "bg-teal-800 text-white border-teal-800 shadow-xs ring-2 ring-teal-700/30" },
+    { id: "overdue", label: "Overdue", count: statusCounts.overdue || 0, pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs", pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30" },
+    { id: "cancelled", label: "Cancelled", count: statusCounts.cancelled || 0, pillInactive: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700 hover:bg-slate-200 shadow-2xs", pillActive: "bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-500/30" },
+  ];
 
   const escapeCSVCell = (val) => {
     if (val === null || val === undefined) return "";
@@ -727,7 +864,7 @@ export default function TaskBoard() {
         .map(a => a ? (a.firstName ? `${a.firstName} ${a.lastName || ""}` : a.name || "") : "")
         .filter(Boolean)
         .join(", ");
-      
+
       return [
         t.taskId || "",
         t.title || "",
@@ -766,505 +903,633 @@ export default function TaskBoard() {
   ];
 
   return (
-    <div className="space-y-4 pb-12 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
+    <div className="space-y-2.5 pb-8 font-sans text-slate-900 dark:text-slate-100 max-w-[1440px] mx-auto">
 
       {/* ── Page Header & Fixed Height Action Toolbar ── */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pt-1">
-        <div>
-          <h1 className="text-[22px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
-            Task Management
-          </h1>
-          <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-            Track team tasks, deadlines, assignments, and project deliverables
-          </p>
-        </div>
-
-        {/* ── Action Toolbar ── */}
-        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto justify-between sm:justify-end">
-          {/* Search Box */}
-          <div className="relative w-full sm:w-auto flex-1 sm:flex-none">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-            <input
-              value={searchQ}
-              onChange={e => setSearchQ(e.target.value)}
-              placeholder="Search tasks..."
-              className="pl-9 pr-8 py-1.5 h-8 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all w-full sm:w-52 shadow-2xs"
-            />
-            {searchQ && (
-              <button onClick={() => setSearchQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                <X size={12} />
-              </button>
-            )}
+      <div className="bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-800 rounded-xl px-3.5 py-2 shadow-2xs">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-2.5">
+          {/* Left: Title & Subtitle */}
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/10 dark:bg-blue-500/15 text-blue-600 dark:text-blue-400 flex items-center justify-center shrink-0">
+              <CheckSquare size={16} strokeWidth={2.5} />
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight leading-tight flex items-center gap-2">
+                Task Management
+              </h1>
+              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                Track team tasks, deadlines, assignments, and project deliverables
+              </p>
+            </div>
           </div>
 
-          {/* Grouped View Switcher & Action Container */}
-          <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-[#1E293B] p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80 shadow-xs h-9 overflow-x-auto hide-scrollbar max-w-full">
-            {/* View Switcher Pills */}
-            <div className="flex items-center bg-white dark:bg-[#111C24] p-0.5 rounded-lg border border-slate-200/60 dark:border-slate-800 shadow-2xs gap-0.5 h-7">
+          {/* Right: Unified Action Toolbar (Search + View Switcher + Shift + Export + Filters + Refresh + Add Task) */}
+          <div className="flex items-center gap-1.5 flex-wrap sm:flex-nowrap shrink-0">
+            {/* Search Box - Compact & Aligned */}
+            <div className="relative w-44 sm:w-48 lg:w-56">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input
+                value={searchQ}
+                onChange={e => setSearchQ(e.target.value)}
+                placeholder="Search tasks..."
+                className="w-full pl-8 pr-7 h-8 bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 rounded-lg text-xs font-semibold text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/30 transition-all shadow-2xs"
+              />
+              {searchQ && (
+                <button
+                  onClick={() => setSearchQ("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* View Switcher Pills - ONLY ICONS */}
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-0.5 rounded-lg border border-slate-200 dark:border-slate-700/80 h-8 gap-0.5">
               <button
                 onClick={() => setViewMode("cards")}
                 title="Grid Cards View"
-                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
-                  viewMode === "cards"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "cards"
+                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                }`}
+                  }`}
               >
-                <LayoutGrid size={13} /> <span className="hidden sm:inline">Grid</span>
+                <LayoutGrid size={14} />
               </button>
               <button
                 onClick={() => setViewMode("kanban")}
                 title="Kanban Board View"
-                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
-                  viewMode === "kanban"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "kanban"
+                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                }`}
+                  }`}
               >
-                <Kanban size={13} /> <span className="hidden sm:inline">Kanban</span>
+                <Kanban size={14} />
               </button>
               <button
                 onClick={() => setViewMode("list")}
                 title="Table List View"
-                className={`flex items-center gap-1 px-2.5 h-6 rounded-md text-xs font-bold transition-all ${
-                  viewMode === "list"
-                    ? "bg-slate-900 text-white dark:bg-white dark:text-slate-900 shadow-2xs"
+                className={`w-7 h-7 flex items-center justify-center rounded-md text-xs font-bold transition-all cursor-pointer ${viewMode === "list"
+                    ? "bg-white dark:bg-[#111C24] text-blue-600 dark:text-blue-400 shadow-2xs"
                     : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
-                }`}
+                  }`}
               >
-                <List size={13} /> <span className="hidden sm:inline">List</span>
+                <List size={14} />
               </button>
             </div>
 
-            {/* Export CSV Button */}
+            {/* Shift Tasks Button (Lead Style, Inline Action) */}
             <button
-              onClick={exportToCSV}
-              className="flex items-center gap-1 px-2.5 h-7 bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-all shadow-2xs shrink-0"
-              title="Export tasks to CSV"
+              onClick={() => {
+                if (selectedTaskIds.length === 0) {
+                  setSelectedTaskIds(filteredTasks.map((t) => t._id));
+                } else {
+                  setSelectedTaskIds([]);
+                }
+              }}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${selectedTaskIds.length > 0
+                  ? "bg-amber-600 hover:bg-amber-700 text-white border-amber-600 shadow-xs"
+                  : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              title={selectedTaskIds.length > 0 ? "Clear selection" : "Select all tasks to shift"}
             >
-              <Download size={13} className="text-slate-400" /> <span className="hidden xs:inline">Export</span>
-            </button>
-
-            {/* Advanced Filters Trigger */}
-            <button
-              onClick={handleOpenFilters}
-              className={`flex items-center gap-1.5 px-3 h-8 border rounded-xl text-xs font-extrabold shadow-2xs transition-all shrink-0 cursor-pointer ${
-                showFiltersDropdown || activeCustomFiltersCount > 0
-                  ? "bg-amber-500 text-slate-950 border-amber-500 shadow-xs"
-                  : "bg-white dark:bg-[#111C24] border-slate-200/90 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-amber-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
-              }`}
-              title="Filter Tasks"
-            >
-              <SlidersHorizontal size={13} className={showFiltersDropdown || activeCustomFiltersCount > 0 ? "text-slate-950" : "text-amber-600 dark:text-amber-400"} />
-              <span>Filters</span>
-              {activeCustomFiltersCount > 0 && (
-                <span className="flex items-center justify-center min-w-[17px] h-[17px] px-1 bg-slate-900 text-white dark:bg-slate-900 dark:text-white text-[9.5px] rounded-full font-black ml-0.5">
-                  {activeCustomFiltersCount}
+              <ArrowRightLeft size={13} className={selectedTaskIds.length > 0 ? "text-white" : "text-amber-600 dark:text-amber-400"} />
+              <span>Shift</span>
+              {selectedTaskIds.length > 0 && (
+                <span className="flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9px] rounded-full font-black ml-0.5 bg-white text-amber-700">
+                  {selectedTaskIds.length}
                 </span>
               )}
             </button>
 
-            {/* Refresh Data */}
-            <button onClick={() => refetch()} disabled={isFetching} className="w-7 h-7 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200/80 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs shrink-0" title="Refresh Tasks">
-              <RefreshCw size={13} className={isFetching ? "animate-spin" : ""}/>
+            {/* Export CSV Button */}
+            <button
+              onClick={exportToCSV}
+              className="flex items-center justify-center w-8 h-8 bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg text-xs font-bold transition-all shadow-2xs shrink-0 cursor-pointer"
+              title="Export tasks to CSV"
+            >
+              <Download size={13} className="text-slate-500 dark:text-slate-400" />
             </button>
 
-            {/* Primary Action Button (+ Add Task) with Crisp White Text */}
+            {/* Filters Toggle Button */}
+            <button
+              onClick={handleOpenFilters}
+              className={`flex items-center gap-1.5 px-3 h-8 border rounded-lg text-xs font-bold shadow-2xs transition-all shrink-0 cursor-pointer ${showFiltersDropdown || activeCustomFiltersCount > 0
+                  ? "bg-blue-600 text-white border-blue-600 shadow-xs"
+                  : "bg-white dark:bg-[#111C24] border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 hover:border-blue-500/50 hover:bg-slate-50 dark:hover:bg-slate-800"
+                }`}
+              title="Filter Tasks"
+            >
+              <SlidersHorizontal size={12} className={showFiltersDropdown || activeCustomFiltersCount > 0 ? "text-white" : "text-blue-600 dark:text-blue-400"} />
+              <span>{showFiltersDropdown ? "Hide Filters" : "Filters"}</span>
+              {activeCustomFiltersCount > 0 && (
+                <span className={`flex items-center justify-center min-w-[16px] h-[16px] px-1 text-[9px] rounded-full font-black ml-0.5 ${showFiltersDropdown || activeCustomFiltersCount > 0 ? "bg-white text-blue-600" : "bg-blue-600 text-white"
+                  }`}>
+                  {activeCustomFiltersCount}
+                </span>
+              )}
+              <ChevronDown size={11} className={`transition-transform duration-200 ${showFiltersDropdown ? "rotate-180" : ""}`} />
+            </button>
+
+            {/* Refresh Data */}
+            <button
+              onClick={() => refetch()}
+              disabled={isFetching}
+              className="w-8 h-8 rounded-lg bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center justify-center transition-all shadow-2xs shrink-0 cursor-pointer"
+              title="Refresh Tasks"
+            >
+              <RefreshCw size={12} className={isFetching ? "animate-spin text-blue-600" : "text-slate-500 dark:text-slate-400"} />
+            </button>
+
+            {/* Primary Action Button (+ Add Task) */}
             <button
               onClick={() => setIsCreateOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 h-7 bg-slate-900 hover:bg-slate-800 dark:bg-amber-600 dark:hover:bg-amber-500 text-white rounded-lg text-xs font-extrabold shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
+              className="flex items-center gap-1.5 px-3.5 h-8 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              <Plus size={14} strokeWidth={3} /> Add Task
+              <Plus size={13} strokeWidth={3} />
+              <span>Add Task</span>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Advanced Filters Fixed Modal Dialog */}
+      {/* ── COMPACT INLINE FILTER PANEL ─────────────────────────────────────── */}
       {showFiltersDropdown && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fadeIn" onClick={() => setShowFiltersDropdown(false)}>
-          <div className="bg-white dark:bg-[#111C24] border border-slate-200 dark:border-slate-800 p-5 sm:p-6 w-full max-w-md shadow-2xl rounded-2xl space-y-4 animate-scaleUp" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <SlidersHorizontal size={16} className="text-amber-500" />
-                <span className="text-sm font-black uppercase text-slate-800 dark:text-white tracking-wider">Advanced Task Filters</span>
+        <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-xl shadow-xs overflow-visible">
+          {/* Panel Header */}
+          <div className="flex items-center justify-between px-3.5 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50">
+            <div className="flex items-center gap-2">
+              <div className="w-5 h-5 rounded-md bg-blue-600/10 flex items-center justify-center">
+                <SlidersHorizontal size={11} className="text-blue-600" />
               </div>
-              <button onClick={() => setShowFiltersDropdown(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-                <X size={16}/>
-              </button>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Filters &amp; Search</span>
+              {activeCustomFiltersCount > 0 && (
+                <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-extrabold rounded-full">{activeCustomFiltersCount} active</span>
+              )}
             </div>
+            <button
+              onClick={() => setShowFiltersDropdown(false)}
+              className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+            >
+              <X size={10} /> Hide Filters
+            </button>
+          </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Department</label>
-              <select
-                className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs"
-                value={tempFilters.departmentId}
-                onChange={e => {
-                  const newDeptId = e.target.value;
-                  setTempFilters(prev => {
-                    let updatedAssignedTo = prev.assignedTo;
-                    if (newDeptId && prev.assignedTo) {
-                      const emp = employees.find(em => String(em._id) === String(prev.assignedTo));
-                      const empDeptId = emp?.departmentId?._id || emp?.departmentId?.id || emp?.departmentId;
-                      if (String(empDeptId) !== String(newDeptId)) {
-                        updatedAssignedTo = "";
+          <div className="p-3 space-y-2.5">
+            {/* Row 1: Dropdowns ─ Department | Assigned To | Task Status | Priority | Deadline | Timeframe */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+              {/* Department */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${tempFilters.departmentId ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <Building2 size={11} className={tempFilters.departmentId ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">Department</span>
+                  {tempFilters.departmentId && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${tempFilters.departmentId
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      }`}
+                    value={filters.departmentId || tempFilters.departmentId || ""}
+                    onChange={e => {
+                      const newDeptId = e.target.value;
+                      let updatedAssignedTo = filters.assignedTo;
+                      if (newDeptId && updatedAssignedTo) {
+                        const emp = employees.find(em => String(em._id) === String(updatedAssignedTo));
+                        const empDeptId = emp?.departmentId?._id || emp?.departmentId?.id || emp?.departmentId;
+                        if (String(empDeptId) !== String(newDeptId)) updatedAssignedTo = "";
                       }
-                    }
-                    return { ...prev, departmentId: newDeptId, assignedTo: updatedAssignedTo };
-                  });
-                }}
-              >
-                <option value="">All Departments</option>
-                {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
-              </select>
+                      const updated = { ...filters, departmentId: newDeptId, assignedTo: updatedAssignedTo };
+                      setFilters(updated);
+                      setTempFilters(updated);
+                    }}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(d => <option key={d._id} value={d._id}>{d.name}</option>)}
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Assigned To */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(filters.assignedTo || tempFilters.assignedTo) ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <User size={11} className={(filters.assignedTo || tempFilters.assignedTo) ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">{(filters.departmentId || tempFilters.departmentId) ? "Member (Dept)" : "All Members"}</span>
+                  {(filters.assignedTo || tempFilters.assignedTo) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <MemberSearchSelect
+                  value={filters.assignedTo || tempFilters.assignedTo || ""}
+                  onChange={(val) => {
+                    setFilters((prev) => ({ ...prev, assignedTo: val }));
+                    setTempFilters((prev) => ({ ...prev, assignedTo: val }));
+                  }}
+                  employees={employees}
+                  departments={departments}
+                  departmentId={filters.departmentId || tempFilters.departmentId || ""}
+                  theme="blue"
+                  placeholder={
+                    filters.departmentId || tempFilters.departmentId
+                      ? "Department Members"
+                      : "All Members"
+                  }
+                />
+              </div>
+
+              {/* Task Status Dropdown */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(filters.status || statusFilter || tempFilters.status) ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <CheckSquare size={11} className={(filters.status || statusFilter || tempFilters.status) ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">Task Status</span>
+                  {(filters.status || statusFilter || tempFilters.status) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.status || statusFilter || tempFilters.status)
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      }`}
+                    value={filters.status || statusFilter || tempFilters.status || ""}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setStatusFilter(val);
+                      setFilters(prev => ({ ...prev, status: val }));
+                      setTempFilters(prev => ({ ...prev, status: val }));
+                    }}
+                  >
+                    <option value="">⚪ All Tasks ({allTasks.filter(t => !t.isTemplate).length})</option>
+                    <option value="pending">🔵 Pending ({statusCounts.pending || 0})</option>
+                    <option value="in_process">🟡 In Process ({statusCounts.in_process || 0})</option>
+                    <option value="re_pending">🟣 Re-Pending ({statusCounts.re_pending || 0})</option>
+                    <option value="re_in_process">🔷 Re-In Process ({statusCounts.re_in_process || 0})</option>
+                    <option value="complete">🟢 Completed ({statusCounts.complete || 0})</option>
+                    <option value="re_complete">🟩 Re-Completed ({statusCounts.re_complete || 0})</option>
+                    <option value="late_complete">⏱️ Late Completed ({statusCounts.late_complete || 0})</option>
+                    <option value="re_late_complete">⏱️ Re-Late Completed ({statusCounts.re_late_complete || 0})</option>
+                    <option value="overdue">🔴 Overdue ({statusCounts.overdue || 0})</option>
+                    <option value="cancelled">❌ Cancelled ({statusCounts.cancelled || 0})</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Priority */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(filters.priority || tempFilters.priority) ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <AlertTriangle size={11} className={(filters.priority || tempFilters.priority) ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">Priority</span>
+                  {(filters.priority || tempFilters.priority) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.priority || tempFilters.priority)
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      }`}
+                    value={filters.priority || tempFilters.priority || ""}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFilters(prev => ({ ...prev, priority: val }));
+                      setTempFilters(prev => ({ ...prev, priority: val }));
+                    }}
+                  >
+                    <option value="">All Priority</option>
+                    <option value="high">🔴 High Priority</option>
+                    <option value="medium">🟡 Medium Priority</option>
+                    <option value="low">🟢 Low Priority</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Deadline */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(filters.deadlineFilter || tempFilters.deadlineFilter) ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <CalendarClock size={11} className={(filters.deadlineFilter || tempFilters.deadlineFilter) ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">Deadline</span>
+                  {(filters.deadlineFilter || tempFilters.deadlineFilter) && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(filters.deadlineFilter || tempFilters.deadlineFilter)
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      }`}
+                    value={filters.deadlineFilter || tempFilters.deadlineFilter || ""}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setFilters(prev => ({ ...prev, deadlineFilter: val }));
+                      setTempFilters(prev => ({ ...prev, deadlineFilter: val }));
+                    }}
+                  >
+                    <option value="">All Deadlines</option>
+                    <option value="today">📅 Due Today</option>
+                    <option value="tomorrow">⏳ Due Tomorrow</option>
+                    <option value="overdue">🚨 Overdue</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Timeframe / Period */}
+              <div>
+                <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(activeTab && activeTab !== "All Time") ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                  }`}>
+                  <Clock size={11} className={(activeTab && activeTab !== "All Time") ? "text-blue-600" : "text-slate-400"} />
+                  <span className="truncate">Timeframe</span>
+                  {(activeTab && activeTab !== "All Time") && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-600 ml-auto shrink-0" />
+                  )}
+                </label>
+                <div className="relative">
+                  <select
+                    className={`w-full appearance-none text-xs h-8 pl-2.5 pr-7 outline-none rounded-lg cursor-pointer transition-all ${(activeTab && activeTab !== "All Time")
+                        ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                        : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium hover:border-slate-300"
+                      }`}
+                    value={activeTab || tempTab || "All Time"}
+                    onChange={e => {
+                      const selectedTab = e.target.value;
+                      setActiveTab(selectedTab);
+                      setTempTab(selectedTab);
+                      if (selectedTab === "All Time" || selectedTab === "Recurring") {
+                        setFilters(prev => ({ ...prev, startDate: "", endDate: "" }));
+                        setTempFilters(prev => ({ ...prev, startDate: "", endDate: "" }));
+                      } else if (selectedTab === "Re Open") {
+                        const { start, end } = getDates(selectedTab);
+                        const updated = {
+                          startDate: start || "",
+                          endDate: end || "",
+                          status: "re_pending,re_in_process,re_complete,re_late_complete"
+                        };
+                        setStatusFilter("re_open");
+                        setFilters(prev => ({ ...prev, ...updated }));
+                        setTempFilters(prev => ({ ...prev, ...updated }));
+                      } else if (selectedTab !== "Custom") {
+                        const { start, end } = getDates(selectedTab);
+                        setFilters(prev => ({ ...prev, startDate: start || "", endDate: end || "" }));
+                        setTempFilters(prev => ({ ...prev, startDate: start || "", endDate: end || "" }));
+                      }
+                    }}
+                  >
+                    {categoryCounts.map(cat => (
+                      <option key={cat.name} value={cat.name}>
+                        {cat.name} {cat.count > 0 ? `(${cat.count})` : ""}
+                      </option>
+                    ))}
+                    <option value="Custom">Custom Date Range</option>
+                  </select>
+                  <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                </div>
+              </div>
             </div>
 
-            <div>
-              <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">
-                Assigned To / Member {tempFilters.departmentId ? "(Filtered by Dept)" : "(Dept Wise)"}
-              </label>
-              <select
-                className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-3 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs"
-                value={tempFilters.assignedTo}
-                onChange={e => setTempFilters(prev => ({ ...prev, assignedTo: e.target.value }))}
-              >
-                <option value="">All Members {employees.length > 0 ? `(${employees.length})` : ""}</option>
-                {tempFilters.departmentId ? (
-                  (() => {
-                    const deptEmps = employees.filter(e => {
-                      const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
-                      return String(dId) === String(tempFilters.departmentId);
-                    });
-                    const deptName = departments.find(d => String(d._id) === String(tempFilters.departmentId))?.name || "Department";
-                    return (
-                      <optgroup label={`${deptName} (${deptEmps.length})`}>
-                        {deptEmps.map(e => {
-                          const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
-                          const code = e.employeeCode ? ` (${e.employeeCode})` : "";
-                          return <option key={e._id} value={e._id}>{name}{code}</option>;
-                        })}
-                      </optgroup>
-                    );
-                  })()
-                ) : (
-                  <>
-                    {departments.map(d => {
-                      const deptEmps = employees.filter(e => {
-                        const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
-                        return String(dId) === String(d._id);
-                      });
-                      if (deptEmps.length === 0) return null;
-                      return (
-                        <optgroup key={d._id} label={`${d.name} (${deptEmps.length})`}>
-                          {deptEmps.map(e => {
-                            const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
-                            const code = e.employeeCode ? ` (${e.employeeCode})` : "";
-                            return <option key={e._id} value={e._id}>{name}{code}</option>;
-                          })}
-                        </optgroup>
-                      );
-                    })}
-                    {(() => {
-                      const unassignedDeptEmps = employees.filter(e => {
-                        const dId = e.departmentId?._id || e.departmentId?.id || e.departmentId;
-                        return !dId || !departments.some(d => String(d._id) === String(dId));
-                      });
-                      if (unassignedDeptEmps.length === 0) return null;
-                      return (
-                        <optgroup label={`Other / General (${unassignedDeptEmps.length})`}>
-                          {unassignedDeptEmps.map(e => {
-                            const name = e.fullName || e.name || `${e.firstName || ""} ${e.lastName || ""}`.trim() || e.email || "Member";
-                            const code = e.employeeCode ? ` (${e.employeeCode})` : "";
-                            return <option key={e._id} value={e._id}>{name}{code}</option>;
-                          })}
-                        </optgroup>
-                      );
-                    })()}
-                  </>
-                )}
-              </select>
-            </div>
+            {/* Row 2: Date Range & Action Buttons */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-end justify-between gap-2.5 pt-1.5 border-t border-slate-100 dark:border-slate-800/80">
+              <div className="flex items-center gap-2 flex-1 max-w-lg">
+                <div className="flex-1">
+                  <label className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider mb-1 ${(filters.startDate || filters.endDate || tempFilters.startDate || tempFilters.endDate) ? "text-blue-600 dark:text-blue-400" : "text-slate-600 dark:text-slate-400"
+                    }`}>
+                    <CalendarClock size={11} className={(filters.startDate || filters.endDate || tempFilters.startDate || tempFilters.endDate) ? "text-blue-600" : "text-slate-400"} />
+                    <span>Custom Date Range</span>
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="date"
+                      className={`flex-1 text-xs h-8 px-2.5 outline-none rounded-lg cursor-pointer transition-all ${(filters.startDate || tempFilters.startDate)
+                          ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                          : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
+                        }`}
+                      value={filters.startDate || tempFilters.startDate || ""}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setActiveTab("Custom");
+                        setTempTab("Custom");
+                        setFilters(prev => ({ ...prev, startDate: val }));
+                        setTempFilters(prev => ({ ...prev, startDate: val }));
+                      }}
+                    />
+                    <span className="text-slate-400 text-xs font-bold shrink-0">→</span>
+                    <input
+                      type="date"
+                      className={`flex-1 text-xs h-8 px-2.5 outline-none rounded-lg cursor-pointer transition-all ${(filters.endDate || tempFilters.endDate)
+                          ? "bg-blue-50/50 dark:bg-blue-950/30 border border-blue-500 text-blue-900 dark:text-blue-100 font-bold ring-1 ring-blue-500/25"
+                          : "bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-800 dark:text-slate-200 font-medium"
+                        }`}
+                      value={filters.endDate || tempFilters.endDate || ""}
+                      onChange={e => {
+                        const val = e.target.value;
+                        setActiveTab("Custom");
+                        setTempTab("Custom");
+                        setFilters(prev => ({ ...prev, endDate: val }));
+                        setTempFilters(prev => ({ ...prev, endDate: val }));
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Priority</label>
-                <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.priority} onChange={e => setTempFilters(prev => ({ ...prev, priority: e.target.value }))}>
-                  <option value="">All Priorities</option>
-                  <option value="high">High Priority</option>
-                  <option value="medium">Medium Priority</option>
-                  <option value="low">Low Priority</option>
-                </select>
+              {/* Action Buttons */}
+              <div className="flex items-center gap-1.5 shrink-0 self-end">
+                <button
+                  onClick={handleClearFilters}
+                  className="px-3 h-8 text-xs font-bold text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+                >
+                  Reset All
+                </button>
+                <button
+                  onClick={handleApplyFilters}
+                  className="px-4 h-8 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <SlidersHorizontal size={11} /> <span>Apply Filters</span>
+                </button>
               </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Deadline</label>
-                <select className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2.5 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.deadlineFilter} onChange={e => setTempFilters(prev => ({ ...prev, deadlineFilter: e.target.value }))}>
-                  <option value="">All Deadlines</option>
-                  <option value="today">Due Today</option>
-                  <option value="tomorrow">Due Tomorrow</option>
-                  <option value="overdue">Overdue</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Start Date</label>
-                <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.startDate} onChange={e => setTempFilters(prev => ({ ...prev, startDate: e.target.value }))} />
-              </div>
-              <div>
-                <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">End Date</label>
-                <input type="date" className="w-full bg-slate-50 dark:bg-[#0D1321] border border-slate-200 dark:border-slate-700/80 text-slate-900 dark:text-white text-xs font-semibold py-2 px-2.5 outline-none rounded-xl focus:border-amber-500 cursor-pointer shadow-2xs" value={tempFilters.endDate} onChange={e => setTempFilters(prev => ({ ...prev, endDate: e.target.value }))} />
-              </div>
-            </div>
-
-            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex gap-2.5">
-              <button onClick={handleClearFilters} className="flex-1 text-xs font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 py-2.5 rounded-xl transition-colors cursor-pointer">Reset All</button>
-              <button onClick={handleApplyFilters} className="flex-1 text-xs font-extrabold text-white bg-slate-900 dark:bg-amber-600 hover:bg-slate-800 dark:hover:bg-amber-500 shadow-md py-2.5 rounded-xl transition-colors cursor-pointer">Apply Filters</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── Top 5 KPI Summary Stat Cards ── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-3 pt-1">
-        <KPICard label="Total Tasks"     value={totalCount}     trend="14.2%" isUp period="last month" strokeColor="#EAB308" Icon={CheckSquare} iconBg="bg-amber-500/10"  iconColor="#D97706"/>
-        <KPICard label="Pending Tasks"   value={pendingCount}   trend="8.1%"  isUp period="last month" strokeColor="#06B6D4" Icon={Clock}        iconBg="bg-cyan-500/10"   iconColor="#0891B2"/>
-        <KPICard label="In Progress"     value={inProgressCount} trend="12.5%" isUp period="last month" strokeColor="#8B5CF6" Icon={Sparkles}     iconBg="bg-purple-500/10" iconColor="#7C3AED"/>
-        <KPICard label="Completed"       value={completedCount} trend="19.4%" isUp period="last month" strokeColor="#10B981" Icon={CheckCircle}  iconBg="bg-emerald-500/10" iconColor="#059669"/>
-        <KPICard label="Overdue Tasks"   value={overdueCount}   trend="4.2%"  isUp={false} period="yesterday" strokeColor="#F43F5E" Icon={AlertTriangle} iconBg="bg-rose-500/10" iconColor="#E11D48" extraClass="col-span-2 sm:col-span-1"/>
-      </div>
-
-      {/* ── UNIFIED FILTER & TIMEFRAME CARD CONTAINER ─────────────────────────── */}
-      <div className="bg-white dark:bg-[#111C24] border border-slate-200/90 dark:border-slate-800 rounded-2xl p-3 sm:p-3.5 space-y-2.5 shadow-2xs">
-        
-        {/* ── Row 1: Time Boundary Date Pill Tabs ───────────────────────────── */}
-        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
-          {categoryCounts.map((cat) => {
-            const isActive = activeTab === cat.name;
-            return (
-              <button
-                key={cat.name}
-                onClick={() => handleTabChange(cat.name)}
-                className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
-                  isActive
-                    ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                    : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-                }`}
-              >
-                <span>{cat.name}</span>
-                {cat.count > 0 && (
-                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                    isActive
-                      ? "bg-white/20 text-white"
-                      : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-                  }`}>
-                    {cat.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* ── Row 2: Task Status Filter Pills (Directly below date pills) ────── */}
-        {activeTab !== "Recurring" && (
-          <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar pt-2 border-t border-slate-100 dark:border-slate-800">
-            <button
-              onClick={() => setStatusFilter("")}
-              className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
-                !statusFilter
-                  ? "bg-slate-900 text-white border-slate-900 dark:bg-amber-600 dark:border-amber-600 shadow-xs"
-                  : "bg-slate-50 dark:bg-[#0B101B] border-slate-200 dark:border-slate-700/80 text-slate-600 dark:text-slate-300 hover:border-slate-300 shadow-2xs"
-              }`}
-            >
-              <span>All Tasks</span>
-              <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                !statusFilter
-                  ? "bg-white/20 text-white"
-                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
-              }`}>
-                {tabFilteredTasks.length}
-              </span>
-            </button>
-
-            {[
-              {
-                id: "pending",
-                label: "Pending",
-                count: statusCounts.pending || 0,
-                pillInactive: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800 hover:bg-blue-100/80 shadow-2xs",
-                pillActive: "bg-blue-600 text-white border-blue-600 shadow-xs ring-2 ring-blue-500/30",
-                badgeInactive: "bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "in_process",
-                label: "In Process",
-                count: statusCounts.in_process || 0,
-                pillInactive: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 hover:bg-amber-100/80 shadow-2xs",
-                pillActive: "bg-amber-600 text-white border-amber-600 shadow-xs ring-2 ring-amber-500/30",
-                badgeInactive: "bg-amber-100 dark:bg-amber-900/60 text-amber-800 dark:text-amber-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "re_pending",
-                label: "Re-Pending",
-                count: statusCounts.re_pending || 0,
-                pillInactive: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800 hover:bg-indigo-100/80 shadow-2xs",
-                pillActive: "bg-indigo-600 text-white border-indigo-600 shadow-xs ring-2 ring-indigo-500/30",
-                badgeInactive: "bg-indigo-100 dark:bg-indigo-900/60 text-indigo-800 dark:text-indigo-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "re_in_process",
-                label: "Re-In Process",
-                count: statusCounts.re_in_process || 0,
-                pillInactive: "bg-cyan-50 text-cyan-700 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800 hover:bg-cyan-100/80 shadow-2xs",
-                pillActive: "bg-cyan-600 text-white border-cyan-600 shadow-xs ring-2 ring-cyan-500/30",
-                badgeInactive: "bg-cyan-100 dark:bg-cyan-900/60 text-cyan-800 dark:text-cyan-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "complete",
-                label: "Completed",
-                count: statusCounts.complete || 0,
-                pillInactive: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800 hover:bg-emerald-100/80 shadow-2xs",
-                pillActive: "bg-emerald-600 text-white border-emerald-600 shadow-xs ring-2 ring-emerald-500/30",
-                badgeInactive: "bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "re_complete",
-                label: "Re-Completed",
-                count: statusCounts.re_complete || 0,
-                pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-                pillActive: "bg-teal-600 text-white border-teal-600 shadow-xs ring-2 ring-teal-500/30",
-                badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "late_complete",
-                label: "Late Completed",
-                count: statusCounts.late_complete || 0,
-                pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-                pillActive: "bg-teal-700 text-white border-teal-700 shadow-xs ring-2 ring-teal-600/30",
-                badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "re_late_complete",
-                label: "Re-Late Completed",
-                count: statusCounts.re_late_complete || 0,
-                pillInactive: "bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-300 dark:border-teal-800 hover:bg-teal-100/80 shadow-2xs",
-                pillActive: "bg-teal-800 text-white border-teal-800 shadow-xs ring-2 ring-teal-700/30",
-                badgeInactive: "bg-teal-100 dark:bg-teal-900/60 text-teal-800 dark:text-teal-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "overdue",
-                label: "Overdue",
-                count: statusCounts.overdue || 0,
-                pillInactive: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800 hover:bg-rose-100/80 shadow-2xs",
-                pillActive: "bg-rose-600 text-white border-rose-600 shadow-xs ring-2 ring-rose-500/30",
-                badgeInactive: "bg-rose-100 dark:bg-rose-900/60 text-rose-800 dark:text-rose-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-              {
-                id: "cancelled",
-                label: "Cancelled",
-                count: statusCounts.cancelled || 0,
-                pillInactive: "bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:border-slate-700 hover:bg-slate-200 shadow-2xs",
-                pillActive: "bg-slate-700 text-white border-slate-700 shadow-xs ring-2 ring-slate-500/30",
-                badgeInactive: "bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200",
-                badgeActive: "bg-white/20 text-white"
-              },
-            ].map((st) => {
-              const isSelected = statusFilter === st.id;
-              return (
-                <button
-                  key={st.id}
-                  onClick={() => setStatusFilter(prev => prev === st.id ? "" : st.id)}
-                  className={`px-2.5 py-1 rounded-xl text-xs font-extrabold transition-all flex items-center gap-1.5 cursor-pointer border shrink-0 ${
-                    isSelected
-                      ? st.pillActive
-                      : st.pillInactive
-                  }`}
-                >
-                  <span>{st.label}</span>
-                  <span className={`px-1.5 py-0.2 rounded text-[9.5px] font-black ${
-                    isSelected
-                      ? st.badgeActive
-                      : st.badgeInactive
-                  }`}>
-                    {st.count}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        )}
+      {/* ── Top 6 KPI Summary Stat Cards (Total, Pending, In Process, Completed, Overdue, Re-Open) ── */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 pt-1">
+        <KPICard
+          label="Total Tasks"
+          value={totalCount}
+          Icon={Layers}
+          theme="blue"
+          onClick={() => {
+            setStatusFilter("");
+            setFilters(prev => ({ ...prev, status: "" }));
+            setTempFilters(prev => ({ ...prev, status: "" }));
+            if (activeTab === "Recurring") {
+              setActiveTab("All Time");
+              setTempTab("All Time");
+            }
+          }}
+          isActive={!statusFilter && !filters.status && activeTab !== "Recurring"}
+        />
+        <KPICard
+          label="Pending Tasks"
+          value={pendingCount}
+          Icon={Clock}
+          theme="sky"
+          onClick={() => {
+            const next = (statusFilter === "pending" || filters.status === "pending") ? "" : "pending";
+            setStatusFilter(next);
+            setFilters(prev => ({ ...prev, status: next }));
+            setTempFilters(prev => ({ ...prev, status: next }));
+          }}
+          isActive={statusFilter === "pending" || filters.status === "pending"}
+        />
+        <KPICard
+          label="In Process"
+          value={inProgressCount}
+          Icon={Sparkles}
+          theme="amber"
+          onClick={() => {
+            const next = (statusFilter === "in_process" || filters.status === "in_process") ? "" : "in_process";
+            setStatusFilter(next);
+            setFilters(prev => ({ ...prev, status: next }));
+            setTempFilters(prev => ({ ...prev, status: next }));
+          }}
+          isActive={statusFilter === "in_process" || filters.status === "in_process"}
+        />
+        <KPICard
+          label="Completed"
+          value={completedCount}
+          Icon={CheckCircle}
+          theme="emerald"
+          onClick={() => {
+            const next = (statusFilter === "complete" || filters.status === "complete") ? "" : "complete";
+            setStatusFilter(next);
+            setFilters(prev => ({ ...prev, status: next }));
+            setTempFilters(prev => ({ ...prev, status: next }));
+          }}
+          isActive={statusFilter === "complete" || filters.status === "complete"}
+        />
+        <KPICard
+          label="Overdue Tasks"
+          value={overdueCount}
+          Icon={AlertTriangle}
+          theme="rose"
+          onClick={() => {
+            const next = (statusFilter === "overdue" || filters.status === "overdue") ? "" : "overdue";
+            setStatusFilter(next);
+            setFilters(prev => ({ ...prev, status: next }));
+            setTempFilters(prev => ({ ...prev, status: next }));
+          }}
+          isActive={statusFilter === "overdue" || filters.status === "overdue"}
+        />
+        <KPICard
+          label="Reopen Tasks"
+          value={reopenCount}
+          Icon={RotateCcw}
+          theme="purple"
+          onClick={() => {
+            const isCur = statusFilter === "re_open" || filters.status === "re_pending,re_in_process,re_complete,re_late_complete";
+            const nextSt = isCur ? "" : "re_open";
+            const nextFilterSt = isCur ? "" : "re_pending,re_in_process,re_complete,re_late_complete";
+            setStatusFilter(nextSt);
+            setFilters(prev => ({ ...prev, status: nextFilterSt }));
+            setTempFilters(prev => ({ ...prev, status: nextFilterSt }));
+          }}
+          isActive={statusFilter === "re_open" || filters.status === "re_pending,re_in_process,re_complete,re_late_complete"}
+        />
       </div>
 
       {/* ── Active Filters Bar ────────────────────────────────────────── */}
       {activeCustomFiltersCount > 0 && (
-        <div className="flex items-center gap-2 flex-wrap bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 p-2.5 rounded-2xl text-xs shadow-2xs">
-          <span className="font-extrabold text-amber-950 dark:text-amber-200 text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-            <Filter size={13} className="text-amber-600 dark:text-amber-400" /> Active Filters:
+        <div className="flex items-center gap-1.5 flex-wrap bg-blue-50/70 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-900/40 py-1.5 px-3 rounded-xl text-xs shadow-2xs">
+          <span className="font-extrabold text-blue-950 dark:text-blue-200 text-[10px] uppercase tracking-wider flex items-center gap-1">
+            <Filter size={11} className="text-blue-600 dark:text-blue-400" /> Active Filters:
           </span>
 
+          {activeTab && activeTab !== "All Time" && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs">
+              Timeframe: {activeTab}
+              <button onClick={() => { setActiveTab("All Time"); setTempTab("All Time"); setFilters(prev => ({ ...prev, startDate: "", endDate: "" })); }} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={11} />
+              </button>
+            </span>
+          )}
+
+          {(statusFilter || filters.status) && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs capitalize">
+              Status: {(statusFilter || filters.status).replace(/_/g, " ")}
+              <button onClick={() => { setStatusFilter(""); setFilters(prev => ({ ...prev, status: "" })); }} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={11} />
+              </button>
+            </span>
+          )}
+
           {filters.departmentId && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs">
               Dept: {departments.find(d => String(d._id) === String(filters.departmentId))?.name || "Selected"}
               <button onClick={() => setFilters(prev => ({ ...prev, departmentId: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+                <X size={11} />
               </button>
             </span>
           )}
 
           {filters.assignedTo && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs">
               Assignee: {(() => {
                 const emp = employees.find(e => String(e._id) === String(filters.assignedTo));
                 return emp ? (emp.fullName || emp.name || `${emp.firstName || ""} ${emp.lastName || ""}`.trim() || emp.email || "Selected") : "Selected";
               })()}
               <button onClick={() => setFilters(prev => ({ ...prev, assignedTo: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+                <X size={11} />
               </button>
             </span>
           )}
 
           {filters.priority && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs capitalize">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs capitalize">
               Priority: {filters.priority}
               <button onClick={() => setFilters(prev => ({ ...prev, priority: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+                <X size={11} />
               </button>
             </span>
           )}
 
           {filters.deadlineFilter && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs capitalize">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs capitalize">
               Deadline: {filters.deadlineFilter.replace(/_/g, " ")}
               <button onClick={() => setFilters(prev => ({ ...prev, deadlineFilter: "" }))} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+                <X size={11} />
               </button>
             </span>
           )}
 
           {filters.startDate && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs">
               From: {formatDateDDMMYYYY(filters.startDate)}
-              <button onClick={() => { setFilters(prev => ({ ...prev, startDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+              <button onClick={() => { setFilters(prev => ({ ...prev, startDate: "" })); setActiveTab("All Time"); setTempTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={11} />
               </button>
             </span>
           )}
 
           {filters.endDate && (
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white dark:bg-slate-900 border border-amber-300 dark:border-amber-700 text-amber-900 dark:text-amber-200 font-bold text-[11px] shadow-2xs">
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-white dark:bg-slate-900 border border-blue-200 dark:border-blue-800 text-blue-900 dark:text-blue-200 font-bold text-[10.5px] shadow-2xs">
               To: {formatDateDDMMYYYY(filters.endDate)}
-              <button onClick={() => { setFilters(prev => ({ ...prev, endDate: "" })); setActiveTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
-                <X size={12} />
+              <button onClick={() => { setFilters(prev => ({ ...prev, endDate: "" })); setActiveTab("All Time"); setTempTab("All Time"); }} className="hover:text-rose-600 transition-colors cursor-pointer">
+                <X size={11} />
               </button>
             </span>
           )}
@@ -1276,13 +1541,27 @@ export default function TaskBoard() {
               setFilters(empty);
               setStatusFilter("");
               setActiveTab("All Time");
+              setTempTab("All Time");
             }}
-            className="text-xs font-black text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
+            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 underline ml-auto cursor-pointer"
           >
             Reset All
           </button>
         </div>
       )}
+
+      {/* ── Lead-Style Inline Bulk Action Bar (No Popup) ──────────────────────── */}
+      <TaskBulkActionBar
+        selectedTaskIds={selectedTaskIds}
+        onClearSelection={() => setSelectedTaskIds([])}
+        onSelectAll={() => setSelectedTaskIds(filteredTasks.map((t) => t._id))}
+        totalVisibleTasks={filteredTasks.length}
+        employees={employees}
+        onSuccess={() => {
+          setSelectedTaskIds([]);
+          refetch();
+        }}
+      />
 
       {tasksLoading ? (
         <div className="py-20 flex flex-col items-center justify-center space-y-4 bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/90 dark:border-slate-800 shadow-2xs">
@@ -1312,14 +1591,21 @@ export default function TaskBoard() {
         </div>
       ) : viewMode === "cards" ? (
         /* ── GRID CARDS VIEW ── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {filteredTasks.map(task => (
-            <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
+            <TaskCard
+              key={task._id}
+              task={task}
+              activeTab={activeTab}
+              isSelected={selectedTaskIds.includes(task._id)}
+              onToggleSelect={handleToggleSelectTask}
+              onClick={() => navigate(getTaskDetailsUrl(task._id))}
+            />
           ))}
         </div>
       ) : viewMode === "kanban" ? (
         /* ── KANBAN BOARD VIEW ── */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
           {kanbanColumns.map(col => {
             const colTasks = filteredTasks.filter(col.filterFn);
             return (
@@ -1335,14 +1621,21 @@ export default function TaskBoard() {
                   </span>
                 </div>
                 {/* Column Tasks */}
-                <div className="space-y-3 flex-1 overflow-y-auto max-h-[700px] hide-scrollbar pr-0.5">
+                <div className="space-y-2.5 flex-1 overflow-y-auto max-h-[700px] hide-scrollbar pr-0.5">
                   {colTasks.length === 0 ? (
                     <div className="h-28 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center text-[11px] font-medium text-slate-400">
                       No {col.title.toLowerCase()} tasks
                     </div>
                   ) : (
                     colTasks.map(task => (
-                      <TaskCard key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
+                      <TaskCard
+                        key={task._id}
+                        task={task}
+                        activeTab={activeTab}
+                        isSelected={selectedTaskIds.includes(task._id)}
+                        onToggleSelect={handleToggleSelectTask}
+                        onClick={() => navigate(getTaskDetailsUrl(task._id))}
+                      />
                     ))
                   )}
                 </div>
@@ -1353,18 +1646,41 @@ export default function TaskBoard() {
       ) : (
         /* ── ENTERPRISE TABLE LIST VIEW ── */
         <div className="bg-white dark:bg-[#111C24] rounded-2xl border border-slate-200/80 dark:border-slate-800 overflow-hidden shadow-2xs">
-          <div className="px-4 py-3 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
-            <h3 className="font-extrabold text-slate-900 dark:text-white text-xs tracking-wider uppercase flex items-center gap-2">
-              <Layers size={14} className="text-amber-500" /> Tasks Pipeline Log
-            </h3>
-            <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-800 shadow-2xs">
-              {filteredTasks.length} tasks
-            </span>
+          <div className="px-4 py-2.5 border-b border-slate-200/80 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/40">
+            <div className="flex items-center gap-2">
+              <h3 className="font-extrabold text-slate-900 dark:text-white text-xs tracking-wider uppercase flex items-center gap-2">
+                <Layers size={14} className="text-blue-600" /> Tasks  Log
+              </h3>
+              {selectedTaskIds.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full text-[10.5px] font-black bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
+                  {selectedTaskIds.length} selected
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-slate-500 bg-white dark:bg-[#111C24] px-2 py-0.5 rounded-full border border-slate-200/80 dark:border-slate-800 shadow-2xs">
+                {filteredTasks.length} tasks
+              </span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-white dark:bg-[#111C24] border-b border-slate-200/90 dark:border-slate-800 text-[11px] font-black uppercase tracking-wider text-slate-900 dark:text-white">
+                  <th className="px-3 py-3 w-10 text-center" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={filteredTasks.length > 0 && selectedTaskIds.length === filteredTasks.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTaskIds(filteredTasks.map(t => t._id));
+                        } else {
+                          setSelectedTaskIds([]);
+                        }
+                      }}
+                      className="w-4 h-4 rounded text-blue-600 border-slate-300 dark:border-slate-600 focus:ring-blue-500 cursor-pointer"
+                    />
+                  </th>
                   <th className="px-4 py-3 font-black">ID</th>
                   <th className="px-4 py-3 font-black">Task Title</th>
                   <th className="px-4 py-3 font-black">Assigned By</th>
@@ -1377,7 +1693,14 @@ export default function TaskBoard() {
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/80">
                 {filteredTasks.map(task => (
-                  <TableRow key={task._id} task={task} activeTab={activeTab} onClick={() => navigate(getTaskDetailsUrl(task._id))} />
+                  <TableRow
+                    key={task._id}
+                    task={task}
+                    activeTab={activeTab}
+                    isSelected={selectedTaskIds.includes(task._id)}
+                    onToggleSelect={handleToggleSelectTask}
+                    onClick={() => navigate(getTaskDetailsUrl(task._id))}
+                  />
                 ))}
               </tbody>
             </table>
