@@ -303,8 +303,8 @@ const getExecutiveMetrics = async (companyId, query, user) => {
   // Projects Metrics
   const totalProjectsCurr = projectsCurr.length;
   const totalProjectsPrev = projectsPrev.length;
-  const activeProjectsCurr = projectsCurr.filter(p => p.status === "active" || p.status === "working").length;
-  const activeProjectsPrev = projectsPrev.filter(p => p.status === "active" || p.status === "working").length;
+  const activeProjectsCurr = projectsCurr.filter(p => p.status === "active" || p.status === "working" || p.status === "in_progress" || p.status === "in-progress" || p.status === "planning" || p.status === "ongoing").length;
+  const activeProjectsPrev = projectsPrev.filter(p => p.status === "active" || p.status === "working" || p.status === "in_progress" || p.status === "in-progress" || p.status === "planning" || p.status === "ongoing").length;
   const completedProjectsCurr = projectsCurr.filter(p => p.status === "completed").length;
   const completedProjectsPrev = projectsPrev.filter(p => p.status === "completed").length;
   const projectDeliveryRateCurr = totalProjectsCurr > 0 ? (completedProjectsCurr / totalProjectsCurr) * 100 : 0;
@@ -1538,6 +1538,7 @@ const getLeadMetrics = async (companyId, query, user) => {
       source: l.source || "Direct",
       productService: l.productService || "—",
       estimatedValue: l.estimatedValue || 0,
+      value: l.estimatedValue || 0,
       assignedTo: l.assignedTo?.fullName || l.assignedTo?.name || "Unassigned",
       isWon: isLeadWon(l),
       isLost: isLeadLost(l),
@@ -1715,7 +1716,7 @@ const getProjectMetrics = async (companyId, query, user) => {
     .lean();
 
   const total = projects.length;
-  const active = projects.filter(p => p.status === "active" || p.status === "working").length;
+  const active = projects.filter(p => p.status === "active" || p.status === "working" || p.status === "in_progress" || p.status === "in-progress" || p.status === "ongoing").length;
   const planning = projects.filter(p => p.status === "planning" || p.status === "review").length;
   const completed = projects.filter(p => p.status === "completed").length;
   const overdue = projects.filter(p => p.endDate && new Date(p.endDate) < new Date() && p.status !== "completed").length;

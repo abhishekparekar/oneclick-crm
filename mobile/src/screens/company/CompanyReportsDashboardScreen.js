@@ -178,17 +178,18 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
     }
   };
 
+  const currentHealth = summary?.healthScore ?? 88;
   const trendData = {
     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
     datasets: [
       {
         data: [
-          Math.max(50, (summary?.healthScore || 88) - 12),
-          Math.max(50, (summary?.healthScore || 88) - 8),
-          Math.max(50, (summary?.healthScore || 88) - 5),
-          Math.max(50, (summary?.healthScore || 88) - 9),
-          Math.max(50, (summary?.healthScore || 88) - 2),
-          summary?.healthScore || 88
+          Math.max(10, Math.round(currentHealth * 0.91)),
+          Math.max(10, Math.round(currentHealth * 0.94)),
+          Math.max(10, Math.round(currentHealth * 0.89)),
+          Math.max(10, Math.round(currentHealth * 0.96)),
+          Math.max(10, Math.round(currentHealth * 0.93)),
+          Math.max(10, currentHealth),
         ]
       }
     ]
@@ -241,7 +242,7 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
               </View>
             </View>
             <Text style={styles.healthDesc}>
-              Weighted based on task completion, employee productivity, project progression, and attendance rates.
+              Weighted index evaluating delivery completion, staff attendance, task velocity, and pipeline conversion.
             </Text>
           </LinearGradient>
 
@@ -250,8 +251,8 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
             <Text style={styles.chartTitle}>Business Health Trend (6 Months)</Text>
             <LineChart
               data={trendData}
-              width={width - 36}
-              height={180}
+              width={Math.min(width - 56, 360)}
+              height={170}
               chartConfig={chartConfig}
               bezier
               style={styles.chartStyle}
@@ -261,81 +262,119 @@ const CompanyReportsDashboardScreen = ({ navigation }) => {
           <Text style={styles.sectionTitle}>EXECUTIVE METRICS</Text>
 
           <View style={styles.kpiGrid}>
-            <View style={styles.statBox}>
-              <View style={[styles.iconBg, { backgroundColor: "#ECFDF5" }]}>
-                <Ionicons name="people-outline" size={20} color="#10B981" />
+            {/* 1. Total Staff */}
+            <View style={[styles.statBox, { borderLeftColor: "#2563EB" }]}>
+              <View style={styles.statTopRow}>
+                <Text style={styles.statLabel} numberOfLines={1}>TOTAL STAFF</Text>
+                <View style={[styles.statIndicator, { backgroundColor: "#EFF6FF" }]}>
+                  <Text style={[styles.statIndicatorText, { color: "#2563EB" }]}>Staff</Text>
+                </View>
               </View>
-              <Text style={styles.statValue}>{summary?.totalEmployees ?? "-"}</Text>
-              <Text style={styles.statLabel}>Total Staff</Text>
+              <Text style={styles.statValue}>{summary?.totalEmployees ?? 0}</Text>
+              <Text style={styles.statSub}>Active Headcount</Text>
             </View>
             
+            {/* 2. Active Projects */}
             {canAccessProjects && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="briefcase-outline" size={20} color="#2563EB" />
+              <View style={[styles.statBox, { borderLeftColor: "#0284C7" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>PROJECTS</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#F0F9FF" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#0284C7" }]}>Active</Text>
+                  </View>
                 </View>
-                <Text style={styles.statValue}>{summary?.activeProjects ?? "-"}</Text>
-                <Text style={styles.statLabel}>Active Projects</Text>
+                <Text style={styles.statValue}>{summary?.activeProjects ?? 0}</Text>
+                <Text style={styles.statSub}>In Delivery</Text>
               </View>
             )}
 
+            {/* 3. Total Leads */}
             {canAccessLeads && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#EFF6FF" }]}>
-                  <Ionicons name="call-outline" size={20} color="#3B82F6" />
+              <View style={[styles.statBox, { borderLeftColor: "#6366F1" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>TOTAL LEADS</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#EEF2FF" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#6366F1" }]}>CRM</Text>
+                  </View>
                 </View>
                 <Text style={styles.statValue}>{summary?.totalLeads ?? 0}</Text>
-                <Text style={styles.statLabel}>Total Leads</Text>
+                <Text style={styles.statSub}>Inbound Inquiries</Text>
               </View>
             )}
 
+            {/* 4. Lead Conversion */}
             {canAccessLeads && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#ECFDF5" }]}>
-                  <Ionicons name="trending-up-outline" size={20} color="#10B981" />
+              <View style={[styles.statBox, { borderLeftColor: "#10B981" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>LEAD CONV.</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#ECFDF5" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#059669" }]}>Rate</Text>
+                  </View>
                 </View>
-                <Text style={styles.statValue}>{summary?.leadConversionRate ? summary.leadConversionRate.toFixed(1) : 0}%</Text>
-                <Text style={styles.statLabel}>Lead Conv.</Text>
+                <Text style={[styles.statValue, { color: "#059669" }]}>
+                  {summary?.leadConversionRate ? Number(summary.leadConversionRate).toFixed(1) : "0"}%
+                </Text>
+                <Text style={styles.statSub}>Won Conversion</Text>
               </View>
             )}
             
+            {/* 5. Attendance Rate */}
             {canAccessAttendance && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "rgba(249, 115, 22, 0.1)" }]}>
-                  <Ionicons name="calendar-outline" size={20} color={COLORS.primary} />
+              <View style={[styles.statBox, { borderLeftColor: "#F59E0B" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>ATTENDANCE</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#FFFBEB" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#D97706" }]}>Avg</Text>
+                  </View>
                 </View>
-                <Text style={styles.statValue}>{summary?.attendanceRate ? summary.attendanceRate.toFixed(1) : 0}%</Text>
-                <Text style={styles.statLabel}>Attendance</Text>
+                <Text style={styles.statValue}>
+                  {summary?.attendanceRate ? Number(summary.attendanceRate).toFixed(1) : "0"}%
+                </Text>
+                <Text style={styles.statSub}>Presence Rate</Text>
               </View>
             )}
             
+            {/* 6. Total Tasks */}
             {canAccessTasks && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#F5F3FF" }]}>
-                  <Ionicons name="checkbox-outline" size={20} color="#7C3AED" />
+              <View style={[styles.statBox, { borderLeftColor: "#8B5CF6" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>TOTAL TASKS</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#F5F3FF" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#7C3AED" }]}>Ops</Text>
+                  </View>
                 </View>
                 <Text style={styles.statValue}>{summary?.totalTasks ?? 0}</Text>
-                <Text style={styles.statLabel}>Total Tasks</Text>
+                <Text style={styles.statSub}>Assigned Work</Text>
               </View>
             )}
 
+            {/* 7. Task Completion */}
             {canAccessTasks && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#FFF7ED" }]}>
-                  <Ionicons name="checkmark-done-circle-outline" size={20} color="#EA580C" />
+              <View style={[styles.statBox, { borderLeftColor: "#0D9488" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>TASK DONE</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#F0FDFA" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#0D9488" }]}>Ratio</Text>
+                  </View>
                 </View>
-                <Text style={styles.statValue}>{summary?.taskCompletionRate ? summary.taskCompletionRate.toFixed(1) : 0}%</Text>
-                <Text style={styles.statLabel}>Task Done</Text>
+                <Text style={[styles.statValue, { color: "#0D9488" }]}>
+                  {summary?.taskCompletionRate ? Number(summary.taskCompletionRate).toFixed(1) : "0"}%
+                </Text>
+                <Text style={styles.statSub}>Completion Ratio</Text>
               </View>
             )}
 
+            {/* 8. Leave Requests */}
             {canAccessLeaves && (
-              <View style={styles.statBox}>
-                <View style={[styles.iconBg, { backgroundColor: "#FFFBEB" }]}>
-                  <Ionicons name="time-outline" size={20} color="#F59E0B" />
+              <View style={[styles.statBox, { borderLeftColor: "#E11D48" }]}>
+                <View style={styles.statTopRow}>
+                  <Text style={styles.statLabel} numberOfLines={1}>LEAVE REQ</Text>
+                  <View style={[styles.statIndicator, { backgroundColor: "#FFF1F2" }]}>
+                    <Text style={[styles.statIndicatorText, { color: "#E11D48" }]}>Leave</Text>
+                  </View>
                 </View>
-                <Text style={styles.statValue}>{summary?.leaveRequests ?? "-"}</Text>
-                <Text style={styles.statLabel}>Leave Req</Text>
+                <Text style={styles.statValue}>{summary?.leaveRequests ?? 0}</Text>
+                <Text style={styles.statSub}>Applied Requests</Text>
               </View>
             )}
           </View>
@@ -483,30 +522,48 @@ const styles = StyleSheet.create({
   statBox: {
     width: "48%",
     backgroundColor: "#FFFFFF",
-    borderRadius: ROUNDING.lg,
-    padding: 14,
+    borderRadius: 12,
+    padding: 12,
     borderWidth: 1,
     borderColor: "#E2E8F0",
+    borderLeftWidth: 3.5,
     ...SHADOWS.sm,
   },
-  iconBg: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
+  statTopRow: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 10,
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  statLabel: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 10,
+    color: "#64748B",
+    letterSpacing: 0.5,
+    flex: 1,
+  },
+  statIndicator: {
+    paddingHorizontal: 5,
+    paddingVertical: 1.5,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  statIndicatorText: {
+    fontFamily: FONTS.bodyBold,
+    fontSize: 9,
+    letterSpacing: 0.2,
   },
   statValue: {
     fontFamily: FONTS.displayBold,
-    fontSize: 19,
-    color: COLORS.darkNavy,
-  },
-  statLabel: {
-    fontFamily: FONTS.bodyMedium,
-    fontSize: 11,
-    color: COLORS.text.muted,
+    fontSize: 20,
+    color: "#0F172A",
     marginTop: 2,
+  },
+  statSub: {
+    fontFamily: FONTS.body,
+    fontSize: 10,
+    color: "#94A3B8",
+    marginTop: 3,
   },
   menuCard: {
     flexDirection: "row",

@@ -24,7 +24,7 @@ const LeadReportScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [month, setMonth] = useState("");
-  const [year, setYear] = useState(new Date().getFullYear().toString());
+  const [year, setYear] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
@@ -36,8 +36,16 @@ const LeadReportScreen = () => {
       if (refresh) setRefreshing(true);
       else setLoading(true);
       setError("");
-      const res = await getLeadReportApi({ month, year });
-      setData(res.data);
+
+      const params = {};
+      if (month) params.month = month;
+      if (year) params.year = year;
+      if (!month && !year) params.dateRange = "all";
+      if (refresh) params.refresh = true;
+
+      const res = await getLeadReportApi(params);
+      const payload = res?.data?.data || res?.data || {};
+      setData(payload);
     } catch (err) {
       setError(err.response?.data?.message || "Failed to load lead report");
     } finally {
@@ -57,10 +65,25 @@ const LeadReportScreen = () => {
     return list.filter((l) => {
       const name = (l.name || "").toLowerCase();
       const phone = (l.phone || "").toLowerCase();
+      const company = (l.company || "").toLowerCase();
       const s = search.toLowerCase();
-      const matchSearch = !s || name.includes(s) || phone.includes(s);
-      const matchStatus =
-        statusFilter === "all" || (l.status || "").toLowerCase() === statusFilter.toLowerCase();
+      const matchSearch = !s || name.includes(s) || phone.includes(s) || company.includes(s);
+
+      if (statusFilter === "all") return matchSearch;
+
+      const leadStatus = (l.status || "").toLowerCase();
+      const isWon = Boolean(l.isWon || leadStatus.includes("won") || leadStatus.includes("convert") || leadStatus.includes("deal"));
+      const isLost = Boolean(l.isLost || leadStatus.includes("lost") || leadStatus.includes("junk") || leadStatus.includes("cancel"));
+      const isNew = Boolean(leadStatus.includes("new") || leadStatus.includes("open") || leadStatus.includes("fresh"));
+      const isContacted = Boolean(leadStatus.includes("contact") || leadStatus.includes("call") || leadStatus.includes("follow") || leadStatus.includes("progress"));
+
+      let matchStatus = false;
+      if (statusFilter === "converted") matchStatus = isWon;
+      else if (statusFilter === "lost") matchStatus = isLost;
+      else if (statusFilter === "new") matchStatus = isNew;
+      else if (statusFilter === "contacted") matchStatus = isContacted;
+      else matchStatus = leadStatus === statusFilter.toLowerCase();
+
       return matchSearch && matchStatus;
     });
   }, [data, search, statusFilter]);
@@ -87,7 +110,7 @@ const LeadReportScreen = () => {
         ["Total Inquiries", kpis.totalLeads],
         ["Converted Deals", kpis.convertedLeads],
         ["Conversion Rate", `${kpis.conversionRate}%`],
-        ["Total  Value (INR)", `Rs. ${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}`],
+        ["Total Pipeline Value (INR)", `Rs. ${Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}`],
         ["Won Value (INR)", `Rs. ${Number(kpis.wonValue || 0).toLocaleString("en-IN")}`],
         ["Active Pipeline", kpis.pipelineLeads],
       ];
@@ -99,7 +122,7 @@ const LeadReportScreen = () => {
         l.source || "—",
         l.assignedTo || "Unassigned",
         (l.status || "new").toUpperCase(),
-        l.value ? `Rs. ${Number(l.value).toLocaleString("en-IN")}` : "Rs. 0",
+        (l.estimatedValue || l.value) ? `Rs. ${Number(l.estimatedValue || l.value).toLocaleString("en-IN")}` : "Rs. 0",
         l.formattedDate || (l.createdAt ? formatDateToDDMMYYYY(l.createdAt) : "—"),
       ]);
 
@@ -222,10 +245,32 @@ const LeadReportScreen = () => {
           </View>
 
           <View style={[styles.kpiCard, { borderLeftColor: "#7C3AED" }]}>
-            <Text style={styles.kpiLabel}> VAL</Text>
+            <Text style={styles.kpiLabel}>PIPELINE VAL</Text>
             <Text style={[styles.kpiVal, { color: "#7C3AED", fontSize: 13 }]}>₹{Number(kpis.totalPipelineValue || 0).toLocaleString("en-IN")}</Text>
           </View>
         </View>
+
+        {/* Stage / Pipeline Breakdown Carousel */}
+        {data?.statusBreakdown && data.statusBreakdown.length > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.stageScroll}
+            contentContainerStyle={styles.stageScrollContent}
+          >
+            {data.statusBreakdown.map((sb, i) => (
+              <View key={i} style={[styles.stageCard, { borderLeftColor: sb.color || "#3B82F6" }]}>
+                <Text style={styles.stageName} numberOfLines={1}>{sb.name}</Text>
+                <View style={styles.stageMetrics}>
+                  <Text style={styles.stageCount}>{sb.count} leads</Text>
+                  {sb.value > 0 && (
+                    <Text style={styles.stageValue}>₹{Number(sb.value).toLocaleString("en-IN")}</Text>
+                  )}
+                </View>
+              </View>
+            ))}
+          </ScrollView>
+        )}
 
         {/* Filter Card */}
         <View style={styles.filterCard}>
@@ -281,9 +326,11 @@ const LeadReportScreen = () => {
               <View style={styles.leadHeader}>
                 <View style={{ flex: 1 }}>
                   <Text style={styles.leadName}>{l.name}</Text>
-                  <Text style={styles.leadPhone}>{l.phone || "No phone"} · {l.source || "Direct"}</Text>
+                  <Text style={styles.leadPhone}>
+                    {l.phone || "No phone"} {l.source ? `· ${l.source}` : ""}
+                  </Text>
                 </View>
-                <View style={styles.badgeWrapper}>
+                <View style={[styles.badgeWrapper, { backgroundColor: (l.statusColor || "#2563EB") + "18" }]}>
                   <Text style={[styles.badgeText, { color: l.statusColor || "#2563EB" }]}>
                     {(l.status || "New").toUpperCase()}
                   </Text>
@@ -293,10 +340,13 @@ const LeadReportScreen = () => {
               <View style={styles.leadFooter}>
                 <Text style={styles.leadMeta}>
                   Rep: <Text style={{ fontWeight: "700", color: "#334155" }}>{l.assignedTo || "Unassigned"}</Text>
+                  {l.formattedDate ? `  ·  ${l.formattedDate}` : ""}
                 </Text>
-                {l.value > 0 && (
-                  <Text style={styles.leadValue}>₹{Number(l.value).toLocaleString("en-IN")}</Text>
-                )}
+                {(l.estimatedValue > 0 || l.value > 0) ? (
+                  <Text style={styles.leadValue}>
+                    ₹{Number(l.estimatedValue || l.value).toLocaleString("en-IN")}
+                  </Text>
+                ) : null}
               </View>
             </View>
           ))
@@ -344,6 +394,46 @@ const styles = StyleSheet.create({
   kpiVal: {
     fontSize: 16,
     fontFamily: FONTS.displayBold,
+  },
+  stageScroll: {
+    marginBottom: 12,
+  },
+  stageScrollContent: {
+    gap: 8,
+    paddingRight: 4,
+  },
+  stageCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderLeftWidth: 3.5,
+    minWidth: 110,
+    elevation: 1,
+  },
+  stageName: {
+    fontSize: 11,
+    fontFamily: FONTS.bodyBold,
+    color: "#334155",
+    marginBottom: 2,
+  },
+  stageMetrics: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  stageCount: {
+    fontSize: 13,
+    fontFamily: FONTS.displayBold,
+    color: "#0F172A",
+  },
+  stageValue: {
+    fontSize: 10,
+    fontFamily: FONTS.bodyMedium,
+    color: "#059669",
   },
   filterCard: {
     backgroundColor: "#FFFFFF",
