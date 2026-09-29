@@ -14,6 +14,7 @@ import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import Svg, { Circle, G } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
 import ManagerLayout from "../../components/ManagerLayout";
+import DashboardSkeleton from "../../components/DashboardSkeleton";
 import { useAuth } from "../../context/AuthContext";
 import useManagerController from "../../controllers/managerController";
 import { getMyTodayApi } from "../../api/attendanceService";
@@ -97,6 +98,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const [todayRecord, setTodayRecord] = useState(null);
   const [liveTime, setLiveTime] = useState(new Date());
   const [leadsList, setLeadsList] = useState([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
 
   useEffect(() => {
     const t = setInterval(() => setLiveTime(new Date()), 1000);
@@ -115,11 +117,14 @@ const ManagerDashboardScreen = ({ navigation }) => {
   const fetchLeads = async () => {
     if (!canAccessLeads) return;
     try {
+      setLoadingLeads(true);
       const res = await leadsService.getLeads();
       const raw = res?.data || res;
       setLeadsList(Array.isArray(raw) ? raw : []);
     } catch (e) {
       console.log("Failed to fetch leads for Manager Dashboard:", e.message);
+    } finally {
+      setLoadingLeads(false);
     }
   };
 
@@ -188,10 +193,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
   if (!dashboardData && !dashboardError) {
     return (
       <ManagerLayout navigation={navigation} title="Dashboard">
-        <View style={styles.centerBox}>
-          <ActivityIndicator size="large" color="#1268D9" />
-          <Text style={styles.loaderText}>Loading dashboard metrics...</Text>
-        </View>
+        <DashboardSkeleton />
       </ManagerLayout>
     );
   }
@@ -576,7 +578,12 @@ const ManagerDashboardScreen = ({ navigation }) => {
           {(canAccessTasks || canAccessAttendance || canAccessLeaves || canAccessProjects) && (
             <>
               <View style={[styles.sectionHeaderRow, { marginTop: 16 }]}>
-                <Text style={styles.sectionTitle}>Performance Overview</Text>
+                <View style={{ flexDirection: "row", alignItems: "center" }}>
+                  <Text style={styles.sectionTitle}>Performance Overview</Text>
+                  {loadingDashboard && (
+                    <ActivityIndicator size="small" color="#1268D9" style={{ marginLeft: 8 }} />
+                  )}
+                </View>
                 {canAccessTasks && (
                   <TouchableOpacity onPress={() => navigation.navigate("ManagerTasks")} activeOpacity={0.7}>
                     <Text style={styles.sectionLink}>View All Tasks</Text>
@@ -596,7 +603,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#10B981" }]} />
                       <Text style={styles.kpiLabel}>My Tasks</Text>
                     </View>
-                    <Text style={styles.kpiValue}>{taskSummary.myPendingTasks ?? 0}</Text>
+                    <Text style={styles.kpiValue}>{loadingDashboard ? "..." : (taskSummary.myPendingTasks ?? 0)}</Text>
                     <Text style={styles.kpiSub}>Pending Action</Text>
                   </TouchableOpacity>
                 )}
@@ -612,7 +619,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#8B5CF6" }]} />
                       <Text style={styles.kpiLabel}>Team Tasks</Text>
                     </View>
-                    <Text style={styles.kpiValue}>{taskSummary.openTeamTasks ?? 0}</Text>
+                    <Text style={styles.kpiValue}>{loadingDashboard ? "..." : (taskSummary.openTeamTasks ?? 0)}</Text>
                     <Text style={styles.kpiSub}>Active & Open</Text>
                   </TouchableOpacity>
                 )}
@@ -628,7 +635,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#EF4444" }]} />
                       <Text style={styles.kpiLabel}>Overdue</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{taskSummary.overdueTeamTasks ?? 0}</Text>
+                    <Text style={[styles.kpiValue, { color: "#DC2626" }]}>{loadingDashboard ? "..." : (taskSummary.overdueTeamTasks ?? 0)}</Text>
                     <Text style={styles.kpiSub}>Urgent Followup</Text>
                   </TouchableOpacity>
                 )}
@@ -644,7 +651,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#059669" }]} />
                       <Text style={styles.kpiLabel}>Present Today</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{present}</Text>
+                    <Text style={[styles.kpiValue, { color: "#059669" }]}>{loadingDashboard ? "..." : present}</Text>
                     <Text style={styles.kpiSub}>Active at work</Text>
                   </TouchableOpacity>
                 )}
@@ -660,7 +667,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#3B82F6" }]} />
                       <Text style={styles.kpiLabel}>On Leave</Text>
                     </View>
-                    <Text style={[styles.kpiValue, { color: "#2563EB" }]}>{onLeave}</Text>
+                    <Text style={[styles.kpiValue, { color: "#2563EB" }]}>{loadingDashboard ? "..." : onLeave}</Text>
                     <Text style={styles.kpiSub}>Approved today</Text>
                   </TouchableOpacity>
                 )}
@@ -676,7 +683,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                       <View style={[styles.kpiDot, { backgroundColor: "#F59E0B" }]} />
                       <Text style={styles.kpiLabel}>Projects</Text>
                     </View>
-                    <Text style={styles.kpiValue}>{projectSummary.activeProjects ?? 0}</Text>
+                    <Text style={styles.kpiValue}>{loadingDashboard ? "..." : (projectSummary.activeProjects ?? 0)}</Text>
                     <Text style={styles.kpiSub}>In Execution</Text>
                   </TouchableOpacity>
                 )}
@@ -691,7 +698,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                     <View style={[styles.kpiDot, { backgroundColor: "#6366F1" }]} />
                     <Text style={styles.kpiLabel}>My Team</Text>
                   </View>
-                  <Text style={[styles.kpiValue, { color: "#4F46E5" }]}>{staffTotal}</Text>
+                  <Text style={[styles.kpiValue, { color: "#4F46E5" }]}>{loadingDashboard ? "..." : staffTotal}</Text>
                   <Text style={styles.kpiSub}>Total Members</Text>
                 </TouchableOpacity>
               </View>
@@ -705,6 +712,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="pulse" size={16} color="#1268D9" style={{ marginRight: 6 }} />
                   <Text style={styles.attendanceCardTitle}>Team Attendance Today</Text>
+                  {loadingDashboard && (
+                    <ActivityIndicator size="small" color="#1268D9" style={{ marginLeft: 6 }} />
+                  )}
                 </View>
                 <TouchableOpacity
                   onPress={() => navigation.navigate("ManagerTeamAttendance")}
@@ -742,6 +752,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="calendar-outline" size={16} color="#1268D9" style={{ marginRight: 6 }} />
                   <Text style={styles.tasksCardTitle}>Upcoming Deadlines</Text>
+                  {loadingDashboard && (
+                    <ActivityIndicator size="small" color="#1268D9" style={{ marginLeft: 6 }} />
+                  )}
                 </View>
                 <TouchableOpacity
                   onPress={() => navigation.navigate("ManagerTasks")}
@@ -753,7 +766,12 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 </TouchableOpacity>
               </View>
 
-              {recentTasks.length === 0 ? (
+              {loadingDashboard && recentTasks.length === 0 ? (
+                <View style={{ paddingVertical: 20, alignItems: "center", justifyContent: "center" }}>
+                  <ActivityIndicator size="small" color="#1268D9" />
+                  <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6, fontWeight: "500" }}>Loading upcoming deadlines...</Text>
+                </View>
+              ) : recentTasks.length === 0 ? (
                 <View style={styles.emptyTasksBox}>
                   <Ionicons name="checkmark-done-circle-outline" size={32} color="#10B981" />
                   <Text style={styles.emptyTasksText}>All team deadlines are on track!</Text>
@@ -809,6 +827,9 @@ const ManagerDashboardScreen = ({ navigation }) => {
                 <View style={{ flexDirection: "row", alignItems: "center" }}>
                   <Ionicons name="magnet" size={16} color="#8B5CF6" style={{ marginRight: 6 }} />
                   <Text style={styles.leadCardTitle}>Lead Engine & CRM Pipeline</Text>
+                  {loadingLeads && (
+                    <ActivityIndicator size="small" color="#8B5CF6" style={{ marginLeft: 6 }} />
+                  )}
                 </View>
                 <TouchableOpacity
                   onPress={() => navigation.navigate("LeadsEngine")}
@@ -827,7 +848,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList" })}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.leadKpiNum}>{leadStats.total}</Text>
+                  <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.total}</Text>
                   <Text style={styles.leadKpiLabel}>Total Leads</Text>
                 </TouchableOpacity>
 
@@ -836,7 +857,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "contacted" } })}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.leadKpiNum}>{leadStats.contacted}</Text>
+                  <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.contacted}</Text>
                   <Text style={styles.leadKpiLabel}>Contacted</Text>
                 </TouchableOpacity>
 
@@ -845,7 +866,7 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "in_progress" } })}
                   activeOpacity={0.75}
                 >
-                  <Text style={styles.leadKpiNum}>{leadStats.inProgress}</Text>
+                  <Text style={styles.leadKpiNum}>{loadingLeads ? "..." : leadStats.inProgress}</Text>
                   <Text style={styles.leadKpiLabel}>In Progress</Text>
                 </TouchableOpacity>
 
@@ -854,13 +875,18 @@ const ManagerDashboardScreen = ({ navigation }) => {
                   onPress={() => navigation.navigate("LeadsEngine", { screen: "LeadsList", params: { status: "won" } })}
                   activeOpacity={0.75}
                 >
-                  <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{leadStats.won}</Text>
+                  <Text style={[styles.leadKpiNum, { color: "#10B981" }]}>{loadingLeads ? "..." : leadStats.won}</Text>
                   <Text style={styles.leadKpiLabel}>Won</Text>
                 </TouchableOpacity>
               </View>
 
               {/* Recent Leads Preview */}
-              {leadsList.length > 0 ? (
+              {loadingLeads && leadsList.length === 0 ? (
+                <View style={{ paddingVertical: 18, alignItems: "center", justifyContent: "center" }}>
+                  <ActivityIndicator size="small" color="#8B5CF6" />
+                  <Text style={{ fontSize: 12, color: "#64748B", marginTop: 6, fontWeight: "500" }}>Loading leads pipeline...</Text>
+                </View>
+              ) : leadsList.length > 0 ? (
                 <View style={styles.recentLeadsWrapper}>
                   <Text style={styles.recentLeadHeader}>Recent Prospects</Text>
                   {leadsList.slice(0, 3).map((lead, idx) => {

@@ -290,12 +290,26 @@ const EmployeeTaskDetailsScreen = ({ route, navigation }) => {
         completed: newStatus,
       };
       const res = await updateTaskChecklistApi(taskId || task._id, payload);
-      if (res?.data?.task?.checklist) {
-        setTask((prev) => (prev ? { ...prev, checklist: res.data.task.checklist } : prev));
+      const returnedChecklist =
+        res?.data?.task?.checklist ||
+        res?.data?.data?.checklist ||
+        res?.data?.checklist ||
+        res?.task?.checklist;
+      if (Array.isArray(returnedChecklist) && returnedChecklist.length > 0) {
+        setTask((prev) => (prev ? { ...prev, checklist: returnedChecklist } : prev));
       }
     } catch (err) {
       console.error("Failed to toggle checklist item", err);
-      fetchTaskDetails();
+      // Revert optimistic update cleanly
+      setTask((prevTask) => {
+        if (!prevTask) return prevTask;
+        const revertedChecklist = (prevTask.checklist || []).map((item, i) =>
+          (item._id && checkItem._id && String(item._id) === String(checkItem._id)) || i === idx
+            ? { ...item, isCompleted: checkItem.isCompleted }
+            : item
+        );
+        return { ...prevTask, checklist: revertedChecklist };
+      });
       Alert.alert("Error", err.response?.data?.message || "Failed to update checklist item");
     } finally {
       setUpdatingChecklistId(null);

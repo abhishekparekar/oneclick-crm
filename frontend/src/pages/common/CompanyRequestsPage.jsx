@@ -104,6 +104,16 @@ export default function CompanyRequestsPage({ role = "hr" }) {
     }
   }, [searchParams, setSearchParams]);
 
+  // Automatically mark requests as seen upon visiting Company Requests page
+  useEffect(() => {
+    if (user?._id) {
+      const now = new Date().toISOString();
+      localStorage.setItem("lastSeenCompanyRequests_" + user._id, now);
+      api.post("/internal-requests/mark-seen").catch(() => {});
+      queryClient.setQueryData(["headerCompanyRequests", user._id, false], { count: 0 });
+    }
+  }, [user?._id, queryClient]);
+
   const handleCloseCreateModal = () => {
     setCreateModalOpen(false);
     if (searchParams.get("create") || searchParams.get("openCreate")) {

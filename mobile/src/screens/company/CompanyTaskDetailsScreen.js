@@ -84,6 +84,10 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
   }, []);
 
   const [task, setTask] = useState(initialTask || null);
+  const taskRef = useRef(task);
+  useEffect(() => {
+    taskRef.current = task;
+  }, [task]);
   const [refreshing, setRefreshing] = useState(false);
   const [updatingChecklistId, setUpdatingChecklistId] = useState(null);
   const [newComment, setNewComment] = useState("");
@@ -315,7 +319,7 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
     async (silent = false) => {
       if (!taskId) return;
       try {
-        if (!silent && !task) setRefreshing(true);
+        if (!silent && !taskRef.current) setRefreshing(true);
         const res = await getTaskByIdApi(taskId);
         const taskData = res.data?.task || res.data?.data?.task || res.data?.data;
         if (taskData && (taskData._id || taskData.id)) {
@@ -323,14 +327,14 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         }
       } catch (err) {
         console.warn("[CompanyTaskDetails] Fetch error:", err?.message || err);
-        if (!task) {
+        if (!taskRef.current) {
           Alert.alert("Error", err?.response?.data?.message || err.message);
         }
       } finally {
         setRefreshing(false);
       }
     },
-    [taskId, task]
+    [taskId]
   );
 
   useEffect(() => {
@@ -594,12 +598,26 @@ const CompanyTaskDetailsScreen = ({ route, navigation }) => {
         completed: newStatus,
       };
       const res = await updateTaskChecklistApi(taskId || task._id, payload);
-      if (res?.data?.task?.checklist) {
-        setTask((prev) => (prev ? { ...prev, checklist: res.data.task.checklist } : prev));
+      const returnedChecklist =
+        res?.data?.task?.checklist ||
+        res?.data?.data?.checklist ||
+        res?.data?.checklist ||
+        res?.task?.checklist;
+      if (Array.isArray(returnedChecklist) && returnedChecklist.length > 0) {
+        setTask((prev) => (prev ? { ...prev, checklist: returnedChecklist } : prev));
       }
     } catch (err) {
       console.error("Failed to toggle checklist item", err);
-      fetchTask(true);
+      // Revert optimistic update cleanly
+      setTask((prevTask) => {
+        if (!prevTask) return prevTask;
+        const revertedChecklist = (prevTask.checklist || []).map((item, i) =>
+          (item._id && checkItem._id && String(item._id) === String(checkItem._id)) || i === idx
+            ? { ...item, isCompleted: checkItem.isCompleted }
+            : item
+        );
+        return { ...prevTask, checklist: revertedChecklist };
+      });
       Alert.alert("Error", err.response?.data?.message || "Failed to update checklist item");
     } finally {
       setUpdatingChecklistId(null);

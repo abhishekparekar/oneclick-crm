@@ -406,7 +406,10 @@ const CompanyDashboard = ({ navigation }) => {
             </View>
 
             {/* Metrics Overview Section */}
-            <Text style={styles.sectionHeaderTitle}>ORGANIZATION METRICS</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginHorizontal: 16, marginTop: 12, marginBottom: 8 }}>
+              <Text style={[styles.sectionHeaderTitle, { marginHorizontal: 0, marginTop: 0, marginBottom: 0 }]}>ORGANIZATION METRICS</Text>
+              {isRefetching && <ActivityIndicator size="small" color={COLORS.primary} />}
+            </View>
 
             <View style={styles.metricsGrid}>
               {/* Total Staff */}
@@ -523,6 +526,7 @@ const CompanyDashboard = ({ navigation }) => {
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="albums-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
                     <Text style={styles.cardHeaderTitle}>Task Progress Summary</Text>
+                    {isRefetching && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
                   </View>
                   <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "TaskBoard" })}>
                     <Text style={styles.cardHeaderLink}>View Board</Text>
@@ -556,7 +560,8 @@ const CompanyDashboard = ({ navigation }) => {
                 <View style={styles.cardHeaderRow}>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Ionicons name="magnet-outline" size={18} color="#1268D9" style={{ marginRight: 6 }} />
-                    <Text style={styles.cardHeaderTitle}>Lead  Summary</Text>
+                    <Text style={styles.cardHeaderTitle}>Lead Summary</Text>
+                    {isRefetching && <ActivityIndicator size="small" color="#1268D9" style={{ marginLeft: 8 }} />}
                   </View>
                   <TouchableOpacity onPress={() => navigation.navigate("DashboardStack", { screen: "LeadsEngine", params: { screen: "LeadsDashboard" } })}>
                     <Text style={styles.cardHeaderLink}>View CRM →</Text>

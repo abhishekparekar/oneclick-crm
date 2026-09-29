@@ -217,12 +217,21 @@ const Header = ({ onMenuClick }) => {
         if (isSuperAdmin) {
           const res = await api.get("/superadmin/company-requests", { params: { status: "pending" } });
           const count = res.data?.count ?? (Array.isArray(res.data?.requests) ? res.data.requests.length : 0);
+          const lastSeenSuperAdmin = localStorage.getItem("lastSeenSuperAdminRequests_" + user?._id);
+          if (lastSeenSuperAdmin && count > 0) {
+            const lastSeenDate = new Date(lastSeenSuperAdmin);
+            const reqs = Array.isArray(res.data?.requests) ? res.data.requests : [];
+            const unreadReqs = reqs.filter((r) => new Date(r.createdAt) > lastSeenDate);
+            return { count: unreadReqs.length };
+          }
           return { count };
         }
-        const res = await api.get("/internal-requests", { params: { limit: 1 } });
-        const stats = res.data?.stats || {};
-        const count = stats.open ?? 0;
-        return { count, stats };
+        const localLastSeen = localStorage.getItem("lastSeenCompanyRequests_" + user?._id);
+        const res = await api.get("/internal-requests/unread-count", {
+          params: localLastSeen ? { since: localLastSeen } : {},
+        });
+        const count = res.data?.count ?? 0;
+        return { count };
       } catch (_) {
         return { count: 0 };
       }
@@ -597,6 +606,17 @@ const Header = ({ onMenuClick }) => {
           <button
             type="button"
             onClick={() => {
+              // Optimistically clear the count in React Query cache immediately
+              queryClient.setQueryData(["headerCompanyRequests", user?._id, isSuperAdmin], { count: 0 });
+
+              const now = new Date().toISOString();
+              if (isSuperAdmin) {
+                localStorage.setItem("lastSeenSuperAdminRequests_" + user?._id, now);
+              } else {
+                localStorage.setItem("lastSeenCompanyRequests_" + user?._id, now);
+                api.post("/internal-requests/mark-seen").catch(() => {});
+              }
+
               const reqPath = isSuperAdmin
                 ? "/superadmin/company-requests"
                 : user?.role === "HR"
@@ -620,7 +640,7 @@ const Header = ({ onMenuClick }) => {
             title={isSuperAdmin ? "Web Company Registrations" : "Company Requests"}
           >
             <MessageSquare size={18} />
-            {pendingRequestsCount > 0 && (
+            {pendingRequestsCount > 0 && !(location.pathname.includes("/requests") || location.pathname.includes("/company-requests")) && (
               <span className="absolute -top-1 -right-1 min-w-[17px] h-4 px-1 bg-amber-500 rounded-full border-2 border-white dark:border-[#090D16] flex items-center justify-center text-[9.5px] font-black text-white shadow-sm pointer-events-none animate-pulse">
                 {pendingRequestsCount > 99 ? "99+" : pendingRequestsCount}
               </span>

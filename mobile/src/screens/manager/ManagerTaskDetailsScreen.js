@@ -80,8 +80,12 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
     }
   }, []);
 
-  const [task, setTask] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [task, setTask] = useState(initialTask || null);
+  const [loading, setLoading] = useState(!initialTask);
+  const taskRef = useRef(task);
+  useEffect(() => {
+    taskRef.current = task;
+  }, [task]);
   const [updatingChecklistId, setUpdatingChecklistId] = useState(null);
   const [newComment, setNewComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -367,10 +371,10 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
     );
   };
 
-  const fetchTask = useCallback(async () => {
+  const fetchTask = useCallback(async (silent = false) => {
     if (!taskId) return;
     try {
-      if (!task) setLoading(true);
+      if (!silent && !taskRef.current) setLoading(true);
       const res = await getTaskDetailsData(taskId);
       const taskData = res?.data?.task || res?.task || res?.data || res;
       if (taskData && (taskData._id || taskData.id)) {
@@ -378,17 +382,17 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
       }
     } catch (err) {
       console.warn("[ManagerTaskDetails] Fetch error:", err?.message || err);
-      if (!task) {
+      if (!taskRef.current) {
         Alert.alert("Error", err?.response?.data?.message || err.message || "Failed to load task details");
       }
     } finally {
       setLoading(false);
     }
-  }, [taskId, task]);
+  }, [taskId]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchTask();
+      fetchTask(!!taskRef.current);
     }, [fetchTask])
   );
 
@@ -558,12 +562,26 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
         completed: newStatus,
       };
       const res = await updateTaskChecklistApi(taskId || task._id, payload);
-      if (res?.data?.task?.checklist) {
-        setTask((prev) => (prev ? { ...prev, checklist: res.data.task.checklist } : prev));
+      const returnedChecklist =
+        res?.data?.task?.checklist ||
+        res?.data?.data?.checklist ||
+        res?.data?.checklist ||
+        res?.task?.checklist;
+      if (Array.isArray(returnedChecklist) && returnedChecklist.length > 0) {
+        setTask((prev) => (prev ? { ...prev, checklist: returnedChecklist } : prev));
       }
     } catch (err) {
       console.error("Failed to toggle checklist item", err);
-      fetchTask();
+      // Revert optimistic update cleanly
+      setTask((prevTask) => {
+        if (!prevTask) return prevTask;
+        const revertedChecklist = (prevTask.checklist || []).map((item, i) =>
+          (item._id && checkItem._id && String(item._id) === String(checkItem._id)) || i === idx
+            ? { ...item, isCompleted: checkItem.isCompleted }
+            : item
+        );
+        return { ...prevTask, checklist: revertedChecklist };
+      });
       Alert.alert("Error", err.response?.data?.message || "Failed to update checklist item");
     } finally {
       setUpdatingChecklistId(null);
@@ -1039,15 +1057,15 @@ const ManagerTaskDetailsScreen = ({ route, navigation }) => {
                       <Ionicons name="swap-horizontal" size={18} color="#FFFFFF" />
                     </View>
                     <View style={{ marginLeft: 10, flex: 1 }}>
-                      <Text style={styles.nativeActionBtnTitle}>
+                      <Text style={styles.nativeShiftTitle}>
                         Shift Task (Reassign)
                       </Text>
-                      <Text style={styles.nativeActionBtnSub}>
+                      <Text style={styles.nativeShiftSub}>
                         Shift pending work to another team member
                       </Text>
                     </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+                  <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
                 </View>
               </TouchableOpacity>
             )}
@@ -1903,34 +1921,6 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontFamily: FONTS.body,
   },
-  nativeShiftBtn: {
-    borderRadius: 8,
-    overflow: "hidden",
-    marginTop: 8,
-    backgroundColor: "#4F46E5",
-    borderWidth: 1,
-    borderColor: "#4338CA",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-  },
-  nativeShiftInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-  },
-  nativeShiftIconCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "rgba(255, 255, 255, 0.22)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
   nativeQuickRow: {
     flexDirection: "row",
     gap: 5,
@@ -2240,6 +2230,18 @@ const styles = StyleSheet.create({
     backgroundColor: "#7C3AED",
     alignItems: "center",
     justifyContent: "center",
+  },
+  nativeShiftTitle: {
+    color: "#5B21B6",
+    fontSize: 13.5,
+    fontFamily: FONTS.displayBold,
+    fontWeight: "700",
+  },
+  nativeShiftSub: {
+    color: "#6D28D9",
+    fontSize: 10.5,
+    fontFamily: FONTS.body,
+    marginTop: 1,
   },
   modalHeaderIconBox: {
     width: 34,

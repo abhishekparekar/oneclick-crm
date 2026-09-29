@@ -9,8 +9,12 @@ const {
   updateRequestStatus,
   deleteRequest,
   uploadRequestAttachment,
+  getUnreadCount,
+  markRequestsSeen,
 } = require("../controllers/internalRequestController");
 
+router.get("/unread-count", getUnreadCount);
+router.post("/mark-seen", markRequestsSeen);
 router.get("/", getRequests);
 router.post("/upload", upload.single("file"), uploadRequestAttachment);
 router.post("/", createRequest);

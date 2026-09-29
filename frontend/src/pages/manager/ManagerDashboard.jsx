@@ -66,11 +66,33 @@ const CARD_THEMES = {
     valueText: "text-purple-700 dark:text-purple-300",
     topBar: "bg-purple-500",
   },
+  indigo: {
+    baseClass: "bg-indigo-50/80 dark:bg-indigo-950/35 border-indigo-200/90 dark:border-indigo-800/80 shadow-2xs hover:shadow-md hover:border-indigo-400 dark:hover:border-indigo-600",
+    iconBg: "bg-indigo-600 text-white shadow-xs",
+    labelText: "text-indigo-950 dark:text-indigo-200 font-extrabold",
+    valueText: "text-indigo-700 dark:text-indigo-300",
+    topBar: "bg-indigo-600",
+  },
 };
 
 /* ─── TaskScreen / TaskBoard KPI Card (Exact match to Task screen without sub-labels) ─── */
-function TaskBoardKPICard({ label, value, theme = "blue", Icon, to }) {
+function TaskBoardKPICard({ label, value, theme = "blue", Icon, to, loading = false }) {
   const cfg = CARD_THEMES[theme] || CARD_THEMES.blue;
+  if (loading) {
+    return (
+      <div
+        className={`relative overflow-hidden rounded-xl border p-3 sm:p-3.5 flex items-center justify-between min-h-[72px] select-none animate-pulse ${cfg.baseClass}`}
+      >
+        <div className={`absolute top-0 left-0 right-0 h-[3.5px] ${cfg.topBar}`} />
+        <div className="flex-1 min-w-0 pr-2 space-y-2">
+          <div className="h-2.5 w-16 bg-slate-300 dark:bg-slate-700 rounded" />
+          <div className="h-6 w-12 bg-slate-300 dark:bg-slate-700 rounded" />
+        </div>
+        <div className="w-9 h-9 rounded-xl bg-slate-300/80 dark:bg-slate-700/80 flex-shrink-0" />
+      </div>
+    );
+  }
+
   const content = (
     <div
       className={`relative overflow-hidden rounded-xl border transition-all duration-200 select-none p-3 sm:p-3.5 flex items-center justify-between min-h-[72px] cursor-pointer hover:-translate-y-0.5 ${cfg.baseClass}`}
@@ -99,6 +121,31 @@ function TaskBoardKPICard({ label, value, theme = "blue", Icon, to }) {
     return <Link to={to} className="block no-underline">{content}</Link>;
   }
   return content;
+}
+
+function SkeletonBox({ height = "h-48" }) {
+  return (
+    <div className={`w-full ${height} rounded-xl bg-slate-50 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800 animate-pulse flex flex-col items-center justify-center gap-2`}>
+      <div className="w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin opacity-60" />
+      <span className="text-[11px] text-slate-400 font-medium">Loading metrics...</span>
+    </div>
+  );
+}
+
+function SkeletonRows({ count = 5, cols = 5 }) {
+  return (
+    <tbody className="divide-y divide-slate-100 dark:divide-slate-800 animate-pulse">
+      {Array.from({ length: count }).map((_, idx) => (
+        <tr key={idx}>
+          {Array.from({ length: cols }).map((_, cIdx) => (
+            <td key={cIdx} className="py-3 px-2">
+              <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded w-3/4" />
+            </td>
+          ))}
+        </tr>
+      ))}
+    </tbody>
+  );
 }
 
 const getTaskAssigneeNames = (task, teamMembers = []) => {
@@ -148,14 +195,14 @@ export default function ManagerDashboard() {
   };
 
   // ── 1. Manager Dashboard Data ──
-  const { data: dashRes } = useQuery({
+  const { data: dashRes, isLoading: isLoadingDash } = useQuery({
     queryKey: ["managerDashboardSummary", timeRange],
     queryFn: () => getManagerDashboardApi({ timeRange }).then((r) => r.data),
     staleTime: 30000,
   });
 
   // ── 2. Team Tasks (Isolated queryKey to avoid cache collision with ManagerTeamTasks) ──
-  const { data: teamTasksRes } = useQuery({
+  const { data: teamTasksRes, isLoading: isLoadingTasks } = useQuery({
     queryKey: ["managerDashboardTeamTasks", timeRange],
     queryFn: async () => {
       const res = await getManagerTeamTasksApi({ limit: 500 });
@@ -165,7 +212,7 @@ export default function ManagerDashboard() {
   });
 
   // ── 3. Leads ──
-  const { data: leadsData } = useQuery({
+  const { data: leadsData, isLoading: isLoadingLeads } = useQuery({
     queryKey: ["managerDashboardLeads"],
     queryFn: async () => {
       try {
@@ -613,14 +660,31 @@ export default function ManagerDashboard() {
       {/* ════════════════════════════════════════════════════════════════════════ */}
       {activeTab === "overview" && (
         <div className="space-y-3">
-          {/* Top 3 Compact Stat Blocks */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+          {/* Top 5 Compact Stat Blocks */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
             <TaskBoardKPICard
               label="Total Employees"
               value={teamCount}
               theme="blue"
               Icon={Users}
               to="/manager/team"
+              loading={isLoadingDash}
+            />
+            <TaskBoardKPICard
+              label="Total Tasks"
+              value={totalTasksCount}
+              theme="indigo"
+              Icon={CheckSquare}
+              to="/manager/team-tasks"
+              loading={isLoadingTasks}
+            />
+            <TaskBoardKPICard
+              label="Total Leads"
+              value={totalLeadsCount}
+              theme="emerald"
+              Icon={Target}
+              to="/manager/leads"
+              loading={isLoadingLeads}
             />
             <TaskBoardKPICard
               label="Active Projects"
@@ -628,6 +692,7 @@ export default function ManagerDashboard() {
               theme="amber"
               Icon={Folder}
               to="/manager/projects"
+              loading={isLoadingDash}
             />
             <TaskBoardKPICard
               label="Attendance Rate"
@@ -635,6 +700,7 @@ export default function ManagerDashboard() {
               theme="purple"
               Icon={TrendingUp}
               to="/manager/attendance"
+              loading={isLoadingDash}
             />
           </div>
 
@@ -647,26 +713,43 @@ export default function ManagerDashboard() {
                 Top Tasks Performers
               </h2>
 
-              <div className="space-y-2">
-                {topPerformers.map((p, idx) => (
-                  <div
-                    key={p.id || idx}
-                    className="p-2.5 rounded-xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3 transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
-                  >
-                    <div className="w-6 h-6 rounded-full bg-[#E0F2FE] dark:bg-blue-950/60 text-[#0284C7] dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                      {idx + 1}
+              {isLoadingTasks ? (
+                <div className="space-y-2 animate-pulse">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="p-2.5 rounded-xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-slate-200 dark:bg-slate-700" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3 w-28 bg-slate-200 dark:bg-slate-700 rounded" />
+                        <div className="h-2.5 w-40 bg-slate-200 dark:bg-slate-700 rounded" />
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                        {p.name}
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                        {p.role} - {p.completed} items completed
-                      </p>
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {topPerformers.map((p, idx) => (
+                    <div
+                      key={p.id || idx}
+                      className="p-2.5 rounded-xl bg-[#F8FAFC] dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800/60 flex items-center gap-3 transition-colors hover:bg-slate-100/70 dark:hover:bg-slate-800/70"
+                    >
+                      <div className="w-6 h-6 rounded-full bg-[#E0F2FE] dark:bg-blue-950/60 text-[#0284C7] dark:text-blue-400 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                          {p.name}
+                        </p>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          {p.role} - {p.completed} items completed
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right: Upcoming Deadlines (Clean divider list) */}
@@ -675,31 +758,48 @@ export default function ManagerDashboard() {
                 Upcoming Deadlines
               </h2>
 
-              <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                {upcomingDeadlines.map((d, idx) => (
-                  <div
-                    key={d.id || idx}
-                    className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center flex-shrink-0">
-                        <AlertTriangle size={14} />
+              {isLoadingTasks ? (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800 animate-pulse">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-slate-200 dark:bg-slate-700" />
+                        <div className="space-y-1">
+                          <div className="h-3 w-32 bg-slate-200 dark:bg-slate-700 rounded" />
+                          <div className="h-2.5 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
-                          {d.title}
-                        </p>
-                        <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
-                          {d.type} • {d.diffDays < 0 ? `${Math.abs(d.diffDays)}d overdue` : d.diffDays === 0 ? "Due today" : `Due in ${d.diffDays}d`}
-                        </p>
-                      </div>
+                      <div className="h-3 w-12 bg-slate-200 dark:bg-slate-700 rounded" />
                     </div>
-                    <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium flex-shrink-0">
-                      {d.date}
-                    </span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {upcomingDeadlines.map((d, idx) => (
+                    <div
+                      key={d.id || idx}
+                      className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-6 h-6 rounded-lg bg-rose-50 dark:bg-rose-950/40 text-rose-500 flex items-center justify-center flex-shrink-0">
+                          <AlertTriangle size={14} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-slate-900 dark:text-white truncate">
+                            {d.title}
+                          </p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {d.type} • {d.diffDays < 0 ? `${Math.abs(d.diffDays)}d overdue` : d.diffDays === 0 ? "Due today" : `Due in ${d.diffDays}d`}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-500 font-medium flex-shrink-0">
+                        {d.date}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
@@ -820,6 +920,7 @@ export default function ManagerDashboard() {
               theme="blue"
               Icon={Layers}
               to="/manager/team-tasks"
+              loading={isLoadingTasks}
             />
             <TaskBoardKPICard
               label="Pending Tasks"
@@ -827,6 +928,7 @@ export default function ManagerDashboard() {
               theme="sky"
               Icon={Clock}
               to="/manager/team-tasks"
+              loading={isLoadingTasks}
             />
             <TaskBoardKPICard
               label="In Process"
@@ -834,6 +936,7 @@ export default function ManagerDashboard() {
               theme="amber"
               Icon={Sparkles}
               to="/manager/team-tasks"
+              loading={isLoadingTasks}
             />
             <TaskBoardKPICard
               label="Completed"
@@ -841,6 +944,7 @@ export default function ManagerDashboard() {
               theme="emerald"
               Icon={CheckCircle}
               to="/manager/team-tasks"
+              loading={isLoadingTasks}
             />
             <TaskBoardKPICard
               label="Overdue"
@@ -848,6 +952,7 @@ export default function ManagerDashboard() {
               theme="rose"
               Icon={AlertTriangle}
               to="/manager/team-tasks"
+              loading={isLoadingTasks}
             />
           </div>
 
@@ -858,20 +963,24 @@ export default function ManagerDashboard() {
                   <TrendingUp size={15} className="text-blue-500" /> Weekly Completion Trend
                 </h3>
               </div>
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={weeklyCompletionTrend} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                    <XAxis dataKey="label" stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
-                      formatter={(v) => [`${v} tasks`, "Completed"]}
-                    />
-                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {isLoadingTasks ? (
+                <SkeletonBox height="h-56" />
+              ) : (
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={weeklyCompletionTrend} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                      <XAxis dataKey="label" stroke="#94A3B8" fontSize={11} tickLine={false} />
+                      <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
+                        formatter={(v) => [`${v} tasks`, "Completed"]}
+                      />
+                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
 
             <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs flex flex-col justify-between">
@@ -880,33 +989,39 @@ export default function ManagerDashboard() {
                   <AlertTriangle size={15} className="text-amber-500" /> Task Priority Distribution
                 </h3>
               </div>
-              <div className="h-48 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={priorityDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={45}
-                      outerRadius={70}
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {priorityDistribution.map((entry, index) => (
-                        <Cell key={`p-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex items-center justify-center gap-5 pt-2 border-t border-slate-100 dark:border-slate-800">
-                {priorityDistribution.map((p) => (
-                  <div key={p.name} className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{p.name} ({p.value})</span>
+              {isLoadingTasks ? (
+                <SkeletonBox height="h-48" />
+              ) : (
+                <>
+                  <div className="h-48 w-full relative flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={priorityDistribution}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={45}
+                          outerRadius={70}
+                          paddingAngle={4}
+                          dataKey="value"
+                        >
+                          {priorityDistribution.map((entry, index) => (
+                            <Cell key={`p-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+                  <div className="flex items-center justify-center gap-5 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    {priorityDistribution.map((p) => (
+                      <div key={p.name} className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: p.color }} />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{p.name} ({p.value})</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -926,7 +1041,22 @@ export default function ManagerDashboard() {
                 </div>
               </div>
               <div className="space-y-2">
-                {topPerformers.length > 0 ? (
+                {isLoadingTasks ? (
+                  <div className="space-y-2 animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-slate-200 dark:bg-slate-700" />
+                          <div className="space-y-1">
+                            <div className="h-3 w-28 bg-slate-200 dark:bg-slate-700 rounded" />
+                            <div className="h-2 w-20 bg-slate-200 dark:bg-slate-700 rounded" />
+                          </div>
+                        </div>
+                        <div className="h-3 w-14 bg-slate-200 dark:bg-slate-700 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : topPerformers.length > 0 ? (
                   topPerformers.map((p, idx) => (
                     <div
                       key={p.id || idx}
@@ -972,7 +1102,19 @@ export default function ManagerDashboard() {
                 </div>
               </div>
               <div className="space-y-2">
-                {upcomingDeadlines.length > 0 ? (
+                {isLoadingTasks ? (
+                  <div className="space-y-2 animate-pulse">
+                    {[1, 2, 3].map((i) => (
+                      <div key={i} className="p-2.5 rounded-lg bg-slate-100 dark:bg-slate-800/40 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-4 bg-slate-200 dark:bg-slate-700 rounded" />
+                          <div className="h-3 w-24 bg-slate-200 dark:bg-slate-700 rounded" />
+                        </div>
+                        <div className="h-3 w-16 bg-slate-200 dark:bg-slate-700 rounded" />
+                      </div>
+                    ))}
+                  </div>
+                ) : upcomingDeadlines.length > 0 ? (
                   upcomingDeadlines.map((d) => (
                     <div
                       key={d.id}
@@ -1035,7 +1177,22 @@ export default function ManagerDashboard() {
               </div>
             </div>
 
-            {filteredRecentTasks.length > 0 ? (
+            {isLoadingTasks ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase">
+                      <th className="pb-2.5">Task Name</th>
+                      <th className="pb-2.5">Assignee</th>
+                      <th className="pb-2.5">Priority</th>
+                      <th className="pb-2.5">Status</th>
+                      <th className="pb-2.5">Due Date</th>
+                    </tr>
+                  </thead>
+                  <SkeletonRows count={5} cols={5} />
+                </table>
+              </div>
+            ) : filteredRecentTasks.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>
@@ -1119,13 +1276,15 @@ export default function ManagerDashboard() {
               theme="blue"
               Icon={Target}
               to="/manager/leads"
+              loading={isLoadingLeads}
             />
             <TaskBoardKPICard
-              label="Total  Value"
+              label="Total Value"
               value={`₹${totalLeadValue.toLocaleString('en-IN')}`}
               theme="emerald"
               Icon={DollarSign}
               to="/manager/leads"
+              loading={isLoadingLeads}
             />
             <TaskBoardKPICard
               label="Avg Lead Value"
@@ -1133,6 +1292,7 @@ export default function ManagerDashboard() {
               theme="purple"
               Icon={TrendingUp}
               to="/manager/leads"
+              loading={isLoadingLeads}
             />
             <TaskBoardKPICard
               label="Active Leads"
@@ -1140,6 +1300,7 @@ export default function ManagerDashboard() {
               theme="amber"
               Icon={Clock}
               to="/manager/leads"
+              loading={isLoadingLeads}
             />
           </div>
 
@@ -1148,53 +1309,63 @@ export default function ManagerDashboard() {
               <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
                 Leads by Stage
               </h3>
-              <div className="h-52 w-full relative flex items-center justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={leadsByStage}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={65}
-                      dataKey="count"
-                      label={({ name, count }) => `${name}: ${count}`}
-                    >
-                      {leadsByStage.map((entry, index) => (
-                        <Cell key={`ms-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                {leadsByStage.map((s) => (
-                  <div key={s.name} className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{s.name}</span>
+              {isLoadingLeads ? (
+                <SkeletonBox height="h-52" />
+              ) : (
+                <>
+                  <div className="h-52 w-full relative flex items-center justify-center">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={leadsByStage}
+                          cx="50%"
+                          cy="50%"
+                          outerRadius={65}
+                          dataKey="count"
+                          label={({ name, count }) => `${name}: ${count}`}
+                        >
+                          {leadsByStage.map((entry, index) => (
+                            <Cell key={`ms-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
-              </div>
+                  <div className="flex flex-wrap items-center justify-center gap-3 pt-2 border-t border-slate-100 dark:border-slate-800">
+                    {leadsByStage.map((s) => (
+                      <div key={s.name} className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: s.color }} />
+                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300 capitalize">{s.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="bg-white dark:bg-[#111C24] rounded-xl border border-slate-100 dark:border-slate-800 p-4 shadow-2xs">
               <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-2">
                 Leads by Source
               </h3>
-              <div className="h-56 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={leadsBySource} margin={{ top: 10, right: 10, left: -25, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
-                    <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} interval={0} angle={-25} textAnchor="end" />
-                    <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
-                      formatter={(v) => [`${v} leads`, "Count"]}
-                    />
-                    <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
+              {isLoadingLeads ? (
+                <SkeletonBox height="h-56" />
+              ) : (
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={leadsBySource} margin={{ top: 10, right: 10, left: -25, bottom: 20 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" vertical={false} />
+                      <XAxis dataKey="name" stroke="#94A3B8" fontSize={10} interval={0} angle={-25} textAnchor="end" />
+                      <YAxis stroke="#94A3B8" fontSize={11} tickLine={false} />
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "#1E293B", borderRadius: "8px", color: "#FFF", fontSize: "11px" }}
+                        formatter={(v) => [`${v} leads`, "Count"]}
+                      />
+                      <Bar dataKey="count" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1206,7 +1377,22 @@ export default function ManagerDashboard() {
                 View CRM  ({totalLeadsCount})
               </Link>
             </div>
-            {realLeads.length > 0 ? (
+            {isLoadingLeads ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold uppercase">
+                      <th className="pb-2.5">Lead / Company</th>
+                      <th className="pb-2.5">Contact Person</th>
+                      <th className="pb-2.5">Value</th>
+                      <th className="pb-2.5">Stage</th>
+                      <th className="pb-2.5">Source</th>
+                    </tr>
+                  </thead>
+                  <SkeletonRows count={5} cols={5} />
+                </table>
+              </div>
+            ) : realLeads.length > 0 ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
                   <thead>

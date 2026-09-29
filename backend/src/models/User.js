@@ -51,6 +51,10 @@ const userSchema = new mongoose.Schema(
     lastLoginAt: {
       type: Date,
     },
+    lastSeenRequestsAt: {
+      type: Date,
+      default: null,
+    },
     isPasswordResetRequired: {
       type: Boolean,
       default: false,

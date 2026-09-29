@@ -441,6 +441,93 @@ const uploadRequestAttachment = async (req, res) => {
   }
 };
 
+// @desc    Get count of unread/actionable company requests for current user
+// @route   GET /api/internal-requests/unread-count
+// @access  Private
+const getUnreadCount = async (req, res) => {
+  try {
+    const companyId = getCompanyId(req);
+    const userId = req.user?._id;
+    const userRole = req.user?.role;
+    const { since } = req.query;
+
+    if (!companyId || !userId) {
+      return res.json({ success: true, count: 0 });
+    }
+
+    // Determine cutoff timestamp
+    let lastSeen = null;
+    if (since) {
+      const sinceDate = new Date(since);
+      if (!isNaN(sinceDate.getTime())) lastSeen = sinceDate;
+    }
+    if (!lastSeen) {
+      const user = await User.findById(userId).select("lastSeenRequestsAt");
+      lastSeen = user?.lastSeenRequestsAt || null;
+    }
+
+    const query = {
+      companyId,
+      deletedAt: null,
+      status: { $in: ["Open", "In Progress"] },
+      requesterId: { $ne: userId }, // Don't notify about self-created requests
+    };
+
+    // Role-based targeting check
+    if (userRole === "Employee" || userRole === "Manager") {
+      const employee = await Employee.findOne({ userId }).select("departmentId");
+      const userDeptId = employee?.departmentId;
+
+      query.$or = [
+        { targetType: "ALL_EMPLOYEES" },
+        { targetEmployeeIds: userId },
+        ...(userDeptId ? [{ targetDepartmentId: userDeptId }] : []),
+      ];
+    }
+
+    // Only count items updated/created after lastSeen
+    if (lastSeen) {
+      query.$and = [
+        {
+          $or: [
+            { createdAt: { $gt: lastSeen } },
+            {
+              responses: {
+                $elemMatch: {
+                  createdAt: { $gt: lastSeen },
+                  senderId: { $ne: userId },
+                },
+              },
+            },
+          ],
+        },
+      ];
+    }
+
+    const count = await InternalRequest.countDocuments(query);
+    return res.json({ success: true, count });
+  } catch (err) {
+    console.error("[InternalRequest] getUnreadCount error:", err);
+    return res.status(500).json({ success: false, count: 0, message: err.message });
+  }
+};
+
+// @desc    Mark company requests as seen by user
+// @route   POST /api/internal-requests/mark-seen
+// @access  Private
+const markRequestsSeen = async (req, res) => {
+  try {
+    const userId = req.user?._id;
+    if (userId) {
+      await User.findByIdAndUpdate(userId, { lastSeenRequestsAt: new Date() });
+    }
+    return res.json({ success: true, message: "Company requests marked as seen" });
+  } catch (err) {
+    console.error("[InternalRequest] markRequestsSeen error:", err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getRequests,
   getRequestById,
@@ -449,4 +536,6 @@ module.exports = {
   updateRequestStatus,
   deleteRequest,
   uploadRequestAttachment,
+  getUnreadCount,
+  markRequestsSeen,
 };
