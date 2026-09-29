@@ -618,9 +618,9 @@ const getDashboardStats = async (req, res, next) => {
       }),
       CompanyRequest.countDocuments({ status: { $in: ["new", "contacted", "demo_scheduled", "pending"] } }),
       CompanyRequest.countDocuments({ status: { $in: ["approved", "converted"] } }),
-      Payment.find({ status: "completed", createdAt: { $gte: firstDayThisMonth } }),
-      Payment.find({ status: "completed", createdAt: { $gte: firstDayThisYear } }),
-      SupportTicket.find(),
+      Payment.find({ status: "completed", createdAt: { $gte: firstDayThisMonth } }).select("amount createdAt").lean(),
+      Payment.find({ status: "completed", createdAt: { $gte: firstDayThisYear } }).select("amount createdAt paymentDate").lean(),
+      SupportTicket.find().select("status").lean(),
       Company.find().sort({ createdAt: -1 }).limit(6).lean(),
       Plan.find({ isActive: true }).lean(),
       CompanyRequest.find({ status: { $in: ["new", "contacted", "demo_scheduled", "pending"] } }).sort({ createdAt: -1 }).limit(4).lean(),
@@ -644,7 +644,7 @@ const getDashboardStats = async (req, res, next) => {
       barDataMap[idx] = { name: m, monthly: 0, annual: 0 };
     });
 
-    const allCompaniesYear = await Company.find({ createdAt: { $gte: firstDayThisYear } });
+    const allCompaniesYear = await Company.find({ createdAt: { $gte: firstDayThisYear } }).select("createdAt").lean();
     allCompaniesYear.forEach((c) => {
       const m = new Date(c.createdAt).getMonth();
       if (areaDataMap[m]) areaDataMap[m].value += 1;
@@ -662,9 +662,9 @@ const getDashboardStats = async (req, res, next) => {
 
     // Subscription Tiers Breakdown
     const tierColors = ["#EAB308", "#10B981", "#06B6D4", "#8B5CF6", "#EC4899"];
-    let subscription = [];
+    let subscriptionPipeline = [];
     if (plansList.length > 0) {
-      subscription = await Promise.all(
+      subscriptionPipeline = await Promise.all(
         plansList.map(async (p, idx) => {
           const count = await Subscription.countDocuments({ planId: p._id, status: "active" });
           const pct = activeSubscriptions > 0 ? Math.round((count / activeSubscriptions) * 100) : 0;
@@ -677,7 +677,7 @@ const getDashboardStats = async (req, res, next) => {
         })
       );
     } else {
-      subscription = [
+      subscriptionPipeline = [
         { name: "Active Plan", value: activeSubscriptions || activeCompanies || 1, pct: "(100%)", color: "#10B981" }
       ];
     }
