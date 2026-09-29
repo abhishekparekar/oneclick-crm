@@ -163,8 +163,10 @@ const initCronJobs = () => {
         companyId: { $ne: null },
         nextFollowUpDate: { $lte: now, $ne: null },
         followUpNotified: { $ne: true },
-        deletedAt: null,
-      }).populate("assignedTo", "name email");
+        $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+      })
+        .populate("assignedTo", "name email role")
+        .populate("assignedToUsers", "name email role");
 
       for (const lead of dueLeads) {
         const contact = lead.phone || lead.whatsappPhone || "No phone";
@@ -173,16 +175,27 @@ const initCronJobs = () => {
         const title = `⏰ Lead Follow-up Reminder: ${lead.name}`;
         const message = `Follow-up scheduled at ${timeStr}, ${dateStr} with client ${lead.name} (${contact}).`;
 
-        const companyId = lead.companyId?._id || lead.companyId;
+        const companyId = lead.companyId?._id ? lead.companyId._id.toString() : (lead.companyId?.toString() || null);
         const candidateIds = [
-          lead.assignedTo,
-          ...(Array.isArray(lead.assignedToUsers) ? lead.assignedToUsers : []),
-          lead.createdBy,
+          lead.assignedTo?._id || lead.assignedTo,
+          ...(Array.isArray(lead.assignedToUsers) ? lead.assignedToUsers.map((u) => u?._id || u) : []),
+          lead.createdBy?._id || lead.createdBy,
         ].filter(Boolean);
 
-        const targetUserIds = await resolveToUserIds(candidateIds, companyId);
+        let targetUserIds = await resolveToUserIds(candidateIds, companyId);
 
-        if (targetUserIds.length > 0 && companyId) {
+        // Fallback: If no assigned staff resolved, notify company admin(s) so notification is never lost
+        if ((!targetUserIds || targetUserIds.length === 0) && companyId) {
+          const User = require("../models/User");
+          const companyAdmins = await User.find({
+            $or: [{ companyId }, { _id: companyId }],
+            role: { $regex: /^(companyadmin|company_admin|admin|hr)$/i },
+            isActive: { $ne: false },
+          }).select("_id").lean();
+          targetUserIds = companyAdmins.map((a) => a._id.toString());
+        }
+
+        if (targetUserIds && targetUserIds.length > 0 && companyId) {
           const timeEpoch = new Date(lead.nextFollowUpDate).getTime();
           await notifyManyUsers(
             targetUserIds,
@@ -190,7 +203,7 @@ const initCronJobs = () => {
             title,
             message,
             "lead_follow_up",
-            { leadId: lead._id.toString(), leadName: lead.name },
+            { leadId: lead._id.toString(), leadName: lead.name, nextFollowUpDate: lead.nextFollowUpDate },
             `lead_followup_${lead._id.toString()}_${timeEpoch}`
           ).catch((e) => console.error("[Lead follow-up notify error]:", e));
         }

@@ -234,7 +234,7 @@ export const leadsService = {
 
     let updatedItem = null;
     const updatedList = list.map((l) => {
-      if ((l.id || l._id) === id) {
+      if (String(l.id || l._id) === String(id)) {
         const newStatus = updateData.statusId
           ? statuses.find((s) => String(s.id || s._id) === String(updateData.statusId)) || l.status
           : l.status;
@@ -244,6 +244,11 @@ export const leadsService = {
       return l;
     });
 
+    if (!updatedItem) {
+      updatedItem = { id, _id: id, ...updateData };
+      updatedList.unshift(updatedItem);
+    }
+
     await setLocalData(STORAGE_KEYS.LEADS, updatedList);
 
     try {
@@ -251,6 +256,10 @@ export const leadsService = {
       if (response?.data) {
         const serverLead = response.data.data || response.data;
         if (serverLead && (serverLead._id || serverLead.id)) {
+          const mergedList = updatedList.map((l) =>
+            String(l.id || l._id) === String(id) ? { ...l, ...serverLead } : l
+          );
+          await setLocalData(STORAGE_KEYS.LEADS, mergedList);
           return serverLead;
         }
       }
@@ -260,6 +269,10 @@ export const leadsService = {
         if (response?.data) {
           const serverLead = response.data.data || response.data;
           if (serverLead && (serverLead._id || serverLead.id)) {
+            const mergedList = updatedList.map((l) =>
+              String(l.id || l._id) === String(id) ? { ...l, ...serverLead } : l
+            );
+            await setLocalData(STORAGE_KEYS.LEADS, mergedList);
             return serverLead;
           }
         }

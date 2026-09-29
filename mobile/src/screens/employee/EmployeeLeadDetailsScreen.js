@@ -359,11 +359,15 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
 
       const effectiveLead = leadData || lead || initialLead;
       if (effectiveLead) {
-        setLead(effectiveLead);
+        setLead((prev) => ({
+          ...prev,
+          ...effectiveLead,
+          nextFollowUpDate: effectiveLead.nextFollowUpDate || prev?.nextFollowUpDate,
+        }));
       }
       setStatuses(Array.isArray(statusList) ? statusList : []);
       setEmployees(Array.isArray(assignableUsers) ? assignableUsers : []);
-      if (Array.isArray(remList)) {
+      if (Array.isArray(remList) && remList.length > 0) {
         setLeadReminders(remList.filter((r) => String(r.leadId || r.lead?._id || r.lead) === String(leadId)));
       }
 
@@ -475,6 +479,7 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           ...prev,
           ...updated,
           status: updated.status,
+          nextFollowUpDate: followUpIso || updated.nextFollowUpDate || prev?.nextFollowUpDate,
         }));
       } else if (updated) {
         setLead((prev) => ({
@@ -482,13 +487,14 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
           ...updated,
           statusId: selectedStageId,
           status: newStatusObj || prev?.status,
+          nextFollowUpDate: followUpIso || updated.nextFollowUpDate || prev?.nextFollowUpDate,
         }));
       }
 
       // Also create reminder entry if follow-up scheduled so it reflects in Scheduled Reminders list
       if (followUpIso) {
         try {
-          await leadsService.createReminder({
+          const newRem = await leadsService.createReminder({
             title: `Follow-up: ${newStatusObj?.name || "Stage Review"}`,
             notes: `Stage updated to ${newStatusObj?.name || "Updated"}. Scheduled follow-up.`,
             leadId: leadId,
@@ -496,6 +502,9 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
             serviceDate: followUpIso,
             priority: "High",
           });
+          if (newRem) {
+            setLeadReminders((prev) => [newRem, ...prev.filter((r) => String(r._id || r.id) !== String(newRem._id || newRem.id))]);
+          }
         } catch (_) { }
       }
 
@@ -631,45 +640,53 @@ function EmployeeLeadDetailsScreenComponent({ route, navigation }) {
       setSavingReminder(true);
       const dueIso = buildReminderIso(reminderDate, reminderTime);
 
+      const timeFormatted = reminderTime || "";
+      const dateFormatted = reminderDate || "";
+      const noteStamp = `• [Scheduled Reminder] "${reminderTitle.trim()}" on ${dateFormatted} at ${timeFormatted}${reminderNotes.trim() ? ` - ${reminderNotes.trim()}` : ""}`;
+      const currentNotes = lead?.notes ? `${noteStamp}\n${lead.notes}` : noteStamp;
+
+      // 1. Single atomic update to backend & local cache with nextFollowUpDate, followUpNotified, and notes
+      const updatedLead = await leadsService.updateLead(leadId, {
+        nextFollowUpDate: dueIso,
+        followUpNotified: false,
+        notes: currentNotes,
+      });
+
+      // 2. Immediately update local lead state so UI reflects new date right away
+      setLead((prev) => ({
+        ...prev,
+        ...(updatedLead || {}),
+        nextFollowUpDate: dueIso,
+        notes: currentNotes,
+      }));
+
+      // 3. Create reminder record so Scheduled Reminders card displays it
       const newRem = await leadsService.createReminder({
         title: reminderTitle.trim(),
         notes: reminderNotes.trim(),
         leadId: leadId,
         dueDate: dueIso,
         serviceDate: dueIso,
+        priority: "High",
       });
 
       if (newRem) {
-        setLeadReminders((prev) => [newRem, ...prev]);
+        setLeadReminders((prev) => [
+          newRem,
+          ...prev.filter((r) => String(r._id || r.id) !== String(newRem._id || newRem.id)),
+        ]);
       }
-
-      // Sync nextFollowUpDate on lead so follow-up banner and push notifications stay in sync
-      try {
-        await leadsService.updateLead(leadId, {
-          nextFollowUpDate: dueIso,
-          followUpNotified: false,
-        });
-        setLead((prev) => ({ ...prev, nextFollowUpDate: dueIso }));
-      } catch (_) { }
-
-      // Add a note in the timeline about the scheduled reminder
-      try {
-        const timeFormatted = reminderTime || "";
-        const dateFormatted = reminderDate || "";
-        const noteStamp = `• [Scheduled Reminder] "${reminderTitle.trim()}" on ${dateFormatted} at ${timeFormatted}${reminderNotes.trim() ? ` - ${reminderNotes.trim()}` : ""}`;
-        const currentNotes = lead?.notes ? `${noteStamp}\n${lead.notes}` : noteStamp;
-        await leadsService.updateLead(leadId, { notes: currentNotes });
-        setLead((prev) => ({ ...prev, notes: currentNotes, nextFollowUpDate: dueIso }));
-      } catch (_) { }
 
       setReminderModalVisible(false);
       setReminderTitle("");
       setReminderNotes("");
       setReminderDate(getTodayFormatted());
       setReminderTime(getDefaultTimeFormatted());
-      fetchDetails();
+
+      await fetchDetails();
       Alert.alert("Success", "Follow-up reminder scheduled successfully!");
     } catch (err) {
+      console.warn("[handleAddReminder] Error:", err?.message || err);
       Alert.alert("Error", "Failed to schedule reminder. Please try again.");
     } finally {
       setSavingReminder(false);

@@ -1136,12 +1136,42 @@ const updateLead = async (req, res) => {
     const { id } = req.params;
     const companyId = getCompanyId(req);
 
+    const prevLead = await Lead.findById(id).populate("statusId", "name");
+    if (!prevLead) return res.status(404).json({ message: "Lead not found" });
+
     const isAllowed = await checkUserPermission(req.user._id, companyId, req.user.role, "leads", "edit");
     if (!isAllowed) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not allowed to edit leads.",
-      });
+      // Check if user is assigned to this lead, created it, or is a staff member updating follow-up/notes/status
+      const curUserId = (req.user?._id || "").toString();
+      const isAssigned =
+        (prevLead.assignedTo?._id || prevLead.assignedTo || "").toString() === curUserId ||
+        (Array.isArray(prevLead.assignedToUsers) && prevLead.assignedToUsers.some((u) => (u?._id || u || "").toString() === curUserId)) ||
+        (prevLead.createdBy?._id || prevLead.createdBy || "").toString() === curUserId;
+
+      const isSameCompany =
+        (prevLead.companyId?._id || prevLead.companyId || "").toString() === (companyId || "").toString() ||
+        (prevLead.companyId?._id || prevLead.companyId || "").toString() === (req.user?.companyId || "").toString();
+
+      const allowedStaffFields = new Set([
+        "nextFollowUpDate",
+        "followUpNotified",
+        "notes",
+        "statusId",
+        "document",
+        "documents",
+        "attachment",
+        "attachments",
+        "remark",
+        "note",
+      ]);
+      const isStaffOperation = Object.keys(req.body).every((k) => allowedStaffFields.has(k));
+
+      if (!isAssigned && !(isSameCompany && isStaffOperation)) {
+        return res.status(403).json({
+          success: false,
+          message: "You are not allowed to edit leads.",
+        });
+      }
     }
 
     const updateData = { ...req.body };
@@ -1178,12 +1208,9 @@ const updateLead = async (req, res) => {
     }
 
     if (updateData.nextFollowUpDate !== undefined) {
-      updateData.nextFollowUpDate = parseDateTimeIST(updateData.nextFollowUpDate);
+      updateData.nextFollowUpDate = updateData.nextFollowUpDate ? parseDateTimeIST(updateData.nextFollowUpDate) : null;
       updateData.followUpNotified = false;
     }
-
-    const prevLead = await Lead.findById(id).populate("statusId", "name");
-    if (!prevLead) return res.status(404).json({ message: "Lead not found" });
 
     // Handle attached documents (single or multiple) if provided in request
     let newDocs = [];
@@ -2544,8 +2571,95 @@ const deleteCampaign = async (req, res) => {
   }
 };
 
-const getReminders = async (req, res) => res.json({ reminders: [] });
-const createReminder = async (req, res) => res.status(201).json({ id: "rem-1", name: req.body.title || "Reminder" });
+const getReminders = async (req, res) => {
+  try {
+    const companyQuery = buildCompanyQuery(req);
+    const { leadId } = req.query;
+    const query = {
+      ...companyQuery,
+      nextFollowUpDate: { $ne: null },
+      $or: [{ deletedAt: null }, { deletedAt: { $exists: false } }],
+    };
+    if (leadId) {
+      query._id = leadId;
+    }
+
+    const leadsWithFollowUp = await Lead.find(query)
+      .select("name company phone whatsappPhone nextFollowUpDate statusId assignedTo notes leadActivities")
+      .populate("statusId", "name color")
+      .sort({ nextFollowUpDate: 1 })
+      .lean();
+
+    const reminders = leadsWithFollowUp.map((l) => ({
+      id: "rem-" + l._id.toString(),
+      _id: "rem-" + l._id.toString(),
+      title: `Follow-up: ${l.name}`,
+      leadId: l._id.toString(),
+      lead: l,
+      dueDate: l.nextFollowUpDate,
+      serviceDate: l.nextFollowUpDate,
+      isCompleted: false,
+      notes: l.notes || `Scheduled follow-up with ${l.name}`,
+    }));
+
+    return res.json({ reminders, data: reminders });
+  } catch (err) {
+    return res.status(500).json({ message: err.message, reminders: [] });
+  }
+};
+
+const createReminder = async (req, res) => {
+  try {
+    const { leadId, dueDate, serviceDate, title, notes, priority } = req.body;
+    const dueTime = dueDate || serviceDate;
+    let savedReminder = {
+      id: "rem-" + Date.now(),
+      _id: "rem-" + Date.now(),
+      title: title || "Scheduled Reminder",
+      dueDate: dueTime,
+      serviceDate: dueTime,
+      notes: notes || "",
+      leadId,
+      priority: priority || "Medium",
+    };
+
+    if (leadId && dueTime) {
+      const parsedDate = parseDateTimeIST(dueTime);
+      if (parsedDate) {
+        const ist = formatISTDateTime(parsedDate);
+        const activityDesc = `${notes ? notes + " — " : ""}Scheduled follow-up on ${ist.fullStr}`;
+        const updatedLead = await Lead.findByIdAndUpdate(
+          leadId,
+          {
+            $set: {
+              nextFollowUpDate: parsedDate,
+              followUpNotified: false,
+            },
+            $push: {
+              leadActivities: {
+                title: title || "Scheduled Reminder",
+                description: activityDesc,
+                type: "REMINDER",
+                createdAt: new Date(),
+              },
+            },
+          },
+          { new: true }
+        ).populate("statusId", "name color");
+
+        if (updatedLead) {
+          savedReminder.lead = updatedLead;
+          savedReminder.dueDate = updatedLead.nextFollowUpDate;
+          savedReminder.serviceDate = updatedLead.nextFollowUpDate;
+        }
+      }
+    }
+    return res.status(201).json({ reminder: savedReminder, data: savedReminder });
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
+
 const runReminderScheduler = async (req, res) => res.json({ message: "Reminders processed" });
 
 const getPublicToken = async (req, res) => res.json({ publicFormToken: "oneclick_lead_form_token_2026" });
